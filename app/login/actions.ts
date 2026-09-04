@@ -52,6 +52,13 @@ export async function signIn(
   return { success: false, error: "E-mail ou senha inválidos." };
 }
 
+export async function switchDemoRole(role: string, targetPath: string) {
+  const cookieStore = await cookies();
+  cookieStore.set("demo_user_role", role, { path: "/", httpOnly: true });
+  cookieStore.set("demo_user_email", `${role}@facaamigos.com.br`, { path: "/", httpOnly: true });
+  redirect(targetPath);
+}
+
 export async function signOut() {
   const cookieStore = await cookies();
   cookieStore.delete("demo_user_role");

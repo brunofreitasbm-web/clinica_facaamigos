@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { submitProtocolAssessment } from "@/lib/protocol-assessment-actions";
 import { ASSESSMENT_SCORE_LABEL, type DomainTrend, type ProtocolTabData } from "@/lib/protocol-assessments";
 
@@ -52,6 +52,116 @@ function DomainTrendChart({ trend }: { trend: DomainTrend }) {
   );
 }
 
+// Uma instância por protocolo, remontada via `key={protocol.id}` no
+// componente-pai — assim o rascunho de pontuação (pré-preenchido com a
+// última avaliação) reseta sozinho ao trocar de aba, sem precisar de um
+// efeito síncrono chamando setState (anti-padrão: ver "You Might Not Need
+// an Effect").
+function AssessmentForm({ patientId, protocol }: { patientId: string; protocol: ProtocolTabData }) {
+  const latest = protocol.assessments[protocol.assessments.length - 1] ?? null;
+  const [scores, setScores] = useState<Record<string, number>>(latest?.scores ?? {});
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const domains = useMemo(() => [...new Set(protocol.items.map((i) => i.domain))], [protocol.items]);
+
+  function handleSubmit() {
+    setError(null);
+    setSuccess(false);
+    const formData = new FormData();
+    formData.set("scores", JSON.stringify(scores));
+    startTransition(async () => {
+      const result = await submitProtocolAssessment(patientId, protocol.id, formData);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      setSuccess(true);
+    });
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+      <div className="flex flex-col gap-6">
+        {domains.map((domain) => (
+          <section key={domain}>
+            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-2">
+              {domain}
+            </h6>
+            <div className="flex flex-col gap-2">
+              {protocol.items
+                .filter((i) => i.domain === domain)
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex flex-wrap items-center justify-between gap-3 border-b py-2.5"
+                    style={{ borderColor: "var(--color-divider)" }}
+                  >
+                    <div className="max-w-[420px]">
+                      <span className="text-sm font-medium text-ink">{item.itemCode}</span>
+                      {item.level && <span className="ml-2 text-xs text-ink-faint">{item.level}</span>}
+                      <p className="m-0 text-[13px] text-ink-soft">{item.description}</p>
+                    </div>
+                    <div className="seg">
+                      {SCORE_VALUES.map((value) => (
+                        <label key={value} className="seg-opt">
+                          <input
+                            type="radio"
+                            name={`score-${item.id}`}
+                            checked={scores[item.id] === value}
+                            onChange={() => setScores((prev) => ({ ...prev, [item.id]: value }))}
+                          />
+                          {ASSESSMENT_SCORE_LABEL[value]}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </section>
+        ))}
+
+        <div className="flex flex-col gap-2">
+          <button type="button" className="btn btn-primary w-fit" disabled={isPending} onClick={handleSubmit}>
+            {isPending ? "Salvando…" : "Salvar avaliação de hoje"}
+          </button>
+          {error && <p className="text-xs text-status-negative-text">{error}</p>}
+          {success && (
+            <p className="text-xs" style={{ color: "var(--status-realizada)" }}>
+              Avaliação registrada.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <aside className="flex flex-col gap-4">
+        <h6 style={{ color: "var(--color-accent-2-600)" }}>Evolução por domínio</h6>
+        {protocol.domainTrends.length === 0 ? (
+          <p className="text-sm text-ink-faint">Ainda sem avaliações suficientes para comparar.</p>
+        ) : (
+          protocol.domainTrends.map((trend) => <DomainTrendChart key={trend.domain} trend={trend} />)
+        )}
+
+        <h6 style={{ color: "var(--color-accent-2-600)" }} className="mt-4">
+          Histórico
+        </h6>
+        {protocol.assessments.length === 0 ? (
+          <p className="text-sm text-ink-faint">Nenhuma avaliação aplicada ainda.</p>
+        ) : (
+          <ul className="m-0 flex flex-col gap-1 pl-0 text-xs text-ink-soft" style={{ listStyle: "none" }}>
+            {[...protocol.assessments].reverse().map((a) => (
+              <li key={a.id}>
+                {formatDate(a.assessedAt)} · {a.assessedByName} · {Object.keys(a.scores).length} marcos pontuados
+              </li>
+            ))}
+          </ul>
+        )}
+      </aside>
+    </div>
+  );
+}
+
 export function ProtocolAssessmentPanel({
   patientId,
   protocols,
@@ -60,40 +170,7 @@ export function ProtocolAssessmentPanel({
   protocols: ProtocolTabData[];
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(protocols[0]?.id ?? null);
-  const selected = useMemo(() => protocols.find((p) => p.id === selectedId) ?? null, [protocols, selectedId]);
-
-  const [scores, setScores] = useState<Record<string, number>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [isPending, startTransition] = useTransition();
-
-  // Pré-preenche o rascunho com a última avaliação deste protocolo ao trocar
-  // de aba — reavaliação normalmente muda só alguns marcos, não todos.
-  useEffect(() => {
-    const latest = selected?.assessments[selected.assessments.length - 1] ?? null;
-    setScores(latest?.scores ?? {});
-    setSuccess(false);
-    setError(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
-
-  const domains = useMemo(() => (selected ? [...new Set(selected.items.map((i) => i.domain))] : []), [selected]);
-
-  function handleSubmit() {
-    if (!selected) return;
-    setError(null);
-    setSuccess(false);
-    const formData = new FormData();
-    formData.set("scores", JSON.stringify(scores));
-    startTransition(async () => {
-      const result = await submitProtocolAssessment(patientId, selected.id, formData);
-      if (!result.success) {
-        setError(result.error);
-        return;
-      }
-      setSuccess(true);
-    });
-  }
+  const selected = protocols.find((p) => p.id === selectedId) ?? null;
 
   if (protocols.length === 0) {
     return (
@@ -119,85 +196,7 @@ export function ProtocolAssessmentPanel({
         </div>
       )}
 
-      {selected && (
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
-          <div className="flex flex-col gap-6">
-            {domains.map((domain) => (
-              <section key={domain}>
-                <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-2">
-                  {domain}
-                </h6>
-                <div className="flex flex-col gap-2">
-                  {selected.items
-                    .filter((i) => i.domain === domain)
-                    .map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex flex-wrap items-center justify-between gap-3 border-b py-2.5"
-                        style={{ borderColor: "var(--color-divider)" }}
-                      >
-                        <div className="max-w-[420px]">
-                          <span className="text-sm font-medium text-ink">{item.itemCode}</span>
-                          {item.level && <span className="ml-2 text-xs text-ink-faint">{item.level}</span>}
-                          <p className="m-0 text-[13px] text-ink-soft">{item.description}</p>
-                        </div>
-                        <div className="seg">
-                          {SCORE_VALUES.map((value) => (
-                            <label key={value} className="seg-opt">
-                              <input
-                                type="radio"
-                                name={`score-${item.id}`}
-                                checked={scores[item.id] === value}
-                                onChange={() => setScores((prev) => ({ ...prev, [item.id]: value }))}
-                              />
-                              {ASSESSMENT_SCORE_LABEL[value]}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </section>
-            ))}
-
-            <div className="flex flex-col gap-2">
-              <button type="button" className="btn btn-primary w-fit" disabled={isPending} onClick={handleSubmit}>
-                {isPending ? "Salvando…" : "Salvar avaliação de hoje"}
-              </button>
-              {error && <p className="text-xs text-status-negative-text">{error}</p>}
-              {success && (
-                <p className="text-xs" style={{ color: "var(--status-realizada)" }}>
-                  Avaliação registrada.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <aside className="flex flex-col gap-4">
-            <h6 style={{ color: "var(--color-accent-2-600)" }}>Evolução por domínio</h6>
-            {selected.domainTrends.length === 0 ? (
-              <p className="text-sm text-ink-faint">Ainda sem avaliações suficientes para comparar.</p>
-            ) : (
-              selected.domainTrends.map((trend) => <DomainTrendChart key={trend.domain} trend={trend} />)
-            )}
-
-            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mt-4">
-              Histórico
-            </h6>
-            {selected.assessments.length === 0 ? (
-              <p className="text-sm text-ink-faint">Nenhuma avaliação aplicada ainda.</p>
-            ) : (
-              <ul className="m-0 flex flex-col gap-1 pl-0 text-xs text-ink-soft" style={{ listStyle: "none" }}>
-                {[...selected.assessments].reverse().map((a) => (
-                  <li key={a.id}>
-                    {formatDate(a.assessedAt)} · {a.assessedByName} · {Object.keys(a.scores).length} marcos pontuados
-                  </li>
-                ))}
-              </ul>
-            )}
-          </aside>
-        </div>
-      )}
+      {selected && <AssessmentForm key={selected.id} patientId={patientId} protocol={selected} />}
     </div>
   );
 }
