@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+/*
+  Direção visual: Gráfico de Crescimento Pediátrico (impeccable new-work,
+  seed 2b7f8b5e, assigned index 6). Papel milimetrado, curva de percentil,
+  bandeirinha de marco atingido. Ver PRODUCT.md e o comentário de contrato
+  em app/layout.tsx.
+*/
+
+:root {
+  /* papel — fundo quente, nunca branco puro */
+  --color-paper: #faf8f3;
+  --color-paper-line: #e4dfd2;
+  --color-paper-line-strong: #cfc8b4;
+
+  /* tinta */
+  --color-ink: #1c2530;
+  --color-ink-soft: #57606b;
+  --color-ink-faint: #5f656f;
+
+  /* acento primário — azul de caderneta de saúde */
+  --color-chart: #0f5c7d;
+  --color-chart-strong: #0a4a5f;
+  --color-chart-soft: #d9e8ee;
+
+  /* status — pontos/fundos ficam vivos; -text é a variante escura pro
+     texto da pílula, que precisa de 4.5:1 (AA) contra o -soft (PRD §9.11) */
+  --color-status-positive: #1b8a6b;
+  --color-status-positive-soft: #dcefe8;
+  --color-status-positive-text: #0e5c44;
+  --color-status-pending: #c97c1f;
+  --color-status-pending-soft: #f6e8d5;
+  --color-status-pending-text: #8a530e;
+  --color-status-active: #0f5c7d;
+  --color-status-active-soft: #d9e8ee;
+  --color-status-active-text: #0a4a5f;
+  --color-status-negative: #c4432b;
+  --color-status-negative-soft: #f5ded8;
+  --color-status-negative-text: #93301c;
+  --color-status-neutral: #8a8f98;
+  --color-status-neutral-soft: #e7e6e2;
+  --color-status-neutral-text: #4b4f56;
+
+  /* marco / meta atingida */
+  --color-milestone: #c9971f;
+}
+
+@theme inline {
+  --color-paper: var(--color-paper);
+  --color-paper-line: var(--color-paper-line);
+  --color-paper-line-strong: var(--color-paper-line-strong);
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-ink-faint: var(--color-ink-faint);
+  --color-chart: var(--color-chart);
+  --color-chart-strong: var(--color-chart-strong);
+  --color-chart-soft: var(--color-chart-soft);
+  --color-status-positive: var(--color-status-positive);
+  --color-status-positive-soft: var(--color-status-positive-soft);
+  --color-status-pending: var(--color-status-pending);
+  --color-status-pending-soft: var(--color-status-pending-soft);
+  --color-status-active: var(--color-status-active);
+  --color-status-active-soft: var(--color-status-active-soft);
+  --color-status-negative: var(--color-status-negative);
+  --color-status-negative-soft: var(--color-status-negative-soft);
+  --color-status-neutral: var(--color-status-neutral);
+  --color-status-neutral-soft: var(--color-status-neutral-soft);
+  --color-status-positive-text: var(--color-status-positive-text);
+  --color-status-pending-text: var(--color-status-pending-text);
+  --color-status-active-text: var(--color-status-active-text);
+  --color-status-negative-text: var(--color-status-negative-text);
+  --color-status-neutral-text: var(--color-status-neutral-text);
+  --color-milestone: var(--color-milestone);
+
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-plex-mono);
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  /* milimetrado real: linha fina a cada 24px, linha de escala mais forte
+     a cada 4 quadrados (96px) — é a segunda ordem que separa "grade de
+     papel de medição" de textura decorativa aplicada por cima. */
+  background-image:
+    linear-gradient(var(--color-paper-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-paper-line) 1px, transparent 1px),
+    linear-gradient(var(--color-paper-line-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-paper-line-strong) 1px, transparent 1px);
+  background-size:
+    24px 24px,
+    24px 24px,
+    96px 96px,
+    96px 96px;
+  background-position: -1px -1px;
+}
+
+/* números medidos — contagens, percentuais, valores monetários */
+.tabular-figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
