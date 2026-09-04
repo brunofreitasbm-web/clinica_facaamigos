@@ -16,6 +16,10 @@ export async function createSessionNote(
   therapistId: string,
   formData: FormData,
 ): Promise<ActionResult> {
+  if (!appointmentId || !appointmentId.trim() || !therapistId || !therapistId.trim()) {
+    return { success: false, error: "Sessão ou terapeuta inválido." };
+  }
+
   const presencaRaw = formData.get("presenca_engajamento");
   const presenca = presencaRaw ? Number(presencaRaw) : NaN;
 
@@ -45,12 +49,15 @@ export async function createSessionNote(
 
   const supabase = createAdminClient();
 
-  const { data: appointment } = await supabase
+  const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
     .select("id, status")
     .eq("id", appointmentId)
     .maybeSingle();
 
+  if (appointmentError) {
+    return { success: false, error: "Não foi possível verificar a sessão. Tente de novo." };
+  }
   if (!appointment) {
     return { success: false, error: "Sessão não encontrada." };
   }
@@ -58,13 +65,16 @@ export async function createSessionNote(
     return { success: false, error: "Esta sessão ainda não foi realizada." };
   }
 
-  const { data: existingNote } = await supabase
+  const { data: existingNote, error: existingNoteError } = await supabase
     .from("session_notes")
     .select("id")
     .eq("appointment_id", appointmentId)
     .limit(1)
     .maybeSingle();
 
+  if (existingNoteError) {
+    return { success: false, error: "Não foi possível verificar a sessão. Tente de novo." };
+  }
   if (existingNote) {
     return { success: false, error: "Já existe uma evolução registrada para esta sessão." };
   }
