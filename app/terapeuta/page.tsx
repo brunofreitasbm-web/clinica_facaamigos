@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { RealtimeAppointmentToast } from "@/components/realtime-appointment-toast";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
+import { TodaySessionsList } from "./today-sessions-list";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +66,7 @@ export default async function TerapeutaPage({
   const { data: todaySessions } = therapistId
     ? await supabase
         .from("appointments")
-        .select("id, starts_at, status, patients(full_name)")
+        .select("id, starts_at, status, checkin_at, attendance_started_at, checkout_at, patients(full_name)")
         .eq("therapist_id", therapistId)
         .gte("starts_at", dayStart)
         .lt("starts_at", dayEnd)
@@ -88,6 +90,17 @@ export default async function TerapeutaPage({
 
   const notedIds = new Set((existingNotes ?? []).map((n) => n.appointment_id));
   const pending = (realizedSessions ?? []).filter((a) => !notedIds.has(a.id));
+
+  // Reavaliação semestral (PRD §2): refresh_reassessment_alerts() (pg_cron
+  // diário) já marca como 'notificado' quem entrou na janela de
+  // antecedência — aqui só listamos, sem recalcular nada. A RLS de
+  // reassessment_alerts já restringe a pacientes vinculados a este
+  // terapeuta (ou clínica inteira, se gestor/supervisor).
+  const { data: reassessmentAlerts } = await supabase
+    .from("reassessment_alerts")
+    .select("id, due_date, patients(full_name)")
+    .eq("status", "notificado")
+    .order("due_date");
 
   return (
     <main className="flex flex-1 flex-col">
@@ -147,32 +160,48 @@ export default async function TerapeutaPage({
 
         <section>
           <h2 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-            Sessões de hoje
+            Reavaliações a vencer
           </h2>
           <ul className="mt-3 flex flex-col gap-2">
-            {(todaySessions ?? []).map((a) => (
+            {(reassessmentAlerts ?? []).map((a) => (
               <li
                 key={a.id}
-                className="flex items-center justify-between rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
+                className="flex items-center justify-between rounded-md border border-paper-line-strong bg-status-pending-soft px-4 py-3 text-sm"
               >
                 <span className="font-medium text-ink">
                   {(a.patients as { full_name: string } | null)?.full_name ?? ""}
                 </span>
-                <span className="text-ink-faint">
-                  {new Date(a.starts_at).toLocaleTimeString("pt-BR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    timeZone: CLINIC_TIMEZONE,
-                  })}
+                <span className="text-status-pending-text">
+                  até {new Date(`${a.due_date}T00:00:00`).toLocaleDateString("pt-BR")}
                 </span>
               </li>
             ))}
-            {(todaySessions ?? []).length === 0 && (
-              <li className="text-sm text-ink-faint">Nenhuma sessão hoje.</li>
+            {(reassessmentAlerts ?? []).length === 0 && (
+              <li className="text-sm text-ink-faint">Nenhuma reavaliação a vencer.</li>
             )}
           </ul>
         </section>
+
+        <section>
+          <h2 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+            Sessões de hoje
+          </h2>
+          <TodaySessionsList
+            sessions={(todaySessions ?? []).map((a) => ({
+              id: a.id,
+              startsAt: a.starts_at,
+              patientName: (a.patients as { full_name: string } | null)?.full_name ?? "",
+              status: a.status,
+              checkinAt: a.checkin_at,
+              attendanceStartedAt: a.attendance_started_at,
+              checkoutAt: a.checkout_at,
+            }))}
+          />
+        </section>
       </div>
+      {/* Só a sessão real do próprio terapeuta (não a visão "ver como" de
+          gestor/supervisor) recebe o toast de chegada na recepção. */}
+      {!canChooseTherapist && <RealtimeAppointmentToast therapistId={profile.id} />}
     </main>
   );
 }

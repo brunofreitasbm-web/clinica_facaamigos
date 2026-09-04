@@ -16,6 +16,11 @@ export default async function SupervisaoPage() {
 
   const overdueNotes = await countOverdueSessionNotes(supabase);
 
+  const { count: dueReassessments } = await supabase
+    .from("reassessment_alerts")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "notificado");
+
   return (
     <main className="flex flex-1 flex-col">
       <PageHeader
@@ -30,6 +35,12 @@ export default async function SupervisaoPage() {
           value={String(overdueNotes)}
           placeholder={false}
           status={overdueNotes > 0 ? "negative" : "positive"}
+        />
+        <MeasurementCard
+          label="Reavaliações a vencer"
+          value={String(dueReassessments ?? 0)}
+          placeholder={false}
+          status={(dueReassessments ?? 0) > 0 ? "pending" : "positive"}
         />
         <MeasurementCard label="Risco de evasão" value="0" />
         <MeasurementCard label="Ocupação de agenda" value="0" unit="%" />

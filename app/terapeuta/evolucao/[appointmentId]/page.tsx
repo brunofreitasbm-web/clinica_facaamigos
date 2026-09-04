@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { EvolutionForm } from "./evolution-form";
 
 export default async function EvolucaoPage({
@@ -33,12 +35,17 @@ export default async function EvolucaoPage({
   const { data: appointment } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, status, therapist_id, patients(full_name), profiles!therapist_id(full_name)",
+      "id, patient_id, starts_at, status, therapist_id, patients(full_name), profiles!therapist_id(full_name)",
     )
     .eq("id", appointmentId)
     .maybeSingle();
 
   if (!appointment) notFound();
+
+  const { insurance, emergencyContact } = await getPatientIdentitySummary(
+    supabase,
+    appointment.patient_id,
+  );
 
   const { data: existingNote } = await supabase
     .from("session_notes")
@@ -64,6 +71,7 @@ export default async function EvolucaoPage({
         title={`Evolução — ${patientName}`}
         description={`${therapistName} · ${new Date(appointment.starts_at).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })}`}
       />
+      <PatientIdentityBar patientName={patientName} insurance={insurance} emergencyContact={emergencyContact} />
       <div className="p-6 sm:p-10">
         {appointment.status !== "realizada" ? (
           <p className="text-sm text-status-negative-text">

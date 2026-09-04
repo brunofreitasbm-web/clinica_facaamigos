@@ -147,6 +147,38 @@ export async function registerAuthorization(
   return { success: true };
 }
 
+/**
+ * Marca um responsável como contato de emergência (PRD §1 — header de
+ * identificação do paciente). No máximo um por paciente — desmarca os
+ * outros antes, porque `guardians_one_emergency_contact_per_patient`
+ * (índice único parcial) rejeitaria dois marcados ao mesmo tempo.
+ */
+export async function setEmergencyContact(patientId: string, guardianId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const { error: clearError } = await supabase
+    .from("guardians")
+    .update({ is_emergency_contact: false })
+    .eq("patient_id", patientId)
+    .neq("id", guardianId);
+
+  if (clearError) {
+    return { success: false, error: "Não foi possível atualizar o contato de emergência." };
+  }
+
+  const { error: setError } = await supabase
+    .from("guardians")
+    .update({ is_emergency_contact: true })
+    .eq("id", guardianId);
+
+  if (setError) {
+    return { success: false, error: "Não foi possível marcar este responsável como contato de emergência." };
+  }
+
+  revalidatePath(`/recepcao/pacientes/${patientId}`);
+  return { success: true };
+}
+
 export async function activatePatient(patientId: string, formData: FormData): Promise<ActionResult> {
   const therapistId = String(formData.get("therapist_id") ?? "");
   const roomId = String(formData.get("room_id") ?? "");

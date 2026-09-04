@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import type { AgendaAppointment } from "./day-grid";
 import { STATUS_LABEL } from "./day-grid";
 import { checkIn, checkOut, markMissedOrCancelled } from "./session-actions";
-import { computeAppointmentUiState } from "@/lib/appointment-ui-state";
+import { computeAppointmentUiState, UI_STATE_LABEL } from "@/lib/appointment-ui-state";
 import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reasons";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 
@@ -61,7 +61,12 @@ export function AppointmentPanel({
       </div>
 
       <p className="text-sm text-ink-soft">
-        Status: <span className="font-medium text-ink">{STATUS_LABEL[appointment.status] ?? appointment.status}</span>
+        Status:{" "}
+        <span className="font-medium text-ink">
+          {appointment.status === "agendada" || appointment.status === "confirmada"
+            ? UI_STATE_LABEL[uiState]
+            : (STATUS_LABEL[appointment.status] ?? appointment.status)}
+        </span>
       </p>
 
       {uiState === "aguardando" && !showCancelForm && (
@@ -148,7 +153,7 @@ export function AppointmentPanel({
         </form>
       )}
 
-      {uiState === "em_atendimento" && (
+      {(uiState === "na_recepcao" || uiState === "em_atendimento") && (
         <button
           type="button"
           disabled={isPending}

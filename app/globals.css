@@ -1,48 +1,126 @@
 @import "tailwindcss";
 
 /*
-  Direção visual: Gráfico de Crescimento Pediátrico (impeccable new-work,
-  seed 2b7f8b5e, assigned index 6). Papel milimetrado, curva de percentil,
-  bandeirinha de marco atingido. Ver PRODUCT.md e o comentário de contrato
-  em app/layout.tsx.
+  Direção visual: Broadsheet, retematizado para Instituto Faça Amigos
+  (design publicado em Claude Design — ver PRD e o link do projeto).
+  Estrutura, tipografia e componentes vêm do sistema "Broadsheet"; a paleta
+  é a retematização: navy (#14284b) para interação/chrome, dourado
+  (#b8933a) como cor de destaque rara, cores de status compartilhadas por
+  toda tela de operação (agenda, prontuário, faturamento).
+
+  Os nomes de variável/classe Tailwind existentes (--color-paper, --color-
+  ink, --color-chart*, --color-status-*, --color-milestone, .tabular-figure)
+  são mantidos de propósito: todo componente e página já escrito no app usa
+  essas classes, então repontar os valores aqui repinta o app inteiro sem
+  tocar em nenhum outro arquivo. --color-status-positive/pending/active/
+  negative/neutral mapeiam para realizada/agendada/em-atendimento/falta/
+  cancelada do vocabulário de status do domínio (mesmo significado:
+  positivo=concluído bem, pendente=aguardando, ativo=em andamento,
+  negativo=ruim, neutro=inativo).
 */
 
 :root {
-  /* papel — fundo quente, nunca branco puro */
-  --color-paper: #faf8f3;
-  --color-paper-line: #e4dfd2;
-  --color-paper-line-strong: #cfc8b4;
+  /* fundo e superfície — papel quente, nunca branco puro */
+  --color-paper: #f6f4ef;
+  --color-paper-line: color-mix(in srgb, #17203a 10%, transparent);
+  --color-paper-line-strong: color-mix(in srgb, #17203a 16%, transparent);
 
   /* tinta */
-  --color-ink: #1c2530;
-  --color-ink-soft: #57606b;
-  --color-ink-faint: #5f656f;
+  --color-ink: #17203a;
+  --color-ink-soft: #5f5d57;
+  --color-ink-faint: #7c7972;
 
-  /* acento primário — azul de caderneta de saúde */
-  --color-chart: #0f5c7d;
-  --color-chart-strong: #0a4a5f;
-  --color-chart-soft: #d9e8ee;
+  /* acento primário — navy (interação, chrome) */
+  --color-chart: #14284b;
+  --color-chart-strong: #0e1c36;
+  --color-chart-soft: #eef2f9;
 
-  /* status — pontos/fundos ficam vivos; -text é a variante escura pro
-     texto da pílula, que precisa de 4.5:1 (AA) contra o -soft (PRD §9.11) */
-  --color-status-positive: #1b8a6b;
-  --color-status-positive-soft: #dcefe8;
-  --color-status-positive-text: #0e5c44;
-  --color-status-pending: #c97c1f;
-  --color-status-pending-soft: #f6e8d5;
-  --color-status-pending-text: #8a530e;
-  --color-status-active: #0f5c7d;
-  --color-status-active-soft: #d9e8ee;
-  --color-status-active-text: #0a4a5f;
-  --color-status-negative: #c4432b;
-  --color-status-negative-soft: #f5ded8;
-  --color-status-negative-text: #93301c;
-  --color-status-neutral: #8a8f98;
-  --color-status-neutral-soft: #e7e6e2;
-  --color-status-neutral-text: #4b4f56;
+  /* acento secundário — dourado (destaque raro, marca) */
+  --color-gold: #b8933a;
+  --color-gold-strong: #745a1f;
+  --color-gold-soft: #faf5e6;
+
+  /* rampas tonais — mesma ordem de valor visual entre papéis */
+  --color-neutral-100: #f8f6f1;
+  --color-neutral-200: #ebe8e1;
+  --color-neutral-300: #d8d4cb;
+  --color-neutral-400: #bab6ad;
+  --color-neutral-500: #9a978f;
+  --color-neutral-600: #7c7972;
+  --color-neutral-700: #5f5d57;
+  --color-neutral-800: #43423d;
+  --color-neutral-900: #2c2b28;
+
+  --color-accent-100: #eef2f9;
+  --color-accent-200: #d9e1f0;
+  --color-accent-300: #b4c3e0;
+  --color-accent-400: #7e97c2;
+  --color-accent-500: #4b6797;
+  --color-accent-600: #2c4570;
+  --color-accent-700: #14284b;
+  --color-accent-800: #0e1c36;
+  --color-accent-900: #091226;
+
+  --color-accent-2-100: #faf5e6;
+  --color-accent-2-200: #f2e6c3;
+  --color-accent-2-300: #e6d095;
+  --color-accent-2-400: #d5b45e;
+  --color-accent-2-500: #b8933a;
+  --color-accent-2-600: #96762b;
+  --color-accent-2-700: #745a1f;
+  --color-accent-2-800: #534016;
+  --color-accent-2-900: #33280e;
+
+  /* status das sessões/faturamento — iguais em todas as telas (PRD §9.11) */
+  --status-agendada: #b8933a;
+  --status-agendada-bg: #faf5e6;
+  --status-confirmada: #2f7a4a;
+  --status-confirmada-bg: #e7f3ea;
+  --status-em-atendimento: #14284b;
+  --status-em-atendimento-bg: #d9e1f0;
+  --status-realizada: #1f5c37;
+  --status-realizada-bg: #dcefe2;
+  --status-falta: #b3261e;
+  --status-falta-bg: #fbe9e7;
+  --status-cancelada: #7c7972;
+  --status-cancelada-bg: #ebe8e1;
+
+  /* pontes pro vocabulário genérico (positivo/pendente/ativo/negativo/
+     neutro) já usado por measurement-card.tsx, stage-checklist.tsx etc. */
+  --color-status-positive: var(--status-realizada);
+  --color-status-positive-soft: var(--status-realizada-bg);
+  --color-status-positive-text: #143d25;
+  --color-status-pending: var(--status-agendada);
+  --color-status-pending-soft: var(--status-agendada-bg);
+  --color-status-pending-text: var(--color-accent-2-700);
+  --color-status-active: var(--status-em-atendimento);
+  --color-status-active-soft: var(--status-em-atendimento-bg);
+  --color-status-active-text: var(--color-accent-800);
+  --color-status-negative: var(--status-falta);
+  --color-status-negative-soft: var(--status-falta-bg);
+  --color-status-negative-text: #7a1a14;
+  --color-status-neutral: var(--status-cancelada);
+  --color-status-neutral-soft: var(--status-cancelada-bg);
+  --color-status-neutral-text: #43423d;
 
   /* marco / meta atingida */
-  --color-milestone: #c9971f;
+  --color-milestone: var(--color-gold);
+
+  --font-heading-weight: 600;
+  --space-1: 5px;
+  --space-2: 10px;
+  --space-3: 15px;
+  --space-4: 20px;
+  --space-6: 30px;
+  --space-8: 40px;
+
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #17203a 12%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #17203a 14%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #17203a 20%, transparent);
 }
 
 @theme inline {
@@ -55,6 +133,9 @@
   --color-chart: var(--color-chart);
   --color-chart-strong: var(--color-chart-strong);
   --color-chart-soft: var(--color-chart-soft);
+  --color-gold: var(--color-gold);
+  --color-gold-strong: var(--color-gold-strong);
+  --color-gold-soft: var(--color-gold-soft);
   --color-status-positive: var(--color-status-positive);
   --color-status-positive-soft: var(--color-status-positive-soft);
   --color-status-pending: var(--color-status-pending);
@@ -72,7 +153,8 @@
   --color-status-neutral-text: var(--color-status-neutral-text);
   --color-milestone: var(--color-milestone);
 
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-source-serif);
+  --font-heading: var(--font-source-serif);
   --font-mono: var(--font-plex-mono);
 }
 
@@ -80,20 +162,12 @@ body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  /* milimetrado real: linha fina a cada 24px, linha de escala mais forte
-     a cada 4 quadrados (96px) — é a segunda ordem que separa "grade de
-     papel de medição" de textura decorativa aplicada por cima. */
-  background-image:
-    linear-gradient(var(--color-paper-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-paper-line) 1px, transparent 1px),
-    linear-gradient(var(--color-paper-line-strong) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-paper-line-strong) 1px, transparent 1px);
-  background-size:
-    24px 24px,
-    24px 24px,
-    96px 96px,
-    96px 96px;
-  background-position: -1px -1px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  letter-spacing: -0.015em;
 }
 
 /* números medidos — contagens, percentuais, valores monetários */
@@ -102,3 +176,154 @@ body {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Componentes Broadsheet — classes novas e aditivas (nenhuma colide com
+   nome já usado no app). Ver readme do design system publicado.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; text-decoration: none;
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 14px; line-height: 1.2; color: var(--color-ink);
+  background: transparent; border: 1px solid transparent;
+  padding: var(--space-2) calc(var(--space-3) * 1.2);
+  border-radius: var(--radius-md);
+}
+.btn svg { display: block; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--color-chart); color: #fff; }
+.btn-primary:hover { background: var(--color-accent-600); }
+.btn-primary:active { background: var(--color-accent-800); }
+.btn-secondary { border-color: var(--color-paper-line-strong); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--color-ink) 7%, transparent); }
+.btn-secondary:active { background: color-mix(in srgb, var(--color-ink) 14%, transparent); }
+.btn-gold { background: var(--color-gold); color: #fff; }
+.btn-gold:hover { background: var(--color-accent-2-600); }
+.btn-gold:active { background: var(--color-accent-2-700); }
+.btn-ghost { color: var(--color-chart); padding-inline: var(--space-1); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--color-chart) 10%, transparent); }
+.btn-ghost:active { background: color-mix(in srgb, var(--color-chart) 18%, transparent); }
+.btn-icon { width: 36px; height: 36px; padding: 0; }
+.btn-block { width: 100%; margin-top: var(--space-2); }
+
+.field > label {
+  display: block; font-size: 12px; margin-bottom: 5px;
+  color: color-mix(in srgb, var(--color-ink) 70%, transparent);
+}
+.input {
+  width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
+  font-size: 14px; color: var(--color-ink); caret-color: var(--color-chart);
+  background: var(--color-paper);
+  border: 1px solid var(--color-paper-line-strong); border-radius: var(--radius-md);
+}
+.input::placeholder { color: color-mix(in srgb, var(--color-ink) 65%, transparent); opacity: 1; }
+.input:hover { border-color: color-mix(in srgb, var(--color-ink) 45%, transparent); }
+.input:focus-visible { border-color: var(--color-chart); outline: 2px solid var(--color-chart); outline-offset: 0; }
+textarea.input { min-height: 90px; resize: vertical; }
+
+.radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.radio input, .seg-opt input {
+  position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+}
+.radio .dot {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+  border: 1.5px solid var(--color-paper-line-strong);
+}
+.radio:hover .dot { border-color: var(--color-chart); }
+.radio input:checked + .dot {
+  border-color: var(--color-chart); background: var(--color-chart);
+  box-shadow: inset 0 0 0 4px var(--color-paper);
+}
+.radio input:focus-visible + .dot { outline: 2px solid var(--color-chart); outline-offset: 2px; }
+
+.seg {
+  display: inline-flex; overflow: hidden;
+  border: 1px solid var(--color-paper-line-strong); border-radius: var(--radius-md);
+}
+.seg-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; font-size: 13px; cursor: pointer;
+}
+.seg-opt + .seg-opt { border-left: 1px solid var(--color-paper-line-strong); }
+.seg-opt:has(input:checked) { background: var(--color-chart); color: #fff; }
+.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-ink) 7%, transparent); }
+.seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-chart); outline-offset: -2px; }
+
+.card {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-3); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-ink) 4%, var(--color-paper));
+}
+.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-gold); }
+.card-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 17px; line-height: 1.2;
+}
+.card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
+.card-meta {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+  color: color-mix(in srgb, var(--color-ink) 50%, transparent);
+}
+.elev-sm { box-shadow: var(--shadow-sm); }
+.elev-md { box-shadow: var(--shadow-md); }
+.elev-lg { box-shadow: var(--shadow-lg); }
+
+.tag {
+  display: inline-flex; align-items: center; font-size: 11px;
+  letter-spacing: 0.02em; padding: 3px 10px;
+  border-radius: calc(var(--radius-md) * 0.75);
+}
+.tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
+.tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+.tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+.tag-outline { border: 1px solid var(--color-chart); color: var(--color-chart); }
+
+.tag-status { display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:0.02em; padding:3px 10px; border-radius:2px; white-space:nowrap; }
+.tag-status::before { content:""; width:6px; height:6px; border-radius:50%; background: currentColor; }
+.st-agendada { background: var(--status-agendada-bg); color: var(--color-accent-2-700); }
+.st-confirmada { background: var(--status-confirmada-bg); color: var(--status-confirmada); }
+.st-em-atendimento { background: var(--status-em-atendimento-bg); color: var(--status-em-atendimento); }
+.st-realizada { background: var(--status-realizada-bg); color: var(--status-realizada); }
+.st-falta { background: var(--status-falta-bg); color: var(--status-falta); }
+.st-cancelada { background: var(--status-cancelada-bg); color: var(--status-cancelada); }
+
+.nav {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+}
+.nav-brand {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 18px; margin-right: auto;
+}
+.nav a { color: inherit; text-decoration: none; font-size: 14px; }
+.nav a:hover, .nav a[aria-current='page'] { color: var(--color-chart); }
+
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th {
+  text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+  padding: var(--space-2); border-bottom: 1px solid var(--color-paper-line-strong);
+}
+.table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+.table tbody tr:hover { background: color-mix(in srgb, var(--color-ink) 4%, transparent); }
+
+.dialog-backdrop {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+}
+.dialog {
+  width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4); border-radius: var(--radius-lg);
+  background: var(--color-paper); box-shadow: var(--shadow-lg);
+}
+.dialog-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 20px;
+}
+.dialog-body { font-size: 14px; opacity: 0.85; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }

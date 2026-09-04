@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       appointments: {
         Row: {
+          attendance_started_at: string | null
           authorization_id: string | null
           cancel_reason: string | null
           cancelled_at: string | null
@@ -39,6 +40,7 @@ export type Database = {
           therapist_id: string
         }
         Insert: {
+          attendance_started_at?: string | null
           authorization_id?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
@@ -62,6 +64,7 @@ export type Database = {
           therapist_id: string
         }
         Update: {
+          attendance_started_at?: string | null
           authorization_id?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
@@ -488,6 +491,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          is_emergency_contact: boolean
           is_financial: boolean
           patient_id: string
           phone: string
@@ -500,6 +504,7 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          is_emergency_contact?: boolean
           is_financial?: boolean
           patient_id: string
           phone: string
@@ -512,6 +517,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          is_emergency_contact?: boolean
           is_financial?: boolean
           patient_id?: string
           phone?: string
@@ -1349,6 +1355,41 @@ export type Database = {
             columns: ["digitization_risk_accepted_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reassessment_alerts: {
+        Row: {
+          alert_window_days: number
+          created_at: string
+          due_date: string
+          id: string
+          patient_id: string
+          status: string
+        }
+        Insert: {
+          alert_window_days?: number
+          created_at?: string
+          due_date: string
+          id?: string
+          patient_id: string
+          status?: string
+        }
+        Update: {
+          alert_window_days?: number
+          created_at?: string
+          due_date?: string
+          id?: string
+          patient_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reassessment_alerts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]

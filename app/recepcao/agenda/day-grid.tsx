@@ -1,5 +1,6 @@
 import { hourInTimeZone } from "@/lib/timezone";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { computeAppointmentUiState, UI_STATE_LABEL } from "@/lib/appointment-ui-state";
 
 export type AgendaAppointment = {
   id: string;
@@ -11,6 +12,7 @@ export type AgendaAppointment = {
   patientName: string;
   status: string;
   checkinAt: string | null;
+  attendanceStartedAt: string | null;
   checkoutAt: string | null;
   cancelReason: string | null;
   cancelledByName: string | null;
@@ -76,7 +78,11 @@ export function DayGrid({
                     >
                       <p className="font-medium text-ink">{match.patientName}</p>
                       <p className="text-ink-soft">{match.therapistName}</p>
-                      <p className="text-ink-faint">{STATUS_LABEL[match.status] ?? match.status}</p>
+                      <p className="text-ink-faint">
+                        {match.status === "agendada" || match.status === "confirmada"
+                          ? UI_STATE_LABEL[computeAppointmentUiState(match)]
+                          : (STATUS_LABEL[match.status] ?? match.status)}
+                      </p>
                     </button>
                   )}
                 </div>

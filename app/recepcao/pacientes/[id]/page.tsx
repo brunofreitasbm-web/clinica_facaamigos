@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { StageChecklist } from "@/components/stage-checklist";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
+import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { StageActionForm } from "./stage-action-form";
 import { DocumentViewButton } from "./document-view-button";
@@ -13,6 +15,7 @@ import {
   markEvaluationDone,
   registerAuthorization,
   activatePatient,
+  setEmergencyContact,
 } from "./stage-actions";
 
 // Papéis que a RLS de `documents` permite escrever (clínica inteira, ou
@@ -42,7 +45,7 @@ export default async function PacientePage({
 
   const { data: guardians } = await supabase
     .from("guardians")
-    .select("id, full_name, phone")
+    .select("id, full_name, phone, is_emergency_contact")
     .eq("patient_id", id);
 
   const { data: evalAppointment } = await supabase
@@ -56,13 +59,17 @@ export default async function PacientePage({
 
   const { data: activeAuth } = await supabase
     .from("authorizations")
-    .select("id, patient_insurance!inner(patient_id)")
+    .select("id, patient_insurance_id, patient_insurance!inner(patient_id)")
     .eq("patient_insurance.patient_id", id)
     .eq("status", "ativa")
     .limit(1)
     .maybeSingle();
 
   const stage = computeStage(patient, !!evalAppointment, !!activeAuth);
+
+  // Header de identificação (PRD §1) — lógica compartilhada com a tela de
+  // evolução do terapeuta via lib/patient-identity.ts.
+  const { insurance: activeInsurance, emergencyContact } = await getPatientIdentitySummary(supabase, id);
 
   const { data: therapists } = await supabase
     .from("profiles")
@@ -114,6 +121,11 @@ export default async function PacientePage({
         title={patient.full_name}
         description={`Origem: ${patient.entry_source ?? "não informada"}`}
       />
+      <PatientIdentityBar
+        patientName={patient.full_name}
+        insurance={activeInsurance}
+        emergencyContact={emergencyContact}
+      />
       <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 sm:p-10">
         <div className="rounded-md border border-paper-line-strong bg-paper/60 p-5">
           <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Estágio</h2>
@@ -125,8 +137,27 @@ export default async function PacientePage({
           <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Responsáveis</h2>
           <ul className="mt-3 flex flex-col gap-2 text-sm">
             {(guardians ?? []).map((g) => (
-              <li key={g.id}>
-                {g.full_name} — {g.phone}
+              <li key={g.id} className="flex items-center justify-between gap-3">
+                <span>
+                  {g.full_name} — {g.phone}
+                  {g.is_emergency_contact && (
+                    <span className="ml-2 inline-block rounded-full bg-status-active-soft px-2 py-0.5 text-xs font-medium text-status-active-text">
+                      Contato de emergência
+                    </span>
+                  )}
+                </span>
+                {(guardians ?? []).length > 1 && !g.is_emergency_contact && (
+                  <form
+                    action={async () => {
+                      "use server";
+                      await setEmergencyContact(patient.id, g.id);
+                    }}
+                  >
+                    <button type="submit" className="text-xs text-chart hover:underline">
+                      Definir como emergência
+                    </button>
+                  </form>
+                )}
               </li>
             ))}
           </ul>

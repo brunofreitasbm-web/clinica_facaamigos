@@ -49,7 +49,7 @@ export default async function AgendaPage({
   const { data: rawAppointments } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, room_id, checkin_at, checkout_at, cancel_reason, rooms(name), therapist:profiles!therapist_id(full_name), canceller:profiles!cancelled_by(full_name), patients(full_name)",
+      "id, starts_at, ends_at, status, room_id, checkin_at, attendance_started_at, checkout_at, cancel_reason, rooms(name), therapist:profiles!therapist_id(full_name), canceller:profiles!cancelled_by(full_name), patients(full_name)",
     )
     .gte("starts_at", dayStart)
     .lt("starts_at", dayEnd);
@@ -64,6 +64,7 @@ export default async function AgendaPage({
     patientName: (a.patients as { full_name: string } | null)?.full_name ?? "",
     status: a.status,
     checkinAt: a.checkin_at,
+    attendanceStartedAt: a.attendance_started_at,
     checkoutAt: a.checkout_at,
     cancelReason: a.cancel_reason,
     cancelledByName: (a.canceller as { full_name: string } | null)?.full_name ?? null,
