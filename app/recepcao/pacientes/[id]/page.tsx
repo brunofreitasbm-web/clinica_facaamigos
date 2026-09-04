@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { StageChecklist } from "@/components/stage-checklist";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { computeStage } from "@/lib/patient-stage";
 import { StageActionForm } from "./stage-action-form";
 import {
   scheduleEvaluation,
@@ -10,18 +11,6 @@ import {
   registerAuthorization,
   activatePatient,
 } from "./stage-actions";
-
-function computeStage(
-  patient: { status: string; evaluated_at: string | null; first_session_at: string | null },
-  hasEvaluationScheduled: boolean,
-  hasActiveAuthorization: boolean,
-): 1 | 2 | 3 | 4 | 5 {
-  if (patient.status === "ativo" || patient.first_session_at) return 5;
-  if (hasActiveAuthorization) return 4;
-  if (patient.evaluated_at) return 3;
-  if (hasEvaluationScheduled || patient.status === "avaliacao") return 2;
-  return 1;
-}
 
 export default async function PacientePage({
   params,
