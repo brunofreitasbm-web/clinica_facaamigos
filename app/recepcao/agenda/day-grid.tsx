@@ -29,9 +29,11 @@ export const STATUS_LABEL: Record<string, string> = {
 export function DayGrid({
   rooms,
   appointments,
+  onSelect,
 }: {
   rooms: { id: string; name: string }[];
   appointments: AgendaAppointment[];
+  onSelect: (id: string) => void;
 }) {
   return (
     <div className="overflow-x-auto rounded-md border border-paper-line-strong bg-paper/60">
@@ -64,11 +66,15 @@ export function DayGrid({
                   className="min-h-14 border-b border-r border-paper-line-strong p-1 last:border-r-0"
                 >
                   {match && (
-                    <div className="rounded bg-chart-soft px-2 py-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => onSelect(match.id)}
+                      className="w-full rounded bg-chart-soft px-2 py-1 text-left text-xs hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-chart"
+                    >
                       <p className="font-medium text-ink">{match.patientName}</p>
                       <p className="text-ink-soft">{match.therapistName}</p>
                       <p className="text-ink-faint">{STATUS_LABEL[match.status] ?? match.status}</p>
-                    </div>
+                    </button>
                   )}
                 </div>
               );
