@@ -12,6 +12,8 @@ const STAGE_LABEL: Record<number, string> = {
 
 const DAYS_THRESHOLD = 3;
 
+export const dynamic = "force-dynamic";
+
 export default async function PendenciasPage() {
   const supabase = createAdminClient();
 

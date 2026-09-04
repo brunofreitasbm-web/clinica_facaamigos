@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { InsurerForm } from "./insurer-form";
 
+export const dynamic = "force-dynamic";
+
 export default async function ConveniosPage() {
   const supabase = createAdminClient();
   const { data: insurers } = await supabase

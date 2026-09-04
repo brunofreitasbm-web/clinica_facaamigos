@@ -5,6 +5,8 @@ import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/time
 import { DayGrid, type AgendaAppointment } from "./day-grid";
 import { AppointmentForm } from "./appointment-form";
 
+export const dynamic = "force-dynamic";
+
 export default async function AgendaPage({
   searchParams,
 }: {

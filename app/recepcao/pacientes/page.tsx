@@ -12,6 +12,8 @@ const STAGE_LABEL: Record<number, string> = {
   5: "Ativo — grade montada",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function PacientesPage() {
   const supabase = createAdminClient();
 
