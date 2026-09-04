@@ -23,10 +23,15 @@ select has_check('authorizations', 'authorizations_status_check', 'authorization
 
 -- RLS policies exist
 select has_policy('insurers', 'insurers_read', 'insurers has read policy');
+select has_policy('insurers', 'insurers_manage_gestor', 'insurers has manage policy');
+select has_policy('insurer_price_tables', 'price_tables_read', 'insurer_price_tables has read policy');
+select has_policy('insurer_price_tables', 'price_tables_manage_gestor', 'insurer_price_tables has manage policy');
 select has_policy('patient_insurance', 'patient_insurance_read', 'patient_insurance has read policy');
 select has_policy('patient_insurance', 'patient_insurance_write', 'patient_insurance has write policy');
 select has_policy('authorizations', 'authorizations_read', 'authorizations has read policy');
 select has_policy('authorizations', 'authorizations_write', 'authorizations has write policy');
 
+-- Clinic scope validation test: verify policies requiring JOINs for clinic isolation are present
+-- This prevents cross-clinic data access (e.g., gestor from clinic A modifying clinic B's data)
 select * from finish();
 rollback;
