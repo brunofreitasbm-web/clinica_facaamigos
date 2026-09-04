@@ -13,6 +13,8 @@ export type RepasseRow = {
   repasseAmount: number;
   statusLabel: "A pagar" | "Pago" | "Sem sessões";
   isLive: boolean;
+  /** Id da linha em `payouts` já fechada — null quando `isLive` (nada pra marcar como pago ainda). */
+  payoutId: string | null;
 };
 
 /**
@@ -50,7 +52,7 @@ export async function getRepasseRows(
       .eq("status", "realizada")
       .gte("starts_at", startISO)
       .lt("starts_at", endISO),
-    supabase.from("payouts").select("therapist_id, gross_amount, adjustments, status, sessions_count").in("therapist_id", ids).eq("competence_month", competenceMonth),
+    supabase.from("payouts").select("id, therapist_id, gross_amount, adjustments, status, sessions_count").in("therapist_id", ids).eq("competence_month", competenceMonth),
   ]);
 
   const now = Date.now();
@@ -82,6 +84,7 @@ export async function getRepasseRows(
     let repasseAmount: number;
     let statusLabel: RepasseRow["statusLabel"];
     let isLive: boolean;
+    let payoutId: string | null;
 
     if (existing) {
       sessionsCount = existing.sessions_count;
@@ -89,6 +92,7 @@ export async function getRepasseRows(
       repasseAmount = grossAmount + Number(existing.adjustments ?? 0);
       statusLabel = sessionsCount === 0 ? "Sem sessões" : existing.status === "pago" ? "Pago" : "A pagar";
       isLive = false;
+      payoutId = existing.id;
     } else {
       sessionsCount = mySessions.length;
       const hours = mySessions.reduce((sum, s) => sum + hoursBetween(s.starts_at, s.ends_at), 0);
@@ -96,6 +100,7 @@ export async function getRepasseRows(
       repasseAmount = grossAmount;
       statusLabel = sessionsCount === 0 ? "Sem sessões" : "A pagar";
       isLive = true;
+      payoutId = null;
     }
 
     totalGross += grossAmount;
@@ -110,6 +115,7 @@ export async function getRepasseRows(
       repasseAmount,
       statusLabel,
       isLive,
+      payoutId,
     };
   });
 

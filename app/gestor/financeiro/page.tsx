@@ -1,6 +1,7 @@
 import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { currentMonthRange } from "../data";
 import { getRepasseRows, getGlosaRows, getFinanceiroKpis, getRevenueByMonth, getRepasseByTier } from "./data";
 import { FinanceiroTabs } from "./financeiro-tabs";
 
@@ -11,6 +12,7 @@ const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "
 export default async function GestorFinanceiroPage() {
   const supabase = await createClient();
 
+  const { competenceMonth } = currentMonthRange();
   const { rows: repasseRows, totalOpenPayout } = await getRepasseRows(supabase, DEV_CLINIC_ID);
   const glosaRows = await getGlosaRows(supabase, DEV_CLINIC_ID);
   const [kpis, revenueByMonth] = await Promise.all([
@@ -63,7 +65,7 @@ export default async function GestorFinanceiroPage() {
       </section>
 
       <section className="px-10 pt-10">
-        <FinanceiroTabs repasseRows={repasseRows} glosaRows={glosaRows} />
+        <FinanceiroTabs repasseRows={repasseRows} glosaRows={glosaRows} competenceMonth={competenceMonth} />
       </section>
 
       <section className="grid grid-cols-1 gap-15 px-10 pt-14 lg:grid-cols-2">

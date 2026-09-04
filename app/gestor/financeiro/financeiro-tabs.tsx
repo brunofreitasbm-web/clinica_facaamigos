@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { RepasseRow, GlosaRow } from "./data";
+import { closePayouts, markPayoutPaid } from "./actions";
 
 const REPASSE_STATUS_TAG: Record<RepasseRow["statusLabel"], string> = {
   "A pagar": "st-agendada",
@@ -11,20 +13,95 @@ const REPASSE_STATUS_TAG: Record<RepasseRow["statusLabel"], string> = {
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-export function FinanceiroTabs({ repasseRows, glosaRows }: { repasseRows: RepasseRow[]; glosaRows: GlosaRow[] }) {
+function ClosePayoutsButton({ competenceMonth }: { competenceMonth: string }) {
+  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleClose() {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await closePayouts(competenceMonth);
+      if (!result.success) {
+        setMessage({ kind: "error", text: result.error });
+        return;
+      }
+      const skippedNote = result.skipped.length > 0 ? ` · não incluídos: ${result.skipped.join(", ")}` : "";
+      setMessage({ kind: "success", text: `${result.closedCount} repasse(s) fechado(s)${skippedNote}.` });
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button type="button" onClick={handleClose} disabled={isPending} className="btn btn-primary">
+        {isPending ? "Fechando…" : "Fechar repasses do mês"}
+      </button>
+      {message && (
+        <p className="text-xs" style={{ color: message.kind === "error" ? "var(--status-falta)" : "var(--color-accent-2-600)" }}>
+          {message.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MarkPaidAction({ payoutId }: { payoutId: string }) {
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleMarkPaid() {
+    setError(null);
+    startTransition(async () => {
+      const result = await markPayoutPaid(payoutId);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <span className="ml-2 inline-flex items-center gap-2">
+      <button type="button" onClick={handleMarkPaid} disabled={isPending} className="btn btn-ghost text-xs">
+        {isPending ? "Marcando…" : "Marcar como pago"}
+      </button>
+      {error && (
+        <span className="text-[11px]" style={{ color: "var(--status-falta)" }}>
+          {error}
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function FinanceiroTabs({
+  repasseRows,
+  glosaRows,
+  competenceMonth,
+}: {
+  repasseRows: RepasseRow[];
+  glosaRows: GlosaRow[];
+  competenceMonth: string;
+}) {
   const [view, setView] = useState<"repasses" | "glosas">("repasses");
 
   return (
     <div>
-      <div className="seg w-fit">
-        <label className="seg-opt">
-          <input type="radio" name="financeiro-view" checked={view === "repasses"} onChange={() => setView("repasses")} />
-          Repasses
-        </label>
-        <label className="seg-opt">
-          <input type="radio" name="financeiro-view" checked={view === "glosas"} onChange={() => setView("glosas")} />
-          Glosas
-        </label>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="seg w-fit">
+          <label className="seg-opt">
+            <input type="radio" name="financeiro-view" checked={view === "repasses"} onChange={() => setView("repasses")} />
+            Repasses
+          </label>
+          <label className="seg-opt">
+            <input type="radio" name="financeiro-view" checked={view === "glosas"} onChange={() => setView("glosas")} />
+            Glosas
+          </label>
+        </div>
+        {view === "repasses" && <ClosePayoutsButton competenceMonth={competenceMonth} />}
       </div>
 
       {view === "repasses" && (
@@ -52,6 +129,7 @@ export function FinanceiroTabs({ repasseRows, glosaRows }: { repasseRows: Repass
                   {r.isLive && r.statusLabel !== "Sem sessões" && (
                     <span className="ml-2 text-[11px] text-ink-faint">calculado ao vivo</span>
                   )}
+                  {!r.isLive && r.payoutId && r.statusLabel === "A pagar" && <MarkPaidAction payoutId={r.payoutId} />}
                 </td>
               </tr>
             ))}
