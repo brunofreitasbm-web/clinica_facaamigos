@@ -41,12 +41,12 @@ export default async function AgendaPage({
 
   // Nota: `appointments` tem duas FKs para `profiles` (therapist_id e
   // cancelled_by), então o Postgrest recusa o embed `profiles(...)` por
-  // ambiguidade. Usar o nome da COLUNA da FK (`profiles!therapist_id`)
-  // desambigua sem depender do nome exato da constraint no banco.
+  // ambiguidade. Usar o nome da COLUNA da FK (`profiles!coluna`) com alias
+  // desambigua e dá nome estável pra cada relação no resultado.
   const { data: rawAppointments } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, room_id, rooms(name), profiles!therapist_id(full_name), patients(full_name)",
+      "id, starts_at, ends_at, status, room_id, checkin_at, checkout_at, cancel_reason, rooms(name), therapist:profiles!therapist_id(full_name), canceller:profiles!cancelled_by(full_name), patients(full_name)",
     )
     .gte("starts_at", dayStart)
     .lt("starts_at", dayEnd);
@@ -57,10 +57,13 @@ export default async function AgendaPage({
     endsAt: a.ends_at,
     roomId: a.room_id,
     roomName: (a.rooms as { name: string } | null)?.name ?? "",
-    therapistName:
-      (a.profiles as { full_name: string } | null)?.full_name ?? "",
+    therapistName: (a.therapist as { full_name: string } | null)?.full_name ?? "",
     patientName: (a.patients as { full_name: string } | null)?.full_name ?? "",
     status: a.status,
+    checkinAt: a.checkin_at,
+    checkoutAt: a.checkout_at,
+    cancelReason: a.cancel_reason,
+    cancelledByName: (a.canceller as { full_name: string } | null)?.full_name ?? null,
   }));
 
   return (

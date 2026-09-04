@@ -7,11 +7,15 @@ export type AgendaAppointment = {
   therapistName: string;
   patientName: string;
   status: string;
+  checkinAt: string | null;
+  checkoutAt: string | null;
+  cancelReason: string | null;
+  cancelledByName: string | null;
 };
 
 const HOURS = Array.from({ length: 12 }, (_, i) => 8 + i); // 08h–19h
 
-const STATUS_LABEL: Record<string, string> = {
+export const STATUS_LABEL: Record<string, string> = {
   agendada: "Agendada",
   confirmada: "Confirmada",
   realizada: "Realizada",
