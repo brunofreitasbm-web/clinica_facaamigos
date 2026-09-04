@@ -86,7 +86,7 @@ language sql stable security definer set search_path = public as $$
   select clinic_id from profiles where id = auth.uid();
 $$;
 
-create function current_role() returns text
+create function app_current_role() returns text
 language sql stable security definer set search_path = public as $$
   select role from profiles where id = auth.uid();
 $$;
@@ -104,19 +104,19 @@ create policy rooms_read on rooms for select
   using (clinic_id = current_clinic_id());
 
 create policy rooms_manage_by_supervisor_gestor on rooms for all
-  using (clinic_id = current_clinic_id() and current_role() in ('gestor','supervisor'));
+  using (clinic_id = current_clinic_id() and app_current_role() in ('gestor','supervisor'));
 
 create policy therapist_contracts_read_own_or_admin on therapist_contracts for select
   using (
     profile_id = auth.uid()
     or exists (select 1 from profiles p where p.id = therapist_contracts.profile_id
-               and p.clinic_id = current_clinic_id() and current_role() = 'gestor')
+               and p.clinic_id = current_clinic_id() and app_current_role() = 'gestor')
   );
 
 create policy therapist_contracts_manage_by_gestor on therapist_contracts for insert
-  with check (current_role() = 'gestor');
+  with check (app_current_role() = 'gestor');
 create policy therapist_contracts_manage_by_gestor_upd on therapist_contracts for update
-  using (current_role() = 'gestor');
+  using (app_current_role() = 'gestor');
 ```
 
 - [ ] **Step 2: Aplicar via MCP**
@@ -169,7 +169,7 @@ git commit -m "feat(schema): identidade e vínculo — clinics, profiles, rooms,
 - Create: `supabase/migrations/20260904000002_patients.sql`
 
 **Interfaces:**
-- Consumes: `clinics(id)`, `profiles(id, clinic_id, role)`, `current_clinic_id()`, `current_role()` (Task 1).
+- Consumes: `clinics(id)`, `profiles(id, clinic_id, role)`, `current_clinic_id()`, `app_current_role()` (Task 1).
 - Produces: `patients(id, clinic_id, full_name, birth_date, cid, support_level, status text check, entry_source, complaint, created_by, created_at, first_contact_at, evaluated_at, first_session_at)`, `guardians(id, patient_id, profile_id, full_name, phone, email, cpf, relationship, is_financial, portal_enabled)`, `patient_access(id, patient_id, profile_id, access_type text check ('terapeuta','responsavel','supervisor'), granted_by, granted_at, revoked_at)`.
 
 - [ ] **Step 1: Escrever a migration**
@@ -235,28 +235,28 @@ $$;
 create policy patients_read on patients for select
   using (
     clinic_id = current_clinic_id() and (
-      current_role() in ('gestor','supervisor','recepcao','faturamento')
+      app_current_role() in ('gestor','supervisor','recepcao','faturamento')
       or has_patient_access(id, array['terapeuta','responsavel'])
     )
   );
 
 create policy patients_write_recepcao_supervisor on patients for insert
-  with check (clinic_id = current_clinic_id() and current_role() in ('recepcao','supervisor','gestor'));
+  with check (clinic_id = current_clinic_id() and app_current_role() in ('recepcao','supervisor','gestor'));
 create policy patients_update_recepcao_supervisor on patients for update
-  using (clinic_id = current_clinic_id() and current_role() in ('recepcao','supervisor','gestor'));
+  using (clinic_id = current_clinic_id() and app_current_role() in ('recepcao','supervisor','gestor'));
 
 create policy guardians_read on guardians for select
   using (
     exists (select 1 from patients pt where pt.id = guardians.patient_id and pt.clinic_id = current_clinic_id())
-    and (current_role() in ('gestor','supervisor','recepcao') or profile_id = auth.uid())
+    and (app_current_role() in ('gestor','supervisor','recepcao') or profile_id = auth.uid())
   );
 create policy guardians_write_recepcao on guardians for all
-  using (current_role() in ('recepcao','supervisor','gestor'));
+  using (app_current_role() in ('recepcao','supervisor','gestor'));
 
 create policy patient_access_read on patient_access for select
-  using (profile_id = auth.uid() or current_role() in ('gestor','supervisor'));
+  using (profile_id = auth.uid() or app_current_role() in ('gestor','supervisor'));
 create policy patient_access_manage on patient_access for all
-  using (current_role() in ('supervisor','gestor'));
+  using (app_current_role() in ('supervisor','gestor'));
 ```
 
 - [ ] **Step 2: Aplicar via MCP** (`apply_migration`, name `patients`).
@@ -289,7 +289,7 @@ git commit -m "feat(schema): pacientes, responsáveis e patient_access"
 - Create: `supabase/migrations/20260904000003_insurance.sql`
 
 **Interfaces:**
-- Consumes: `patients(id, clinic_id)`, `current_clinic_id()`, `current_role()`.
+- Consumes: `patients(id, clinic_id)`, `current_clinic_id()`, `app_current_role()`.
 - Produces: `insurers(id, clinic_id, name, ans_code, billing_rules jsonb)`, `insurer_price_tables(id, insurer_id, procedure_code, procedure_name, price, valid_from, valid_to)`, `patient_insurance(id, patient_id, insurer_id, card_number, card_valid_until, plan_name, is_private bool)`, `authorizations(id, patient_insurance_id, guide_number, procedure_code, sessions_authorized, sessions_used int not null default 0, valid_from, valid_to, status text check, requested_at, approved_at, document_id uuid, previous_authorization_id uuid references authorizations(id))`.
 
 - [ ] **Step 1: Escrever a migration**
@@ -355,21 +355,21 @@ alter table authorizations enable row level security;
 create policy insurers_read on insurers for select
   using (clinic_id = current_clinic_id());
 create policy insurers_manage_gestor on insurers for all
-  using (clinic_id = current_clinic_id() and current_role() = 'gestor');
+  using (clinic_id = current_clinic_id() and app_current_role() = 'gestor');
 
 create policy price_tables_read on insurer_price_tables for select
   using (exists (select 1 from insurers i where i.id = insurer_price_tables.insurer_id and i.clinic_id = current_clinic_id())
-         and current_role() in ('gestor','faturamento'));
+         and app_current_role() in ('gestor','faturamento'));
 create policy price_tables_manage_gestor on insurer_price_tables for all
-  using (current_role() = 'gestor');
+  using (app_current_role() = 'gestor');
 
 create policy patient_insurance_read on patient_insurance for select
   using (
     exists (select 1 from patients pt where pt.id = patient_insurance.patient_id and pt.clinic_id = current_clinic_id())
-    and current_role() in ('gestor','supervisor','recepcao','faturamento')
+    and app_current_role() in ('gestor','supervisor','recepcao','faturamento')
   );
 create policy patient_insurance_write on patient_insurance for all
-  using (current_role() in ('recepcao','supervisor','gestor'));
+  using (app_current_role() in ('recepcao','supervisor','gestor'));
 
 create policy authorizations_read on authorizations for select
   using (
@@ -377,10 +377,10 @@ create policy authorizations_read on authorizations for select
       select 1 from patient_insurance pi join patients pt on pt.id = pi.patient_id
       where pi.id = authorizations.patient_insurance_id and pt.clinic_id = current_clinic_id()
     )
-    and current_role() in ('gestor','supervisor','recepcao','faturamento')
+    and app_current_role() in ('gestor','supervisor','recepcao','faturamento')
   );
 create policy authorizations_write on authorizations for all
-  using (current_role() in ('recepcao','supervisor','gestor'));
+  using (app_current_role() in ('recepcao','supervisor','gestor'));
 ```
 
 - [ ] **Step 2: Aplicar via MCP** (name `insurance`).
@@ -413,7 +413,7 @@ git commit -m "feat(schema): convênios, tabela de preços e autorizações"
 - Create: `supabase/migrations/20260904000004_protocols.sql`
 
 **Interfaces:**
-- Consumes: `patients(id, clinic_id)`, `profiles(id, esdm_certified)`, `current_role()`.
+- Consumes: `patients(id, clinic_id)`, `profiles(id, esdm_certified)`, `app_current_role()`.
 - Produces: `domain_taxonomy(id, clinic_id, discipline, domain, description)`, `protocols(id, clinic_id, name text check in ('vbmapp','ablls_r','esdm'), version, license_purchased_at, license_note, digitization_risk_accepted_by uuid not null references profiles(id), digitization_risk_accepted_at timestamptz not null)`, `protocol_items(id, protocol_id, domain, level, item_code, description)`, `protocol_assessments(id, patient_id, protocol_id, assessed_at, assessed_by, scores jsonb)`.
 
 - [ ] **Step 1: Escrever a migration**
@@ -476,29 +476,29 @@ $$;
 create policy domain_taxonomy_read on domain_taxonomy for select
   using (clinic_id = current_clinic_id());
 create policy domain_taxonomy_manage on domain_taxonomy for all
-  using (clinic_id = current_clinic_id() and current_role() in ('supervisor','gestor'));
+  using (clinic_id = current_clinic_id() and app_current_role() in ('supervisor','gestor'));
 
 create policy protocols_read on protocols for select
-  using (clinic_id = current_clinic_id() and current_role() in ('gestor','supervisor','terapeuta'));
+  using (clinic_id = current_clinic_id() and app_current_role() in ('gestor','supervisor','terapeuta'));
 create policy protocols_manage on protocols for all
-  using (clinic_id = current_clinic_id() and current_role() = 'gestor');
+  using (clinic_id = current_clinic_id() and app_current_role() = 'gestor');
 
 -- §9.4-A: leitura só supervisor/gestor e terapeuta certificado; nunca recepção, faturamento, família
 create policy protocol_items_read on protocol_items for select
   using (
-    current_role() in ('gestor','supervisor')
-    or (current_role() = 'terapeuta' and is_certified_for_protocol(protocol_id))
+    app_current_role() in ('gestor','supervisor')
+    or (app_current_role() = 'terapeuta' and is_certified_for_protocol(protocol_id))
   );
 create policy protocol_items_manage on protocol_items for all
-  using (current_role() in ('gestor','supervisor'));
+  using (app_current_role() in ('gestor','supervisor'));
 
 create policy protocol_assessments_read on protocol_assessments for select
   using (
-    current_role() in ('gestor','supervisor')
-    or (current_role() = 'terapeuta' and has_patient_access(patient_id, array['terapeuta']) and is_certified_for_protocol(protocol_id))
+    app_current_role() in ('gestor','supervisor')
+    or (app_current_role() = 'terapeuta' and has_patient_access(patient_id, array['terapeuta']) and is_certified_for_protocol(protocol_id))
   );
 create policy protocol_assessments_write on protocol_assessments for insert
-  with check (current_role() in ('terapeuta','supervisor') and is_certified_for_protocol(protocol_id));
+  with check (app_current_role() in ('terapeuta','supervisor') and is_certified_for_protocol(protocol_id));
 ```
 
 - [ ] **Step 2: Aplicar via MCP** (name `protocols`).
@@ -583,34 +583,34 @@ alter table programs enable row level security;
 
 create policy treatment_plans_read on treatment_plans for select
   using (
-    current_role() in ('gestor','supervisor')
+    app_current_role() in ('gestor','supervisor')
     or has_patient_access(patient_id, array['terapeuta','responsavel'])
   );
 create policy treatment_plans_write_terapeuta on treatment_plans for insert
-  with check (current_role() in ('terapeuta','supervisor'));
+  with check (app_current_role() in ('terapeuta','supervisor'));
 create policy treatment_plans_approve_supervisor on treatment_plans for update
-  using (current_role() in ('supervisor','gestor'));
+  using (app_current_role() in ('supervisor','gestor'));
 
 create policy plan_goals_read on plan_goals for select
   using (
     exists (
       select 1 from treatment_plans tp where tp.id = plan_goals.treatment_plan_id
-      and (current_role() in ('gestor','supervisor') or has_patient_access(tp.patient_id, array['terapeuta','responsavel']))
+      and (app_current_role() in ('gestor','supervisor') or has_patient_access(tp.patient_id, array['terapeuta','responsavel']))
     )
   );
 create policy plan_goals_write on plan_goals for all
-  using (current_role() in ('terapeuta','supervisor','gestor'));
+  using (app_current_role() in ('terapeuta','supervisor','gestor'));
 
 create policy programs_read on programs for select
   using (
     exists (
       select 1 from plan_goals pg join treatment_plans tp on tp.id = pg.treatment_plan_id
       where pg.id = programs.plan_goal_id
-      and (current_role() in ('gestor','supervisor') or has_patient_access(tp.patient_id, array['terapeuta']))
+      and (app_current_role() in ('gestor','supervisor') or has_patient_access(tp.patient_id, array['terapeuta']))
     )
   );
 create policy programs_write on programs for all
-  using (current_role() in ('terapeuta','supervisor','gestor'));
+  using (app_current_role() in ('terapeuta','supervisor','gestor'));
 ```
 
 - [ ] **Step 2: Aplicar via MCP** (name `treatment_plans`).
@@ -724,16 +724,16 @@ create policy appointments_read on appointments for select
   using (
     exists (select 1 from patients pt where pt.id = appointments.patient_id and pt.clinic_id = current_clinic_id())
     and (
-      current_role() in ('gestor','supervisor','recepcao','faturamento')
+      app_current_role() in ('gestor','supervisor','recepcao','faturamento')
       or therapist_id = auth.uid()
       or has_patient_access(patient_id, array['responsavel'])
     )
   );
 create policy appointments_write_recepcao_supervisor on appointments for insert
-  with check (current_role() in ('recepcao','supervisor','gestor'));
+  with check (app_current_role() in ('recepcao','supervisor','gestor'));
 create policy appointments_update on appointments for update
   using (
-    current_role() in ('recepcao','supervisor','gestor')
+    app_current_role() in ('recepcao','supervisor','gestor')
     or therapist_id = auth.uid()
   );
 ```
@@ -805,15 +805,15 @@ alter table trial_data enable row level security;
 -- append-only: sem policy de update/delete para nenhum papel — só select e insert existem abaixo.
 create policy session_notes_read on session_notes for select
   using (
-    current_role() in ('gestor','supervisor')
+    app_current_role() in ('gestor','supervisor')
     or therapist_id = auth.uid()
   );
 create policy session_notes_insert on session_notes for insert
-  with check (therapist_id = auth.uid() or current_role() = 'supervisor');
+  with check (therapist_id = auth.uid() or app_current_role() = 'supervisor');
 
 create policy trial_data_read on trial_data for select
   using (
-    current_role() in ('gestor','supervisor')
+    app_current_role() in ('gestor','supervisor')
     or exists (select 1 from appointments a where a.id = trial_data.appointment_id and a.therapist_id = auth.uid())
   );
 create policy trial_data_insert on trial_data for insert
@@ -883,12 +883,12 @@ alter table documents enable row level security;
 
 create policy documents_read on documents for select
   using (
-    current_role() in ('gestor','supervisor','recepcao','faturamento')
+    app_current_role() in ('gestor','supervisor','recepcao','faturamento')
     or has_patient_access(patient_id, array['terapeuta'])
     or (has_patient_access(patient_id, array['responsavel']) and shared_with_family = true)
   );
 create policy documents_write on documents for insert
-  with check (current_role() in ('recepcao','supervisor','gestor') or has_patient_access(patient_id, array['terapeuta']));
+  with check (app_current_role() in ('recepcao','supervisor','gestor') or has_patient_access(patient_id, array['terapeuta']));
 ```
 
 - [ ] **Step 2: Aplicar via MCP** (name `documents`).
@@ -981,24 +981,24 @@ create trigger trg_billing_items_requires_session_note
   for each row execute function billing_items_requires_session_note();
 
 create policy billing_periods_read on billing_periods for select
-  using (current_role() in ('gestor','faturamento'));
+  using (app_current_role() in ('gestor','faturamento'));
 create policy billing_periods_write on billing_periods for all
-  using (current_role() in ('faturamento','gestor'));
+  using (app_current_role() in ('faturamento','gestor'));
 
 create policy billing_items_read on billing_items for select
-  using (current_role() in ('gestor','faturamento'));
+  using (app_current_role() in ('gestor','faturamento'));
 create policy billing_items_write on billing_items for insert
-  with check (current_role() in ('faturamento','gestor'));
+  with check (app_current_role() in ('faturamento','gestor'));
 create policy billing_items_update on billing_items for update
-  using (current_role() in ('faturamento','gestor'));
+  using (app_current_role() in ('faturamento','gestor'));
 
 create policy glosas_read on glosas for select
   using (
-    current_role() in ('gestor','faturamento')
+    app_current_role() in ('gestor','faturamento')
     or (attributable_to = 'terapeuta' and attributable_profile_id = auth.uid())
   );
 create policy glosas_write on glosas for all
-  using (current_role() in ('faturamento','gestor'));
+  using (app_current_role() in ('faturamento','gestor'));
 ```
 
 - [ ] **Step 2: Aplicar via MCP** (name `billing`).
@@ -1059,17 +1059,17 @@ alter table payouts enable row level security;
 alter table payout_items enable row level security;
 
 create policy payouts_read on payouts for select
-  using (current_role() in ('gestor','faturamento') or therapist_id = auth.uid());
+  using (app_current_role() in ('gestor','faturamento') or therapist_id = auth.uid());
 create policy payouts_write on payouts for all
-  using (current_role() = 'gestor');
+  using (app_current_role() = 'gestor');
 
 create policy payout_items_read on payout_items for select
   using (
-    current_role() in ('gestor','faturamento')
+    app_current_role() in ('gestor','faturamento')
     or exists (select 1 from payouts p where p.id = payout_items.payout_id and p.therapist_id = auth.uid())
   );
 create policy payout_items_write on payout_items for all
-  using (current_role() = 'gestor');
+  using (app_current_role() = 'gestor');
 ```
 
 - [ ] **Step 2: Aplicar via MCP** (name `payouts`).
@@ -1144,20 +1144,20 @@ alter table metric_snapshots enable row level security;
 alter table survey_responses enable row level security;
 
 create policy targets_read on targets for select
-  using (clinic_id = current_clinic_id() and current_role() in ('gestor','supervisor','faturamento','recepcao','terapeuta'));
+  using (clinic_id = current_clinic_id() and app_current_role() in ('gestor','supervisor','faturamento','recepcao','terapeuta'));
 create policy targets_manage on targets for all
-  using (clinic_id = current_clinic_id() and current_role() = 'gestor');
+  using (clinic_id = current_clinic_id() and app_current_role() = 'gestor');
 
 create policy metric_snapshots_read on metric_snapshots for select
   using (
-    current_role() in ('gestor','supervisor')
+    app_current_role() in ('gestor','supervisor')
     or (scope_type = 'profile' and scope_id = auth.uid())
   );
 create policy metric_snapshots_write on metric_snapshots for insert
-  with check (current_role() = 'gestor');
+  with check (app_current_role() = 'gestor');
 
 create policy survey_responses_read on survey_responses for select
-  using (current_role() in ('gestor','supervisor'));
+  using (app_current_role() in ('gestor','supervisor'));
 create policy survey_responses_write on survey_responses for insert
   with check (exists (select 1 from guardians g where g.id = survey_responses.guardian_id and g.profile_id = auth.uid()));
 ```
@@ -1274,17 +1274,17 @@ create trigger trg_audit_plan_goals after insert or update or delete on plan_goa
 
 create policy messages_read on messages for select
   using (
-    current_role() in ('gestor','supervisor','recepcao')
+    app_current_role() in ('gestor','supervisor','recepcao')
     or has_patient_access(patient_id, array['responsavel','terapeuta'])
   );
 create policy messages_write on messages for insert
-  with check (current_role() in ('recepcao','supervisor','gestor') or has_patient_access(patient_id, array['responsavel']));
+  with check (app_current_role() in ('recepcao','supervisor','gestor') or has_patient_access(patient_id, array['responsavel']));
 
 create policy audit_log_read on audit_log for select
-  using (current_role() = 'gestor');
+  using (app_current_role() = 'gestor');
 
 create policy record_access_log_read on record_access_log for select
-  using (current_role() in ('gestor','supervisor'));
+  using (app_current_role() in ('gestor','supervisor'));
 create policy record_access_log_write on record_access_log for insert
   with check (accessed_by = auth.uid());
 ```
@@ -1341,7 +1341,7 @@ begin
   if v_clinic_id <> current_clinic_id() then
     raise exception 'acesso negado';
   end if;
-  if current_role() not in ('gestor','supervisor') and not has_patient_access(p_patient_id, array['terapeuta','responsavel']) then
+  if app_current_role() not in ('gestor','supervisor') and not has_patient_access(p_patient_id, array['terapeuta','responsavel']) then
     raise exception 'acesso negado';
   end if;
 
@@ -1531,4 +1531,4 @@ git commit -m "feat(schema): patient_status_as_of e suíte pgTAP consolidada (10
 
 **Placeholder scan:** nenhum "TBD"/"implementar depois" — os únicos placeholders textuais são comentários explicando por que um teste específico é parcial numa task e completo na Task 13 (dependência de dados reais), não ausência de conteúdo.
 
-**Type consistency:** `patients.id`, `profiles.id`, `authorizations.id` etc. usados como `uuid` em todas as tasks subsequentes batem com a definição na Task 1/2/3. `current_clinic_id()`/`current_role()`/`has_patient_access()` (Tasks 1-2) são reusadas identicamente nas Tasks 3–12 sem mudar assinatura.
+**Type consistency:** `patients.id`, `profiles.id`, `authorizations.id` etc. usados como `uuid` em todas as tasks subsequentes batem com a definição na Task 1/2/3. `current_clinic_id()`/`app_current_role()`/`has_patient_access()` (Tasks 1-2) são reusadas identicamente nas Tasks 3–12 sem mudar assinatura.
