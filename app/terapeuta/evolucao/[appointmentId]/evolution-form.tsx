@@ -11,13 +11,7 @@ import {
 
 const PRESENCE_SCALE = [1, 2, 3, 4, 5] as const;
 
-export function EvolutionForm({
-  appointmentId,
-  therapistId,
-}: {
-  appointmentId: string;
-  therapistId: string;
-}) {
+export function EvolutionForm({ appointmentId }: { appointmentId: string }) {
   const [presence, setPresence] = useState<number | null>(null);
   const [selectedBehaviors, setSelectedBehaviors] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +32,12 @@ export function EvolutionForm({
           formData.set("presenca_engajamento", String(presence));
         }
         startTransition(async () => {
-          const result = await createSessionNote(appointmentId, therapistId, formData);
+          const result = await createSessionNote(appointmentId, formData);
           if (!result.success) {
             setError(result.error);
             return;
           }
-          router.push(`/terapeuta?therapist=${therapistId}`);
+          router.push("/terapeuta");
         });
       }}
     >

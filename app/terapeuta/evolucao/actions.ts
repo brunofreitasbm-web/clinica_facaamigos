@@ -1,7 +1,7 @@
 // app/terapeuta/evolucao/actions.ts
 "use server";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import {
   BEHAVIOR_TYPES,
   BEHAVIOR_INTENSITIES,
@@ -14,11 +14,22 @@ type ActionResult = { success: true } | { success: false; error: string };
 
 export async function createSessionNote(
   appointmentId: string,
-  therapistId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  if (!appointmentId || !appointmentId.trim() || !therapistId || !therapistId.trim()) {
-    return { success: false, error: "Sessão ou terapeuta inválido." };
+  if (!appointmentId || !appointmentId.trim()) {
+    return { success: false, error: "Sessão inválida." };
+  }
+
+  const supabase = await createClient();
+
+  // O terapeuta que assina é sempre quem está logado — nunca um campo
+  // vindo do cliente. Se não houver sessão, nem tentamos seguir.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
   }
 
   const presencaRaw = formData.get("presenca_engajamento");
@@ -48,8 +59,10 @@ export async function createSessionNote(
   const createdAtDeviceRaw = String(formData.get("created_at_device") ?? "");
   const createdAtDevice = createdAtDeviceRaw || new Date().toISOString();
 
-  const supabase = createAdminClient();
-
+  // Client de sessão: a RLS de `appointments` já garante que só devolve a
+  // linha se o usuário logado tiver permissão de leitura (dono da sessão,
+  // ou gestor/supervisor). Se vier vazio, tratamos como não encontrada —
+  // nunca caímos pro admin client pra "contornar".
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
     .select("id, status, therapist_id")
@@ -65,7 +78,9 @@ export async function createSessionNote(
   if (appointment.status !== "realizada") {
     return { success: false, error: "Esta sessão ainda não foi realizada." };
   }
-  if (appointment.therapist_id !== therapistId) {
+  // Quem assina é sempre o terapeuta logado, e só quando ele é o
+  // responsável pela sessão — nunca um valor vindo do formulário/cliente.
+  if (appointment.therapist_id !== user.id) {
     return { success: false, error: "Terapeuta não corresponde ao responsável pela sessão." };
   }
 
@@ -91,7 +106,7 @@ export async function createSessionNote(
 
   const { error } = await supabase.from("session_notes").insert({
     appointment_id: appointmentId,
-    therapist_id: therapistId,
+    therapist_id: user.id,
     version: 1,
     structured,
     free_text: freeText || null,

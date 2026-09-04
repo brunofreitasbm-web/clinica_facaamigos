@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { EvolutionForm } from "./evolution-form";
 
@@ -10,8 +10,26 @@ export default async function EvolucaoPage({
   params: Promise<{ appointmentId: string }>;
 }) {
   const { appointmentId } = await params;
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile) redirect("/");
+
+  // A RLS de `appointments` (appointments_read) já garante que um terapeuta
+  // só enxerga sessões onde therapist_id = auth.uid() — se a sessão for de
+  // outro terapeuta, a query abaixo simplesmente não retorna linha (não é
+  // preciso filtrar manualmente por therapist_id aqui).
   const { data: appointment } = await supabase
     .from("appointments")
     .select(
@@ -33,6 +51,11 @@ export default async function EvolucaoPage({
   const patientName = (appointment.patients as { full_name: string } | null)?.full_name ?? "";
   const therapistName =
     (appointment.profiles as { full_name: string } | null)?.full_name ?? "";
+
+  // Só o terapeuta dono da sessão assina a evolução. Gestor/supervisor
+  // enxergam a sessão (RLS permite leitura ampla), mas não veem o
+  // formulário de assinatura — só quem está com a sessão vinculada.
+  const canSign = profile.role === "terapeuta" && appointment.therapist_id === user.id;
 
   return (
     <main className="flex flex-1 flex-col">
@@ -57,8 +80,12 @@ export default async function EvolucaoPage({
               .
             </p>
           </div>
+        ) : canSign ? (
+          <EvolutionForm appointmentId={appointment.id} />
         ) : (
-          <EvolutionForm appointmentId={appointment.id} therapistId={appointment.therapist_id} />
+          <p className="text-sm text-ink-faint">
+            Evolução pendente — só {therapistName || "o terapeuta responsável"} pode assiná-la.
+          </p>
         )}
       </div>
     </main>

@@ -1,27 +1,61 @@
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
+
+export const dynamic = "force-dynamic";
 
 export default async function TerapeutaPage({
   searchParams,
 }: {
   searchParams: Promise<{ therapist?: string }>;
 }) {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
-  const { data: therapists } = await supabase
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name")
-    .eq("clinic_id", DEV_CLINIC_ID)
-    .eq("role", "terapeuta")
-    .order("full_name");
+    .select("id, full_name, role")
+    .eq("id", user.id)
+    .maybeSingle();
 
-  const { therapist: requestedTherapistId } = await searchParams;
-  const therapistId =
-    therapists?.some((t) => t.id === requestedTherapistId)
-      ? requestedTherapistId!
-      : (therapists?.[0]?.id ?? "");
+  // Gestor/supervisor têm visão ampla por clinic_id (PRD §4) e podem
+  // escolher qual terapeuta olhar. Terapeuta só vê a própria agenda — sem
+  // seletor, sem possibilidade de ver de outro. Qualquer outro papel aqui
+  // não deveria acontecer (o proxy.ts já restringe por ROLE_HOME), mas
+  // negamos acesso defensivamente.
+  const canChooseTherapist = profile?.role === "gestor" || profile?.role === "supervisor";
+
+  if (!profile || (profile.role !== "terapeuta" && !canChooseTherapist)) {
+    redirect("/");
+  }
+
+  let therapists: { id: string; full_name: string }[] | null = null;
+  let therapistId: string;
+
+  if (canChooseTherapist) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .eq("role", "terapeuta")
+      .order("full_name");
+    therapists = data;
+
+    const { therapist: requestedTherapistId } = await searchParams;
+    therapistId =
+      therapists?.some((t) => t.id === requestedTherapistId)
+        ? requestedTherapistId!
+        : (therapists?.[0]?.id ?? "");
+  } else {
+    therapistId = profile.id;
+  }
 
   const today = todayInTimeZone(CLINIC_TIMEZONE);
   const dayStart = zonedDateTimeToUtc(today, "00:00", CLINIC_TIMEZONE).toISOString();
@@ -63,25 +97,27 @@ export default async function TerapeutaPage({
         description="Evoluções pendentes aparecem primeiro — meta é registrar em até 2 minutos."
       />
       <div className="flex flex-col gap-6 p-6 sm:p-10">
-        <form className="flex items-center gap-2" method="get">
-          <select
-            name="therapist"
-            defaultValue={therapistId}
-            className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
-          >
-            {(therapists ?? []).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.full_name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="rounded-md border border-paper-line-strong px-3 py-2 text-sm text-ink hover:border-chart"
-          >
-            Ver como
-          </button>
-        </form>
+        {canChooseTherapist && (
+          <form className="flex items-center gap-2" method="get">
+            <select
+              name="therapist"
+              defaultValue={therapistId}
+              className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
+            >
+              {(therapists ?? []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.full_name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="rounded-md border border-paper-line-strong px-3 py-2 text-sm text-ink hover:border-chart"
+            >
+              Ver como
+            </button>
+          </form>
+        )}
 
         <section>
           <h2 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
