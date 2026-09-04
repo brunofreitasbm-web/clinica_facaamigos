@@ -2,8 +2,9 @@ import { PageHeader } from "@/components/page-header";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
-import { DayGrid, type AgendaAppointment } from "./day-grid";
+import { type AgendaAppointment } from "./day-grid";
 import { AppointmentForm } from "./appointment-form";
+import { AgendaClient } from "./agenda-client";
 
 export default async function AgendaPage({
   searchParams,
@@ -94,7 +95,7 @@ export default async function AgendaPage({
           rooms={rooms ?? []}
           defaultDate={day}
         />
-        <DayGrid rooms={rooms ?? []} appointments={appointments} />
+        <AgendaClient rooms={rooms ?? []} appointments={appointments} />
       </div>
     </main>
   );
