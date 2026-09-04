@@ -57,9 +57,15 @@ export default async function Home() {
         </h1>
         <p className="mt-2 max-w-prose text-sm text-ink-soft">
           Cada papel tem sua própria home — sem menu compartilhado. Esta
-          página só existe nesta fase de scaffold; depois do login
-          funcional, cada pessoa cai direto na home do seu papel.
+          página só existe nesta fase de scaffold; os links abaixo pulam o
+          login para navegação manual entre papéis.
         </p>
+        <a
+          href="/login"
+          className="mt-3 inline-block text-sm font-medium text-chart hover:text-chart-strong"
+        >
+          Entrar com e-mail e senha →
+        </a>
       </div>
 
       <MeasurementCard
