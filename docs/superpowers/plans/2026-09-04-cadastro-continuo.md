@@ -879,14 +879,15 @@ import { PageHeader } from "@/components/page-header";
 import { StageChecklist } from "@/components/stage-checklist";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-function computeStage(patient: {
-  status: string;
-  evaluated_at: string | null;
-  first_session_at: string | null;
-}): 1 | 2 | 3 | 4 | 5 {
+function computeStage(
+  patient: { status: string; evaluated_at: string | null; first_session_at: string | null },
+  hasEvaluationScheduled: boolean,
+  hasActiveAuthorization: boolean,
+): 1 | 2 | 3 | 4 | 5 {
   if (patient.status === "ativo" || patient.first_session_at) return 5;
-  if (patient.status === "avaliacao" && patient.evaluated_at) return 4;
-  if (patient.status === "avaliacao") return 3;
+  if (hasActiveAuthorization) return 4;
+  if (patient.evaluated_at) return 3;
+  if (hasEvaluationScheduled || patient.status === "avaliacao") return 2;
   return 1;
 }
 
@@ -1287,14 +1288,15 @@ Crie `lib/patient-stage.ts` com o conteúdo da função `computeStage` (mesma im
 
 ```typescript
 // lib/patient-stage.ts
-export function computeStage(patient: {
-  status: string;
-  evaluated_at: string | null;
-  first_session_at: string | null;
-}): 1 | 2 | 3 | 4 | 5 {
+export function computeStage(
+  patient: { status: string; evaluated_at: string | null; first_session_at: string | null },
+  hasEvaluationScheduled: boolean,
+  hasActiveAuthorization: boolean,
+): 1 | 2 | 3 | 4 | 5 {
   if (patient.status === "ativo" || patient.first_session_at) return 5;
-  if (patient.status === "avaliacao" && patient.evaluated_at) return 4;
-  if (patient.status === "avaliacao") return 3;
+  if (hasActiveAuthorization) return 4;
+  if (patient.evaluated_at) return 3;
+  if (hasEvaluationScheduled || patient.status === "avaliacao") return 2;
   return 1;
 }
 ```
