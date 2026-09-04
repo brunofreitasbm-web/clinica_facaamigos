@@ -16,6 +16,7 @@
 - Nenhuma tabela usa `GENERATED ALWAYS AS` para `sessions_used` (limitação documentada: é agregado de outra tabela) — mantido por trigger.
 - `protocols.digitization_risk_accepted_by` e `digitization_risk_accepted_at` são `NOT NULL` — decisão de risco obrigatória por instrumento (PRD §9.4-A).
 - Projeto Supabase alvo: `vththexblpxwocbowhsv`. Não alterar `public.workspaces` (pré-existente, fora de escopo).
+- Extensão `btree_gist` é criada na Task 1 (`create extension if not exists btree_gist;`) e é pré-requisito de qualquer `EXCLUDE USING gist` sobre coluna `uuid`/`daterange`/`tstzrange` nas Tasks 1, 3 e 6 — sem ela, `uuid with =` dentro de `EXCLUDE USING gist` falha com "no default operator class for access method gist".
 - Cada `CREATE TABLE` de tabela clínica/financeira é seguido, na mesma migration, de `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` e das policies daquele grupo — nunca uma tabela fica um commit sem RLS.
 
 ---
@@ -35,6 +36,7 @@
 ```sql
 -- supabase/migrations/20260904000001_core_identity.sql
 create extension if not exists pgtap;
+create extension if not exists btree_gist;
 
 create table clinics (
   id uuid primary key default gen_random_uuid(),
