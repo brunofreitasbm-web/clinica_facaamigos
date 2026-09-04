@@ -1,8 +1,16 @@
 import { PageHeader } from "@/components/page-header";
 import { MeasurementCard } from "@/components/measurement-card";
 import { TrendStrip } from "@/components/trend-strip";
+import { createClient } from "@/lib/supabase/server";
+import { countOverdueSessionNotes } from "@/lib/session-note-pending";
 
-export default function FaturamentoPage() {
+export const dynamic = "force-dynamic";
+
+export default async function FaturamentoPage() {
+  const supabase = await createClient();
+
+  const sessionsWithoutNote = await countOverdueSessionNotes(supabase);
+
   return (
     <main className="flex flex-1 flex-col">
       <PageHeader
@@ -11,7 +19,12 @@ export default function FaturamentoPage() {
         description="Sessões realizadas, guias, lotes, glosas."
       />
       <div className="grid grid-cols-1 content-start items-start gap-6 p-6 sm:grid-cols-3 sm:p-10">
-        <MeasurementCard label="Sessões sem evolução" value="0" />
+        <MeasurementCard
+          label="Sessões sem evolução"
+          value={String(sessionsWithoutNote)}
+          placeholder={false}
+          status={sessionsWithoutNote > 0 ? "negative" : "positive"}
+        />
         <MeasurementCard label="Glosa (competência)" value="0" unit="%" />
         <MeasurementCard label="Lote exportado" value="—" />
         <div className="sm:col-span-3">
