@@ -2,15 +2,25 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { StageChecklist } from "@/components/stage-checklist";
 import { createClient } from "@/lib/supabase/server";
-import { DEV_CLINIC_ID } from "@/lib/constants";
+import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
+import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { StageActionForm } from "./stage-action-form";
+import { DocumentViewButton } from "./document-view-button";
+import { DocumentUploadForm } from "./document-upload-form";
 import {
   scheduleEvaluation,
   markEvaluationDone,
   registerAuthorization,
   activatePatient,
 } from "./stage-actions";
+
+// Papéis que a RLS de `documents` permite escrever (clínica inteira, ou
+// terapeuta vinculado ao paciente). Mostrar o formulário pra esses papéis é
+// só conveniência de UI — a RLS já é o portão real do INSERT, então um
+// terapeuta sem vínculo com este paciente veria o formulário mas o envio
+// falharia com a mensagem de permissão da Server Action.
+const CAN_UPLOAD_ROLES = ["gestor", "supervisor", "recepcao", "terapeuta"];
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +82,30 @@ export default async function PacientePage({
     .select("id, name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
+
+  // RLS de `documents` decide sozinha o que aparece aqui por papel — nunca
+  // filtramos manualmente por role na aplicação (gestor/supervisor/recepção/
+  // faturamento veem tudo da clínica; terapeuta só do paciente vinculado;
+  // responsável só o que tiver shared_with_family=true).
+  const { data: documents } = await supabase
+    .from("documents")
+    .select("id, category, uploaded_at, valid_until, shared_with_family")
+    .eq("patient_id", id)
+    .order("uploaded_at", { ascending: false });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let canUploadDocuments = false;
+  if (user) {
+    const { data: viewerProfile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    canUploadDocuments = !!viewerProfile && CAN_UPLOAD_ROLES.includes(viewerProfile.role);
+  }
 
   return (
     <main className="flex flex-1 flex-col">
@@ -151,6 +185,59 @@ export default async function PacientePage({
             )}
             {stage === 5 && <p className="text-sm text-status-positive-text">Paciente ativo — grade montada.</p>}
           </div>
+        </div>
+      </div>
+      <div className="px-6 pb-10 sm:px-10">
+        <div className="rounded-md border border-paper-line-strong bg-paper/60 p-5">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Documentos</h2>
+          <ul className="mt-3 flex flex-col gap-2">
+            {(documents ?? []).map((doc) => {
+              const validityBadge = getValidityBadge(doc.valid_until);
+              return (
+                <li
+                  key={doc.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper px-4 py-3 text-sm"
+                >
+                  <div>
+                    <p className="font-medium text-ink">
+                      {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
+                    </p>
+                    <p className="text-ink-faint">
+                      Enviado em{" "}
+                      {new Date(doc.uploaded_at).toLocaleDateString("pt-BR", {
+                        timeZone: CLINIC_TIMEZONE,
+                      })}
+                      {doc.valid_until &&
+                        ` · válido até ${new Date(`${doc.valid_until}T00:00:00`).toLocaleDateString("pt-BR")}`}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {validityBadge && (
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${validityBadge.soft} ${validityBadge.text}`}
+                        >
+                          {validityBadge.label}
+                        </span>
+                      )}
+                      {doc.shared_with_family && (
+                        <span className="inline-block rounded-full bg-chart-soft px-2 py-0.5 text-xs font-medium text-chart-strong">
+                          Compartilhado com a família
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <DocumentViewButton documentId={doc.id} />
+                </li>
+              );
+            })}
+            {(documents ?? []).length === 0 && (
+              <li className="text-sm text-ink-faint">Nenhum documento anexado.</li>
+            )}
+          </ul>
+          {canUploadDocuments && (
+            <div className="mt-4">
+              <DocumentUploadForm patientId={patient.id} />
+            </div>
+          )}
         </div>
       </div>
     </main>
