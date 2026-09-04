@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/page-header";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DEV_CLINIC_ID } from "@/lib/constants";
+import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
+import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
 import { DayGrid, type AgendaAppointment } from "./day-grid";
 import { AppointmentForm } from "./appointment-form";
 
@@ -10,7 +11,7 @@ export default async function AgendaPage({
   searchParams: Promise<{ date?: string }>;
 }) {
   const { date } = await searchParams;
-  const day = date ?? new Date().toISOString().slice(0, 10);
+  const day = date ?? todayInTimeZone(CLINIC_TIMEZONE);
 
   const supabase = createAdminClient();
 
@@ -33,8 +34,10 @@ export default async function AgendaPage({
     .eq("role", "terapeuta")
     .order("full_name");
 
-  const dayStart = `${day}T00:00:00`;
-  const dayEnd = `${day}T23:59:59`;
+  // Limites do dia civil (em CLINIC_TIMEZONE), convertidos pro instante UTC
+  // correspondente — nunca strings ingênuas de UTC.
+  const dayStart = zonedDateTimeToUtc(day, "00:00", CLINIC_TIMEZONE).toISOString();
+  const dayEnd = zonedDateTimeToUtc(nextCalendarDay(day), "00:00", CLINIC_TIMEZONE).toISOString();
 
   // Nota: `appointments` tem duas FKs para `profiles` (therapist_id e
   // cancelled_by), então o Postgrest recusa o embed `profiles(...)` por
@@ -46,7 +49,7 @@ export default async function AgendaPage({
       "id, starts_at, ends_at, status, room_id, rooms(name), profiles!therapist_id(full_name), patients(full_name)",
     )
     .gte("starts_at", dayStart)
-    .lte("starts_at", dayEnd);
+    .lt("starts_at", dayEnd);
 
   const appointments: AgendaAppointment[] = (rawAppointments ?? []).map((a) => ({
     id: a.id,

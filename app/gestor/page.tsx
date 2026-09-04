@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { MeasurementCard } from "@/components/measurement-card";
 import { TrendStrip } from "@/components/trend-strip";
@@ -10,6 +11,14 @@ export default function GestorPage() {
         title="Painel executivo"
         description="Metas por cargo, bonificação, indicadores financeiros — sem planilha manual."
       />
+      <nav className="flex flex-col gap-2 px-6 sm:px-10">
+        <Link
+          href="/gestor/convenios"
+          className="rounded-md border border-paper-line-strong px-4 py-2 text-sm text-chart hover:border-chart"
+        >
+          Gerenciar convênios
+        </Link>
+      </nav>
       <div className="grid grid-cols-1 content-start items-start gap-6 p-6 sm:grid-cols-4 sm:p-10">
         <MeasurementCard label="Pacientes ativos" value="0" />
         <MeasurementCard label="Glosa (mês)" value="0" unit="%" />

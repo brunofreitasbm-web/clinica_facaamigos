@@ -2,6 +2,10 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { zonedDateTimeToUtc } from "@/lib/timezone";
+import { getActiveAuthorizationId } from "@/lib/active-authorization";
+import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -18,7 +22,7 @@ export async function scheduleEvaluation(
     return { success: false, error: "Preencha terapeuta, sala, data e hora." };
   }
 
-  const startsAt = new Date(`${date}T${time}:00`);
+  const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + 50 * 60 * 1000);
 
   const supabase = createAdminClient();
@@ -61,12 +65,16 @@ export async function markEvaluationDone(patientId: string): Promise<ActionResul
     .select("id")
     .eq("patient_id", patientId)
     .eq("is_evaluation", true)
+    .not("status", "in", `(${CANCELLED_APPOINTMENT_STATUSES.join(",")})`)
     .order("starts_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (!evalAppointment) {
-    return { success: false, error: "Nenhuma avaliação agendada encontrada pra este paciente." };
+    return {
+      success: false,
+      error: "Nenhuma avaliação agendada (não cancelada) encontrada pra este paciente.",
+    };
   }
 
   // Sessões de avaliação não têm autorização de convênio associada — usamos
@@ -152,15 +160,9 @@ export async function activatePatient(patientId: string, formData: FormData): Pr
 
   const supabase = createAdminClient();
 
-  const { data: authorization } = await supabase
-    .from("authorizations")
-    .select("id, patient_insurance_id, patient_insurance!inner(patient_id)")
-    .eq("patient_insurance.patient_id", patientId)
-    .eq("status", "ativa")
-    .limit(1)
-    .maybeSingle();
+  const authorizationId = await getActiveAuthorizationId(supabase, patientId);
 
-  const startsAt = new Date(`${date}T${time}:00`);
+  const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + 50 * 60 * 1000);
 
   const { error: apptError } = await supabase.from("appointments").insert({
@@ -171,7 +173,7 @@ export async function activatePatient(patientId: string, formData: FormData): Pr
     starts_at: startsAt.toISOString(),
     ends_at: endsAt.toISOString(),
     status: "agendada",
-    authorization_id: authorization?.id ?? null,
+    authorization_id: authorizationId,
   });
 
   if (apptError) {

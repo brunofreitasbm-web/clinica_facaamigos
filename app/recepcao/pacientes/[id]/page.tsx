@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { StageChecklist } from "@/components/stage-checklist";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { computeStage } from "@/lib/patient-stage";
+import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { StageActionForm } from "./stage-action-form";
 import {
   scheduleEvaluation,
@@ -38,6 +38,7 @@ export default async function PacientePage({
     .select("id")
     .eq("patient_id", id)
     .eq("is_evaluation", true)
+    .not("status", "in", `(${CANCELLED_APPOINTMENT_STATUSES.join(",")})`)
     .limit(1)
     .maybeSingle();
 
