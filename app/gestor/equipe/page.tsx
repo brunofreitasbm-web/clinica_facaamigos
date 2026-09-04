@@ -1,3 +1,4 @@
+import { GestorNav } from "@/components/gestor-nav";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
@@ -14,6 +15,7 @@ export default async function EquipePage() {
 
   return (
     <main className="flex flex-1 flex-col">
+      <GestorNav active="cadastros" />
       <PageHeader
         axisLabel="Gestor"
         title="Equipe"

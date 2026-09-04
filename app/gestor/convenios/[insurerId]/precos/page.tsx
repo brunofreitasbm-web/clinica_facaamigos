@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { GestorNav } from "@/components/gestor-nav";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { PriceTableForm } from "./price-table-form";
@@ -38,6 +39,7 @@ export default async function TabelaDePrecosPage({
 
   return (
     <main className="flex flex-1 flex-col">
+      <GestorNav active="cadastros" />
       <PageHeader
         axisLabel="Gestor"
         title={`Tabela de preços — ${insurer.name}`}
