@@ -169,6 +169,7 @@ export function CadastrosTabs({
                   <th>Licença comprada em</th>
                   <th>Risco de digitização aceito por</th>
                   <th>Itens cadastrados</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -179,11 +180,16 @@ export function CadastrosTabs({
                     <td>{p.licensePurchasedAtLabel}</td>
                     <td>{p.riskAcceptedLabel}</td>
                     <td className="tabular-figure">{p.itemCount}</td>
+                    <td className="text-right">
+                      <Link href={`/gestor/protocolos/${p.id}`} className="btn btn-ghost text-xs">
+                        Gerenciar itens
+                      </Link>
+                    </td>
                   </tr>
                 ))}
                 {protocols.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-ink-faint">
+                    <td colSpan={6} className="text-ink-faint">
                       Nenhum protocolo licenciado cadastrado ainda.
                     </td>
                   </tr>
