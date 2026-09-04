@@ -17,8 +17,11 @@ export default async function TerapeutaPage({
     .eq("role", "terapeuta")
     .order("full_name");
 
-  const { therapist } = await searchParams;
-  const therapistId = therapist ?? therapists?.[0]?.id ?? "";
+  const { therapist: requestedTherapistId } = await searchParams;
+  const therapistId =
+    therapists?.some((t) => t.id === requestedTherapistId)
+      ? requestedTherapistId!
+      : (therapists?.[0]?.id ?? "");
 
   const today = todayInTimeZone(CLINIC_TIMEZONE);
   const dayStart = zonedDateTimeToUtc(today, "00:00", CLINIC_TIMEZONE).toISOString();
@@ -95,7 +98,7 @@ export default async function TerapeutaPage({
                     {(a.patients as { full_name: string } | null)?.full_name ?? ""}
                   </span>
                   <span className="text-ink-faint">
-                    {new Date(a.starts_at).toLocaleDateString("pt-BR")}
+                    {new Date(a.starts_at).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
                   </span>
                 </a>
               </li>

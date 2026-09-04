@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { EvolutionForm } from "./evolution-form";
 
 export default async function EvolucaoPage({
@@ -38,7 +39,7 @@ export default async function EvolucaoPage({
       <PageHeader
         axisLabel="Terapeuta"
         title={`Evolução — ${patientName}`}
-        description={`${therapistName} · ${new Date(appointment.starts_at).toLocaleString("pt-BR")}`}
+        description={`${therapistName} · ${new Date(appointment.starts_at).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })}`}
       />
       <div className="p-6 sm:p-10">
         {appointment.status !== "realizada" ? (
@@ -51,7 +52,7 @@ export default async function EvolucaoPage({
             <p className="mt-2 text-ink-soft">
               Assinada em{" "}
               {existingNote.signed_at
-                ? new Date(existingNote.signed_at).toLocaleString("pt-BR")
+                ? new Date(existingNote.signed_at).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })
                 : "—"}
               .
             </p>

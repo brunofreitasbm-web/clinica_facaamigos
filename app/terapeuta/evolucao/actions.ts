@@ -6,6 +6,7 @@ import {
   BEHAVIOR_TYPES,
   BEHAVIOR_INTENSITIES,
   FAMILY_GUIDANCE_OPTIONS,
+  type SessionNoteStructured,
 } from "@/lib/session-note-fields";
 import { revalidatePath } from "next/cache";
 
@@ -51,7 +52,7 @@ export async function createSessionNote(
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, status")
+    .select("id, status, therapist_id")
     .eq("id", appointmentId)
     .maybeSingle();
 
@@ -63,6 +64,9 @@ export async function createSessionNote(
   }
   if (appointment.status !== "realizada") {
     return { success: false, error: "Esta sessão ainda não foi realizada." };
+  }
+  if (appointment.therapist_id !== therapistId) {
+    return { success: false, error: "Terapeuta não corresponde ao responsável pela sessão." };
   }
 
   const { data: existingNote, error: existingNoteError } = await supabase
@@ -79,15 +83,17 @@ export async function createSessionNote(
     return { success: false, error: "Já existe uma evolução registrada para esta sessão." };
   }
 
+  const structured: SessionNoteStructured = {
+    presenca_engajamento: presenca,
+    comportamentos,
+    orientacoes,
+  };
+
   const { error } = await supabase.from("session_notes").insert({
     appointment_id: appointmentId,
     therapist_id: therapistId,
     version: 1,
-    structured: {
-      presenca_engajamento: presenca,
-      comportamentos,
-      orientacoes,
-    },
+    structured,
     free_text: freeText || null,
     created_at_device: createdAtDevice,
     signed_at: new Date().toISOString(),
