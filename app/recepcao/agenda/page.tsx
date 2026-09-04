@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { DayGrid, type AgendaAppointment } from "./day-grid";
+import { AppointmentForm } from "./appointment-form";
 
 export default async function AgendaPage({
   searchParams,
@@ -18,6 +19,19 @@ export default async function AgendaPage({
     .select("id, name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
+
+  const { data: patients } = await supabase
+    .from("patients")
+    .select("id, full_name")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .order("full_name");
+
+  const { data: therapists } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("role", "terapeuta")
+    .order("full_name");
 
   const dayStart = `${day}T00:00:00`;
   const dayEnd = `${day}T23:59:59`;
@@ -68,6 +82,12 @@ export default async function AgendaPage({
             Ver dia
           </button>
         </form>
+        <AppointmentForm
+          patients={patients ?? []}
+          therapists={therapists ?? []}
+          rooms={rooms ?? []}
+          defaultDate={day}
+        />
         <DayGrid rooms={rooms ?? []} appointments={appointments} />
       </div>
     </main>
