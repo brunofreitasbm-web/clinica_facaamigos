@@ -54,14 +54,19 @@ export function zonedDateTimeToUtc(
   return new Date(guessUtcMillis - offsetMinutes * 60_000);
 }
 
-/** Data civil de "hoje" (`YYYY-MM-DD`) no fuso `timeZone`. */
-export function todayInTimeZone(timeZone: string): string {
+/** Data civil (`YYYY-MM-DD`) de um instante qualquer, no fuso `timeZone`. */
+export function civilDateInTimeZone(instant: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(instant);
+}
+
+/** Data civil de "hoje" (`YYYY-MM-DD`) no fuso `timeZone`. */
+export function todayInTimeZone(timeZone: string): string {
+  return civilDateInTimeZone(new Date(), timeZone);
 }
 
 /** `YYYY-MM-DD` do dia civil seguinte, sem passar por fuso — aritmética de calendário pura. */

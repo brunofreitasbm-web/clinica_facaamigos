@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { MeasurementCard } from "@/components/measurement-card";
 import { TrendStrip } from "@/components/trend-strip";
@@ -29,6 +30,14 @@ export default async function FaturamentoPage() {
         <MeasurementCard label="Lote exportado" value="—" />
         <div className="sm:col-span-3">
           <TrendStrip label="Glosa — últimas 6 competências" />
+        </div>
+        <div className="sm:col-span-3">
+          <Link
+            href="/faturamento/competencias"
+            className="inline-flex items-center gap-1 text-sm font-medium text-chart hover:underline"
+          >
+            Ver competências →
+          </Link>
         </div>
       </div>
     </main>
