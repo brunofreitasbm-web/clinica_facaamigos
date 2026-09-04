@@ -134,6 +134,7 @@ export default async function CompetenceDetailPage({
                 <th>Data</th>
                 <th>Procedimento</th>
                 <th>Profissional</th>
+                <th>Prontuário</th>
                 <th>Valor</th>
               </tr>
             </thead>
@@ -144,6 +145,11 @@ export default async function CompetenceDetailPage({
                   <td className="tabular-figure">{item.startsAt ? formatDateTime(item.startsAt) : "—"}</td>
                   <td>{item.procedureCode}</td>
                   <td className="text-ink-faint">{item.therapistName}</td>
+                  <td>
+                    <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
+                      Evolução Assinada
+                    </span>
+                  </td>
                   <td className="tabular-figure font-semibold">{formatCurrency(item.amount)}</td>
                 </tr>
               ))}

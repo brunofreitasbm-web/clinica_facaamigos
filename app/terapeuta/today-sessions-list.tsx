@@ -21,6 +21,7 @@ export type TodaySession = {
   checkinAt: string | null;
   attendanceStartedAt: string | null;
   checkoutAt: string | null;
+  modality?: string | null;
 };
 
 // Cor do tag-status pra cada estado de UI (derivado, não é appointments.status
@@ -94,9 +95,16 @@ export function TodaySessionsList({
                   {fmtTime(current.endsAt)}
                 </div>
               </div>
-              <span className={`tag-status ${UI_STATE_TAG_CLASS[current.ui]}`}>
-                {UI_STATE_LABEL[current.ui]}
-              </span>
+                <div className="flex items-center gap-2">
+                  {current.modality === "grupo" && (
+                    <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                      Co-atendimento / Grupo
+                    </span>
+                  )}
+                  <span className={`tag-status ${UI_STATE_TAG_CLASS[current.ui]}`}>
+                    {UI_STATE_LABEL[current.ui]}
+                  </span>
+                </div>
             </div>
 
             <div className="flex gap-2.5">

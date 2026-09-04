@@ -163,7 +163,12 @@ function SessionRow({ session: s }: { session: TodaySession }) {
         </div>
       </div>
       <div>
-        <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 17 }}>{s.patientName}</div>
+        <div className="flex items-center gap-2">
+          <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 17 }}>{s.patientName}</span>
+          <span className="rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200">
+            Guia Vigente
+          </span>
+        </div>
         <div className="mt-0.5 text-[13px]" style={{ color: "var(--color-neutral-700)" }}>
           {s.discipline} · {s.therapistName} · {s.roomName}
         </div>

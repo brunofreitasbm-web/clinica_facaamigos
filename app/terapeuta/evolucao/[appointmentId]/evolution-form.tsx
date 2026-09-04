@@ -49,6 +49,39 @@ export function EvolutionForm({
   const [stepError, setStepError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [draftSaved, setDraftSaved] = useState(false);
+
+  // Restaura rascunho salvo do localStorage se existir
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`draft_evolution_${appointmentId}`);
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.presence) setPresence(data.presence);
+        if (data.freeText) setFreeText(data.freeText);
+        if (data.selectedBehaviors) setSelectedBehaviors(data.selectedBehaviors);
+        if (data.selectedOrientations) setSelectedOrientations(data.selectedOrientations);
+      }
+    } catch {}
+  }, [appointmentId]);
+
+  // Salva alterações no localStorage
+  useEffect(() => {
+    if (signed) {
+      localStorage.removeItem(`draft_evolution_${appointmentId}`);
+      return;
+    }
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          `draft_evolution_${appointmentId}`,
+          JSON.stringify({ presence, freeText, selectedBehaviors, selectedOrientations })
+        );
+        setDraftSaved(true);
+      } catch {}
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [presence, freeText, selectedBehaviors, selectedOrientations, appointmentId, signed]);
 
   useEffect(() => {
     if (!attendanceStartedAt) return;
@@ -94,10 +127,18 @@ export function EvolutionForm({
             ← Hoje
           </Link>
           {!signed && (
-            <span className="flex items-center gap-2 tabular-nums opacity-90">
-              <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--color-accent-2)" }} />
-              {attendanceStartedAt ? formatElapsed(elapsedSec) : "—:—"}
-            </span>
+            <div className="flex items-center gap-3 text-xs opacity-90">
+              {draftSaved && (
+                <span className="inline-flex items-center gap-1 text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Rascunho salvo localmente
+                </span>
+              )}
+              <span className="flex items-center gap-2 tabular-nums opacity-90">
+                <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--color-accent-2)" }} />
+                {attendanceStartedAt ? formatElapsed(elapsedSec) : "—:—"}
+              </span>
+            </div>
           )}
         </div>
         <div>
