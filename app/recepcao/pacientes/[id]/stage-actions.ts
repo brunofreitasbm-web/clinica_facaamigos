@@ -1,6 +1,6 @@
 "use server";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc } from "@/lib/timezone";
@@ -25,7 +25,7 @@ export async function scheduleEvaluation(
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + 50 * 60 * 1000);
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { error: apptError } = await supabase.from("appointments").insert({
     patient_id: patientId,
     therapist_id: therapistId,
@@ -58,7 +58,7 @@ export async function scheduleEvaluation(
 }
 
 export async function markEvaluationDone(patientId: string): Promise<ActionResult> {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: evalAppointment } = await supabase
     .from("appointments")
@@ -117,7 +117,7 @@ export async function registerAuthorization(
     return { success: false, error: "Preencha convênio, procedimento, sessões autorizadas e vigência." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: patientInsurance, error: piError } = await supabase
     .from("patient_insurance")
@@ -158,7 +158,7 @@ export async function activatePatient(patientId: string, formData: FormData): Pr
     return { success: false, error: "Preencha terapeuta, sala, data, hora e disciplina." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const authorizationId = await getActiveAuthorizationId(supabase, patientId);
 

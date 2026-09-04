@@ -1,9 +1,11 @@
 import { PageHeader } from "@/components/page-header";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
 import { DayGrid, type AgendaAppointment } from "./day-grid";
 import { AppointmentForm } from "./appointment-form";
+
+export const dynamic = "force-dynamic";
 
 export default async function AgendaPage({
   searchParams,
@@ -13,7 +15,7 @@ export default async function AgendaPage({
   const { date } = await searchParams;
   const day = date ?? todayInTimeZone(CLINIC_TIMEZONE);
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: rooms } = await supabase
     .from("rooms")

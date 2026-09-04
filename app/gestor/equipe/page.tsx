@@ -1,0 +1,44 @@
+import { PageHeader } from "@/components/page-header";
+import { createClient } from "@/lib/supabase/server";
+import { ROLE_LABEL, type Role } from "@/lib/roles";
+import { StaffForm } from "./staff-form";
+
+export const dynamic = "force-dynamic";
+
+export default async function EquipePage() {
+  const supabase = await createClient();
+  const { data: staff } = await supabase
+    .from("profiles")
+    .select("id, full_name, role, active")
+    .order("full_name");
+
+  return (
+    <main className="flex flex-1 flex-col">
+      <PageHeader
+        axisLabel="Gestor"
+        title="Equipe"
+        description="Cadastro de contas — cada pessoa entra com o e-mail e a senha definidos aqui."
+      />
+      <div className="flex flex-col gap-6 p-6 sm:p-10">
+        <StaffForm />
+        <ul className="flex flex-col gap-2">
+          {(staff ?? []).map((person) => (
+            <li
+              key={person.id}
+              className="flex items-center justify-between rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
+            >
+              <span className="font-medium text-ink">{person.full_name}</span>
+              <span className="text-ink-faint">
+                {ROLE_LABEL[person.role as Role]}
+                {!person.active && " — inativo"}
+              </span>
+            </li>
+          ))}
+          {(staff ?? []).length === 0 && (
+            <li className="text-sm text-ink-faint">Nenhuma conta cadastrada ainda.</li>
+          )}
+        </ul>
+      </div>
+    </main>
+  );
+}

@@ -1,6 +1,6 @@
 "use server";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc } from "@/lib/timezone";
@@ -23,7 +23,7 @@ export async function createAppointment(
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + 50 * 60 * 1000); // 50 min padrão
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   // Sessões criadas pela agenda são sempre sessões normais (não avaliação —
   // essas são criadas por `scheduleEvaluation`), então precisam de

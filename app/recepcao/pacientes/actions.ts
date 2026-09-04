@@ -1,6 +1,6 @@
 "use server";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 
 export async function createLead(
@@ -17,7 +17,7 @@ export async function createLead(
     return { success: false, error: "Nome da criança, responsável, telefone e data de nascimento são obrigatórios." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, IBM_Plex_Mono } from "next/font/google";
+import { AuthStatus } from "@/components/auth-status";
 import "./globals.css";
 
 const inter = Inter({
@@ -50,6 +51,7 @@ export default function RootLayout({
           ends with the finish review, the verdict, DESIGN.md, and every
           shipping raster carrying its provenance.
         */}
+        <AuthStatus />
         {children}
       </body>
     </html>

@@ -1,10 +1,12 @@
 import { PageHeader } from "@/components/page-header";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { InsurerForm } from "./insurer-form";
 
+export const dynamic = "force-dynamic";
+
 export default async function ConveniosPage() {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: insurers } = await supabase
     .from("insurers")
     .select("id, name, ans_code")
