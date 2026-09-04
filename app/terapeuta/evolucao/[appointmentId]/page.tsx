@@ -4,7 +4,9 @@ import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
+import { getProgramsForAppointment } from "@/lib/trial-data";
 import { EvolutionForm } from "./evolution-form";
+import { TrialDataPanel } from "./trial-data-panel";
 
 export default async function EvolucaoPage({
   params,
@@ -64,6 +66,12 @@ export default async function EvolucaoPage({
   // formulário de assinatura — só quem está com a sessão vinculada.
   const canSign = profile.role === "terapeuta" && appointment.therapist_id === user.id;
 
+  // coleta ABA: programas do plano aprovado do paciente, pra registrar
+  // tentativas discretas durante a sessão.
+  const programs = canSign
+    ? await getProgramsForAppointment(supabase, appointmentId, appointment.patient_id)
+    : [];
+
   return (
     <main className="flex flex-1 flex-col">
       <PageHeader
@@ -89,7 +97,10 @@ export default async function EvolucaoPage({
             </p>
           </div>
         ) : canSign ? (
-          <EvolutionForm appointmentId={appointment.id} />
+          <div className="flex max-w-xl flex-col gap-8">
+            <TrialDataPanel appointmentId={appointment.id} programs={programs} />
+            <EvolutionForm appointmentId={appointment.id} />
+          </div>
         ) : (
           <p className="text-sm text-ink-faint">
             Evolução pendente — só {therapistName || "o terapeuta responsável"} pode assiná-la.
