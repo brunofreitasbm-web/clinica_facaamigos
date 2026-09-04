@@ -70,3 +70,15 @@ export function nextCalendarDay(dateStr: string): string {
   const next = new Date(Date.UTC(year, month - 1, day + 1));
   return next.toISOString().slice(0, 10);
 }
+
+/** Hora civil (0-23) de um instante ISO, no fuso `timeZone`. */
+export function hourInTimeZone(isoInstant: string, timeZone: string): number {
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    hour12: false,
+  }).format(new Date(isoInstant));
+  // Intl pode retornar "24" pra meia-noite em alguns runtimes; normalizar.
+  const hour = Number(formatted);
+  return hour === 24 ? 0 : hour;
+}

@@ -1,3 +1,6 @@
+import { hourInTimeZone } from "@/lib/timezone";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+
 export type AgendaAppointment = {
   id: string;
   startsAt: string;
@@ -57,7 +60,7 @@ export function DayGrid({
             </div>
             {rooms.map((room) => {
               const match = appointments.find((a) => {
-                const startHour = new Date(a.startsAt).getHours();
+                const startHour = hourInTimeZone(a.startsAt, CLINIC_TIMEZONE);
                 return a.roomId === room.id && startHour === hour;
               });
               return (

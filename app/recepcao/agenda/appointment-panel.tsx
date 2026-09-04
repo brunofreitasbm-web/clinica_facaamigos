@@ -7,13 +7,19 @@ import { STATUS_LABEL } from "./day-grid";
 import { checkIn, checkOut, markMissedOrCancelled } from "./session-actions";
 import { computeAppointmentUiState } from "@/lib/appointment-ui-state";
 import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reasons";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "America/Sao_Paulo",
+    timeZone: CLINIC_TIMEZONE,
   });
+}
+
+function cancelReasonLabel(reason: string | null): string {
+  if (!reason) return "não informado";
+  return CANCEL_REASONS.find((r) => r.value === reason)?.label ?? reason;
 }
 
 export function AppointmentPanel({
@@ -153,16 +159,17 @@ export function AppointmentPanel({
         </button>
       )}
 
-      {uiState === "realizada" && appointment.checkinAt && appointment.checkoutAt && (
+      {uiState === "realizada" && (
         <p className="text-sm text-status-positive-text">
-          Sessão realizada — check-in {formatTime(appointment.checkinAt)}, check-out{" "}
-          {formatTime(appointment.checkoutAt)}.
+          {appointment.checkinAt && appointment.checkoutAt
+            ? `Sessão realizada — check-in ${formatTime(appointment.checkinAt)}, check-out ${formatTime(appointment.checkoutAt)}.`
+            : "Sessão realizada."}
         </p>
       )}
 
       {uiState === "terminal_negativo" && (
         <div className="text-sm text-status-negative-text">
-          <p>Motivo: {appointment.cancelReason ?? "não informado"}</p>
+          <p>Motivo: {cancelReasonLabel(appointment.cancelReason)}</p>
           <p>Autor: {appointment.cancelledByName ?? "não informado"}</p>
         </div>
       )}

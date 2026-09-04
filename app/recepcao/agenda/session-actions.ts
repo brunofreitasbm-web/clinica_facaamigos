@@ -61,7 +61,7 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
 
   const { data: appointment } = await supabase
     .from("appointments")
-    .select("id, checkin_at, checkout_at")
+    .select("id, checkin_at, checkout_at, is_evaluation")
     .eq("id", appointmentId)
     .maybeSingle();
 
@@ -75,9 +75,17 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
     return { success: false, error: "Check-out já registrado." };
   }
 
+  // Sessões de avaliação não têm autorização de convênio associada — usamos
+  // is_provisional para satisfazer o guard `appointments_authorization_guard`,
+  // que exige authorization_id em qualquer status='realizada' não provisório.
+  // Mesmo padrão de markEvaluationDone (app/recepcao/pacientes/[id]/stage-actions.ts).
   const { error } = await supabase
     .from("appointments")
-    .update({ checkout_at: new Date().toISOString(), status: "realizada" })
+    .update({
+      checkout_at: new Date().toISOString(),
+      status: "realizada",
+      is_provisional: appointment.is_evaluation === true,
+    })
     .eq("id", appointmentId);
 
   if (error) {
