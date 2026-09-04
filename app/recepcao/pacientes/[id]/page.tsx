@@ -8,9 +8,12 @@ import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stag
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
+import { getFeedPosts } from "@/lib/feed-posts";
 import { StageActionForm } from "./stage-action-form";
 import { DocumentViewButton } from "./document-view-button";
 import { DocumentUploadForm } from "./document-upload-form";
+import { FeedPostForm } from "./feed-post-form";
+import { AbsenceReportsList, type PendingAbsenceReport } from "./absence-reports-list";
 import {
   scheduleEvaluation,
   markEvaluationDone,
@@ -119,6 +122,32 @@ export default async function PacientePage({
     canUploadDocuments = !!viewerProfile && CAN_UPLOAD_ROLES.includes(viewerProfile.role);
   }
 
+  // Mural da família (PRD §4) — mural independente das evoluções, mesma
+  // regra de RLS (feed_posts_read) decide o que aparece; ver lib/feed-posts.ts.
+  const feedPosts = await getFeedPosts(supabase, id);
+
+  // Faltas informadas pela família ainda aguardando decisão da recepção
+  // (PRD §5) — as que já foram auto-aprovadas pelo trigger
+  // absence_report_apply (anexo ou categoria 'doenca') não aparecem aqui.
+  const { data: pendingAbsenceRaw } = await supabase
+    .from("absence_reports")
+    .select(
+      "id, reason_category, reason_text, attachment_storage_path, appointments!inner(patient_id, starts_at), profiles!reported_by(full_name)",
+    )
+    .eq("appointments.patient_id", id)
+    .eq("status", "em_analise")
+    .order("created_at", { ascending: false });
+
+  const pendingAbsenceReports: PendingAbsenceReport[] = (pendingAbsenceRaw ?? []).map((r) => ({
+    id: r.id,
+    appointmentStartsAt: r.appointments!.starts_at,
+    reasonCategory: r.reason_category,
+    reasonText: r.reason_text,
+    hasAttachment: r.attachment_storage_path !== null,
+    reportedByName:
+      (Array.isArray(r.profiles) ? r.profiles[0]?.full_name : r.profiles?.full_name) ?? "Responsável",
+  }));
+
   // ── Conteúdo das abas do prontuário (Paciente.dc.html) — só vale a pena
   // buscar quando o paciente já tem histórico de operação (estágio 5); um
   // lead/avaliação ainda não tem sessão, plano ou lançamento algum.
@@ -143,7 +172,7 @@ export default async function PacientePage({
       .maybeSingle(),
     supabase
       .from("patient_access")
-      .select("id, profile_id, profiles(full_name, council_type)")
+      .select("id, profile_id, profiles!profile_id(full_name, council_type)")
       .eq("patient_id", id)
       .eq("access_type", "terapeuta")
       .is("revoked_at", null),
@@ -456,6 +485,59 @@ export default async function PacientePage({
         documentsContent={documentsContent}
         billing={billing}
       />
+
+      {pendingAbsenceReports.length > 0 && (
+        <div className="px-10 pt-6">
+          <div className="card max-w-[720px]">
+            <div className="card-kicker">Faltas informadas pela família</div>
+            <AbsenceReportsList patientId={patient.id} reports={pendingAbsenceReports} />
+          </div>
+        </div>
+      )}
+
+      <div className="px-10 py-6">
+        <div className="card max-w-[720px]">
+          <div className="card-kicker">Mural da família</div>
+          <ul className="flex flex-col gap-3">
+            {feedPosts.map((post) => (
+              <li key={post.id} className="rounded-md border border-paper-line-strong bg-paper px-4 py-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-ink">{post.authorName}</span>
+                  <span className="text-xs text-ink-faint">
+                    {new Date(post.createdAt).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
+                  </span>
+                </div>
+                {post.body && <p className="mt-1 text-ink-soft">{post.body}</p>}
+                {post.media.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {post.media.map((m) =>
+                      m.mimeType.startsWith("image/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={m.id}
+                          src={m.url}
+                          alt=""
+                          className="h-24 w-24 rounded-md object-cover"
+                        />
+                      ) : (
+                        <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost text-xs">
+                          Abrir anexo
+                        </a>
+                      ),
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+            {feedPosts.length === 0 && <li className="text-sm text-ink-faint">Nenhum recado publicado ainda.</li>}
+          </ul>
+          {canUploadDocuments && (
+            <div className="mt-4">
+              <FeedPostForm patientId={patient.id} />
+            </div>
+          )}
+        </div>
+      </div>
     </main>
   );
 }

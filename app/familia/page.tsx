@@ -4,8 +4,10 @@ import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { APPOINTMENT_STATUS_STYLE, PLAN_GOAL_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { todayInTimeZone, civilDateInTimeZone, zonedDateTimeToUtc, nextCalendarDay } from "@/lib/timezone";
 import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
+import { getFeedPosts } from "@/lib/feed-posts";
 import { ContactCoordination } from "./contact-coordination";
 import { DocumentOpenButton } from "./document-open-button";
+import { ReportAbsence } from "./report-absence";
 
 export const dynamic = "force-dynamic";
 
@@ -185,6 +187,10 @@ export default async function FamiliaPage() {
         .in("status", ["ativa", "atingida"])
     : { data: [] as { id: string; description: string; status: string }[] };
 
+  // Mural (PRD §4) — mural independente das evoluções clínicas, só leitura
+  // pro responsável (feed_posts_read/feed_media_read decidem o que aparece).
+  const feedPosts = await getFeedPosts(supabase, patientId);
+
   const therapistName =
     (nextAppt &&
       (Array.isArray(nextAppt.therapist) ? nextAppt.therapist[0]?.full_name : nextAppt.therapist?.full_name)) ||
@@ -315,6 +321,7 @@ export default async function FamiliaPage() {
                   </span>
                 </div>
               )}
+              {(notConfirmed || confirmed) && <ReportAbsence appointmentId={nextAppt.id} />}
             </>
           ) : (
             <span style={{ fontSize: 14, opacity: 0.85 }}>Nenhuma sessão agendada no momento.</span>
@@ -431,6 +438,48 @@ export default async function FamiliaPage() {
             ) : (
               <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
                 Nenhuma meta em andamento no plano aprovado ainda.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <h6>Mural</h6>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 10 }}>
+            {feedPosts.length > 0 ? (
+              feedPosts.map((post) => (
+                <div key={post.id} className="card">
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{post.authorName}</span>
+                    <span style={{ fontSize: 11, color: "var(--color-neutral-600)" }}>
+                      {new Date(post.createdAt).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
+                    </span>
+                  </div>
+                  {post.body && <p style={{ fontSize: 13, margin: 0 }}>{post.body}</p>}
+                  {post.media.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {post.media.map((m) =>
+                        m.mimeType.startsWith("image/") ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={m.id}
+                            src={m.url}
+                            alt=""
+                            style={{ width: 96, height: 96, borderRadius: "var(--radius-md)", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost text-xs">
+                            Abrir anexo
+                          </a>
+                        ),
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
+                Nenhum recado da equipe ainda.
               </p>
             )}
           </div>

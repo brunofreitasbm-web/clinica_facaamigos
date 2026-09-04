@@ -136,6 +136,14 @@ export default async function EvolucaoPage({
                 : "—"}
               .
             </p>
+            <div className="flex gap-2">
+              <Link href={`/terapeuta/paciente/${appointment.patient_id}/relatorio`} className="btn btn-secondary w-fit">
+                Relatório devolutivo (IA)
+              </Link>
+              <Link href={`/terapeuta/paciente/${appointment.patient_id}/metricas`} className="btn btn-secondary w-fit">
+                Evolução (gráficos)
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="card">
