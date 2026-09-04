@@ -1,8 +1,16 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_HOME, type Role } from "@/lib/roles";
 
 export default async function Home() {
+  const cookieStore = await cookies();
+  const demoRole = cookieStore.get("demo_user_role")?.value as Role | undefined;
+
+  if (demoRole) {
+    redirect(ROLE_HOME[demoRole] ?? "/login");
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

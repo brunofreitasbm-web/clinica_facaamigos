@@ -27,14 +27,16 @@ export async function signIn(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === "placeholder";
 
   if (!isPlaceholderKey) {
+    let signInError = true;
     try {
       const supabase = await createClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (!error) {
-        redirect("/");
-      }
+      signInError = Boolean(error);
     } catch {
       // Se falhar o cliente Supabase, tenta o modo demo abaixo
+    }
+    if (!signInError) {
+      redirect("/");
     }
   }
 
