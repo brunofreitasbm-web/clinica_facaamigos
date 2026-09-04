@@ -18,3 +18,11 @@ insert into rooms (id, clinic_id, name, capacity) values
   ('c2000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'Sala 1', 1),
   ('c2000000-0000-0000-0000-000000000002', 'c0000000-0000-0000-0000-000000000001', 'Sala 2', 1)
 on conflict do nothing;
+
+insert into auth.users (id, email) values
+  ('c1000000-0000-0000-0000-000000000004', 'recepcao@facaamigos.dev')
+on conflict do nothing;
+
+insert into profiles (id, clinic_id, role, full_name, active) values
+  ('c1000000-0000-0000-0000-000000000004', 'c0000000-0000-0000-0000-000000000001', 'recepcao', 'Recepção FaçaAmigos', true)
+on conflict do nothing;
