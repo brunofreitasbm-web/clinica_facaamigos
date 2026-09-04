@@ -15,6 +15,11 @@ export async function createAppointment(
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const discipline = String(formData.get("discipline") ?? "").trim();
+  // "Provisória" (Recepcao.dc.html): recepção agenda mesmo sem guia vigente;
+  // is_provisional=true isola essa sessão do guard de autorização quando ela
+  // for fechada como 'realizada' (ver appointments_authorization_guard e o
+  // checkOut em session-actions.ts, que preserva essa marcação).
+  const isProvisional = formData.get("is_provisional") === "on";
 
   if (!patientId || !therapistId || !roomId || !date || !time || !discipline) {
     return { success: false, error: "Preencha todos os campos." };
@@ -40,6 +45,7 @@ export async function createAppointment(
     ends_at: endsAt.toISOString(),
     status: "agendada",
     authorization_id: authorizationId,
+    is_provisional: isProvisional,
   });
 
   if (error) {
@@ -59,5 +65,6 @@ export async function createAppointment(
   }
 
   revalidatePath("/recepcao/agenda");
+  revalidatePath("/recepcao");
   return { success: true };
 }

@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/page-header";
-import { PatientIdentityBar } from "@/components/patient-identity-bar";
+import { PatientHeader } from "@/components/prontuario/patient-header";
+import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
 import { StageChecklist } from "@/components/stage-checklist";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
+import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { StageActionForm } from "./stage-action-form";
 import { DocumentViewButton } from "./document-view-button";
 import { DocumentUploadForm } from "./document-upload-form";
@@ -25,6 +26,9 @@ import {
 // falharia com a mensagem de permissão da Server Action.
 const CAN_UPLOAD_ROLES = ["gestor", "supervisor", "recepcao", "terapeuta"];
 
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE });
+
 export const dynamic = "force-dynamic";
 
 export default async function PacientePage({
@@ -37,7 +41,7 @@ export default async function PacientePage({
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")
-    .select("id, full_name, status, evaluated_at, first_session_at, entry_source, complaint")
+    .select("id, full_name, status, birth_date, evaluated_at, first_session_at, entry_source, complaint")
     .eq("id", id)
     .maybeSingle();
 
@@ -69,7 +73,8 @@ export default async function PacientePage({
 
   // Header de identificação (PRD §1) — lógica compartilhada com a tela de
   // evolução do terapeuta via lib/patient-identity.ts.
-  const { insurance: activeInsurance, emergencyContact } = await getPatientIdentitySummary(supabase, id);
+  const { insurance: activeInsurance, activeAuthorization } =
+    await getPatientIdentitySummary(supabase, id);
 
   const { data: therapists } = await supabase
     .from("profiles")
@@ -114,163 +119,343 @@ export default async function PacientePage({
     canUploadDocuments = !!viewerProfile && CAN_UPLOAD_ROLES.includes(viewerProfile.role);
   }
 
-  return (
-    <main className="flex flex-1 flex-col">
-      <PageHeader
-        axisLabel="Recepção"
-        title={patient.full_name}
-        description={`Origem: ${patient.entry_source ?? "não informada"}`}
-      />
-      <PatientIdentityBar
-        patientName={patient.full_name}
-        insurance={activeInsurance}
-        emergencyContact={emergencyContact}
-      />
-      <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 sm:p-10">
-        <div className="rounded-md border border-paper-line-strong bg-paper/60 p-5">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Estágio</h2>
-          <div className="mt-3">
-            <StageChecklist stage={stage} />
-          </div>
-        </div>
-        <div className="rounded-md border border-paper-line-strong bg-paper/60 p-5">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Responsáveis</h2>
-          <ul className="mt-3 flex flex-col gap-2 text-sm">
-            {(guardians ?? []).map((g) => (
-              <li key={g.id} className="flex items-center justify-between gap-3">
-                <span>
-                  {g.full_name} — {g.phone}
-                  {g.is_emergency_contact && (
-                    <span className="ml-2 inline-block rounded-full bg-status-active-soft px-2 py-0.5 text-xs font-medium text-status-active-text">
-                      Contato de emergência
+  // ── Conteúdo das abas do prontuário (Paciente.dc.html) — só vale a pena
+  // buscar quando o paciente já tem histórico de operação (estágio 5); um
+  // lead/avaliação ainda não tem sessão, plano ou lançamento algum.
+  const [
+    { data: recentAppointments },
+    { data: treatmentPlan },
+    { data: teamAccess },
+    { data: billingItems },
+  ] = await Promise.all([
+    supabase
+      .from("appointments")
+      .select("id, starts_at, status")
+      .eq("patient_id", id)
+      .order("starts_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("treatment_plans")
+      .select("id, status, approved_at, version")
+      .eq("patient_id", id)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("patient_access")
+      .select("id, profile_id, profiles(full_name, council_type)")
+      .eq("patient_id", id)
+      .eq("access_type", "terapeuta")
+      .is("revoked_at", null),
+    supabase
+      .from("billing_items")
+      .select("id, amount, status, appointment_id, appointments!inner(patient_id, starts_at, discipline)")
+      .eq("appointments.patient_id", id)
+      .order("starts_at", { foreignTable: "appointments", ascending: false })
+      .limit(20),
+  ]);
+
+  const { data: goals } = treatmentPlan
+    ? await supabase
+        .from("plan_goals")
+        .select("id, description, domain, criterion, status")
+        .eq("treatment_plan_id", treatmentPlan.id)
+    : { data: [] as { id: string; description: string; domain: string; criterion: string | null; status: string }[] };
+
+  const { data: notesRaw } = await supabase
+    .from("session_notes")
+    .select(
+      "id, version, free_text, created_at_server, appointment_id, appointments!inner(patient_id, starts_at), profiles!session_notes_therapist_id_fkey(full_name)",
+    )
+    .eq("appointments.patient_id", id)
+    .order("created_at_server", { ascending: false })
+    .limit(10);
+
+  const frequency: FrequencyDay[] = (recentAppointments ?? [])
+    .slice()
+    .reverse()
+    .map((a) => ({
+      id: a.id,
+      colorVar: (APPOINTMENT_STATUS_STYLE[a.status] ?? APPOINTMENT_STATUS_STYLE.agendada).colorVar,
+      title: `${fmtDate(a.starts_at)} · ${(APPOINTMENT_STATUS_STYLE[a.status] ?? {}).label ?? a.status}`,
+    }));
+
+  const goalRows: GoalRow[] = (goals ?? []).map((g) => ({
+    id: g.id,
+    title: g.description,
+    domain: g.domain,
+    criterion: g.criterion,
+    status: g.status,
+  }));
+
+  const planStatusLabel = treatmentPlan
+    ? treatmentPlan.status === "aprovado" && treatmentPlan.approved_at
+      ? `aprovado ${fmtDate(treatmentPlan.approved_at)}`
+      : treatmentPlan.status
+    : null;
+
+  const notes: EvolutionNote[] = (notesRaw ?? []).map((n) => ({
+    id: n.id,
+    date: fmtDate(n.appointments!.starts_at),
+    version: n.version,
+    therapistName:
+      (Array.isArray(n.profiles) ? n.profiles[0]?.full_name : n.profiles?.full_name) ?? "—",
+    freeText: n.free_text,
+  }));
+
+  const billing: BillingRow[] = (billingItems ?? []).map((b) => ({
+    id: b.id,
+    date: fmtDate(b.appointments!.starts_at),
+    discipline: b.appointments!.discipline,
+    amount: b.amount,
+    status: b.status,
+  }));
+
+  const teamText =
+    (teamAccess ?? []).length > 0 ? (
+      <div className="flex flex-col gap-0.5">
+        {(teamAccess ?? []).map((t) => {
+          const profile = Array.isArray(t.profiles) ? t.profiles[0] : t.profiles;
+          return (
+            <span key={t.id}>
+              {profile?.full_name ?? "—"}
+              {profile?.council_type ? ` · ${profile.council_type}` : ""}
+            </span>
+          );
+        })}
+      </div>
+    ) : (
+      <span className="text-ink-faint">Sem terapeuta vinculado ainda.</span>
+    );
+
+  const guardianText =
+    (guardians ?? []).length > 0 ? (
+      <div className="flex flex-col gap-0.5">
+        {(guardians ?? []).map((g) => (
+          <span key={g.id}>
+            {g.full_name}
+            <br />
+            <span className="text-ink-faint">{g.phone}</span>
+          </span>
+        ))}
+      </div>
+    ) : (
+      <span className="text-ink-faint">Nenhum responsável cadastrado.</span>
+    );
+
+  const authorizationText = activeAuthorization ? (
+    <span>
+      {activeInsurance?.insurerName ?? "Convênio"} · {activeAuthorization.guideNumber ?? "sem nº de guia"}
+      <br />
+      <span className="text-ink-faint">
+        {activeAuthorization.sessionsUsed} de {activeAuthorization.sessionsAuthorized} sessões usadas · válida
+        até {fmtDate(activeAuthorization.validTo)}
+      </span>
+    </span>
+  ) : (
+    <span className="text-ink-faint">Sem autorização vigente.</span>
+  );
+
+  const documentsContent = (
+    <>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Documento</th>
+            <th>Categoria</th>
+            <th>Data</th>
+            <th>Visível à família</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {(documents ?? []).map((doc) => {
+            const validityBadge = getValidityBadge(doc.valid_until);
+            return (
+              <tr key={doc.id}>
+                <td className="font-semibold">
+                  {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
+                  {validityBadge && (
+                    <span
+                      className={`tag-status ml-2 ${validityBadge.label === "Vencido" ? "st-falta" : "st-agendada"}`}
+                    >
+                      {validityBadge.label}
                     </span>
                   )}
-                </span>
-                {(guardians ?? []).length > 1 && !g.is_emergency_contact && (
-                  <form
-                    action={async () => {
-                      "use server";
-                      await setEmergencyContact(patient.id, g.id);
-                    }}
-                  >
-                    <button type="submit" className="text-xs text-chart hover:underline">
-                      Definir como emergência
-                    </button>
-                  </form>
-                )}
-              </li>
-            ))}
-          </ul>
+                </td>
+                <td>{doc.category}</td>
+                <td>
+                  {fmtDate(doc.uploaded_at)}
+                  {doc.valid_until && ` · válido até ${fmtDate(`${doc.valid_until}T00:00:00`)}`}
+                </td>
+                <td>{doc.shared_with_family ? "Sim" : "Não"}</td>
+                <td className="text-right">
+                  <DocumentViewButton documentId={doc.id} />
+                </td>
+              </tr>
+            );
+          })}
+          {(documents ?? []).length === 0 && (
+            <tr>
+              <td colSpan={5} className="text-ink-faint">
+                Nenhum documento anexado.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      {canUploadDocuments && (
+        <div className="mt-4">
+          <DocumentUploadForm patientId={patient.id} />
         </div>
-      </div>
-      <div className="px-6 pb-10 sm:px-10">
-        <div className="rounded-md border border-paper-line-strong bg-paper/60 p-5">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Próximo passo</h2>
-          <div className="mt-3">
-            {stage === 1 && (
-              <StageActionForm action={scheduleEvaluation.bind(null, patient.id)} submitLabel="Agendar avaliação">
-                <select name="therapist_id" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm">
-                  <option value="">Terapeuta</option>
-                  {(therapists ?? []).map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-                </select>
-                <select name="room_id" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm">
-                  <option value="">Sala</option>
-                  {(rooms ?? []).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-                <input type="date" name="date" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-                <input type="time" name="time" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-              </StageActionForm>
-            )}
-            {stage === 2 && (
-              <StageActionForm action={markEvaluationDone.bind(null, patient.id)} submitLabel="Marcar avaliação como realizada">
-                <p className="text-sm text-ink-soft">Confirma que a avaliação já aconteceu?</p>
-              </StageActionForm>
-            )}
-            {stage === 3 && (
-              <StageActionForm action={registerAuthorization.bind(null, patient.id)} submitLabel="Registrar autorização">
-                <select name="insurer_id" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm">
-                  <option value="">Convênio</option>
-                  {(insurers ?? []).map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-                </select>
-                <input type="text" name="guide_number" placeholder="Número da guia" className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-                <input type="text" name="procedure_code" required placeholder="Código do procedimento" className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-                <input type="number" name="sessions_authorized" required placeholder="Sessões autorizadas" className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-                <input type="date" name="valid_from" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-                <input type="date" name="valid_to" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-              </StageActionForm>
-            )}
-            {stage === 4 && (
-              <StageActionForm action={activatePatient.bind(null, patient.id)} submitLabel="Montar grade (1ª sessão)">
-                <select name="therapist_id" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm">
-                  <option value="">Terapeuta</option>
-                  {(therapists ?? []).map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-                </select>
-                <select name="room_id" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm">
-                  <option value="">Sala</option>
-                  {(rooms ?? []).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-                <input type="date" name="date" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-                <input type="time" name="time" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-                <input type="text" name="discipline" required placeholder="Disciplina" className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-              </StageActionForm>
-            )}
-            {stage === 5 && <p className="text-sm text-status-positive-text">Paciente ativo — grade montada.</p>}
+      )}
+    </>
+  );
+
+  const initials = patient.full_name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
+
+  return (
+    <main className="flex flex-1 flex-col">
+      <PatientHeader />
+
+      <div className="flex flex-wrap items-end justify-between gap-6 px-10 pt-9">
+        <div className="flex items-center gap-5">
+          <span
+            className="flex h-16 w-16 items-center justify-center rounded-full text-2xl font-semibold"
+            style={{
+              background: "var(--color-accent-100)",
+              color: "var(--color-accent-700)",
+              fontFamily: "var(--font-heading)",
+            }}
+          >
+            {initials || "?"}
+          </span>
+          <div>
+            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
+              {patient.birth_date ? `Nasc. ${fmtDate(patient.birth_date)} · ` : ""}
+              {activeInsurance?.insurerName ?? "Particular"}
+              {activeAuthorization?.guideNumber ? ` · guia ${activeAuthorization.guideNumber}` : ""}
+            </h6>
+            <h1 className="m-0">{patient.full_name}</h1>
           </div>
         </div>
-      </div>
-      <div className="px-6 pb-10 sm:px-10">
-        <div className="rounded-md border border-paper-line-strong bg-paper/60 p-5">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Documentos</h2>
-          <ul className="mt-3 flex flex-col gap-2">
-            {(documents ?? []).map((doc) => {
-              const validityBadge = getValidityBadge(doc.valid_until);
-              return (
-                <li
-                  key={doc.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper px-4 py-3 text-sm"
-                >
-                  <div>
-                    <p className="font-medium text-ink">
-                      {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
-                    </p>
-                    <p className="text-ink-faint">
-                      Enviado em{" "}
-                      {new Date(doc.uploaded_at).toLocaleDateString("pt-BR", {
-                        timeZone: CLINIC_TIMEZONE,
-                      })}
-                      {doc.valid_until &&
-                        ` · válido até ${new Date(`${doc.valid_until}T00:00:00`).toLocaleDateString("pt-BR")}`}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      {validityBadge && (
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${validityBadge.soft} ${validityBadge.text}`}
-                        >
-                          {validityBadge.label}
-                        </span>
-                      )}
-                      {doc.shared_with_family && (
-                        <span className="inline-block rounded-full bg-chart-soft px-2 py-0.5 text-xs font-medium text-chart-strong">
-                          Compartilhado com a família
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <DocumentViewButton documentId={doc.id} />
-                </li>
-              );
-            })}
-            {(documents ?? []).length === 0 && (
-              <li className="text-sm text-ink-faint">Nenhum documento anexado.</li>
-            )}
-          </ul>
-          {canUploadDocuments && (
-            <div className="mt-4">
-              <DocumentUploadForm patientId={patient.id} />
-            </div>
-          )}
+        <div className="flex gap-2.5">
+          <button type="button" className="btn btn-secondary" disabled>
+            Editar cadastro
+          </button>
+          <a href="/recepcao/agenda" className="btn btn-primary">
+            Nova sessão
+          </a>
         </div>
       </div>
+
+      {stage < 5 && (
+        <div className="px-10 pt-8">
+          <div className="card max-w-[720px]">
+            <div className="card-kicker">Próximo passo</div>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <StageChecklist stage={stage} />
+              <div>
+                {stage === 1 && (
+                  <StageActionForm action={scheduleEvaluation.bind(null, patient.id)} submitLabel="Agendar avaliação">
+                    <select name="therapist_id" required className="input">
+                      <option value="">Terapeuta</option>
+                      {(therapists ?? []).map((t) => (
+                        <option key={t.id} value={t.id}>{t.full_name}</option>
+                      ))}
+                    </select>
+                    <select name="room_id" required className="input">
+                      <option value="">Sala</option>
+                      {(rooms ?? []).map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                    <input type="date" name="date" required className="input" />
+                    <input type="time" name="time" required className="input" />
+                  </StageActionForm>
+                )}
+                {stage === 2 && (
+                  <StageActionForm action={markEvaluationDone.bind(null, patient.id)} submitLabel="Marcar avaliação como realizada">
+                    <p className="text-sm text-ink-soft">Confirma que a avaliação já aconteceu?</p>
+                  </StageActionForm>
+                )}
+                {stage === 3 && (
+                  <StageActionForm action={registerAuthorization.bind(null, patient.id)} submitLabel="Registrar autorização">
+                    <select name="insurer_id" required className="input">
+                      <option value="">Convênio</option>
+                      {(insurers ?? []).map((i) => (
+                        <option key={i.id} value={i.id}>{i.name}</option>
+                      ))}
+                    </select>
+                    <input type="text" name="guide_number" placeholder="Número da guia" className="input" />
+                    <input type="text" name="procedure_code" required placeholder="Código do procedimento" className="input" />
+                    <input type="number" name="sessions_authorized" required placeholder="Sessões autorizadas" className="input" />
+                    <input type="date" name="valid_from" required className="input" />
+                    <input type="date" name="valid_to" required className="input" />
+                  </StageActionForm>
+                )}
+                {stage === 4 && (
+                  <StageActionForm action={activatePatient.bind(null, patient.id)} submitLabel="Montar grade (1ª sessão)">
+                    <select name="therapist_id" required className="input">
+                      <option value="">Terapeuta</option>
+                      {(therapists ?? []).map((t) => (
+                        <option key={t.id} value={t.id}>{t.full_name}</option>
+                      ))}
+                    </select>
+                    <select name="room_id" required className="input">
+                      <option value="">Sala</option>
+                      {(rooms ?? []).map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                    <input type="date" name="date" required className="input" />
+                    <input type="time" name="time" required className="input" />
+                    <input type="text" name="discipline" required placeholder="Disciplina" className="input" />
+                  </StageActionForm>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="px-10 pt-6">
+        <div className="flex flex-wrap items-center gap-2">
+          {(guardians ?? []).length > 1 &&
+            (guardians ?? [])
+              .filter((g) => !g.is_emergency_contact)
+              .map((g) => (
+                <form
+                  key={g.id}
+                  action={async () => {
+                    "use server";
+                    await setEmergencyContact(patient.id, g.id);
+                  }}
+                >
+                  <button type="submit" className="btn btn-ghost text-xs">
+                    Definir {g.full_name} como contato de emergência
+                  </button>
+                </form>
+              ))}
+        </div>
+      </div>
+
+      <PatientTabs
+        frequency={frequency}
+        goals={goalRows}
+        planStatusLabel={planStatusLabel}
+        guardianText={guardianText}
+        authorizationText={authorizationText}
+        teamText={teamText}
+        notes={notes}
+        documentsContent={documentsContent}
+        billing={billing}
+      />
     </main>
   );
 }

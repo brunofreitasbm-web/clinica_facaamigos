@@ -4,6 +4,12 @@ import type { Database } from "@/lib/database.types";
 export type PatientIdentitySummary = {
   insurance: { insurerName: string; cardNumber: string | null } | null;
   emergencyContact: { name: string; phone: string } | null;
+  activeAuthorization: {
+    guideNumber: string | null;
+    sessionsUsed: number;
+    sessionsAuthorized: number;
+    validTo: string;
+  } | null;
 };
 
 /**
@@ -21,7 +27,9 @@ export async function getPatientIdentitySummary(
   const [{ data: activeAuth }, { data: patientInsurances }, { data: guardians }] = await Promise.all([
     supabase
       .from("authorizations")
-      .select("patient_insurance_id, patient_insurance!inner(patient_id)")
+      .select(
+        "patient_insurance_id, guide_number, sessions_used, sessions_authorized, valid_to, patient_insurance!inner(patient_id)",
+      )
       .eq("patient_insurance.patient_id", patientId)
       .eq("status", "ativa")
       .limit(1)
@@ -62,6 +70,14 @@ export async function getPatientIdentitySummary(
     insurance,
     emergencyContact: emergencyGuardian
       ? { name: emergencyGuardian.full_name, phone: emergencyGuardian.phone }
+      : null,
+    activeAuthorization: activeAuth
+      ? {
+          guideNumber: activeAuth.guide_number,
+          sessionsUsed: activeAuth.sessions_used,
+          sessionsAuthorized: activeAuth.sessions_authorized,
+          validTo: activeAuth.valid_to,
+        }
       : null,
   };
 }

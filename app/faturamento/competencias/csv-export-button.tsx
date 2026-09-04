@@ -30,15 +30,14 @@ export function CsvExportButton({ billingPeriodId }: { billingPeriodId: string }
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        onClick={handleExport}
-        disabled={isPending}
-        className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
-      >
+      <button type="button" onClick={handleExport} disabled={isPending} className="btn btn-secondary">
         {isPending ? "Exportando…" : "Exportar CSV"}
       </button>
-      {error && <p className="text-xs text-status-negative-text">{error}</p>}
+      {error && (
+        <p className="text-xs" style={{ color: "var(--status-falta)" }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }

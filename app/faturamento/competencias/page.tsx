@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { FaturamentoHeader } from "../faturamento-header";
 import { CompetenceForm } from "./competence-form";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +11,13 @@ const STATUS_LABEL: Record<string, string> = {
   fechada: "Fechada",
   enviada: "Exportada",
   paga: "Paga",
+};
+
+const STATUS_TAG_CLASS: Record<string, string> = {
+  aberta: "st-agendada",
+  fechada: "st-em-atendimento",
+  enviada: "st-confirmada",
+  paga: "st-realizada",
 };
 
 function formatCompetence(dateStr: string): string {
@@ -38,41 +45,62 @@ export default async function CompetenciasPage() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <PageHeader
-        axisLabel="Faturamento"
-        title="Competências"
-        description="Fechamento por convênio e mês — lista sessões realizadas com evolução e gera o lote pro faturista."
-      />
-      <div className="flex flex-col gap-6 p-6 sm:p-10">
+      <FaturamentoHeader active="competencia" />
+      <div className="flex flex-col gap-10 px-10 py-10">
+        <div>
+          <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
+            Faturamento · convênio + mês
+          </h6>
+          <h1 className="m-0">Competências</h1>
+          <p className="mt-2 max-w-[640px] text-sm text-ink-soft">
+            Fechamento por convênio e mês — lista sessões realizadas com evolução e gera o lote
+            pro faturista.
+          </p>
+        </div>
+
         <CompetenceForm insurers={insurers ?? []} />
 
-        <ul className="flex flex-col gap-2">
-          {(periods ?? []).map((period) => {
-            const items = (period.billing_items as { amount: number }[] | null) ?? [];
-            const total = items.reduce((sum, item) => sum + Number(item.amount), 0);
-            const insurerName = (period.insurers as { name: string } | null)?.name ?? "Convênio";
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Convênio</th>
+              <th>Competência</th>
+              <th>Status</th>
+              <th>Itens</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(periods ?? []).map((period) => {
+              const items = (period.billing_items as { amount: number }[] | null) ?? [];
+              const total = items.reduce((sum, item) => sum + Number(item.amount), 0);
+              const insurerName = (period.insurers as { name: string } | null)?.name ?? "Convênio";
 
-            return (
-              <li key={period.id}>
-                <Link
-                  href={`/faturamento/competencias/${period.id}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm hover:border-chart"
-                >
-                  <span className="font-medium text-ink">{insurerName}</span>
-                  <span className="tabular-figure text-ink-soft">
-                    {formatCompetence(period.competence_month)}
-                  </span>
-                  <span className="text-ink-faint">{STATUS_LABEL[period.status] ?? period.status}</span>
-                  <span className="tabular-figure text-ink-faint">{items.length} itens</span>
-                  <span className="tabular-figure font-medium text-ink">{formatCurrency(total)}</span>
-                </Link>
-              </li>
-            );
-          })}
-          {(periods ?? []).length === 0 && (
-            <li className="text-sm text-ink-faint">Nenhuma competência fechada ainda.</li>
-          )}
-        </ul>
+              return (
+                <tr key={period.id}>
+                  <td className="font-semibold">
+                    <Link href={`/faturamento/competencias/${period.id}`}>{insurerName}</Link>
+                  </td>
+                  <td className="tabular-figure">{formatCompetence(period.competence_month)}</td>
+                  <td>
+                    <span className={`tag-status ${STATUS_TAG_CLASS[period.status] ?? "st-cancelada"}`}>
+                      {STATUS_LABEL[period.status] ?? period.status}
+                    </span>
+                  </td>
+                  <td className="tabular-figure">{items.length}</td>
+                  <td className="tabular-figure font-semibold">{formatCurrency(total)}</td>
+                </tr>
+              );
+            })}
+            {(periods ?? []).length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-ink-faint">
+                  Nenhuma competência fechada ainda.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </main>
   );

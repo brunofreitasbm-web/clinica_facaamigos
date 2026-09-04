@@ -24,6 +24,43 @@ function mapAuthorizationGuardError(message: string): string {
   return "Não foi possível fechar a sessão. Tente de novo.";
 }
 
+// Home da recepção (app/recepcao/page.tsx) reusa estas mesmas actions pra
+// não duplicar a lógica de check-in/check-out/falta/confirmação — por isso
+// cada uma revalida as duas rotas.
+function revalidateAgendaViews() {
+  revalidatePath("/recepcao/agenda");
+  revalidatePath("/recepcao");
+}
+
+export async function confirmAppointment(appointmentId: string): Promise<ActionResult> {
+  const supabase = createAdminClient();
+
+  const { data: appointment } = await supabase
+    .from("appointments")
+    .select("id, status")
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (!appointment) {
+    return { success: false, error: "Sessão não encontrada." };
+  }
+  if (appointment.status !== "agendada") {
+    return { success: false, error: "Só é possível confirmar sessão ainda a confirmar." };
+  }
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({ status: "confirmada", confirmed_at: new Date().toISOString(), confirmed_via: "recepcao" })
+    .eq("id", appointmentId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível confirmar. Tente de novo." };
+  }
+
+  revalidateAgendaViews();
+  return { success: true };
+}
+
 export async function checkIn(appointmentId: string): Promise<ActionResult> {
   const supabase = createAdminClient();
 
@@ -52,7 +89,7 @@ export async function checkIn(appointmentId: string): Promise<ActionResult> {
     return { success: false, error: "Não foi possível registrar o check-in. Tente de novo." };
   }
 
-  revalidatePath("/recepcao/agenda");
+  revalidateAgendaViews();
   return { success: true };
 }
 
@@ -61,7 +98,7 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
 
   const { data: appointment } = await supabase
     .from("appointments")
-    .select("id, checkin_at, checkout_at, is_evaluation")
+    .select("id, checkin_at, checkout_at, is_evaluation, is_provisional")
     .eq("id", appointmentId)
     .maybeSingle();
 
@@ -79,12 +116,16 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
   // is_provisional para satisfazer o guard `appointments_authorization_guard`,
   // que exige authorization_id em qualquer status='realizada' não provisório.
   // Mesmo padrão de markEvaluationDone (app/recepcao/pacientes/[id]/stage-actions.ts).
+  // Preserva um is_provisional=true já gravado na criação da sessão (ex.: a
+  // recepção marcou "provisória" ao agendar por falta de guia vigente — ver
+  // app/recepcao/nova-sessao-dialog.tsx) — sem isso, esse OR sempre reavaliava
+  // só is_evaluation e apagava a marcação da sessão no check-out.
   const { error } = await supabase
     .from("appointments")
     .update({
       checkout_at: new Date().toISOString(),
       status: "realizada",
-      is_provisional: appointment.is_evaluation === true,
+      is_provisional: appointment.is_evaluation === true || appointment.is_provisional === true,
     })
     .eq("id", appointmentId);
 
@@ -92,7 +133,7 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
     return { success: false, error: mapAuthorizationGuardError(error.message ?? "") };
   }
 
-  revalidatePath("/recepcao/agenda");
+  revalidateAgendaViews();
   return { success: true };
 }
 
@@ -143,6 +184,6 @@ export async function markMissedOrCancelled(
     return { success: false, error: "Não foi possível registrar. Tente de novo." };
   }
 
-  revalidatePath("/recepcao/agenda");
+  revalidateAgendaViews();
   return { success: true };
 }

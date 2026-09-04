@@ -2,45 +2,33 @@
 
 /*
   Direção visual: Broadsheet, retematizado para Instituto Faça Amigos
-  (design publicado em Claude Design — ver PRD e o link do projeto).
-  Estrutura, tipografia e componentes vêm do sistema "Broadsheet"; a paleta
-  é a retematização: navy (#14284b) para interação/chrome, dourado
+  (design publicado em Claude Design — ver PRD e o projeto "Instituto Faça
+  Amigos"). Estrutura, tipografia e componentes vêm do sistema "Broadsheet";
+  a paleta é a retematização: navy (#14284b) para interação/chrome, dourado
   (#b8933a) como cor de destaque rara, cores de status compartilhadas por
   toda tela de operação (agenda, prontuário, faturamento).
 
-  Os nomes de variável/classe Tailwind existentes (--color-paper, --color-
-  ink, --color-chart*, --color-status-*, --color-milestone, .tabular-figure)
-  são mantidos de propósito: todo componente e página já escrito no app usa
-  essas classes, então repontar os valores aqui repinta o app inteiro sem
-  tocar em nenhum outro arquivo. --color-status-positive/pending/active/
-  negative/neutral mapeiam para realizada/agendada/em-atendimento/falta/
-  cancelada do vocabulário de status do domínio (mesmo significado:
-  positivo=concluído bem, pendente=aguardando, ativo=em andamento,
-  negativo=ruim, neutro=inativo).
+  Os tokens abaixo usam os MESMOS NOMES DE VARIÁVEL do design publicado
+  (--color-bg, --color-accent, --color-neutral-*, --status-*, ...) —
+  copiados de ifa-theme.css e styles.css do projeto — para que qualquer
+  marcação replicada dos mocks funcione sem tradução. Um segundo bloco logo
+  abaixo mantém os nomes antigos (--color-paper, --color-ink, --color-
+  chart*, --color-status-*, --color-milestone, .tabular-figure) como alias
+  para esses mesmos valores, porque componentes já existentes no app
+  (page-header.tsx, patient-identity-bar.tsx, stage-checklist.tsx,
+  measurement-card.tsx, trend-strip.tsx, auth-status.tsx) e classes
+  Tailwind espalhadas pelas rotas dependem deles — repontar aqui repinta o
+  app inteiro sem tocar nesses arquivos.
 */
 
 :root {
-  /* fundo e superfície — papel quente, nunca branco puro */
-  --color-paper: #f6f4ef;
-  --color-paper-line: color-mix(in srgb, #17203a 10%, transparent);
-  --color-paper-line-strong: color-mix(in srgb, #17203a 16%, transparent);
+  --color-bg: #f6f4ef;
+  --color-surface: #ece8df;
+  --color-text: #17203a;
+  --color-accent: #14284b;
+  --color-accent-2: #b8933a;
+  --color-divider: color-mix(in srgb, #17203a 16%, transparent);
 
-  /* tinta */
-  --color-ink: #17203a;
-  --color-ink-soft: #5f5d57;
-  --color-ink-faint: #7c7972;
-
-  /* acento primário — navy (interação, chrome) */
-  --color-chart: #14284b;
-  --color-chart-strong: #0e1c36;
-  --color-chart-soft: #eef2f9;
-
-  /* acento secundário — dourado (destaque raro, marca) */
-  --color-gold: #b8933a;
-  --color-gold-strong: #745a1f;
-  --color-gold-soft: #faf5e6;
-
-  /* rampas tonais — mesma ordem de valor visual entre papéis */
   --color-neutral-100: #f8f6f1;
   --color-neutral-200: #ebe8e1;
   --color-neutral-300: #d8d4cb;
@@ -71,7 +59,9 @@
   --color-accent-2-800: #534016;
   --color-accent-2-900: #33280e;
 
-  /* status das sessões/faturamento — iguais em todas as telas (PRD §9.11) */
+  --color-process-yellow: #b8933a;
+
+  /* status das sessões/faturamento — iguais em todas as telas */
   --status-agendada: #b8933a;
   --status-agendada-bg: #faf5e6;
   --status-confirmada: #2f7a4a;
@@ -85,8 +75,47 @@
   --status-cancelada: #7c7972;
   --status-cancelada-bg: #ebe8e1;
 
-  /* pontes pro vocabulário genérico (positivo/pendente/ativo/negativo/
-     neutro) já usado por measurement-card.tsx, stage-checklist.tsx etc. */
+  --font-heading: var(--font-source-serif), system-ui, sans-serif;
+  --font-heading-weight: 600;
+  --font-body: var(--font-source-serif), system-ui, sans-serif;
+
+  --space-1: 5px;
+  --space-2: 10px;
+  --space-3: 15px;
+  --space-4: 20px;
+  --space-6: 30px;
+  --space-8: 40px;
+
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #17203a 12%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #17203a 14%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #17203a 20%, transparent);
+}
+
+/* — alias pro vocabulário antigo, consumido pelo @theme inline abaixo e
+     por classes Tailwind já espalhadas pelo app (bg-paper, text-ink,
+     border-paper-line-strong, text-chart, bg-status-*-soft, text-status-
+     *-text, text-milestone) — ver comentário acima. */
+:root {
+  --color-paper: var(--color-bg);
+  --color-paper-line: color-mix(in srgb, var(--color-text) 10%, transparent);
+  --color-paper-line-strong: var(--color-divider);
+
+  --color-ink: var(--color-text);
+  --color-ink-soft: var(--color-neutral-700);
+  --color-ink-faint: var(--color-neutral-600);
+
+  --color-chart: var(--color-accent);
+  --color-chart-strong: var(--color-accent-800);
+  --color-chart-soft: var(--color-accent-100);
+
+  --color-gold: var(--color-accent-2);
+  --color-gold-strong: var(--color-accent-2-700);
+  --color-gold-soft: var(--color-accent-2-100);
+
   --color-status-positive: var(--status-realizada);
   --color-status-positive-soft: var(--status-realizada-bg);
   --color-status-positive-text: #143d25;
@@ -103,24 +132,7 @@
   --color-status-neutral-soft: var(--status-cancelada-bg);
   --color-status-neutral-text: #43423d;
 
-  /* marco / meta atingida */
-  --color-milestone: var(--color-gold);
-
-  --font-heading-weight: 600;
-  --space-1: 5px;
-  --space-2: 10px;
-  --space-3: 15px;
-  --space-4: 20px;
-  --space-6: 30px;
-  --space-8: 40px;
-
-  --radius-sm: 1px;
-  --radius-md: 2px;
-  --radius-lg: 4px;
-
-  --shadow-sm: 0 1px 2px color-mix(in srgb, #17203a 12%, transparent);
-  --shadow-md: 0 3px 10px color-mix(in srgb, #17203a 14%, transparent);
-  --shadow-lg: 0 12px 32px color-mix(in srgb, #17203a 20%, transparent);
+  --color-milestone: var(--color-accent-2);
 }
 
 @theme inline {
@@ -154,21 +166,34 @@
   --color-milestone: var(--color-milestone);
 
   --font-sans: var(--font-source-serif);
-  --font-heading: var(--font-source-serif);
   --font-mono: var(--font-plex-mono);
 }
 
 body {
-  background-color: var(--color-paper);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: var(--font-heading-weight);
+  line-height: 1.12;
   letter-spacing: -0.015em;
+  margin: 0 0 var(--space-2);
 }
+h1 { font-size: 42px; }
+h2 { font-size: 32px; }
+h3 { font-size: 25px; }
+h4 { font-size: 20px; }
+h5 { font-size: 16px; }
+h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+a { color: var(--color-accent); text-underline-offset: 3px; }
+a:hover { color: var(--color-accent-2-600); }
 
 /* números medidos — contagens, percentuais, valores monetários */
 .tabular-figure {
@@ -178,49 +203,48 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Componentes Broadsheet — classes novas e aditivas (nenhuma colide com
-   nome já usado no app). Ver readme do design system publicado.
+   Componentes Broadsheet — ver readme do design system publicado.
    ══════════════════════════════════════════════════════════════════════ */
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   cursor: pointer; text-decoration: none;
   font-family: var(--font-heading); font-weight: var(--font-heading-weight);
-  font-size: 14px; line-height: 1.2; color: var(--color-ink);
+  font-size: 14px; line-height: 1.2; color: var(--color-text);
   background: transparent; border: 1px solid transparent;
   padding: var(--space-2) calc(var(--space-3) * 1.2);
   border-radius: var(--radius-md);
 }
 .btn svg { display: block; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { background: var(--color-chart); color: #fff; }
+.btn-primary { background: var(--color-accent); color: #fff; }
 .btn-primary:hover { background: var(--color-accent-600); }
 .btn-primary:active { background: var(--color-accent-800); }
-.btn-secondary { border-color: var(--color-paper-line-strong); }
-.btn-secondary:hover { background: color-mix(in srgb, var(--color-ink) 7%, transparent); }
-.btn-secondary:active { background: color-mix(in srgb, var(--color-ink) 14%, transparent); }
-.btn-gold { background: var(--color-gold); color: #fff; }
+.btn-secondary { border-color: var(--color-divider); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+.btn-gold { background: var(--color-accent-2); color: #fff; }
 .btn-gold:hover { background: var(--color-accent-2-600); }
 .btn-gold:active { background: var(--color-accent-2-700); }
-.btn-ghost { color: var(--color-chart); padding-inline: var(--space-1); }
-.btn-ghost:hover { background: color-mix(in srgb, var(--color-chart) 10%, transparent); }
-.btn-ghost:active { background: color-mix(in srgb, var(--color-chart) 18%, transparent); }
+.btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
 .btn-icon { width: 36px; height: 36px; padding: 0; }
 .btn-block { width: 100%; margin-top: var(--space-2); }
 
 .field > label {
   display: block; font-size: 12px; margin-bottom: 5px;
-  color: color-mix(in srgb, var(--color-ink) 70%, transparent);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 .input {
   width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
-  font-size: 14px; color: var(--color-ink); caret-color: var(--color-chart);
-  background: var(--color-paper);
-  border: 1px solid var(--color-paper-line-strong); border-radius: var(--radius-md);
+  font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
 }
-.input::placeholder { color: color-mix(in srgb, var(--color-ink) 65%, transparent); opacity: 1; }
-.input:hover { border-color: color-mix(in srgb, var(--color-ink) 45%, transparent); }
-.input:focus-visible { border-color: var(--color-chart); outline: 2px solid var(--color-chart); outline-offset: 0; }
+.input::placeholder { color: color-mix(in srgb, var(--color-text) 65%, transparent); opacity: 1; }
+.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.input:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-accent); outline-offset: 0; }
 textarea.input { min-height: 90px; resize: vertical; }
 
 .radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
@@ -229,33 +253,33 @@ textarea.input { min-height: 90px; resize: vertical; }
 }
 .radio .dot {
   width: 16px; height: 16px; flex: none; border-radius: 50%;
-  border: 1.5px solid var(--color-paper-line-strong);
+  border: 1.5px solid var(--color-divider);
 }
-.radio:hover .dot { border-color: var(--color-chart); }
+.radio:hover .dot { border-color: var(--color-accent); }
 .radio input:checked + .dot {
-  border-color: var(--color-chart); background: var(--color-chart);
-  box-shadow: inset 0 0 0 4px var(--color-paper);
+  border-color: var(--color-accent); background: var(--color-accent);
+  box-shadow: inset 0 0 0 4px var(--color-bg);
 }
-.radio input:focus-visible + .dot { outline: 2px solid var(--color-chart); outline-offset: 2px; }
+.radio input:focus-visible + .dot { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 .seg {
   display: inline-flex; overflow: hidden;
-  border: 1px solid var(--color-paper-line-strong); border-radius: var(--radius-md);
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
 }
 .seg-opt {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 12px; font-size: 13px; cursor: pointer;
 }
-.seg-opt + .seg-opt { border-left: 1px solid var(--color-paper-line-strong); }
-.seg-opt:has(input:checked) { background: var(--color-chart); color: #fff; }
-.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-ink) 7%, transparent); }
-.seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-chart); outline-offset: -2px; }
+.seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+.seg-opt:has(input:checked) { background: var(--color-accent); color: #fff; }
+.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 
 .card {
   display: flex; flex-direction: column; gap: var(--space-2);
-  padding: var(--space-3); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-ink) 4%, var(--color-paper));
+  padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface);
 }
-.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-gold); }
+.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent-2); }
 .card-title {
   font-family: var(--font-heading); font-weight: var(--font-heading-weight);
   font-size: 17px; line-height: 1.2;
@@ -263,7 +287,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
 .card-meta {
   display: flex; align-items: center; gap: 6px; font-size: 11px;
-  color: color-mix(in srgb, var(--color-ink) 50%, transparent);
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
 }
 .elev-sm { box-shadow: var(--shadow-sm); }
 .elev-md { box-shadow: var(--shadow-md); }
@@ -277,7 +301,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
 .tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
 .tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
-.tag-outline { border: 1px solid var(--color-chart); color: var(--color-chart); }
+.tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
 
 .tag-status { display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:0.02em; padding:3px 10px; border-radius:2px; white-space:nowrap; }
 .tag-status::before { content:""; width:6px; height:6px; border-radius:50%; background: currentColor; }
@@ -297,19 +321,19 @@ textarea.input { min-height: 90px; resize: vertical; }
   font-size: 18px; margin-right: auto;
 }
 .nav a { color: inherit; text-decoration: none; font-size: 14px; }
-.nav a:hover, .nav a[aria-current='page'] { color: var(--color-chart); }
+.nav a:hover, .nav a[aria-current='page'] { color: var(--color-accent); }
 
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table th {
   text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-ink) 60%, transparent);
-  padding: var(--space-2); border-bottom: 1px solid var(--color-paper-line-strong);
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  padding: var(--space-2); border-bottom: 1px solid var(--color-divider);
 }
 .table td {
   padding: var(--space-2);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
 }
-.table tbody tr:hover { background: color-mix(in srgb, var(--color-ink) 4%, transparent); }
+.table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
 
 .dialog-backdrop {
   position: fixed; inset: 0; display: grid; place-items: center;
@@ -319,7 +343,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .dialog {
   width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
   padding: var(--space-4); border-radius: var(--radius-lg);
-  background: var(--color-paper); box-shadow: var(--shadow-lg);
+  background: var(--color-surface); box-shadow: var(--shadow-lg);
 }
 .dialog-title {
   font-family: var(--font-heading); font-weight: var(--font-heading-weight);

@@ -29,15 +29,14 @@ export function ReprocessButton({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        onClick={handleReprocess}
-        disabled={isPending}
-        className="rounded-md border border-paper-line-strong px-4 py-2 text-sm text-ink hover:border-chart disabled:opacity-50"
-      >
+      <button type="button" onClick={handleReprocess} disabled={isPending} className="btn btn-secondary">
         {isPending ? "Reprocessando…" : "Reprocessar"}
       </button>
-      {error && <p className="text-xs text-status-negative-text">{error}</p>}
+      {error && (
+        <p className="text-xs" style={{ color: "var(--status-falta)" }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { computeCompetenceEligibility } from "@/lib/billing-eligibility";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { FaturamentoHeader } from "../../faturamento-header";
 import { ReprocessButton } from "./reprocess-button";
 import { CsvExportButton } from "../csv-export-button";
 
@@ -13,6 +13,13 @@ const STATUS_LABEL: Record<string, string> = {
   fechada: "Fechada",
   enviada: "Exportada",
   paga: "Paga",
+};
+
+const STATUS_TAG_CLASS: Record<string, string> = {
+  aberta: "st-agendada",
+  fechada: "st-em-atendimento",
+  enviada: "st-confirmada",
+  paga: "st-realizada",
 };
 
 function formatMonthLabel(monthStr: string): string {
@@ -87,73 +94,99 @@ export default async function CompetenceDetailPage({
 
   return (
     <main className="flex flex-1 flex-col">
-      <PageHeader
-        axisLabel="Faturamento"
-        title={`${insurerName} — ${formatMonthLabel(monthStr)}`}
-        description={`Status: ${STATUS_LABEL[period.status] ?? period.status}${
-          period.exported_at ? ` · exportado em ${formatDateTime(period.exported_at)}` : ""
-        }`}
-      />
-      <div className="flex flex-col gap-6 p-6 sm:p-10">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3">
-          <p className="text-sm text-ink-soft">
-            Total da competência
-            <span className="tabular-figure ml-2 text-lg font-semibold text-ink">
-              {formatCurrency(total)}
+      <FaturamentoHeader active="competencia" />
+      <div className="flex flex-col gap-10 px-10 py-10">
+        <section className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
+              Competência · {formatMonthLabel(monthStr)}
+              {period.exported_at ? ` · exportado em ${formatDateTime(period.exported_at)}` : ""}
+            </h6>
+            <h1 className="m-0">{insurerName}</h1>
+            <span className={`tag-status mt-2 inline-flex ${STATUS_TAG_CLASS[period.status] ?? "st-cancelada"}`}>
+              {STATUS_LABEL[period.status] ?? period.status}
             </span>
-          </p>
-          <div className="flex gap-2">
+          </div>
+          <div className="flex gap-2.5">
             <ReprocessButton insurerId={period.insurer_id} monthStr={monthStr} />
             <CsvExportButton billingPeriodId={period.id} />
           </div>
-        </div>
+        </section>
 
-        <section>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
-            Itens faturáveis ({items.length})
-          </h2>
-          <ul className="mt-2 flex flex-col gap-2">
-            {items.map((item) => (
-              <li
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
-              >
-                <span className="font-medium text-ink">{item.patientName}</span>
-                <span className="tabular-figure text-ink-soft">
-                  {item.startsAt ? formatDateTime(item.startsAt) : "—"}
-                </span>
-                <span className="text-ink-soft">{item.procedureCode}</span>
-                <span className="text-ink-faint">{item.therapistName}</span>
-                <span className="tabular-figure font-medium text-ink">
-                  {formatCurrency(item.amount)}
-                </span>
-              </li>
-            ))}
-            {items.length === 0 && (
-              <li className="text-sm text-ink-faint">Nenhum item faturável ainda.</li>
-            )}
-          </ul>
+        <section className="card w-fit min-w-[260px]">
+          <div className="card-kicker">Total da competência</div>
+          <div
+            className="tabular-figure text-[32px] font-semibold"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            {formatCurrency(total)}
+          </div>
         </section>
 
         <section>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-status-negative-text">
+          <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3">
+            Itens faturáveis ({items.length})
+          </h6>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Paciente</th>
+                <th>Data</th>
+                <th>Procedimento</th>
+                <th>Profissional</th>
+                <th>Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id}>
+                  <td className="font-semibold">{item.patientName}</td>
+                  <td className="tabular-figure">{item.startsAt ? formatDateTime(item.startsAt) : "—"}</td>
+                  <td>{item.procedureCode}</td>
+                  <td className="text-ink-faint">{item.therapistName}</td>
+                  <td className="tabular-figure font-semibold">{formatCurrency(item.amount)}</td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-ink-faint">
+                    Nenhum item faturável ainda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h6 style={{ color: "var(--status-falta)" }} className="mb-3">
             Inconsistências ({inconsistent.length})
-          </h2>
-          <ul className="mt-2 flex flex-col gap-2">
-            {inconsistent.map((session) => (
-              <li
-                key={session.appointmentId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-status-negative-soft bg-status-negative-soft/40 px-4 py-3 text-sm"
-              >
-                <span className="font-medium text-ink">{session.patientName}</span>
-                <span className="tabular-figure text-ink-soft">{formatDateTime(session.startsAt)}</span>
-                <span className="text-status-negative-text">{session.reason}</span>
-              </li>
-            ))}
-            {inconsistent.length === 0 && (
-              <li className="text-sm text-ink-faint">Nenhuma inconsistência nesta competência.</li>
-            )}
-          </ul>
+          </h6>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Paciente</th>
+                <th>Data</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inconsistent.map((session) => (
+                <tr key={session.appointmentId}>
+                  <td className="font-semibold">{session.patientName}</td>
+                  <td className="tabular-figure">{formatDateTime(session.startsAt)}</td>
+                  <td style={{ color: "var(--status-falta)" }}>{session.reason}</td>
+                </tr>
+              ))}
+              {inconsistent.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="text-ink-faint">
+                    Nenhuma inconsistência nesta competência.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </section>
       </div>
     </main>

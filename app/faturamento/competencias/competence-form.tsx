@@ -11,7 +11,7 @@ export function CompetenceForm({ insurers }: { insurers: { id: string; name: str
 
   return (
     <form
-      className="flex flex-col gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-5 sm:flex-row sm:items-end"
+      className="card flex flex-col gap-4 sm:flex-row sm:items-end"
       action={(formData) => {
         setError(null);
         const insurerId = String(formData.get("insurer_id") ?? "");
@@ -26,20 +26,9 @@ export function CompetenceForm({ insurers }: { insurers: { id: string; name: str
         });
       }}
     >
-      <div className="flex-1">
-        <label
-          className="text-xs font-medium uppercase tracking-wide text-ink-soft"
-          htmlFor="insurer_id"
-        >
-          Convênio
-        </label>
-        <select
-          id="insurer_id"
-          name="insurer_id"
-          required
-          defaultValue=""
-          className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
-        >
+      <div className="field flex-1">
+        <label htmlFor="insurer_id">Convênio</label>
+        <select id="insurer_id" name="insurer_id" required defaultValue="" className="input">
           <option value="" disabled>
             Selecione
           </option>
@@ -50,26 +39,18 @@ export function CompetenceForm({ insurers }: { insurers: { id: string; name: str
           ))}
         </select>
       </div>
-      <div className="sm:w-48">
-        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="month">
-          Competência
-        </label>
-        <input
-          id="month"
-          name="month"
-          type="month"
-          required
-          className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
-        />
+      <div className="field sm:w-48">
+        <label htmlFor="month">Competência</label>
+        <input id="month" name="month" type="month" required className="input" />
       </div>
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
-      >
+      <button type="submit" disabled={isPending} className="btn btn-primary">
         {isPending ? "Fechando…" : "Fechar competência"}
       </button>
-      {error && <p className="text-xs text-status-negative-text sm:basis-full">{error}</p>}
+      {error && (
+        <p className="text-xs sm:basis-full" style={{ color: "var(--status-falta)" }}>
+          {error}
+        </p>
+      )}
     </form>
   );
 }
