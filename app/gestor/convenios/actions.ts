@@ -1,6 +1,6 @@
 "use server";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
 
@@ -14,7 +14,7 @@ export async function createInsurer(
     return { success: false, error: "Nome do convênio é obrigatório." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("insurers").insert({
     clinic_id: DEV_CLINIC_ID,
     name,

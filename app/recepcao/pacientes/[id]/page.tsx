@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { StageChecklist } from "@/components/stage-checklist";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { StageActionForm } from "./stage-action-form";
@@ -20,7 +20,7 @@ export default async function PacientePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")

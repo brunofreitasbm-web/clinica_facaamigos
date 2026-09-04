@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 
@@ -15,7 +15,7 @@ const STAGE_LABEL: Record<number, string> = {
 export const dynamic = "force-dynamic";
 
 export default async function PacientesPage() {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: patients } = await supabase
     .from("patients")
