@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -26,12 +27,20 @@ export default async function ConveniosPage() {
           {(insurers ?? []).map((insurer) => (
             <li
               key={insurer.id}
-              className="rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
             >
-              <span className="font-medium text-ink">{insurer.name}</span>
-              {insurer.ans_code && (
-                <span className="ml-2 text-ink-faint">ANS {insurer.ans_code}</span>
-              )}
+              <div>
+                <span className="font-medium text-ink">{insurer.name}</span>
+                {insurer.ans_code && (
+                  <span className="ml-2 text-ink-faint">ANS {insurer.ans_code}</span>
+                )}
+              </div>
+              <Link
+                href={`/gestor/convenios/${insurer.id}/precos`}
+                className="text-sm font-medium text-chart hover:underline"
+              >
+                Tabela de preços
+              </Link>
             </li>
           ))}
           {(insurers ?? []).length === 0 && (
