@@ -114,7 +114,7 @@ export type ProtocolRow = {
   itemCount: number;
 };
 
-const PROTOCOL_LABEL: Record<string, string> = {
+export const PROTOCOL_LABEL: Record<string, string> = {
   vbmapp: "VB-MAPP",
   ablls_r: "ABLLS-R",
   esdm: "Denver / ESDM",
