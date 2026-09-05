@@ -8,6 +8,7 @@ import {
   civilDateInTimeZone,
 } from "@/lib/timezone";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
+import { getReceptionQueue } from "@/lib/reception-queue";
 import { NovaSessaoDialog, type GuideSummary } from "./nova-sessao-dialog";
 import { TodayAgendaList, type TodaySession } from "./today-agenda-list";
 
@@ -169,6 +170,14 @@ export default async function RecepcaoPage() {
   }
   expiringGuides.sort((a, b) => a.validTo.localeCompare(b.validTo));
 
+  // ── Demais pendências (§9.1): guia vencendo/poucas sessões já aparece
+  // acima com sua própria seção; aqui só as outras 4 categorias da fila
+  // unificada, resumidas — a lista completa fica em /recepcao/pacientes/pendencias.
+  const fullQueue = await getReceptionQueue(supabase, DEV_CLINIC_ID);
+  const otherPendingItems = fullQueue.filter(
+    (item) => item.category !== "guia_vencendo" && item.category !== "guia_poucas_sessoes",
+  );
+
   // ── Salas agora — quem está fisicamente na sala (checkin sem checkout);
   // sem ninguém no local, mostra a próxima sessão já em curso no horário.
   const roomsNow = (rooms ?? []).map((room) => {
@@ -242,11 +251,18 @@ export default async function RecepcaoPage() {
           <Link href="/recepcao/pacientes" className="py-5 text-inherit no-underline opacity-70 hover:opacity-100">
             Pacientes
           </Link>
+          <Link href="/recepcao/pacientes/pendencias" className="py-5 text-inherit no-underline opacity-70 hover:opacity-100 flex items-center gap-1.5">
+            <span>Pendências</span>
+            {fullQueue.length > 0 && (
+              <span className="rounded-full bg-rose-500/25 text-rose-200 px-1.5 py-0.2 text-[11px] font-semibold">
+                {fullQueue.length}
+              </span>
+            )}
+          </Link>
           <Link href="/recepcao/whatsapp" className="py-5 text-inherit no-underline opacity-70 hover:opacity-100 flex items-center gap-1">
             <span>WhatsApp D-1</span>
             <span className="rounded-full bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 text-[11px] font-semibold">Novo</span>
           </Link>
-          <span className="py-5 opacity-40">Guias</span>
           <span className="py-5 opacity-40">Documentos</span>
         </nav>
         <div className="flex items-center gap-3.5 text-[13px] opacity-85">
@@ -315,6 +331,45 @@ export default async function RecepcaoPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-3.5 flex items-center justify-between">
+              <h6 style={{ color: "var(--color-accent-2-600)" }}>Outras pendências</h6>
+              {otherPendingItems.length > 0 && (
+                <Link
+                  href="/recepcao/pacientes/pendencias"
+                  className="text-xs no-underline"
+                  style={{ color: "var(--color-accent-2-700)" }}
+                >
+                  ver todas ({otherPendingItems.length})
+                </Link>
+              )}
+            </div>
+            <div className="flex flex-col gap-3">
+              {otherPendingItems.length === 0 && (
+                <p className="text-sm text-ink-faint">Nenhuma outra pendência no momento.</p>
+              )}
+              {otherPendingItems.slice(0, 5).map((item) => {
+                const content = (
+                  <div>
+                    <div style={{ fontFamily: "var(--font-heading)" }} className="text-[15px] font-semibold">
+                      {item.patientName}
+                    </div>
+                    <div className="text-xs" style={{ color: "var(--color-neutral-600)" }}>
+                      {item.categoryLabel} · {item.detail}
+                    </div>
+                  </div>
+                );
+                return item.patientId ? (
+                  <Link key={item.id} href={item.href} className="no-underline">
+                    {content}
+                  </Link>
+                ) : (
+                  <div key={item.id}>{content}</div>
+                );
+              })}
             </div>
           </div>
 

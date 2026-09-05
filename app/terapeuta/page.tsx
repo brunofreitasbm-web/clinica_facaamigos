@@ -304,9 +304,13 @@ export default async function TerapeutaPage({
         >
           📅 Hoje
         </a>
-        <span className="flex flex-col items-center gap-1" style={{ color: "var(--color-neutral-500)" }}>
+        <a
+          href="/terapeuta/pacientes"
+          className="flex flex-col items-center gap-1 no-underline"
+          style={{ color: "var(--color-neutral-600)" }}
+        >
           👥 Pacientes
-        </span>
+        </a>
         <a
           href="#pendencias"
           className="flex flex-col items-center gap-1 no-underline"

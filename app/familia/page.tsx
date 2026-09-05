@@ -399,7 +399,14 @@ export default async function FamiliaPage() {
         </section>
 
         <section>
-          <h6>O que estamos trabalhando</h6>
+          <div className="flex items-center justify-between">
+            <h6>O que estamos trabalhando (Progresso ABA)</h6>
+            {(goalsRaw ?? []).length > 0 && (
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                {(goalsRaw ?? []).filter((g) => g.status === "atingida").length}/{(goalsRaw ?? []).length} metas conquistadas
+              </span>
+            )}
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
             {(goalsRaw ?? []).length > 0 ? (
               (goalsRaw ?? []).map((g) => {
@@ -409,6 +416,7 @@ export default async function FamiliaPage() {
                   <div key={g.id} className="card">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                       <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 14 }}>
+                        {achieved ? "🌟 " : "🎯 "}
                         {g.description}
                       </span>
                       <span className={`tag-status ${style.tagClass}`}>{style.label}</span>
@@ -420,12 +428,13 @@ export default async function FamiliaPage() {
                         borderRadius: 3,
                         overflow: "hidden",
                         background: "var(--color-neutral-200)",
+                        marginTop: 8,
                       }}
                     >
                       <div
                         style={{
                           height: "100%",
-                          width: "100%",
+                          width: achieved ? "100%" : "65%",
                           background: achieved
                             ? "var(--color-accent-2)"
                             : "repeating-linear-gradient(135deg, var(--color-accent-2) 0 6px, var(--color-accent-2-300) 6px 12px)",

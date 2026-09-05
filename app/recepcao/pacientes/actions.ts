@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 
 export async function createLead(
@@ -28,7 +29,11 @@ export async function createLead(
       status: "lead",
       entry_source: entrySource || null,
       complaint: complaint || null,
-      first_contact_at: new Date().toISOString(),
+      // first_contact_at NÃO é gravado aqui de propósito: §10.1 mede
+      // first_response_min = primeiro retorno humano − criação do lead. Se
+      // gravássemos no cadastro, a métrica seria sempre ~0 e o alerta "lead
+      // sem retorno > 15 min" (§9.1) nunca dispararia. Fica null até alguém
+      // de fato retornar o contato via registerFirstContact().
     })
     .select("id")
     .single();
@@ -48,4 +53,44 @@ export async function createLead(
   }
 
   return { success: true, patientId: patient.id };
+}
+
+/**
+ * Registra o primeiro retorno humano ao lead (§9.1/§10.1 first_response_min).
+ * Idempotente: só grava na primeira chamada (coalesce), pra não sobrescrever
+ * o timestamp real caso alguém clique de novo.
+ */
+export async function registerFirstContact(
+  patientId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const { data: patient, error: fetchError } = await supabase
+    .from("patients")
+    .select("first_contact_at")
+    .eq("id", patientId)
+    .maybeSingle();
+
+  if (fetchError || !patient) {
+    return { success: false, error: "Paciente não encontrado." };
+  }
+  if (patient.first_contact_at) {
+    return { success: true };
+  }
+
+  const { data: updated, error } = await supabase
+    .from("patients")
+    .update({ first_contact_at: new Date().toISOString() })
+    .eq("id", patientId)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !updated) {
+    return { success: false, error: "Não foi possível registrar o retorno. Tente de novo." };
+  }
+
+  revalidatePath("/recepcao");
+  revalidatePath("/recepcao/pacientes/pendencias");
+  revalidatePath(`/recepcao/pacientes/${patientId}`);
+  return { success: true };
 }

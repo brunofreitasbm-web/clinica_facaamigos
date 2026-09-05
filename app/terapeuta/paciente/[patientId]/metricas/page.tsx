@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { getPatientProgramTrends, getPatientGoalCountsByDomain } from "@/lib/patient-metrics";
+import { getPatientABAGraphData } from "@/lib/aba-actions";
+import { ABAProgressChart } from "@/components/aba/aba-progress-chart";
 import { logRecordAccess } from "@/lib/record-access-log";
 
 export const dynamic = "force-dynamic";
@@ -78,9 +80,10 @@ export default async function PatientMetricsPage({
 
   await logRecordAccess(supabase, patientId, "metricas_aba");
 
-  const [{ trends, domainAverages }, goalCounts] = await Promise.all([
+  const [{ trends, domainAverages }, goalCounts, abaGraphRes] = await Promise.all([
     getPatientProgramTrends(supabase, patientId),
     getPatientGoalCountsByDomain(supabase, patientId),
+    getPatientABAGraphData(patientId),
   ]);
 
   const maxDomainPct = Math.max(...domainAverages.map((d) => d.pctCorrect), 1);
@@ -94,6 +97,10 @@ export default async function PatientMetricsPage({
         description="Progresso por programa (coleta ABA) e por domínio — motor, fala, social, autonomia."
       />
       <div className="flex flex-col gap-8 p-6 sm:p-10">
+        <section>
+          <ABAProgressChart chartData={abaGraphRes.chartData || []} patientName={patient.full_name} />
+        </section>
+
         <section>
           <h2 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
             Evolução semanal por programa

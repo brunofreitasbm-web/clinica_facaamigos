@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro" },
   { key: "bonificacao", label: "PLR & Faixas", href: "/gestor/bonificacao" },
+  { key: "metas", label: "Metas por Cargo", href: "/gestor/metas" },
   { key: "auditoria", label: "Auditoria (LGPD)", href: "/gestor/auditoria" },
 ] as const;
 

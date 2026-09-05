@@ -18,6 +18,8 @@ export function AppointmentForm({
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const [selectedPatientId, setSelectedPatientId] = useState<string>("");
+
   if (!open) {
     return (
       <button
@@ -44,7 +46,13 @@ export function AppointmentForm({
         });
       }}
     >
-      <select name="patient_id" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm">
+      <select
+        name="patient_id"
+        required
+        value={selectedPatientId}
+        onChange={(e) => setSelectedPatientId(e.target.value)}
+        className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm"
+      >
         <option value="">Paciente</option>
         {patients.map((p) => (
           <option key={p.id} value={p.id}>{p.full_name}</option>
@@ -73,7 +81,21 @@ export function AppointmentForm({
           Cancelar
         </button>
       </div>
-      {error && <p className="text-xs text-status-negative-text sm:col-span-3">{error}</p>}
+      {error && (
+        <div className="flex flex-col gap-2 sm:col-span-3">
+          <p className="text-xs text-status-negative-text">{error}</p>
+          {selectedPatientId && (
+            <a
+              href={`/recepcao/pacientes/${selectedPatientId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-chart underline"
+            >
+              📋 Abrir cadastro/guias do paciente em nova aba →
+            </a>
+          )}
+        </div>
+      )}
     </form>
   );
 }

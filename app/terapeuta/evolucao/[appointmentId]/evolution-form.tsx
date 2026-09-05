@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { createSessionNote } from "../actions";
-import {
-  BEHAVIOR_TYPES,
-  BEHAVIOR_INTENSITIES,
-  FAMILY_GUIDANCE_OPTIONS,
-} from "@/lib/session-note-fields";
+import { BEHAVIOR_TYPES, BEHAVIOR_INTENSITIES, FAMILY_GUIDANCE_OPTIONS } from "@/lib/session-note-fields";
+import { generateAIEvolutionText } from "@/lib/aba-actions";
+import { ABCLogger } from "@/components/aba/abc-logger";
+import { AbaAiHelper } from "@/components/aba/aba-ai-helper";
 
 const PRESENCE_SCALE = [1, 2, 3, 4, 5] as const;
 
@@ -50,6 +49,25 @@ export function EvolutionForm({
   const [isPending, startTransition] = useTransition();
   const [elapsedSec, setElapsedSec] = useState(0);
   const [draftSaved, setDraftSaved] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  async function handleGenerateAIText() {
+    setIsGeneratingAI(true);
+    setAiError(null);
+    try {
+      const res = await generateAIEvolutionText(appointmentId);
+      if (res.success && res.generatedText) {
+        setFreeText(res.generatedText);
+      } else {
+        setAiError(res.error || "Erro ao gerar texto de evolução por IA.");
+      }
+    } catch {
+      setAiError("Falha na chamada da IA.");
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  }
 
   // Restaura rascunho salvo do localStorage se existir
   useEffect(() => {
@@ -60,6 +78,7 @@ export function EvolutionForm({
         if (data.presence) setPresence(data.presence);
         if (data.freeText) setFreeText(data.freeText);
         if (data.selectedBehaviors) setSelectedBehaviors(data.selectedBehaviors);
+        if (data.intensities) setIntensities(data.intensities);
         if (data.selectedOrientations) setSelectedOrientations(data.selectedOrientations);
       }
     } catch {}
@@ -75,13 +94,13 @@ export function EvolutionForm({
       try {
         localStorage.setItem(
           `draft_evolution_${appointmentId}`,
-          JSON.stringify({ presence, freeText, selectedBehaviors, selectedOrientations })
+          JSON.stringify({ presence, freeText, selectedBehaviors, intensities, selectedOrientations })
         );
         setDraftSaved(true);
       } catch {}
     }, 500);
     return () => clearTimeout(timer);
-  }, [presence, freeText, selectedBehaviors, selectedOrientations, appointmentId, signed]);
+  }, [presence, freeText, selectedBehaviors, intensities, selectedOrientations, appointmentId, signed]);
 
   useEffect(() => {
     if (!attendanceStartedAt) return;
@@ -282,13 +301,56 @@ export function EvolutionForm({
 
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+                Metas do PEI / ABA trabalhadas na sessão (1-clique)
+              </p>
+              <div className="mt-2 flex flex-col gap-2.5">
+                {[
+                  { id: "meta_comunicacao", label: "Comunicação e Mando Operante" },
+                  { id: "meta_autonomia", label: "Autonomia & AVDs" },
+                  { id: "meta_social", label: "Engajamento Social & Troca de Turnos" },
+                  { id: "meta_motor", label: "Imitação / Motricidade Fina" },
+                ].map((meta) => (
+                  <div key={meta.id} className="rounded-md border p-2.5 bg-paper/40" style={{ borderColor: "var(--color-divider)" }}>
+                    <div className="text-xs font-semibold text-ink mb-1.5">{meta.label}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["Independente", "Dica Verbal", "Dica Gestual", "Ajuda Física"].map((promptLevel) => {
+                        const key = `${meta.id}_${promptLevel}`;
+                        const isSelected = selectedBehaviors[key];
+                        return (
+                          <button
+                            key={promptLevel}
+                            type="button"
+                            onClick={() => {
+                              setSelectedBehaviors((prev) => ({
+                                ...prev,
+                                [key]: !prev[key],
+                              }));
+                            }}
+                            className={`px-2.5 py-1 text-xs rounded transition-all font-medium min-h-[36px] ${
+                              isSelected
+                                ? "bg-accent-2 text-white font-semibold shadow-xs"
+                                : "bg-surface border border-divider text-ink-soft hover:bg-paper"
+                            }`}
+                          >
+                            {isSelected ? "✓ " : ""}{promptLevel}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
                 Orientação dada à família
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {FAMILY_GUIDANCE_OPTIONS.map((g) => (
                   <label
                     key={g.value}
-                    className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm"
+                    className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm min-h-[44px]"
                     style={{
                       borderRadius: "var(--radius-md)",
                       border: `1px solid ${selectedOrientations[g.value] ? "var(--color-accent-2)" : "var(--color-divider)"}`,
@@ -309,23 +371,47 @@ export function EvolutionForm({
               </div>
             </div>
 
+            {/* Registro Funcional ABC (Antecedente - Comportamento - Consequência) */}
+            <ABCLogger appointmentId={appointmentId} />
+
+            {/* Assistente de IA ABA para PEI & Evolução */}
+            <AbaAiHelper
+              patientName={patientName}
+              onApplyEvolution={(text) => {
+                setFreeText((prev) => (prev ? `${prev}\n\n${text}` : text));
+                setStep(2);
+              }}
+            />
+
             {stepError && <p className="text-xs text-status-negative-text">{stepError}</p>}
           </div>
 
           {/* Passo 2 — texto livre + resumo antes de assinar. */}
           <div className={step === 2 ? "flex flex-col gap-6" : "hidden"}>
-            <div>
-              <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="free_text">
-                Texto livre (opcional)
-              </label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="free_text">
+                  Texto livre de Evolução Clínica
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateAIText}
+                  disabled={isGeneratingAI}
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {isGeneratingAI ? "Sintetizando Dados da Sessão..." : "✨ Gerar Texto com IA (1-Clique)"}
+                </button>
+              </div>
               <textarea
                 id="free_text"
                 name="free_text"
-                rows={4}
+                rows={6}
                 value={freeText}
                 onChange={(e) => setFreeText(e.target.value)}
+                placeholder="Preencha observações clínicas ou clique no botão acima para sintetizar as tentativas e registros da sessão com Inteligência Artificial..."
                 className="input mt-2"
               />
+              {aiError && <p className="text-xs font-semibold text-rose-600 mt-1">{aiError}</p>}
             </div>
 
             <div className="card">

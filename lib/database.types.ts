@@ -14,6 +14,67 @@ export type Database = {
   }
   public: {
     Tables: {
+      aba_abc_logs: {
+        Row: {
+          id: string
+          appointment_id: string
+          patient_id: string
+          therapist_id: string
+          antecedent: string
+          behavior_description: string
+          consequence: string
+          intensity: string | null
+          duration_seconds: number | null
+          recorded_at: string
+        }
+        Insert: {
+          id?: string
+          appointment_id: string
+          patient_id: string
+          therapist_id: string
+          antecedent: string
+          behavior_description: string
+          consequence: string
+          intensity?: string | null
+          duration_seconds?: number | null
+          recorded_at?: string
+        }
+        Update: {
+          id?: string
+          appointment_id?: string
+          patient_id?: string
+          therapist_id?: string
+          antecedent?: string
+          behavior_description?: string
+          consequence?: string
+          intensity?: string | null
+          duration_seconds?: number | null
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aba_abc_logs_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aba_abc_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aba_abc_logs_therapist_id_fkey"
+            columns: ["therapist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       absence_reports: {
         Row: {
           appointment_id: string

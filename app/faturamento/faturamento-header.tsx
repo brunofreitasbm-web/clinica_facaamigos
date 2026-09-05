@@ -1,19 +1,16 @@
 import Link from "next/link";
 
 const NAV_ITEMS = [
-  { key: "competencia", label: "Competência" },
-  { key: "guias", label: "Guias" },
-  { key: "glosas", label: "Glosas" },
-  { key: "repasses", label: "Repasses" },
+  { key: "competencia", label: "Competência", href: "/faturamento" },
+  { key: "guias", label: "Guias TISS", href: "/faturamento/guias" },
+  { key: "glosas", label: "Glosas", href: "/faturamento/glosas" },
+  { key: "repasses", label: "Repasses", href: "/faturamento/repasses" },
 ] as const;
 
 type NavKey = (typeof NAV_ITEMS)[number]["key"];
 
 /**
- * Cabeçalho navy fixo da área de faturamento — layout Broadsheet/Instituto
- * Faça Amigos (Faturamento.dc.html). "Guias"/"Glosas"/"Repasses" ainda não
- * têm tela própria no app (não existe listagem de glosas em lugar nenhum do
- * repo hoje), então ficam como rótulos sem link — só "Competência" navega.
+ * Cabeçalho navy da área de faturamento — layout Broadsheet/Instituto Faça Amigos
  */
 export function FaturamentoHeader({ active = "competencia" }: { active?: NavKey }) {
   return (
@@ -39,17 +36,18 @@ export function FaturamentoHeader({ active = "competencia" }: { active?: NavKey 
       </Link>
       <nav className="flex items-center gap-6 text-[15px]">
         {NAV_ITEMS.map((item) => (
-          <span
+          <Link
             key={item.key}
-            className="py-5"
+            href={item.href}
+            className="py-5 no-underline transition-opacity hover:opacity-100"
             style={
               item.key === active
-                ? { color: "#fff", borderBottom: "2px solid var(--color-accent-2)" }
-                : { opacity: 0.7 }
+                ? { color: "#fff", borderBottom: "2px solid var(--color-accent-2)", opacity: 1 }
+                : { color: "var(--color-bg)", opacity: 0.75 }
             }
           >
             {item.label}
-          </span>
+          </Link>
         ))}
       </nav>
     </header>
