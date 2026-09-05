@@ -1,83 +1,103 @@
 @import "tailwindcss";
 
 /*
-  Direção visual: Broadsheet, retematizado para Instituto Faça Amigos
-  (design publicado em Claude Design — ver PRD e o projeto "Instituto Faça
-  Amigos"). Estrutura, tipografia e componentes vêm do sistema "Broadsheet";
-  a paleta é a retematização: navy (#14284b) para interação/chrome, dourado
-  (#b8933a) como cor de destaque rara, cores de status compartilhadas por
-  toda tela de operação (agenda, prontuário, faturamento).
+  Direção visual: FaçaAmigos — retematizado a partir do design system oficial
+  da marca (Playground Inclusivo), ver
+  C:\Users\bruno\Documents\Projetos\Faça Amigos\Branding\fa-aamigos-design-system.
+  Rosa (#F0196B) como accent primário, teal (#2ECFB5) como secundário, âmbar
+  (#C99020, tom da marca-mãe) como accent raro, Fredoka nos títulos grandes,
+  Nunito no resto da UI, cantos sempre arredondados (pill em botão/tag/badge,
+  24px em cartão), sombra sempre (nunca só fio de 1px).
 
-  Os tokens abaixo usam os MESMOS NOMES DE VARIÁVEL do design publicado
-  (--color-bg, --color-accent, --color-neutral-*, --status-*, ...) —
-  copiados de ifa-theme.css e styles.css do projeto — para que qualquer
-  marcação replicada dos mocks funcione sem tradução. Um segundo bloco logo
-  abaixo mantém os nomes antigos (--color-paper, --color-ink, --color-
-  chart*, --color-status-*, --color-milestone, .tabular-figure) como alias
-  para esses mesmos valores, porque componentes já existentes no app
-  (page-header.tsx, patient-identity-bar.tsx, stage-checklist.tsx,
-  measurement-card.tsx, trend-strip.tsx, auth-status.tsx) e classes
-  Tailwind espalhadas pelas rotas dependem deles — repontar aqui repinta o
-  app inteiro sem tocar nesses arquivos.
+  Os tokens abaixo usam os MESMOS NOMES DE VARIÁVEL do sistema anterior
+  (--color-bg, --color-accent, --color-neutral-*, --status-*, --color-paper,
+  --color-ink, --color-chart*, --color-status-*, --color-milestone,
+  .tabular-figure, .btn, .card, .tag, .table, .dialog, ...) — só os VALORES
+  mudam. Isso repinta o app inteiro (recepção, faturamento, prontuário,
+  terapeuta, supervisão, portal da família) sem precisar editar cada rota,
+  porque toda tela consome estas classes/tokens em vez de cor crua.
 */
 
 :root {
-  --color-bg: #f6f4ef;
-  --color-surface: #ece8df;
-  --color-text: #17203a;
-  --color-accent: #14284b;
-  --color-accent-2: #b8933a;
-  --color-divider: color-mix(in srgb, #17203a 16%, transparent);
+  /* ── Marca FaçaAmigos ── */
+  --color-pink: #f0196b;
+  --color-pink-hover: #c8155a;
+  --color-pink-active: #a01248;
+  --color-teal: #2ecfb5;
+  --color-teal-hover: #26b09b;
+  --color-amber: #c99020;
+  --color-amber-hover: #a8780e;
+  --color-yellow: #ffe234;
+  --color-dark: #1a3f35;
+  --color-success: #28c880;
+  --color-error: #e83030;
 
-  --color-neutral-100: #f8f6f1;
-  --color-neutral-200: #ebe8e1;
-  --color-neutral-300: #d8d4cb;
-  --color-neutral-400: #bab6ad;
-  --color-neutral-500: #9a978f;
-  --color-neutral-600: #7c7972;
-  --color-neutral-700: #5f5d57;
-  --color-neutral-800: #43423d;
-  --color-neutral-900: #2c2b28;
+  --color-bg: #f7f5f2;
+  --color-surface: #ffffff;
+  --color-text: var(--color-dark);
+  --color-accent: var(--color-pink);
+  --color-accent-2: var(--color-amber);
+  --color-divider: color-mix(in srgb, var(--color-text) 14%, transparent);
 
-  --color-accent-100: #eef2f9;
-  --color-accent-200: #d9e1f0;
-  --color-accent-300: #b4c3e0;
-  --color-accent-400: #7e97c2;
-  --color-accent-500: #4b6797;
-  --color-accent-600: #2c4570;
-  --color-accent-700: #14284b;
-  --color-accent-800: #0e1c36;
-  --color-accent-900: #091226;
+  --color-neutral-100: #f5f6f7;
+  --color-neutral-200: #e8eaec;
+  --color-neutral-300: #cdd1d6;
+  --color-neutral-400: #a0a8b2;
+  --color-neutral-500: #7a8490;
+  --color-neutral-600: #5a636e;
+  --color-neutral-700: #3a4149;
+  --color-neutral-800: #262c32;
+  --color-neutral-900: #141719;
 
-  --color-accent-2-100: #faf5e6;
-  --color-accent-2-200: #f2e6c3;
-  --color-accent-2-300: #e6d095;
-  --color-accent-2-400: #d5b45e;
-  --color-accent-2-500: #b8933a;
-  --color-accent-2-600: #96762b;
-  --color-accent-2-700: #745a1f;
-  --color-accent-2-800: #534016;
-  --color-accent-2-900: #33280e;
+  /* rampa rosa — accent primário (interação/chrome) */
+  --color-accent-100: #fde6ef;
+  --color-accent-200: #fbc7da;
+  --color-accent-300: #f58fb4;
+  --color-accent-400: #f35995;
+  --color-accent-500: var(--color-pink);
+  --color-accent-600: var(--color-pink-hover);
+  --color-accent-700: var(--color-pink-active);
+  --color-accent-800: #7a0d37;
+  --color-accent-900: #4d0824;
 
-  --color-process-yellow: #b8933a;
+  /* rampa âmbar — accent raro (marco, destaque de card) */
+  --color-accent-2-100: #faf1de;
+  --color-accent-2-200: #f3e0b3;
+  --color-accent-2-300: #e8c77d;
+  --color-accent-2-400: #dcae4e;
+  --color-accent-2-500: var(--color-amber);
+  --color-accent-2-600: var(--color-amber-hover);
+  --color-accent-2-700: #7c5a0b;
+  --color-accent-2-800: #574009;
+  --color-accent-2-900: #332609;
+
+  /* rampa teal — accent secundário */
+  --color-teal-100: #dff7f2;
+  --color-teal-200: #b3ecdf;
+  --color-teal-300: #7edccb;
+  --color-teal-700: #0e6f5c;
+  --color-teal-800: #0a4a3e;
+
+  --color-process-yellow: var(--color-yellow);
 
   /* status das sessões/faturamento — iguais em todas as telas */
-  --status-agendada: #b8933a;
-  --status-agendada-bg: #faf5e6;
-  --status-confirmada: #2f7a4a;
-  --status-confirmada-bg: #e7f3ea;
-  --status-em-atendimento: #14284b;
-  --status-em-atendimento-bg: #d9e1f0;
-  --status-realizada: #1f5c37;
-  --status-realizada-bg: #dcefe2;
-  --status-falta: #b3261e;
-  --status-falta-bg: #fbe9e7;
-  --status-cancelada: #7c7972;
-  --status-cancelada-bg: #ebe8e1;
+  --status-agendada: var(--color-amber);
+  --status-agendada-bg: var(--color-accent-2-100);
+  --status-confirmada: var(--color-success);
+  --status-confirmada-bg: #e2f9ee;
+  --status-em-atendimento: var(--color-pink);
+  --status-em-atendimento-bg: var(--color-accent-100);
+  --status-realizada: var(--color-teal);
+  --status-realizada-bg: var(--color-teal-100);
+  --status-falta: var(--color-error);
+  --status-falta-bg: #fce4e4;
+  --status-cancelada: var(--color-neutral-600);
+  --status-cancelada-bg: var(--color-neutral-200);
 
-  --font-heading: var(--font-source-serif), system-ui, sans-serif;
-  --font-heading-weight: 600;
-  --font-body: var(--font-source-serif), system-ui, sans-serif;
+  --font-heading: var(--font-nunito), "Segoe UI", sans-serif;
+  --font-heading-weight: 800;
+  --font-display: var(--font-fredoka), var(--font-heading);
+  --font-body: var(--font-nunito), "Segoe UI", sans-serif;
 
   --space-1: 5px;
   --space-2: 10px;
@@ -86,13 +106,29 @@
   --space-6: 30px;
   --space-8: 40px;
 
-  --radius-sm: 1px;
-  --radius-md: 2px;
-  --radius-lg: 4px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
 
-  --shadow-sm: 0 1px 2px color-mix(in srgb, #17203a 12%, transparent);
-  --shadow-md: 0 3px 10px color-mix(in srgb, #17203a 14%, transparent);
-  --shadow-lg: 0 12px 32px color-mix(in srgb, #17203a 20%, transparent);
+  --shadow-sm: 0 1px 4px color-mix(in srgb, var(--color-text) 12%, transparent);
+  --shadow-md: 0 4px 16px color-mix(in srgb, var(--color-text) 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, var(--color-text) 20%, transparent);
+  --shadow-pink: 0 4px 20px rgba(240, 25, 107, 0.35);
+  --shadow-teal: 0 4px 20px rgba(46, 207, 181, 0.3);
+
+  /* anel decorativo estilo Stories — só para avatar/foto de destaque */
+  --gradient-ring: conic-gradient(
+    from 200deg,
+    #a020ee 0%,
+    #f0196b 20%,
+    #ff7a00 50%,
+    #ffd700 75%,
+    #ff7a00 85%,
+    #f0196b 95%,
+    #a020ee 100%
+  );
+  --transition-bounce: 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* — alias pro vocabulário antigo, consumido pelo @theme inline abaixo e
@@ -101,39 +137,40 @@
      *-text, text-milestone) — ver comentário acima. */
 :root {
   --color-paper: var(--color-bg);
-  --color-paper-line: color-mix(in srgb, var(--color-text) 10%, transparent);
+  --color-paper-line: color-mix(in srgb, var(--color-text) 8%, transparent);
   --color-paper-line-strong: var(--color-divider);
 
   --color-ink: var(--color-text);
   --color-ink-soft: var(--color-neutral-700);
-  /* neutral-600 puro cai a 3.95:1 sobre --color-bg — abaixo do AA (4.5:1)
-     pra texto normal. Este tom escurecido mantém a hierarquia (mais claro
-     que ink-soft) mas passa em >=4.7:1 sobre bg e surface. */
-  --color-ink-faint: #68655c;
+  --color-ink-faint: var(--color-neutral-600);
 
+  /* "chart" era o único acento (azul); agora é o accent primário da marca (rosa) */
   --color-chart: var(--color-accent);
-  --color-chart-strong: var(--color-accent-800);
+  --color-chart-strong: var(--color-accent-700);
   --color-chart-soft: var(--color-accent-100);
 
   --color-gold: var(--color-accent-2);
   --color-gold-strong: var(--color-accent-2-700);
   --color-gold-soft: var(--color-accent-2-100);
 
-  --color-status-positive: var(--status-realizada);
-  --color-status-positive-soft: var(--status-realizada-bg);
-  --color-status-positive-text: #143d25;
+  --color-status-positive: var(--status-confirmada);
+  --color-status-positive-soft: var(--status-confirmada-bg);
+  --color-status-positive-text: #0e6b3f;
   --color-status-pending: var(--status-agendada);
   --color-status-pending-soft: var(--status-agendada-bg);
   --color-status-pending-text: var(--color-accent-2-700);
   --color-status-active: var(--status-em-atendimento);
   --color-status-active-soft: var(--status-em-atendimento-bg);
-  --color-status-active-text: var(--color-accent-800);
+  --color-status-active-text: var(--color-accent-700);
   --color-status-negative: var(--status-falta);
   --color-status-negative-soft: var(--status-falta-bg);
-  --color-status-negative-text: #7a1a14;
+  --color-status-negative-text: #8a1f1f;
   --color-status-neutral: var(--status-cancelada);
   --color-status-neutral-soft: var(--status-cancelada-bg);
-  --color-status-neutral-text: #43423d;
+  --color-status-neutral-text: var(--color-neutral-800);
+
+  /* "realizada" precisa de um par próprio (teal), distinto de confirmada (verde) */
+  --color-status-realizada-text: var(--color-teal-800);
 
   --color-milestone: var(--color-accent-2);
 }
@@ -168,8 +205,27 @@
   --color-status-neutral-text: var(--color-status-neutral-text);
   --color-milestone: var(--color-milestone);
 
-  --font-sans: var(--font-source-serif);
-  --font-mono: var(--font-plex-mono);
+  /* marca, disponível como utilitário Tailwind (bg-pink, text-teal, ...) */
+  --color-pink: var(--color-pink);
+  --color-teal: var(--color-teal);
+  --color-amber: var(--color-accent-2);
+  --color-brand-yellow: var(--color-yellow);
+
+  --font-sans: var(--font-nunito);
+  --font-mono: var(--font-nunito);
+
+  /* eleva a escala padrão do Tailwind (rounded-md, shadow-lg, ...) pro
+     padrão "cantos sempre arredondados, sombra sempre" da marca — repinta
+     qualquer classe utilitária já usada nas rotas sem precisar editá-las. */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: 28px;
+  --radius-2xl: 32px;
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: 0 16px 48px color-mix(in srgb, var(--color-text) 24%, transparent);
 }
 
 html {
@@ -198,7 +254,8 @@ body {
 .table tbody tr,
 a {
   transition: background-color 0.15s ease, border-color 0.15s ease,
-    color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease,
+    transform var(--transition-bounce);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -214,73 +271,84 @@ a {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: var(--font-heading-weight);
-  line-height: 1.12;
-  letter-spacing: -0.015em;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   margin: 0 0 var(--space-2);
 }
-h1 { font-size: 42px; }
-h2 { font-size: 32px; }
-h3 { font-size: 25px; }
-h4 { font-size: 20px; }
+/* título de página — o único lugar que usa a display font bubbly da marca */
+h1 { font-family: var(--font-display); font-weight: 600; font-size: 40px; }
+h2 { font-size: 30px; }
+h3 { font-size: 23px; }
+h4 { font-size: 19px; }
 h5 { font-size: 16px; }
-h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+h6 {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent-2-700);
+}
 
 a { color: var(--color-accent); text-underline-offset: 3px; }
-a:hover { color: var(--color-accent-2-600); }
+a:hover { color: var(--color-accent-600); }
 
 /* números medidos — contagens, percentuais, valores monetários */
 .tabular-figure {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
+  font-weight: 800;
   letter-spacing: -0.01em;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Componentes Broadsheet — ver readme do design system publicado.
+   Componentes FaçaAmigos — ver design system publicado da marca.
    ══════════════════════════════════════════════════════════════════════ */
 
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   cursor: pointer; text-decoration: none;
-  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-family: var(--font-body); font-weight: 700;
+  letter-spacing: 0.01em;
   font-size: 14px; line-height: 1.2; color: var(--color-text);
-  background: transparent; border: 1px solid transparent;
-  padding: var(--space-2) calc(var(--space-3) * 1.2);
-  border-radius: var(--radius-md);
+  background: transparent; border: none;
+  padding: var(--space-2) calc(var(--space-3) * 1.4);
+  border-radius: var(--radius-full);
+  transform: scale(1);
 }
 .btn svg { display: block; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:hover { transform: scale(1.02); }
+.btn:active { transform: scale(0.96); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: scale(1); }
 .btn-primary { background: var(--color-accent); color: #fff; }
-.btn-primary:hover { background: var(--color-accent-600); }
-.btn-primary:active { background: var(--color-accent-800); }
-.btn-secondary { border-color: var(--color-divider); }
-.btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
-.btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
-/* accent-2 (#b8933a) puro só dá 2.89:1 contra branco — falha AA. Usamos a
-   escala mais escura (700/800/900) pra manter texto branco legível em
-   repouso/hover/active (6.5:1 / 9.9:1 / 14.5:1). */
-.btn-gold { background: var(--color-accent-2-700); color: #fff; }
-.btn-gold:hover { background: var(--color-accent-2-800); }
-.btn-gold:active { background: var(--color-accent-2-900); }
-.btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+.btn-primary:hover { background: var(--color-accent-600); box-shadow: var(--shadow-pink); }
+.btn-primary:active { background: var(--color-accent-700); }
+.btn-secondary { background: transparent; color: var(--color-accent); border: 2px solid var(--color-accent); padding: calc(var(--space-2) - 2px) calc(var(--space-3) * 1.4 - 2px); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
+.btn-secondary:active { background: color-mix(in srgb, var(--color-accent) 16%, transparent); }
+.btn-gold { background: var(--color-accent-2); color: #fff; }
+.btn-gold:hover { background: var(--color-accent-2-600); }
+.btn-gold:active { background: var(--color-accent-2-700); }
+.btn-ghost { color: var(--color-accent); padding-inline: var(--space-2); }
 .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
 .btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
-.btn-icon { width: 36px; height: 36px; padding: 0; }
+.btn-icon { width: 40px; height: 40px; padding: 0; border-radius: var(--radius-full); }
 .btn-block { width: 100%; margin-top: var(--space-2); }
 
 .field > label {
-  display: block; font-size: 12px; margin-bottom: 5px;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;
+  color: var(--color-neutral-600);
 }
 .input {
-  width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
-  font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
+  width: 100%; min-height: 44px; padding: 8px 16px; font: inherit;
+  font-size: 15px; color: var(--color-text); caret-color: var(--color-accent);
   background: var(--color-surface);
-  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-neutral-300); border-radius: var(--radius-md);
 }
-.input::placeholder { color: color-mix(in srgb, var(--color-text) 65%, transparent); opacity: 1; }
-.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
-.input:focus-visible { border-color: var(--color-accent); outline: 2px solid var(--color-accent); outline-offset: 0; }
+.input::placeholder { color: var(--color-neutral-500); opacity: 1; }
+.input:hover { border-color: var(--color-neutral-400); }
+.input:focus-visible {
+  border-color: var(--color-accent); outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
 textarea.input { min-height: 90px; resize: vertical; }
 
 .radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
@@ -288,8 +356,8 @@ textarea.input { min-height: 90px; resize: vertical; }
   position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
 }
 .radio .dot {
-  width: 16px; height: 16px; flex: none; border-radius: 50%;
-  border: 1.5px solid var(--color-divider);
+  width: 18px; height: 18px; flex: none; border-radius: 50%;
+  border: 2px solid var(--color-neutral-300);
 }
 .radio:hover .dot { border-color: var(--color-accent); }
 .radio input:checked + .dot {
@@ -300,56 +368,56 @@ textarea.input { min-height: 90px; resize: vertical; }
 
 .seg {
   display: inline-flex; overflow: hidden;
-  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-neutral-300); border-radius: var(--radius-full);
 }
 .seg-opt {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 12px; font-size: 13px; cursor: pointer;
+  padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
 }
-.seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+.seg-opt + .seg-opt { border-left: 1.5px solid var(--color-neutral-300); }
 .seg-opt:has(input:checked) { background: var(--color-accent); color: #fff; }
-.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.seg-opt:not(:has(input:checked)):hover { background: var(--color-neutral-100); }
 .seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 
 .card {
   display: flex; flex-direction: column; gap: var(--space-2);
-  padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface);
+  padding: var(--space-4); border-radius: var(--radius-lg);
+  background: var(--color-surface); box-shadow: var(--shadow-sm);
+  transition: box-shadow 200ms ease, transform 200ms ease;
 }
-/* accent-2 puro é 2.63:1 sobre bg/surface — falha AA; accent-2-700 dá 5.9:1 */
-.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent-2-700); }
+.card-kicker { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 800; color: var(--color-accent-2-700); }
 .card-title {
-  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
-  font-size: 17px; line-height: 1.2;
+  font-family: var(--font-body); font-weight: 800;
+  font-size: 18px; line-height: 1.25;
 }
-.card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
+.card-body { margin: 0; font-size: 13px; opacity: 0.75; flex: 1; }
 .card-meta {
-  display: flex; align-items: center; gap: 6px; font-size: 11px;
-  /* 50% mix caía a 3.05:1 sobre surface — falha AA; 70% dá ~5.1:1 */
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  color: var(--color-neutral-600);
 }
 .elev-sm { box-shadow: var(--shadow-sm); }
 .elev-md { box-shadow: var(--shadow-md); }
 .elev-lg { box-shadow: var(--shadow-lg); }
 
 .tag {
-  display: inline-flex; align-items: center; font-size: 11px;
-  letter-spacing: 0.02em; padding: 3px 10px;
-  border-radius: calc(var(--radius-md) * 0.75);
+  display: inline-flex; align-items: center; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.02em; padding: 4px 12px;
+  border-radius: var(--radius-full);
 }
-.tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
-.tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
-.tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
-.tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+.tag-accent { background: var(--color-accent-100); color: var(--color-accent-700); }
+.tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-700); }
+.tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-700); }
+.tag-outline { border: 1.5px solid var(--color-accent); color: var(--color-accent); }
 
-.tag-status { display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:0.02em; padding:3px 10px; border-radius:2px; white-space:nowrap; }
-.tag-status::before { content:""; width:6px; height:6px; border-radius:50%; background: currentColor; }
+.tag-status { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight: 600; letter-spacing:0.02em; padding:4px 12px; border-radius: var(--radius-full); white-space:nowrap; }
+.tag-status::before { content:""; width:7px; height:7px; border-radius:50%; background: currentColor; }
 /* texto usa os aliases --color-status-*-text (feitos pra AA), não a cor
    crua do status — a cor crua em cima do -bg pastel caía a 3.5-4.6:1 em
    alguns pares (ex. st-cancelada); os aliases dão 5.9-13:1 em todos. */
 .st-agendada { background: var(--status-agendada-bg); color: var(--color-status-pending-text); }
 .st-confirmada { background: var(--status-confirmada-bg); color: var(--color-status-positive-text); }
 .st-em-atendimento { background: var(--status-em-atendimento-bg); color: var(--color-status-active-text); }
-.st-realizada { background: var(--status-realizada-bg); color: var(--color-status-positive-text); }
+.st-realizada { background: var(--status-realizada-bg); color: var(--color-status-realizada-text); }
 .st-falta { background: var(--status-falta-bg); color: var(--color-status-negative-text); }
 .st-cancelada { background: var(--status-cancelada-bg); color: var(--color-status-neutral-text); }
 
@@ -358,23 +426,23 @@ textarea.input { min-height: 90px; resize: vertical; }
   padding: var(--space-3) var(--space-4);
 }
 .nav-brand {
-  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
-  font-size: 18px; margin-right: auto;
+  font-family: var(--font-display); font-weight: 600;
+  font-size: 20px; margin-right: auto; color: var(--color-accent);
 }
-.nav a { color: inherit; text-decoration: none; font-size: 14px; }
+.nav a { color: inherit; text-decoration: none; font-size: 14px; font-weight: 600; }
 .nav a:hover, .nav a[aria-current='page'] { color: var(--color-accent); }
 
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table th {
   text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
-  padding: var(--space-2); border-bottom: 1px solid var(--color-divider);
+  color: var(--color-neutral-600); font-weight: 800;
+  padding: var(--space-2); border-bottom: 2px solid var(--color-neutral-200);
 }
 .table td {
   padding: var(--space-2);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+  border-bottom: 1px solid var(--color-neutral-200);
 }
-.table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+.table tbody tr:hover { background: var(--color-accent-100); }
 
 @keyframes dialog-backdrop-in {
   from { opacity: 0; }
@@ -387,7 +455,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .dialog-backdrop {
   position: fixed; inset: 0; display: grid; place-items: center;
   padding: var(--space-4);
-  background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+  background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent);
   animation: dialog-backdrop-in 0.15s ease;
 }
 .dialog {
@@ -397,7 +465,7 @@ textarea.input { min-height: 90px; resize: vertical; }
   animation: dialog-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .dialog-title {
-  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-family: var(--font-body); font-weight: 800;
   font-size: 20px;
 }
 .dialog-body { font-size: 14px; opacity: 0.85; }

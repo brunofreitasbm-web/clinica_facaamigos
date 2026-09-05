@@ -9,7 +9,7 @@ export function ConfirmAttendance({ appointmentId }: { appointmentId: string }) 
   const [isPending, startTransition] = useTransition();
 
   if (done) {
-    return <div style={{ color: "#9fd3b1", fontSize: 13 }}>✓ Presença confirmada.</div>;
+    return <div style={{ color: "var(--color-teal-300)", fontSize: 13 }}>✓ Presença confirmada.</div>;
   }
 
   return (

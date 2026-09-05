@@ -18,12 +18,12 @@ const WEEKDAY_ABBR = ["Seg", "Ter", "Qua", "Qui", "Sex"];
 
 const LOGO = (
   <svg width="24" height="24" viewBox="0 0 100 100" aria-hidden>
-    <path d="M22 18h34v10H33v18h20v10H33v26H22z" fill="#f6f4ef" />
+    <path d="M22 18h34v10H33v18h20v10H33v26H22z" fill="var(--color-paper)" />
     <path
       d="M46 82 L64 26 h6 L88 82 h-9 l-4-13 H59 L55 82Z M61.5 61h11L67 42z"
-      fill="#b8933a"
+      fill="var(--color-accent-2)"
     />
-    <circle cx="33" cy="52.5" r="4.2" fill="#b8933a" />
+    <circle cx="33" cy="52.5" r="4.2" fill="var(--color-accent-2)" />
   </svg>
 );
 
@@ -290,8 +290,8 @@ export default async function FamiliaPage({
     <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col" style={{ background: "var(--color-bg)" }}>
       <header
         style={{
-          background: "#14284b",
-          color: "#f6f4ef",
+          background: "var(--color-dark)",
+          color: "var(--color-paper)",
           padding: "28px 20px 22px",
           display: "flex",
           flexDirection: "column",
@@ -301,7 +301,7 @@ export default async function FamiliaPage({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {LOGO}
           <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 15 }}>
-            Faça Amigos <span style={{ color: "#b8933a", fontStyle: "italic" }}>· Família</span>
+            Faça Amigos <span style={{ color: "var(--color-accent-2)", fontStyle: "italic" }}>· Família</span>
           </span>
         </div>
         <div>
@@ -320,7 +320,7 @@ export default async function FamiliaPage({
                     padding: "4px 10px",
                     borderRadius: 999,
                     border: "1px solid rgba(246,244,239,0.35)",
-                    color: "#f6f4ef",
+                    color: "var(--color-paper)",
                     textDecoration: "none",
                   }}
                 >
@@ -341,7 +341,7 @@ export default async function FamiliaPage({
             gap: 8,
           }}
         >
-          <span style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#b8933a" }}>
+          <span style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-accent-2)" }}>
             Próxima sessão
           </span>
           {nextAppt ? (
@@ -355,7 +355,7 @@ export default async function FamiliaPage({
                   {therapistName ? ` · ${therapistName}` : ""}
                 </span>
               </div>
-              {confirmed && <div style={{ color: "#9fd3b1", fontSize: 13 }}>✓ Presença confirmada pela recepção.</div>}
+              {confirmed && <div style={{ color: "var(--color-teal-300)", fontSize: 13 }}>✓ Presença confirmada pela recepção.</div>}
               {notConfirmed && <ConfirmAttendance appointmentId={nextAppt.id} />}
               {(notConfirmed || confirmed) && <ReportAbsence appointmentId={nextAppt.id} />}
             </>
@@ -576,7 +576,7 @@ export default async function FamiliaPage({
         style={{
           position: "sticky",
           bottom: 0,
-          background: "#fff",
+          background: "var(--color-surface)",
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
           padding: "10px 0 16px",

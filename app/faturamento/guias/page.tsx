@@ -107,17 +107,17 @@ export default function GuiasTissPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#faf8f3] text-[#1c2530]">
+    <div className="min-h-screen bg-paper text-ink">
       <FaturamentoHeader active="guias" />
 
       <main className="mx-auto max-w-7xl px-8 py-8 space-y-6">
         {/* Cabeçalho da Página */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#e4dfd2] pb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-paper-line pb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#1c2530]" style={{ fontFamily: "var(--font-heading)" }}>
+            <h1 className="text-2xl font-bold text-ink" style={{ fontFamily: "var(--font-heading)" }}>
               Faturamento TISS (Guias & Lotes XML)
             </h1>
-            <p className="text-sm text-[#57606b]">
+            <p className="text-sm text-ink-soft">
               Geração automatizada de guias SP-SADT no padrão ANS 3.05.00 para exportação às operadoras.
             </p>
           </div>
@@ -125,7 +125,7 @@ export default function GuiasTissPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleGenerateXml}
-              className="inline-flex items-center gap-2 rounded-md bg-[#0f5c7d] px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#0a4a5f] transition-colors"
+              className="inline-flex items-center gap-2 rounded-md bg-chart px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-chart-strong transition-colors"
             >
               ⚡ Gerar Lote XML ({selectedIds.length} Guias)
             </button>
@@ -134,27 +134,27 @@ export default function GuiasTissPage() {
 
         {/* Painel de Filtros e Resumo */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-lg border border-[#e4dfd2] bg-[#faf8f3] p-4 shadow-sm">
-            <span className="text-xs font-medium text-[#5f656f] uppercase">Guias Selecionadas</span>
-            <div className="text-2xl font-semibold text-[#0f5c7d] tabular-nums mt-1 font-mono">
-              {selectedIds.length} <span className="text-xs text-[#57606b] font-normal font-sans">/ {MOCK_GUIAS.length}</span>
+          <div className="rounded-lg border border-paper-line bg-paper p-4 shadow-sm">
+            <span className="text-xs font-medium text-ink-faint uppercase">Guias Selecionadas</span>
+            <div className="text-2xl font-semibold text-chart tabular-nums mt-1 font-mono">
+              {selectedIds.length} <span className="text-xs text-ink-soft font-normal font-sans">/ {MOCK_GUIAS.length}</span>
             </div>
           </div>
 
-          <div className="rounded-lg border border-[#e4dfd2] bg-[#faf8f3] p-4 shadow-sm">
-            <span className="text-xs font-medium text-[#5f656f] uppercase">Valor Total do Lote</span>
-            <div className="text-2xl font-semibold text-[#1b8a6b] tabular-nums mt-1 font-mono">
+          <div className="rounded-lg border border-paper-line bg-paper p-4 shadow-sm">
+            <span className="text-xs font-medium text-ink-faint uppercase">Valor Total do Lote</span>
+            <div className="text-2xl font-semibold text-status-positive tabular-nums mt-1 font-mono">
               R$ {totalValorSelected.toFixed(2)}
             </div>
           </div>
 
-          <div className="md:col-span-2 rounded-lg border border-[#e4dfd2] bg-[#faf8f3] p-4 shadow-sm flex items-center justify-between">
+          <div className="md:col-span-2 rounded-lg border border-paper-line bg-paper p-4 shadow-sm flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-[#5f656f]">Filtrar por Operadora/Convenio:</label>
+              <label className="text-xs font-medium text-ink-faint">Filtrar por Operadora/Convenio:</label>
               <select
                 value={convenioFilter}
                 onChange={(e) => setConvenioFilter(e.target.value)}
-                className="block w-full rounded-md border border-[#cfc8b4] bg-white px-3 py-1.5 text-xs text-[#1c2530] focus:outline-none focus:ring-1 focus:ring-[#0f5c7d]"
+                className="block w-full rounded-md border border-paper-line-strong bg-white px-3 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-chart"
               >
                 <option value="todos">Todos os Convênios</option>
                 <option value="UNIMED_SP">Unimed Central</option>
@@ -163,17 +163,17 @@ export default function GuiasTissPage() {
               </select>
             </div>
 
-            <div className="text-right text-xs text-[#57606b]">
-              Padrão ANS: <span className="font-semibold text-[#1c2530]">TISS v3.05.00</span>
+            <div className="text-right text-xs text-ink-soft">
+              Padrão ANS: <span className="font-semibold text-ink">TISS v3.05.00</span>
             </div>
           </div>
         </div>
 
         {/* Tabela de Guias */}
-        <div className="rounded-lg border border-[#cfc8b4] bg-white overflow-hidden shadow-sm">
+        <div className="rounded-lg border border-paper-line-strong bg-white overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-[#1c2530]">
-              <thead className="bg-[#faf8f3] border-b border-[#e4dfd2] text-[#5f656f] font-medium uppercase">
+            <table className="w-full text-left text-xs text-ink">
+              <thead className="bg-paper border-b border-paper-line text-ink-faint font-medium uppercase">
                 <tr>
                   <th className="p-3.5 w-10 text-center">
                     <input
@@ -182,7 +182,7 @@ export default function GuiasTissPage() {
                       onChange={(e) =>
                         setSelectedIds(e.target.checked ? filteredGuias.map((g) => g.id) : [])
                       }
-                      className="rounded border-[#cfc8b4]"
+                      className="rounded border-paper-line-strong"
                     />
                   </th>
                   <th className="p-3.5">Nº Guia Prestador</th>
@@ -193,29 +193,29 @@ export default function GuiasTissPage() {
                   <th className="p-3.5 text-right">Valor (R$)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#e4dfd2]">
+              <tbody className="divide-y divide-paper-line">
                 {filteredGuias.map((guia) => (
-                  <tr key={guia.id} className="hover:bg-[#faf8f3]/60 transition-colors">
+                  <tr key={guia.id} className="hover:bg-paper/60 transition-colors">
                     <td className="p-3.5 text-center">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(guia.id)}
                         onChange={() => toggleSelect(guia.id)}
-                        className="rounded border-[#cfc8b4]"
+                        className="rounded border-paper-line-strong"
                       />
                     </td>
-                    <td className="p-3.5 font-mono font-medium text-[#0f5c7d]">{guia.numeroGuiaPrestador}</td>
-                    <td className="p-3.5 font-semibold text-[#1c2530]">{guia.nomeBeneficiario}</td>
+                    <td className="p-3.5 font-mono font-medium text-chart">{guia.numeroGuiaPrestador}</td>
+                    <td className="p-3.5 font-semibold text-ink">{guia.nomeBeneficiario}</td>
                     <td className="p-3.5">
                       <div className="font-medium">{guia.nomeConvenio}</div>
-                      <div className="text-[11px] font-mono text-[#57606b]">{guia.numeroCarteira}</div>
+                      <div className="text-[11px] font-mono text-ink-soft">{guia.numeroCarteira}</div>
                     </td>
                     <td className="p-3.5">
-                      <div className="font-mono text-[11px] text-[#0f5c7d] font-semibold">{guia.procedimentoCodigo}</div>
-                      <div className="text-[#57606b]">{guia.procedimentoDescricao}</div>
+                      <div className="font-mono text-[11px] text-chart font-semibold">{guia.procedimentoCodigo}</div>
+                      <div className="text-ink-soft">{guia.procedimentoDescricao}</div>
                     </td>
                     <td className="p-3.5 font-mono">{guia.dataAtendimento}</td>
-                    <td className="p-3.5 text-right font-mono font-bold text-[#1b8a6b]">
+                    <td className="p-3.5 text-right font-mono font-bold text-status-positive">
                       R$ {guia.valorTotal.toFixed(2)}
                     </td>
                   </tr>
@@ -227,33 +227,33 @@ export default function GuiasTissPage() {
 
         {/* Modal/Preview do XML Gerado */}
         {generatedXml && (
-          <div className="rounded-lg border border-[#1b8a6b] bg-[#dcefe8]/30 p-6 space-y-4 shadow-md">
+          <div className="rounded-lg border border-status-positive bg-status-positive-soft/30 p-6 space-y-4 shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-[#0e5c44]">
+                <h3 className="text-base font-bold text-status-positive-text">
                   ✅ Arquivo XML TISS Gerado com Sucesso!
                 </h3>
-                <p className="text-xs text-[#57606b]">
+                <p className="text-xs text-ink-soft">
                   O arquivo XML está validado e pronto para envio no portal da operadora.
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleDownload}
-                  className="rounded-md bg-[#1b8a6b] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0e5c44] transition-colors"
+                  className="rounded-md bg-status-positive px-4 py-2 text-xs font-semibold text-white hover:bg-status-positive-text transition-colors"
                 >
                   📥 Baixar Arquivo XML TISS
                 </button>
                 <button
                   onClick={() => setGeneratedXml(null)}
-                  className="rounded-md border border-[#cfc8b4] bg-white px-3 py-2 text-xs font-medium text-[#1c2530] hover:bg-[#faf8f3]"
+                  className="rounded-md border border-paper-line-strong bg-white px-3 py-2 text-xs font-medium text-ink hover:bg-paper"
                 >
                   Fechar Visualização
                 </button>
               </div>
             </div>
 
-            <pre className="max-h-60 overflow-y-auto rounded-md bg-[#1c2530] p-4 text-[11px] text-[#faf8f3] font-mono leading-relaxed">
+            <pre className="max-h-60 overflow-y-auto rounded-md bg-ink p-4 text-[11px] text-paper font-mono leading-relaxed">
               {generatedXml}
             </pre>
           </div>

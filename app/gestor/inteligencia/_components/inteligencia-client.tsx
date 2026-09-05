@@ -70,7 +70,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
   });
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] bg-[#f8fafc]">
+    <div className="flex min-h-[calc(100vh-64px)] bg-paper">
       {/* Sidebar Lateral de Inteligência (TOTALMENTE CONECTADA) */}
       <aside className="w-64 border-r border-slate-200 bg-white p-5 text-slate-700">
         <h2 className="mb-6 text-lg font-semibold text-slate-900">Inteligência</h2>
@@ -352,7 +352,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
 
                   <div className="relative flex items-center justify-center">
                     <svg width="110" height="110" viewBox="0 0 100 100" className="-rotate-90">
-                      <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f1f5f9" strokeWidth="16" />
+                      <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-paper-line)" strokeWidth="16" />
                       {slices.map((slice) => (
                         <circle
                           key={slice.status}

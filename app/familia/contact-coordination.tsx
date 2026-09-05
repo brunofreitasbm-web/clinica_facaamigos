@@ -42,7 +42,7 @@ export function ContactCoordination({
           alignItems: "center",
           gap: 8,
           fontSize: 13,
-          color: "#f6f4ef",
+          color: "var(--color-paper)",
           opacity: 0.85,
           background: "none",
           border: "none",

@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Sistema de gestão da clínica TEA/TDAH FaçaAmigos.",
     start_url: "/terapeuta",
     display: "standalone",
-    background_color: "#f6f4ef",
-    theme_color: "#14284b",
+    background_color: "#f7f5f2",
+    theme_color: "#f0196b",
     icons: [
       {
         src: "/icons/icon-192.png",

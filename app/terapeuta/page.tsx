@@ -145,7 +145,7 @@ export default async function TerapeutaPage({
             </span>
           </span>
           <span className="ml-auto flex items-center gap-1.5 text-xs opacity-75">
-            <span className="h-[7px] w-[7px] rounded-full" style={{ background: "#7fc79a" }} />
+            <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--color-success)" }} />
             sincronizado
           </span>
         </div>

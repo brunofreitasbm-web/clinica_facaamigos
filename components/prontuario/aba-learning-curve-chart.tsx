@@ -197,7 +197,7 @@ export function AbaLearningCurveChart({
               y1={chartHeight - padding - 0.8 * (chartHeight - padding * 2)}
               x2={chartWidth - padding}
               y2={chartHeight - padding - 0.8 * (chartHeight - padding * 2)}
-              stroke="#f59e0b"
+              stroke="var(--color-accent-2)"
               strokeWidth="1.5"
               strokeDasharray="4 4"
             />
@@ -206,7 +206,7 @@ export function AbaLearningCurveChart({
             {points.length > 1 && (
               <polyline
                 fill="none"
-                stroke="#10b981"
+                stroke="var(--color-teal)"
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
