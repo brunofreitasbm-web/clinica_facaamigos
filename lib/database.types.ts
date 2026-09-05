@@ -2415,6 +2415,10 @@ export type Database = {
       _temptypes: { Args: { "": string }; Returns: string }
       _todo: { Args: never; Returns: string }
       app_current_role: { Args: never; Returns: string }
+      confirm_attendance: {
+        Args: { p_appointment_id: string }
+        Returns: undefined
+      }
       change_intern_password: {
         Args: { p_intern_id: string; p_new_password: string }
         Returns: undefined

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ABSENCE_REASON_CATEGORIES } from "@/lib/absence-reasons";
+import { currentSurveyPeriod } from "@/lib/survey-period";
 
 type ActionResult = { success: true } | { success: false; error: string };
 type UrlResult = { success: true; url: string } | { success: false; error: string };
@@ -72,6 +73,91 @@ export async function sendCoordinationMessage(
       success: false,
       error: "Não foi possível enviar a mensagem. Tente de novo.",
     };
+  }
+
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
+ * "Confirmar presença" (§9.7) — delega pra `confirm_attendance` (security
+ * definer, migration 20260904000030): a checagem de vínculo
+ * (has_patient_access) e a guarda de status ('agendada' → 'confirmada')
+ * vivem no banco, não aqui, porque RLS comum não restringe QUAIS colunas um
+ * UPDATE altera — só a função evita que a família altere outra coisa da
+ * sessão além da confirmação.
+ */
+export async function confirmAttendance(appointmentId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  const { error } = await supabase.rpc("confirm_attendance", { p_appointment_id: appointmentId });
+
+  if (error) {
+    return { success: false, error: error.message || "Não foi possível confirmar a sessão." };
+  }
+
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+const RATING_VALUES = ["ruim", "regular", "bom", "otimo"] as const;
+
+/**
+ * Questionário trimestral (§9.7: "NPS + perguntas sobre recepção e
+ * terapeuta"). Período é sempre o calculado no servidor (currentSurveyPeriod),
+ * nunca o que vier do formulário — a constraint única
+ * (patient_id, guardian_id, period, migration 20260904000031) é o que
+ * garante uma resposta por trimestre, mas só faz sentido se o período for
+ * confiável.
+ */
+export async function submitSurvey(
+  patientId: string,
+  guardianId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  const npsRaw = formData.get("nps_score");
+  const npsScore = Number(npsRaw);
+  if (!Number.isInteger(npsScore) || npsScore < 0 || npsScore > 10) {
+    return { success: false, error: "Selecione uma nota de 0 a 10." };
+  }
+
+  const recepcaoRating = String(formData.get("recepcao_rating") ?? "");
+  const terapeutaRating = String(formData.get("terapeuta_rating") ?? "");
+  if (!RATING_VALUES.includes(recepcaoRating as (typeof RATING_VALUES)[number])) {
+    return { success: false, error: "Avalie a recepção." };
+  }
+  if (!RATING_VALUES.includes(terapeutaRating as (typeof RATING_VALUES)[number])) {
+    return { success: false, error: "Avalie o terapeuta." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  const { error } = await supabase.from("survey_responses").insert({
+    patient_id: patientId,
+    guardian_id: guardianId,
+    period: currentSurveyPeriod(),
+    nps_score: npsScore,
+    answers: { recepcao: recepcaoRating, terapeuta: terapeutaRating },
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { success: false, error: "Você já respondeu a pesquisa deste trimestre." };
+    }
+    return { success: false, error: "Não foi possível enviar sua resposta. Tente de novo." };
   }
 
   revalidatePath("/familia");

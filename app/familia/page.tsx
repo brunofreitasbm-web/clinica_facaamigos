@@ -3,11 +3,14 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { APPOINTMENT_STATUS_STYLE, PLAN_GOAL_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { todayInTimeZone, civilDateInTimeZone, zonedDateTimeToUtc, nextCalendarDay } from "@/lib/timezone";
+import { currentSurveyPeriod } from "@/lib/survey-period";
 import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
 import { getFeedPosts } from "@/lib/feed-posts";
 import { ContactCoordination } from "./contact-coordination";
 import { DocumentOpenButton } from "./document-open-button";
 import { ReportAbsence } from "./report-absence";
+import { ConfirmAttendance } from "./confirm-attendance";
+import { SurveyPrompt } from "./survey-prompt";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +48,11 @@ function fmtWhen(iso: string) {
   return `${weekday.replace(".", "")} ${dm} · ${fmtTime(iso)}`;
 }
 
-export default async function FamiliaPage() {
+export default async function FamiliaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ patient?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -65,16 +72,18 @@ export default async function FamiliaPage() {
   // 'responsavel']) é verdadeiro pro usuário logado — nunca listamos todos
   // os pacientes da clínica aqui, o filtro de escopo é o banco, não a
   // aplicação (mesmo padrão do prontuário em
-  // app/recepcao/pacientes/[id]/page.tsx). Quando uma família tem mais de
-  // um filho vinculado, esta primeira versão mostra só o primeiro — trocar
-  // de filho fica para uma iteração futura.
+  // app/recepcao/pacientes/[id]/page.tsx). Quando a família tem mais de um
+  // filho vinculado, ?patient=<id> escolhe qual ver — o valor só é aceito
+  // se estiver na lista já filtrada pela RLS, então nunca dá pra "adivinhar"
+  // o id de um paciente de outra família.
   const { data: patients } = await supabase
     .from("patients")
     .select("id, full_name")
-    .order("full_name")
-    .limit(1);
+    .order("full_name");
 
-  const patient = patients?.[0] ?? null;
+  const { patient: requestedPatientId } = await searchParams;
+  const patient =
+    (requestedPatientId && patients?.find((p) => p.id === requestedPatientId)) || patients?.[0] || null;
 
   if (!patient) {
     return (
@@ -86,6 +95,7 @@ export default async function FamiliaPage() {
   }
 
   const patientId = patient.id;
+  const otherChildren = (patients ?? []).filter((p) => p.id !== patientId);
 
   const nowIso = new Date().toISOString();
   const today = todayInTimeZone(CLINIC_TIMEZONE);
@@ -191,6 +201,21 @@ export default async function FamiliaPage() {
   // pro responsável (feed_posts_read/feed_media_read decidem o que aparece).
   const feedPosts = await getFeedPosts(supabase, patientId);
 
+  // Pesquisa trimestral (§9.7) — só mostra se o responsável tem guardian_id
+  // (survey_responses.guardian_id é NOT NULL) e ainda não respondeu este
+  // trimestre (survey_responses_unique_period, 20260904000031).
+  const surveyPeriod = currentSurveyPeriod();
+  const { data: existingSurvey } = guardianRow
+    ? await supabase
+        .from("survey_responses")
+        .select("id")
+        .eq("patient_id", patientId)
+        .eq("guardian_id", guardianRow.id)
+        .eq("period", surveyPeriod)
+        .maybeSingle()
+    : { data: null };
+  const showSurveyPrompt = !!guardianRow && !existingSurvey;
+
   const therapistName =
     (nextAppt &&
       (Array.isArray(nextAppt.therapist) ? nextAppt.therapist[0]?.full_name : nextAppt.therapist?.full_name)) ||
@@ -284,6 +309,26 @@ export default async function FamiliaPage() {
           <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 28 }}>
             {patient.full_name}
           </div>
+          {otherChildren.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+              {otherChildren.map((c) => (
+                <a
+                  key={c.id}
+                  href={`/familia?patient=${c.id}`}
+                  style={{
+                    fontSize: 12,
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(246,244,239,0.35)",
+                    color: "#f6f4ef",
+                    textDecoration: "none",
+                  }}
+                >
+                  Ver {c.full_name}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
         <div
@@ -311,16 +356,7 @@ export default async function FamiliaPage() {
                 </span>
               </div>
               {confirmed && <div style={{ color: "#9fd3b1", fontSize: 13 }}>✓ Presença confirmada pela recepção.</div>}
-              {notConfirmed && (
-                <div className="flex flex-col gap-1">
-                  <button type="button" className="btn btn-gold" style={{ minHeight: 44 }} disabled title="Em breve">
-                    Confirmar presença
-                  </button>
-                  <span style={{ fontSize: 11, opacity: 0.7 }}>
-                    Em breve — por enquanto a confirmação é feita por telefone/WhatsApp com a recepção.
-                  </span>
-                </div>
-              )}
+              {notConfirmed && <ConfirmAttendance appointmentId={nextAppt.id} />}
               {(notConfirmed || confirmed) && <ReportAbsence appointmentId={nextAppt.id} />}
             </>
           ) : (
@@ -332,6 +368,10 @@ export default async function FamiliaPage() {
       </header>
 
       <div style={{ flex: 1, overflow: "auto", padding: "26px 20px 40px", display: "flex", flexDirection: "column", gap: 30 }}>
+        {showSurveyPrompt && guardianRow && (
+          <SurveyPrompt patientId={patientId} guardianId={guardianRow.id} />
+        )}
+
         <section>
           <h6 style={{ color: "var(--color-accent-2-600)" }}>Esta semana</h6>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginTop: 10 }}>
