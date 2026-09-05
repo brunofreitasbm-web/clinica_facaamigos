@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 /**
  * Cabeçalho navy do módulo Gestão — layout Broadsheet/Instituto Faça Amigos.
@@ -23,12 +26,14 @@ const NAV_ITEMS = [
 export type GestorNavKey = (typeof NAV_ITEMS)[number]["key"];
 
 export function GestorNav({ active = null }: { active?: GestorNavKey | null }) {
+  const pathname = usePathname();
+
   return (
     <header
       style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
-      className="flex h-16 items-center gap-8 px-10"
+      className="flex h-16 items-center gap-8 px-10 shadow-sm"
     >
-      <Link href="/gestor" className="mr-auto flex items-center gap-3 no-underline">
+      <Link href="/gestor" prefetch={true} className="mr-auto flex items-center gap-3 no-underline transition-opacity hover:opacity-90">
         <svg width="30" height="30" viewBox="0 0 100 100" fill="none">
           <path d="M22 18h34v10H33v18h20v10H33v26H22z" fill="var(--color-bg)" />
           <path
@@ -45,22 +50,26 @@ export function GestorNav({ active = null }: { active?: GestorNavKey | null }) {
         </span>
       </Link>
       <nav className="flex items-center gap-8">
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.key}
-            href={item.href}
-            aria-current={active === item.key ? "page" : undefined}
-            className="pb-1 text-[13px] no-underline font-semibold"
-            style={{
-              color: active === item.key ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
-              borderBottom:
-                active === item.key ? "2px solid var(--color-on-accent)" : "2px solid transparent",
-            }}
-          >
-            {item.label}
-          </Link>
-        ))}
+        {NAV_ITEMS.map((item) => {
+          const isCurrent = active ? active === item.key : pathname?.startsWith(item.href);
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              prefetch={true}
+              aria-current={isCurrent ? "page" : undefined}
+              className="pb-1 text-[13px] no-underline font-semibold transition-all duration-150 active:scale-95 hover:opacity-100"
+              style={{
+                color: isCurrent ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
+                borderBottom: isCurrent ? "2px solid var(--color-on-accent)" : "2px solid transparent",
+              }}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
     </header>
   );
 }
+

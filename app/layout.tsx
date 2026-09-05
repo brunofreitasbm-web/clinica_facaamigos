@@ -26,6 +26,10 @@ export const viewport: Viewport = {
   themeColor: "#f0196b",
 };
 
+import { ToastProvider } from "@/components/toast-provider";
+import { RouteProgressBar } from "@/components/route-progress-bar";
+import { Suspense } from "react";
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -35,9 +39,14 @@ export default function RootLayout({
       className={`${nunito.variable} ${fredoka.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <OfflineBanner />
-        <AuthStatus />
-        {children}
+        <ToastProvider>
+          <Suspense fallback={null}>
+            <RouteProgressBar />
+          </Suspense>
+          <OfflineBanner />
+          <AuthStatus />
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

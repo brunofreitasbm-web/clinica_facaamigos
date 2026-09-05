@@ -2,6 +2,7 @@ import { GestorNav } from "@/components/gestor-nav";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
+import { QuickActionsBar } from "@/components/quick-actions-bar";
 import { StaffForm } from "./staff-form";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +31,18 @@ export default async function EquipePage() {
               className="flex items-center justify-between rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
             >
               <span className="font-medium text-ink">{person.full_name}</span>
-              <span className="text-ink-faint">
-                {ROLE_LABEL[person.role as Role]}
-                {!person.active && " — inativo"}
-              </span>
+              <div className="flex items-center gap-4">
+                <span className="text-ink-faint">
+                  {ROLE_LABEL[person.role as Role]}
+                  {!person.active && " — inativo"}
+                </span>
+                <QuickActionsBar
+                  finance={{ href: "/faturamento/repasses", title: `Repasses de ${person.full_name}` }}
+                  profile={{ href: "/gestor/equipe", title: `Perfil de ${person.full_name}` }}
+                  edit={{ href: "/gestor/equipe", title: `Editar ${person.full_name}` }}
+                  schedule={{ href: "/gestor/atendimentos", title: `Atendimentos de ${person.full_name}` }}
+                />
+              </div>
             </li>
           ))}
           {(staff ?? []).length === 0 && (

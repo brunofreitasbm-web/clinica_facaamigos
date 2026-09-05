@@ -3,29 +3,32 @@
 import { useState, useTransition } from "react";
 import { createStaff } from "./actions";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
+import { useToast } from "@/components/toast-provider";
 
 export function StaffForm() {
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
   return (
     <form
       className="flex flex-col gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-5 sm:flex-row sm:flex-wrap sm:items-end"
       action={(formData) => {
         setError(null);
-        setSuccess(false);
         startTransition(async () => {
           try {
             const result = await createStaff(formData);
             if (!result.success) {
               setError(result.error);
+              toast(result.error, "error");
               return;
             }
-            setSuccess(true);
+            toast("Conta de usuário criada com sucesso!", "success");
             (document.getElementById("staff-form") as HTMLFormElement)?.reset();
           } catch {
-            setError("Erro inesperado ao criar a conta. Tente de novo.");
+            const msg = "Erro inesperado ao criar a conta. Tente de novo.";
+            setError(msg);
+            toast(msg, "error");
           }
         });
       }}
@@ -64,7 +67,6 @@ export function StaffForm() {
         {isPending ? "Criando…" : "Criar conta"}
       </button>
       {error && <p className="w-full text-xs text-status-negative-text">{error}</p>}
-      {success && <p className="w-full text-xs text-status-positive-text">Conta criada — repasse e-mail e senha pra pessoa.</p>}
     </form>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { QuickActionsBar } from "@/components/quick-actions-bar";
 import type { TherapistRow, InsurerRow, ProtocolRow, PatientRow, AppointmentTypeRow } from "./data";
 
 const TABS = [
@@ -92,7 +93,7 @@ export function CadastrosTabs({
                 <th>Faixa</th>
                 <th>Contrato</th>
                 <th>Certificações</th>
-                <th></th>
+                <th className="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -107,9 +108,12 @@ export function CadastrosTabs({
                   <td>{t.contractLabel}</td>
                   <td>{t.certifications}</td>
                   <td className="text-right">
-                    <Link href="/gestor/equipe" className="btn btn-ghost text-xs">
-                      Editar
-                    </Link>
+                    <QuickActionsBar
+                      finance={{ href: "/gestor/financeiro", title: `Financeiro/Repasse de ${t.name}` }}
+                      profile={{ href: "/gestor/equipe", title: `Ficha de ${t.name}` }}
+                      edit={{ href: "/gestor/equipe", title: `Editar ${t.name}` }}
+                      schedule={{ href: "/gestor/atendimentos", title: `Agenda de ${t.name}` }}
+                    />
                   </td>
                 </tr>
               ))}
@@ -132,7 +136,7 @@ export function CadastrosTabs({
                 <th>Tabela vigente</th>
                 <th>Preços cadastrados</th>
                 <th>Glosas em aberto</th>
-                <th></th>
+                <th className="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -150,9 +154,12 @@ export function CadastrosTabs({
                   <td className="tabular-figure">{i.priceCount}</td>
                   <td className="tabular-figure">{i.openGlosasCount}</td>
                   <td className="text-right">
-                    <Link href={`/gestor/convenios/${i.id}/precos`} className="btn btn-ghost text-xs">
-                      Tabela de preços
-                    </Link>
+                    <QuickActionsBar
+                      finance={{ href: `/gestor/convenios/${i.id}/precos`, title: `Preços do convênio ${i.name}` }}
+                      profile={{ href: `/gestor/convenios`, title: `Ver convênio ${i.name}` }}
+                      edit={{ href: `/gestor/convenios`, title: `Editar convênio ${i.name}` }}
+                      schedule={{ href: `/faturamento/guias`, title: `Guias do convênio ${i.name}` }}
+                    />
                   </td>
                 </tr>
               ))}
@@ -181,7 +188,7 @@ export function CadastrosTabs({
                   <th>Licença comprada em</th>
                   <th>Risco de digitização aceito por</th>
                   <th>Itens cadastrados</th>
-                  <th></th>
+                  <th className="text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,9 +200,11 @@ export function CadastrosTabs({
                     <td>{p.riskAcceptedLabel}</td>
                     <td className="tabular-figure">{p.itemCount}</td>
                     <td className="text-right">
-                      <Link href={`/gestor/protocolos/${p.id}`} className="btn btn-ghost text-xs">
-                        Gerenciar itens
-                      </Link>
+                      <QuickActionsBar
+                        profile={{ href: `/gestor/protocolos/${p.id}`, title: `Ver ${p.name}` }}
+                        edit={{ href: `/gestor/protocolos/${p.id}`, title: `Gerenciar ${p.name}` }}
+                        schedule={{ href: `/gestor/protocolos/${p.id}`, title: `Histórico de ${p.name}` }}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -220,7 +229,7 @@ export function CadastrosTabs({
                 <th>Duração</th>
                 <th>Exibição</th>
                 <th>Recorrência</th>
-                <th></th>
+                <th className="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -232,9 +241,12 @@ export function CadastrosTabs({
                   <td>A cada {a.displayIntervalMinutes} minutos</td>
                   <td>{RECURRENCE_LABEL[a.recurrence] ?? a.recurrence}</td>
                   <td className="text-right">
-                    <Link href="/gestor/atendimentos" className="btn btn-ghost text-xs">
-                      Editar
-                    </Link>
+                    <QuickActionsBar
+                      finance={{ href: "/gestor/financeiro", title: `Valores de ${a.name}` }}
+                      profile={{ href: "/gestor/atendimentos", title: `Ver ${a.name}` }}
+                      edit={{ href: "/gestor/atendimentos", title: `Editar ${a.name}` }}
+                      schedule={{ href: "/gestor/atendimentos", title: `Escala de ${a.name}` }}
+                    />
                   </td>
                 </tr>
               ))}
@@ -259,6 +271,7 @@ export function CadastrosTabs({
                 <th>Convênio</th>
                 <th>Terapeuta principal</th>
                 <th>Status</th>
+                <th className="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -274,11 +287,18 @@ export function CadastrosTabs({
                   <td>
                     <span className={`tag-status ${PATIENT_STATUS_TAG[p.status] ?? "st-cancelada"}`}>{p.status}</span>
                   </td>
+                  <td className="text-right">
+                    <QuickActionsBar
+                      profile={{ href: `/gestor/pacientes/${p.id}`, title: `Ficha completa de ${p.name}` }}
+                      edit={{ href: `/gestor/pacientes/${p.id}`, title: `Editar paciente ${p.name}` }}
+                      schedule={{ href: `/gestor/pacientes/${p.id}`, title: `Agenda de ${p.name}` }}
+                    />
+                  </td>
                 </tr>
               ))}
               {patients.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-ink-faint">
+                  <td colSpan={7} className="text-ink-faint">
                     Nenhum paciente cadastrado ainda.
                   </td>
                 </tr>

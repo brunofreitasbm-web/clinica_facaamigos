@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { DollarSign, User, PenLine, CalendarClock, X } from "lucide-react";
+import { User, PenLine, CalendarClock, X } from "lucide-react";
 import {
   confirmAppointment,
   checkIn,
@@ -542,16 +542,6 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
       </div>
 
       <div className="relative flex items-center justify-end gap-1.5">
-        <a
-          href={`/recepcao/pacientes/${session.patientId}`}
-          target="_blank"
-          rel="noreferrer"
-          title="Cobranças do paciente"
-          className="btn btn-icon"
-        >
-          <DollarSign size={16} />
-        </a>
-
         <button
           type="button"
           title="Responsáveis"

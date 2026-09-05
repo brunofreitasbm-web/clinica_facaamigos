@@ -9,6 +9,7 @@ export async function createInsurer(
 ): Promise<{ success: true } | { success: false; error: string }> {
   const name = String(formData.get("name") ?? "").trim();
   const ansCode = String(formData.get("ans_code") ?? "").trim();
+  const providerCode = String(formData.get("provider_code") ?? "").trim();
 
   if (!name) {
     return { success: false, error: "Nome do convênio é obrigatório." };
@@ -19,6 +20,7 @@ export async function createInsurer(
     clinic_id: DEV_CLINIC_ID,
     name,
     ans_code: ansCode || null,
+    provider_code: providerCode || null,
   });
 
   if (error) {
