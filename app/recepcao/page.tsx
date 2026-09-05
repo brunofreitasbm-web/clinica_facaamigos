@@ -45,7 +45,8 @@ export default async function RecepcaoPage() {
   const dayStart = zonedDateTimeToUtc(today, "00:00", CLINIC_TIMEZONE).toISOString();
   const dayEnd = zonedDateTimeToUtc(nextCalendarDay(today), "00:00", CLINIC_TIMEZONE).toISOString();
   const now = new Date();
-  const sevenDaysStr = civilDateInTimeZone(new Date(now.getTime() + 7 * 86_400_000), CLINIC_TIMEZONE);
+  // §9.3 do PRD: alerta 15 dias antes do vencimento OU ≤4 sessões restantes.
+  const fifteenDaysStr = civilDateInTimeZone(new Date(now.getTime() + 15 * 86_400_000), CLINIC_TIMEZONE);
 
   const [{ data: rooms }, { data: patients }, { data: therapists }] = await Promise.all([
     supabase.from("rooms").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
@@ -129,7 +130,14 @@ export default async function RecepcaoPage() {
   const patientNameById = new Map((patients ?? []).map((p) => [p.id, p.full_name]));
 
   const guidesByPatient: Record<string, GuideSummary> = {};
-  const expiringGuides: { patientName: string; insurerName: string; sessionsUsed: number; sessionsAuthorized: number; validTo: string }[] = [];
+  const expiringGuides: {
+    patientName: string;
+    insurerName: string;
+    sessionsUsed: number;
+    sessionsAuthorized: number;
+    validTo: string;
+    reason: "vencendo" | "poucas_sessoes";
+  }[] = [];
 
   for (const auth of activeAuths ?? []) {
     const insurance = insuranceById.get(auth.patient_insurance_id);
@@ -144,13 +152,18 @@ export default async function RecepcaoPage() {
       validTo: auth.valid_to,
     };
     guidesByPatient[insurance.patient_id] = summary;
-    if (auth.valid_to >= today && auth.valid_to <= sevenDaysStr) {
+
+    const sessionsRemaining = auth.sessions_authorized - auth.sessions_used;
+    const expiringSoon = auth.valid_to >= today && auth.valid_to <= fifteenDaysStr;
+    const fewSessionsLeft = sessionsRemaining <= 4;
+    if (expiringSoon || fewSessionsLeft) {
       expiringGuides.push({
         patientName: patientNameById.get(insurance.patient_id) ?? "—",
         insurerName,
         sessionsUsed: auth.sessions_used,
         sessionsAuthorized: auth.sessions_authorized,
         validTo: auth.valid_to,
+        reason: expiringSoon ? "vencendo" : "poucas_sessoes",
       });
     }
   }
@@ -279,11 +292,13 @@ export default async function RecepcaoPage() {
         <aside className="flex flex-col gap-10 pt-2">
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3.5">
-              Guias vencendo · 7 dias
+              Guias vencendo ou acabando
             </h6>
             <div className="flex flex-col gap-3.5">
               {expiringGuides.length === 0 && (
-                <p className="text-sm text-ink-faint">Nenhuma guia vencendo nos próximos 7 dias.</p>
+                <p className="text-sm text-ink-faint">
+                  Nenhuma guia vencendo em 15 dias nem com poucas sessões restantes.
+                </p>
               )}
               {expiringGuides.map((g, i) => (
                 <div key={i} className="flex items-baseline justify-between gap-3 text-sm">
@@ -296,7 +311,7 @@ export default async function RecepcaoPage() {
                     </div>
                   </div>
                   <span className="whitespace-nowrap text-xs" style={{ color: "var(--color-accent-2-700)" }}>
-                    até {fmtShortDate(g.validTo)}
+                    {g.reason === "vencendo" ? `até ${fmtShortDate(g.validTo)}` : "poucas sessões"}
                   </span>
                 </div>
               ))}

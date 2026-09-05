@@ -1,138 +1,116 @@
-import Link from "next/link";
 import { GestorNav } from "@/components/gestor-nav";
-import { getBonificacaoData, approveTherapistTierChange } from "./actions";
+import { getBonificacaoData } from "./actions";
+import { TierApprovalForm } from "./tier-approval-form";
+
+const STATUS_STYLE: Record<string, string> = {
+  atingida: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  perto: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  abaixo: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+};
+const STATUS_LABEL: Record<string, string> = {
+  atingida: "✓ Meta atingida",
+  perto: "⚠ Perto da meta",
+  abaixo: "✗ Abaixo da meta",
+};
 
 export default async function BonificacaoPage() {
-  const { plrMetrics, tierProposals } = await getBonificacaoData();
-
-  const recepcaoMetrics = plrMetrics.filter((m) => m.role === "recepcao");
-  const faturamentoMetrics = plrMetrics.filter((m) => m.role === "faturamento");
+  const { bonusRows, tierRows, closedHistory } = await getBonificacaoData();
 
   return (
     <div className="min-h-screen bg-canvas">
       <GestorNav />
 
       <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
-        {/* Top Title */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-ink">
-              Metrificação, PLR e Progressão de Faixas (PJ)
-            </h1>
-            <p className="text-sm text-ink-soft">
-              Painel de apuração de bônus semestral (CLT) e revisão trimestral de faixa de valor-hora (PJ) com dados auditáveis.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button className="rounded-md border border-paper-line-strong bg-paper px-4 py-2 text-xs font-semibold text-ink shadow-sm hover:bg-paper-subtle">
-              📄 Exportar Memória de Cálculo PLR
-            </button>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-ink">
+            Metrificação, PLR e Progressão de Faixas (PJ)
+          </h1>
+          <p className="text-sm text-ink-soft">
+            Indicadores calculados ao vivo sobre o mês corrente (§10 do PRD). Ainda não há
+            `targets`/`metric_snapshots` gravados (job mensal de fechamento é trabalho futuro) —
+            por isso não há peso ponderado nem memória de cálculo em PDF ainda: os números abaixo
+            são os indicadores reais recalculados a cada carregamento da página.
+          </p>
         </div>
 
-        {/* ── SEÇÃO 1: PLR RECEPÇÃO E FATURAMENTO ───────────────────────────── */}
+        {/* ── SEÇÃO 1: INDICADORES POR CARGO (CLT → PLR) ─────────────────── */}
         <section className="rounded-xl border border-paper-line bg-paper p-6 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-paper-line pb-4">
-            <div>
-              <span className="text-xs font-semibold text-accent uppercase tracking-wider">
-                Lei 10.101/2000 · Apuração Semestral
-              </span>
-              <h2 className="text-lg font-bold text-ink">
-                Participação nos Lucros e Resultados (PLR)
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-4 text-xs font-medium">
-              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950 p-2.5 text-emerald-800 dark:text-emerald-300 border border-emerald-200">
-                <span>Atingimento Geral Recepção: </span>
-                <strong className="text-sm font-bold">100%</strong>
-              </div>
-              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950 p-2.5 text-emerald-800 dark:text-emerald-300 border border-emerald-200">
-                <span>Atingimento Geral Faturamento: </span>
-                <strong className="text-sm font-bold">100%</strong>
-              </div>
-            </div>
+          <div className="border-b border-paper-line pb-4">
+            <span className="text-xs font-semibold text-accent uppercase tracking-wider">
+              Lei 10.101/2000 · Base para apuração de PLR
+            </span>
+            <h2 className="text-lg font-bold text-ink">Indicadores do mês por cargo</h2>
           </div>
 
-          {/* Tabela Recepção */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-ink flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-accent"></span>
-              Métricas da Recepção (Peso Total: 100%)
-            </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-paper-subtle border-b border-paper-line font-semibold text-ink-soft uppercase">
+                <tr>
+                  <th className="p-3">Cargo</th>
+                  <th className="p-3">Indicador</th>
+                  <th className="p-3">Realizado no mês</th>
+                  <th className="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-paper-line">
+                {bonusRows.map((row) => (
+                  <tr key={row.role}>
+                    <td className="p-3 font-medium text-ink">{row.role}</td>
+                    <td className="p-3 text-ink-soft">{row.metricLabel}</td>
+                    <td className="p-3 font-semibold text-ink">{row.actualLabel}</td>
+                    <td className="p-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 font-semibold ${STATUS_STYLE[row.status]}`}
+                      >
+                        {STATUS_LABEL[row.status]}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* ── HISTÓRICO FECHADO (metric_snapshots, job mensal dia 1) ─────── */}
+        <section className="rounded-xl border border-paper-line bg-paper p-6 shadow-sm space-y-4">
+          <div className="border-b border-paper-line pb-4">
+            <span className="text-xs font-semibold text-accent uppercase tracking-wider">
+              §10.6 · Fechamento mensal automático
+            </span>
+            <h2 className="text-lg font-bold text-ink">Histórico de meses fechados</h2>
+            <p className="text-xs text-ink-soft mt-1">
+              Gravado no dia 1 de cada mês pelo job `close_monthly_metric_snapshots` — diferente da
+              seção acima (que recalcula o mês em andamento a cada carregamento), isto é o valor
+              congelado do mês já fechado, auditável.
+            </p>
+          </div>
+          {closedHistory.length === 0 ? (
+            <p className="text-sm text-ink-soft">
+              Nenhum mês fechado ainda — a primeira linha aparece no dia 1 do próximo mês.
+            </p>
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-paper-subtle border-b border-paper-line font-semibold text-ink-soft uppercase">
                   <tr>
-                    <th className="p-3">Métrica</th>
-                    <th className="p-3">Meta Exigida</th>
-                    <th className="p-3">Realizado no Período</th>
-                    <th className="p-3">Peso</th>
-                    <th className="p-3">Atingimento</th>
+                    <th className="p-3">Mês</th>
+                    <th className="p-3">Indicador</th>
+                    <th className="p-3">Valor fechado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-paper-line">
-                  {recepcaoMetrics.map((m) => (
-                    <tr key={m.key}>
-                      <td className="p-3 font-medium text-ink">
-                        {m.label}
-                        {m.isEliminatory && (
-                          <span className="ml-2 text-[10px] text-red-600 font-bold uppercase">
-                            (Eliminatório)
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-ink-soft">{m.targetValue}</td>
-                      <td className="p-3 font-semibold text-ink">{m.actualValue}</td>
-                      <td className="p-3">{m.weight}%</td>
-                      <td className="p-3">
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                          ✓ {m.scorePct}%
-                        </span>
-                      </td>
+                  {closedHistory.map((row, i) => (
+                    <tr key={`${row.periodLabel}-${row.metricKey}-${i}`}>
+                      <td className="p-3 font-medium text-ink">{row.periodLabel}</td>
+                      <td className="p-3 text-ink-soft">{row.metricLabel}</td>
+                      <td className="p-3 font-semibold text-ink">{row.valueLabel}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
-
-          {/* Tabela Faturamento */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-sm font-semibold text-ink flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-accent"></span>
-              Métricas do Faturamento (Peso Total: 100%)
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-paper-subtle border-b border-paper-line font-semibold text-ink-soft uppercase">
-                  <tr>
-                    <th className="p-3">Métrica</th>
-                    <th className="p-3">Meta Exigida</th>
-                    <th className="p-3">Realizado no Período</th>
-                    <th className="p-3">Peso</th>
-                    <th className="p-3">Atingimento</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-paper-line">
-                  {faturamentoMetrics.map((m) => (
-                    <tr key={m.key}>
-                      <td className="p-3 font-medium text-ink">{m.label}</td>
-                      <td className="p-3 text-ink-soft">{m.targetValue}</td>
-                      <td className="p-3 font-semibold text-ink">{m.actualValue}</td>
-                      <td className="p-3">{m.weight}%</td>
-                      <td className="p-3">
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                          ✓ {m.scorePct}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          )}
         </section>
 
         {/* ── SEÇÃO 2: PROGRESSÃO DE FAIXA PJ ───────────────────────────── */}
@@ -142,10 +120,12 @@ export default async function BonificacaoPage() {
               Revisão Trimestral Contratual PJ
             </span>
             <h2 className="text-lg font-bold text-ink">
-              Proposta de Progressão de Faixa de Valor-Hora
+              Progressão de Faixa de Valor-Hora
             </h2>
             <p className="text-xs text-ink-soft mt-1">
-              Critérios contratuais objetivos: Evolução em 24h ≥ 98%, Retenção 90 dias ≥ 90%, Cancelamentos pelo terapeuta ≤ 2%.
+              Critério objetivo aplicado: evolução registrada em até 24h ≥ 98% com ao menos 10
+              sessões realizadas nos últimos 90 dias. A faixa/valor proposto é digitado pelo
+              gestor — não há tabela de progressão automática cadastrada ainda.
             </p>
           </div>
 
@@ -155,45 +135,34 @@ export default async function BonificacaoPage() {
                 <tr>
                   <th className="p-3">Terapeuta (PJ)</th>
                   <th className="p-3">Evoluções 24h</th>
-                  <th className="p-3">Retenção 90d</th>
+                  <th className="p-3">Faltas recuperadas</th>
                   <th className="p-3">Faixa Atual</th>
-                  <th className="p-3">Faixa Proposta</th>
                   <th className="p-3 text-right">Ação do Gestor</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-paper-line">
-                {tierProposals.map((prop) => (
-                  <tr key={prop.profileId} className="hover:bg-paper-subtle/50 transition-colors">
-                    <td className="p-3 font-semibold text-ink">
-                      {prop.therapistName}
+                {tierRows.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-3 text-center text-ink-soft">
+                      Nenhum terapeuta ativo cadastrado.
                     </td>
-                    <td className="p-3">
-                      <span className={prop.note24hRate >= 98 ? "text-emerald-700 font-medium" : "text-red-600 font-medium"}>
-                        {prop.note24hRate}%
-                      </span>
-                    </td>
-                    <td className="p-3 font-medium">{prop.retention90dRate}%</td>
+                  </tr>
+                )}
+                {tierRows.map((row) => (
+                  <tr key={row.id} className="hover:bg-paper-subtle/50 transition-colors">
+                    <td className="p-3 font-semibold text-ink">{row.name}</td>
+                    <td className="p-3">{row.note24hRateLabel}</td>
+                    <td className="p-3 font-medium">{row.faltasRecuperadasLabel}</td>
                     <td className="p-3 text-ink-soft">
-                      {prop.currentTier} (R$ {prop.currentRate.toFixed(2)})
-                    </td>
-                    <td className="p-3 font-bold text-emerald-700">
-                      {prop.proposedTier} (R$ {prop.proposedRate.toFixed(2)})
+                      {row.tier}
+                      {row.currentRate != null && ` (R$ ${row.currentRate.toFixed(2)})`}
                     </td>
                     <td className="p-3 text-right">
-                      {prop.status === "elegivel" ? (
-                        <form action={approveTherapistTierChange} className="inline-block">
-                          <input type="hidden" name="profile_id" value={prop.profileId} />
-                          <input type="hidden" name="proposed_rate" value={prop.proposedRate} />
-                          <button
-                            type="submit"
-                            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors"
-                          >
-                            ✓ Aprovar Promoção
-                          </button>
-                        </form>
+                      {row.eligible ? (
+                        <TierApprovalForm row={row} />
                       ) : (
                         <span className="text-xs font-medium text-ink-faint italic">
-                          Manter Faixa Atual
+                          {row.nextTierLabel}
                         </span>
                       )}
                     </td>

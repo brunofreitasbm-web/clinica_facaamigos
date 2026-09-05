@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro" },
   { key: "bonificacao", label: "PLR & Faixas", href: "/gestor/bonificacao" },
+  { key: "auditoria", label: "Auditoria (LGPD)", href: "/gestor/auditoria" },
 ] as const;
 
 export type GestorNavKey = (typeof NAV_ITEMS)[number]["key"];

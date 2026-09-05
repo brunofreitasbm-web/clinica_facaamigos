@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { PLAN_GOAL_STATUS_STYLE, BILLING_ITEM_STATUS_STYLE } from "@/lib/appointment-status-style";
-import { AbaLearningCurveChart } from "./aba-learning-curve-chart";
+import { AbaLearningCurveChart, type ProgramTrialSummary } from "./aba-learning-curve-chart";
 import { ProtocolAssessmentDialog } from "./protocol-assessment-dialog";
 
 const TABS = [
@@ -49,6 +49,7 @@ export function PatientTabs({
   notes,
   documentsContent,
   billing,
+  abaPrograms,
 }: {
   frequency: FrequencyDay[];
   goals: GoalRow[];
@@ -59,6 +60,7 @@ export function PatientTabs({
   notes: EvolutionNote[];
   documentsContent: ReactNode;
   billing: BillingRow[];
+  abaPrograms: ProgramTrialSummary[];
 }) {
   const [tab, setTab] = useState<TabKey>("visao");
 
@@ -232,7 +234,7 @@ export function PatientTabs({
             <div className="flex justify-end">
               <ProtocolAssessmentDialog />
             </div>
-            <AbaLearningCurveChart />
+            <AbaLearningCurveChart programsData={abaPrograms} />
           </section>
         )}
 

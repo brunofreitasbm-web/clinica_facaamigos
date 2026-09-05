@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { getPatientProtocolTabs } from "@/lib/protocol-assessments";
 import { ProtocolAssessmentPanel } from "@/components/protocol-assessment-panel";
+import { logRecordAccess } from "@/lib/record-access-log";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,8 @@ export default async function PatientAssessmentPage({
   // paciente (terapeuta vinculado, supervisor, gestor) chega aqui.
   const { data: patient } = await supabase.from("patients").select("id, clinic_id, full_name").eq("id", patientId).maybeSingle();
   if (!patient) notFound();
+
+  await logRecordAccess(supabase, patientId, "avaliacao_protocolo");
 
   const protocols = await getPatientProtocolTabs(supabase, patient.clinic_id, patientId);
 

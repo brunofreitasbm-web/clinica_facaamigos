@@ -17,54 +17,10 @@ export interface ProgramTrialSummary {
   }[];
 }
 
-const DEFAULT_PROGRAMS: ProgramTrialSummary[] = [
-  {
-    id: "prog-1",
-    programName: "Mandar · Solicitar itens desejados por gesto/apontar",
-    domain: "Comunicação Verbal",
-    masteryCriterion: "≥ 80% acertos independentes em 3 sessões consecutivas",
-    status: "em_aquisicao",
-    sessions: [
-      { date: "10/08", totalTrials: 10, correctIndependent: 3, withPrompt: 5, incorrect: 2 },
-      { date: "14/08", totalTrials: 12, correctIndependent: 5, withPrompt: 4, incorrect: 3 },
-      { date: "17/08", totalTrials: 10, correctIndependent: 6, withPrompt: 3, incorrect: 1 },
-      { date: "21/08", totalTrials: 10, correctIndependent: 7, withPrompt: 2, incorrect: 1 },
-      { date: "24/08", totalTrials: 15, correctIndependent: 12, withPrompt: 2, incorrect: 1 },
-      { date: "28/08", totalTrials: 10, correctIndependent: 9, withPrompt: 1, incorrect: 0 },
-      { date: "01/09", totalTrials: 10, correctIndependent: 8, withPrompt: 2, incorrect: 0 },
-    ],
-  },
-  {
-    id: "prog-2",
-    programName: "Tato · Nomeação de figuras de animais (10 figuras)",
-    domain: "Linguagem Receptiva/Expressiva",
-    masteryCriterion: "≥ 90% acertos em 2 sessões consecutivas",
-    status: "dominado",
-    sessions: [
-      { date: "05/08", totalTrials: 10, correctIndependent: 4, withPrompt: 4, incorrect: 2 },
-      { date: "12/08", totalTrials: 10, correctIndependent: 7, withPrompt: 2, incorrect: 1 },
-      { date: "19/08", totalTrials: 10, correctIndependent: 9, withPrompt: 1, incorrect: 0 },
-      { date: "26/08", totalTrials: 10, correctIndependent: 10, withPrompt: 0, incorrect: 0 },
-    ],
-  },
-  {
-    id: "prog-3",
-    programName: "Imitação de Movimentos de Motores Grossos",
-    domain: "Imitação",
-    masteryCriterion: "≥ 85% acertos independentes",
-    status: "em_aquisicao",
-    sessions: [
-      { date: "15/08", totalTrials: 8, correctIndependent: 2, withPrompt: 4, incorrect: 2 },
-      { date: "22/08", totalTrials: 10, correctIndependent: 5, withPrompt: 3, incorrect: 2 },
-      { date: "29/08", totalTrials: 10, correctIndependent: 6, withPrompt: 3, incorrect: 1 },
-    ],
-  },
-];
-
 export function AbaLearningCurveChart({
-  programsData = DEFAULT_PROGRAMS,
+  programsData,
 }: {
-  programsData?: ProgramTrialSummary[];
+  programsData: ProgramTrialSummary[];
 }) {
   const [selectedProgramId, setSelectedProgramId] = useState<string>(
     programsData[0]?.id ?? ""
@@ -74,7 +30,11 @@ export function AbaLearningCurveChart({
     programsData.find((p) => p.id === selectedProgramId) ?? programsData[0];
 
   if (!selectedProgram) {
-    return <p className="text-sm text-ink-faint">Nenhum programa ABA cadastrado.</p>;
+    return (
+      <p className="text-sm text-ink-faint">
+        Nenhuma tentativa de programa ABA registrada ainda para este paciente.
+      </p>
+    );
   }
 
   // Cálculos para o gráfico SVG

@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { ReportEditor, type DraftReportView } from "./report-editor";
+import { logRecordAccess } from "@/lib/record-access-log";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ export default async function RelatorioDevolutivoPage({
   // paciente (terapeuta vinculado, supervisor, gestor) chega aqui.
   const { data: patient } = await supabase.from("patients").select("id, full_name").eq("id", patientId).maybeSingle();
   if (!patient) notFound();
+
+  await logRecordAccess(supabase, patientId, "relatorio_devolutivo");
 
   const { data: latest } = await supabase
     .from("draft_reports")

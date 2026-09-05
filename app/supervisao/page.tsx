@@ -12,7 +12,7 @@ import {
 } from "./grade-data";
 import { GradePanel, type GradeAppointment, type PendingNote } from "./grade-panel";
 import { PlanosPanel, type PlanRow } from "./planos-panel";
-import { InboxPanel, type InboxMessageRow } from "./inbox-panel";
+import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingReportRow } from "./inbox-panel";
 import { SupervisaoShell } from "./supervisao-shell";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,8 @@ export default async function SupervisaoPage() {
     pendingNotes,
     { data: rawPlans },
     { data: rawMessages },
+    { data: rawReassessments },
+    { data: rawDraftReports },
   ] = await Promise.all([
     supabase.from("patients").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("reassessment_alerts").select("id", { count: "exact", head: true }).eq("status", "notificado"),
@@ -67,6 +69,18 @@ export default async function SupervisaoPage() {
       .eq("channel", "portal")
       .eq("direction", "inbound")
       .order("sent_at", { ascending: false }),
+    supabase
+      .from("reassessment_alerts")
+      .select("id, due_date, status, patients(full_name)")
+      .eq("status", "notificado")
+      .order("due_date", { ascending: true }),
+    supabase
+      .from("draft_reports")
+      .select(
+        "id, patient_id, final_text, ai_draft, status, patients(full_name), generated_by_profile:profiles!draft_reports_generated_by_fkey(full_name)",
+      )
+      .in("status", ["gerado", "em_revisao"])
+      .order("created_at", { ascending: true }),
   ]);
 
   // ── Grade semanal ──────────────────────────────────────────────────────
@@ -170,6 +184,35 @@ export default async function SupervisaoPage() {
     };
   });
 
+  // ── Alertas de reavaliação vencendo (reassessment_alerts) ──────────────
+  const todayStr = todayInTimeZone(CLINIC_TIMEZONE);
+  const reassessmentRows: ReassessmentRow[] = (rawReassessments ?? []).map((r) => {
+    const patient = Array.isArray(r.patients) ? r.patients[0] : r.patients;
+    const daysLeft = Math.round(
+      (new Date(`${r.due_date}T00:00:00`).getTime() - new Date(`${todayStr}T00:00:00`).getTime()) /
+        (24 * 60 * 60 * 1000),
+    );
+    return {
+      id: r.id,
+      patientName: patient?.full_name ?? "—",
+      dueDate: new Date(`${r.due_date}T00:00:00`).toLocaleDateString("pt-BR"),
+      daysLeft,
+    };
+  });
+
+  // ── Relatórios devolutivos aguardando validação (draft_reports) ────────
+  const pendingReportRows: PendingReportRow[] = (rawDraftReports ?? []).map((r) => {
+    const patient = Array.isArray(r.patients) ? r.patients[0] : r.patients;
+    const generatedBy = Array.isArray(r.generated_by_profile) ? r.generated_by_profile[0] : r.generated_by_profile;
+    return {
+      id: r.id,
+      patientId: r.patient_id,
+      patientName: patient?.full_name ?? "—",
+      generatedByName: generatedBy?.full_name ?? "—",
+      text: r.final_text ?? r.ai_draft ?? "",
+    };
+  });
+
   return (
     <SupervisaoShell
       nPlanos={plans.length}
@@ -188,7 +231,13 @@ export default async function SupervisaoPage() {
         />
       }
       planosTab={<PlanosPanel plans={plans} />}
-      inboxTab={<InboxPanel messages={inboxMessages} />}
+      inboxTab={
+        <InboxPanel
+          messages={inboxMessages}
+          reassessments={reassessmentRows}
+          pendingReports={pendingReportRows}
+        />
+      }
     />
   );
 }

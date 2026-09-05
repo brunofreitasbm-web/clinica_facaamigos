@@ -430,15 +430,55 @@ export async function getBonusRows(supabase: Supa, clinicId: string): Promise<Bo
   ];
 }
 
+// ── Histórico mensal fechado (§10.6, close_monthly_metric_snapshots) ────
+// Só tem linha a partir do mês em que o job (migration 20260904000027)
+// rodar pela primeira vez no dia 1 — meses antes disso ficam sem histórico
+// mesmo, não tem como reconstruir retroativamente sem os dados originais.
+const CLOSED_METRIC_LABEL: Record<string, string> = {
+  no_show_rate: "No-show (recepção)",
+  occupancy_rate: "Ocupação (coordenação)",
+  glosa_rate: "Glosa (faturamento)",
+};
+
+export type ClosedMetricRow = {
+  periodLabel: string;
+  metricKey: string;
+  metricLabel: string;
+  valueLabel: string;
+};
+
+export async function getClosedMetricHistory(supabase: Supa, clinicId: string, months = 6): Promise<ClosedMetricRow[]> {
+  const { data } = await supabase
+    .from("metric_snapshots")
+    .select("metric_key, period_start, value")
+    .eq("scope_type", "clinica")
+    .eq("scope_id", clinicId)
+    .in("metric_key", Object.keys(CLOSED_METRIC_LABEL))
+    .order("period_start", { ascending: false })
+    .limit(months * Object.keys(CLOSED_METRIC_LABEL).length);
+
+  return (data ?? []).map((r) => {
+    const [year, month] = r.period_start.split("-");
+    return {
+      periodLabel: `${month}/${year}`,
+      metricKey: r.metric_key,
+      metricLabel: CLOSED_METRIC_LABEL[r.metric_key] ?? r.metric_key,
+      valueLabel: `${(Number(r.value) * 100).toFixed(1)}%`,
+    };
+  });
+}
+
 // ── Terapeutas · progressão de faixa (§10.3) ─────────────────────────────
 export type TierRow = {
   id: string;
   name: string;
   tier: string;
+  currentRate: number | null;
   sessions: number;
   note24hRateLabel: string;
   faltasRecuperadasLabel: string;
   nextTierLabel: string;
+  eligible: boolean;
 };
 
 export async function getTierProgression(supabase: Supa, clinicId: string): Promise<TierRow[]> {
@@ -455,14 +495,18 @@ export async function getTierProgression(supabase: Supa, clinicId: string): Prom
 
   const { data: contracts } = await supabase
     .from("therapist_contracts")
-    .select("profile_id, tier, valid_from, valid_to")
+    .select("profile_id, tier, hourly_rate, valid_from, valid_to")
     .in("profile_id", ids);
   const now = Date.now();
   const tierByTherapist = new Map<string, string>();
+  const rateByTherapist = new Map<string, number>();
   for (const c of contracts ?? []) {
     const from = new Date(c.valid_from).getTime();
     const to = c.valid_to ? new Date(c.valid_to).getTime() : null;
-    if (from <= now && (to == null || to >= now)) tierByTherapist.set(c.profile_id, c.tier);
+    if (from <= now && (to == null || to >= now)) {
+      tierByTherapist.set(c.profile_id, c.tier);
+      rateByTherapist.set(c.profile_id, Number(c.hourly_rate));
+    }
   }
 
   const ninetyDaysAgoISO = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
@@ -515,11 +559,13 @@ export async function getTierProgression(supabase: Supa, clinicId: string): Prom
       id: t.id,
       name: t.full_name,
       tier: tierByTherapist.get(t.id) ?? "sem contrato vigente",
+      currentRate: rateByTherapist.get(t.id) ?? null,
       sessions: realized.length,
       note24hRateLabel: note24hRate != null ? `${Math.round(note24hRate * 100)}%` : "sem sessões",
       faltasRecuperadasLabel:
         faltas.length > 0 ? `${recovered}/${faltas.length} (${Math.round((recoveryRate ?? 0) * 100)}%)` : "sem faltas",
       nextTierLabel: eligible ? "Elegível — proposta ao gestor" : "Mantém faixa atual",
+      eligible,
     };
   });
 }

@@ -9,6 +9,8 @@ import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getFeedPosts } from "@/lib/feed-posts";
+import { getPatientAbaLearningCurves } from "@/lib/patient-metrics";
+import { logRecordAccess } from "@/lib/record-access-log";
 import { StageActionForm } from "./stage-action-form";
 import { DocumentViewButton } from "./document-view-button";
 import { DocumentUploadForm } from "./document-upload-form";
@@ -49,6 +51,8 @@ export default async function PacientePage({
     .maybeSingle();
 
   if (!patient || patientError) notFound();
+
+  await logRecordAccess(supabase, id, "prontuario");
 
   const { data: guardians } = await supabase
     .from("guardians")
@@ -239,6 +243,8 @@ export default async function PacientePage({
     amount: b.amount,
     status: b.status,
   }));
+
+  const abaPrograms = await getPatientAbaLearningCurves(supabase, patient.id);
 
   const teamText =
     (teamAccess ?? []).length > 0 ? (
@@ -484,6 +490,7 @@ export default async function PacientePage({
         notes={notes}
         documentsContent={documentsContent}
         billing={billing}
+        abaPrograms={abaPrograms}
       />
 
       {pendingAbsenceReports.length > 0 && (

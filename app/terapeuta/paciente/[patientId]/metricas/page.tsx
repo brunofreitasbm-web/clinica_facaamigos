@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { getPatientProgramTrends, getPatientGoalCountsByDomain } from "@/lib/patient-metrics";
+import { logRecordAccess } from "@/lib/record-access-log";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,8 @@ export default async function PatientMetricsPage({
 
   const { data: patient } = await supabase.from("patients").select("id, full_name").eq("id", patientId).maybeSingle();
   if (!patient) notFound();
+
+  await logRecordAccess(supabase, patientId, "metricas_aba");
 
   const [{ trends, domainAverages }, goalCounts] = await Promise.all([
     getPatientProgramTrends(supabase, patientId),

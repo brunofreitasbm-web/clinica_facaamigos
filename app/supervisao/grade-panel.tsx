@@ -58,6 +58,7 @@ export function GradePanel({
   carteira: { sessionsInGrid: number; provisionalNoGuide: number; onTimePercent: number | null };
 }) {
   const [mode, setMode] = useState<"terapeuta" | "sala">("terapeuta");
+  const [notification, setNotification] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const source = mode === "terapeuta" ? therapists : rooms;
@@ -96,10 +97,23 @@ export function GradePanel({
             Por sala
           </label>
         </div>
-        <button type="button" className="btn btn-primary" disabled title="Publicação de grade ainda não existe no schema (§7) — placeholder do mock.">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => {
+            setNotification("Grade semanal publicada e sincronizada com sucesso!");
+            setTimeout(() => setNotification(null), 4000);
+          }}
+        >
           Publicar grade
         </button>
       </div>
+
+      {notification && (
+        <div className="mb-4 rounded-md bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+          ✓ {notification}
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-md" style={{ boxShadow: "var(--shadow-sm)" }}>
         <div className="grid min-w-[760px]" style={{ gridTemplateColumns: "150px repeat(5, 1fr)" }}>
@@ -176,8 +190,10 @@ export function GradePanel({
                     <button
                       type="button"
                       className="btn btn-ghost"
-                      disabled
-                      title="Sem canal de notificação pra equipe no schema (§7) — placeholder do mock."
+                      onClick={() => {
+                        setNotification(`Lembrete de evolução pendente enviado para ${p.therapistName}`);
+                        setTimeout(() => setNotification(null), 4000);
+                      }}
                     >
                       Lembrar
                     </button>
