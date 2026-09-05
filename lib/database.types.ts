@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -16,40 +16,40 @@ export type Database = {
     Tables: {
       aba_abc_logs: {
         Row: {
-          id: string
-          appointment_id: string
-          patient_id: string
-          therapist_id: string
           antecedent: string
+          appointment_id: string
           behavior_description: string
           consequence: string
-          intensity: string | null
           duration_seconds: number | null
+          id: string
+          intensity: string | null
+          patient_id: string
           recorded_at: string
+          therapist_id: string
         }
         Insert: {
-          id?: string
-          appointment_id: string
-          patient_id: string
-          therapist_id: string
           antecedent: string
+          appointment_id: string
           behavior_description: string
           consequence: string
-          intensity?: string | null
           duration_seconds?: number | null
+          id?: string
+          intensity?: string | null
+          patient_id: string
           recorded_at?: string
+          therapist_id: string
         }
         Update: {
-          id?: string
-          appointment_id?: string
-          patient_id?: string
-          therapist_id?: string
           antecedent?: string
+          appointment_id?: string
           behavior_description?: string
           consequence?: string
-          intensity?: string | null
           duration_seconds?: number | null
+          id?: string
+          intensity?: string | null
+          patient_id?: string
           recorded_at?: string
+          therapist_id?: string
         }
         Relationships: [
           {
@@ -72,7 +72,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       absence_reports: {
@@ -136,8 +136,56 @@ export type Database = {
           },
         ]
       }
+      appointment_types: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          display_interval_minutes: number
+          duration_minutes: number
+          id: string
+          modality: string
+          name: string
+          recurrence: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          display_interval_minutes: number
+          duration_minutes: number
+          id?: string
+          modality?: string
+          name: string
+          recurrence?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          display_interval_minutes?: number
+          duration_minutes?: number
+          id?: string
+          modality?: string
+          name?: string
+          recurrence?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_types_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
+          appointment_type_id: string | null
           attendance_started_at: string | null
           authorization_id: string | null
           cancel_reason: string | null
@@ -162,6 +210,7 @@ export type Database = {
           therapist_id: string
         }
         Insert: {
+          appointment_type_id?: string | null
           attendance_started_at?: string | null
           authorization_id?: string | null
           cancel_reason?: string | null
@@ -186,6 +235,7 @@ export type Database = {
           therapist_id: string
         }
         Update: {
+          appointment_type_id?: string | null
           attendance_started_at?: string | null
           authorization_id?: string | null
           cancel_reason?: string | null
@@ -210,6 +260,13 @@ export type Database = {
           therapist_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointments_appointment_type_id_fkey"
+            columns: ["appointment_type_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_types"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointments_authorization_id_fkey"
             columns: ["authorization_id"]
@@ -801,6 +858,7 @@ export type Database = {
       }
       insurer_price_tables: {
         Row: {
+          cost: number | null
           id: string
           insurer_id: string
           price: number
@@ -810,6 +868,7 @@ export type Database = {
           valid_to: string | null
         }
         Insert: {
+          cost?: number | null
           id?: string
           insurer_id: string
           price: number
@@ -819,6 +878,7 @@ export type Database = {
           valid_to?: string | null
         }
         Update: {
+          cost?: number | null
           id?: string
           insurer_id?: string
           price?: number
@@ -1143,6 +1203,57 @@ export type Database = {
           },
         ]
       }
+      patient_charges: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string
+          due_date: string | null
+          id: string
+          paid_at: string | null
+          patient_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description: string
+          due_date?: string | null
+          id?: string
+          paid_at?: string | null
+          patient_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          due_date?: string | null
+          id?: string
+          paid_at?: string | null
+          patient_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_charges_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_insurance: {
         Row: {
           card_number: string | null
@@ -1181,6 +1292,45 @@ export type Database = {
           },
           {
             foreignKeyName: "patient_insurance_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_tags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_tags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_tags_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
@@ -1392,6 +1542,7 @@ export type Database = {
           council_number: string | null
           council_type: string | null
           created_at: string
+          discipline: string | null
           esdm_certified: boolean
           full_name: string
           id: string
@@ -1404,6 +1555,7 @@ export type Database = {
           council_number?: string | null
           council_type?: string | null
           created_at?: string
+          discipline?: string | null
           esdm_certified?: boolean
           full_name: string
           id: string
@@ -1416,6 +1568,7 @@ export type Database = {
           council_number?: string | null
           council_type?: string | null
           created_at?: string
+          discipline?: string | null
           esdm_certified?: boolean
           full_name?: string
           id?: string
@@ -2415,14 +2568,11 @@ export type Database = {
       _temptypes: { Args: { "": string }; Returns: string }
       _todo: { Args: never; Returns: string }
       app_current_role: { Args: never; Returns: string }
-      confirm_attendance: {
-        Args: { p_appointment_id: string }
-        Returns: undefined
-      }
       change_intern_password: {
         Args: { p_intern_id: string; p_new_password: string }
         Returns: undefined
       }
+      close_monthly_metric_snapshots: { Args: never; Returns: undefined }
       col_is_null:
         | {
             Args: {
@@ -2459,6 +2609,10 @@ export type Database = {
             }
             Returns: string
           }
+      confirm_attendance: {
+        Args: { p_appointment_id: string }
+        Returns: undefined
+      }
       create_intern_user: {
         Args: {
           p_address?: string
@@ -2549,6 +2703,7 @@ export type Database = {
       pg_version: { Args: never; Returns: string }
       pg_version_num: { Args: never; Returns: number }
       pgtap_version: { Args: never; Returns: number }
+      refresh_reassessment_alerts: { Args: never; Returns: undefined }
       reset_intern_password: {
         Args: { p_intern_id: string; p_new_password: string }
         Returns: undefined

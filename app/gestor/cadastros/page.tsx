@@ -1,7 +1,7 @@
 import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { getTherapistRows, getInsurerRows, getProtocolRows, getPatientRows } from "./data";
+import { getTherapistRows, getInsurerRows, getProtocolRows, getPatientRows, getAppointmentTypeRows } from "./data";
 import { CadastrosTabs } from "./cadastros-tabs";
 
 export const dynamic = "force-dynamic";
@@ -9,11 +9,12 @@ export const dynamic = "force-dynamic";
 export default async function CadastrosPage() {
   const supabase = await createClient();
 
-  const [therapists, insurers, protocols, patients] = await Promise.all([
+  const [therapists, insurers, protocols, patients, appointmentTypes] = await Promise.all([
     getTherapistRows(supabase, DEV_CLINIC_ID),
     getInsurerRows(supabase, DEV_CLINIC_ID),
     getProtocolRows(supabase, DEV_CLINIC_ID),
     getPatientRows(supabase, DEV_CLINIC_ID),
+    getAppointmentTypeRows(supabase, DEV_CLINIC_ID),
   ]);
 
   return (
@@ -27,7 +28,13 @@ export default async function CadastrosPage() {
         <h1 className="m-0">Cadastros</h1>
       </div>
 
-      <CadastrosTabs therapists={therapists} insurers={insurers} protocols={protocols} patients={patients} />
+      <CadastrosTabs
+        therapists={therapists}
+        insurers={insurers}
+        protocols={protocols}
+        patients={patients}
+        appointmentTypes={appointmentTypes}
+      />
     </main>
   );
 }

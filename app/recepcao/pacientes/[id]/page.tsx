@@ -12,6 +12,7 @@ import { getFeedPosts } from "@/lib/feed-posts";
 import { getPatientAbaLearningCurves } from "@/lib/patient-metrics";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { StageActionForm } from "./stage-action-form";
+import { EditRegistrationButton } from "./edit-registration-button";
 import { DocumentViewButton } from "./document-view-button";
 import { DocumentUploadForm } from "./document-upload-form";
 import { FeedPostForm } from "./feed-post-form";
@@ -56,7 +57,7 @@ export default async function PacientePage({
 
   const { data: guardians } = await supabase
     .from("guardians")
-    .select("id, full_name, phone, is_emergency_contact")
+    .select("id, full_name, phone, is_emergency_contact, is_financial")
     .eq("patient_id", id);
 
   const { data: evalAppointment } = await supabase
@@ -354,6 +355,9 @@ export default async function PacientePage({
     .map((p) => p[0]?.toUpperCase())
     .join("");
 
+  const primaryGuardian =
+    (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0] ?? null;
+
   return (
     <main className="flex flex-1 flex-col">
       <PatientHeader />
@@ -379,10 +383,14 @@ export default async function PacientePage({
             <h1 className="m-0">{patient.full_name}</h1>
           </div>
         </div>
-        <div className="flex gap-2.5">
-          <button type="button" className="btn btn-secondary" disabled>
-            Editar cadastro
-          </button>
+        <div className="flex flex-wrap gap-2.5">
+          <EditRegistrationButton
+            patientId={patient.id}
+            fullName={patient.full_name}
+            birthDate={patient.birth_date}
+            phone={primaryGuardian?.phone ?? null}
+            guardianId={primaryGuardian?.id ?? null}
+          />
           <a href="/recepcao/agenda" className="btn btn-primary">
             Nova sessão
           </a>

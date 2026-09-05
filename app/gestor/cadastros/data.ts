@@ -148,6 +148,32 @@ export async function getProtocolRows(supabase: Supa, clinicId: string): Promise
   }));
 }
 
+export type AppointmentTypeRow = {
+  id: string;
+  name: string;
+  modality: string;
+  durationMinutes: number;
+  displayIntervalMinutes: number;
+  recurrence: string;
+};
+
+export async function getAppointmentTypeRows(supabase: Supa, clinicId: string): Promise<AppointmentTypeRow[]> {
+  const { data } = await supabase
+    .from("appointment_types")
+    .select("id, name, modality, duration_minutes, display_interval_minutes, recurrence")
+    .eq("clinic_id", clinicId)
+    .order("name");
+
+  return (data ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    modality: t.modality,
+    durationMinutes: t.duration_minutes,
+    displayIntervalMinutes: t.display_interval_minutes,
+    recurrence: t.recurrence,
+  }));
+}
+
 export type PatientRow = {
   id: string;
   name: string;
