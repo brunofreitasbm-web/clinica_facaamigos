@@ -30,3 +30,29 @@ export async function createInsurer(
   revalidatePath("/gestor/convenios");
   return { success: true };
 }
+
+/** Preenche/atualiza o código do prestador na operadora — usado no cabeçalho do lote TISS (app/faturamento/guias). */
+export async function updateInsurerProviderCode(
+  formData: FormData,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const insurerId = String(formData.get("insurer_id") ?? "");
+  const providerCode = String(formData.get("provider_code") ?? "").trim();
+
+  if (!insurerId) {
+    return { success: false, error: "Convênio inválido." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("insurers")
+    .update({ provider_code: providerCode || null })
+    .eq("id", insurerId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível salvar o código do prestador." };
+  }
+
+  revalidatePath("/gestor/convenios");
+  revalidatePath("/faturamento/guias");
+  return { success: true };
+}
