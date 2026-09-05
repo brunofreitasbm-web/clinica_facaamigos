@@ -52,6 +52,17 @@ export async function signIn(
   return { success: false, error: "E-mail ou senha inválidos." };
 }
 
+export async function devLogin() {
+  if (process.env.NODE_ENV === "production") {
+    return { success: false, error: "Login de desenvolvedor desabilitado em produção." };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set("demo_user_role", "gestor", { path: "/", httpOnly: true });
+  cookieStore.set("demo_user_email", "dev@facaamigos.com.br", { path: "/", httpOnly: true });
+  redirect("/");
+}
+
 export async function switchDemoRole(role: string, targetPath: string) {
   const cookieStore = await cookies();
   cookieStore.set("demo_user_role", role, { path: "/", httpOnly: true });

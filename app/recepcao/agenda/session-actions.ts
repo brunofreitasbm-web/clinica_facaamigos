@@ -187,3 +187,29 @@ export async function markMissedOrCancelled(
   revalidateAgendaViews();
   return { success: true };
 }
+
+export async function rescheduleAppointmentAction(
+  appointmentId: string,
+  newStartsAtIso: string,
+  newEndsAtIso: string
+): Promise<ActionResult> {
+  const supabase = createAdminClient();
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      starts_at: newStartsAtIso,
+      ends_at: newEndsAtIso,
+      status: "agendada",
+      cancelled_at: null,
+      cancel_reason: null,
+    })
+    .eq("id", appointmentId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível reagendar a sessão. Tente de novo." };
+  }
+
+  revalidateAgendaViews();
+  return { success: true };
+}
