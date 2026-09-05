@@ -227,11 +227,6 @@
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
-  --radius-xl: 28px;
-  --radius-2xl: 32px;
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
   --shadow-xl: 0 16px 48px color-mix(in srgb, var(--color-text) 24%, transparent);
 }
 
@@ -245,8 +240,9 @@ body {
   font-family: var(--font-body);
   margin: 0;
   font-size: 15px;
-  line-height: 1.55;
+  line-height: 1.58;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
@@ -278,7 +274,7 @@ a {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: var(--font-heading-weight);
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   margin: 0 0 var(--space-2);
 }
@@ -346,22 +342,23 @@ h6 {
 .btn-block { width: 100%; margin-top: var(--space-2); }
 
 .field > label {
-  display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;
-  color: var(--color-neutral-600);
+  display: block; font-size: 14px; font-weight: 700; margin-bottom: 6px;
+  color: var(--color-dark);
 }
 .input {
-  width: 100%; min-height: 44px; padding: 8px 16px; font: inherit;
+  width: 100%; min-height: 44px; padding: 10px 16px; font: inherit;
   font-size: 15px; color: var(--color-text); caret-color: var(--color-accent);
   background: var(--color-surface);
   border: 1.5px solid var(--color-neutral-300); border-radius: var(--radius-md);
+  line-height: 1.4;
 }
-.input::placeholder { color: var(--color-neutral-500); opacity: 1; }
+.input::placeholder { color: var(--color-neutral-500); opacity: 0.9; }
 .input:hover { border-color: var(--color-neutral-400); }
 .input:focus-visible {
   border-color: var(--color-accent); outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
-textarea.input { min-height: 90px; resize: vertical; }
+textarea.input { min-height: 96px; resize: vertical; line-height: 1.5; }
 
 .radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
 .radio input, .seg-opt input {
@@ -392,19 +389,19 @@ textarea.input { min-height: 90px; resize: vertical; }
 .seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 
 .card {
-  display: flex; flex-direction: column; gap: var(--space-2);
-  padding: var(--space-4); border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: calc(var(--space-4) * 1.15); border-radius: var(--radius-lg);
   background: var(--color-surface); box-shadow: var(--shadow-sm);
   transition: box-shadow 200ms ease, transform 200ms ease;
 }
-.card-kicker { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 800; color: var(--color-accent-2-700); }
+.card-kicker { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; color: var(--color-accent-2-700); }
 .card-title {
   font-family: var(--font-body); font-weight: 800;
-  font-size: 18px; line-height: 1.25;
+  font-size: 19px; line-height: 1.3; color: var(--color-dark);
 }
-.card-body { margin: 0; font-size: 13px; opacity: 0.75; flex: 1; }
+.card-body { margin: 0; font-size: 14px; opacity: 0.88; flex: 1; line-height: 1.55; }
 .card-meta {
-  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
   color: var(--color-neutral-600);
 }
 .elev-sm { box-shadow: var(--shadow-sm); }
@@ -421,8 +418,8 @@ textarea.input { min-height: 90px; resize: vertical; }
 .tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-700); }
 .tag-outline { border: 1.5px solid var(--color-accent); color: var(--color-accent); }
 
-.tag-status { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight: 600; letter-spacing:0.02em; padding:4px 12px; border-radius: var(--radius-full); white-space:nowrap; }
-.tag-status::before { content:""; width:7px; height:7px; border-radius:50%; background: currentColor; }
+.tag-status { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight: 700; letter-spacing:0.02em; padding:5px 13px; border-radius: var(--radius-full); white-space:nowrap; }
+.tag-status::before { content:""; width:7px; height:7px; border-radius:50%; background: currentColor; flex-shrink: 0; }
 /* texto usa os aliases --color-status-*-text (feitos pra AA), não a cor
    crua do status — a cor crua em cima do -bg pastel caía a 3.5-4.6:1 em
    alguns pares (ex. st-cancelada); os aliases dão 5.9-13:1 em todos. */
@@ -444,17 +441,19 @@ textarea.input { min-height: 90px; resize: vertical; }
 .nav a { color: inherit; text-decoration: none; font-size: 14px; font-weight: 600; }
 .nav a:hover, .nav a[aria-current='page'] { color: var(--color-accent); }
 
-.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.5; }
 .table th {
   text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-neutral-600); font-weight: 800;
-  padding: var(--space-2); border-bottom: 2px solid var(--color-neutral-200);
+  color: var(--color-dark); font-weight: 800;
+  padding: 12px 14px; border-bottom: 2px solid var(--color-neutral-300);
+  background: color-mix(in srgb, var(--color-bg) 60%, var(--color-surface));
 }
 .table td {
-  padding: var(--space-2);
+  padding: 13px 14px;
   border-bottom: 1px solid var(--color-neutral-200);
+  vertical-align: middle;
 }
-.table tbody tr:hover { background: var(--color-accent-100); }
+.table tbody tr:hover { background: color-mix(in srgb, var(--color-accent-100) 65%, var(--color-surface)); }
 
 @keyframes dialog-backdrop-in {
   from { opacity: 0; }
