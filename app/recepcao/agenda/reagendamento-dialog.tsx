@@ -1,51 +1,53 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { rescheduleAppointmentAction } from "./session-actions";
-
-export interface AvailableSlot {
-  dateLabel: string;
-  timeLabel: string;
-  startsAtIso: string;
-  endsAtIso: string;
-}
+import { useEffect, useState, useTransition } from "react";
+import { CalendarClock } from "lucide-react";
+import {
+  getAvailableSlots,
+  rescheduleAppointmentAction,
+  type AvailableSlot,
+} from "./session-actions";
 
 export function ReagendamentoDialog({
   appointmentId,
   patientName,
   therapistName,
+  roomId,
+  therapistId,
+  durationMinutes,
 }: {
   appointmentId: string;
   patientName: string;
   therapistName: string;
+  roomId: string;
+  therapistId: string;
+  durationMinutes: number;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [slots, setSlots] = useState<AvailableSlot[] | null>(null);
 
-  // Slots sugeridos na semana para reagendamento rápido
-  const today = new Date();
-  const mockSlots: AvailableSlot[] = [
-    {
-      dateLabel: "Amanhã (Quinta-feira)",
-      timeLabel: "11:00 às 11:50",
-      startsAtIso: new Date(today.getTime() + 24 * 3600 * 1000).toISOString(),
-      endsAtIso: new Date(today.getTime() + (24 * 3600 + 3000) * 1000).toISOString(),
-    },
-    {
-      dateLabel: "Sexta-feira",
-      timeLabel: "14:00 às 14:50",
-      startsAtIso: new Date(today.getTime() + 48 * 3600 * 1000).toISOString(),
-      endsAtIso: new Date(today.getTime() + (48 * 3600 + 3000) * 1000).toISOString(),
-    },
-    {
-      dateLabel: "Sexta-feira",
-      timeLabel: "16:00 às 16:50",
-      startsAtIso: new Date(today.getTime() + 50 * 3600 * 1000).toISOString(),
-      endsAtIso: new Date(today.getTime() + (50 * 3600 + 3000) * 1000).toISOString(),
-    },
-  ];
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    getAvailableSlots(roomId, therapistId, durationMinutes, appointmentId).then((result) => {
+      if (cancelled) return;
+      setSlots(result);
+      setSelectedSlot(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, roomId, therapistId, durationMinutes, appointmentId]);
+
+  function close() {
+    setIsOpen(false);
+    setSlots(null);
+    setSelectedSlot(null);
+    setFeedback(null);
+  }
 
   const handleReschedule = () => {
     if (!selectedSlot) return;
@@ -57,7 +59,7 @@ export function ReagendamentoDialog({
         selectedSlot.endsAtIso
       );
       if (res.success) {
-        setIsOpen(false);
+        close();
       } else {
         setFeedback(res.error);
       }
@@ -67,10 +69,12 @@ export function ReagendamentoDialog({
   return (
     <>
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+        title="Reagendar"
+        className="btn btn-icon"
       >
-        🔄 Reagendar Vaga
+        <CalendarClock size={16} />
       </button>
 
       {isOpen && (
@@ -86,7 +90,7 @@ export function ReagendamentoDialog({
                 </p>
               </div>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={close}
                 className="text-ink-soft hover:text-ink text-sm font-bold"
               >
                 ✕
@@ -105,7 +109,11 @@ export function ReagendamentoDialog({
               </label>
 
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {mockSlots.map((slot, i) => (
+                {slots === null && <p className="text-xs text-ink-soft">Buscando vagas livres…</p>}
+                {slots !== null && slots.length === 0 && (
+                  <p className="text-xs text-ink-soft">Nenhuma vaga livre nos próximos 5 dias.</p>
+                )}
+                {(slots ?? []).map((slot, i) => (
                   <label
                     key={i}
                     className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -137,7 +145,7 @@ export function ReagendamentoDialog({
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-paper-line">
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={close}
                 className="rounded-md border border-paper-line-strong px-4 py-2 text-xs font-medium text-ink hover:bg-paper-subtle"
               >
                 Cancelar

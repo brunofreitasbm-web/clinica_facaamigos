@@ -5,12 +5,13 @@ import {
   zonedDateTimeToUtc,
   todayInTimeZone,
   nextCalendarDay,
+  previousCalendarDay,
   civilDateInTimeZone,
 } from "@/lib/timezone";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getReceptionQueue } from "@/lib/reception-queue";
 import { NovaSessaoDialog, type GuideSummary } from "./nova-sessao-dialog";
-import { TodayAgendaList, type TodaySession } from "./today-agenda-list";
+import { TodayAgendaList, type TodaySession, type GuardianContact } from "./today-agenda-list";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +40,18 @@ function fmtShortDate(dateStr: string): string {
   return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
 
-export default async function RecepcaoPage() {
+export default async function RecepcaoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
   const supabase = await createClient();
 
+  const { date } = await searchParams;
   const today = todayInTimeZone(CLINIC_TIMEZONE);
-  const dayStart = zonedDateTimeToUtc(today, "00:00", CLINIC_TIMEZONE).toISOString();
-  const dayEnd = zonedDateTimeToUtc(nextCalendarDay(today), "00:00", CLINIC_TIMEZONE).toISOString();
+  const day = date ?? today;
+  const dayStart = zonedDateTimeToUtc(day, "00:00", CLINIC_TIMEZONE).toISOString();
+  const dayEnd = zonedDateTimeToUtc(nextCalendarDay(day), "00:00", CLINIC_TIMEZONE).toISOString();
   const now = new Date();
   // §9.3 do PRD: alerta 15 dias antes do vencimento OU ≤4 sessões restantes.
   const fifteenDaysStr = civilDateInTimeZone(new Date(now.getTime() + 15 * 86_400_000), CLINIC_TIMEZONE);
@@ -60,6 +67,19 @@ export default async function RecepcaoPage() {
       .order("full_name"),
   ]);
 
+  const { data: appointmentTypeRows } = await supabase
+    .from("appointment_types")
+    .select("id, name, duration_minutes")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("active", true)
+    .order("name");
+
+  const appointmentTypes = (appointmentTypeRows ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    durationMinutes: t.duration_minutes,
+  }));
+
   // Nota: `appointments` tem duas FKs pra `profiles` (therapist_id e
   // cancelled_by) — o embed `profiles(...)` sem alias é ambíguo pro
   // PostgREST, então usamos `profiles!coluna` (mesmo padrão de
@@ -67,7 +87,7 @@ export default async function RecepcaoPage() {
   const { data: rawAppointments } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, room_id, discipline, checkin_at, attendance_started_at, checkout_at, confirmed_at, cancelled_at, cancel_reason, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
+      "id, starts_at, ends_at, status, room_id, patient_id, therapist_id, discipline, checkin_at, attendance_started_at, checkout_at, confirmed_at, cancelled_at, cancel_reason, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
     )
     .gte("starts_at", dayStart)
     .lt("starts_at", dayEnd)
@@ -79,6 +99,8 @@ export default async function RecepcaoPage() {
     endsAt: a.ends_at,
     status: a.status,
     roomId: a.room_id,
+    patientId: a.patient_id,
+    therapistId: a.therapist_id,
     roomName: (a.rooms as { name: string } | null)?.name ?? "",
     discipline: a.discipline,
     therapistName: (a.therapist as { full_name: string } | null)?.full_name ?? "",
@@ -91,8 +113,47 @@ export default async function RecepcaoPage() {
     cancelReason: a.cancel_reason,
   }));
 
+  // Indicador "registro pendente" (ícone de caneta na linha da sessão): só
+  // faz sentido pra sessões já realizadas, e delega a checagem de existência
+  // de session_notes assinada à mesma RPC usada em lib/session-note-pending.ts
+  // (evita duplicar a regra "realizada + sem nota assinada = pendente").
+  const pendingNoteByAppointment = new Map<string, boolean>();
+  await Promise.all(
+    appointments
+      .filter((a) => a.status === "realizada")
+      .map(async (a) => {
+        const { data: isPending } = await supabase.rpc("session_note_pending", {
+          p_appointment_id: a.id,
+        });
+        pendingNoteByAppointment.set(a.id, Boolean(isPending));
+      }),
+  );
+
+  // Responsáveis (ícone de contato) por paciente com sessão hoje — só busca
+  // pros pacientes realmente listados, não a base inteira.
+  const todaysPatientIds = Array.from(new Set(appointments.map((a) => a.patientId)));
+  const { data: guardianRows } = todaysPatientIds.length
+    ? await supabase
+        .from("guardians")
+        .select("patient_id, full_name, phone, relationship, is_emergency_contact")
+        .in("patient_id", todaysPatientIds)
+    : { data: [] as { patient_id: string; full_name: string; phone: string; relationship: string | null; is_emergency_contact: boolean }[] };
+
+  const guardiansByPatient: Record<string, GuardianContact[]> = {};
+  for (const g of guardianRows ?? []) {
+    (guardiansByPatient[g.patient_id] ??= []).push({
+      fullName: g.full_name,
+      phone: g.phone,
+      relationship: g.relationship,
+      isEmergencyContact: g.is_emergency_contact,
+    });
+  }
+
   const sessions: TodaySession[] = appointments.map((a) => ({
     id: a.id,
+    patientId: a.patientId,
+    therapistId: a.therapistId,
+    roomId: a.roomId,
     patientName: a.patientName,
     discipline: a.discipline,
     therapistName: a.therapistName,
@@ -103,6 +164,7 @@ export default async function RecepcaoPage() {
     checkinAt: a.checkinAt,
     attendanceStartedAt: a.attendanceStartedAt,
     checkoutAt: a.checkoutAt,
+    pendingNote: pendingNoteByAppointment.get(a.id) ?? false,
   }));
 
   // ── Guias vencendo · 7 dias + mapa paciente→guia ativa (preview no diálogo
@@ -266,7 +328,27 @@ export default async function RecepcaoPage() {
           <span className="py-5 opacity-40">Documentos</span>
         </nav>
         <div className="flex items-center gap-3.5 text-[13px] opacity-85">
-          <span>{fmtDateLabel(today)}</span>
+          <Link
+            href="/recepcao"
+            className="rounded px-2 py-1 no-underline opacity-85 hover:bg-white/10 hover:opacity-100"
+          >
+            Hoje
+          </Link>
+          <Link
+            href={`/recepcao?date=${previousCalendarDay(day)}`}
+            aria-label="Dia anterior"
+            className="rounded px-2 py-1 no-underline opacity-85 hover:bg-white/10 hover:opacity-100"
+          >
+            ‹
+          </Link>
+          <span>{fmtDateLabel(day)}</span>
+          <Link
+            href={`/recepcao?date=${nextCalendarDay(day)}`}
+            aria-label="Próximo dia"
+            className="rounded px-2 py-1 no-underline opacity-85 hover:bg-white/10 hover:opacity-100"
+          >
+            ›
+          </Link>
           <span
             style={{
               width: 32,
@@ -289,7 +371,7 @@ export default async function RecepcaoPage() {
           <div className="mb-7 flex flex-wrap items-end justify-between gap-3.5">
             <div>
               <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1.5">
-                Hoje · {sessions.length} sessões
+                {day === today ? "Hoje" : fmtDateLabel(day)} · {sessions.length} sessões
               </h6>
               <h1 className="m-0">Agenda do dia</h1>
             </div>
@@ -297,12 +379,13 @@ export default async function RecepcaoPage() {
               patients={patients ?? []}
               therapists={therapists ?? []}
               rooms={rooms ?? []}
+              appointmentTypes={appointmentTypes}
               guidesByPatient={guidesByPatient}
-              defaultDate={today}
+              defaultDate={day}
             />
           </div>
 
-          <TodayAgendaList sessions={sessions} />
+          <TodayAgendaList sessions={sessions} guardiansByPatient={guardiansByPatient} />
         </section>
 
         <aside className="flex flex-col gap-10 pt-2">

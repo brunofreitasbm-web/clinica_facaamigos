@@ -1,18 +1,24 @@
 "use client";
 
-// Lista "Agenda do dia" da home da recepção (Recepcao.dc.html) — reusa as
-// mesmas Server Actions da agenda por sala (app/recepcao/agenda/session-actions.ts)
-// em vez de duplicar a lógica de confirmar/check-in/check-out/falta.
-
 import { useMemo, useState, useTransition } from "react";
-import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { DollarSign, User, PenLine, CalendarClock } from "lucide-react";
+import {
+  confirmAppointment,
+  checkIn,
+  checkOut,
+  markMissedOrCancelled,
+} from "./agenda/session-actions";
+import { ReagendamentoDialog } from "./agenda/reagendamento-dialog";
 import { computeAppointmentUiState, UI_STATE_LABEL, type AppointmentUiState } from "@/lib/appointment-ui-state";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reasons";
-import { confirmAppointment, checkIn, checkOut, markMissedOrCancelled } from "./agenda/session-actions";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
 
 export type TodaySession = {
   id: string;
+  patientId: string;
+  therapistId: string;
+  roomId: string;
   patientName: string;
   discipline: string;
   therapistName: string;
@@ -23,9 +29,19 @@ export type TodaySession = {
   checkinAt: string | null;
   attendanceStartedAt: string | null;
   checkoutAt: string | null;
+  /** Sessão `realizada` sem session_notes assinada ainda — ver session_note_pending (RPC). */
+  pendingNote: boolean;
+};
+
+export type GuardianContact = {
+  fullName: string;
+  phone: string;
+  relationship: string | null;
+  isEmergencyContact: boolean;
 };
 
 type FilterKey = "todas" | "aConfirmar" | "emAtendimento" | "faltas";
+type GroupMode = "lista" | "profissional";
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", {
@@ -37,61 +53,76 @@ function formatTime(iso: string): string {
 
 function durationLabel(startsAt: string, endsAt: string): string {
   const minutes = Math.round((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60_000);
-  return `${minutes} min`;
+  return `${minutes}min`;
 }
 
-function uiStateOf(s: TodaySession): AppointmentUiState | null {
-  if (s.status !== "agendada" && s.status !== "confirmada") return null;
+function uiStateOf(s: TodaySession): AppointmentUiState {
   return computeAppointmentUiState(s);
 }
 
 function statusDisplay(s: TodaySession): { label: string; tagClass: string } {
-  const uiState = uiStateOf(s);
-  if (uiState === "na_recepcao" || uiState === "em_atendimento") {
-    return { label: UI_STATE_LABEL[uiState], tagClass: "st-em-atendimento" };
-  }
-  if (uiState === "aguardando") {
-    return s.status === "confirmada"
-      ? { label: "Confirmada", tagClass: "st-confirmada" }
-      : { label: "A confirmar", tagClass: "st-agendada" };
+  if (s.status === "agendada" || s.status === "confirmada") {
+    const state = uiStateOf(s);
+    return { label: UI_STATE_LABEL[state], tagClass: APPOINTMENT_STATUS_STYLE[s.status]?.tagClass ?? "st-agendada" };
   }
   const style = APPOINTMENT_STATUS_STYLE[s.status];
-  return style ? { label: style.label, tagClass: style.tagClass } : { label: s.status, tagClass: "st-cancelada" };
+  return { label: style?.label ?? s.status, tagClass: style?.tagClass ?? "st-cancelada" };
 }
 
-export function TodayAgendaList({ sessions }: { sessions: TodaySession[] }) {
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "—";
+}
+
+export function TodayAgendaList({
+  sessions,
+  guardiansByPatient,
+}: {
+  sessions: TodaySession[];
+  guardiansByPatient: Record<string, GuardianContact[]>;
+}) {
   const [filter, setFilter] = useState<FilterKey>("todas");
+  const [search, setSearch] = useState("");
+  const [groupMode, setGroupMode] = useState<GroupMode>("lista");
 
   const counts = useMemo(() => {
     let aConfirmar = 0;
     let emAtendimento = 0;
     let faltas = 0;
     for (const s of sessions) {
-      if (s.status === "agendada") aConfirmar++;
-      const uiState = uiStateOf(s);
-      if (uiState === "na_recepcao" || uiState === "em_atendimento") emAtendimento++;
-      if (s.status === "falta_familia") faltas++;
+      const state = uiStateOf(s);
+      if (s.status === "agendada") aConfirmar += 1;
+      if (state === "na_recepcao" || state === "em_atendimento") emAtendimento += 1;
+      if (s.status === "falta_familia") faltas += 1;
     }
     return { todas: sessions.length, aConfirmar, emAtendimento, faltas };
   }, [sessions]);
 
-  const visible = useMemo(() => {
-    switch (filter) {
-      case "aConfirmar":
-        return sessions.filter((s) => s.status === "agendada");
-      case "emAtendimento":
-        return sessions.filter((s) => {
-          const uiState = uiStateOf(s);
-          return uiState === "na_recepcao" || uiState === "em_atendimento";
-        });
-      case "faltas":
-        return sessions.filter((s) => s.status === "falta_familia");
-      default:
-        return sessions;
-    }
-  }, [sessions, filter]);
+  const filtered = useMemo(() => {
+    return sessions.filter((s) => {
+      if (filter === "aConfirmar" && s.status !== "agendada") return false;
+      if (filter === "emAtendimento") {
+        const state = uiStateOf(s);
+        if (state !== "na_recepcao" && state !== "em_atendimento") return false;
+      }
+      if (filter === "faltas" && s.status !== "falta_familia") return false;
+      if (search.trim() && !s.patientName.toLowerCase().includes(search.trim().toLowerCase())) return false;
+      return true;
+    });
+  }, [sessions, filter, search]);
 
-  const chips: { key: FilterKey; label: string; count: number }[] = [
+  const grouped = useMemo(() => {
+    if (groupMode === "lista") return null;
+    const byTherapist = new Map<string, { therapistName: string; sessions: TodaySession[] }>();
+    for (const s of filtered) {
+      const entry = byTherapist.get(s.therapistId) ?? { therapistName: s.therapistName, sessions: [] };
+      entry.sessions.push(s);
+      byTherapist.set(s.therapistId, entry);
+    }
+    return Array.from(byTherapist.values()).sort((a, b) => a.therapistName.localeCompare(b.therapistName));
+  }, [filtered, groupMode]);
+
+  const filters: { key: FilterKey; label: string; count: number }[] = [
     { key: "todas", label: "Todas", count: counts.todas },
     { key: "aConfirmar", label: "A confirmar", count: counts.aConfirmar },
     { key: "emAtendimento", label: "Em atendimento", count: counts.emAtendimento },
@@ -99,46 +130,101 @@ export function TodayAgendaList({ sessions }: { sessions: TodaySession[] }) {
   ];
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap gap-2.5 text-[13px]">
-        {chips.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => setFilter(c.key)}
-            className="btn btn-secondary"
-            style={{
-              fontSize: 13,
-              padding: "6px 12px",
-              background: filter === c.key ? "var(--color-accent-100)" : undefined,
-              borderColor: filter === c.key ? "transparent" : undefined,
-            }}
-          >
-            {c.label} · {c.count}
-          </button>
-        ))}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                filter === f.key
+                  ? "border-chart bg-chart text-paper"
+                  : "border-paper-line-strong text-ink-soft hover:border-chart"
+              }`}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por paciente…"
+            className="input w-48 text-xs"
+          />
+          <div className="seg">
+            <label className={`seg-opt ${groupMode === "lista" ? "is-active" : ""}`}>
+              <input
+                type="radio"
+                name="group-mode"
+                checked={groupMode === "lista"}
+                onChange={() => setGroupMode("lista")}
+              />
+              Lista
+            </label>
+            <label className={`seg-opt ${groupMode === "profissional" ? "is-active" : ""}`}>
+              <input
+                type="radio"
+                name="group-mode"
+                checked={groupMode === "profissional"}
+                onChange={() => setGroupMode("profissional")}
+              />
+              Por profissional
+            </label>
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-col">
-        {visible.length === 0 && <p className="py-6 text-sm text-ink-faint">Nenhuma sessão nesse filtro.</p>}
-        {visible.map((s) => (
-          <SessionRow key={s.id} session={s} />
+      {filtered.length === 0 && (
+        <p className="text-sm text-ink-faint">Nenhuma sessão encontrada para esse filtro.</p>
+      )}
+
+      {groupMode === "lista" &&
+        filtered.map((session) => (
+          <SessionRow key={session.id} session={session} guardians={guardiansByPatient[session.patientId] ?? []} />
         ))}
-      </div>
+
+      {groupMode === "profissional" &&
+        grouped?.map((group) => (
+          <div key={group.therapistName} className="flex flex-col gap-2">
+            <div className="flex items-center gap-2.5 border-b border-paper-line-strong pb-1.5">
+              <span
+                className="grid h-7 w-7 place-items-center rounded-full text-xs font-semibold"
+                style={{ background: "var(--color-accent-2)", color: "var(--color-accent)" }}
+              >
+                {initials(group.therapistName)}
+              </span>
+              <span style={{ fontFamily: "var(--font-heading)" }} className="text-sm font-semibold text-ink">
+                {group.therapistName} ({group.sessions.length})
+              </span>
+            </div>
+            {group.sessions.map((session) => (
+              <SessionRow key={session.id} session={session} guardians={guardiansByPatient[session.patientId] ?? []} />
+            ))}
+          </div>
+        ))}
     </div>
   );
 }
 
-function SessionRow({ session: s }: { session: TodaySession }) {
+function SessionRow({ session, guardians }: { session: TodaySession; guardians: GuardianContact[] }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [showFaltaForm, setShowFaltaForm] = useState(false);
-  const display = statusDisplay(s);
+  const [showGuardians, setShowGuardians] = useState(false);
 
-  const canConfirm = s.status === "agendada";
-  const canCheckin = (s.status === "agendada" || s.status === "confirmada") && !s.checkinAt;
-  const canCheckout = !!s.checkinAt && !s.checkoutAt;
-  const canFalta = canCheckin;
+  const uiState = uiStateOf(session);
+  const display = statusDisplay(session);
+
+  const canConfirm = session.status === "agendada";
+  const canCheckin = (session.status === "agendada" || session.status === "confirmada") && !session.checkinAt;
+  const canCheckout = Boolean(session.checkinAt) && !session.checkoutAt;
+  const canReschedule = uiState === "aguardando" || uiState === "na_recepcao" || uiState === "em_atendimento";
+  const durationMinutes = Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60_000);
 
   function runAction(action: () => Promise<{ success: true } | { success: false; error: string }>) {
     setError(null);
@@ -148,38 +234,69 @@ function SessionRow({ session: s }: { session: TodaySession }) {
     });
   }
 
+  function handleStatusChange(value: string) {
+    if (value === "confirmar") runAction(() => confirmAppointment(session.id));
+    else if (value === "checkin") runAction(() => checkIn(session.id));
+    else if (value === "checkout") runAction(() => checkOut(session.id));
+    else if (value === "falta_cancelar") setShowFaltaForm(true);
+  }
+
   return (
     <div
-      className="grid items-center gap-5 border-b py-4 px-3"
-      style={{
-        gridTemplateColumns: "72px 1fr 150px 220px",
-        borderColor: "color-mix(in srgb, var(--color-text) 8%, transparent)",
-      }}
+      className="grid items-center gap-3 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3"
+      style={{ gridTemplateColumns: "72px 1fr 170px 132px" }}
     >
-      <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 20, lineHeight: 1 }}>
-        {formatTime(s.startsAt)}
-        <div className="mt-1 text-xs font-normal" style={{ color: "var(--color-neutral-600)" }}>
-          {durationLabel(s.startsAt, s.endsAt)}
-        </div>
+      <div className="text-xs">
+        <p className="font-mono font-medium text-ink">{formatTime(session.startsAt)}</p>
+        <p className="text-ink-faint">{durationLabel(session.startsAt, session.endsAt)}</p>
       </div>
-      <div>
-        <div className="flex items-center gap-2">
-          <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 17 }}>{s.patientName}</span>
-          <span className="rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200">
-            Guia Vigente
-          </span>
-        </div>
-        <div className="mt-0.5 text-[13px]" style={{ color: "var(--color-neutral-700)" }}>
-          {s.discipline} · {s.therapistName} · {s.roomName}
-        </div>
-        {error && <p className="mt-1 text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
+
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-ink">{session.patientName}</p>
+        <p className="truncate text-xs text-ink-soft">
+          {session.discipline} · {session.therapistName}
+        </p>
+        <p className="truncate text-xs text-ink-faint">{session.roomName}</p>
+      </div>
+
+      <div className="text-xs">
+        {(uiState === "aguardando" && (canConfirm || canCheckin)) ? (
+          <select
+            value=""
+            onChange={(e) => handleStatusChange(e.target.value)}
+            disabled={isPending}
+            className={`tag-status ${display.tagClass} cursor-pointer border-0`}
+          >
+            <option value="" disabled>
+              {display.label}
+            </option>
+            {canConfirm && <option value="confirmar">Confirmar</option>}
+            {canCheckin && <option value="checkin">Check-in</option>}
+            <option value="falta_cancelar">Falta / Cancelar</option>
+          </select>
+        ) : canCheckout ? (
+          <select
+            value=""
+            onChange={(e) => handleStatusChange(e.target.value)}
+            disabled={isPending}
+            className={`tag-status ${display.tagClass} cursor-pointer border-0`}
+          >
+            <option value="" disabled>
+              {display.label}
+            </option>
+            <option value="checkout">Check-out</option>
+          </select>
+        ) : (
+          <span className={`tag-status ${display.tagClass}`}>{display.label}</span>
+        )}
+
         {showFaltaForm && (
           <form
-            className="mt-2 flex flex-wrap items-center gap-2"
+            className="mt-2 flex flex-col gap-1.5"
             action={(formData) => {
               setError(null);
               startTransition(async () => {
-                const result = await markMissedOrCancelled(s.id, formData);
+                const result = await markMissedOrCancelled(session.id, formData);
                 if (!result.success) {
                   setError(result.error);
                   return;
@@ -188,88 +305,95 @@ function SessionRow({ session: s }: { session: TodaySession }) {
               });
             }}
           >
-            <select name="target_status" required className="input" style={{ width: "auto", fontSize: 12, minHeight: 30 }}>
-              {NEGATIVE_STATUSES.map((n) => (
-                <option key={n.value} value={n.value}>
-                  {n.label}
-                </option>
+            <select name="target_status" required className="input text-xs">
+              <option value="">Status</option>
+              {NEGATIVE_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
-            <select name="reason" required className="input" style={{ width: "auto", fontSize: 12, minHeight: 30 }}>
-              <option value="">Motivo…</option>
+            <select name="reason" required className="input text-xs">
+              <option value="">Motivo</option>
               {CANCEL_REASONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
+                <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>
-            <input
-              type="text"
-              name="reason_other"
-              placeholder="Se 'Outro'"
-              className="input"
-              style={{ width: 120, fontSize: 12, minHeight: 30 }}
-            />
-            <button type="submit" disabled={isPending} className="btn btn-secondary" style={{ fontSize: 12, padding: "4px 10px" }}>
-              Registrar
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowFaltaForm(false)}
-              className="btn btn-ghost"
-              style={{ fontSize: 12, padding: "4px 6px" }}
-            >
-              Voltar
-            </button>
+            <input type="text" name="reason_other" placeholder="Descreva (se 'Outro')" className="input text-xs" />
+            <div className="flex gap-1.5">
+              <button type="submit" disabled={isPending} className="btn btn-primary text-xs">Salvar</button>
+              <button type="button" onClick={() => setShowFaltaForm(false)} className="btn btn-secondary text-xs">Voltar</button>
+            </div>
           </form>
         )}
+        {error && <p className="mt-1 text-[11px] text-status-negative-text">{error}</p>}
       </div>
-      <div>
-        <span className={`tag-status ${display.tagClass}`}>{display.label}</span>
-      </div>
-      <div className="flex justify-end gap-1.5">
-        {canConfirm && (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => runAction(() => confirmAppointment(s.id))}
-            className="btn btn-secondary"
-            style={{ fontSize: 13, padding: "6px 12px" }}
-          >
-            Confirmar
-          </button>
+
+      <div className="relative flex items-center justify-end gap-1.5">
+        <a
+          href={`/recepcao/pacientes/${session.patientId}`}
+          target="_blank"
+          rel="noreferrer"
+          title="Cobranças do paciente"
+          className="btn btn-icon"
+        >
+          <DollarSign size={16} />
+        </a>
+
+        <button
+          type="button"
+          title="Responsáveis"
+          onClick={() => setShowGuardians((v) => !v)}
+          className="btn btn-icon"
+        >
+          <User size={16} />
+        </button>
+        {showGuardians && (
+          <div className="absolute right-0 top-full z-10 mt-1 w-64 rounded-md border border-paper-line-strong bg-paper p-3 text-xs shadow-lg">
+            {guardians.length === 0 && <p className="text-ink-faint">Nenhum responsável cadastrado.</p>}
+            {guardians.map((g, i) => (
+              <div key={i} className="border-b border-paper-line py-1.5 last:border-0">
+                <p className="font-medium text-ink">
+                  {g.fullName} {g.isEmergencyContact && <span className="text-ink-faint">· emergência</span>}
+                </p>
+                <p className="text-ink-soft">{g.relationship ?? "—"} · {g.phone}</p>
+              </div>
+            ))}
+          </div>
         )}
-        {canCheckin && (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => runAction(() => checkIn(s.id))}
-            className="btn btn-primary"
-            style={{ fontSize: 13, padding: "6px 12px" }}
+
+        {session.status === "realizada" && session.pendingNote ? (
+          <a
+            href={`/terapeuta/evolucao/${session.id}`}
+            target="_blank"
+            rel="noreferrer"
+            title="Registro pendente"
+            className="btn btn-icon"
+            style={{ color: "var(--status-falta)", borderColor: "var(--status-falta)" }}
           >
-            Check-in
-          </button>
+            <PenLine size={16} />
+          </a>
+        ) : (
+          <span
+            title={session.status === "realizada" ? "Registro já feito" : "Registro só após a sessão"}
+            className="btn btn-icon opacity-30"
+            aria-disabled
+          >
+            <PenLine size={16} />
+          </span>
         )}
-        {canCheckout && (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => runAction(() => checkOut(s.id))}
-            className="btn btn-primary"
-            style={{ fontSize: 13, padding: "6px 12px" }}
-          >
-            Check-out
-          </button>
-        )}
-        {canFalta && !showFaltaForm && (
-          <button
-            type="button"
-            onClick={() => setShowFaltaForm(true)}
-            className="btn btn-ghost"
-            style={{ fontSize: 13, color: "var(--status-falta)" }}
-          >
-            Falta
-          </button>
+
+        {canReschedule ? (
+          <ReagendamentoDialog
+            appointmentId={session.id}
+            patientName={session.patientName}
+            therapistName={session.therapistName}
+            roomId={session.roomId}
+            therapistId={session.therapistId}
+            durationMinutes={durationMinutes}
+          />
+        ) : (
+          <span title="Não é possível reagendar" className="btn btn-icon opacity-30" aria-disabled>
+            <CalendarClock size={16} />
+          </span>
         )}
       </div>
     </div>

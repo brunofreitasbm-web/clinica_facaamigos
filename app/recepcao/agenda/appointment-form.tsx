@@ -7,11 +7,13 @@ export function AppointmentForm({
   patients,
   therapists,
   rooms,
+  appointmentTypes,
   defaultDate,
 }: {
   patients: { id: string; full_name: string }[];
   therapists: { id: string; full_name: string }[];
   rooms: { id: string; name: string }[];
+  appointmentTypes: { id: string; name: string; durationMinutes: number }[];
   defaultDate: string;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +74,12 @@ export function AppointmentForm({
       </select>
       <input type="date" name="date" required defaultValue={defaultDate} className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
       <input type="time" name="time" required className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
-      <input type="text" name="discipline" required placeholder="Disciplina (ex: aba)" className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm" />
+      <select name="appointment_type_id" required defaultValue="" className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm">
+        <option value="" disabled>Tipo de atendimento</option>
+        {appointmentTypes.map((t) => (
+          <option key={t.id} value={t.id}>{t.name} · {t.durationMinutes}min</option>
+        ))}
+      </select>
       <div className="flex gap-2 sm:col-span-3">
         <button type="submit" disabled={isPending} className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50">
           {isPending ? "Agendando…" : "Confirmar"}

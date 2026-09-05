@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
-import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
+import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay, previousCalendarDay } from "@/lib/timezone";
 import { type AgendaAppointment } from "./day-grid";
 import { AppointmentForm } from "./appointment-form";
 import { AgendaClient } from "./agenda-client";
@@ -36,6 +36,19 @@ export default async function AgendaPage({
     .eq("clinic_id", DEV_CLINIC_ID)
     .eq("role", "terapeuta")
     .order("full_name");
+
+  const { data: appointmentTypeRows } = await supabase
+    .from("appointment_types")
+    .select("id, name, duration_minutes")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("active", true)
+    .order("name");
+
+  const appointmentTypes = (appointmentTypeRows ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    durationMinutes: t.duration_minutes,
+  }));
 
   // Limites do dia civil (em CLINIC_TIMEZONE), convertidos pro instante UTC
   // correspondente — nunca strings ingênuas de UTC.
@@ -78,24 +91,47 @@ export default async function AgendaPage({
         description={`Sessões de ${day.split("-").reverse().join("/")}, por sala.`}
       />
       <div className="flex flex-col gap-4 p-6 sm:p-10">
-        <form className="flex items-center gap-2" method="get">
-          <input
-            type="date"
-            name="date"
-            defaultValue={day}
-            className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
-          />
-          <button
-            type="submit"
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={`?date=${todayInTimeZone(CLINIC_TIMEZONE)}`}
+            className="rounded-md border border-paper-line-strong px-3 py-2 text-sm font-medium text-ink hover:border-chart"
+          >
+            Hoje
+          </a>
+          <a
+            href={`?date=${previousCalendarDay(day)}`}
+            aria-label="Dia anterior"
             className="rounded-md border border-paper-line-strong px-3 py-2 text-sm text-ink hover:border-chart"
           >
-            Ver dia
-          </button>
-        </form>
+            ‹
+          </a>
+          <a
+            href={`?date=${nextCalendarDay(day)}`}
+            aria-label="Próximo dia"
+            className="rounded-md border border-paper-line-strong px-3 py-2 text-sm text-ink hover:border-chart"
+          >
+            ›
+          </a>
+          <form className="flex items-center gap-2" method="get">
+            <input
+              type="date"
+              name="date"
+              defaultValue={day}
+              className="rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-paper-line-strong px-3 py-2 text-sm text-ink hover:border-chart"
+            >
+              Ver dia
+            </button>
+          </form>
+        </div>
         <AppointmentForm
           patients={patients ?? []}
           therapists={therapists ?? []}
           rooms={rooms ?? []}
+          appointmentTypes={appointmentTypes}
           defaultDate={day}
         />
         <AgendaClient rooms={rooms ?? []} appointments={appointments} />
