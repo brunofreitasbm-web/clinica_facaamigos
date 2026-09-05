@@ -9,6 +9,11 @@ import { revalidatePath } from "next/cache";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
+const ADMIN_CLIENT_ERROR: ActionResult = {
+  success: false,
+  error: "Servidor sem SUPABASE_SERVICE_ROLE_KEY configurada — avise o time técnico.",
+};
+
 function mapAuthorizationGuardError(message: string): string {
   if (message.includes("exige authorization_id")) {
     return "Sessão sem autorização vinculada — não é possível fechar.";
@@ -34,7 +39,12 @@ function revalidateAgendaViews() {
 }
 
 export async function confirmAppointment(appointmentId: string): Promise<ActionResult> {
-  const supabase = createAdminClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    return ADMIN_CLIENT_ERROR;
+  }
 
   const { data: appointment } = await supabase
     .from("appointments")
@@ -63,7 +73,12 @@ export async function confirmAppointment(appointmentId: string): Promise<ActionR
 }
 
 export async function checkIn(appointmentId: string): Promise<ActionResult> {
-  const supabase = createAdminClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    return ADMIN_CLIENT_ERROR;
+  }
 
   const { data: appointment } = await supabase
     .from("appointments")
@@ -95,7 +110,12 @@ export async function checkIn(appointmentId: string): Promise<ActionResult> {
 }
 
 export async function checkOut(appointmentId: string): Promise<ActionResult> {
-  const supabase = createAdminClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    return ADMIN_CLIENT_ERROR;
+  }
 
   const { data: appointment } = await supabase
     .from("appointments")
@@ -156,7 +176,12 @@ export async function markMissedOrCancelled(
     return { success: false, error: "Descreva o motivo." };
   }
 
-  const supabase = createAdminClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    return ADMIN_CLIENT_ERROR;
+  }
 
   const { data: appointment } = await supabase
     .from("appointments")
