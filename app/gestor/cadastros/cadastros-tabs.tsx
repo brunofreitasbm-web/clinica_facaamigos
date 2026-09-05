@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { TherapistRow, InsurerRow, ProtocolRow, PatientRow } from "./data";
+import type { TherapistRow, InsurerRow, ProtocolRow, PatientRow, AppointmentTypeRow } from "./data";
 
 const TABS = [
   { key: "terapeutas", label: "Terapeutas" },
   { key: "planos", label: "Planos de saúde" },
   { key: "terapias", label: "Terapias" },
+  { key: "atendimentos", label: "Atendimentos" },
   { key: "pacientes", label: "Pacientes" },
 ] as const;
+
+const MODALITY_LABEL: Record<string, string> = { presencial: "Presencial", remoto: "Remoto" };
+const RECURRENCE_LABEL: Record<string, string> = { unica: "Única", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
 
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -27,11 +31,13 @@ export function CadastrosTabs({
   insurers,
   protocols,
   patients,
+  appointmentTypes,
 }: {
   therapists: TherapistRow[];
   insurers: InsurerRow[];
   protocols: ProtocolRow[];
   patients: PatientRow[];
+  appointmentTypes: AppointmentTypeRow[];
 }) {
   const [tab, setTab] = useState<TabKey>("terapeutas");
 
@@ -39,6 +45,7 @@ export function CadastrosTabs({
     terapeutas: therapists.length,
     planos: insurers.length,
     terapias: protocols.length,
+    atendimentos: appointmentTypes.length,
     pacientes: patients.length,
   };
 
@@ -61,6 +68,11 @@ export function CadastrosTabs({
         {tab === "planos" && (
           <Link href="/gestor/convenios" className="btn btn-primary">
             Novo convênio
+          </Link>
+        )}
+        {tab === "atendimentos" && (
+          <Link href="/gestor/atendimentos" className="btn btn-primary">
+            Novo tipo de atendimento
           </Link>
         )}
         {tab === "pacientes" && (
@@ -199,6 +211,44 @@ export function CadastrosTabs({
           </>
         )}
 
+        {tab === "atendimentos" && (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Modalidade</th>
+                <th>Duração</th>
+                <th>Exibição</th>
+                <th>Recorrência</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {appointmentTypes.map((a) => (
+                <tr key={a.id}>
+                  <td className="font-semibold">{a.name}</td>
+                  <td>{MODALITY_LABEL[a.modality] ?? a.modality}</td>
+                  <td>{a.durationMinutes}m</td>
+                  <td>A cada {a.displayIntervalMinutes} minutos</td>
+                  <td>{RECURRENCE_LABEL[a.recurrence] ?? a.recurrence}</td>
+                  <td className="text-right">
+                    <Link href="/gestor/atendimentos" className="btn btn-ghost text-xs">
+                      Editar
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {appointmentTypes.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-ink-faint">
+                    Nenhum tipo de atendimento cadastrado ainda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+
         {tab === "pacientes" && (
           <table className="table">
             <thead>
@@ -215,7 +265,7 @@ export function CadastrosTabs({
               {patients.map((p) => (
                 <tr key={p.id}>
                   <td className="font-semibold">
-                    <Link href={`/recepcao/pacientes/${p.id}`}>{p.name}</Link>
+                    <Link href={`/gestor/pacientes/${p.id}`}>{p.name}</Link>
                   </td>
                   <td>{p.guardianName}</td>
                   <td>{p.birthDateLabel}</td>

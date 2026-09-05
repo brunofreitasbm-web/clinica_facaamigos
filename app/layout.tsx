@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Source_Serif_4, IBM_Plex_Mono } from "next/font/google";
 import { AuthStatus } from "@/components/auth-status";
+import { OfflineBanner } from "@/components/offline-banner";
 import "./globals.css";
 
 const sourceSerif = Source_Serif_4({
@@ -21,6 +22,10 @@ export const metadata: Metadata = {
   description: "Sistema de gestão da clínica TEA/TDAH FaçaAmigos.",
 };
 
+export const viewport: Viewport = {
+  themeColor: "#14284b",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -30,6 +35,7 @@ export default function RootLayout({
       className={`${sourceSerif.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <OfflineBanner />
         <AuthStatus />
         {children}
       </body>

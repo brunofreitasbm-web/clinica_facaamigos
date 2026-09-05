@@ -47,13 +47,13 @@ export function ABAProgressChart({ chartData, patientName = "Paciente" }: ABAPro
 
         <div className="flex items-center gap-4 text-xs font-semibold">
           <div className="text-right">
-            <span className="text-slate-400 block">Média Independente</span>
+            <span className="text-slate-600 block">Média Independente</span>
             <span className="text-emerald-600 dark:text-emerald-400 font-black text-sm">
               {avgIndependent}%
             </span>
           </div>
           <div className="text-right border-l border-slate-200 dark:border-slate-700 pl-4">
-            <span className="text-slate-400 block">Última Sessão</span>
+            <span className="text-slate-600 block">Última Sessão</span>
             <span className="text-slate-800 dark:text-slate-200 font-black text-sm">
               {latestSession.independentPct}%
             </span>

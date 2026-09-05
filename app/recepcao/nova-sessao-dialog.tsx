@@ -17,12 +17,11 @@ export type GuideSummary = {
   validTo: string;
 };
 
-const DISCIPLINES = [
-  { value: "aba", label: "ABA" },
-  { value: "fono", label: "Fono" },
-  { value: "to", label: "TO" },
-  { value: "psico", label: "Psico" },
-];
+export type AppointmentTypeOption = {
+  id: string;
+  name: string;
+  durationMinutes: number;
+};
 
 function fmtDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR");
@@ -32,12 +31,14 @@ export function NovaSessaoDialog({
   patients,
   therapists,
   rooms,
+  appointmentTypes,
   guidesByPatient,
   defaultDate,
 }: {
   patients: { id: string; full_name: string }[];
   therapists: { id: string; full_name: string }[];
   rooms: { id: string; name: string }[];
+  appointmentTypes: AppointmentTypeOption[];
   guidesByPatient: Record<string, GuideSummary>;
   defaultDate: string;
 }) {
@@ -107,11 +108,14 @@ export function NovaSessaoDialog({
                   </select>
                 </div>
                 <div className="field">
-                  <label>Disciplina</label>
-                  <select name="discipline" required className="input">
-                    {DISCIPLINES.map((d) => (
-                      <option key={d.value} value={d.value}>
-                        {d.label}
+                  <label>Tipo de atendimento</label>
+                  <select name="appointment_type_id" required className="input" defaultValue="">
+                    <option value="" disabled>
+                      Selecione…
+                    </option>
+                    {appointmentTypes.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} · {t.durationMinutes}min
                       </option>
                     ))}
                   </select>

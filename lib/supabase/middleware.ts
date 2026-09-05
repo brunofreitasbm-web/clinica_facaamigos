@@ -9,21 +9,6 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
-  // Checagem de Modo Demo Local
-  const demoRole = request.cookies.get("demo_user_role")?.value as Role | undefined;
-  const isDemo = Boolean(demoRole);
-
-  if (isDemo) {
-    if (isPublicPath) {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
-    const home = demoRole ? ROLE_HOME[demoRole] : undefined;
-    if (demoRole && demoRole !== "gestor" && home && !pathname.startsWith(home)) {
-      return NextResponse.redirect(new URL(home, request.url));
-    }
-    return response;
-  }
-
   try {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

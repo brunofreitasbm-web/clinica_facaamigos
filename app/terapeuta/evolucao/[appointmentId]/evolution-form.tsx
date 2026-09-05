@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { useOffline } from "next/offline";
 import { createSessionNote } from "../actions";
 import { BEHAVIOR_TYPES, BEHAVIOR_INTENSITIES, FAMILY_GUIDANCE_OPTIONS } from "@/lib/session-note-fields";
 import { generateAIEvolutionText } from "@/lib/aba-actions";
@@ -51,6 +52,7 @@ export function EvolutionForm({
   const [draftSaved, setDraftSaved] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const isOffline = useOffline();
 
   async function handleGenerateAIText() {
     setIsGeneratingAI(true);
@@ -456,7 +458,11 @@ export function EvolutionForm({
                 style={{ minHeight: 48, fontSize: 15 }}
                 disabled={isPending}
               >
-                {isPending ? "Assinando…" : "Assinar evolução"}
+                {isPending
+                  ? isOffline
+                    ? "Sem conexão — enviando quando a internet voltar…"
+                    : "Assinando…"
+                  : "Assinar evolução"}
               </button>
             )}
           </div>

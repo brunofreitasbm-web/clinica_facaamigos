@@ -106,7 +106,10 @@
 
   --color-ink: var(--color-text);
   --color-ink-soft: var(--color-neutral-700);
-  --color-ink-faint: var(--color-neutral-600);
+  /* neutral-600 puro cai a 3.95:1 sobre --color-bg — abaixo do AA (4.5:1)
+     pra texto normal. Este tom escurecido mantém a hierarquia (mais claro
+     que ink-soft) mas passa em >=4.7:1 sobre bg e surface. */
+  --color-ink-faint: #68655c;
 
   --color-chart: var(--color-accent);
   --color-chart-strong: var(--color-accent-800);
@@ -169,6 +172,10 @@
   --font-mono: var(--font-plex-mono);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
@@ -176,6 +183,32 @@ body {
   margin: 0;
   font-size: 15px;
   line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* fluidez das mudanças de estado (hover/focus/checked) sem animar layout —
+   cada regra abaixo já existia; isto só suaviza a transição entre estados. */
+.btn,
+.input,
+.radio .dot,
+.seg-opt,
+.tag-status,
+.nav a,
+.table tbody tr,
+a {
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -223,9 +256,12 @@ a:hover { color: var(--color-accent-2-600); }
 .btn-secondary { border-color: var(--color-divider); }
 .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
 .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
-.btn-gold { background: var(--color-accent-2); color: #fff; }
-.btn-gold:hover { background: var(--color-accent-2-600); }
-.btn-gold:active { background: var(--color-accent-2-700); }
+/* accent-2 (#b8933a) puro só dá 2.89:1 contra branco — falha AA. Usamos a
+   escala mais escura (700/800/900) pra manter texto branco legível em
+   repouso/hover/active (6.5:1 / 9.9:1 / 14.5:1). */
+.btn-gold { background: var(--color-accent-2-700); color: #fff; }
+.btn-gold:hover { background: var(--color-accent-2-800); }
+.btn-gold:active { background: var(--color-accent-2-900); }
 .btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
 .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
 .btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
@@ -279,7 +315,8 @@ textarea.input { min-height: 90px; resize: vertical; }
   display: flex; flex-direction: column; gap: var(--space-2);
   padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface);
 }
-.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent-2); }
+/* accent-2 puro é 2.63:1 sobre bg/surface — falha AA; accent-2-700 dá 5.9:1 */
+.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent-2-700); }
 .card-title {
   font-family: var(--font-heading); font-weight: var(--font-heading-weight);
   font-size: 17px; line-height: 1.2;
@@ -287,7 +324,8 @@ textarea.input { min-height: 90px; resize: vertical; }
 .card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
 .card-meta {
   display: flex; align-items: center; gap: 6px; font-size: 11px;
-  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+  /* 50% mix caía a 3.05:1 sobre surface — falha AA; 70% dá ~5.1:1 */
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 .elev-sm { box-shadow: var(--shadow-sm); }
 .elev-md { box-shadow: var(--shadow-md); }
@@ -305,12 +343,15 @@ textarea.input { min-height: 90px; resize: vertical; }
 
 .tag-status { display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:0.02em; padding:3px 10px; border-radius:2px; white-space:nowrap; }
 .tag-status::before { content:""; width:6px; height:6px; border-radius:50%; background: currentColor; }
-.st-agendada { background: var(--status-agendada-bg); color: var(--color-accent-2-700); }
-.st-confirmada { background: var(--status-confirmada-bg); color: var(--status-confirmada); }
-.st-em-atendimento { background: var(--status-em-atendimento-bg); color: var(--status-em-atendimento); }
-.st-realizada { background: var(--status-realizada-bg); color: var(--status-realizada); }
-.st-falta { background: var(--status-falta-bg); color: var(--status-falta); }
-.st-cancelada { background: var(--status-cancelada-bg); color: var(--status-cancelada); }
+/* texto usa os aliases --color-status-*-text (feitos pra AA), não a cor
+   crua do status — a cor crua em cima do -bg pastel caía a 3.5-4.6:1 em
+   alguns pares (ex. st-cancelada); os aliases dão 5.9-13:1 em todos. */
+.st-agendada { background: var(--status-agendada-bg); color: var(--color-status-pending-text); }
+.st-confirmada { background: var(--status-confirmada-bg); color: var(--color-status-positive-text); }
+.st-em-atendimento { background: var(--status-em-atendimento-bg); color: var(--color-status-active-text); }
+.st-realizada { background: var(--status-realizada-bg); color: var(--color-status-positive-text); }
+.st-falta { background: var(--status-falta-bg); color: var(--color-status-negative-text); }
+.st-cancelada { background: var(--status-cancelada-bg); color: var(--color-status-neutral-text); }
 
 .nav {
   display: flex; align-items: center; gap: var(--space-4);
@@ -335,15 +376,25 @@ textarea.input { min-height: 90px; resize: vertical; }
 }
 .table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
 
+@keyframes dialog-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 .dialog-backdrop {
   position: fixed; inset: 0; display: grid; place-items: center;
   padding: var(--space-4);
   background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+  animation: dialog-backdrop-in 0.15s ease;
 }
 .dialog {
   width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
   padding: var(--space-4); border-radius: var(--radius-lg);
   background: var(--color-surface); box-shadow: var(--shadow-lg);
+  animation: dialog-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .dialog-title {
   font-family: var(--font-heading); font-weight: var(--font-heading-weight);

@@ -169,7 +169,7 @@ export function ABCLogger({ appointmentId, initialLogs = [] }: ABCLoggerProps) {
           <button
             type="submit"
             disabled={isPending}
-            className="w-full rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white shadow hover:bg-emerald-700 disabled:opacity-50 transition"
+            className="w-full rounded-lg bg-emerald-700 py-2 text-xs font-bold text-white shadow hover:bg-emerald-800 disabled:opacity-50 transition"
           >
             {isPending ? "Gravando..." : "Salvar Registro ABC"}
           </button>
