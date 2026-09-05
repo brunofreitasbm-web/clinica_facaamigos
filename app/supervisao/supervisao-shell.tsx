@@ -17,6 +17,8 @@ type TabKey = (typeof TABS)[number]["key"];
  * component só decide qual mostrar, igual ao padrão de
  * components/prontuario/patient-tabs.tsx.
  */
+import { RelatorioReavaliacaoDialog } from "./relatorio-dialog";
+
 export function SupervisaoShell({
   nPlanos,
   nInbox,
@@ -75,8 +77,9 @@ export function SupervisaoShell({
               {badge[t.key]}
             </button>
           ))}
-          <span className="opacity-70">Equipe</span>
-          <span className="opacity-70">Protocolos</span>
+          <div className="flex items-center gap-2">
+            <RelatorioReavaliacaoDialog />
+          </div>
         </nav>
       </header>
 

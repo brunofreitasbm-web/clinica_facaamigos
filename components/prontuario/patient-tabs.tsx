@@ -2,10 +2,12 @@
 
 import { useState, type ReactNode } from "react";
 import { PLAN_GOAL_STATUS_STYLE, BILLING_ITEM_STATUS_STYLE } from "@/lib/appointment-status-style";
+import { AbaLearningCurveChart } from "./aba-learning-curve-chart";
 
 const TABS = [
   { key: "visao", label: "Visão geral" },
   { key: "evolucao", label: "Evolução" },
+  { key: "aba", label: "Coleta ABA & Tentativas" },
   { key: "plano", label: "Plano terapêutico" },
   { key: "documentos", label: "Documentos" },
   { key: "financeiro", label: "Financeiro" },
@@ -221,6 +223,12 @@ export function PatientTabs({
                 <p className="text-sm text-ink-faint">Sem plano terapêutico aprovado ainda.</p>
               )}
             </div>
+          </section>
+        )}
+
+        {tab === "aba" && (
+          <section className="max-w-[950px]">
+            <AbaLearningCurveChart />
           </section>
         )}
 

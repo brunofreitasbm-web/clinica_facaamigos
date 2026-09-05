@@ -229,6 +229,10 @@ export default async function RecepcaoPage() {
           <Link href="/recepcao/pacientes" className="py-5 text-inherit no-underline opacity-70 hover:opacity-100">
             Pacientes
           </Link>
+          <Link href="/recepcao/whatsapp" className="py-5 text-inherit no-underline opacity-70 hover:opacity-100 flex items-center gap-1">
+            <span>WhatsApp D-1</span>
+            <span className="rounded-full bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 text-[11px] font-semibold">Novo</span>
+          </Link>
           <span className="py-5 opacity-40">Guias</span>
           <span className="py-5 opacity-40">Documentos</span>
         </nav>

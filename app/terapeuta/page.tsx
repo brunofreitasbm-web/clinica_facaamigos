@@ -213,9 +213,17 @@ export default async function TerapeutaPage({
         )}
 
         <section>
-          <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3">
-            Sessões de hoje
-          </h6>
+          <div className="flex items-center justify-between mb-3">
+            <h6 style={{ color: "var(--color-accent-2-600)" }}>
+              Sessões de hoje
+            </h6>
+            <a
+              href="/terapeuta/repasse"
+              className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+            >
+              📄 Meu Extrato de Repasse
+            </a>
+          </div>
           <TodaySessionsList
             sessions={(todaySessions ?? []).map((a) => ({
               id: a.id,
