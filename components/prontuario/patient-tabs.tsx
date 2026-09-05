@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { PLAN_GOAL_STATUS_STYLE, BILLING_ITEM_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { AbaLearningCurveChart } from "./aba-learning-curve-chart";
+import { ProtocolAssessmentDialog } from "./protocol-assessment-dialog";
 
 const TABS = [
   { key: "visao", label: "Visão geral" },
@@ -227,7 +228,10 @@ export function PatientTabs({
         )}
 
         {tab === "aba" && (
-          <section className="max-w-[950px]">
+          <section className="max-w-[950px] space-y-6">
+            <div className="flex justify-end">
+              <ProtocolAssessmentDialog />
+            </div>
             <AbaLearningCurveChart />
           </section>
         )}

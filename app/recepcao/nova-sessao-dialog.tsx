@@ -146,6 +146,14 @@ export function NovaSessaoDialog({
                   <label>Horário</label>
                   <input type="time" name="time" required className="input" />
                 </div>
+                <div className="field sm:col-span-2">
+                  <label>Modalidade de Atendimento</label>
+                  <select name="modality" className="input" defaultValue="individual">
+                    <option value="individual">Individual (Presencial)</option>
+                    <option value="grupo">Grupo / Escola (Multi-paciente)</option>
+                    <option value="remoto">Remoto / Telessessão (Vídeo)</option>
+                  </select>
+                </div>
               </div>
 
               {patientId && (

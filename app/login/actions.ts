@@ -52,9 +52,9 @@ export async function signIn(
   return { success: false, error: "E-mail ou senha inválidos." };
 }
 
-export async function devLogin() {
+export async function devLogin(): Promise<void> {
   if (process.env.NODE_ENV === "production") {
-    return { success: false, error: "Login de desenvolvedor desabilitado em produção." };
+    redirect("/login");
   }
 
   const cookieStore = await cookies();
