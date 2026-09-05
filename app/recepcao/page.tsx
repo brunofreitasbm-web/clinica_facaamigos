@@ -12,6 +12,7 @@ import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getReceptionQueue } from "@/lib/reception-queue";
 import { NovaSessaoDialog, type GuideSummary } from "./nova-sessao-dialog";
 import { TodayAgendaList, type TodaySession, type GuardianContact } from "./today-agenda-list";
+import { MiniCalendarPicker } from "./mini-calendar-picker";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,7 @@ export default async function RecepcaoPage({
   const { data: rawAppointments } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, room_id, patient_id, therapist_id, discipline, checkin_at, attendance_started_at, checkout_at, confirmed_at, cancelled_at, cancel_reason, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
+      "id, starts_at, ends_at, status, room_id, patient_id, therapist_id, appointment_type_id, discipline, checkin_at, attendance_started_at, checkout_at, confirmed_at, cancelled_at, cancel_reason, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
     )
     .gte("starts_at", dayStart)
     .lt("starts_at", dayEnd)
@@ -101,6 +102,7 @@ export default async function RecepcaoPage({
     roomId: a.room_id,
     patientId: a.patient_id,
     therapistId: a.therapist_id,
+    appointmentTypeId: a.appointment_type_id,
     roomName: (a.rooms as { name: string } | null)?.name ?? "",
     discipline: a.discipline,
     therapistName: (a.therapist as { full_name: string } | null)?.full_name ?? "",
@@ -149,11 +151,24 @@ export default async function RecepcaoPage({
     });
   }
 
+  // Tags do paciente (filtro "Tags do paciente") — mesma tabela usada em
+  // app/gestor/pacientes/[id]/patient-tags.tsx, aqui só leitura pra filtrar
+  // a agenda do dia por paciente marcado.
+  const { data: tagRows } = todaysPatientIds.length
+    ? await supabase.from("patient_tags").select("patient_id, label").in("patient_id", todaysPatientIds)
+    : { data: [] as { patient_id: string; label: string }[] };
+
+  const tagsByPatient: Record<string, string[]> = {};
+  for (const t of tagRows ?? []) {
+    (tagsByPatient[t.patient_id] ??= []).push(t.label);
+  }
+
   const sessions: TodaySession[] = appointments.map((a) => ({
     id: a.id,
     patientId: a.patientId,
     therapistId: a.therapistId,
     roomId: a.roomId,
+    appointmentTypeId: a.appointmentTypeId,
     patientName: a.patientName,
     discipline: a.discipline,
     therapistName: a.therapistName,
@@ -349,6 +364,7 @@ export default async function RecepcaoPage({
           >
             ›
           </Link>
+          <MiniCalendarPicker selectedDate={day} basePath="/recepcao" />
           <span
             style={{
               width: 32,
@@ -385,7 +401,13 @@ export default async function RecepcaoPage({
             />
           </div>
 
-          <TodayAgendaList sessions={sessions} guardiansByPatient={guardiansByPatient} />
+          <TodayAgendaList
+            sessions={sessions}
+            rooms={rooms ?? []}
+            appointmentTypes={appointmentTypes}
+            guardiansByPatient={guardiansByPatient}
+            tagsByPatient={tagsByPatient}
+          />
         </section>
 
         <aside className="flex flex-col gap-10 pt-2">

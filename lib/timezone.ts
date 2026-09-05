@@ -83,6 +83,16 @@ export function previousCalendarDay(dateStr: string): string {
   return prev.toISOString().slice(0, 10);
 }
 
+/** Hora:minuto civil (`HH:mm`) de um instante ISO, no fuso `timeZone`. */
+export function civilTimeInTimeZone(isoInstant: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(isoInstant));
+}
+
 /** Hora civil (0-23) de um instante ISO, no fuso `timeZone`. */
 export function hourInTimeZone(isoInstant: string, timeZone: string): number {
   const formatted = new Intl.DateTimeFormat("en-US", {

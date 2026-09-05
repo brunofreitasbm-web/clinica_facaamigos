@@ -391,7 +391,7 @@ export default async function PacientePage({
             phone={primaryGuardian?.phone ?? null}
             guardianId={primaryGuardian?.id ?? null}
           />
-          <a href="/recepcao/agenda" className="btn btn-primary">
+          <a href="/recepcao" className="btn btn-primary">
             Nova sessão
           </a>
         </div>
