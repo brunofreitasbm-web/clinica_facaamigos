@@ -39,7 +39,7 @@ export function GestorNav({ active = null }: { active?: GestorNavKey | null }) {
         </svg>
         <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
           Faça Amigos{" "}
-          <span style={{ color: "var(--color-accent-2)" }} className="font-normal italic">
+          <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
             · Gestão
           </span>
         </span>
@@ -50,12 +50,11 @@ export function GestorNav({ active = null }: { active?: GestorNavKey | null }) {
             key={item.key}
             href={item.href}
             aria-current={active === item.key ? "page" : undefined}
-            className="pb-1 text-[13px] no-underline"
+            className="pb-1 text-[13px] no-underline font-semibold"
             style={{
-              color: "inherit",
-              opacity: active === item.key ? 1 : 0.75,
+              color: active === item.key ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
               borderBottom:
-                active === item.key ? "2px solid var(--color-accent-2)" : "2px solid transparent",
+                active === item.key ? "2px solid var(--color-on-accent)" : "2px solid transparent",
             }}
           >
             {item.label}

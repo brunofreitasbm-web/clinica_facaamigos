@@ -117,6 +117,13 @@
   --shadow-pink: 0 4px 20px rgba(240, 25, 107, 0.35);
   --shadow-teal: 0 4px 20px rgba(46, 207, 181, 0.3);
 
+  /* texto sobre fundo saturado (header rosa/teal/âmbar) — nunca usar
+     --color-bg/--color-accent-2 pra texto aqui: contra um fundo já
+     saturado eles caem abaixo de AA (achado real: rótulo "· Gestão" em
+     âmbar sobre rosa ficava quase ilegível). */
+  --color-on-accent: #ffffff;
+  --color-on-accent-soft: rgba(255, 255, 255, 0.88);
+
   /* anel decorativo estilo Stories — só para avatar/foto de destaque */
   --gradient-ring: conic-gradient(
     from 200deg,
@@ -288,8 +295,13 @@ h6 {
   color: var(--color-accent-2-700);
 }
 
-a { color: var(--color-accent); text-underline-offset: 3px; }
-a:hover { color: var(--color-accent-600); }
+/* @layer base: fica ATRÁS das utilities do Tailwind na cascata, senão uma
+   classe como text-slate-300 num <Link> nunca vence essa regra crua (achado
+   real: nav da AuthStatus ficava rosa em vez de slate por causa disso). */
+@layer base {
+  a { color: var(--color-accent); text-underline-offset: 3px; }
+  a:hover { color: var(--color-accent-600); }
+}
 
 /* números medidos — contagens, percentuais, valores monetários */
 .tabular-figure {

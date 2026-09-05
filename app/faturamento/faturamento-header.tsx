@@ -29,12 +29,12 @@ export function FaturamentoHeader({ active = "competencia" }: { active?: NavKey 
         </svg>
         <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
           Faça Amigos{" "}
-          <span style={{ color: "var(--color-accent-2)" }} className="font-normal italic">
+          <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
             · Faturamento
           </span>
         </span>
       </Link>
-      <nav className="flex items-center gap-6 text-[15px]">
+      <nav className="flex items-center gap-6 text-[15px] font-semibold">
         {NAV_ITEMS.map((item) => (
           <Link
             key={item.key}
@@ -42,8 +42,8 @@ export function FaturamentoHeader({ active = "competencia" }: { active?: NavKey 
             className="py-5 no-underline transition-opacity hover:opacity-100"
             style={
               item.key === active
-                ? { color: "#fff", borderBottom: "2px solid var(--color-accent-2)", opacity: 1 }
-                : { color: "var(--color-bg)", opacity: 0.75 }
+                ? { color: "var(--color-on-accent)", borderBottom: "2px solid var(--color-on-accent)", opacity: 1 }
+                : { color: "var(--color-on-accent-soft)", opacity: 1 }
             }
           >
             {item.label}

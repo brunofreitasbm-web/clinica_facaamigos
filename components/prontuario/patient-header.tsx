@@ -23,14 +23,14 @@ export function PatientHeader() {
         </svg>
         <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
           Faça Amigos{" "}
-          <span style={{ color: "var(--color-accent-2)" }} className="font-normal italic">
+          <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
             · Prontuário
           </span>
         </span>
       </Link>
-      <span className="text-[13px] opacity-75">
+      <span className="text-[13px] font-semibold" style={{ color: "var(--color-on-accent-soft)" }}>
         ←{" "}
-        <Link href="/recepcao/pacientes" className="text-inherit no-underline opacity-100">
+        <Link href="/recepcao/pacientes" className="no-underline" style={{ color: "var(--color-on-accent)" }}>
           Pacientes
         </Link>
       </span>

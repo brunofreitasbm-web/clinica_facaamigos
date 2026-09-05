@@ -313,22 +313,22 @@ export default async function RecepcaoPage({
           </svg>
           <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
             Faça Amigos{" "}
-            <span style={{ color: "var(--color-accent-2)" }} className="font-normal italic">
+            <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
               · Recepção
             </span>
           </span>
         </Link>
-        <nav className="flex gap-6 text-[15px]">
+        <nav className="flex gap-6 text-[15px] font-semibold">
           <span
-            style={{ borderBottom: "2px solid var(--color-accent-2)" }}
-            className="py-5 text-white"
+            style={{ borderBottom: "2px solid var(--color-on-accent)", color: "var(--color-on-accent)" }}
+            className="py-5"
           >
             Agenda
           </span>
-          <Link href="/recepcao/pacientes" className="py-5 text-inherit no-underline opacity-70 hover:opacity-100">
+          <Link href="/recepcao/pacientes" className="py-5 no-underline hover:opacity-100" style={{ color: "var(--color-on-accent-soft)" }}>
             Pacientes
           </Link>
-          <Link href="/recepcao/pacientes/pendencias" className="py-5 text-inherit no-underline opacity-70 hover:opacity-100 flex items-center gap-1.5">
+          <Link href="/recepcao/pacientes/pendencias" className="py-5 no-underline hover:opacity-100 flex items-center gap-1.5" style={{ color: "var(--color-on-accent-soft)" }}>
             <span>Pendências</span>
             {fullQueue.length > 0 && (
               <span className="rounded-full bg-rose-500/25 text-rose-200 px-1.5 py-0.2 text-[11px] font-semibold">
@@ -336,11 +336,11 @@ export default async function RecepcaoPage({
               </span>
             )}
           </Link>
-          <Link href="/recepcao/whatsapp" className="py-5 text-inherit no-underline opacity-70 hover:opacity-100 flex items-center gap-1">
+          <Link href="/recepcao/whatsapp" className="py-5 no-underline hover:opacity-100 flex items-center gap-1" style={{ color: "var(--color-on-accent-soft)" }}>
             <span>WhatsApp D-1</span>
             <span className="rounded-full bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 text-[11px] font-semibold">Novo</span>
           </Link>
-          <span className="py-5 opacity-40">Documentos</span>
+          <span className="py-5" style={{ color: "var(--color-on-accent-soft)", opacity: 0.6 }}>Documentos</span>
         </nav>
         <div className="flex items-center gap-3.5 text-[13px] opacity-85">
           <Link

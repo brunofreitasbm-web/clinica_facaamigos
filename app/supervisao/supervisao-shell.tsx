@@ -57,12 +57,12 @@ export function SupervisaoShell({
           </svg>
           <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
             Faça Amigos{" "}
-            <span style={{ color: "var(--color-accent-2)" }} className="font-normal italic">
+            <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
               · Coordenação
             </span>
           </span>
         </span>
-        <nav className="flex h-full items-center gap-6 text-[15px]">
+        <nav className="flex h-full items-center gap-6 text-[15px] font-semibold">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -70,8 +70,8 @@ export function SupervisaoShell({
               onClick={() => setTab(t.key)}
               className="h-full border-b-2"
               style={{
-                color: tab === t.key ? "var(--color-bg)" : "color-mix(in srgb, var(--color-bg) 70%, transparent)",
-                borderColor: tab === t.key ? "var(--color-accent-2)" : "transparent",
+                color: tab === t.key ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
+                borderColor: tab === t.key ? "var(--color-on-accent)" : "transparent",
               }}
             >
               {badge[t.key]}
