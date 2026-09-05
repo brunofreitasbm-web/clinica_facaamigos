@@ -1,35 +1,32 @@
 # Credenciais de Teste e Desenvolvimento - Clínica FaçaAmigos
 
-Este documento lista as contas de teste padrão pré-configuradas para o ambiente de desenvolvimento e testes da aplicação **FaçaAmigos**.
-
-> **Senha Padrão para Todos os Usuários:** `facaamigos123`
+Este documento descreve como criar contas de teste para os ambientes de desenvolvimento e staging da aplicação **FaçaAmigos**. Não há mais senha padrão nem lista de e-mails fixos versionada neste arquivo — o login é feito exclusivamente via Supabase Auth (`app/login/actions.ts`), sem modo demo.
 
 ---
 
-## Contas de Teste por Perfil
+## Perfis do sistema
 
-| Perfil | E-mail | Senha Padrão | Descrição / Permissões |
-| :--- | :--- | :--- | :--- |
-| **Gestor** | `gestor@facaamigos.com.br` | `facaamigos123` | Acesso total, gerenciamento de equipe, relatórios e métricas. |
-| **Supervisor** | `supervisor@facaamigos.com.br` | `facaamigos123` | Validação de notas de sessão, planos de tratamento e supervisão. |
-| **Terapeuta** | `terapeuta@facaamigos.com.br` | `facaamigos123` | Registro de presença, notas de sessão e evolução de pacientes. |
-| **Recepção** | `recepcao@facaamigos.com.br` | `facaamigos123` | Agendamentos, checagem de presença e cadastro de pacientes. |
-| **Faturamento** | `faturamento@facaamigos.com.br` | `facaamigos123` | Faturamento, guias de convênio e controle de repasses. |
+| Perfil | Permissões |
+| :--- | :--- |
+| **Gestor** | Acesso total, gerenciamento de equipe, relatórios e métricas. |
+| **Supervisor** | Validação de notas de sessão, planos de tratamento e supervisão. |
+| **Terapeuta** | Registro de presença, notas de sessão e evolução de pacientes. |
+| **Recepção** | Agendamentos, checagem de presença e cadastro de pacientes. |
+| **Faturamento** | Faturamento, guias de convênio e controle de repasses. |
 
----
+## Como criar uma conta de teste
 
-## Como Criar/Restaurar os Usuários no Supabase Auth
-
-### Opção 1: Via Dashboard do Supabase
 1. Acesse seu projeto no [Supabase Dashboard](https://supabase.com/dashboard).
 2. Na barra lateral, navegue até **Authentication > Users**.
 3. Clique em **Add User > Create User**.
-4. Insira um dos e-mails acima e defina a senha como `facaamigos123`.
-5. Marque a opção **Auto Confirm User?** para ativar a conta imediatamente sem precisar de e-mail de confirmação.
-6. Associe o perfil na tabela `public.profiles` informando o `role` desejado.
+4. Use um e-mail de teste próprio e gere uma senha forte e exclusiva para esse ambiente — nunca reutilize a mesma senha entre contas ou ambientes.
+5. Marque **Auto Confirm User?** para ativar a conta sem precisar de e-mail de confirmação.
+6. Associe o perfil na tabela `public.profiles`, informando o `role` desejado.
 
 ---
 
 ## Observações de Segurança
-- **Ambiente de Produção:** Estas credenciais devem ser utilizadas **exclusivamente em ambiente local ou de staging/testes**.
-- **Troca de Senhas:** Em ambiente de produção, todos os usuários deverão alterar a senha temporária no primeiro acesso.
+
+- Nunca versionar e-mails e senhas de contas reais ou de teste neste repositório, mesmo marcadas como "só para dev/staging" — arquivos de texto no controle de versão não são um cofre de credenciais.
+- Guarde senhas de teste em um gerenciador de senhas ou variável de ambiente local, fora do git.
+- Em produção, todo usuário deve trocar a senha temporária no primeiro acesso.
