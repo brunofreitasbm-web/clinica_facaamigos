@@ -5,7 +5,12 @@ import { PlanForm } from "./plan-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function NovoPlanoPage() {
+export default async function NovoPlanoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ paciente?: string }>;
+}) {
+  const { paciente } = await searchParams;
   const supabase = await createClient();
 
   const { data: patients } = await supabase
@@ -22,7 +27,7 @@ export default async function NovoPlanoPage() {
         title="Novo plano terapêutico"
         description="Disciplinas, metas SMART por domínio e data de revisão. O plano entra em rascunho e segue para a fila de aprovação."
       />
-      <PlanForm patients={patients ?? []} />
+      <PlanForm patients={patients ?? []} initialPatientId={paciente ?? ""} />
     </main>
   );
 }

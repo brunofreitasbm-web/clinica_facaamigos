@@ -304,91 +304,35 @@ export default async function RecepcaoPage({
 
   return (
     <div className="flex flex-1 flex-col">
-      <header
-        style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
-        className="flex h-16 items-center gap-7 px-10"
+      {/* Cabeçalho + atalhos globais vêm do layout (RecepcaoNav); aqui só a
+          navegação de data, específica da agenda do dia. */}
+      <div
+        className="flex items-center justify-end gap-3.5 px-10 py-2 text-[13px]"
+        style={{ background: "var(--color-accent-100)", color: "var(--color-accent-700)" }}
       >
-        <Link href="/recepcao" className="mr-auto flex items-center gap-3 no-underline">
-          <svg width="30" height="30" viewBox="0 0 100 100" fill="none" aria-hidden>
-            <path d="M22 18h34v10H33v18h20v10H33v26H22z" fill="var(--color-bg)" />
-            <path
-              d="M46 82 L64 26 h6 L88 82 h-9 l-4-13 H59 L55 82Z M61.5 61h11L67 42z"
-              fill="var(--color-accent-2)"
-            />
-            <circle cx="33" cy="52.5" r="4.2" fill="var(--color-accent-2)" />
-          </svg>
-          <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
-            Faça Amigos{" "}
-            <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
-              · Recepção
-            </span>
-          </span>
+        <Link
+          href="/recepcao"
+          className="rounded px-2 py-1 no-underline hover:bg-black/5"
+        >
+          Hoje
         </Link>
-        <nav className="flex gap-6 text-[15px] font-semibold">
-          <span
-            style={{ borderBottom: "2px solid var(--color-on-accent)", color: "var(--color-on-accent)" }}
-            className="py-5"
-          >
-            Agenda
-          </span>
-          <Link href="/recepcao/pacientes" className="py-5 no-underline hover:opacity-100" style={{ color: "var(--color-on-accent-soft)" }}>
-            Pacientes
-          </Link>
-          <Link href="/recepcao/pacientes/pendencias" className="py-5 no-underline hover:opacity-100 flex items-center gap-1.5" style={{ color: "var(--color-on-accent-soft)" }}>
-            <span>Pendências</span>
-            {fullQueue.length > 0 && (
-              <span className="rounded-full bg-rose-500/25 text-rose-200 px-1.5 py-0.2 text-[11px] font-semibold">
-                {fullQueue.length}
-              </span>
-            )}
-          </Link>
-          <Link href="/recepcao/whatsapp" className="py-5 no-underline hover:opacity-100 flex items-center gap-1" style={{ color: "var(--color-on-accent-soft)" }}>
-            <span>WhatsApp D-1</span>
-            <span className="rounded-full bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 text-[11px] font-semibold">Novo</span>
-          </Link>
-          <Link href="/recepcao/documentos" className="py-5 no-underline hover:opacity-100" style={{ color: "var(--color-on-accent-soft)" }}>
-            Documentos
-          </Link>
-        </nav>
-        <div className="flex items-center gap-3.5 text-[13px] opacity-85">
-          <Link
-            href="/recepcao"
-            className="rounded px-2 py-1 no-underline opacity-85 hover:bg-white/10 hover:opacity-100"
-          >
-            Hoje
-          </Link>
-          <Link
-            href={`/recepcao?date=${previousCalendarDay(day)}`}
-            aria-label="Dia anterior"
-            className="rounded px-2 py-1 no-underline opacity-85 hover:bg-white/10 hover:opacity-100"
-          >
-            ‹
-          </Link>
-          <span>{fmtDateLabel(day)}</span>
-          <Link
-            href={`/recepcao?date=${nextCalendarDay(day)}`}
-            aria-label="Próximo dia"
-            className="rounded px-2 py-1 no-underline opacity-85 hover:bg-white/10 hover:opacity-100"
-          >
-            ›
-          </Link>
-          <MiniCalendarPicker selectedDate={day} basePath="/recepcao" />
-          <span
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: "50%",
-              background: "var(--color-accent-2)",
-              color: "var(--color-accent)",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 600,
-            }}
-          >
-            R
-          </span>
-        </div>
-      </header>
+        <Link
+          href={`/recepcao?date=${previousCalendarDay(day)}`}
+          aria-label="Dia anterior"
+          className="rounded px-2 py-1 no-underline hover:bg-black/5"
+        >
+          ‹
+        </Link>
+        <span className="font-semibold">{fmtDateLabel(day)}</span>
+        <Link
+          href={`/recepcao?date=${nextCalendarDay(day)}`}
+          aria-label="Próximo dia"
+          className="rounded px-2 py-1 no-underline hover:bg-black/5"
+        >
+          ›
+        </Link>
+        <MiniCalendarPicker selectedDate={day} basePath="/recepcao" />
+      </div>
 
       <main className="grid grid-cols-1 gap-14 px-10 pb-16 pt-9 lg:grid-cols-[1fr_360px]">
         <section>

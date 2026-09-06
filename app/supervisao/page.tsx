@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
+import { getPendingPatients } from "@/lib/patient-stage";
 import {
   currentWeek,
   weekBounds,
@@ -14,6 +15,7 @@ import { GradePanel, type GradeAppointment, type PendingNote } from "./grade-pan
 import { PlanosPanel, type PlanRow } from "./planos-panel";
 import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingReportRow } from "./inbox-panel";
 import { SupervisaoShell } from "./supervisao-shell";
+import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +41,8 @@ export default async function SupervisaoPage() {
     { data: rawMessages },
     { data: rawReassessments },
     { data: rawDraftReports },
+    onboardingPatients,
+    { data: rawActivePatients },
   ] = await Promise.all([
     supabase.from("patients").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("reassessment_alerts").select("id", { count: "exact", head: true }).eq("status", "notificado"),
@@ -81,6 +85,15 @@ export default async function SupervisaoPage() {
       )
       .in("status", ["gerado", "em_revisao"])
       .order("created_at", { ascending: true }),
+    // Aba Fluxos: todo paciente ainda em onboarding (threshold 0 = sem filtro
+    // de dias), com o estágio já calculado pela mesma regra da recepção.
+    getPendingPatients(supabase, 0),
+    supabase
+      .from("patients")
+      .select("id, full_name, status")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .in("status", ["ativo", "pausado"])
+      .order("full_name"),
   ]);
 
   // ── Grade semanal ──────────────────────────────────────────────────────
@@ -213,10 +226,38 @@ export default async function SupervisaoPage() {
     };
   });
 
+  // ── Fluxos (passo a passo com atalhos) ─────────────────────────────────
+  const flowPatients: FlowPatient[] = [
+    ...onboardingPatients.map((p) => ({ id: p.id, name: p.full_name, status: p.status, stage: p.stage })),
+    ...(rawActivePatients ?? []).map((p) => ({ id: p.id, name: p.full_name, status: p.status, stage: 5 as const })),
+  ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  const openFamilyMessages = inboxMessages.filter((m) => !m.resolved).length;
+  const flowCounters: FlowCounters = {
+    leads: onboardingPatients.filter((p) => p.stage === 1).length,
+    stuckOnboarding: onboardingPatients.filter((p) => p.daysSinceCreated >= 3).length,
+    awaitingEvaluation: onboardingPatients.filter((p) => p.stage === 2).length,
+    evaluatedNoGuide: onboardingPatients.filter((p) => p.stage === 3).length,
+    sessionsInGrid: carteira.sessionsInGrid,
+    provisionalNoGuide: carteira.provisionalNoGuide,
+    pendingNotes: pendingNoteRows.length,
+    plansToApprove: plans.length,
+    reassessmentsDue: reassessmentRows.length,
+    openFamilyMessages,
+    pendingReports: pendingReportRows.length,
+  };
+  const nFluxos =
+    flowCounters.stuckOnboarding +
+    flowCounters.evaluatedNoGuide +
+    flowCounters.provisionalNoGuide +
+    flowCounters.openFamilyMessages;
+
   return (
     <SupervisaoShell
       nPlanos={plans.length}
-      nInbox={inboxMessages.filter((m) => !m.resolved).length}
+      nInbox={openFamilyMessages}
+      nFluxos={nFluxos}
+      fluxosTab={<FluxosPanel patients={flowPatients} counters={flowCounters} />}
       gradeTab={
         <GradePanel
           weekLabel={week.rangeLabel}

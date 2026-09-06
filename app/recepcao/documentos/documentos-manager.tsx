@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   FileText,
   Printer,
@@ -264,67 +263,7 @@ export function DocumentosManager({
         }
       `}</style>
 
-      {/* Header da Recepção */}
-      <header
-        style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
-        className="flex h-16 items-center gap-7 px-6 sm:px-10 shadow-sm print:hidden"
-      >
-        <Link href="/recepcao" className="mr-auto flex items-center gap-3 no-underline">
-          <svg width="30" height="30" viewBox="0 0 100 100" fill="none" aria-hidden>
-            <path d="M22 18h34v10H33v18h20v10H33v26H22z" fill="var(--color-bg)" />
-            <path
-              d="M46 82 L64 26 h6 L88 82 h-9 l-4-13 H59 L55 82Z M61.5 61h11L67 42z"
-              fill="var(--color-accent-2)"
-            />
-            <circle cx="33" cy="52.5" r="4.2" fill="var(--color-accent-2)" />
-          </svg>
-          <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
-            Faça Amigos{" "}
-            <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
-              · Recepção
-            </span>
-          </span>
-        </Link>
-        <nav className="flex gap-6 text-[15px] font-semibold">
-          <Link
-            href="/recepcao"
-            className="py-5 no-underline hover:opacity-100"
-            style={{ color: "var(--color-on-accent-soft)" }}
-          >
-            Agenda
-          </Link>
-          <Link
-            href="/recepcao/pacientes"
-            className="py-5 no-underline hover:opacity-100"
-            style={{ color: "var(--color-on-accent-soft)" }}
-          >
-            Pacientes
-          </Link>
-          <Link
-            href="/recepcao/pacientes/pendencias"
-            className="py-5 no-underline hover:opacity-100"
-            style={{ color: "var(--color-on-accent-soft)" }}
-          >
-            Pendências
-          </Link>
-          <Link
-            href="/recepcao/whatsapp"
-            className="py-5 no-underline hover:opacity-100 flex items-center gap-1"
-            style={{ color: "var(--color-on-accent-soft)" }}
-          >
-            <span>WhatsApp D-1</span>
-          </Link>
-          <span
-            className="py-5"
-            style={{
-              borderBottom: "2px solid var(--color-on-accent)",
-              color: "var(--color-on-accent)",
-            }}
-          >
-            Documentos
-          </span>
-        </nav>
-      </header>
+      {/* Cabeçalho + atalhos globais da recepção vêm do layout (RecepcaoNav). */}
 
       {/* Main Container */}
       <main className="flex-1 px-4 sm:px-8 py-8 max-w-7xl mx-auto w-full flex flex-col gap-8 print:p-0">

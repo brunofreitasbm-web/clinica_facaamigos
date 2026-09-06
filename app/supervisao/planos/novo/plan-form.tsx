@@ -32,10 +32,14 @@ function emptyGoal(): Goal {
 const inputClass =
   "mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink";
 
-export function PlanForm({ patients }: { patients: Patient[] }) {
+export function PlanForm({ patients, initialPatientId = "" }: { patients: Patient[]; initialPatientId?: string }) {
   const formId = useId();
   const router = useRouter();
-  const [patientId, setPatientId] = useState("");
+  // Pré-seleção via ?paciente= (atalho "Montar PEI" da aba Fluxos da supervisão);
+  // só vale se o id estiver na lista elegível (ativo/avaliacao).
+  const [patientId, setPatientId] = useState(() =>
+    patients.some((p) => p.id === initialPatientId) ? initialPatientId : "",
+  );
   const [reviewDueAt, setReviewDueAt] = useState("");
   const [selectedDisciplines, setSelectedDisciplines] = useState<Record<string, string>>({});
   const [goals, setGoals] = useState<Goal[]>([emptyGoal()]);

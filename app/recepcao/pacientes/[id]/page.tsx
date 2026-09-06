@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { PatientHeader } from "@/components/prontuario/patient-header";
+import Link from "next/link";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
 import { StageChecklist } from "@/components/stage-checklist";
 import { createClient } from "@/lib/supabase/server";
@@ -392,7 +392,16 @@ export default async function PacientePage({
 
   return (
     <main className="flex flex-1 flex-col">
-      <PatientHeader />
+      {/* Cabeçalho + atalhos globais da recepção vêm do layout (RecepcaoNav). */}
+      <div className="px-10 pt-6">
+        <Link
+          href="/recepcao/pacientes"
+          className="text-[13px] font-semibold no-underline"
+          style={{ color: "var(--color-accent)" }}
+        >
+          ← Pacientes
+        </Link>
+      </div>
 
       <div className="flex flex-wrap items-end justify-between gap-6 px-10 pt-9">
         <div className="flex items-center gap-5">
@@ -431,7 +440,7 @@ export default async function PacientePage({
 
       {stage < 5 && (
         <div className="px-10 pt-8">
-          <div className="card max-w-[720px]">
+          <div id="proximo-passo" className="card max-w-[720px] scroll-mt-6">
             <div className="card-kicker">Próximo passo</div>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <StageChecklist stage={stage} />
@@ -490,7 +499,7 @@ export default async function PacientePage({
       )}
 
       <div className="px-10 pt-8">
-        <div className="card max-w-[900px]">
+        <div id="guias" className="scroll-mt-6 card max-w-[900px]">
           <div className="mb-3.5 flex items-center justify-between gap-3">
             <div className="card-kicker">Guias</div>
             <NewAuthorizationToggle patientId={patient.id} insurers={insurers} />

@@ -1,18 +1,29 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
 const TABS = [
   { key: "grade", label: "Grade" },
+  { key: "fluxos", label: "Fluxos" },
   { key: "planos", label: "Planos" },
   { key: "inbox", label: "Caixa de entrada" },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+export type SupervisaoTabKey = (typeof TABS)[number]["key"];
+
+const SupervisaoTabContext = createContext<{ tab: SupervisaoTabKey; setTab: (t: SupervisaoTabKey) => void }>({
+  tab: "grade",
+  setTab: () => {},
+});
+
+/** Permite que um painel filho (ex.: atalhos da aba Fluxos) troque a aba ativa sem navegar. */
+export function useSupervisaoTab() {
+  return useContext(SupervisaoTabContext);
+}
 
 /**
  * Cabeçalho + navegação por abas do painel de supervisão (Coordenador.dc.html).
- * As abas trocam sem navegação de rota — os três painéis já vêm renderizados
+ * As abas trocam sem navegação de rota — os painéis já vêm renderizados
  * do server (cada um busca seus próprios dados em page.tsx) e este client
  * component só decide qual mostrar, igual ao padrão de
  * components/prontuario/patient-tabs.tsx.
@@ -21,26 +32,32 @@ type TabKey = (typeof TABS)[number]["key"];
 export function SupervisaoShell({
   nPlanos,
   nInbox,
+  nFluxos,
   gradeTab,
+  fluxosTab,
   planosTab,
   inboxTab,
 }: {
   nPlanos: number;
   nInbox: number;
+  /** Itens que exigem ação em algum fluxo (leads travados, avaliados sem guia, chamados abertos…). */
+  nFluxos: number;
   gradeTab: ReactNode;
+  fluxosTab: ReactNode;
   planosTab: ReactNode;
   inboxTab: ReactNode;
 }) {
-  const [tab, setTab] = useState<TabKey>("grade");
+  const [tab, setTab] = useState<SupervisaoTabKey>("grade");
 
-  const badge: Record<TabKey, string> = {
+  const badge: Record<SupervisaoTabKey, string> = {
     grade: "Grade",
+    fluxos: nFluxos > 0 ? `Fluxos · ${nFluxos}` : "Fluxos",
     planos: `Planos · ${nPlanos}`,
     inbox: `Caixa de entrada · ${nInbox}`,
   };
 
   return (
-    <>
+    <SupervisaoTabContext.Provider value={{ tab, setTab }}>
       <header
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
         className="flex h-16 items-center gap-8 px-10"
@@ -81,9 +98,10 @@ export function SupervisaoShell({
 
       <main className="px-10 py-9">
         {tab === "grade" && gradeTab}
+        {tab === "fluxos" && fluxosTab}
         {tab === "planos" && planosTab}
         {tab === "inbox" && inboxTab}
       </main>
-    </>
+    </SupervisaoTabContext.Provider>
   );
 }
