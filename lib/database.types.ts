@@ -382,6 +382,7 @@ export type Database = {
           appointment_type_id: string | null
           attendance_started_at: string | null
           authorization_id: string | null
+          auto_marked: boolean
           cancel_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -407,6 +408,7 @@ export type Database = {
           appointment_type_id?: string | null
           attendance_started_at?: string | null
           authorization_id?: string | null
+          auto_marked?: boolean
           cancel_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -432,6 +434,7 @@ export type Database = {
           appointment_type_id?: string | null
           attendance_started_at?: string | null
           authorization_id?: string | null
+          auto_marked?: boolean
           cancel_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null

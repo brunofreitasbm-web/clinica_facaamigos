@@ -13,7 +13,8 @@ export type PendingQueueCategory =
   | "cadastro_incompleto"
   | "evolucao_atrasada"
   | "documento_vencido"
-  | "lead_sem_retorno";
+  | "lead_sem_retorno"
+  | "falta_sem_motivo";
 
 export type PendingQueueItem = {
   id: string;
@@ -33,6 +34,7 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   evolucao_atrasada: "Evolução pendente > 24h",
   documento_vencido: "Documento vencido",
   lead_sem_retorno: "Lead sem retorno > 15 min",
+  falta_sem_motivo: "Falta sem motivo",
 };
 
 export type ExpiringAuthorization = {
@@ -163,6 +165,43 @@ async function getUnansweredLeads(supabase: Supa, clinicId: string, minutesThres
     minutesWaiting: Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60_000),
     createdAt: p.created_at,
   }));
+}
+
+export type AutoFaltaPendingReason = {
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  startsAt: string;
+  minutesAgo: number;
+};
+
+/**
+ * Faltas marcadas pela rotina automática de baixa de presença
+ * (auto_resolve_appointments, supabase/migrations/20260906000016_auto_
+ * attendance_resolution.sql) que ainda não têm motivo — a rotina só sabe
+ * dizer "não teve check-in", quem preenche o porquê é a recepção (ver
+ * setAutoFaltaReason em app/recepcao/agenda/session-actions.ts).
+ */
+async function getAutoFaltasSemMotivo(supabase: Supa, clinicId: string): Promise<AutoFaltaPendingReason[]> {
+  const { data } = await supabase
+    .from("appointments")
+    .select("id, starts_at, patients!inner(id, full_name, clinic_id)")
+    .eq("patients.clinic_id", clinicId)
+    .eq("status", "falta_familia")
+    .eq("auto_marked", true)
+    .is("cancel_reason", null)
+    .order("starts_at", { ascending: true });
+
+  return (data ?? []).map((a) => {
+    const patient = Array.isArray(a.patients) ? a.patients[0] : a.patients;
+    return {
+      appointmentId: a.id,
+      patientId: patient?.id ?? "",
+      patientName: patient?.full_name ?? "—",
+      startsAt: a.starts_at,
+      minutesAgo: Math.floor((Date.now() - new Date(a.starts_at).getTime()) / 60_000),
+    };
+  });
 }
 
 /**

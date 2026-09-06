@@ -263,6 +263,111 @@ export async function markMissedOrCancelled(
 }
 
 /**
+ * Preenche o motivo de uma falta marcada automaticamente pela rotina de
+ * baixa de presença (auto_resolve_appointments, roda a cada 5 min via
+ * pg_cron — supabase/migrations/20260906000016_auto_attendance_resolution.sql).
+ * A rotina só sabe dizer "não teve check-in", não o porquê; quem sabe é a
+ * recepção, ao ligar pra família ou ver o motivo relatado no portal. Só
+ * aceita em cima de auto_marked=true pra não virar uma segunda porta de
+ * edição de falta manual (essa já existe em markMissedOrCancelled).
+ */
+export async function setAutoFaltaReason(appointmentId: string, formData: FormData): Promise<ActionResult> {
+  const reason = String(formData.get("reason") ?? "");
+  const reasonOther = String(formData.get("reason_other") ?? "").trim();
+
+  if (!CANCEL_REASONS.some((r) => r.value === reason)) {
+    return { success: false, error: "Selecione um motivo válido." };
+  }
+  if (reason === "outro" && !reasonOther) {
+    return { success: false, error: "Descreva o motivo." };
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return SESSION_EXPIRED_ERROR;
+  }
+
+  const { data: appointment } = await supabase
+    .from("appointments")
+    .select("id, status, auto_marked, cancel_reason")
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (!appointment) {
+    return { success: false, error: "Sessão não encontrada." };
+  }
+  if (appointment.status !== "falta_familia" || !appointment.auto_marked) {
+    return { success: false, error: "Essa sessão não é uma falta automática pendente de motivo." };
+  }
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      cancel_reason: reason === "outro" ? reasonOther : reason,
+      cancelled_by: user.id,
+    })
+    .eq("id", appointmentId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível registrar o motivo. Tente de novo." };
+  }
+
+  revalidateAgendaViews();
+  return { success: true };
+}
+
+/**
+ * Desfaz uma falta marcada automaticamente (a família chegou atrasada, mas
+ * dentro do que a recepção considera aceitável, ou o check-in não foi
+ * registrado por falha operacional) — devolve a sessão pra 'confirmada' e
+ * limpa os campos que a rotina automática gravou, pra o check-in normal
+ * (checkIn, acima) poder seguir o fluxo de novo. Só age sobre auto_marked
+ * pra nunca reverter uma falta que a recepção decidiu de propósito.
+ */
+export async function undoAutoFalta(appointmentId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const { data: appointment } = await supabase
+    .from("appointments")
+    .select("id, status, auto_marked, checkout_at")
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (!appointment) {
+    return { success: false, error: "Sessão não encontrada." };
+  }
+  if (appointment.status !== "falta_familia" || !appointment.auto_marked) {
+    return { success: false, error: "Essa sessão não é uma falta automática." };
+  }
+  if (appointment.checkout_at) {
+    return { success: false, error: "Sessão já foi encerrada." };
+  }
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      status: "confirmada",
+      cancel_reason: null,
+      cancelled_by: null,
+      cancelled_at: null,
+      auto_marked: false,
+    })
+    .eq("id", appointmentId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível desfazer a falta. Tente de novo." };
+  }
+
+  revalidateAgendaViews();
+  return { success: true };
+}
+
+/**
  * Vincula uma guia à sessão depois de criada (Gap 3 do audit de recepção) —
  * cobre o caso da sessão "provisória" agendada antes da guia chegar (ver
  * `is_provisional` em app/recepcao/nova-sessao-dialog.tsx). Só permite
