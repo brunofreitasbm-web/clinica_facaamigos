@@ -9,18 +9,11 @@ import {
   MessageCircle,
   FileText,
   Boxes,
-  UserPlus,
-  CalendarPlus,
-  Search,
 } from "lucide-react";
-import { RecepcaoCommandPalette, type PalettePatient } from "./recepcao-command-palette";
 
 /**
- * Cabeçalho + barra de ações rápidas do módulo Recepção, renderizado pelo
- * app/recepcao/layout.tsx em TODAS as telas do módulo — o operador nunca
- * precisa "voltar" pra achar uma ferramenta: tudo que a recepção faz no dia
- * (agendar, cadastrar, confirmar amanhã, resolver pendência, buscar
- * paciente) está sempre a um clique, em qualquer página.
+ * Cabeçalho do módulo Recepção, renderizado pelo app/recepcao/layout.tsx
+ * em TODAS as telas do módulo.
  */
 const NAV_ITEMS = [
   { key: "agenda", label: "Agenda do dia", href: "/recepcao", icon: CalendarDays, exact: true },
@@ -47,11 +40,9 @@ function activeKey(pathname: string | null): NavKey | null {
 export function RecepcaoNav({
   pendingCount,
   tomorrowUnconfirmedCount,
-  patients,
 }: {
   pendingCount: number;
   tomorrowUnconfirmedCount: number;
-  patients: PalettePatient[];
 }) {
   const pathname = usePathname();
   const current = activeKey(pathname);
@@ -136,76 +127,30 @@ export function RecepcaoNav({
         </span>
       </header>
 
-      {/* Barra de ações rápidas — as 4 coisas que a recepção mais faz, com
-          rótulo em linguagem do balcão e sempre visíveis. */}
-      <div
-        className="flex flex-wrap items-center gap-2 border-b px-6 py-2.5 sm:px-10"
+      {/* Navegação compacta pra telas estreitas (a barra do topo esconde os itens) */}
+      <nav
+        className="flex w-full flex-wrap gap-1 border-b px-6 py-2 lg:hidden"
         style={{ background: "var(--color-surface)", borderColor: "var(--color-neutral-200)" }}
+        aria-label="Seções da recepção"
       >
-        <span className="mr-1 hidden text-[11px] font-extrabold uppercase tracking-[0.12em] sm:inline" style={{ color: "var(--color-accent-2-700)" }}>
-          Atalhos
-        </span>
-        <Link href="/recepcao#nova-sessao" prefetch={true} className="btn btn-primary text-[13px]">
-          <CalendarPlus size={16} aria-hidden />
-          Nova sessão
-        </Link>
-        <Link href="/recepcao/pacientes/novo" prefetch={true} className="btn btn-secondary text-[13px]">
-          <UserPlus size={16} aria-hidden />
-          Novo paciente
-        </Link>
-        <RecepcaoCommandPalette patients={patients}>
-          <span className="btn btn-ghost text-[13px]">
-            <Search size={16} aria-hidden />
-            Buscar paciente
-            <kbd
-              className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold"
-              style={{ background: "var(--color-neutral-100)", color: "var(--color-neutral-600)" }}
+        {NAV_ITEMS.map((item) => {
+          const isCurrent = current === item.key;
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-current={isCurrent ? "page" : undefined}
+              className="rounded-full px-2.5 py-1 text-xs font-semibold no-underline"
+              style={{
+                background: isCurrent ? "var(--color-accent)" : "var(--color-neutral-100)",
+                color: isCurrent ? "#fff" : "var(--color-ink)",
+              }}
             >
-              Ctrl K
-            </kbd>
-          </span>
-        </RecepcaoCommandPalette>
-        <span className="mx-1 hidden h-6 w-px sm:block" style={{ background: "var(--color-neutral-200)" }} />
-        <Link href="/recepcao/whatsapp" prefetch={true} className="btn btn-ghost text-[13px]">
-          <MessageCircle size={16} aria-hidden />
-          Confirmar amanhã
-          {tomorrowUnconfirmedCount > 0 && (
-            <span className="rounded-full px-1.5 text-[11px] font-bold text-white" style={{ background: "var(--color-accent-2)" }}>
-              {tomorrowUnconfirmedCount}
-            </span>
-          )}
-        </Link>
-        <Link href="/recepcao/pacientes/pendencias" prefetch={true} className="btn btn-ghost text-[13px]">
-          <AlertCircle size={16} aria-hidden />
-          Pendências
-          {pendingCount > 0 && (
-            <span className="rounded-full px-1.5 text-[11px] font-bold text-white" style={{ background: "var(--color-status-negative)" }}>
-              {pendingCount}
-            </span>
-          )}
-        </Link>
-
-        {/* Navegação compacta pra telas estreitas (a barra do topo esconde os itens) */}
-        <nav className="flex w-full flex-wrap gap-1 pt-1 lg:hidden" aria-label="Seções da recepção">
-          {NAV_ITEMS.map((item) => {
-            const isCurrent = current === item.key;
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-current={isCurrent ? "page" : undefined}
-                className="rounded-full px-2.5 py-1 text-xs font-semibold no-underline"
-                style={{
-                  background: isCurrent ? "var(--color-accent)" : "var(--color-neutral-100)",
-                  color: isCurrent ? "#fff" : "var(--color-ink)",
-                }}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

@@ -22,28 +22,34 @@ export const AREA_LABEL: Record<string, string> = Object.fromEntries(
   PROTOCOL_AREAS.map((a) => [a.value, a.label]),
 );
 
+/**
+ * `discipline` mapeia o protocolo para o valor de disciplina usado no PDI
+ * (mesma lista de app/supervisao/planos/novo/disciplines.ts) — usado só para
+ * pré-preencher a sugestão de meta ao "Montar PEI" a partir de uma avaliação
+ * já aplicada; o supervisor pode trocar livremente no formulário.
+ */
 export const PROTOCOL_CATALOG = [
-  { name: "vbmapp", displayName: "VB-MAPP", area: "comportamental" },
-  { name: "ablls_r", displayName: "ABLLS-R", area: "comportamental" },
-  { name: "esdm", displayName: "Denver / ESDM", area: "comportamental" },
-  { name: "afls", displayName: "AFLS", area: "funcional" },
-  { name: "abla_r", displayName: "ABLA-R", area: "comportamental" },
-  { name: "socially_savvy", displayName: "Socially Savvy", area: "comportamental" },
-  { name: "ipo", displayName: "IPO", area: "cognitiva" },
-  { name: "pep_r", displayName: "PEP-R", area: "cognitiva" },
-  { name: "iar", displayName: "IAR", area: "cognitiva" },
-  { name: "pcl", displayName: "PCL", area: "cognitiva" },
-  { name: "tgmd2", displayName: "TGMD-2", area: "psicomotora" },
-  { name: "avaliacao_neuromuscular", displayName: "Avaliação neuromuscular", area: "psicomotora" },
-  { name: "adl2", displayName: "ADL2", area: "linguistica" },
-  { name: "abfw", displayName: "ABFW", area: "linguistica" },
-  { name: "matriz_comunicacao", displayName: "Matriz de Comunicação", area: "linguistica" },
-  { name: "proc", displayName: "PROC", area: "linguistica" },
-  { name: "copm", displayName: "COPM", area: "funcional" },
-  { name: "spm", displayName: "SPM / SPM-P", area: "funcional" },
-  { name: "escala_labirinto", displayName: "Escala Labirinto", area: "nutricional" },
-  { name: "demuca", displayName: "DEMUCA", area: "musical" },
-  { name: "outro", displayName: "Outro protocolo", area: null },
+  { name: "vbmapp", displayName: "VB-MAPP", area: "comportamental", discipline: "aba" },
+  { name: "ablls_r", displayName: "ABLLS-R", area: "comportamental", discipline: "aba" },
+  { name: "esdm", displayName: "Denver / ESDM", area: "comportamental", discipline: "denver_esdm" },
+  { name: "afls", displayName: "AFLS", area: "funcional", discipline: "terapia_ocupacional" },
+  { name: "abla_r", displayName: "ABLA-R", area: "comportamental", discipline: "aba" },
+  { name: "socially_savvy", displayName: "Socially Savvy", area: "comportamental", discipline: "aba" },
+  { name: "ipo", displayName: "IPO", area: "cognitiva", discipline: "psicologia" },
+  { name: "pep_r", displayName: "PEP-R", area: "cognitiva", discipline: "psicologia" },
+  { name: "iar", displayName: "IAR", area: "cognitiva", discipline: "psicologia" },
+  { name: "pcl", displayName: "PCL", area: "cognitiva", discipline: "psicologia" },
+  { name: "tgmd2", displayName: "TGMD-2", area: "psicomotora", discipline: "fisioterapia" },
+  { name: "avaliacao_neuromuscular", displayName: "Avaliação neuromuscular", area: "psicomotora", discipline: "fisioterapia" },
+  { name: "adl2", displayName: "ADL2", area: "linguistica", discipline: "fonoaudiologia" },
+  { name: "abfw", displayName: "ABFW", area: "linguistica", discipline: "fonoaudiologia" },
+  { name: "matriz_comunicacao", displayName: "Matriz de Comunicação", area: "linguistica", discipline: "fonoaudiologia" },
+  { name: "proc", displayName: "PROC", area: "linguistica", discipline: "fonoaudiologia" },
+  { name: "copm", displayName: "COPM", area: "funcional", discipline: "terapia_ocupacional" },
+  { name: "spm", displayName: "SPM / SPM-P", area: "funcional", discipline: "terapia_ocupacional" },
+  { name: "escala_labirinto", displayName: "Escala Labirinto", area: "nutricional", discipline: "outra" },
+  { name: "demuca", displayName: "DEMUCA", area: "musical", discipline: "outra" },
+  { name: "outro", displayName: "Outro protocolo", area: null, discipline: "outra" },
 ] as const;
 
 export type ProtocolCatalogEntry = (typeof PROTOCOL_CATALOG)[number];

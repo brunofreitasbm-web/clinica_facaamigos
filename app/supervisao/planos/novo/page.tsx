@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { getSuggestedGoals, getTeamSuggestions } from "@/lib/plan-suggestions";
 import { PlanForm } from "./plan-form";
 
 export const dynamic = "force-dynamic";
@@ -24,15 +25,23 @@ export default async function NovoPlanoPage({
   // do plano com o que a anamnese já registrou, pra não depender de alguém
   // lembrar de reler a anamnese na hora de montar o PDI.
   let familyPriorities: string | null = null;
+  let suggestedGoals: Awaited<ReturnType<typeof getSuggestedGoals>> = [];
+  let teamSuggestions: Awaited<ReturnType<typeof getTeamSuggestions>> = [];
   if (paciente) {
-    const { data: anamnese } = await supabase
-      .from("anamneses")
-      .select("structured")
-      .eq("patient_id", paciente)
-      .order("conducted_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [{ data: anamnese }, goals, team] = await Promise.all([
+      supabase
+        .from("anamneses")
+        .select("structured")
+        .eq("patient_id", paciente)
+        .order("conducted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      getSuggestedGoals(supabase, DEV_CLINIC_ID, paciente),
+      getTeamSuggestions(supabase, paciente),
+    ]);
     familyPriorities = (anamnese?.structured as Record<string, string | null> | null)?.family_priorities ?? null;
+    suggestedGoals = goals;
+    teamSuggestions = team;
   }
 
   return (
@@ -42,7 +51,13 @@ export default async function NovoPlanoPage({
         title="Novo plano terapêutico"
         description="Objetivo geral, disciplinas, metas SMART por domínio (com horizonte, estratégia e metodologia) e data de revisão. O plano entra em rascunho e segue para a fila de aprovação."
       />
-      <PlanForm patients={patients ?? []} initialPatientId={paciente ?? ""} initialFamilyPriorities={familyPriorities ?? ""} />
+      <PlanForm
+        patients={patients ?? []}
+        initialPatientId={paciente ?? ""}
+        initialFamilyPriorities={familyPriorities ?? ""}
+        suggestedGoals={suggestedGoals}
+        teamSuggestions={teamSuggestions}
+      />
     </main>
   );
 }

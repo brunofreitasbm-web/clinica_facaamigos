@@ -1,9 +1,10 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createTreatmentPlan } from "./actions";
 import { DISCIPLINES } from "./disciplines";
+import type { SuggestedGoal, TeamSuggestion } from "@/lib/plan-suggestions";
 
 type Patient = { id: string; full_name: string };
 
@@ -42,10 +43,14 @@ export function PlanForm({
   patients,
   initialPatientId = "",
   initialFamilyPriorities = "",
+  suggestedGoals = [],
+  teamSuggestions = [],
 }: {
   patients: Patient[];
   initialPatientId?: string;
   initialFamilyPriorities?: string;
+  suggestedGoals?: SuggestedGoal[];
+  teamSuggestions?: TeamSuggestion[];
 }) {
   const formId = useId();
   const router = useRouter();
@@ -59,8 +64,46 @@ export function PlanForm({
   const [familyPriorities, setFamilyPriorities] = useState(initialFamilyPriorities);
   const [selectedDisciplines, setSelectedDisciplines] = useState<Record<string, string>>({});
   const [goals, setGoals] = useState<Goal[]>([emptyGoal()]);
+  const [addedSuggestionKeys, setAddedSuggestionKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Equipe de avaliação já definida (Módulo 3 MAAIS, slide 23) pré-marca as
+  // disciplinas do plano assim que a página carrega — o supervisor só
+  // precisa preencher sessões/semana, não redigitar quem já está na equipe.
+  useEffect(() => {
+    if (teamSuggestions.length === 0) return;
+    setSelectedDisciplines((prev) => {
+      const next = { ...prev };
+      for (const t of teamSuggestions) {
+        if (!(t.discipline in next)) next[t.discipline] = "1";
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function addSuggestedGoal(s: SuggestedGoal) {
+    setAddedSuggestionKeys((prev) => [...prev, s.key]);
+    setSelectedDisciplines((prev) => (s.discipline in prev ? prev : { ...prev, [s.discipline]: "" }));
+    const filled: Goal = {
+      key: crypto.randomUUID(),
+      discipline: s.discipline,
+      domain: s.domain,
+      description: s.description,
+      baseline: s.baseline,
+      target: "",
+      criterion: "",
+      horizon: "",
+      strategy: "",
+      methodology: "",
+    };
+    setGoals((prev) => {
+      const isFirstEmpty =
+        prev.length === 1 && !prev[0].discipline && !prev[0].domain && !prev[0].description;
+      return isFirstEmpty ? [filled] : [...prev, filled];
+    });
+  }
 
   function toggleDiscipline(value: string, checked: boolean) {
     setSelectedDisciplines((prev) => {
