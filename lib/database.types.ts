@@ -187,6 +187,98 @@ export type Database = {
           },
         ]
       }
+      anamnesis_scheduling_requests: {
+        Row: {
+          appointment_id: string | null
+          approved_at: string | null
+          child_name: string
+          clinic_id: string | null
+          created_at: string
+          guardian_cpf: string
+          guardian_name: string
+          guardian_phone: string
+          guia_pdf_url: string | null
+          id: string
+          laudo_pdf_url: string | null
+          patient_id: string | null
+          rejection_reason: string | null
+          selected_slot_ends_at: string | null
+          selected_slot_starts_at: string | null
+          status: string
+          supervisor_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          approved_at?: string | null
+          child_name: string
+          clinic_id?: string | null
+          created_at?: string
+          guardian_cpf: string
+          guardian_name: string
+          guardian_phone: string
+          guia_pdf_url?: string | null
+          id?: string
+          laudo_pdf_url?: string | null
+          patient_id?: string | null
+          rejection_reason?: string | null
+          selected_slot_ends_at?: string | null
+          selected_slot_starts_at?: string | null
+          status?: string
+          supervisor_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          approved_at?: string | null
+          child_name?: string
+          clinic_id?: string | null
+          created_at?: string
+          guardian_cpf?: string
+          guardian_name?: string
+          guardian_phone?: string
+          guia_pdf_url?: string | null
+          id?: string
+          laudo_pdf_url?: string | null
+          patient_id?: string | null
+          rejection_reason?: string | null
+          selected_slot_ends_at?: string | null
+          selected_slot_starts_at?: string | null
+          status?: string
+          supervisor_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anamnesis_scheduling_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anamnesis_scheduling_requests_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anamnesis_scheduling_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anamnesis_scheduling_requests_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_types: {
         Row: {
           active: boolean
@@ -600,6 +692,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      chatbot_sessions: {
+        Row: {
+          collected_data: Json
+          created_at: string
+          current_step: string
+          id: string
+          phone_number: string
+          updated_at: string
+        }
+        Insert: {
+          collected_data?: Json
+          created_at?: string
+          current_step?: string
+          id?: string
+          phone_number: string
+          updated_at?: string
+        }
+        Update: {
+          collected_data?: Json
+          created_at?: string
+          current_step?: string
+          id?: string
+          phone_number?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       clinics: {
         Row: {
