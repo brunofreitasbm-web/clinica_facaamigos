@@ -13,6 +13,7 @@ import { APPOINTMENT_STATUS_STYLE, AUTHORIZATION_STATUS_STYLE } from "@/lib/appo
 import { getFeedPosts } from "@/lib/feed-posts";
 import { getPatientAbaLearningCurves } from "@/lib/patient-metrics";
 import { logRecordAccess } from "@/lib/record-access-log";
+import { fmtDate as fmtDateShared, fmtDateTime } from "@/lib/format";
 import { StageActionForm } from "./stage-action-form";
 import { EditRegistrationButton } from "./edit-registration-button";
 import { DocumentViewButton } from "./document-view-button";
@@ -38,15 +39,7 @@ import { registerFirstContact } from "../actions";
 // falharia com a mensagem de permissão da Server Action.
 const CAN_UPLOAD_ROLES = ["gestor", "supervisor", "recepcao", "terapeuta"];
 
-// Guarda contra data vazia/inválida — sem isso, `new Date(iso).toLocaleDateString()`
-// lança RangeError durante o render no servidor (mesma causa do React error #441
-// já visto no portal família, ver commit 4580187 / lib/timezone.ts).
-const fmtDate = (iso: string | null | undefined) => {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE });
-};
+const fmtDate = (iso: string | null | undefined) => fmtDateShared(iso, CLINIC_TIMEZONE);
 
 export const dynamic = "force-dynamic";
 
@@ -683,7 +676,7 @@ export default async function PacientePage({
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-ink">{post.authorName}</span>
                   <span className="text-xs text-ink-faint">
-                    {new Date(post.createdAt).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
+                    {fmtDateTime(post.createdAt, CLINIC_TIMEZONE)}
                   </span>
                 </div>
                 {post.body && <p className="mt-1 text-ink-soft">{post.body}</p>}

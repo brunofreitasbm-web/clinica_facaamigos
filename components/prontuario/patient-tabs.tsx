@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { PLAN_GOAL_STATUS_STYLE, BILLING_ITEM_STATUS_STYLE } from "@/lib/appointment-status-style";
+import { fmtCurrency } from "@/lib/format";
 import { AbaLearningCurveChart, type ProgramTrialSummary } from "./aba-learning-curve-chart";
 import { ProtocolAssessmentDialog } from "./protocol-assessment-dialog";
 
@@ -262,12 +263,7 @@ export function PatientTabs({
                       <tr key={b.id}>
                         <td>{b.date}</td>
                         <td>{b.discipline}</td>
-                        <td>
-                          R${" "}
-                          {b.amount.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </td>
+                        <td>{fmtCurrency(b.amount)}</td>
                         <td>
                           <span className={`tag-status ${style.tagClass}`}>{style.label}</span>
                         </td>

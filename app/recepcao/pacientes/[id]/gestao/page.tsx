@@ -6,6 +6,7 @@ import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-catego
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { buildWhatsappLink } from "@/lib/whatsapp-message";
 import { logRecordAccess } from "@/lib/record-access-log";
+import { fmtDate as fmtDateShared } from "@/lib/format";
 import { DocumentViewButton } from "@/app/recepcao/pacientes/[id]/document-view-button";
 import {
   PatientManagementPanel,
@@ -19,12 +20,7 @@ import { TeamPanel, type TeamMemberRow, type ProfileOption } from "./team-panel"
 
 export const dynamic = "force-dynamic";
 
-const fmtDate = (iso: string | null | undefined) => {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE });
-};
+const fmtDate = (iso: string | null | undefined) => fmtDateShared(iso, CLINIC_TIMEZONE);
 
 export default async function GestaoPacientePage({
   params,
@@ -214,7 +210,7 @@ export default async function GestaoPacientePage({
         patientId={patient.id}
         fullName={patient.full_name}
         birthDate={patient.birth_date}
-        birthDateLabel={fmtDate(`${patient.birth_date}T00:00:00`)}
+        birthDateLabel={patient.birth_date ? fmtDate(`${patient.birth_date}T00:00:00`) : "—"}
         phone={primaryGuardian?.phone ?? null}
         guardianId={primaryGuardian?.id ?? null}
         complaint={patient.complaint}

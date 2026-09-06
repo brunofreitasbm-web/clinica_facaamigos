@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { ABSENCE_REASON_LABEL } from "@/lib/absence-reasons";
+import { fmtDateTime } from "@/lib/format";
 import { resolveAbsenceReport, getAbsenceAttachmentUrl } from "./absence-actions";
 
 export type PendingAbsenceReport = {
@@ -59,7 +60,7 @@ export function AbsenceReportsList({
         <li key={r.id} className="rounded-md border border-paper-line-strong bg-paper px-4 py-3 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-medium text-ink">
-              Sessão de {new Date(r.appointmentStartsAt).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
+              Sessão de {fmtDateTime(r.appointmentStartsAt, CLINIC_TIMEZONE)}
             </span>
             <span className="inline-block rounded-full bg-status-pending-soft px-2 py-0.5 text-xs font-medium text-status-pending-text">
               {ABSENCE_REASON_LABEL[r.reasonCategory] ?? r.reasonCategory}

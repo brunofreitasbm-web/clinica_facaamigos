@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { getReceptionQueue, type PendingQueueCategory } from "@/lib/reception-queue";
+import { fmtDateTime } from "@/lib/format";
 import { RegisterContactButton } from "./register-contact-button";
 import { ResolveAutoFaltaButton } from "./resolve-auto-falta-button";
 import { ResolveSimpleButton } from "./resolve-simple-button";
@@ -129,19 +130,17 @@ export default async function PendenciasPage() {
                               {isEscalated ? (
                                 <span className="font-semibold text-status-negative-text">
                                   escalado{" "}
-                                  {new Date(item.escalatedAt as string).toLocaleString("pt-BR", {
-                                    timeZone: CLINIC_TIMEZONE,
-                                  })}
+                                  {fmtDateTime(item.escalatedAt as string, CLINIC_TIMEZONE)}
                                 </span>
                               ) : item.overdue ? (
                                 <span className="font-semibold text-status-negative-text">
                                   atrasado desde{" "}
-                                  {new Date(item.dueAt).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
+                                  {fmtDateTime(item.dueAt, CLINIC_TIMEZONE)}
                                 </span>
                               ) : (
                                 <>
                                   prazo{" "}
-                                  {new Date(item.dueAt).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
+                                  {fmtDateTime(item.dueAt, CLINIC_TIMEZONE)}
                                 </>
                               )}
                             </>

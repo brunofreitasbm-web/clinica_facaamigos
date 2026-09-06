@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { addPatientCharge, cancelCharge, markChargePaid } from "./actions";
+import { fmtCurrency } from "@/lib/format";
 
 export type ChargeRow = {
   id: string;
@@ -17,9 +18,6 @@ const STATUS_TAG: Record<ChargeRow["status"], string> = {
   pago: "st-realizada",
   cancelado: "st-cancelada",
 };
-
-const fmtCurrency = (value: number) =>
-  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function ChargesPanel({
   patientId,
