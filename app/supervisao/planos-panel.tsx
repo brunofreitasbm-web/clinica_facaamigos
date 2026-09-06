@@ -52,6 +52,7 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(plans[0]?.id ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pendingGoalId, setPendingGoalId] = useState<string | null>(null);
+  const [bulkNotes, setBulkNotes] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const selected = useMemo(() => plans.find((p) => p.id === selectedId) ?? null, [plans, selectedId]);
