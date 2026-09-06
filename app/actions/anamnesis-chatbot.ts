@@ -27,7 +27,8 @@ export async function getPendingAnamnesisRequestsAction(): Promise<{
   error?: string;
 }> {
   try {
-    const supabase = createAdminClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createAdminClient() as any;
 
     const { data, error } = await supabase
       .from("anamnesis_scheduling_requests")
@@ -52,7 +53,8 @@ export async function getPendingAnamnesisRequestsAction(): Promise<{
  * Auxiliar: gera slots vagos simulados baseados na agenda dos terapeutas/supervisores.
  */
 async function generateAvailableSlotsForSupervisor() {
-  const supabase = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createAdminClient() as any;
 
   // Buscar um terapeuta/supervisor padrão e sala
   const { data: therapists } = await supabase
@@ -114,7 +116,8 @@ export async function approveAnamnesisDocumentAction(
   supervisorId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createAdminClient() as any;
 
     // 1. Buscar dados da requisição
     const { data: req, error: reqErr } = await supabase
@@ -201,7 +204,8 @@ export async function rejectAnamnesisDocumentAction(
   rejectionReason: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createAdminClient() as any;
 
     const { data: req, error: reqErr } = await supabase
       .from("anamnesis_scheduling_requests")

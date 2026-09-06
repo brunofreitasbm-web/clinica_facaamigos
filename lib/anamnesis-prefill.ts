@@ -43,7 +43,10 @@ export async function dispatchAnamnesisPrefillRequest(params: {
       timeStyle: "short",
     });
 
-    const { data: request, error: requestError } = await admin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = admin as any;
+
+    const { data: request, error: requestError } = await db
       .from("anamnesis_prefill_requests")
       .insert({
         patient_id: patientId,
@@ -70,7 +73,7 @@ export async function dispatchAnamnesisPrefillRequest(params: {
       return;
     }
 
-    await admin.from("chatbot_sessions").upsert(
+    await db.from("chatbot_sessions").upsert(
       {
         phone_number: phone,
         current_step: "pre_anamnesis_consent",

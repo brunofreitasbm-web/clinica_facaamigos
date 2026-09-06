@@ -57,7 +57,10 @@ export async function processPreAnamnesisStep(params: {
 
   const admin = createAdminClient();
 
-  const { data: session } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any;
+
+  const { data: session } = await db
     .from("chatbot_sessions")
     .select("*")
     .eq("phone_number", phone)
@@ -80,11 +83,11 @@ export async function processPreAnamnesisStep(params: {
   if (session.current_step === "pre_anamnesis_consent") {
     if (isDecline) {
       await Promise.all([
-        admin
+        db
           .from("anamnesis_prefill_requests")
           .update({ status: "recusado", declined_at: new Date().toISOString() })
           .eq("id", requestId),
-        admin
+        db
           .from("chatbot_sessions")
           .update({ current_step: "idle", collected_data: {}, updated_at: new Date().toISOString() })
           .eq("phone_number", phone),
@@ -99,7 +102,7 @@ export async function processPreAnamnesisStep(params: {
 
     // Qualquer outra resposta é tratada como consentimento — começa a
     // primeira pergunta.
-    await admin
+    await db
       .from("chatbot_sessions")
       .update({
         current_step: "pre_anamnesis_q0",
@@ -125,11 +128,11 @@ export async function processPreAnamnesisStep(params: {
 
     if (isDecline) {
       await Promise.all([
-        admin
+        db
           .from("anamnesis_prefill_requests")
           .update({ status: "recusado", declined_at: new Date().toISOString() })
           .eq("id", requestId),
-        admin
+        db
           .from("chatbot_sessions")
           .update({ current_step: "idle", collected_data: {}, updated_at: new Date().toISOString() })
           .eq("phone_number", phone),
@@ -150,7 +153,7 @@ export async function processPreAnamnesisStep(params: {
     const nextQuestion = QUESTIONS[nextIndex];
 
     if (nextQuestion) {
-      await admin
+      await db
         .from("chatbot_sessions")
         .update({
           current_step: `pre_anamnesis_q${nextIndex}`,
@@ -164,11 +167,11 @@ export async function processPreAnamnesisStep(params: {
 
     // Última pergunta respondida: grava e encerra o fluxo.
     await Promise.all([
-      admin
+      db
         .from("anamnesis_prefill_requests")
         .update({ status: "respondido", structured: answers, responded_at: new Date().toISOString() })
         .eq("id", requestId),
-      admin
+      db
         .from("chatbot_sessions")
         .update({ current_step: "idle", collected_data: {}, updated_at: new Date().toISOString() })
         .eq("phone_number", phone),

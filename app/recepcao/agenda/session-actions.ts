@@ -292,7 +292,8 @@ export async function setAutoFaltaReason(appointmentId: string, formData: FormDa
     return SESSION_EXPIRED_ERROR;
   }
 
-  const { data: appointment } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: appointment } = await (supabase as any)
     .from("appointments")
     .select("id, status, auto_marked, cancel_reason")
     .eq("id", appointmentId)
@@ -332,7 +333,8 @@ export async function setAutoFaltaReason(appointmentId: string, formData: FormDa
 export async function undoAutoFalta(appointmentId: string): Promise<ActionResult> {
   const supabase = await createClient();
 
-  const { data: appointment } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: appointment } = await (supabase as any)
     .from("appointments")
     .select("id, status, auto_marked, checkout_at")
     .eq("id", appointmentId)
@@ -348,7 +350,8 @@ export async function undoAutoFalta(appointmentId: string): Promise<ActionResult
     return { success: false, error: "Sessão já foi encerrada." };
   }
 
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from("appointments")
     .update({
       status: "confirmada",

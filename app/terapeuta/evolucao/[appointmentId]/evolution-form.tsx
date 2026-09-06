@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { useOffline } from "next/offline";
-import { createSessionNote } from "../actions";
+import { createSessionNote, setSignaturePin } from "../actions";
 import { BEHAVIOR_TYPES, BEHAVIOR_INTENSITIES, FAMILY_GUIDANCE_OPTIONS } from "@/lib/session-note-fields";
 import { generateAIEvolutionText } from "@/lib/aba-actions";
 import { ABCLogger } from "@/components/aba/abc-logger";
@@ -42,6 +42,7 @@ export function EvolutionForm({
   sessionTime,
   attendanceStartedAt,
   editing,
+  pinConfigured,
 }: {
   appointmentId: string;
   patientName: string;
@@ -49,6 +50,7 @@ export function EvolutionForm({
   sessionTime: string;
   attendanceStartedAt: string | null;
   editing?: EditingContext;
+  pinConfigured: boolean;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
   const [signed, setSigned] = useState(false);
@@ -70,6 +72,30 @@ export function EvolutionForm({
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const isOffline = useOffline();
+
+  // Assinatura digital por PIN (PRD §9.4). Se o terapeuta ainda não tem
+  // PIN configurado, mostramos o cadastro primeiro; depois disso, o PIN é
+  // pedido antes de assinar/salvar nova versão.
+  const [pinIsConfigured, setPinIsConfigured] = useState(pinConfigured);
+  const [newPin, setNewPin] = useState("");
+  const [confirmNewPin, setConfirmNewPin] = useState("");
+  const [pinSetupError, setPinSetupError] = useState<string | null>(null);
+  const [isSettingUpPin, startPinSetupTransition] = useTransition();
+  const [signaturePin, setSignaturePinInput] = useState("");
+
+  function handleSetupPin() {
+    setPinSetupError(null);
+    startPinSetupTransition(async () => {
+      const result = await setSignaturePin(newPin, confirmNewPin);
+      if (!result.success) {
+        setPinSetupError(result.error);
+        return;
+      }
+      setPinIsConfigured(true);
+      setNewPin("");
+      setConfirmNewPin("");
+    });
+  }
 
   async function handleGenerateAIText() {
     setIsGeneratingAI(true);
@@ -292,6 +318,11 @@ export function EvolutionForm({
               }
               formData.set("edit_justification", editJustification.trim());
             }
+            if (!/^\d{4,6}$/.test(signaturePin)) {
+              setError("Informe o PIN de assinatura (4 a 6 dígitos).");
+              return;
+            }
+            formData.set("signature_pin", signaturePin);
             startTransition(async () => {
               const result = await createSessionNote(appointmentId, formData);
               if (!result.success) {
@@ -515,6 +546,66 @@ export function EvolutionForm({
               </div>
             )}
 
+            {pinIsConfigured ? (
+              <div className="space-y-2">
+                <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="signature_pin_input">
+                  PIN de assinatura
+                </label>
+                <input
+                  id="signature_pin_input"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={6}
+                  value={signaturePin}
+                  onChange={(e) => setSignaturePinInput(e.target.value.replace(/\D/g, ""))}
+                  placeholder="••••"
+                  className="input mt-2"
+                  style={{ maxWidth: 160, letterSpacing: "0.3em" }}
+                />
+              </div>
+            ) : (
+              <div className="card flex flex-col gap-2.5">
+                <div className="card-kicker">Configure seu PIN de assinatura</div>
+                <p className="text-xs text-ink-soft">
+                  Você ainda não tem um PIN cadastrado. Crie um PIN de 4 a 6 dígitos para confirmar sua identidade ao assinar evoluções.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={6}
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+                    placeholder="Novo PIN"
+                    className="input"
+                    style={{ maxWidth: 140, letterSpacing: "0.3em" }}
+                  />
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={6}
+                    value={confirmNewPin}
+                    onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ""))}
+                    placeholder="Confirmar PIN"
+                    className="input"
+                    style={{ maxWidth: 140, letterSpacing: "0.3em" }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={isSettingUpPin}
+                    onClick={handleSetupPin}
+                  >
+                    {isSettingUpPin ? "Salvando…" : "Salvar PIN"}
+                  </button>
+                </div>
+                {pinSetupError && <p className="text-xs text-status-negative-text">{pinSetupError}</p>}
+              </div>
+            )}
+
             <div className="card">
               <div className="card-kicker">
                 {editing ? "Resumo antes de salvar a nova versão" : "Resumo antes de assinar"}
@@ -557,7 +648,7 @@ export function EvolutionForm({
                 type="submit"
                 className="btn btn-gold flex-1"
                 style={{ minHeight: 48, fontSize: 15 }}
-                disabled={isPending}
+                disabled={isPending || !pinIsConfigured}
               >
                 {isPending
                   ? isOffline

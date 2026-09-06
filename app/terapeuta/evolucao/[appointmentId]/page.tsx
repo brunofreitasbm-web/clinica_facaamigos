@@ -28,7 +28,7 @@ export default async function EvolucaoPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role")
+    .select("id, role, signature_pin_hash")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -97,6 +97,7 @@ export default async function EvolucaoPage({
             discipline={appointment.discipline}
             sessionTime={sessionTime}
             attendanceStartedAt={appointment.attendance_started_at}
+            pinConfigured={!!profile.signature_pin_hash}
           />
         </div>
       </main>
@@ -134,6 +135,7 @@ export default async function EvolucaoPage({
             sessionTime={sessionTime}
             attendanceStartedAt={appointment.attendance_started_at}
             editing={editing}
+            pinConfigured={!!profile.signature_pin_hash}
           />
         </div>
       </main>

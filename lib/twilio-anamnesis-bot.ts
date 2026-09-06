@@ -92,7 +92,8 @@ export async function processAnamnesisChatbotStep(
   const rawBody = params.body || "";
   const normBody = normalizeText(rawBody);
 
-  const supabase = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createAdminClient() as any;
 
   // 1. Buscar ou inicializar sessão do usuário
   let { data: session } = await supabase

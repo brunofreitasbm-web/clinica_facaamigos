@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendTwilioWhatsApp, sendTwilioSMS, isTwilioConfigured } from "@/lib/twilio";
 
 interface FamilyOtpRecord {
   id: string;
@@ -94,6 +95,17 @@ export async function requestFamilyOtp(
 
   console.log(`[OTP FAMÍLIA] Código gerado para o telefone ${digits}: ${code}`);
 
+  // Envio real via WhatsApp (com fallback pra SMS) quando o Twilio está
+  // configurado — em dev/sem credenciais, isTwilioConfigured() é false e o
+  // console.log acima continua sendo o único "envio", exatamente como antes.
+  if (isTwilioConfigured()) {
+    const messageText = `Seu código de acesso ao Portal da Família Faça Amigos é: ${code}\n\nEle expira em 5 minutos. Não compartilhe este código.`;
+    const whatsappResult = await sendTwilioWhatsApp({ to: digits, message: messageText });
+    if (!whatsappResult.success) {
+      await sendTwilioSMS({ to: digits, message: messageText });
+    }
+  }
+
   return {
     success: true,
     message: "Código de verificação enviado! Digite os 6 dígitos para continuar.",
@@ -106,7 +118,8 @@ export async function requestFamilyOtp(
 export async function verifyFamilyOtp(
   rawPhone: string,
   code: string,
-): Promise<{ success: boolean; error?: string }> {
+  cpf?: string,
+): Promise<{ success: boolean; error?: string; requiresCpf?: boolean }> {
   const digits = normalizeDigits(rawPhone);
   const cleanCode = code.trim();
 
@@ -157,14 +170,11 @@ export async function verifyFamilyOtp(
     };
   }
 
-  // Marcar código como utilizado
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).from("family_otp_codes").update({ used: true }).eq("id", otp.id);
-
-  // Localizar o responsável no sistema
+  // Localizar o responsável no sistema — antes de marcar o OTP como usado,
+  // pra permitir reenviar/reconferir o CPF (abaixo) sem gastar o código.
   const { data: guardians } = await admin
     .from("guardians")
-    .select("id, patient_id, profile_id, full_name, email, phone")
+    .select("id, patient_id, profile_id, full_name, email, phone, cpf")
     .order("created_at", { ascending: true });
 
   const guardian = (guardians ?? []).find((g) => normalizeDigits(g.phone) === digits);
@@ -175,6 +185,41 @@ export async function verifyFamilyOtp(
       error: "Cadastro do responsável não localizado.",
     };
   }
+
+  // PRD §3.1: no primeiro acesso (ainda sem profile_id vinculado), exige
+  // confirmação do CPF cadastrado antes de liberar o portal — só quando a
+  // clínica já cadastrou um CPF pra esse responsável; sem isso, não há como
+  // validar e o fluxo antigo (só telefone) continua valendo, pra não travar
+  // cadastros incompletos.
+  if (!guardian.profile_id && guardian.cpf) {
+    const cpfDigits = (cpf ?? "").replace(/\D/g, "");
+    if (!cpfDigits) {
+      return {
+        success: false,
+        requiresCpf: true,
+        error: "Confirme o CPF do responsável cadastrado na clínica para continuar.",
+      };
+    }
+    if (cpfDigits !== guardian.cpf.replace(/\D/g, "")) {
+      // Mesmo contador de tentativas do código OTP (family_otp_codes.attempts)
+      // — evita brute-force de CPF sem precisar de uma coluna nova.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin as any)
+        .from("family_otp_codes")
+        .update({ attempts: otp.attempts + 1 })
+        .eq("id", otp.id);
+
+      return {
+        success: false,
+        requiresCpf: true,
+        error: `CPF não confere com o cadastro. Tentativa ${otp.attempts + 1} de 3.`,
+      };
+    }
+  }
+
+  // Marcar código como utilizado
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (admin as any).from("family_otp_codes").update({ used: true }).eq("id", otp.id);
 
   // Buscar dados da clínica vinculada ao paciente
   const { data: patient } = await admin

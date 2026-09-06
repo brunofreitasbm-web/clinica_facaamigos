@@ -8,9 +8,47 @@ import {
   FAMILY_GUIDANCE_OPTIONS,
   type SessionNoteStructured,
 } from "@/lib/session-note-fields";
+import { hashPin, isValidPinFormat, verifyPin } from "@/lib/signature-pin";
 import { revalidatePath } from "next/cache";
 
 type ActionResult = { success: true } | { success: false; error: string };
+
+const PIN_MAX_ATTEMPTS = 5;
+const PIN_LOCKOUT_MS = 15 * 60 * 1000;
+
+export async function setSignaturePin(pin: string, confirmPin: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+  if (!isValidPinFormat(pin)) {
+    return { success: false, error: "O PIN deve ter de 4 a 6 dígitos." };
+  }
+  if (pin !== confirmPin) {
+    return { success: false, error: "Os PINs não coincidem." };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      signature_pin_hash: hashPin(pin),
+      signature_pin_updated_at: new Date().toISOString(),
+      signature_pin_failed_attempts: 0,
+      signature_pin_locked_until: null,
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    return { success: false, error: "Não foi possível salvar o PIN. Tente de novo." };
+  }
+
+  revalidatePath("/terapeuta");
+  return { success: true };
+}
 
 export async function createSessionNote(
   appointmentId: string,
@@ -105,6 +143,58 @@ export async function createSessionNote(
     if (!editJustification) {
       return { success: false, error: "Informe o motivo da edição desta evolução." };
     }
+  }
+
+  // Assinatura digital por PIN (PRD §9.4): confirma identidade além da
+  // sessão logada antes de gravar signed_at. Nunca comparamos o PIN em
+  // texto puro — só o hash em profiles.signature_pin_hash.
+  const { data: pinProfile, error: pinProfileError } = await supabase
+    .from("profiles")
+    .select("signature_pin_hash, signature_pin_failed_attempts, signature_pin_locked_until")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (pinProfileError || !pinProfile) {
+    return { success: false, error: "Não foi possível verificar seu PIN de assinatura." };
+  }
+  if (!pinProfile.signature_pin_hash) {
+    return { success: false, error: "Configure um PIN de assinatura antes de assinar." };
+  }
+  if (pinProfile.signature_pin_locked_until && new Date(pinProfile.signature_pin_locked_until) > new Date()) {
+    return {
+      success: false,
+      error: "PIN bloqueado por tentativas incorretas. Tente novamente mais tarde.",
+    };
+  }
+
+  const pinInput = String(formData.get("signature_pin") ?? "").trim();
+  if (!isValidPinFormat(pinInput)) {
+    return { success: false, error: "Informe o PIN de assinatura (4 a 6 dígitos)." };
+  }
+
+  if (!verifyPin(pinInput, pinProfile.signature_pin_hash)) {
+    const attempts = (pinProfile.signature_pin_failed_attempts ?? 0) + 1;
+    const locked = attempts >= PIN_MAX_ATTEMPTS;
+    await supabase
+      .from("profiles")
+      .update({
+        signature_pin_failed_attempts: attempts,
+        signature_pin_locked_until: locked ? new Date(Date.now() + PIN_LOCKOUT_MS).toISOString() : null,
+      })
+      .eq("id", user.id);
+    return {
+      success: false,
+      error: locked
+        ? "PIN incorreto. Muitas tentativas — bloqueado por 15 minutos."
+        : "PIN incorreto.",
+    };
+  }
+
+  if (pinProfile.signature_pin_failed_attempts) {
+    await supabase
+      .from("profiles")
+      .update({ signature_pin_failed_attempts: 0, signature_pin_locked_until: null })
+      .eq("id", user.id);
   }
 
   const structured: SessionNoteStructured = {

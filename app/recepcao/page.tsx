@@ -88,7 +88,8 @@ export default async function RecepcaoPage({
   // cancelled_by) — o embed `profiles(...)` sem alias é ambíguo pro
   // PostgREST, então usamos `profiles!coluna` (mesmo padrão de
   // app/recepcao/agenda/page.tsx).
-  const { data: rawAppointments } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawAppointments } = await (supabase as any)
     .from("appointments")
     .select(
       "id, starts_at, ends_at, status, room_id, patient_id, therapist_id, appointment_type_id, discipline, checkin_at, attendance_started_at, checkout_at, confirmed_at, cancelled_at, cancel_reason, auto_marked, authorization_id, is_provisional, is_evaluation, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
@@ -97,7 +98,7 @@ export default async function RecepcaoPage({
     .lt("starts_at", dayEnd)
     .order("starts_at", { ascending: true });
 
-  const appointments = (rawAppointments ?? []).map((a) => ({
+  const appointments = ((rawAppointments as any[]) ?? []).map((a: any) => ({
     id: a.id,
     startsAt: a.starts_at,
     endsAt: a.ends_at,

@@ -75,57 +75,6 @@ export type Database = {
           },
         ]
       }
-      absence_alerts: {
-        Row: {
-          consecutive_faltas: number
-          created_at: string
-          faltas_pct_3m: number
-          id: string
-          notified_at: string | null
-          patient_id: string
-          resolved_at: string | null
-          resolved_by: string | null
-          status: string
-        }
-        Insert: {
-          consecutive_faltas: number
-          created_at?: string
-          faltas_pct_3m: number
-          id?: string
-          notified_at?: string | null
-          patient_id: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-        }
-        Update: {
-          consecutive_faltas?: number
-          created_at?: string
-          faltas_pct_3m?: number
-          id?: string
-          notified_at?: string | null
-          patient_id?: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "absence_alerts_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "absence_alerts_resolved_by_fkey"
-            columns: ["resolved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       absence_reports: {
         Row: {
           appointment_id: string
@@ -238,165 +187,6 @@ export type Database = {
           },
         ]
       }
-      anamnesis_scheduling_requests: {
-        Row: {
-          appointment_id: string | null
-          approved_at: string | null
-          child_name: string
-          clinic_id: string | null
-          created_at: string
-          guardian_cpf: string
-          guardian_name: string
-          guardian_phone: string
-          guia_pdf_url: string | null
-          id: string
-          laudo_pdf_url: string | null
-          patient_id: string | null
-          rejection_reason: string | null
-          selected_slot_ends_at: string | null
-          selected_slot_starts_at: string | null
-          status: string
-          supervisor_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          appointment_id?: string | null
-          approved_at?: string | null
-          child_name: string
-          clinic_id?: string | null
-          created_at?: string
-          guardian_cpf: string
-          guardian_name: string
-          guardian_phone: string
-          guia_pdf_url?: string | null
-          id?: string
-          laudo_pdf_url?: string | null
-          patient_id?: string | null
-          rejection_reason?: string | null
-          selected_slot_ends_at?: string | null
-          selected_slot_starts_at?: string | null
-          status?: string
-          supervisor_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          appointment_id?: string | null
-          approved_at?: string | null
-          child_name?: string
-          clinic_id?: string | null
-          created_at?: string
-          guardian_cpf?: string
-          guardian_name?: string
-          guardian_phone?: string
-          guia_pdf_url?: string | null
-          id?: string
-          laudo_pdf_url?: string | null
-          patient_id?: string | null
-          rejection_reason?: string | null
-          selected_slot_ends_at?: string | null
-          selected_slot_starts_at?: string | null
-          status?: string
-          supervisor_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "anamnesis_scheduling_requests_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "anamnesis_scheduling_requests_clinic_id_fkey"
-            columns: ["clinic_id"]
-            isOneToOne: false
-            referencedRelation: "clinics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "anamnesis_scheduling_requests_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "anamnesis_scheduling_requests_supervisor_id_fkey"
-            columns: ["supervisor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      anamnesis_prefill_requests: {
-        Row: {
-          appointment_id: string
-          created_at: string
-          declined_at: string | null
-          guardian_id: string
-          id: string
-          patient_id: string
-          phone_number: string
-          reminder_sent_at: string | null
-          responded_at: string | null
-          sent_at: string
-          status: string
-          structured: Json
-        }
-        Insert: {
-          appointment_id: string
-          created_at?: string
-          declined_at?: string | null
-          guardian_id: string
-          id?: string
-          patient_id: string
-          phone_number: string
-          reminder_sent_at?: string | null
-          responded_at?: string | null
-          sent_at?: string
-          status?: string
-          structured?: Json
-        }
-        Update: {
-          appointment_id?: string
-          created_at?: string
-          declined_at?: string | null
-          guardian_id?: string
-          id?: string
-          patient_id?: string
-          phone_number?: string
-          reminder_sent_at?: string | null
-          responded_at?: string | null
-          sent_at?: string
-          status?: string
-          structured?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "anamnesis_prefill_requests_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: true
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "anamnesis_prefill_requests_guardian_id_fkey"
-            columns: ["guardian_id"]
-            isOneToOne: false
-            referencedRelation: "guardians"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "anamnesis_prefill_requests_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       appointment_types: {
         Row: {
           active: boolean
@@ -449,7 +239,6 @@ export type Database = {
           appointment_type_id: string | null
           attendance_started_at: string | null
           authorization_id: string | null
-          auto_marked: boolean
           cancel_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -475,7 +264,6 @@ export type Database = {
           appointment_type_id?: string | null
           attendance_started_at?: string | null
           authorization_id?: string | null
-          auto_marked?: boolean
           cancel_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -501,7 +289,6 @@ export type Database = {
           appointment_type_id?: string | null
           attendance_started_at?: string | null
           authorization_id?: string | null
-          auto_marked?: boolean
           cancel_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -604,6 +391,61 @@ export type Database = {
         }
         Relationships: []
       }
+      authorization_renewal_requests: {
+        Row: {
+          authorization_id: string
+          created_at: string
+          id: string
+          notified_at: string | null
+          patient_insurance_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          authorization_id: string
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          patient_insurance_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          authorization_id?: string
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          patient_insurance_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "authorization_renewal_requests_authorization_id_fkey"
+            columns: ["authorization_id"]
+            isOneToOne: false
+            referencedRelation: "authorizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "authorization_renewal_requests_patient_insurance_id_fkey"
+            columns: ["patient_insurance_id"]
+            isOneToOne: false
+            referencedRelation: "patient_insurance"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "authorization_renewal_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       authorizations: {
         Row: {
           approved_at: string | null
@@ -669,61 +511,6 @@ export type Database = {
             columns: ["previous_authorization_id"]
             isOneToOne: false
             referencedRelation: "authorizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      authorization_renewal_requests: {
-        Row: {
-          authorization_id: string
-          created_at: string
-          id: string
-          notified_at: string | null
-          patient_insurance_id: string
-          resolved_at: string | null
-          resolved_by: string | null
-          status: string
-        }
-        Insert: {
-          authorization_id: string
-          created_at?: string
-          id?: string
-          notified_at?: string | null
-          patient_insurance_id: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-        }
-        Update: {
-          authorization_id?: string
-          created_at?: string
-          id?: string
-          notified_at?: string | null
-          patient_insurance_id?: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "authorization_renewal_requests_authorization_id_fkey"
-            columns: ["authorization_id"]
-            isOneToOne: false
-            referencedRelation: "authorizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "authorization_renewal_requests_patient_insurance_id_fkey"
-            columns: ["patient_insurance_id"]
-            isOneToOne: false
-            referencedRelation: "patient_insurance"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "authorization_renewal_requests_resolved_by_fkey"
-            columns: ["resolved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -869,33 +656,6 @@ export type Database = {
           },
         ]
       }
-      chatbot_sessions: {
-        Row: {
-          collected_data: Json
-          created_at: string
-          current_step: string
-          id: string
-          phone_number: string
-          updated_at: string
-        }
-        Insert: {
-          collected_data?: Json
-          created_at?: string
-          current_step?: string
-          id?: string
-          phone_number: string
-          updated_at?: string
-        }
-        Update: {
-          collected_data?: Json
-          created_at?: string
-          current_step?: string
-          id?: string
-          phone_number?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       clinics: {
         Row: {
           cnpj: string | null
@@ -953,7 +713,10 @@ export type Database = {
         Row: {
           category: string
           id: string
+          note: string | null
           patient_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           shared_with_family: boolean
           storage_path: string
           uploaded_at: string
@@ -963,7 +726,10 @@ export type Database = {
         Insert: {
           category: string
           id?: string
+          note?: string | null
           patient_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           shared_with_family?: boolean
           storage_path: string
           uploaded_at?: string
@@ -973,7 +739,10 @@ export type Database = {
         Update: {
           category?: string
           id?: string
+          note?: string | null
           patient_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           shared_with_family?: boolean
           storage_path?: string
           uploaded_at?: string
@@ -986,6 +755,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1206,6 +982,50 @@ export type Database = {
           },
         ]
       }
+      glosa_recurring_patterns: {
+        Row: {
+          created_at: string
+          first_seen_at: string
+          id: string
+          insurer_id: string
+          last_seen_at: string
+          occurrences_count: number
+          reason_code: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          first_seen_at: string
+          id?: string
+          insurer_id: string
+          last_seen_at: string
+          occurrences_count: number
+          reason_code: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          insurer_id?: string
+          last_seen_at?: string
+          occurrences_count?: number
+          reason_code?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "glosa_recurring_patterns_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       glosas: {
         Row: {
           amount: number
@@ -1257,58 +1077,17 @@ export type Database = {
           },
         ]
       }
-      glosa_recurring_patterns: {
-        Row: {
-          created_at: string
-          first_seen_at: string
-          id: string
-          insurer_id: string
-          last_seen_at: string
-          occurrences_count: number
-          reason_code: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          first_seen_at: string
-          id?: string
-          insurer_id: string
-          last_seen_at: string
-          occurrences_count: number
-          reason_code: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          first_seen_at?: string
-          id?: string
-          insurer_id?: string
-          last_seen_at?: string
-          occurrences_count?: number
-          reason_code?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "glosa_recurring_patterns_insurer_id_fkey"
-            columns: ["insurer_id"]
-            isOneToOne: false
-            referencedRelation: "insurers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       guardians: {
         Row: {
           cpf: string | null
           email: string | null
           full_name: string
           id: string
+          image_consent: boolean
+          image_consent_updated_at: string | null
           is_emergency_contact: boolean
           is_financial: boolean
+          lgpd_consent_at: string | null
           patient_id: string
           phone: string
           portal_enabled: boolean
@@ -1320,8 +1099,11 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          image_consent?: boolean
+          image_consent_updated_at?: string | null
           is_emergency_contact?: boolean
           is_financial?: boolean
+          lgpd_consent_at?: string | null
           patient_id: string
           phone: string
           portal_enabled?: boolean
@@ -1333,8 +1115,11 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          image_consent?: boolean
+          image_consent_updated_at?: string | null
           is_emergency_contact?: boolean
           is_financial?: boolean
+          lgpd_consent_at?: string | null
           patient_id?: string
           phone?: string
           portal_enabled?: boolean
@@ -2369,6 +2154,10 @@ export type Database = {
           is_rt: boolean
           phone: string | null
           role: string
+          signature_pin_failed_attempts: number
+          signature_pin_hash: string | null
+          signature_pin_locked_until: string | null
+          signature_pin_updated_at: string | null
         }
         Insert: {
           active?: boolean
@@ -2383,6 +2172,10 @@ export type Database = {
           is_rt?: boolean
           phone?: string | null
           role: string
+          signature_pin_failed_attempts?: number
+          signature_pin_hash?: string | null
+          signature_pin_locked_until?: string | null
+          signature_pin_updated_at?: string | null
         }
         Update: {
           active?: boolean
@@ -2397,6 +2190,10 @@ export type Database = {
           is_rt?: boolean
           phone?: string | null
           role?: string
+          signature_pin_failed_attempts?: number
+          signature_pin_hash?: string | null
+          signature_pin_locked_until?: string | null
+          signature_pin_updated_at?: string | null
         }
         Relationships: [
           {
@@ -2783,6 +2580,61 @@ export type Database = {
           },
         ]
       }
+      reschedule_requests: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          id: string
+          message: string
+          requested_by: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          id?: string
+          message: string
+          requested_by: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          requested_by?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reschedule_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reschedule_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reschedule_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resource_bookings: {
         Row: {
           appointment_id: string | null
@@ -2901,6 +2753,7 @@ export type Database = {
           appointment_id: string
           created_at_device: string
           created_at_server: string
+          edit_justification: string | null
           free_text: string | null
           id: string
           signed_at: string | null
@@ -2913,6 +2766,7 @@ export type Database = {
           appointment_id: string
           created_at_device: string
           created_at_server?: string
+          edit_justification?: string | null
           free_text?: string | null
           id?: string
           signed_at?: string | null
@@ -2925,6 +2779,7 @@ export type Database = {
           appointment_id?: string
           created_at_device?: string
           created_at_server?: string
+          edit_justification?: string | null
           free_text?: string | null
           id?: string
           signed_at?: string | null
@@ -3652,12 +3507,14 @@ export type Database = {
       _table_privs: { Args: never; Returns: unknown[] }
       _temptypes: { Args: { "": string }; Returns: string }
       _todo: { Args: never; Returns: string }
+      accept_family_lgpd_consent: { Args: never; Returns: undefined }
       app_current_role: { Args: never; Returns: string }
       change_intern_password: {
         Args: { p_intern_id: string; p_new_password: string }
         Returns: undefined
       }
       close_monthly_metric_snapshots: { Args: never; Returns: undefined }
+      close_monthly_payouts: { Args: never; Returns: undefined }
       col_is_null:
         | {
             Args: {
@@ -3750,24 +3607,36 @@ export type Database = {
       do_tap:
         | { Args: never; Returns: string[] }
         | { Args: { "": string }; Returns: string[] }
+      escalate_overdue_queue_items: { Args: never; Returns: number }
       fail:
         | { Args: never; Returns: string }
         | { Args: { "": string }; Returns: string }
+      family_guidance_feed: {
+        Args: { p_limit?: number; p_patient_id: string }
+        Returns: {
+          appointment_id: string
+          orientacoes: string[]
+          starts_at: string
+        }[]
+      }
       findfuncs: { Args: { "": string }; Returns: string[] }
       finish: { Args: { exception_on_failure?: boolean }; Returns: string[] }
       format_type_string: { Args: { "": string }; Returns: string }
-      escalate_overdue_queue_items: { Args: never; Returns: number }
       generate_from_recurrence_anchor: {
         Args: { p_recurrence_id: string; p_weeks_ahead?: number }
-        Returns: { created: boolean; error: string; starts_at: string }[]
+        Returns: {
+          created: boolean
+          error: string
+          starts_at: string
+        }[]
       }
       generate_recurrence_sessions: {
         Args: {
-          p_appointment_type_id: string | null
-          p_authorization_id: string | null
+          p_appointment_type_id: string
+          p_authorization_id: string
           p_discipline: string
           p_duration_minutes: number
-          p_from_date?: string | null
+          p_from_date?: string
           p_is_provisional: boolean
           p_modality: string
           p_patient_id: string
@@ -3778,7 +3647,11 @@ export type Database = {
           p_weekday: number
           p_weeks_ahead?: number
         }
-        Returns: { created: boolean; error: string; starts_at: string }[]
+        Returns: {
+          created: boolean
+          error: string
+          starts_at: string
+        }[]
       }
       has_patient_access: {
         Args: { p_patient_id: string; p_types: string[] }
@@ -3805,25 +3678,21 @@ export type Database = {
       pass:
         | { Args: never; Returns: string }
         | { Args: { "": string }; Returns: string }
-      patient_absence_stats: {
-        Args: { p_patient_id: string }
-        Returns: { consecutive_faltas: number; faltas_pct_3m: number }[]
-      }
       patient_status_as_of: {
         Args: { p_at: string; p_patient_id: string }
         Returns: string
       }
+      pdi_review_due_at: { Args: { p_patient_id: string }; Returns: string }
       pg_version: { Args: never; Returns: string }
       pg_version_num: { Args: never; Returns: number }
       pgtap_version: { Args: never; Returns: number }
-      refresh_absence_alerts: { Args: never; Returns: number }
       refresh_authorization_renewal_requests: { Args: never; Returns: number }
       refresh_glosa_patterns: { Args: never; Returns: number }
+      refresh_reassessment_alerts: { Args: never; Returns: undefined }
       regenerate_active_grade_sessions: {
         Args: { p_weeks_ahead?: number }
         Returns: undefined
       }
-      refresh_reassessment_alerts: { Args: never; Returns: undefined }
       reset_intern_password: {
         Args: { p_intern_id: string; p_new_password: string }
         Returns: undefined
@@ -3835,6 +3704,10 @@ export type Database = {
       session_note_pending: {
         Args: { p_appointment_id: string }
         Returns: boolean
+      }
+      set_family_image_consent: {
+        Args: { p_consent: boolean }
+        Returns: undefined
       }
       set_intake_step_complete: {
         Args: {

@@ -69,15 +69,16 @@ export async function generateNewSeries(
 ): Promise<{ recurrenceId: string; results: GenerateOccurrenceResult[] }> {
   const recurrenceId = options.recurrenceId ?? randomUUID();
 
-  const { data, error } = await supabase.rpc("generate_recurrence_sessions", {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("generate_recurrence_sessions", {
     p_recurrence_id: recurrenceId,
     p_patient_id: pattern.patientId,
     p_therapist_id: pattern.therapistId,
     p_room_id: pattern.roomId,
     p_discipline: pattern.discipline,
-    p_appointment_type_id: pattern.appointmentTypeId,
+    p_appointment_type_id: pattern.appointmentTypeId ?? null,
     p_modality: pattern.modality,
-    p_authorization_id: pattern.authorizationId,
+    p_authorization_id: pattern.authorizationId ?? null,
     p_is_provisional: pattern.isProvisional,
     p_weekday: pattern.weekday,
     p_time_of_day: pattern.timeOfDay,

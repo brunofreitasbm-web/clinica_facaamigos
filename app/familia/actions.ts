@@ -304,6 +304,55 @@ export async function reportAbsence(appointmentId: string, formData: FormData): 
 }
 
 /**
+ * Aceite do Termo de Consentimento LGPD (PRD §3.9) — grava
+ * guardians.lgpd_consent_at pra este responsável via RPC security definer
+ * (accept_family_lgpd_consent, 20260906000022); a função só toca a própria
+ * linha do responsável logado (profile_id = auth.uid()), então não precisa
+ * de nenhum id de guardian aqui.
+ */
+export async function acceptLgpdConsent(): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  const { error } = await supabase.rpc("accept_family_lgpd_consent");
+  if (error) {
+    return { success: false, error: "Não foi possível registrar o aceite. Tente de novo." };
+  }
+
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
+ * Consentimento de uso de imagem/comunicação (PRD §3.9) — a revogação
+ * bloqueia de fato o envio de fotos/vídeos pelo terapeuta (trigger
+ * trg_feed_media_image_consent, 20260906000022), não é só um rótulo na
+ * tela. Mesmo padrão de RPC security definer do aceite de LGPD acima.
+ */
+export async function setImageConsent(consent: boolean): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  const { error } = await supabase.rpc("set_family_image_consent", { p_consent: consent });
+  if (error) {
+    return { success: false, error: "Não foi possível salvar sua escolha. Tente de novo." };
+  }
+
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
  * "Pedir remarcação" (PRD §3.4) — o responsável descreve em texto livre o
  * pedido (ex.: "remarcar a sessão do dia 15 para o dia 20"); a
  * reschedule_requests_insert (RLS, 20260906000019) é o portão real, e o

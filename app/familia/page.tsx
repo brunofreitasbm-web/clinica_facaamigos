@@ -246,7 +246,8 @@ export default async function FamiliaPage({
   // consecutivas ou >=50% em 3 meses; aqui só mostramos o alerta ainda não
   // resolvido pela recepção, em linguagem simples (nunca o número bruto de
   // "3 faltas consecutivas" — isso fica só na tela de gestão).
-  const { data: absenceAlert } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: absenceAlert } = await (supabase as any)
     .from("absence_alerts")
     .select("id")
     .eq("patient_id", patientId)

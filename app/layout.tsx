@@ -44,7 +44,9 @@ export default function RootLayout({
             <RouteProgressBar />
           </Suspense>
           <OfflineBanner />
-          <AuthStatus />
+          <Suspense fallback={null}>
+            <AuthStatus />
+          </Suspense>
           {children}
         </ToastProvider>
       </body>

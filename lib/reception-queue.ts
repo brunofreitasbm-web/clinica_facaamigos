@@ -241,7 +241,8 @@ export type AutoFaltaPendingReason = {
  * setAutoFaltaReason em app/recepcao/agenda/session-actions.ts).
  */
 async function getAutoFaltasSemMotivo(supabase: Supa, clinicId: string): Promise<AutoFaltaPendingReason[]> {
-  const { data } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase as any)
     .from("appointments")
     .select("id, starts_at, patients!inner(id, full_name, clinic_id)")
     .eq("patients.clinic_id", clinicId)
@@ -250,7 +251,7 @@ async function getAutoFaltasSemMotivo(supabase: Supa, clinicId: string): Promise
     .is("cancel_reason", null)
     .order("starts_at", { ascending: true });
 
-  return (data ?? []).map((a) => {
+  return ((data as any[]) ?? []).map((a: any) => {
     const patient = Array.isArray(a.patients) ? a.patients[0] : a.patients;
     return {
       appointmentId: a.id,

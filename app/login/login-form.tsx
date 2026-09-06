@@ -12,6 +12,14 @@ function formatPhoneMask(val: string): string {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+function formatCpfMask(val: string): string {
+  const digits = val.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
 export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -21,7 +29,9 @@ export function LoginForm() {
   // Estados do formulário OTP da Família
   const [phone, setPhone] = useState("");
   const [otpCode, setOtpCode] = useState("");
+  const [cpf, setCpf] = useState("");
   const [phoneSubmitted, setPhoneSubmitted] = useState(false);
+  const [requiresCpf, setRequiresCpf] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
 
   useEffect(() => {
@@ -57,9 +67,10 @@ export function LoginForm() {
     setSuccessMsg(null);
 
     startTransition(async () => {
-      const res = await verifyFamilyOtp(phone, otpCode);
+      const res = await verifyFamilyOtp(phone, otpCode, requiresCpf ? cpf : undefined);
       if (!res.success) {
         setError(res.error || "Erro ao verificar código.");
+        if (res.requiresCpf) setRequiresCpf(true);
       }
     });
   };
@@ -226,6 +237,28 @@ export function LoginForm() {
                 />
               </div>
 
+              {requiresCpf && (
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="cpf">
+                    CPF do responsável
+                  </label>
+                  <input
+                    id="cpf"
+                    name="cpf"
+                    type="text"
+                    placeholder="000.000.000-00"
+                    maxLength={14}
+                    value={cpf}
+                    onChange={(e) => setCpf(formatCpfMask(e.target.value))}
+                    required
+                    className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-chart"
+                  />
+                  <span className="mt-1 block text-[11px] text-ink-soft">
+                    Primeiro acesso: confirme o CPF cadastrado na recepção da clínica.
+                  </span>
+                </div>
+              )}
+
               {successMsg && (
                 <div className="rounded bg-emerald-50 p-2.5 text-xs text-emerald-800 border border-emerald-200">
                   ✓ {successMsg}
@@ -240,7 +273,7 @@ export function LoginForm() {
 
               <button
                 type="submit"
-                disabled={isPending || otpCode.length !== 6}
+                disabled={isPending || otpCode.length !== 6 || (requiresCpf && cpf.replace(/\D/g, "").length !== 11)}
                 className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
               >
                 {isPending ? "Validando…" : "Confirmar e Entrar"}
@@ -261,6 +294,8 @@ export function LoginForm() {
                   onClick={() => {
                     setPhoneSubmitted(false);
                     setOtpCode("");
+                    setCpf("");
+                    setRequiresCpf(false);
                     setError(null);
                     setSuccessMsg(null);
                   }}

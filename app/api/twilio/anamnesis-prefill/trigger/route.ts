@@ -19,21 +19,23 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any;
   let sent = 0;
   let failed = 0;
 
   try {
     const cutoffISO = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    const { data: pending } = await admin
+    const { data: pending } = await db
       .from("anamnesis_prefill_requests")
       .select("id, patient_id, phone_number")
       .eq("status", "enviado")
       .is("reminder_sent_at", null)
       .lte("sent_at", cutoffISO);
 
-    for (const request of pending ?? []) {
-      const { data: patient } = await admin
+    for (const request of (pending as any[]) ?? []) {
+      const { data: patient } = await db
         .from("patients")
         .select("full_name")
         .eq("id", request.patient_id)
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (result.success) {
-        await admin
+        await db
           .from("anamnesis_prefill_requests")
           .update({ status: "lembrete_enviado", reminder_sent_at: new Date().toISOString() })
           .eq("id", request.id);

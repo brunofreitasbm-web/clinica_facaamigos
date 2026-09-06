@@ -20,28 +20,30 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any;
   let sent = 0;
   let failed = 0;
 
   try {
-    const { error: refreshError } = await admin.rpc("refresh_absence_alerts");
+    const { error: refreshError } = await db.rpc("refresh_absence_alerts");
     if (refreshError) {
       console.error("[Absence Alerts Trigger] refresh_absence_alerts falhou:", refreshError);
       return NextResponse.json({ error: "refresh_failed" }, { status: 500 });
     }
 
-    const { data: pending } = await admin
+    const { data: pending } = await db
       .from("absence_alerts")
       .select("id, patient_id, consecutive_faltas, faltas_pct_3m")
       .eq("status", "pendente");
 
-    for (const alert of pending ?? []) {
-      const { data: guardians } = await admin
+    for (const alert of (pending as any[]) ?? []) {
+      const { data: guardians } = await db
         .from("guardians")
         .select("id, phone, is_financial")
         .eq("patient_id", alert.patient_id);
 
-      const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
+      const guardian = ((guardians as any[]) ?? []).find((g) => g.is_financial) ?? ((guardians as any[]) ?? [])[0];
       if (!guardian) {
         failed += 1;
         continue;
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
 
       const result = await sendTwilioWhatsApp({ to: guardian.phone, message });
 
-      await admin.from("messages").insert({
+      await db.from("messages").insert({
         patient_id: alert.patient_id,
         guardian_id: guardian.id,
         channel: "whatsapp",
@@ -66,7 +68,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (result.success) {
-        await admin
+        await db
           .from("absence_alerts")
           .update({ status: "notificado", notified_at: new Date().toISOString() })
           .eq("id", alert.id);
