@@ -38,8 +38,15 @@ import { registerFirstContact } from "../actions";
 // falharia com a mensagem de permissão da Server Action.
 const CAN_UPLOAD_ROLES = ["gestor", "supervisor", "recepcao", "terapeuta"];
 
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE });
+// Guarda contra data vazia/inválida — sem isso, `new Date(iso).toLocaleDateString()`
+// lança RangeError durante o render no servidor (mesma causa do React error #441
+// já visto no portal família, ver commit 4580187 / lib/timezone.ts).
+const fmtDate = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE });
+};
 
 export const dynamic = "force-dynamic";
 
