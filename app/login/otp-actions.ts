@@ -14,7 +14,7 @@ interface FamilyOtpRecord {
   created_at?: string;
 }
 
-export function normalizeDigits(phone: string): string {
+function normalizeDigits(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   // Se começar com 55 e tiver 12 ou 13 dígitos, remove o código de país para normalizar busca local
   if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {

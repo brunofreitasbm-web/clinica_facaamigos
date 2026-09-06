@@ -320,7 +320,44 @@ export async function handleTwilioIncomingMessage(params: {
     };
   }
 
-  // 3. Resposta padrão amigável para outras dúvidas
+  // 3. Tentar gerar resposta inteligente com Google Gemini AI (se disponível)
+  try {
+    const { isGeminiConfigured, generateGeminiChatResponse } = await import("./gemini");
+    if (isGeminiConfigured()) {
+      const insurersText = await getAcceptedInsurersFormatted();
+      const systemInstruction = `Você é a assistente virtual inteligente da Clínica de Desenvolvimento Infantil (especializada em TEA, Terapia ABA, Fonoaudiologia, Terapia Ocupacional e Psicopedagogia).
+Seu objetivo é atuar com acolhimento, empatia e clareza para pais e responsáveis de pacientes neurodivergentes.
+
+INFORMAÇÕES DA CLÍNICA:
+- Aceitamos diversos convênios e oferecemos suporte para Reembolso Médico.
+- Convênios cadastrados:
+${insurersText}
+
+REGRAS DE RESPOSTA:
+1. Seja sempre acolhedora, clara e sucinta (ideal para mensagens de WhatsApp).
+2. Se o usuário quiser agendar uma avaliação/anamnese, oriente-o a responder com a palavra *AGENDAR* ou enviar o nome do paciente.
+3. Se perguntar sobre convênios, liste os planos aceitos de forma amigável.
+4. Mantenha a resposta com formatação amigável do WhatsApp (use negritos *texto* e emojis pontuais).
+5. Nunca dê diagnósticos médicos definitivos.`;
+
+      const aiResponse = await generateGeminiChatResponse({
+        prompt: body,
+        systemInstruction,
+        temperature: 0.6,
+      });
+
+      if (aiResponse.success && aiResponse.text) {
+        return {
+          intent: "gemini_ai_response",
+          replyMessage: aiResponse.text,
+        };
+      }
+    }
+  } catch (geminiErr) {
+    console.error("[Twilio Gemini Integration Error]:", geminiErr);
+  }
+
+  // 4. Resposta padrão amigável (Fallback estático)
   return {
     intent: "atendimento_geral",
     replyMessage:

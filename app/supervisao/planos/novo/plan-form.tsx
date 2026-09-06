@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createTreatmentPlan } from "./actions";
 import { DISCIPLINES } from "./disciplines";
@@ -62,30 +62,20 @@ export function PlanForm({
   const [reviewDueAt, setReviewDueAt] = useState("");
   const [generalObjective, setGeneralObjective] = useState("");
   const [familyPriorities, setFamilyPriorities] = useState(initialFamilyPriorities);
-  const [selectedDisciplines, setSelectedDisciplines] = useState<Record<string, string>>({});
+  // Equipe de avaliação já definida (Módulo 3 MAAIS, slide 23) pré-marca as
+  // disciplinas do plano assim que a página carrega — o supervisor só
+  // precisa preencher sessões/semana, não redigitar quem já está na equipe.
+  const [selectedDisciplines, setSelectedDisciplines] = useState<Record<string, string>>(() =>
+    Object.fromEntries(teamSuggestions.map((t) => [t.discipline, "1"])),
+  );
   const [goals, setGoals] = useState<Goal[]>([emptyGoal()]);
   const [addedSuggestionKeys, setAddedSuggestionKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Equipe de avaliação já definida (Módulo 3 MAAIS, slide 23) pré-marca as
-  // disciplinas do plano assim que a página carrega — o supervisor só
-  // precisa preencher sessões/semana, não redigitar quem já está na equipe.
-  useEffect(() => {
-    if (teamSuggestions.length === 0) return;
-    setSelectedDisciplines((prev) => {
-      const next = { ...prev };
-      for (const t of teamSuggestions) {
-        if (!(t.discipline in next)) next[t.discipline] = "1";
-      }
-      return next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   function addSuggestedGoal(s: SuggestedGoal) {
     setAddedSuggestionKeys((prev) => [...prev, s.key]);
-    setSelectedDisciplines((prev) => (s.discipline in prev ? prev : { ...prev, [s.discipline]: "" }));
+    setSelectedDisciplines((prev) => (s.discipline in prev ? prev : { ...prev, [s.discipline]: "1" }));
     const filled: Goal = {
       key: crypto.randomUUID(),
       discipline: s.discipline,
@@ -246,6 +236,61 @@ export function PlanForm({
           className={inputClass}
         />
       </div>
+
+      {teamSuggestions.length > 0 && (
+        <div className="rounded-md border border-paper-line-strong bg-paper/60 p-4">
+          <div className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+            Equipe de avaliação já definida
+          </div>
+          <p className="mt-1 text-xs text-ink-faint">Disciplinas abaixo já vêm marcadas — só falta informar sessões/semana.</p>
+          <ul className="mt-2 flex flex-col gap-1 text-sm text-ink">
+            {teamSuggestions.map((t, i) => (
+              <li key={i}>
+                {t.profileName} · {t.roleLabel}
+                {t.discipline && (
+                  <span className="text-ink-faint"> · {DISCIPLINES.find((d) => d.value === t.discipline)?.label ?? t.discipline}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {suggestedGoals.length > 0 && (
+        <div className="rounded-md border border-paper-line-strong bg-paper/60 p-4">
+          <div className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+            Sugestões de meta a partir da avaliação
+          </div>
+          <p className="mt-1 text-xs text-ink-faint">
+            Domínios com itens ainda não adquiridos nos protocolos já aplicados (Módulo 3 MAAIS, slide 27). Adicione e
+            ajuste antes de salvar.
+          </p>
+          <ul className="mt-3 flex flex-col gap-3">
+            {suggestedGoals.map((s) => {
+              const added = addedSuggestionKeys.includes(s.key);
+              return (
+                <li key={s.key} className="flex items-start justify-between gap-3 rounded-md border border-paper-line-strong bg-paper px-3 py-2">
+                  <div>
+                    <div className="text-sm font-medium text-ink">
+                      {s.domain} <span className="text-ink-faint">· {s.protocolLabel}</span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-ink-soft">{s.description}</div>
+                    <div className="mt-0.5 text-xs text-ink-faint">{s.baseline}</div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={added}
+                    onClick={() => addSuggestedGoal(s)}
+                    className="shrink-0 rounded-md border border-paper-line-strong px-3 py-1.5 text-xs font-medium text-chart hover:border-chart disabled:opacity-40"
+                  >
+                    {added ? "Adicionada" : "+ Adicionar meta"}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <div>
         <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Disciplinas do plano</h2>
