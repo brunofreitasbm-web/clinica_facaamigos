@@ -14,6 +14,8 @@ import { NovaSessaoDialog, type GuideSummary } from "./nova-sessao-dialog";
 import { TodayAgendaList, type TodaySession, type GuardianContact } from "./today-agenda-list";
 import { MiniCalendarPicker } from "./mini-calendar-picker";
 import { AnamnesisPendingBadge } from "@/components/anamnesis-pending-badge";
+import { LeadRapidoDialog } from "./lead-rapido-dialog";
+import { ChecklistEntradaDialog } from "./checklist-entrada-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -346,7 +348,9 @@ export default async function RecepcaoPage({
               </h6>
               <h1 className="m-0">Agenda do dia</h1>
             </div>
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <LeadRapidoDialog />
+              <ChecklistEntradaDialog />
               <NovaSessaoDialog
                 patients={patients ?? []}
                 therapists={therapists ?? []}

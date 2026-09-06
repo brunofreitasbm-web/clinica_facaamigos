@@ -155,7 +155,19 @@ export function TodayAgendaList({
         if (state !== "na_recepcao" && state !== "em_atendimento") return false;
       }
       if (filter === "faltas" && s.status !== "falta_familia") return false;
-      if (search.trim() && !s.patientName.toLowerCase().includes(search.trim().toLowerCase())) return false;
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        const qDigits = q.replace(/\D/g, "");
+        const matchPatient = s.patientName.toLowerCase().includes(q);
+        const matchTherapist = s.therapistName.toLowerCase().includes(q);
+        const matchDiscipline = s.discipline.toLowerCase().includes(q);
+        const guardians = guardiansByPatient[s.patientId] ?? [];
+        const matchGuardianName = guardians.some((g) => g.fullName.toLowerCase().includes(q));
+        const matchGuardianPhone = qDigits.length > 0 && guardians.some((g) => g.phone.replace(/\D/g, "").includes(qDigits));
+        if (!matchPatient && !matchTherapist && !matchDiscipline && !matchGuardianName && !matchGuardianPhone) {
+          return false;
+        }
+      }
       if (selectedTherapistIds.size && !selectedTherapistIds.has(s.therapistId)) return false;
       if (selectedTypeIds.size && (!s.appointmentTypeId || !selectedTypeIds.has(s.appointmentTypeId))) return false;
       if (selectedTags.size) {

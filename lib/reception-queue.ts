@@ -14,7 +14,9 @@ export type PendingQueueCategory =
   | "evolucao_atrasada"
   | "documento_vencido"
   | "lead_sem_retorno"
-  | "falta_sem_motivo";
+  | "falta_sem_motivo"
+  | "remarcacao_solicitada"
+  | "documento_familia_novo";
 
 export type PendingQueueItem = {
   id: string;
@@ -27,6 +29,10 @@ export type PendingQueueItem = {
   href: string;
   /** Só preenchido em falta_sem_motivo — id do appointment pra ação de definir motivo/desfazer. */
   appointmentId?: string;
+  /** Só preenchido em remarcacao_solicitada — id da reschedule_request pra ação de concluir. */
+  rescheduleRequestId?: string;
+  /** Só preenchido em documento_familia_novo — id do documento pra ação de marcar como revisado. */
+  documentId?: string;
 };
 
 const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
@@ -37,6 +43,8 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   documento_vencido: "Documento vencido",
   lead_sem_retorno: "Lead sem retorno > 15 min",
   falta_sem_motivo: "Falta sem motivo",
+  remarcacao_solicitada: "Pedido de remarcação",
+  documento_familia_novo: "Documento enviado pela família",
 };
 
 export type ExpiringAuthorization = {
@@ -206,6 +214,75 @@ async function getAutoFaltasSemMotivo(supabase: Supa, clinicId: string): Promise
   });
 }
 
+export type PendingRescheduleRequest = {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  message: string;
+  createdAt: string;
+};
+
+/**
+ * Pedidos de remarcação da família ainda não resolvidos (PRD §3.4,
+ * reschedule_requests, 20260906000019) — escopados por clínica via
+ * appointments→patients (mesmo padrão de getAutoFaltasSemMotivo acima).
+ */
+async function getPendingRescheduleRequests(supabase: Supa, clinicId: string): Promise<PendingRescheduleRequest[]> {
+  const { data } = await supabase
+    .from("reschedule_requests")
+    .select("id, appointment_id, message, created_at, appointments!inner(patient_id, patients!inner(id, full_name, clinic_id))")
+    .eq("status", "em_analise")
+    .eq("appointments.patients.clinic_id", clinicId)
+    .order("created_at", { ascending: true });
+
+  return (data ?? []).map((r) => {
+    const appt = Array.isArray(r.appointments) ? r.appointments[0] : r.appointments;
+    const patient = appt ? (Array.isArray(appt.patients) ? appt.patients[0] : appt.patients) : null;
+    return {
+      id: r.id,
+      appointmentId: r.appointment_id,
+      patientId: patient?.id ?? "",
+      patientName: patient?.full_name ?? "—",
+      message: r.message,
+      createdAt: r.created_at,
+    };
+  });
+}
+
+export type PendingFamilyDocument = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  note: string | null;
+  uploadedAt: string;
+};
+
+/**
+ * Documentos enviados pela família (PRD §3.6, category='familia_envio',
+ * 20260906000020) ainda não conferidos pela recepção (reviewed_at is null).
+ */
+async function getPendingFamilyDocuments(supabase: Supa, clinicId: string): Promise<PendingFamilyDocument[]> {
+  const { data } = await supabase
+    .from("documents")
+    .select("id, note, uploaded_at, patients!inner(id, full_name, clinic_id)")
+    .eq("category", "familia_envio")
+    .eq("patients.clinic_id", clinicId)
+    .is("reviewed_at", null)
+    .order("uploaded_at", { ascending: true });
+
+  return (data ?? []).map((d) => {
+    const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;
+    return {
+      id: d.id,
+      patientId: patient?.id ?? "",
+      patientName: patient?.full_name ?? "—",
+      note: d.note,
+      uploadedAt: d.uploaded_at,
+    };
+  });
+}
+
 /**
  * Fila única de pendências da recepção (§9.1), ordenada por urgência —
  * agrega as 6 categorias que o PRD descreve pra home da recepção. Cada
@@ -214,13 +291,15 @@ async function getAutoFaltasSemMotivo(supabase: Supa, clinicId: string): Promise
  * função só junta e ordena pra exibição, sem duplicar regra.
  */
 export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_CLINIC_ID): Promise<PendingQueueItem[]> {
-  const [expiringAuths, pendingPatients, overdueNotes, expiredDocuments, unansweredLeads, autoFaltas] = await Promise.all([
+  const [expiringAuths, pendingPatients, overdueNotes, expiredDocuments, unansweredLeads, autoFaltas, rescheduleRequests, pendingFamilyDocuments] = await Promise.all([
     getExpiringAuthorizations(supabase, clinicId),
     getPendingPatients(supabase, 3),
     listOverdueSessionNotes(supabase),
     getExpiredDocuments(supabase, clinicId),
     getUnansweredLeads(supabase, clinicId),
     getAutoFaltasSemMotivo(supabase, clinicId),
+    getPendingRescheduleRequests(supabase, clinicId),
+    getPendingFamilyDocuments(supabase, clinicId),
   ]);
 
   const items: PendingQueueItem[] = [];
@@ -316,6 +395,34 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       urgencyLabel: `${f.minutesAgo}min`,
       href: `/recepcao/pacientes/${f.patientId}`,
       appointmentId: f.appointmentId,
+    });
+  }
+
+  for (const r of rescheduleRequests) {
+    items.push({
+      id: `remarcacao-${r.id}`,
+      category: "remarcacao_solicitada",
+      categoryLabel: CATEGORY_LABEL.remarcacao_solicitada,
+      patientId: r.patientId,
+      patientName: r.patientName,
+      detail: r.message,
+      urgencyLabel: new Date(r.createdAt).toLocaleDateString("pt-BR"),
+      href: `/recepcao/pacientes/${r.patientId}`,
+      rescheduleRequestId: r.id,
+    });
+  }
+
+  for (const d of pendingFamilyDocuments) {
+    items.push({
+      id: `doc-familia-${d.id}`,
+      category: "documento_familia_novo",
+      categoryLabel: CATEGORY_LABEL.documento_familia_novo,
+      patientId: d.patientId,
+      patientName: d.patientName,
+      detail: d.note || "Documento enviado pelo portal da família",
+      urgencyLabel: new Date(d.uploadedAt).toLocaleDateString("pt-BR"),
+      href: `/recepcao/pacientes/${d.patientId}`,
+      documentId: d.id,
     });
   }
 

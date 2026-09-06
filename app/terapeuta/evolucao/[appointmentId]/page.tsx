@@ -5,15 +5,19 @@ import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { getProgramsForAppointment } from "@/lib/trial-data";
-import { EvolutionForm } from "./evolution-form";
+import { EvolutionForm, type EditingContext } from "./evolution-form";
 import { TrialDataPanel } from "./trial-data-panel";
+import type { SessionNoteStructured } from "@/lib/session-note-fields";
 
 export default async function EvolucaoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ appointmentId: string }>;
+  searchParams: Promise<{ editar?: string }>;
 }) {
   const { appointmentId } = await params;
+  const { editar } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -51,7 +55,7 @@ export default async function EvolucaoPage({
 
   const { data: existingNote } = await supabase
     .from("session_notes")
-    .select("id, signed_at")
+    .select("id, version, signed_at, structured, free_text")
     .eq("appointment_id", appointmentId)
     .order("version", { ascending: false })
     .limit(1)
@@ -65,6 +69,10 @@ export default async function EvolucaoPage({
   // enxergam a sessão (RLS permite leitura ampla), mas não veem o
   // formulário de assinatura — só quem está com a sessão vinculada.
   const canSign = profile.role === "terapeuta" && appointment.therapist_id === user.id;
+
+  // Quem pode editar (criar nova versão) espelha exatamente a RLS de
+  // session_notes_insert: o terapeuta dono da sessão, ou um supervisor.
+  const canEdit = canSign || profile.role === "supervisor";
 
   // coleta ABA: programas do plano aprovado do paciente, pra registrar
   // tentativas discretas durante a sessão.
@@ -89,6 +97,43 @@ export default async function EvolucaoPage({
             discipline={appointment.discipline}
             sessionTime={sessionTime}
             attendanceStartedAt={appointment.attendance_started_at}
+          />
+        </div>
+      </main>
+    );
+  }
+
+  if (canEdit && existingNote && editar === "1") {
+    const structured = existingNote.structured as SessionNoteStructured | null;
+    const initialBehaviors: Record<string, boolean> = {};
+    const initialIntensities: Record<string, string> = {};
+    for (const c of structured?.comportamentos ?? []) {
+      initialBehaviors[c.tipo] = true;
+      initialIntensities[c.tipo] = c.intensidade;
+    }
+    const initialOrientations: Record<string, boolean> = {};
+    for (const o of structured?.orientacoes ?? []) {
+      initialOrientations[o] = true;
+    }
+    const editing: EditingContext = {
+      previousVersion: existingNote.version,
+      initialPresence: structured?.presenca_engajamento ?? null,
+      initialBehaviors,
+      initialIntensities,
+      initialOrientations,
+      initialFreeText: existingNote.free_text ?? "",
+    };
+
+    return (
+      <main className="flex flex-1 flex-col">
+        <div className="mx-auto flex w-full max-w-[640px] flex-col gap-6 p-5 sm:p-10">
+          <EvolutionForm
+            appointmentId={appointment.id}
+            patientName={patientName}
+            discipline={appointment.discipline}
+            sessionTime={sessionTime}
+            attendanceStartedAt={appointment.attendance_started_at}
+            editing={editing}
           />
         </div>
       </main>
@@ -128,7 +173,9 @@ export default async function EvolucaoPage({
           </div>
         ) : existingNote ? (
           <div className="card">
-            <span className="tag-status st-realizada w-fit">Evolução assinada</span>
+            <span className="tag-status st-realizada w-fit">
+              Evolução assinada{existingNote.version > 1 ? ` · versão ${existingNote.version}` : ""}
+            </span>
             <p className="text-sm text-ink-soft">
               Assinada em{" "}
               {existingNote.signed_at
@@ -136,7 +183,7 @@ export default async function EvolucaoPage({
                 : "—"}
               .
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Link href={`/terapeuta/paciente/${appointment.patient_id}/relatorio`} className="btn btn-secondary w-fit">
                 Relatório devolutivo (IA)
               </Link>
@@ -146,6 +193,16 @@ export default async function EvolucaoPage({
               <Link href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao`} className="btn btn-secondary w-fit">
                 Avaliação de protocolo
               </Link>
+              {canEdit && (
+                <Link href={`/terapeuta/evolucao/${appointment.id}?editar=1`} className="btn btn-secondary w-fit">
+                  Editar evolução (nova versão)
+                </Link>
+              )}
+              {(canEdit || profile.role === "gestor") && (
+                <Link href={`/terapeuta/evolucao/${appointment.id}/historico`} className="btn btn-secondary w-fit">
+                  Ver histórico
+                </Link>
+              )}
             </div>
           </div>
         ) : (

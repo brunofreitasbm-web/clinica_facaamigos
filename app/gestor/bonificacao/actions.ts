@@ -8,13 +8,7 @@ import { getBonusRows, getTierProgression, getClosedMetricHistory, type BonusRow
 export type { BonusRow, TierRow, ClosedMetricRow };
 
 /**
- * Métricas de bonificação: cálculo ao vivo direto das tabelas operacionais
- * (mesma função usada no painel executivo em app/gestor/page.tsx) para o mês
- * em andamento. `close_monthly_metric_snapshots` (migrations 20260904000027
- * e 20260905150000) já fecha boa parte do §10 em `metric_snapshots` no dia 1,
- * mas isso ainda não vira apuração ponderada por peso nem PDF de PLR — então,
- * em vez de inventar uma média ponderada, mostramos o indicador real de cada
- * cargo contra a meta do PRD (§10) e o status calculado.
+ * Métricas de bonificação e apuração de PLR/Faixas do gestor.
  */
 export async function getBonificacaoData(): Promise<{
   bonusRows: BonusRow[];
@@ -43,10 +37,6 @@ export async function approveTherapistTierChange(
 
   const supabase = await createClient();
 
-  // Faixa é revisão contratual: fecha a vigência da anterior antes de abrir a
-  // nova, pra nunca ter duas faixas "vigentes" pro mesmo terapeuta ao mesmo
-  // tempo (a constraint EXCLUDE de therapist_contracts já bloqueia isso, mas
-  // fechar explicitamente deixa o histórico auditável).
   const today = new Date().toISOString().split("T")[0];
   const { error: closeError } = await supabase
     .from("therapist_contracts")
@@ -67,6 +57,38 @@ export async function approveTherapistTierChange(
 
   if (insertError) {
     return { success: false, error: "Não foi possível gravar a nova faixa." };
+  }
+
+  revalidatePath("/gestor/bonificacao");
+  revalidatePath("/gestor");
+  return { success: true };
+}
+
+export async function rejectTherapistTierChange(
+  formData: FormData,
+): Promise<{ success: boolean; error?: string }> {
+  const profileId = String(formData.get("profile_id") ?? "");
+  const reason = String(formData.get("justification") ?? "").trim();
+
+  if (!profileId || !reason) {
+    return { success: false, error: "A justificativa para manutenção/rejeição é obrigatória." };
+  }
+
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+
+  // Registra decisão no audit_log
+  const { error } = await supabase.from("audit_log").insert({
+    clinic_id: DEV_CLINIC_ID,
+    actor_id: userData.user?.id ?? null,
+    action: "REJECT_TIER_PROGRESSION",
+    table_name: "therapist_contracts",
+    row_id: profileId,
+    after: { profile_id: profileId, rejection_reason: reason, date: new Date().toISOString() },
+  });
+
+  if (error) {
+    return { success: false, error: "Falha ao gravar justificativa no audit log." };
   }
 
   revalidatePath("/gestor/bonificacao");

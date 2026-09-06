@@ -56,7 +56,11 @@ export function DocumentUploadForm({ patientId }: { patientId: string }) {
         <option value="" disabled>
           Categoria
         </option>
-        {DOCUMENT_CATEGORIES.map((c) => (
+        {/* 'familia_envio' fica de fora: é atribuída só pelo insert da
+            família (20260906000020) — se a recepção também pudesse marcar
+            um upload próprio com essa categoria, ele apareceria como
+            pendência "documento enviado pela família" sem ter sido. */}
+        {DOCUMENT_CATEGORIES.filter((c) => c.value !== "familia_envio").map((c) => (
           <option key={c.value} value={c.value}>
             {c.label}
           </option>

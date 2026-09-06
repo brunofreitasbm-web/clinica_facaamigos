@@ -12,6 +12,8 @@ import { DocumentOpenButton } from "./document-open-button";
 import { ReportAbsence } from "./report-absence";
 import { ConfirmAttendance } from "./confirm-attendance";
 import { SurveyPrompt } from "./survey-prompt";
+import { RequestReschedule } from "./request-reschedule";
+import { UploadDocument } from "./upload-document";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +134,7 @@ export default async function FamiliaPage({
     { data: guardianRow },
     { data: treatmentPlan },
     { data: documents },
+    { data: familyUploads },
     { data: familyMessages },
     { data: upcomingAppts },
   ] = await Promise.all([
@@ -180,6 +183,16 @@ export default async function FamiliaPage({
       .select("id, category, uploaded_at, valid_until")
       .eq("patient_id", patientId)
       .eq("shared_with_family", true)
+      .order("uploaded_at", { ascending: false }),
+    // Documentos enviados pela própria família (documents_read_own_family_
+    // upload, 20260906000020) — mostra status de revisão, nunca aparece na
+    // lista de "Documentos liberados" acima (shared_with_family é sempre
+    // false pra esta categoria).
+    supabase
+      .from("documents")
+      .select("id, note, uploaded_at, reviewed_at")
+      .eq("patient_id", patientId)
+      .eq("category", "familia_envio")
       .order("uploaded_at", { ascending: false }),
     // Mensagens trocadas
     supabase
@@ -384,10 +397,16 @@ export default async function FamiliaPage({
               {confirmed && <div style={{ color: "var(--color-teal-300)", fontSize: 13 }}>✓ Presença confirmada pela recepção.</div>}
               {notConfirmed && <ConfirmAttendance appointmentId={nextAppt.id} />}
               {(notConfirmed || confirmed) && (
-                <ReportAbsence
-                  appointmentId={nextAppt.id}
-                  sessionLabel={`${fmtWhen(nextAppt.starts_at)} · ${nextAppt.discipline}${therapistName ? ` (${therapistName})` : ""}`}
-                />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <ReportAbsence
+                    appointmentId={nextAppt.id}
+                    sessionLabel={`${fmtWhen(nextAppt.starts_at)} · ${nextAppt.discipline}${therapistName ? ` (${therapistName})` : ""}`}
+                  />
+                  <RequestReschedule
+                    appointmentId={nextAppt.id}
+                    sessionLabel={`${fmtWhen(nextAppt.starts_at)} · ${nextAppt.discipline}${therapistName ? ` (${therapistName})` : ""}`}
+                  />
+                </div>
               )}
             </>
           ) : (
@@ -706,6 +725,50 @@ export default async function FamiliaPage({
             ) : (
               <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
                 Nenhum documento liberado ainda.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between">
+            <h6>Meus envios</h6>
+            <UploadDocument patientId={patientId} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 10 }}>
+            {(familyUploads ?? []).length > 0 ? (
+              (familyUploads ?? []).map((doc) => (
+                <div
+                  key={doc.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 0",
+                    borderBottom: "1px solid var(--color-divider)",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{doc.note || "Documento enviado"}</div>
+                    <div style={{ fontSize: 12, color: "var(--color-neutral-600)" }}>
+                      {new Date(doc.uploaded_at).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
+                    </div>
+                  </div>
+                  <span
+                    className="tag-status"
+                    style={{
+                      background: doc.reviewed_at ? "var(--status-realizada)" : "var(--color-neutral-200)",
+                      color: doc.reviewed_at ? "var(--color-paper)" : "var(--color-neutral-700)",
+                    }}
+                  >
+                    {doc.reviewed_at ? "Conferido" : "Aguardando revisão"}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
+                Nenhum documento enviado ainda. Use o botão acima para enviar carteirinha, pedido médico ou outro documento.
               </p>
             )}
           </div>

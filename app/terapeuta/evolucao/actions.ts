@@ -84,18 +84,27 @@ export async function createSessionNote(
     return { success: false, error: "Terapeuta não corresponde ao responsável pela sessão." };
   }
 
-  const { data: existingNote, error: existingNoteError } = await supabase
+  // Busca a versão mais recente (se houver) — a evolução é append-only:
+  // uma vez assinada, editar significa inserir uma nova versão encadeada
+  // por supersedes_id, nunca sobrescrever a linha existente.
+  const { data: latestNote, error: latestNoteError } = await supabase
     .from("session_notes")
-    .select("id")
+    .select("id, version")
     .eq("appointment_id", appointmentId)
+    .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (existingNoteError) {
+  if (latestNoteError) {
     return { success: false, error: "Não foi possível verificar a sessão. Tente de novo." };
   }
-  if (existingNote) {
-    return { success: false, error: "Já existe uma evolução registrada para esta sessão." };
+
+  let editJustification: string | null = null;
+  if (latestNote) {
+    editJustification = String(formData.get("edit_justification") ?? "").trim() || null;
+    if (!editJustification) {
+      return { success: false, error: "Informe o motivo da edição desta evolução." };
+    }
   }
 
   const structured: SessionNoteStructured = {
@@ -107,7 +116,9 @@ export async function createSessionNote(
   const { error } = await supabase.from("session_notes").insert({
     appointment_id: appointmentId,
     therapist_id: user.id,
-    version: 1,
+    version: latestNote ? latestNote.version + 1 : 1,
+    supersedes_id: latestNote ? latestNote.id : null,
+    edit_justification: editJustification,
     structured,
     free_text: freeText || null,
     created_at_device: createdAtDevice,
@@ -115,6 +126,15 @@ export async function createSessionNote(
   });
 
   if (error) {
+    // Unique index em (appointment_id, version): se outro dispositivo/aba
+    // já inseriu a próxima versão entre a leitura e este insert, o conflito
+    // aparece aqui — nunca sobrescrevemos, só avisamos pra recarregar.
+    if (error.code === "23505") {
+      return {
+        success: false,
+        error: "Esta evolução foi editada em outro lugar enquanto você preenchia. Recarregue a página e tente de novo.",
+      };
+    }
     return { success: false, error: "Não foi possível salvar a evolução. Tente de novo." };
   }
 

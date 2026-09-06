@@ -22,6 +22,11 @@ export const DOCUMENT_CATEGORIES = [
   { value: "kit_boas_vindas", label: "Kit de boas-vindas" },
   { value: "carta_terapeuta", label: "Carta ao terapeuta" },
   { value: "manual_clinica", label: "Manual da clínica" },
+  // Envio pela família via portal (PRD §9.7/§3.6,
+  // 20260906000020_family_document_upload.sql) — nunca aparece no seletor de
+  // upload da recepção (DOCUMENT_CATEGORIES é usado lá só como fonte de
+  // labels aqui), só é atribuída pelo próprio insert do responsável.
+  { value: "familia_envio", label: "Enviado pela família" },
 ] as const;
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]["value"];

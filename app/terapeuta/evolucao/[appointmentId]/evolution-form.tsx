@@ -25,26 +25,42 @@ function formatElapsed(totalSeconds: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+export type EditingContext = {
+  previousVersion: number;
+  initialPresence: number | null;
+  initialBehaviors: Record<string, boolean>;
+  initialIntensities: Record<string, string>;
+  initialOrientations: Record<string, boolean>;
+  initialFreeText: string;
+};
+
 export function EvolutionForm({
   appointmentId,
   patientName,
   discipline,
   sessionTime,
   attendanceStartedAt,
+  editing,
 }: {
   appointmentId: string;
   patientName: string;
   discipline: string;
   sessionTime: string;
   attendanceStartedAt: string | null;
+  editing?: EditingContext;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
   const [signed, setSigned] = useState(false);
-  const [presence, setPresence] = useState<number | null>(null);
-  const [selectedBehaviors, setSelectedBehaviors] = useState<Record<string, boolean>>({});
-  const [intensities, setIntensities] = useState<Record<string, string>>({});
-  const [selectedOrientations, setSelectedOrientations] = useState<Record<string, boolean>>({});
-  const [freeText, setFreeText] = useState("");
+  const [presence, setPresence] = useState<number | null>(editing?.initialPresence ?? null);
+  const [selectedBehaviors, setSelectedBehaviors] = useState<Record<string, boolean>>(
+    editing?.initialBehaviors ?? {},
+  );
+  const [intensities, setIntensities] = useState<Record<string, string>>(editing?.initialIntensities ?? {});
+  const [selectedOrientations, setSelectedOrientations] = useState<Record<string, boolean>>(
+    editing?.initialOrientations ?? {},
+  );
+  const [freeText, setFreeText] = useState(editing?.initialFreeText ?? "");
+  const [editJustification, setEditJustification] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -71,8 +87,10 @@ export function EvolutionForm({
     }
   }
 
-  // Restaura rascunho salvo do localStorage se existir
+  // Restaura rascunho salvo do localStorage se existir (não aplicável a
+  // edições — o estado inicial já vem da versão anterior).
   useEffect(() => {
+    if (editing) return;
     try {
       const saved = localStorage.getItem(`draft_evolution_${appointmentId}`);
       if (saved) {
@@ -90,6 +108,7 @@ export function EvolutionForm({
 
   // Salva alterações no localStorage
   useEffect(() => {
+    if (editing) return;
     if (signed) {
       localStorage.removeItem(`draft_evolution_${appointmentId}`);
       return;
@@ -172,7 +191,13 @@ export function EvolutionForm({
             style={{ fontFamily: "var(--font-heading)" }}
             className="m-0 text-2xl font-semibold leading-tight text-inherit"
           >
-            {signed ? "Evolução assinada" : "Versão 1"}
+            {signed
+              ? editing
+                ? `Versão ${editing.previousVersion + 1} salva`
+                : "Evolução assinada"
+              : editing
+                ? `Editando — nova versão ${editing.previousVersion + 1}`
+                : "Versão 1"}
           </h1>
         </div>
         {!signed && (
@@ -197,12 +222,16 @@ export function EvolutionForm({
           >
             ✓
           </span>
-          <p className="text-lg font-semibold text-ink">Evolução assinada</p>
-          <p className="text-sm text-ink-soft">
-            Versão 1 registrada para {patientName}. O registro é append-only — não pode ser editado por cima.
+          <p className="text-lg font-semibold text-ink">
+            {editing ? "Nova versão registrada" : "Evolução assinada"}
           </p>
-          <Link href="/terapeuta" className="btn btn-primary mt-2">
-            Voltar para Hoje
+          <p className="text-sm text-ink-soft">
+            {editing
+              ? `Versão ${editing.previousVersion + 1} registrada para ${patientName}, mantendo a versão ${editing.previousVersion} no histórico. O registro é append-only — nenhuma versão anterior foi apagada.`
+              : `Versão 1 registrada para ${patientName}. O registro é append-only — não pode ser editado por cima.`}
+          </p>
+          <Link href={`/terapeuta/evolucao/${appointmentId}`} className="btn btn-primary mt-2">
+            Voltar para a sessão
           </Link>
         </div>
       ) : (
@@ -213,6 +242,13 @@ export function EvolutionForm({
             formData.set("created_at_device", new Date().toISOString());
             if (presence !== null) {
               formData.set("presenca_engajamento", String(presence));
+            }
+            if (editing) {
+              if (!editJustification.trim()) {
+                setError("Informe o motivo da edição desta evolução.");
+                return;
+              }
+              formData.set("edit_justification", editJustification.trim());
             }
             startTransition(async () => {
               const result = await createSessionNote(appointmentId, formData);
@@ -418,8 +454,27 @@ export function EvolutionForm({
               {aiError && <p className="text-xs font-semibold text-rose-600 mt-1">{aiError}</p>}
             </div>
 
+            {editing && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="edit_justification">
+                  Motivo da edição (obrigatório)
+                </label>
+                <textarea
+                  id="edit_justification"
+                  name="edit_justification"
+                  rows={3}
+                  value={editJustification}
+                  onChange={(e) => setEditJustification(e.target.value)}
+                  placeholder="Por que esta evolução está sendo corrigida?"
+                  className="input mt-2"
+                />
+              </div>
+            )}
+
             <div className="card">
-              <div className="card-kicker">Resumo antes de assinar</div>
+              <div className="card-kicker">
+                {editing ? "Resumo antes de salvar a nova versão" : "Resumo antes de assinar"}
+              </div>
               <div className="flex flex-col gap-1 text-sm text-ink">
                 <span>Presença/engajamento: {presence ?? "—"}/5</span>
                 <span>
@@ -428,7 +483,7 @@ export function EvolutionForm({
                 <span>
                   Orientações à família: {orientationCount > 0 ? orientationCount : "nenhuma registrada"}
                 </span>
-                <span>Versão: 1</span>
+                <span>Versão: {editing ? editing.previousVersion + 1 : 1}</span>
               </div>
             </div>
 
@@ -463,8 +518,12 @@ export function EvolutionForm({
                 {isPending
                   ? isOffline
                     ? "Sem conexão — enviando quando a internet voltar…"
-                    : "Assinando…"
-                  : "Assinar evolução"}
+                    : editing
+                      ? "Salvando nova versão…"
+                      : "Assinando…"
+                  : editing
+                    ? "Salvar nova versão"
+                    : "Assinar evolução"}
               </button>
             )}
           </div>

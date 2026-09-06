@@ -304,6 +304,130 @@ export async function reportAbsence(appointmentId: string, formData: FormData): 
 }
 
 /**
+ * "Pedir remarcação" (PRD §3.4) — o responsável descreve em texto livre o
+ * pedido (ex.: "remarcar a sessão do dia 15 para o dia 20"); a
+ * reschedule_requests_insert (RLS, 20260906000019) é o portão real, e o
+ * trigger reschedule_request_log_message grava a mesma mensagem em
+ * `messages` pro histórico — nada disso precisa ser feito aqui, a Server
+ * Action só valida entrada e formata o insert.
+ */
+export async function requestReschedule(appointmentId: string, message: string): Promise<ActionResult> {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return { success: false, error: "Descreva o que você gostaria de remarcar." };
+  }
+  if (trimmed.length > 1000) {
+    return { success: false, error: "Mensagem muito longa." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  const { error } = await supabase.from("reschedule_requests").insert({
+    appointment_id: appointmentId,
+    requested_by: user.id,
+    message: trimmed,
+  });
+
+  if (error) {
+    return {
+      success: false,
+      error: "Não foi possível enviar o pedido. Verifique se esta sessão é sua.",
+    };
+  }
+
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
+ * "Enviar documento" (PRD §3.6) — carteirinha atualizada, pedido médico
+ * novo, comprovante de residência etc. Categoria sempre 'familia_envio'
+ * (documents_write_family, 20260906000020) e shared_with_family sempre
+ * false: quem decide reexibir o documento pra família depois de conferido é
+ * a recepção/terapeuta, não o próprio upload. Mesma ordem de operações de
+ * uploadDocument (app/recepcao/pacientes/[id]/documents-actions.ts): insert
+ * primeiro com o client de sessão (RLS decide), Storage depois com o client
+ * admin, com rollback se o upload falhar.
+ */
+export async function uploadFamilyDocument(patientId: string, formData: FormData): Promise<ActionResult> {
+  const file = formData.get("file");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 200);
+
+  if (!(file instanceof File) || file.size === 0) {
+    return { success: false, error: "Selecione um arquivo." };
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    return { success: false, error: "Arquivo maior que 25MB." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  const documentId = randomUUID();
+  const storagePath = `${patientId}/family_uploads/${documentId}-${sanitizeFileName(file.name)}`;
+
+  const { error: insertError } = await supabase.from("documents").insert({
+    id: documentId,
+    patient_id: patientId,
+    category: "familia_envio",
+    storage_path: storagePath,
+    uploaded_by: user.id,
+    shared_with_family: false,
+    note: note || null,
+  });
+
+  if (insertError) {
+    return {
+      success: false,
+      error: "Não foi possível registrar o envio. Verifique se esta criança é sua.",
+    };
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    // Sem admin client não há como reverter o insert (documents não tem
+    // policy de DELETE pra nenhum papel) — mesma limitação documentada em
+    // rollbackInsertedDocument (documents-actions.ts); a linha órfã fica
+    // pra limpeza manual, o erro principal já é reportado ao usuário.
+    return {
+      success: false,
+      error: "Servidor sem SUPABASE_SERVICE_ROLE_KEY configurada — avise o time técnico.",
+    };
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const { error: uploadError } = await admin.storage
+    .from("clinic-documents")
+    .upload(storagePath, arrayBuffer, {
+      contentType: file.type || "application/octet-stream",
+      upsert: false,
+    });
+
+  if (uploadError) {
+    await admin.from("documents").delete().eq("id", documentId);
+    return { success: false, error: "Não foi possível enviar o arquivo. Tente de novo." };
+  }
+
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
  * Link assinado de um documento liberado à família. Mesmo padrão de
  * app/recepcao/pacientes/[id]/documents-actions.ts (getDocumentUrl), mas
  * mantido como cópia dentro de app/familia/** (ao invés de importar do
