@@ -183,3 +183,127 @@ export async function sendTwilioWhatsApp(options: SendMessageOptions): Promise<S
     };
   }
 }
+
+/**
+ * Remove acentos e diacríticos de uma string para facilitar busca de palavras-chave.
+ */
+function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+/**
+ * Verifica se uma mensagem recebida é uma dúvida/pergunta sobre planos de saúde ou convênios.
+ */
+export function isHealthPlanInquiry(message: string): boolean {
+  const norm = normalizeText(message || "");
+  if (!norm) return false;
+
+  const keywords = [
+    "plano",
+    "planos",
+    "convenio",
+    "convenios",
+    "aceita",
+    "aceitam",
+    "quais",
+    "atende",
+    "atendem",
+    "cobertura",
+    "seguro",
+    "unimed",
+    "bradesco",
+    "amil",
+    "sulamerica",
+    "casssi",
+    "geap",
+    "postalis",
+    "ipam",
+    "reembolso",
+  ];
+
+  // Se contiver palavras explícitas como "plano", "planos", "convenio", "convenios", ou frases como "aceita..."
+  const hasPlanWord = norm.includes("plano") || norm.includes("convenio") || norm.includes("cobertura");
+  const hasInquiryWord = norm.includes("quais") || norm.includes("aceita") || norm.includes("atende") || norm.includes("trabalha");
+
+  if (hasPlanWord) return true;
+  if (hasInquiryWord && keywords.some((kw) => norm.includes(kw))) return true;
+
+  return false;
+}
+
+/**
+ * Consulta no banco os convênios cadastrados na clínica e formata a resposta para o WhatsApp/SMS.
+ */
+export async function getAcceptedInsurersFormatted(clinicId = "c0000000-0000-0000-0000-000000000001"): Promise<string> {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+
+    const { data: insurers, error } = await supabase
+      .from("insurers")
+      .select("id, name, ans_code")
+      .eq("clinic_id", clinicId)
+      .order("name");
+
+    if (error) {
+      console.error("[Twilio Chatbot] Erro ao buscar convênios:", error);
+    }
+
+    if (!insurers || insurers.length === 0) {
+      return (
+        "Olá! 👋 Agradecemos seu contato.\n\n" +
+        "Atualmente nossos atendimentos são realizados na modalidade *Particular* com emissão de nota fiscal para *Reembolso* junto ao seu plano de saúde.\n\n" +
+        "Caso precise de auxílio com a documentação para reembolso ou queira agendar uma avaliação, por favor nos responda por aqui!"
+      );
+    }
+
+    const planList = insurers
+      .map((ins) => `🔹 *${ins.name.trim()}*${ins.ans_code ? ` (ANS: ${ins.ans_code})` : ""}`)
+      .join("\n");
+
+    return (
+      "Olá! 👋 Sou o assistente virtual da clínica.\n\n" +
+      "Atualmente, aceitamos e atendemos os seguintes planos e convênios:\n\n" +
+      `${planList}\n\n` +
+      "Também emitimos relatórios e notas fiscais para *Reembolso* caso o seu plano não esteja na lista.\n\n" +
+      "Como podemos te ajudar com o seu agendamento?"
+    );
+  } catch (err) {
+    console.error("[Twilio Chatbot Exception]:", err);
+    return (
+      "Olá! 👋 Agradecemos sua mensagem. Nossos atendimentos contemplam convênios parceiros e modalidade particular com reembolso.\n\n" +
+      "Um de nossos atendentes responderá em instantes com as informações detalhadas sobre o seu plano!"
+    );
+  }
+}
+
+/**
+ * Processa a mensagem recebida e retorna a resposta gerada pelo Chatbot.
+ */
+export async function handleTwilioIncomingMessage(params: {
+  from: string;
+  body: string;
+}): Promise<{ replyMessage: string; intent: string }> {
+  const { body } = params;
+
+  if (isHealthPlanInquiry(body)) {
+    const replyMessage = await getAcceptedInsurersFormatted();
+    return {
+      intent: "planos_saude",
+      replyMessage,
+    };
+  }
+
+  // Resposta padrão amigável para outras dúvidas
+  return {
+    intent: "atendimento_geral",
+    replyMessage:
+      "Olá! 👋 Agradecemos seu contato com a nossa clínica.\n\n" +
+      "Caso sua dúvida seja sobre *planos de saúde aceitos*, por favor pergunte 'Quais planos vocês aceitam?'.\n\n" +
+      "Para agendamentos, dúvidas ou falar com a recepção, basta enviar sua mensagem que responderemos em breve!",
+  };
+}
+

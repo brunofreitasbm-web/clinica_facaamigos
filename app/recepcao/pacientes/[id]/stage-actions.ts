@@ -217,6 +217,59 @@ export async function setEmergencyContact(patientId: string, guardianId: string)
   return { success: true };
 }
 
+/**
+ * Etapas do checklist de entrada (Módulo 3 MAAIS) sem trigger automático —
+ * dependem de uma confirmação manual da recepção/supervisão porque não têm
+ * uma coluna/evento próprio no banco para disparar (ex.: "grupo de WhatsApp"
+ * é uma ação fora do sistema; "contrato enviado" é um e-mail/mensagem, não um
+ * upload). As etapas com trigger (ex.: contrato_assinado ao subir o
+ * documento, anamnese_realizada ao salvar a anamnese) não usam esta função —
+ * ver supabase/migrations/20260906000001_intake_journey.sql.
+ */
+export async function completeIntakeStep(patientId: string, stepKey: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Sessão expirada — faça login de novo." };
+
+  const { error } = await supabase
+    .from("intake_steps")
+    .update({ status: "concluida", completed_at: new Date().toISOString(), completed_by: user.id })
+    .eq("patient_id", patientId)
+    .eq("step_key", stepKey)
+    .eq("status", "pendente");
+
+  if (error) return { success: false, error: "Não foi possível concluir a etapa." };
+
+  // Atalhos que também gravam a coluna correspondente em `patients`, pra que
+  // o checklist e o cabeçalho do prontuário nunca divirjam.
+  if (stepKey === "grupo_whatsapp") {
+    await supabase
+      .from("patients")
+      .update({ whatsapp_group_added_at: new Date().toISOString() })
+      .eq("id", patientId)
+      .is("whatsapp_group_added_at", null);
+  }
+  if (stepKey === "contrato_enviado") {
+    await supabase
+      .from("patients")
+      .update({ contract_sent_at: new Date().toISOString() })
+      .eq("id", patientId)
+      .is("contract_sent_at", null);
+  }
+  if (stepKey === "pagamento_confirmado") {
+    await supabase
+      .from("patients")
+      .update({ payment_confirmed_at: new Date().toISOString() })
+      .eq("id", patientId)
+      .is("payment_confirmed_at", null);
+  }
+
+  revalidatePath(`/recepcao/pacientes/${patientId}`);
+  return { success: true };
+}
+
 export async function activatePatient(patientId: string, formData: FormData): Promise<ActionResult> {
   const therapistId = String(formData.get("therapist_id") ?? "");
   const roomId = String(formData.get("room_id") ?? "");

@@ -46,8 +46,13 @@ export async function validateGoal(planId: string, goalId: string): Promise<Acti
   return { success: true };
 }
 
-/** Devolve uma meta individual: vira `suspensa` (ver mapeamento acima). */
-export async function returnGoal(planId: string, goalId: string): Promise<ActionResult> {
+/**
+ * Devolve uma meta individual: vira `suspensa` (ver mapeamento acima).
+ * `notes` grava em `plan_goals.supervisor_notes` (migration
+ * 20260906000003_pdi_completo.sql) — antes não existia coluna pra isso e a
+ * observação do supervisor era descartada silenciosamente.
+ */
+export async function returnGoal(planId: string, goalId: string, notes?: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -56,7 +61,7 @@ export async function returnGoal(planId: string, goalId: string): Promise<Action
 
   const { error } = await supabase
     .from("plan_goals")
-    .update({ status: RETURNED_GOAL_STATUS, validated_by: user.id })
+    .update({ status: RETURNED_GOAL_STATUS, validated_by: user.id, supervisor_notes: notes?.trim() || null })
     .eq("id", goalId)
     .eq("treatment_plan_id", planId);
 
@@ -67,15 +72,12 @@ export async function returnGoal(planId: string, goalId: string): Promise<Action
 }
 
 /**
- * "Devolver com notas" do mock (botão no nível do plano, não da meta): o
- * schema não tem coluna de observação/nota em `treatment_plans` nem em
- * `plan_goals` (PRD §7) — qualquer texto digitado aqui não tem onde ser
- * persistido, então a ação de fato só devolve em lote todas as metas ainda
- * `ativa` do plano (equivalente a clicar "Devolver" em cada uma). O
- * parâmetro `notes` é aceito e ignorado de propósito; ver comentário no
- * formulário (`planos-panel.tsx`) que explica isso ao usuário.
+ * "Devolver com notas" (botão no nível do plano): devolve em lote todas as
+ * metas ainda `ativa` do plano, gravando a mesma observação em
+ * `supervisor_notes` de cada uma — desde a migration 20260906000003 o schema
+ * tem onde persistir esse texto (antes era descartado, ver git history).
  */
-export async function returnAllPendingGoals(planId: string): Promise<ActionResult> {
+export async function returnAllPendingGoals(planId: string, notes?: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -84,7 +86,7 @@ export async function returnAllPendingGoals(planId: string): Promise<ActionResul
 
   const { error } = await supabase
     .from("plan_goals")
-    .update({ status: RETURNED_GOAL_STATUS, validated_by: user.id })
+    .update({ status: RETURNED_GOAL_STATUS, validated_by: user.id, supervisor_notes: notes?.trim() || null })
     .eq("treatment_plan_id", planId)
     .eq("status", "ativa");
 

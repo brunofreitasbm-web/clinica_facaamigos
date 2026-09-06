@@ -16,6 +16,7 @@ import {
 import type { ConvenioRow, InsurerOption } from "./convenios-panel";
 import type { ChargeRow } from "./charges-panel";
 import type { PatientTagRow } from "./patient-tags";
+import { TeamPanel, type TeamMemberRow, type ProfileOption } from "./team-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,7 @@ export default async function GestaoPacientePage({
     supabase.from("insurers").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
     supabase
       .from("patient_access")
-      .select("id, profile_id, profiles!profile_id(full_name, discipline, council_type)")
+      .select("id, profile_id, role_in_team, discipline, profiles!profile_id(full_name, discipline, council_type)")
       .eq("patient_id", id)
       .eq("access_type", "terapeuta")
       .is("revoked_at", null),
@@ -80,6 +81,25 @@ export default async function GestaoPacientePage({
       .eq("patient_id", id)
       .order("uploaded_at", { ascending: false }),
   ]);
+
+  const { data: candidatesRaw } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .in("role", ["terapeuta", "supervisor"])
+    .order("full_name");
+
+  const candidates: ProfileOption[] = candidatesRaw ?? [];
+
+  const teamMembers: TeamMemberRow[] = (teamRaw ?? []).map((t) => {
+    const profile = Array.isArray(t.profiles) ? t.profiles[0] : t.profiles;
+    return {
+      id: t.id,
+      profileName: profile?.full_name ?? "—",
+      roleInTeam: t.role_in_team as TeamMemberRow["roleInTeam"],
+      discipline: t.discipline,
+    };
+  });
 
   const primaryGuardian =
     (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0] ?? null;
@@ -205,6 +225,10 @@ export default async function GestaoPacientePage({
         appointments={appointments}
         documentsContent={documentsContent}
       />
+
+      <div className="px-10 pb-10">
+        <TeamPanel patientId={patient.id} members={teamMembers} candidates={candidates} />
+      </div>
     </main>
   );
 }

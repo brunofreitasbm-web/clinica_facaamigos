@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
 import { StageChecklist } from "@/components/stage-checklist";
+import { IntakeChecklist } from "@/components/intake-checklist";
+import { getIntakeSteps } from "@/lib/intake-steps";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
@@ -25,7 +27,9 @@ import {
   registerAuthorization,
   activatePatient,
   setEmergencyContact,
+  completeIntakeStep,
 } from "./stage-actions";
+import { registerFirstContact } from "../actions";
 
 // Papéis que a RLS de `documents` permite escrever (clínica inteira, ou
 // terapeuta vinculado ao paciente). Mostrar o formulário pra esses papéis é
@@ -80,6 +84,7 @@ export default async function PacientePage({
     .maybeSingle();
 
   const stage = computeStage(patient, !!evalAppointment, !!activeAuth);
+  const intakeSteps = await getIntakeSteps(supabase, id);
 
   // Header de identificação (PRD §1) — lógica compartilhada com a tela de
   // evolução do terapeuta via lib/patient-identity.ts.
@@ -497,6 +502,31 @@ export default async function PacientePage({
           </div>
         </div>
       )}
+
+      <div className="px-10 pt-8">
+        <div id="checklist-entrada" className="scroll-mt-6 card max-w-[720px]">
+          <div className="card-kicker">Módulo 3 MAAIS · Checklist operacional de entrada</div>
+          <IntakeChecklist
+            patientId={patient.id}
+            steps={intakeSteps}
+            fmtDate={fmtDate}
+            manualActions={{
+              primeiro_contato: { label: "Registrar contato", action: registerFirstContact },
+              contrato_enviado: { label: "Marcar contrato enviado", action: (pid) => completeIntakeStep(pid, "contrato_enviado") },
+              pagamento_confirmado: { label: "Confirmar pagamento", action: (pid) => completeIntakeStep(pid, "pagamento_confirmado") },
+              grupo_whatsapp: { label: "Incluído no grupo", action: (pid) => completeIntakeStep(pid, "grupo_whatsapp") },
+            }}
+            links={{
+              anamnese_realizada: { label: "Registrar anamnese", href: `/supervisao/pacientes/${patient.id}/anamnese` },
+              equipe_definida: { label: "Definir equipe", href: `/gestor/pacientes/${patient.id}#equipe` },
+              reuniao_interdisciplinar: { label: "Nova reunião", href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=interdisciplinar` },
+              pdi_construido: { label: "Montar PEI", href: `/supervisao/planos/novo?paciente=${patient.id}` },
+              pdi_validado: { label: "Fila de aprovação", href: `/supervisao` },
+              devolutiva_familia: { label: "Registrar devolutiva", href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=devolutiva` },
+            }}
+          />
+        </div>
+      </div>
 
       <div className="px-10 pt-8">
         <div id="guias" className="scroll-mt-6 card max-w-[900px]">

@@ -177,6 +177,59 @@ export async function updatePatientBasics(patientId: string, formData: FormData)
   return { success: true };
 }
 
+/**
+ * Equipe de avaliação (Módulo 3 MAAIS, slide 23): terapeuta avaliador ou
+ * supervisor de área, vinculados via `patient_access` com
+ * `access_type='terapeuta'` (mantém a RLS de prontuário/PDI/protocolos
+ * funcionando pra esse profissional) e `role_in_team` marcando o papel
+ * específico na equipe deste paciente. Um trigger de banco conclui a etapa
+ * `equipe_definida` do checklist assim que houver ao menos 1
+ * terapeuta_avaliador e 1 supervisor_area ativos.
+ */
+export async function addTeamMember(patientId: string, formData: FormData): Promise<ActionResult> {
+  const profileId = String(formData.get("profile_id") ?? "");
+  const roleInTeam = String(formData.get("role_in_team") ?? "");
+  const discipline = String(formData.get("discipline") ?? "").trim();
+
+  if (!profileId || !["terapeuta_avaliador", "supervisor_area"].includes(roleInTeam)) {
+    return { success: false, error: "Selecione o profissional e o papel na equipe." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase.from("patient_access").insert({
+    patient_id: patientId,
+    profile_id: profileId,
+    access_type: "terapeuta",
+    role_in_team: roleInTeam,
+    discipline: discipline || null,
+    granted_by: user?.id ?? null,
+  });
+
+  if (error) return { success: false, error: "Não foi possível adicionar este profissional à equipe." };
+
+  revalidatePatient(patientId);
+  revalidatePath("/supervisao");
+  return { success: true };
+}
+
+export async function revokeTeamMember(patientId: string, patientAccessId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("patient_access")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("id", patientAccessId);
+
+  if (error) return { success: false, error: "Não foi possível remover este profissional da equipe." };
+
+  revalidatePatient(patientId);
+  revalidatePath("/supervisao");
+  return { success: true };
+}
+
 export async function setPatientArchived(patientId: string, archived: boolean): Promise<ActionResult> {
   const supabase = await createClient();
 

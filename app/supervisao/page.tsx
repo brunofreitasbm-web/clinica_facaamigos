@@ -66,7 +66,9 @@ export default async function SupervisaoPage() {
     listOverdueSessionNotes(supabase),
     supabase
       .from("treatment_plans")
-      .select("id, version, patient_id, patients(full_name), plan_goals(id, description, domain, criterion, status, discipline)")
+      .select(
+        "id, version, patient_id, general_objective, family_priorities, patients(full_name), plan_goals(id, description, domain, criterion, status, discipline, horizon, strategy, methodology, supervisor_notes)",
+      )
       .eq("status", "rascunho")
       .order("version", { ascending: false }),
     supabase
@@ -181,6 +183,8 @@ export default async function SupervisaoPage() {
       id: plan.id,
       patientName: patient?.full_name ?? "—",
       version: plan.version,
+      generalObjective: plan.general_objective,
+      familyPriorities: plan.family_priorities,
       disciplines: Array.from(new Set(goals.map((g) => g.discipline))),
       goals: goals.map((g) => ({
         id: g.id,
@@ -188,6 +192,10 @@ export default async function SupervisaoPage() {
         domain: g.domain,
         criterion: g.criterion,
         status: g.status,
+        horizon: g.horizon,
+        strategy: g.strategy,
+        methodology: g.methodology,
+        supervisorNotes: g.supervisor_notes,
       })),
     };
   });

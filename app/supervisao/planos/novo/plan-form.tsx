@@ -15,6 +15,9 @@ type Goal = {
   baseline: string;
   target: string;
   criterion: string;
+  horizon: string;
+  strategy: string;
+  methodology: string;
 };
 
 function emptyGoal(): Goal {
@@ -26,13 +29,24 @@ function emptyGoal(): Goal {
     baseline: "",
     target: "",
     criterion: "",
+    horizon: "",
+    strategy: "",
+    methodology: "",
   };
 }
 
 const inputClass =
   "mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink";
 
-export function PlanForm({ patients, initialPatientId = "" }: { patients: Patient[]; initialPatientId?: string }) {
+export function PlanForm({
+  patients,
+  initialPatientId = "",
+  initialFamilyPriorities = "",
+}: {
+  patients: Patient[];
+  initialPatientId?: string;
+  initialFamilyPriorities?: string;
+}) {
   const formId = useId();
   const router = useRouter();
   // Pré-seleção via ?paciente= (atalho "Montar PEI" da aba Fluxos da supervisão);
@@ -41,6 +55,8 @@ export function PlanForm({ patients, initialPatientId = "" }: { patients: Patien
     patients.some((p) => p.id === initialPatientId) ? initialPatientId : "",
   );
   const [reviewDueAt, setReviewDueAt] = useState("");
+  const [generalObjective, setGeneralObjective] = useState("");
+  const [familyPriorities, setFamilyPriorities] = useState(initialFamilyPriorities);
   const [selectedDisciplines, setSelectedDisciplines] = useState<Record<string, string>>({});
   const [goals, setGoals] = useState<Goal[]>([emptyGoal()]);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +124,8 @@ export function PlanForm({ patients, initialPatientId = "" }: { patients: Patien
 
     const formData = new FormData();
     formData.set("review_due_at", reviewDueAt);
+    formData.set("general_objective", generalObjective);
+    formData.set("family_priorities", familyPriorities);
     formData.set("discipline_mix", JSON.stringify(disciplineMix));
     formData.set(
       "goals",
@@ -119,6 +137,9 @@ export function PlanForm({ patients, initialPatientId = "" }: { patients: Patien
           baseline: g.baseline,
           target: g.target,
           criterion: g.criterion,
+          horizon: g.horizon,
+          strategy: g.strategy,
+          methodology: g.methodology,
         })),
       ),
     );
@@ -155,6 +176,32 @@ export function PlanForm({ patients, initialPatientId = "" }: { patients: Patien
         {patients.length === 0 && (
           <p className="mt-1 text-xs text-ink-faint">Nenhum paciente ativo ou em avaliação nesta clínica.</p>
         )}
+      </div>
+
+      <div>
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-objective`}>
+          Objetivo geral do plano
+        </label>
+        <textarea
+          id={`${formId}-objective`}
+          value={generalObjective}
+          onChange={(e) => setGeneralObjective(e.target.value)}
+          rows={2}
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-priorities`}>
+          Prioridades relatadas pela família (da anamnese)
+        </label>
+        <textarea
+          id={`${formId}-priorities`}
+          value={familyPriorities}
+          onChange={(e) => setFamilyPriorities(e.target.value)}
+          rows={2}
+          className={inputClass}
+        />
       </div>
 
       <div>
@@ -282,6 +329,47 @@ export function PlanForm({ patients, initialPatientId = "" }: { patients: Patien
                   <input
                     value={goal.criterion}
                     onChange={(e) => updateGoal(goal.key, "criterion", e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Horizonte</label>
+                  <select
+                    value={goal.horizon}
+                    onChange={(e) => updateGoal(goal.key, "horizon", e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Selecione…</option>
+                    <option value="curto">Curto prazo</option>
+                    <option value="medio">Médio prazo</option>
+                    <option value="longo">Longo prazo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Metodologia</label>
+                  <select
+                    value={goal.methodology}
+                    onChange={(e) => updateGoal(goal.key, "methodology", e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Selecione…</option>
+                    <option value="dtt">DTT (ensino estruturado)</option>
+                    <option value="naturalistico">Ensino naturalístico</option>
+                    <option value="misto">Misto</option>
+                    <option value="outra">Outra</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+                    Estratégia (o que exatamente será feito)
+                  </label>
+                  <p className="mt-0.5 text-xs text-ink-faint">
+                    Se dois terapeutas lerem esta meta, eles saberão exatamente o que ensinar e registrar?
+                  </p>
+                  <textarea
+                    value={goal.strategy}
+                    onChange={(e) => updateGoal(goal.key, "strategy", e.target.value)}
+                    rows={2}
                     className={inputClass}
                   />
                 </div>
