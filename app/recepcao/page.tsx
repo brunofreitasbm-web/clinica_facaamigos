@@ -340,7 +340,9 @@ export default async function RecepcaoPage({
             <span>WhatsApp D-1</span>
             <span className="rounded-full bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 text-[11px] font-semibold">Novo</span>
           </Link>
-          <span className="py-5" style={{ color: "var(--color-on-accent-soft)", opacity: 0.6 }}>Documentos</span>
+          <Link href="/recepcao/documentos" className="py-5 no-underline hover:opacity-100" style={{ color: "var(--color-on-accent-soft)" }}>
+            Documentos
+          </Link>
         </nav>
         <div className="flex items-center gap-3.5 text-[13px] opacity-85">
           <Link

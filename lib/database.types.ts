@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -904,6 +904,7 @@ export type Database = {
           clinic_id: string
           id: string
           name: string
+          provider_code: string | null
         }
         Insert: {
           ans_code?: string | null
@@ -911,6 +912,7 @@ export type Database = {
           clinic_id: string
           id?: string
           name: string
+          provider_code?: string | null
         }
         Update: {
           ans_code?: string | null
@@ -918,6 +920,7 @@ export type Database = {
           clinic_id?: string
           id?: string
           name?: string
+          provider_code?: string | null
         }
         Relationships: [
           {
@@ -2728,6 +2731,17 @@ export type Database = {
       todo_start:
         | { Args: never; Returns: boolean[] }
         | { Args: { "": string }; Returns: boolean[] }
+      upsert_metric_snapshot: {
+        Args: {
+          p_metric_key: string
+          p_period_end: string
+          p_period_start: string
+          p_scope_id: string
+          p_scope_type: string
+          p_value: number
+        }
+        Returns: undefined
+      }
       vitrine_device_heartbeat: {
         Args: { p_now_playing_video_id?: string; p_token: string }
         Returns: boolean
