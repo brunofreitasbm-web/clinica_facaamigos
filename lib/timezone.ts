@@ -56,12 +56,17 @@ export function zonedDateTimeToUtc(
 
 /** Data civil (`YYYY-MM-DD`) de um instante qualquer, no fuso `timeZone`. */
 export function civilDateInTimeZone(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(instant);
+  if (!instant || isNaN(instant.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(instant);
+  } catch {
+    return "";
+  }
 }
 
 /** Data civil de "hoje" (`YYYY-MM-DD`) no fuso `timeZone`. */
@@ -71,6 +76,7 @@ export function todayInTimeZone(timeZone: string): string {
 
 /** `YYYY-MM-DD` do dia civil seguinte, sem passar por fuso — aritmética de calendário pura. */
 export function nextCalendarDay(dateStr: string): string {
+  if (!dateStr) return "";
   const [year, month, day] = dateStr.split("-").map(Number);
   const next = new Date(Date.UTC(year, month - 1, day + 1));
   return next.toISOString().slice(0, 10);
@@ -78,6 +84,7 @@ export function nextCalendarDay(dateStr: string): string {
 
 /** `YYYY-MM-DD` do dia civil anterior, sem passar por fuso — aritmética de calendário pura. */
 export function previousCalendarDay(dateStr: string): string {
+  if (!dateStr) return "";
   const [year, month, day] = dateStr.split("-").map(Number);
   const prev = new Date(Date.UTC(year, month - 1, day - 1));
   return prev.toISOString().slice(0, 10);
@@ -85,22 +92,36 @@ export function previousCalendarDay(dateStr: string): string {
 
 /** Hora:minuto civil (`HH:mm`) de um instante ISO, no fuso `timeZone`. */
 export function civilTimeInTimeZone(isoInstant: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(isoInstant));
+  if (!isoInstant) return "";
+  try {
+    const d = new Date(isoInstant);
+    if (isNaN(d.getTime())) return "";
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(d);
+  } catch {
+    return "";
+  }
 }
 
 /** Hora civil (0-23) de um instante ISO, no fuso `timeZone`. */
 export function hourInTimeZone(isoInstant: string, timeZone: string): number {
-  const formatted = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "2-digit",
-    hour12: false,
-  }).format(new Date(isoInstant));
-  // Intl pode retornar "24" pra meia-noite em alguns runtimes; normalizar.
-  const hour = Number(formatted);
-  return hour === 24 ? 0 : hour;
+  if (!isoInstant) return 0;
+  try {
+    const d = new Date(isoInstant);
+    if (isNaN(d.getTime())) return 0;
+    const formatted = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour: "2-digit",
+      hour12: false,
+    }).format(d);
+    // Intl pode retornar "24" pra meia-noite em alguns runtimes; normalizar.
+    const hour = Number(formatted);
+    return hour === 24 ? 0 : hour;
+  } catch {
+    return 0;
+  }
 }

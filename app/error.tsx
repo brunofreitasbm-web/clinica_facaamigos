@@ -11,6 +11,9 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error("Erro na página:", error);
+    if (error?.digest) {
+      console.error("Digest do erro de servidor:", error.digest);
+    }
   }, [error]);
 
   return (

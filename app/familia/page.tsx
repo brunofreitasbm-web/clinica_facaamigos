@@ -14,6 +14,9 @@ import { ConfirmAttendance } from "./confirm-attendance";
 import { SurveyPrompt } from "./survey-prompt";
 import { RequestReschedule } from "./request-reschedule";
 import { UploadDocument } from "./upload-document";
+import { LgpdConsentGate } from "./lgpd-consent-gate";
+import { ImageConsentToggle } from "./image-consent-toggle";
+import { FAMILY_GUIDANCE_LABEL } from "@/lib/session-note-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -31,24 +34,38 @@ const LOGO = (
 );
 
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: CLINIC_TIMEZONE,
-  });
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: CLINIC_TIMEZONE,
+    });
+  } catch {
+    return "—";
+  }
 }
 
 function fmtWhen(iso: string) {
-  const weekday = new Date(iso).toLocaleDateString("pt-BR", {
-    weekday: "short",
-    timeZone: CLINIC_TIMEZONE,
-  });
-  const dm = new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: CLINIC_TIMEZONE,
-  });
-  return `${weekday.replace(".", "")} ${dm} · ${fmtTime(iso)}`;
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "—";
+    const weekday = d.toLocaleDateString("pt-BR", {
+      weekday: "short",
+      timeZone: CLINIC_TIMEZONE,
+    });
+    const dm = d.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: CLINIC_TIMEZONE,
+    });
+    return `${weekday.replace(".", "")} ${dm} · ${fmtTime(iso)}`;
+  } catch {
+    return "—";
+  }
 }
 
 export default async function FamiliaPage({
@@ -161,10 +178,10 @@ export default async function FamiliaPage({
       .gte("starts_at", monthStartIso)
       .lt("starts_at", monthEndIso)
       .order("starts_at", { ascending: true }),
-    // Ponte responsável → guardian_id
+    // Ponte responsável → guardian_id (+ consentimento LGPD/imagem, §3.9)
     supabase
       .from("guardians")
-      .select("id")
+      .select("id, lgpd_consent_at, image_consent")
       .eq("patient_id", patientId)
       .eq("profile_id", user.id)
       .maybeSingle(),
@@ -225,6 +242,14 @@ export default async function FamiliaPage({
   // Mural (PRD §4) — mural independente das evoluções clínicas, só leitura
   // pro responsável (feed_posts_read/feed_media_read decidem o que aparece).
   const feedPosts = await getFeedPosts(supabase, patientId);
+
+  // "Orientação dada à família" (PRD §3.5/§9.7) — único dado clínico
+  // visível, exposto via RPC security definer (family_guidance_feed,
+  // 20260906000021) que devolve só os chips de orientação já traduzidos,
+  // nunca free_text/presença/comportamentos da evolução.
+  const { data: guidanceFeed } = await supabase.rpc("family_guidance_feed", {
+    p_patient_id: patientId,
+  });
 
   // Pesquisa trimestral (§9.7) — só mostra se o responsável tem guardian_id
   // (survey_responses.guardian_id é NOT NULL) e ainda não respondeu este
@@ -326,8 +351,15 @@ export default async function FamiliaPage({
   const notConfirmed = nextAppt?.status === "agendada";
   const confirmed = nextAppt?.status === "confirmada";
 
+  // PRD §3.9: termo de consentimento LGPD antes de qualquer interação, se
+  // ainda não assinado — guardianRow só existe se este usuário for de fato
+  // um responsável vinculado (a query acima já filtra por profile_id), então
+  // é seguro usar a ausência de lgpd_consent_at como gatilho do bloqueio.
+  const showLgpdGate = !!guardianRow && !guardianRow.lgpd_consent_at;
+
   return (
     <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col" style={{ background: "var(--color-bg)" }}>
+      {showLgpdGate && <LgpdConsentGate />}
       <header
         style={{
           background: "var(--color-dark)",
@@ -610,6 +642,30 @@ export default async function FamiliaPage({
           </div>
         </section>
 
+        {(guidanceFeed ?? []).length > 0 && (
+          <section>
+            <h6>Orientações da equipe</h6>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+              {(guidanceFeed ?? []).map((g) => (
+                <div key={g.appointment_id} className="card">
+                  <div style={{ fontSize: 11, color: "var(--color-neutral-600)", marginBottom: 4 }}>
+                    {new Date(g.starts_at).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {(g.orientacoes ?? [])
+                      .filter((o: string) => o !== "nenhuma")
+                      .map((o: string) => (
+                        <span key={o} className="tag-status st-agendada text-xs">
+                          {FAMILY_GUIDANCE_LABEL[o] ?? o}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section>
           <h6>Mural</h6>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 10 }}>
@@ -774,6 +830,13 @@ export default async function FamiliaPage({
             )}
           </div>
         </section>
+
+        {guardianRow && (
+          <section>
+            <h6>Privacidade</h6>
+            <ImageConsentToggle initialConsent={guardianRow.image_consent} />
+          </section>
+        )}
       </div>
 
       <nav

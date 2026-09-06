@@ -32,6 +32,10 @@ export const FAMILY_GUIDANCE_OPTIONS = [
   { value: "nenhuma", label: "Nenhuma" },
 ] as const;
 
+export const FAMILY_GUIDANCE_LABEL: Record<string, string> = Object.fromEntries(
+  FAMILY_GUIDANCE_OPTIONS.map((g) => [g.value, g.label]),
+);
+
 /** Formato gravado em session_notes.structured (jsonb). */
 export type SessionNoteStructured = {
   presenca_engajamento: number;
