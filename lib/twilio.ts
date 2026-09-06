@@ -280,6 +280,120 @@ export async function getAcceptedInsurersFormatted(clinicId = "c0000000-0000-000
   }
 }
 
+export interface FindOrCreateConversationParams {
+  phoneNumber: string;
+  patientId: string;
+  guardianId?: string;
+}
+
+/**
+ * Busca (ou cria) a conversa (`twilio_conversations`) associada a um número de
+ * telefone. Usada tanto pelo webhook de entrada quanto pela Central de
+ * Atendimento (`/gestor/atendimento`) para agrupar as mensagens em threads.
+ */
+export async function findOrCreateConversation(params: FindOrCreateConversationParams) {
+  const { phoneNumber, patientId, guardianId } = params;
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  const { data: existingRows } = await supabase
+    .from("twilio_conversations")
+    .select("*")
+    .eq("phone_number", phoneNumber)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const existing = existingRows?.[0];
+  if (existing) return existing;
+
+  const { data: created, error } = await supabase
+    .from("twilio_conversations")
+    .insert({
+      phone_number: phoneNumber,
+      patient_id: patientId,
+      guardian_id: guardianId ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error || !created) {
+    throw new Error(`Falha ao criar conversa Twilio: ${error?.message ?? "erro desconhecido"}`);
+  }
+
+  return created;
+}
+
+/**
+ * Resolve o paciente (e responsável, quando possível) a partir de um número
+ * de telefone — mesma lógica de resolução já usada pela máquina de estados de
+ * anamnese (busca em `guardians.phone`).
+ */
+async function resolvePatientFromPhone(phone: string): Promise<{ patientId: string; guardianId?: string } | null> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  const { data: guardians } = await supabase
+    .from("guardians")
+    .select("id, patient_id")
+    .eq("phone", phone)
+    .limit(1);
+
+  const guardian = guardians?.[0];
+  if (!guardian) return null;
+
+  return { patientId: guardian.patient_id, guardianId: guardian.id };
+}
+
+/**
+ * Verifica se a mensagem recebida é uma resposta numérica (1-5) a uma
+ * pesquisa NPS disparada nas últimas 48h e, se for, registra a resposta.
+ */
+async function tryHandleNpsResponse(
+  phone: string,
+  body: string,
+): Promise<{ replyMessage: string; intent: string } | null> {
+  const trimmed = (body || "").trim();
+  const match = trimmed.match(/^([1-5])\s*([\s\S]*)$/);
+  if (!match) return null;
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  const cutoffISO = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+  const { data: survey } = await supabase
+    .from("nps_surveys")
+    .select("id, score, alert_status")
+    .eq("phone_number", phone)
+    .is("responded_at", null)
+    .gt("dispatched_at", cutoffISO)
+    .order("dispatched_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!survey) return null;
+
+  const score = Number(match[1]);
+  const feedbackText = match[2]?.trim() || null;
+
+  await supabase
+    .from("nps_surveys")
+    .update({
+      score,
+      responded_at: new Date().toISOString(),
+      feedback_text: feedbackText,
+      ...(score <= 3 ? { alert_status: "pending_contact" } : {}),
+    })
+    .eq("id", survey.id);
+
+  const replyMessage =
+    score <= 3
+      ? "Muito obrigado pelo seu feedback! 🙏\n\nSentimos muito que a experiência não tenha sido a melhor — nossa equipe vai entrar em contato com você em breve para entender melhor e te ajudar."
+      : "Muito obrigado pelo seu feedback! 🙏\n\nFicamos muito felizes em saber disso!";
+
+  return { replyMessage, intent: "nps_response" };
+}
+
 /**
  * Processa a mensagem recebida e retorna a resposta gerada pelo Chatbot.
  */
@@ -290,6 +404,54 @@ export async function handleTwilioIncomingMessage(params: {
   mediaContentType0?: string;
 }): Promise<{ replyMessage: string; intent: string }> {
   const { from, body, mediaUrl0, mediaContentType0 } = params;
+  const phone = formatE164Phone(from.replace("whatsapp:", ""));
+
+  // 0. Central Multicanal: resolve/cria a conversa, verifica resposta de NPS
+  // pendente e, se um humano já assumiu a conversa, não deixa o bot responder.
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+
+    const npsResult = await tryHandleNpsResponse(phone, body);
+    if (npsResult) {
+      return npsResult;
+    }
+
+    const resolved = await resolvePatientFromPhone(phone);
+    if (resolved) {
+      const conversation = await findOrCreateConversation({
+        phoneNumber: phone,
+        patientId: resolved.patientId,
+        guardianId: resolved.guardianId,
+      });
+
+      await supabase
+        .from("twilio_conversations")
+        .update({
+          last_message_at: new Date().toISOString(),
+          unread_count: (conversation.unread_count ?? 0) + 1,
+        })
+        .eq("id", conversation.id);
+
+      await supabase.from("messages").insert({
+        patient_id: resolved.patientId,
+        guardian_id: resolved.guardianId ?? null,
+        conversation_id: conversation.id,
+        sender_type: "user",
+        channel: "whatsapp",
+        direction: "inbound",
+        body,
+        media_url: mediaUrl0 || null,
+        sent_at: new Date().toISOString(),
+      });
+
+      if (!conversation.is_bot_active) {
+        return { replyMessage: "", intent: "human_handled" };
+      }
+    }
+  } catch (err) {
+    console.error("[Twilio Central Multicanal Error]:", err);
+  }
 
   // 1. Tentar processar via Máquina de Estados do Agendamento de Anamnese (WhatsApp)
   try {

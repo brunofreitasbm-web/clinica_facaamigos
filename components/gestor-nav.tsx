@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MessageCircle, Smile } from "lucide-react";
 
 /**
  * Cabeçalho navy do módulo Gestão — layout Broadsheet/Instituto Faça Amigos.
@@ -15,6 +16,8 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   { key: "painel", label: "Painel", href: "/gestor/dashboard" },
   { key: "inteligencia", label: "Inteligência BI", href: "/gestor/inteligencia" },
+  { key: "atendimento", label: "Central de Atendimento", href: "/gestor/atendimento", icon: MessageCircle },
+  { key: "nps", label: "NPS", href: "/gestor/nps", icon: Smile },
   { key: "whatsapp-bot", label: "WhatsApp Bot", href: "/whatsapp-bot" },
   { key: "equipe", label: "Equipe", href: "/gestor/equipe" },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
@@ -25,7 +28,13 @@ const NAV_ITEMS = [
 
 export type GestorNavKey = (typeof NAV_ITEMS)[number]["key"];
 
-export function GestorNav({ active = null }: { active?: GestorNavKey | null }) {
+export function GestorNav({
+  active = null,
+  pendingNpsAlerts = 0,
+}: {
+  active?: GestorNavKey | null;
+  pendingNpsAlerts?: number;
+}) {
   const pathname = usePathname();
 
   return (
@@ -52,19 +61,29 @@ export function GestorNav({ active = null }: { active?: GestorNavKey | null }) {
       <nav className="flex items-center gap-8">
         {NAV_ITEMS.map((item) => {
           const isCurrent = active ? active === item.key : pathname?.startsWith(item.href);
+          const Icon = "icon" in item ? item.icon : null;
           return (
             <Link
               key={item.key}
               href={item.href}
               prefetch={true}
               aria-current={isCurrent ? "page" : undefined}
-              className="pb-1 text-[13px] no-underline font-semibold transition-all duration-150 active:scale-95 hover:opacity-100"
+              className="relative flex items-center gap-1.5 pb-1 text-[13px] no-underline font-semibold transition-all duration-150 active:scale-95 hover:opacity-100"
               style={{
                 color: isCurrent ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
                 borderBottom: isCurrent ? "2px solid var(--color-on-accent)" : "2px solid transparent",
               }}
             >
+              {Icon && <Icon size={14} />}
               {item.label}
+              {item.key === "nps" && pendingNpsAlerts > 0 && (
+                <span
+                  className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                  style={{ background: "var(--color-status-negative, #d92d20)", color: "#fff" }}
+                >
+                  {pendingNpsAlerts}
+                </span>
+              )}
             </Link>
           );
         })}

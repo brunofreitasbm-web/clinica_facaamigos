@@ -1387,43 +1387,65 @@ export type Database = {
         Row: {
           body: string | null
           channel: string
+          conversation_id: string | null
           delivered_at: string | null
+          delivery_status: string | null
           direction: string
           guardian_id: string | null
           id: string
+          media_url: string | null
           patient_id: string
           read_at: string | null
           related_appointment_id: string | null
+          sender_type: string
           sent_at: string | null
           template_key: string | null
+          twilio_sid: string | null
         }
         Insert: {
           body?: string | null
           channel: string
+          conversation_id?: string | null
           delivered_at?: string | null
+          delivery_status?: string | null
           direction: string
           guardian_id?: string | null
           id?: string
+          media_url?: string | null
           patient_id: string
           read_at?: string | null
           related_appointment_id?: string | null
+          sender_type?: string
           sent_at?: string | null
           template_key?: string | null
+          twilio_sid?: string | null
         }
         Update: {
           body?: string | null
           channel?: string
+          conversation_id?: string | null
           delivered_at?: string | null
+          delivery_status?: string | null
           direction?: string
           guardian_id?: string | null
           id?: string
+          media_url?: string | null
           patient_id?: string
           read_at?: string | null
           related_appointment_id?: string | null
+          sender_type?: string
           sent_at?: string | null
           template_key?: string | null
+          twilio_sid?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "twilio_conversations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_guardian_id_fkey"
             columns: ["guardian_id"]
@@ -2895,6 +2917,304 @@ export type Database = {
           width?: number | null
         }
         Relationships: []
+      }
+      voice_emergency_broadcasts: {
+        Row: {
+          created_at: string
+          id: string
+          message_template: string
+          occurrence_date: string
+          shift: string | null
+          supervisor_id: string
+          therapist_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_template: string
+          occurrence_date: string
+          shift?: string | null
+          supervisor_id: string
+          therapist_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_template?: string
+          occurrence_date?: string
+          shift?: string | null
+          supervisor_id?: string
+          therapist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_emergency_broadcasts_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_emergency_broadcasts_therapist_id_fkey"
+            columns: ["therapist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_emergency_logs: {
+        Row: {
+          attempt_number: number
+          broadcast_id: string
+          call_sid: string | null
+          call_status: string
+          created_at: string
+          fallback_sent: boolean
+          guardian_id: string | null
+          id: string
+          patient_id: string
+          phone_number: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_number?: number
+          broadcast_id: string
+          call_sid?: string | null
+          call_status?: string
+          created_at?: string
+          fallback_sent?: boolean
+          guardian_id?: string | null
+          id?: string
+          patient_id: string
+          phone_number: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          broadcast_id?: string
+          call_sid?: string | null
+          call_status?: string
+          created_at?: string
+          fallback_sent?: boolean
+          guardian_id?: string | null
+          id?: string
+          patient_id?: string
+          phone_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_emergency_logs_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "voice_emergency_broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_emergency_logs_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_emergency_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      twilio_conversations: {
+        Row: {
+          id: string
+          patient_id: string
+          guardian_id: string | null
+          phone_number: string
+          conversation_sid: string | null
+          is_bot_active: boolean
+          status: string
+          assigned_to: string | null
+          unread_count: number
+          last_message_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          patient_id: string
+          guardian_id?: string | null
+          phone_number: string
+          conversation_sid?: string | null
+          is_bot_active?: boolean
+          status?: string
+          assigned_to?: string | null
+          unread_count?: number
+          last_message_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          patient_id?: string
+          guardian_id?: string | null
+          phone_number?: string
+          conversation_sid?: string | null
+          is_bot_active?: boolean
+          status?: string
+          assigned_to?: string | null
+          unread_count?: number
+          last_message_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "twilio_conversations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "twilio_conversations_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "twilio_conversations_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quick_responses: {
+        Row: {
+          id: string
+          clinic_id: string
+          shortcut: string
+          title: string
+          content_text: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          shortcut: string
+          title: string
+          content_text: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          shortcut?: string
+          title?: string
+          content_text?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_responses_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quick_responses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nps_surveys: {
+        Row: {
+          id: string
+          appointment_id: string | null
+          meeting_id: string | null
+          patient_id: string
+          guardian_id: string
+          phone_number: string
+          dispatched_at: string
+          responded_at: string | null
+          score: number | null
+          feedback_text: string | null
+          alert_status: string
+          alert_updated_by: string | null
+          alert_updated_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          appointment_id?: string | null
+          meeting_id?: string | null
+          patient_id: string
+          guardian_id: string
+          phone_number: string
+          dispatched_at?: string
+          responded_at?: string | null
+          score?: number | null
+          feedback_text?: string | null
+          alert_status?: string
+          alert_updated_by?: string | null
+          alert_updated_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          appointment_id?: string | null
+          meeting_id?: string | null
+          patient_id?: string
+          guardian_id?: string
+          phone_number?: string
+          dispatched_at?: string
+          responded_at?: string | null
+          score?: number | null
+          feedback_text?: string | null
+          alert_status?: string
+          alert_updated_by?: string | null
+          alert_updated_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nps_surveys_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_surveys_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_surveys_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_surveys_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspaces: {
         Row: {

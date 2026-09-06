@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { PhoneCall } from "lucide-react";
 
 const TABS = [
   { key: "grade", label: "Grade" },
@@ -90,6 +92,14 @@ export function SupervisaoShell({
               {badge[t.key]}
             </button>
           ))}
+          <Link
+            href="/supervisao/emergencias"
+            className="flex h-full items-center gap-1.5 border-b-2 border-transparent"
+            style={{ color: "var(--color-on-accent-soft)" }}
+          >
+            <PhoneCall size={15} />
+            Emergências
+          </Link>
         </nav>
       </header>
 
