@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
+import { listOverduePlans } from "@/lib/pdi-pending";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { ABSENCE_REASON_LABEL } from "@/lib/absence-reasons";
 import {
@@ -12,7 +13,7 @@ import {
   timeLabel,
   GRID_EXCLUDED_STATUSES,
 } from "./grade-data";
-import { GradePanel, type GradeAppointment, type PendingNote } from "./grade-panel";
+import { GradePanel, type GradeAppointment, type PendingNote, type PendingPlan } from "./grade-panel";
 import { PlanosPanel, type PlanRow } from "./planos-panel";
 import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingReportRow, type AbsenceReportRow } from "./inbox-panel";
 import type { NpsAlertRow } from "./nps-alerts-panel";
@@ -40,6 +41,7 @@ export default async function SupervisaoPage() {
     { data: rooms },
     { data: rawAppointments },
     pendingNotes,
+    pendingPlans,
     { data: rawPlans },
     { data: rawMessages },
     { data: rawReassessments },
@@ -67,6 +69,7 @@ export default async function SupervisaoPage() {
       .lt("starts_at", weekEndIso)
       .order("starts_at", { ascending: true }),
     listOverdueSessionNotes(supabase),
+    listOverduePlans(supabase),
     supabase
       .from("treatment_plans")
       .select(
@@ -152,6 +155,12 @@ export default async function SupervisaoPage() {
     therapistName: p.therapistName,
     patientName: p.patientName,
     hoursOverdue: p.hoursOverdue,
+  }));
+
+  const pendingPlanRows: PendingPlan[] = pendingPlans.map((p) => ({
+    patientId: p.patientId,
+    patientName: p.patientName,
+    daysOverdue: p.daysOverdue,
   }));
 
   // "Evolução em 24h": das sessões `realizada` desta semana, quantas já têm
@@ -314,6 +323,7 @@ export default async function SupervisaoPage() {
     sessionsInGrid: carteira.sessionsInGrid,
     provisionalNoGuide: carteira.provisionalNoGuide,
     pendingNotes: pendingNoteRows.length,
+    pendingPlans: pendingPlanRows.length,
     plansToApprove: plans.length,
     reassessmentsDue: reassessmentRows.length,
     openFamilyMessages,
@@ -342,6 +352,7 @@ export default async function SupervisaoPage() {
           rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
           appointments={gradeAppointments}
           pendingNotes={pendingNoteRows}
+          pendingPlans={pendingPlanRows}
           carteira={carteira}
         />
       }

@@ -46,6 +46,11 @@ export const METRIC_CATALOG: Partial<Record<Role, MetricDef[]>> = {
     { key: "intake_60d_rate", label: "Avaliações iniciais concluídas em até 60 dias", direction: "min", unit: "pct", computed: true },
     { key: "protocol_coverage_rate", label: "Uso de protocolos validados (pacientes ativos)", direction: "min", unit: "pct", computed: true },
     { key: "plan_reviewed_rate", label: "PDIs com revisão da supervisão registrada", direction: "min", unit: "pct", computed: true },
+    // Boaspraticas.md §2.3 "Prazos críticos": PDI interno em até 50 dias da
+    // anamnese. Ver countOverduePlans/listOverduePlans em lib/pdi-pending.ts
+    // e close_monthly_metric_snapshots em
+    // supabase/migrations/20260906000008_pdi_50d_deadline.sql.
+    { key: "pdi_50d_rate", label: "PDIs aprovados em até 50 dias (§2.3)", direction: "min", unit: "pct", computed: true },
   ],
   terapeuta: [
     { key: "note_24h_rate", label: "Evolução em até 24h", direction: "min", unit: "pct", computed: true },

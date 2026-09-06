@@ -51,6 +51,7 @@ export type FlowCounters = {
   sessionsInGrid: number;
   provisionalNoGuide: number;
   pendingNotes: number;
+  pendingPlans: number;
   plansToApprove: number;
   reassessmentsDue: number;
   openFamilyMessages: number;
@@ -239,6 +240,7 @@ const FLOWS: Flow[] = [
       "PTS/PEI construído com a família: metas SMART por disciplina e domínio, aprovação da coordenação, revisão datada e devolutiva.",
     badges: (c) => [
       { label: `${c.plansToApprove} planos na fila`, tone: c.plansToApprove ? "pending" : "positive" },
+      { label: `${c.pendingPlans} PDIs atrasados (§2.3)`, tone: c.pendingPlans ? "negative" : "positive" },
       { label: `${c.pendingReports} relatórios para validar`, tone: c.pendingReports ? "pending" : "positive" },
     ],
     tools: [
