@@ -64,7 +64,11 @@ export default async function PacientePage({
     .eq("id", id)
     .maybeSingle();
 
-  if (!patient || patientError) notFound();
+  if (patientError) {
+    console.error(`[PacientePage] Erro ao buscar paciente ${id}:`, patientError);
+  }
+
+  if (!patient) notFound();
 
   await logRecordAccess(supabase, id, "prontuario");
 

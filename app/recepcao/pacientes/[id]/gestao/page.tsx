@@ -19,8 +19,12 @@ import { TeamPanel, type TeamMemberRow, type ProfileOption } from "./team-panel"
 
 export const dynamic = "force-dynamic";
 
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE });
+const fmtDate = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE });
+};
 
 export default async function GestaoPacientePage({
   params,
