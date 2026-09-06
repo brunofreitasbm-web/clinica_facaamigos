@@ -13,6 +13,15 @@ export const DOCUMENT_CATEGORIES = [
   { value: "reavaliacao", label: "Reavaliação" },
   { value: "autorizacao", label: "Autorização" },
   { value: "outro", label: "Outro" },
+  // Módulo 3 MAAIS, slide 4 (fluxo Acolhimento) e slide 19 (kit de
+  // boas-vindas) — supabase/migrations/20260906000006_intake_documents.sql.
+  { value: "contrato", label: "Contrato" },
+  { value: "termo_lgpd", label: "Termo LGPD" },
+  { value: "termo_imagem", label: "Termo de uso de imagem" },
+  { value: "documento_responsavel", label: "Documento do responsável" },
+  { value: "kit_boas_vindas", label: "Kit de boas-vindas" },
+  { value: "carta_terapeuta", label: "Carta ao terapeuta" },
+  { value: "manual_clinica", label: "Manual da clínica" },
 ] as const;
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]["value"];

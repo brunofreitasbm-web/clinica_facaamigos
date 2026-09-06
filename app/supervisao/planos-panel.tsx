@@ -182,8 +182,8 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                   type="button"
                   className="btn btn-secondary"
                   disabled={isPending}
-                  onClick={() => runPlanAction(() => returnAllPendingGoals(selected.id))}
-                  title="Devolve em lote todas as metas ainda pendentes deste plano."
+                  onClick={() => runPlanAction(() => returnAllPendingGoals(selected.id, bulkNotes))}
+                  title="Devolve em lote todas as metas ainda pendentes deste plano, com a observação abaixo."
                 >
                   Devolver com notas
                 </button>
@@ -197,15 +197,30 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                 </button>
               </div>
             </div>
-            <p className="mb-6 max-w-[720px] text-[13px] text-ink-soft">
+            <p className="mb-2 max-w-[720px] text-[13px] text-ink-soft">
               Valide cada meta individualmente. Metas validadas viram <code className="text-xs">plan_goals</code>{" "}
               ativas e aparecem traduzidas no portal da família. O plano só pode ser aprovado com todas as metas
-              validadas ou devolvidas.{" "}
-              <span className="italic">
-                (&quot;Devolver com notas&quot; não tem onde guardar texto no schema atual — devolve todas as metas
-                pendentes de uma vez, sem observação persistida.)
-              </span>
+              validadas ou devolvidas.
             </p>
+            {selected.generalObjective && (
+              <p className="mb-1 max-w-[720px] text-[13px] text-ink">
+                <span className="font-semibold">Objetivo geral: </span>
+                {selected.generalObjective}
+              </p>
+            )}
+            {selected.familyPriorities && (
+              <p className="mb-4 max-w-[720px] text-[13px] text-ink">
+                <span className="font-semibold">Prioridades da família: </span>
+                {selected.familyPriorities}
+              </p>
+            )}
+            <textarea
+              value={bulkNotes}
+              onChange={(e) => setBulkNotes(e.target.value)}
+              placeholder="Observação para devolver metas em lote (opcional)"
+              rows={2}
+              className="mb-4 w-full max-w-[720px] rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
+            />
             {error && (
               <p className="mb-4 text-xs" style={{ color: "var(--status-falta)" }}>
                 {error}
@@ -227,7 +242,13 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                     <div className="mt-1 text-[13px] text-ink-soft">
                       {goal.domain}
                       {goal.criterion ? ` · critério: ${goal.criterion}` : ""}
+                      {goal.horizon ? ` · ${HORIZON_LABEL[goal.horizon] ?? goal.horizon}` : ""}
+                      {goal.methodology ? ` · ${METHODOLOGY_LABEL[goal.methodology] ?? goal.methodology}` : ""}
                     </div>
+                    {goal.strategy && <div className="mt-1 text-[13px] text-ink-soft">Estratégia: {goal.strategy}</div>}
+                    {goal.supervisorNotes && (
+                      <div className="mt-1 text-[13px] text-status-negative-text">Observação: {goal.supervisorNotes}</div>
+                    )}
                     <div className="mt-1.5 text-[13px] italic" style={{ color: "var(--color-accent-2-600)" }}>
                       Família vê: &ldquo;{goal.description}&rdquo;
                     </div>
@@ -237,7 +258,10 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                           type="button"
                           className="btn btn-secondary"
                           disabled={isPending}
-                          onClick={() => runGoalAction(goal.id, () => returnGoal(selected.id, goal.id))}
+                          onClick={() => {
+                            const notes = window.prompt("Observação para o terapeuta (opcional):") ?? undefined;
+                            runGoalAction(goal.id, () => returnGoal(selected.id, goal.id, notes));
+                          }}
                         >
                           {busy ? "…" : "Devolver"}
                         </button>

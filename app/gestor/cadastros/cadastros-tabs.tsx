@@ -177,13 +177,19 @@ export function CadastrosTabs({
         {tab === "terapias" && (
           <>
             <p className="mb-4 max-w-[720px] text-[13px] text-ink-soft">
-              Protocolos licenciados (VB-MAPP, ABLLS-R, Denver/ESDM) — cadastro é decisão jurídica do gestor (PRD
-              §9.4-A), sem fluxo de criação nesta tela.
+              Protocolos licenciados (Módulo 3 MAAIS, slide 25) — cadastrar é uma decisão jurídica do gestor (PRD
+              §9.4-A): quem cadastra assume o risco de digitização.
             </p>
+            <div className="mb-3 flex justify-end">
+              <Link href="/gestor/protocolos/nova" className="btn btn-primary text-sm no-underline">
+                + Novo protocolo
+              </Link>
+            </div>
             <table className="table">
               <thead>
                 <tr>
                   <th>Protocolo</th>
+                  <th>Área</th>
                   <th>Versão</th>
                   <th>Licença comprada em</th>
                   <th>Risco de digitização aceito por</th>
@@ -195,6 +201,7 @@ export function CadastrosTabs({
                 {protocols.map((p) => (
                   <tr key={p.id}>
                     <td className="font-semibold">{p.name}</td>
+                    <td>{p.area ?? "—"}</td>
                     <td>{p.version ?? "—"}</td>
                     <td>{p.licensePurchasedAtLabel}</td>
                     <td>{p.riskAcceptedLabel}</td>
@@ -210,7 +217,7 @@ export function CadastrosTabs({
                 ))}
                 {protocols.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-ink-faint">
+                    <td colSpan={7} className="text-ink-faint">
                       Nenhum protocolo licenciado cadastrado ainda.
                     </td>
                   </tr>

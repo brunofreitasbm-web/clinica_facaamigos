@@ -38,8 +38,14 @@ export const METRIC_CATALOG: Partial<Record<Role, MetricDef[]>> = {
     { key: "queue_days", label: "Dias até 1ª sessão", direction: "max", unit: "dias", computed: true },
     { key: "churn_rate", label: "Evasão", direction: "max", unit: "pct", computed: true },
     { key: "clinic_cancel_rate", label: "Cancelamento pela clínica/terapeuta", direction: "max", unit: "pct", computed: true },
-    { key: "review_on_time", label: "Reavaliações em dia", direction: "min", unit: "pct", computed: false },
+    { key: "review_on_time", label: "Reavaliações em dia", direction: "min", unit: "pct", computed: true },
     { key: "auth_first_pass", label: "Autorização aprovada de primeira", direction: "min", unit: "pct", computed: false },
+    // Módulo 3 MAAIS, slide 39 "Indicadores de qualidade a serem monitorados
+    // pelo RT" — ver close_monthly_metric_snapshots em
+    // supabase/migrations/20260906000007_rt_quality_metrics.sql.
+    { key: "intake_60d_rate", label: "Avaliações iniciais concluídas em até 60 dias", direction: "min", unit: "pct", computed: true },
+    { key: "protocol_coverage_rate", label: "Uso de protocolos validados (pacientes ativos)", direction: "min", unit: "pct", computed: true },
+    { key: "plan_reviewed_rate", label: "PDIs com revisão da supervisão registrada", direction: "min", unit: "pct", computed: true },
   ],
   terapeuta: [
     { key: "note_24h_rate", label: "Evolução em até 24h", direction: "min", unit: "pct", computed: true },
