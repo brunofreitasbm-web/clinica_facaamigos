@@ -27,6 +27,27 @@ function cleanCPF(raw: string): string {
 }
 
 /**
+ * Converte data no formato DD/MM/AAAA (como as famílias digitam no WhatsApp)
+ * para AAAA-MM-DD (formato aceito pela coluna `date` do Postgres). Retorna
+ * null se o texto não for uma data válida.
+ */
+function parseBrazilianDate(raw: string): string | null {
+  const match = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isValid =
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  if (!isValid || date > new Date()) return null;
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
  * Faz download do arquivo PDF do Twilio e insere no Supabase Storage (bucket `patient-documents`)
  */
 async function uploadTwilioMediaToStorage(mediaUrl: string, filename: string): Promise<string | null> {
@@ -211,6 +232,32 @@ export async function processAnamnesisChatbotStep(
     await supabase
       .from("chatbot_sessions")
       .update({
+        current_step: "awaiting_child_birth_date",
+        collected_data: data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("phone_number", phone);
+
+    return {
+      handled: true,
+      replyMessage: `Anotado! Agora me informe a *Data de Nascimento* de ${data.child_name} (formato DD/MM/AAAA):`,
+    };
+  }
+
+  // 5b. Etapa: Aguardando Data de Nascimento da Criança
+  if (currentStep === "awaiting_child_birth_date") {
+    const isoDate = parseBrazilianDate(rawBody);
+    if (!isoDate) {
+      return {
+        handled: true,
+        replyMessage: "Data inválida. Por favor, informe a data de nascimento no formato DD/MM/AAAA (ex: 15/03/2018):",
+      };
+    }
+
+    data.child_birth_date = isoDate;
+    await supabase
+      .from("chatbot_sessions")
+      .update({
         current_step: "awaiting_has_laudo",
         collected_data: data,
         updated_at: new Date().toISOString(),
@@ -220,7 +267,7 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        `Anotado! Atendimento para a criança *${data.child_name}*.\n\n` +
+        `Perfeito! Atendimento para a criança *${data.child_name}*.\n\n` +
         "Ela já possui *Laudo Médico* expedido pelo neuropediatra/psiquiatra?\n\n" +
         "Responda *SIM* ou *NÃO*.",
     };
@@ -368,6 +415,7 @@ export async function processAnamnesisChatbotStep(
         guardian_phone: phone,
         guardian_cpf: data.guardian_cpf,
         child_name: data.child_name,
+        child_birth_date: data.child_birth_date,
         laudo_pdf_url: data.laudo_pdf_url,
         guia_pdf_url: data.guia_pdf_url,
         status: "pendente_supervisor",

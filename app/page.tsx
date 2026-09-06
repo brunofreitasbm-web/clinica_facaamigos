@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_HOME, type Role } from "@/lib/roles";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { isNextError } from "@/lib/next-utils";
 
 export default async function Home() {
   try {
@@ -21,7 +21,7 @@ export default async function Home() {
     const role = profile?.role as Role | undefined;
     redirect(role ? ROLE_HOME[role] : "/login");
   } catch (error) {
-    if (isRedirectError(error)) throw error;
+    if (isNextError(error)) throw error;
     console.error("Erro na página inicial:", error);
     redirect("/login");
   }

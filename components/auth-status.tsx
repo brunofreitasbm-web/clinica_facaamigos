@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { signOut } from "@/app/login/actions";
+import { isNextError } from "@/lib/next-utils";
 
 const MODULE_LINKS = [
   { label: "🏢 Gestor", href: "/gestor", role: "gestor" },
@@ -65,6 +66,7 @@ export async function AuthStatus() {
       </div>
     );
   } catch (error) {
+    if (isNextError(error)) throw error;
     console.error("Erro ao carregar AuthStatus no servidor:", error);
     return null;
   }
