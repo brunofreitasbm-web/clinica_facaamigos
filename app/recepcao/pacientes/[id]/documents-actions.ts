@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
+import { DOCUMENT_CATEGORIES, sanitizeFileName } from "@/lib/document-categories";
 
 type ActionResult = { success: true } | { success: false; error: string };
 type UrlResult = { success: true; url: string } | { success: false; error: string };
@@ -14,12 +14,6 @@ type UrlResult = { success: true; url: string } | { success: false; error: strin
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 // Teto do PRD §11 — nunca aumentar.
 const SIGNED_URL_TTL_SECONDS = 900;
-
-function sanitizeFileName(name: string): string {
-  const trimmed = name.trim().slice(-120);
-  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return cleaned || "arquivo";
-}
 
 /**
  * Remove a linha de `documents` criada nesta mesma requisição quando o

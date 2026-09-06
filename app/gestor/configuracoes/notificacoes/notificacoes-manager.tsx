@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { ConfigSidebar } from "../config-sidebar";
-import { TwilioChatbotTestPanel } from "@/components/twilio-chatbot-test-panel";
 
 
 interface TemplateMessage {
@@ -101,9 +100,6 @@ export function NotificacoesManager() {
               Regras e templates de notificação salvos com sucesso!
             </div>
           )}
-
-          {/* Painel do Chatbot Twilio para Convênios */}
-          <TwilioChatbotTestPanel />
 
           {/* Janela de Envio */}
           <div className="flex flex-col gap-4 rounded-xl border border-paper-line bg-paper-panel p-6 shadow-sm">

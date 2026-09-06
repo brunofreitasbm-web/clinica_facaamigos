@@ -15,9 +15,10 @@ import {
 import { GradePanel, type GradeAppointment, type PendingNote } from "./grade-panel";
 import { PlanosPanel, type PlanRow } from "./planos-panel";
 import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingReportRow, type AbsenceReportRow } from "./inbox-panel";
+import { WhatsappRequestsPanel, type WhatsappRequestRow } from "./whatsapp-requests-panel";
 import { SupervisaoShell } from "./supervisao-shell";
 import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
-import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-panel";
+import { maskCpf } from "@/lib/whatsapp/validators";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export default async function SupervisaoPage() {
     { data: rawMessages },
     { data: rawReassessments },
     { data: rawDraftReports },
+    { data: rawWhatsappRequests },
     onboardingPatients,
     { data: rawActivePatients },
     { data: rawAbsenceReports },
@@ -89,6 +91,14 @@ export default async function SupervisaoPage() {
         "id, patient_id, final_text, ai_draft, status, patients(full_name), generated_by_profile:profiles!draft_reports_generated_by_fkey(full_name)",
       )
       .in("status", ["gerado", "em_revisao"])
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("evaluation_requests")
+      .select(
+        "id, created_at, llm_check, laudo_document_id, guia_document_id, patients(full_name, cpf), guardians(full_name), patient_id",
+      )
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .eq("status", "pendente")
       .order("created_at", { ascending: true }),
     // Aba Fluxos: todo paciente ainda em onboarding (threshold 0 = sem filtro
     // de dias), com o estágio já calculado pela mesma regra da recepção.
@@ -231,6 +241,37 @@ export default async function SupervisaoPage() {
     };
   });
 
+  // ── Solicitações de avaliação via WhatsApp aguardando aprovação ────────
+  const whatsappPatientIds = (rawWhatsappRequests ?? []).map((r) => r.patient_id);
+  const { data: rawPatientInsurances } =
+    whatsappPatientIds.length > 0
+      ? await supabase
+          .from("patient_insurance")
+          .select("patient_id, card_number, is_private, insurers(name)")
+          .in("patient_id", whatsappPatientIds)
+      : { data: [] };
+  const insuranceByPatient = new Map((rawPatientInsurances ?? []).map((pi) => [pi.patient_id, pi]));
+
+  const whatsappRequests: WhatsappRequestRow[] = (rawWhatsappRequests ?? []).map((r) => {
+    const patient = Array.isArray(r.patients) ? r.patients[0] : r.patients;
+    const guardian = Array.isArray(r.guardians) ? r.guardians[0] : r.guardians;
+    const insurance = insuranceByPatient.get(r.patient_id);
+    const insurer = insurance ? (Array.isArray(insurance.insurers) ? insurance.insurers[0] : insurance.insurers) : null;
+    const llmCheck = (r.llm_check ?? null) as WhatsappRequestRow["llmCheck"];
+    return {
+      id: r.id,
+      childName: patient?.full_name ?? "—",
+      guardianName: guardian?.full_name ?? "—",
+      cpfMasked: maskCpf(patient?.cpf ?? null),
+      insurerName: insurance?.is_private ? "Particular" : insurer?.name ?? "—",
+      cardNumber: insurance?.card_number ?? null,
+      laudoDocumentId: r.laudo_document_id,
+      guiaDocumentId: r.guia_document_id,
+      llmCheck,
+      createdAt: r.created_at,
+    };
+  });
+
   // ── Relatórios devolutivos aguardando validação (draft_reports) ────────
   const pendingReportRows: PendingReportRow[] = (rawDraftReports ?? []).map((r) => {
     const patient = Array.isArray(r.patients) ? r.patients[0] : r.patients;
@@ -301,8 +342,8 @@ export default async function SupervisaoPage() {
     <SupervisaoShell
       nPlanos={plans.length}
       nInbox={openFamilyMessages}
+      nWhatsapp={whatsappRequests.length}
       nFluxos={nFluxos}
-      triagensTab={<AnamnesisValidationPanel />}
       fluxosTab={<FluxosPanel patients={flowPatients} counters={flowCounters} />}
       gradeTab={
         <GradePanel
@@ -326,6 +367,7 @@ export default async function SupervisaoPage() {
           absenceReports={absenceReportRows}
         />
       }
+      whatsappTab={<WhatsappRequestsPanel requests={whatsappRequests} />}
     />
   );
 }

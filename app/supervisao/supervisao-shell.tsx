@@ -4,10 +4,10 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 
 const TABS = [
   { key: "grade", label: "Grade" },
-  { key: "triagens", label: "Triagens Anamnese" },
   { key: "fluxos", label: "Fluxos" },
   { key: "planos", label: "Planos" },
   { key: "inbox", label: "Caixa de entrada" },
+  { key: "whatsapp", label: "WhatsApp" },
 ] as const;
 
 export type SupervisaoTabKey = (typeof TABS)[number]["key"];
@@ -25,32 +25,32 @@ export function useSupervisaoTab() {
 export function SupervisaoShell({
   nPlanos,
   nInbox,
+  nWhatsapp,
   nFluxos,
-  nTriagens = 0,
   gradeTab,
-  triagensTab,
   fluxosTab,
   planosTab,
   inboxTab,
+  whatsappTab,
 }: {
   nPlanos: number;
   nInbox: number;
+  nWhatsapp: number;
   nFluxos: number;
-  nTriagens?: number;
   gradeTab: ReactNode;
-  triagensTab?: ReactNode;
   fluxosTab: ReactNode;
   planosTab: ReactNode;
   inboxTab: ReactNode;
+  whatsappTab: ReactNode;
 }) {
   const [tab, setTab] = useState<SupervisaoTabKey>("grade");
 
   const badge: Record<SupervisaoTabKey, string> = {
     grade: "Grade",
-    triagens: nTriagens > 0 ? `Triagens Anamnese · ${nTriagens}` : "Triagens Anamnese",
     fluxos: nFluxos > 0 ? `Fluxos · ${nFluxos}` : "Fluxos",
     planos: `Planos · ${nPlanos}`,
     inbox: `Caixa de entrada · ${nInbox}`,
+    whatsapp: `WhatsApp · ${nWhatsapp}`,
   };
 
   return (
@@ -95,10 +95,10 @@ export function SupervisaoShell({
 
       <main className="px-10 py-9">
         {tab === "grade" && gradeTab}
-        {tab === "triagens" && triagensTab}
         {tab === "fluxos" && fluxosTab}
         {tab === "planos" && planosTab}
         {tab === "inbox" && inboxTab}
+        {tab === "whatsapp" && whatsappTab}
       </main>
     </SupervisaoTabContext.Provider>
   );

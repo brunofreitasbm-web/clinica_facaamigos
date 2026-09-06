@@ -14,96 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      anamnesis_scheduling_requests: {
-        Row: {
-          id: string
-          clinic_id: string | null
-          guardian_name: string
-          guardian_phone: string
-          guardian_cpf: string
-          child_name: string
-          laudo_pdf_url: string | null
-          guia_pdf_url: string | null
-          status: string
-          rejection_reason: string | null
-          supervisor_id: string | null
-          approved_at: string | null
-          selected_slot_starts_at: string | null
-          selected_slot_ends_at: string | null
-          appointment_id: string | null
-          patient_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          clinic_id?: string | null
-          guardian_name: string
-          guardian_phone: string
-          guardian_cpf: string
-          child_name: string
-          laudo_pdf_url?: string | null
-          guia_pdf_url?: string | null
-          status?: string
-          rejection_reason?: string | null
-          supervisor_id?: string | null
-          approved_at?: string | null
-          selected_slot_starts_at?: string | null
-          selected_slot_ends_at?: string | null
-          appointment_id?: string | null
-          patient_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          clinic_id?: string | null
-          guardian_name?: string
-          guardian_phone?: string
-          guardian_cpf?: string
-          child_name?: string
-          laudo_pdf_url?: string | null
-          guia_pdf_url?: string | null
-          status?: string
-          rejection_reason?: string | null
-          supervisor_id?: string | null
-          approved_at?: string | null
-          selected_slot_starts_at?: string | null
-          selected_slot_ends_at?: string | null
-          appointment_id?: string | null
-          patient_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      chatbot_sessions: {
-        Row: {
-          id: string
-          phone_number: string
-          current_step: string
-          collected_data: Json
-          updated_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          phone_number: string
-          current_step?: string
-          collected_data?: Json
-          updated_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          phone_number?: string
-          current_step?: string
-          collected_data?: Json
-          updated_at?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
       aba_abc_logs: {
         Row: {
           antecedent: string
@@ -691,6 +601,63 @@ export type Database = {
           },
         ]
       }
+      clinic_settings: {
+        Row: {
+          address: string | null
+          bot_enabled: boolean
+          clinic_id: string
+          evaluation_duration_minutes: number
+          evaluation_end_hour: number
+          evaluation_start_hour: number
+          evaluation_supervisor_profile_id: string | null
+          evaluation_weekdays: number[]
+          human_contact_phone: string | null
+          opening_hours: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          bot_enabled?: boolean
+          clinic_id: string
+          evaluation_duration_minutes?: number
+          evaluation_end_hour?: number
+          evaluation_start_hour?: number
+          evaluation_supervisor_profile_id?: string | null
+          evaluation_weekdays?: number[]
+          human_contact_phone?: string | null
+          opening_hours?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          bot_enabled?: boolean
+          clinic_id?: string
+          evaluation_duration_minutes?: number
+          evaluation_end_hour?: number
+          evaluation_start_hour?: number
+          evaluation_supervisor_profile_id?: string | null
+          evaluation_weekdays?: number[]
+          human_contact_phone?: string | null
+          opening_hours?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_settings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_settings_evaluation_supervisor_profile_id_fkey"
+            columns: ["evaluation_supervisor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinics: {
         Row: {
           cnpj: string | null
@@ -750,9 +717,10 @@ export type Database = {
           id: string
           patient_id: string
           shared_with_family: boolean
+          source: string
           storage_path: string
           uploaded_at: string
-          uploaded_by: string
+          uploaded_by: string | null
           valid_until: string | null
         }
         Insert: {
@@ -760,9 +728,10 @@ export type Database = {
           id?: string
           patient_id: string
           shared_with_family?: boolean
+          source?: string
           storage_path: string
           uploaded_at?: string
-          uploaded_by: string
+          uploaded_by?: string | null
           valid_until?: string | null
         }
         Update: {
@@ -770,9 +739,10 @@ export type Database = {
           id?: string
           patient_id?: string
           shared_with_family?: boolean
+          source?: string
           storage_path?: string
           uploaded_at?: string
-          uploaded_by?: string
+          uploaded_by?: string | null
           valid_until?: string | null
         }
         Relationships: [
@@ -884,6 +854,114 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evaluation_requests: {
+        Row: {
+          appointment_id: string | null
+          clinic_id: string
+          conversation_id: string
+          created_at: string
+          guardian_id: string
+          guia_document_id: string | null
+          id: string
+          laudo_document_id: string | null
+          llm_check: Json
+          patient_id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          clinic_id: string
+          conversation_id: string
+          created_at?: string
+          guardian_id: string
+          guia_document_id?: string | null
+          id?: string
+          laudo_document_id?: string | null
+          llm_check?: Json
+          patient_id: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          clinic_id?: string
+          conversation_id?: string
+          created_at?: string
+          guardian_id?: string
+          guia_document_id?: string | null
+          id?: string
+          laudo_document_id?: string | null
+          llm_check?: Json
+          patient_id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluation_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluation_requests_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluation_requests_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluation_requests_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluation_requests_guia_document_id_fkey"
+            columns: ["guia_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluation_requests_laudo_document_id_fkey"
+            columns: ["laudo_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluation_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluation_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1681,6 +1759,7 @@ export type Database = {
           complaint: string | null
           contract_sent_at: string | null
           contract_signed_at: string | null
+          cpf: string | null
           created_at: string
           created_by: string | null
           entry_source: string | null
@@ -1701,6 +1780,7 @@ export type Database = {
           complaint?: string | null
           contract_sent_at?: string | null
           contract_signed_at?: string | null
+          cpf?: string | null
           created_at?: string
           created_by?: string | null
           entry_source?: string | null
@@ -1721,6 +1801,7 @@ export type Database = {
           complaint?: string | null
           contract_sent_at?: string | null
           contract_signed_at?: string | null
+          cpf?: string | null
           created_at?: string
           created_by?: string | null
           entry_source?: string | null
@@ -2895,6 +2976,123 @@ export type Database = {
           width?: number | null
         }
         Relationships: []
+      }
+      whatsapp_conversations: {
+        Row: {
+          clinic_id: string
+          consent_at: string | null
+          context: Json
+          created_at: string
+          guardian_id: string | null
+          human_requested_at: string | null
+          id: string
+          last_inbound_at: string | null
+          patient_id: string | null
+          profile_name: string | null
+          state: string
+          updated_at: string
+          wa_id: string
+          window_expires_at: string | null
+        }
+        Insert: {
+          clinic_id: string
+          consent_at?: string | null
+          context?: Json
+          created_at?: string
+          guardian_id?: string | null
+          human_requested_at?: string | null
+          id?: string
+          last_inbound_at?: string | null
+          patient_id?: string | null
+          profile_name?: string | null
+          state?: string
+          updated_at?: string
+          wa_id: string
+          window_expires_at?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          consent_at?: string | null
+          context?: Json
+          created_at?: string
+          guardian_id?: string | null
+          human_requested_at?: string | null
+          id?: string
+          last_inbound_at?: string | null
+          patient_id?: string | null
+          profile_name?: string | null
+          state?: string
+          updated_at?: string
+          wa_id?: string
+          window_expires_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          body: string | null
+          content_sid: string | null
+          conversation_id: string
+          created_at: string
+          direction: string
+          id: string
+          media_count: number
+          provider_sid: string | null
+          status: string | null
+        }
+        Insert: {
+          body?: string | null
+          content_sid?: string | null
+          conversation_id: string
+          created_at?: string
+          direction: string
+          id?: string
+          media_count?: number
+          provider_sid?: string | null
+          status?: string | null
+        }
+        Update: {
+          body?: string | null
+          content_sid?: string | null
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          media_count?: number
+          provider_sid?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspaces: {
         Row: {

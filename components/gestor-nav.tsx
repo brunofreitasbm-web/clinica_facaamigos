@@ -15,7 +15,6 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   { key: "painel", label: "Painel", href: "/gestor/dashboard" },
   { key: "inteligencia", label: "Inteligência BI", href: "/gestor/inteligencia" },
-  { key: "whatsapp-bot", label: "WhatsApp Bot", href: "/whatsapp-bot" },
   { key: "equipe", label: "Equipe", href: "/gestor/equipe" },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro" },

@@ -13,7 +13,6 @@ import { getReceptionQueue } from "@/lib/reception-queue";
 import { NovaSessaoDialog, type GuideSummary } from "./nova-sessao-dialog";
 import { TodayAgendaList, type TodaySession, type GuardianContact } from "./today-agenda-list";
 import { MiniCalendarPicker } from "./mini-calendar-picker";
-import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -360,10 +359,6 @@ export default async function RecepcaoPage({
                 defaultDate={day}
               />
             </div>
-          </div>
-
-          <div className="mb-8">
-            <AnamnesisValidationPanel />
           </div>
 
           <TodayAgendaList

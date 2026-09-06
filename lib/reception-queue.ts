@@ -13,7 +13,9 @@ export type PendingQueueCategory =
   | "cadastro_incompleto"
   | "evolucao_atrasada"
   | "documento_vencido"
-  | "lead_sem_retorno";
+  | "lead_sem_retorno"
+  | "aguardando_supervisor"
+  | "whatsapp_humano";
 
 export type PendingQueueItem = {
   id: string;
@@ -33,6 +35,8 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   evolucao_atrasada: "Evolução pendente > 24h",
   documento_vencido: "Documento vencido",
   lead_sem_retorno: "Lead sem retorno > 15 min",
+  aguardando_supervisor: "Avaliação aguardando aprovação do supervisor",
+  whatsapp_humano: "Contato WhatsApp pediu atendimento humano",
 };
 
 export type ExpiringAuthorization = {
@@ -165,6 +169,43 @@ async function getUnansweredLeads(supabase: Supa, clinicId: string, minutesThres
   }));
 }
 
+/** Pedidos do chatbot WhatsApp aguardando aprovação do supervisor (laudo+guia). */
+async function getPendingEvaluationRequests(
+  supabase: Supa,
+  clinicId: string,
+): Promise<{ patientId: string; patientName: string; createdAt: string }[]> {
+  const { data } = await supabase
+    .from("evaluation_requests")
+    .select("patient_id, created_at, patients(full_name)")
+    .eq("clinic_id", clinicId)
+    .eq("status", "pendente")
+    .order("created_at", { ascending: true });
+
+  return (data ?? []).map((r) => {
+    const patient = Array.isArray(r.patients) ? r.patients[0] : r.patients;
+    return { patientId: r.patient_id, patientName: patient?.full_name ?? "—", createdAt: r.created_at };
+  });
+}
+
+/** Conversas do WhatsApp em que o responsável pediu atendimento humano (opção 9 do bot). */
+async function getWhatsappHandoffs(
+  supabase: Supa,
+  clinicId: string,
+): Promise<{ waId: string; patientName: string; requestedAt: string }[]> {
+  const { data } = await supabase
+    .from("whatsapp_conversations")
+    .select("wa_id, human_requested_at, patients(full_name)")
+    .eq("clinic_id", clinicId)
+    .not("human_requested_at", "is", null)
+    .order("human_requested_at", { ascending: true })
+    .limit(20);
+
+  return (data ?? []).map((c) => {
+    const patient = Array.isArray(c.patients) ? c.patients[0] : c.patients;
+    return { waId: c.wa_id, patientName: patient?.full_name ?? c.wa_id, requestedAt: c.human_requested_at as string };
+  });
+}
+
 /**
  * Fila única de pendências da recepção (§9.1), ordenada por urgência —
  * agrega as 6 categorias que o PRD descreve pra home da recepção. Cada
@@ -173,13 +214,16 @@ async function getUnansweredLeads(supabase: Supa, clinicId: string, minutesThres
  * função só junta e ordena pra exibição, sem duplicar regra.
  */
 export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_CLINIC_ID): Promise<PendingQueueItem[]> {
-  const [expiringAuths, pendingPatients, overdueNotes, expiredDocuments, unansweredLeads] = await Promise.all([
-    getExpiringAuthorizations(supabase, clinicId),
-    getPendingPatients(supabase, 3),
-    listOverdueSessionNotes(supabase),
-    getExpiredDocuments(supabase, clinicId),
-    getUnansweredLeads(supabase, clinicId),
-  ]);
+  const [expiringAuths, pendingPatients, overdueNotes, expiredDocuments, unansweredLeads, pendingEvaluations, whatsappHandoffs] =
+    await Promise.all([
+      getExpiringAuthorizations(supabase, clinicId),
+      getPendingPatients(supabase, 3),
+      listOverdueSessionNotes(supabase),
+      getExpiredDocuments(supabase, clinicId),
+      getUnansweredLeads(supabase, clinicId),
+      getPendingEvaluationRequests(supabase, clinicId),
+      getWhatsappHandoffs(supabase, clinicId),
+    ]);
 
   const items: PendingQueueItem[] = [];
 
@@ -260,6 +304,32 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       detail: `Cadastrado há ${l.minutesWaiting} min sem retorno`,
       urgencyLabel: `${l.minutesWaiting}min`,
       href: `/recepcao/pacientes/${l.patientId}`,
+    });
+  }
+
+  for (const e of pendingEvaluations) {
+    items.push({
+      id: `avaliacao-supervisor-${e.patientId}`,
+      category: "aguardando_supervisor",
+      categoryLabel: CATEGORY_LABEL.aguardando_supervisor,
+      patientId: e.patientId,
+      patientName: e.patientName,
+      detail: "Laudo e guia recebidos pelo WhatsApp — aguardando revisão do supervisor",
+      urgencyLabel: new Date(e.createdAt).toLocaleDateString("pt-BR"),
+      href: "/supervisao",
+    });
+  }
+
+  for (const h of whatsappHandoffs) {
+    items.push({
+      id: `whatsapp-humano-${h.waId}`,
+      category: "whatsapp_humano",
+      categoryLabel: CATEGORY_LABEL.whatsapp_humano,
+      patientId: null,
+      patientName: h.patientName,
+      detail: `Pediu atendimento humano pelo WhatsApp (${h.waId})`,
+      urgencyLabel: new Date(h.requestedAt).toLocaleString("pt-BR"),
+      href: "/gestor/integracoes/whatsapp",
     });
   }
 

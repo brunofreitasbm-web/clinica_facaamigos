@@ -6,6 +6,8 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc } from "@/lib/timezone";
 import { getActiveAuthorizationId } from "@/lib/active-authorization";
 import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
+import { insertEvaluationAppointment } from "@/lib/evaluation-booking";
+import { DEV_CLINIC_ID } from "@/lib/constants";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -22,35 +24,31 @@ export async function scheduleEvaluation(
     return { success: false, error: "Preencha terapeuta, sala, data e hora." };
   }
 
-  const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
-  const endsAt = new Date(startsAt.getTime() + 50 * 60 * 1000);
-
   const supabase = await createClient();
-  const { error: apptError } = await supabase.from("appointments").insert({
-    patient_id: patientId,
-    therapist_id: therapistId,
-    room_id: roomId,
-    discipline: "avaliacao",
-    starts_at: startsAt.toISOString(),
-    ends_at: endsAt.toISOString(),
-    status: "agendada",
-    is_evaluation: true,
+
+  // Duração configurável em clinic_settings (usada também pelo agendamento
+  // autônomo do bot — lib/whatsapp/slots.ts); 50min é só o fallback pra
+  // clínica sem essa config ainda preenchida.
+  const { data: settings } = await supabase
+    .from("clinic_settings")
+    .select("evaluation_duration_minutes")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .maybeSingle();
+  const durationMinutes = settings?.evaluation_duration_minutes ?? 50;
+
+  const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
+  const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+
+  const result = await insertEvaluationAppointment(supabase, {
+    patientId,
+    therapistId,
+    roomId,
+    startsAtIso: startsAt.toISOString(),
+    endsAtIso: endsAt.toISOString(),
   });
 
-  if (apptError) {
-    if (apptError.code === "23P01") {
-      return { success: false, error: "Sala ou terapeuta já tem sessão nesse horário." };
-    }
-    return { success: false, error: "Não foi possível agendar a avaliação." };
-  }
-
-  const { error: patientError } = await supabase
-    .from("patients")
-    .update({ status: "avaliacao" })
-    .eq("id", patientId);
-
-  if (patientError) {
-    return { success: false, error: "Avaliação agendada, mas houve erro ao atualizar o status do paciente." };
+  if (!result.success) {
+    return result;
   }
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
