@@ -12,14 +12,28 @@ export type PlanGoalRow = {
   domain: string;
   criterion: string | null;
   status: string;
+  horizon: string | null;
+  strategy: string | null;
+  methodology: string | null;
+  supervisorNotes: string | null;
 };
 
 export type PlanRow = {
   id: string;
   patientName: string;
   version: number;
+  generalObjective: string | null;
+  familyPriorities: string | null;
   disciplines: string[];
   goals: PlanGoalRow[];
+};
+
+const HORIZON_LABEL: Record<string, string> = { curto: "Curto prazo", medio: "Médio prazo", longo: "Longo prazo" };
+const METHODOLOGY_LABEL: Record<string, string> = {
+  dtt: "DTT",
+  naturalistico: "Ensino naturalístico",
+  misto: "Misto",
+  outra: "Outra",
 };
 
 // Fila de aprovação só traz planos `rascunho` (ver page.tsx). O rótulo da
