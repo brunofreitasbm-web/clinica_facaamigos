@@ -330,6 +330,73 @@ export type Database = {
           },
         ]
       }
+      anamnesis_prefill_requests: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          declined_at: string | null
+          guardian_id: string
+          id: string
+          patient_id: string
+          phone_number: string
+          reminder_sent_at: string | null
+          responded_at: string | null
+          sent_at: string
+          status: string
+          structured: Json
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          declined_at?: string | null
+          guardian_id: string
+          id?: string
+          patient_id: string
+          phone_number: string
+          reminder_sent_at?: string | null
+          responded_at?: string | null
+          sent_at?: string
+          status?: string
+          structured?: Json
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          declined_at?: string | null
+          guardian_id?: string
+          id?: string
+          patient_id?: string
+          phone_number?: string
+          reminder_sent_at?: string | null
+          responded_at?: string | null
+          sent_at?: string
+          status?: string
+          structured?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anamnesis_prefill_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anamnesis_prefill_requests_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anamnesis_prefill_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_types: {
         Row: {
           active: boolean

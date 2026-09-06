@@ -6,6 +6,7 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc } from "@/lib/timezone";
 import { getActiveAuthorizationId } from "@/lib/active-authorization";
 import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
+import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -26,19 +27,23 @@ export async function scheduleEvaluation(
   const endsAt = new Date(startsAt.getTime() + 50 * 60 * 1000);
 
   const supabase = await createClient();
-  const { error: apptError } = await supabase.from("appointments").insert({
-    patient_id: patientId,
-    therapist_id: therapistId,
-    room_id: roomId,
-    discipline: "avaliacao",
-    starts_at: startsAt.toISOString(),
-    ends_at: endsAt.toISOString(),
-    status: "agendada",
-    is_evaluation: true,
-  });
+  const { data: appointment, error: apptError } = await supabase
+    .from("appointments")
+    .insert({
+      patient_id: patientId,
+      therapist_id: therapistId,
+      room_id: roomId,
+      discipline: "avaliacao",
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+      status: "agendada",
+      is_evaluation: true,
+    })
+    .select("id")
+    .single();
 
-  if (apptError) {
-    if (apptError.code === "23P01") {
+  if (apptError || !appointment) {
+    if (apptError?.code === "23P01") {
       return { success: false, error: "Sala ou terapeuta já tem sessão nesse horário." };
     }
     return { success: false, error: "Não foi possível agendar a avaliação." };
@@ -52,6 +57,16 @@ export async function scheduleEvaluation(
   if (patientError) {
     return { success: false, error: "Avaliação agendada, mas houve erro ao atualizar o status do paciente." };
   }
+
+  // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
+  // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia
+  // o agendamento se falhar (Twilio fora do ar, sem responsável cadastrado
+  // etc.), a anamnese continua acontecendo presencialmente.
+  await dispatchAnamnesisPrefillRequest({
+    patientId,
+    appointmentId: appointment.id,
+    startsAt: startsAt.toISOString(),
+  });
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
   return { success: true };

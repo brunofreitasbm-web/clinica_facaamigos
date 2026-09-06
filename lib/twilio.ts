@@ -453,6 +453,26 @@ export async function handleTwilioIncomingMessage(params: {
     console.error("[Twilio Central Multicanal Error]:", err);
   }
 
+  // 0.5 Tentar processar via Máquina de Estados do PRÉ-preenchimento de
+  // Anamnese assíncrona (disparado no agendamento da avaliação, ver
+  // lib/anamnesis-prefill.ts). Roda antes do fluxo de agendamento porque os
+  // dois compartilham `chatbot_sessions` por telefone — só um fluxo ativo
+  // por vez, e este só "pega" a mensagem se o telefone já estiver numa
+  // sessão pre_anamnesis_*.
+  try {
+    const { processPreAnamnesisStep } = await import("./twilio-preanamnesis-bot");
+    const preAnamnesisResult = await processPreAnamnesisStep({ from, body });
+
+    if (preAnamnesisResult.handled) {
+      return {
+        intent: "pre_anamnese_assincrona",
+        replyMessage: preAnamnesisResult.replyMessage,
+      };
+    }
+  } catch (err) {
+    console.error("[Twilio Pre-Anamnesis Bot Error]:", err);
+  }
+
   // 1. Tentar processar via Máquina de Estados do Agendamento de Anamnese (WhatsApp)
   try {
     const { processAnamnesisChatbotStep } = await import("./twilio-anamnesis-bot");

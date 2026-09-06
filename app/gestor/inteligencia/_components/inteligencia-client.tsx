@@ -15,7 +15,6 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
   const router = useRouter();
   const [metrics] = useState<InteligenciaMetrics>(initialMetrics);
   const [activeTab, setActiveTab] = useState<"visao_geral" | "aniversariantes">("visao_geral");
-  const [selectedSubMenu, setSelectedSubMenu] = useState<string>("visao_geral");
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const [activeCardMenu, setActiveCardMenu] = useState<number | null>(null);
 
@@ -72,72 +71,9 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
   }, [donutItems, totalDonut]);
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] bg-paper">
-      {/* Sidebar Lateral de Inteligência (TOTALMENTE CONECTADA) */}
-      <aside className="w-64 border-r border-slate-200 bg-white p-5 text-slate-700">
-        <h2 className="mb-6 text-lg font-semibold text-slate-900">Inteligência</h2>
-
-        <div className="mb-6">
-          <p className="mb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">VISÃO GERAL</p>
-          <button
-            onClick={() => {
-              setSelectedSubMenu("visao_geral");
-              setActiveTab("visao_geral");
-            }}
-            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-              selectedSubMenu === "visao_geral"
-                ? "bg-slate-100 font-semibold text-slate-900"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            Visão Geral
-          </button>
-        </div>
-
-        <div className="mb-6">
-          <p className="mb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">ATENDIMENTOS</p>
-          <Link
-            href="/gestor/dashboard"
-            onClick={() => setSelectedSubMenu("atendimentos")}
-            className={`block w-full text-left px-3 py-2 text-sm font-medium rounded-md transition-colors no-underline ${
-              selectedSubMenu === "atendimentos"
-                ? "bg-slate-100 font-semibold text-slate-900"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            Atendimentos (Painel Operacional) ↗
-          </Link>
-        </div>
-
-        <div>
-          <p className="mb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">FINANCEIRO</p>
-          <nav className="flex flex-col gap-1">
-            {[
-              { id: "fin_panorama", label: "Panorama da Clínica", href: "/gestor/financeiro" },
-              { id: "fin_cobrancas", label: "Cobranças e Inadimplência", href: "/gestor/financeiro?tab=glosas" },
-              { id: "fin_extrato", label: "Extrato de Pagamentos", href: "/gestor/financeiro?tab=repasse" },
-              { id: "fin_recebiveis", label: "Recebíveis", href: "/gestor/financeiro" },
-              { id: "fin_documentos", label: "Documentos", href: "/gestor/cadastros" },
-            ].map((sub) => (
-              <Link
-                key={sub.id}
-                href={sub.href}
-                onClick={() => setSelectedSubMenu(sub.id)}
-                className={`w-full text-left px-3 py-1.5 text-sm transition-colors rounded-md no-underline ${
-                  selectedSubMenu === sub.id
-                    ? "bg-slate-100 font-semibold text-slate-900"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {sub.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </aside>
-
+    <div className="min-h-[calc(100vh-64px)] bg-paper p-6 md:p-8">
       {/* Conteúdo Principal */}
-      <main className="flex-1 p-8">
+      <main className="max-w-7xl mx-auto space-y-6">
         {/* Topo / Breadcrumb */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
