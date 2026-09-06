@@ -37,7 +37,7 @@ export async function sendTwilioNotificationAction(params: {
   try {
     const supabase = createAdminClient();
     if (supabase) {
-      await (supabase.from as any)("notification_logs").insert([
+      await (supabase as unknown as { from: (table: string) => { insert: (data: unknown[]) => Promise<unknown> } }).from("notification_logs").insert([
         {
           patient_id: patientId || null,
           recipient_phone: to,

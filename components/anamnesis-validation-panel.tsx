@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   User,
   Phone,
-  Sparkles,
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
@@ -30,7 +29,6 @@ export function AnamnesisValidationPanel() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const fetchRequests = async () => {
-    setLoading(true);
     const res = await getPendingAnamnesisRequestsAction();
     if (res.success && res.requests) {
       setRequests(res.requests);
@@ -39,7 +37,9 @@ export function AnamnesisValidationPanel() {
   };
 
   useEffect(() => {
-    fetchRequests();
+    queueMicrotask(() => {
+      fetchRequests();
+    });
   }, []);
 
   const handleApprove = async (id: string) => {

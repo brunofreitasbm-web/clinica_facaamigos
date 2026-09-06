@@ -77,11 +77,13 @@ export function EvolutionForm({
       const saved = localStorage.getItem(`draft_evolution_${appointmentId}`);
       if (saved) {
         const data = JSON.parse(saved);
-        if (data.presence) setPresence(data.presence);
-        if (data.freeText) setFreeText(data.freeText);
-        if (data.selectedBehaviors) setSelectedBehaviors(data.selectedBehaviors);
-        if (data.intensities) setIntensities(data.intensities);
-        if (data.selectedOrientations) setSelectedOrientations(data.selectedOrientations);
+        queueMicrotask(() => {
+          if (data.presence) setPresence(data.presence);
+          if (data.freeText) setFreeText(data.freeText);
+          if (data.selectedBehaviors) setSelectedBehaviors(data.selectedBehaviors);
+          if (data.intensities) setIntensities(data.intensities);
+          if (data.selectedOrientations) setSelectedOrientations(data.selectedOrientations);
+        });
       }
     } catch {}
   }, [appointmentId]);

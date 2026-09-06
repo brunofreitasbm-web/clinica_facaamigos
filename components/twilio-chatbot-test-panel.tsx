@@ -70,7 +70,7 @@ export function TwilioChatbotTestPanel() {
           <code className="rounded bg-teal-500/10 px-1 py-0.5 font-mono text-[11px] text-teal-800 dark:text-teal-200">
             /api/webhooks/twilio
           </code>{" "}
-          no Console da Twilio (seção <i>"WHEN A MESSAGE COMES IN"</i>) nas configurações do seu número de WhatsApp/SMS.
+          no Console da Twilio (seção <i>&quot;WHEN A MESSAGE COMES IN&quot;</i>) nas configurações do seu número de WhatsApp/SMS.
         </div>
       </div>
 
@@ -92,7 +92,7 @@ export function TwilioChatbotTestPanel() {
               }}
               className="rounded-full border border-paper-line bg-paper px-3 py-1 text-xs text-ink hover:border-chart hover:text-chart transition-all text-left"
             >
-              "{sample}"
+              &quot;{sample}&quot;
             </button>
           ))}
         </div>

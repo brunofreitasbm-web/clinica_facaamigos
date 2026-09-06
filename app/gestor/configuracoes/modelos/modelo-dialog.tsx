@@ -113,7 +113,7 @@ Atenciosamente,
               <select
                 className="input cursor-pointer"
                 value={category}
-                onChange={(e) => setCategory(e.target.value as any)}
+                onChange={(e) => setCategory(e.target.value as "evolucao" | "laudo" | "contrato")}
               >
                 <option value="evolucao">Evolução Clínica / Sessão</option>
                 <option value="laudo">Laudo & Relatório</option>
