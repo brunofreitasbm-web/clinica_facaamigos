@@ -66,5 +66,84 @@ export async function sendReply(
     .eq("direction", "inbound");
 
   revalidatePath("/supervisao");
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
+ * Marca ciência / resolve notificação de ausência pelo supervisor
+ */
+export async function resolveAbsenceReport(reportId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "Sessão expirada." };
+
+  const { error } = await supabase
+    .from("absence_reports")
+    .update({
+      status: "aprovado",
+      resolved_at: new Date().toISOString(),
+      resolved_by: user.id,
+    })
+    .eq("id", reportId);
+
+  if (error) return { success: false, error: "Não foi possível confirmar ciência da ausência." };
+
+  revalidatePath("/supervisao");
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
+ * Gera link assinado temporário para visualizar atestado/comprovante de ausência
+ */
+export async function getAbsenceAttachmentUrl(
+  storagePath: string,
+): Promise<{ success: true; url: string } | { success: false; error: string }> {
+  if (!storagePath) return { success: false, error: "Caminho do arquivo inválido." };
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return { success: false, error: "Chave de serviço do Supabase não configurada." };
+  }
+
+  const { data: signed, error: signedError } = await admin.storage
+    .from("absence-attachments")
+    .createSignedUrl(storagePath, 900);
+
+  if (signedError || !signed) {
+    return { success: false, error: "Não foi possível gerar link do comprovante." };
+  }
+
+  return { success: true, url: signed.signedUrl };
+}
+
+export async function updateAlertStatus(
+  npsSurveyId: string,
+  status: "ok" | "pending_contact" | "em_atendimento" | "resolvido",
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("nps_surveys")
+    .update({
+      alert_status: status,
+      alert_updated_by: user?.id ?? null,
+      alert_updated_at: new Date().toISOString(),
+    })
+    .eq("id", npsSurveyId);
+
+  if (error) return { success: false, error: error.message };
+  revalidatePath("/supervisao");
+  revalidatePath("/gestor/nps");
   return { success: true };
 }

@@ -140,12 +140,12 @@ export default async function TerapeutaPage({
           </svg>
           <span style={{ fontFamily: "var(--font-heading)" }} className="text-[15px] font-semibold">
             Faça Amigos{" "}
-            <span style={{ color: "var(--color-accent-2)" }} className="font-normal italic">
+            <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
               · Terapeuta
             </span>
           </span>
           <span className="ml-auto flex items-center gap-1.5 text-xs opacity-75">
-            <span className="h-[7px] w-[7px] rounded-full" style={{ background: "#7fc79a" }} />
+            <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--color-success)" }} />
             sincronizado
           </span>
         </div>

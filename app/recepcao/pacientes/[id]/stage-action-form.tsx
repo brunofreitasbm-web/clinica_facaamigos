@@ -6,10 +6,12 @@ export function StageActionForm({
   action,
   children,
   submitLabel,
+  onSuccess,
 }: {
   action: (formData: FormData) => Promise<{ success: true } | { success: false; error: string }>;
   children: ReactNode;
   submitLabel: string;
+  onSuccess?: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -21,7 +23,11 @@ export function StageActionForm({
         setError(null);
         startTransition(async () => {
           const result = await action(formData);
-          if (!result.success) setError(result.error);
+          if (!result.success) {
+            setError(result.error);
+            return;
+          }
+          onSuccess?.();
         });
       }}
     >

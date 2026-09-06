@@ -52,7 +52,7 @@ export async function createAppointment(
   // essas são criadas por `scheduleEvaluation`), então precisam de
   // authorization_id pra satisfazer o guard `appointments_authorization_guard`
   // quando marcadas como 'realizada'.
-  const authorizationId = await getActiveAuthorizationId(supabase, patientId);
+  const authorizationId = await getActiveAuthorizationId(supabase, patientId, appointmentType.name);
 
   const { error } = await supabase.from("appointments").insert({
     patient_id: patientId,

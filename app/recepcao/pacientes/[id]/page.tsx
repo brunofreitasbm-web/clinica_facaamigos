@@ -1,13 +1,15 @@
 import { notFound } from "next/navigation";
-import { PatientHeader } from "@/components/prontuario/patient-header";
+import Link from "next/link";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
 import { StageChecklist } from "@/components/stage-checklist";
+import { IntakeChecklist } from "@/components/intake-checklist";
+import { getIntakeSteps } from "@/lib/intake-steps";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
-import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
+import { APPOINTMENT_STATUS_STYLE, AUTHORIZATION_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getFeedPosts } from "@/lib/feed-posts";
 import { getPatientAbaLearningCurves } from "@/lib/patient-metrics";
 import { logRecordAccess } from "@/lib/record-access-log";
@@ -17,13 +19,17 @@ import { DocumentViewButton } from "./document-view-button";
 import { DocumentUploadForm } from "./document-upload-form";
 import { FeedPostForm } from "./feed-post-form";
 import { AbsenceReportsList, type PendingAbsenceReport } from "./absence-reports-list";
+import { AuthorizationFormFields } from "./authorization-form-fields";
+import { NewAuthorizationToggle } from "./new-authorization-toggle";
 import {
   scheduleEvaluation,
   markEvaluationDone,
   registerAuthorization,
   activatePatient,
   setEmergencyContact,
+  completeIntakeStep,
 } from "./stage-actions";
+import { registerFirstContact } from "../actions";
 
 // Papéis que a RLS de `documents` permite escrever (clínica inteira, ou
 // terapeuta vinculado ao paciente). Mostrar o formulário pra esses papéis é
@@ -78,6 +84,7 @@ export default async function PacientePage({
     .maybeSingle();
 
   const stage = computeStage(patient, !!evalAppointment, !!activeAuth);
+  const intakeSteps = await getIntakeSteps(supabase, id);
 
   // Header de identificação (PRD §1) — lógica compartilhada com a tela de
   // evolução do terapeuta via lib/patient-identity.ts.
@@ -102,6 +109,36 @@ export default async function PacientePage({
     .select("id, name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
+
+  // Seção fixa "Guias" (sempre visível, inclusive com o paciente já ativo —
+  // diferente do formulário do passo 3 do checklist, que só aparece durante
+  // o onboarding). Histórico completo, mais recente primeiro.
+  const { data: authorizationHistoryRaw } = await supabase
+    .from("authorizations")
+    .select(
+      "id, guide_number, procedure_code, sessions_authorized, sessions_used, valid_from, valid_to, status, authorization_password, password_valid_until, patient_insurance!inner(patient_id, insurers(name))",
+    )
+    .eq("patient_insurance.patient_id", id)
+    .order("valid_from", { ascending: false });
+
+  const authorizationHistory = (authorizationHistoryRaw ?? []).map((a) => {
+    const pi = a.patient_insurance;
+    const insurer = Array.isArray(pi) ? pi[0]?.insurers : pi?.insurers;
+    const insurerName = Array.isArray(insurer) ? insurer[0]?.name : insurer?.name;
+    return {
+      id: a.id,
+      insurerName: insurerName ?? "—",
+      guideNumber: a.guide_number,
+      procedureCode: a.procedure_code,
+      sessionsUsed: a.sessions_used,
+      sessionsAuthorized: a.sessions_authorized,
+      validFrom: a.valid_from,
+      validTo: a.valid_to,
+      status: a.status,
+      authorizationPassword: a.authorization_password,
+      passwordValidUntil: a.password_valid_until,
+    };
+  });
 
   // RLS de `documents` decide sozinha o que aparece aqui por papel — nunca
   // filtramos manualmente por role na aplicação (gestor/supervisor/recepção/
@@ -360,7 +397,16 @@ export default async function PacientePage({
 
   return (
     <main className="flex flex-1 flex-col">
-      <PatientHeader />
+      {/* Cabeçalho + atalhos globais da recepção vêm do layout (RecepcaoNav). */}
+      <div className="px-10 pt-6">
+        <Link
+          href="/recepcao/pacientes"
+          className="text-[13px] font-semibold no-underline"
+          style={{ color: "var(--color-accent)" }}
+        >
+          ← Pacientes
+        </Link>
+      </div>
 
       <div className="flex flex-wrap items-end justify-between gap-6 px-10 pt-9">
         <div className="flex items-center gap-5">
@@ -391,6 +437,9 @@ export default async function PacientePage({
             phone={primaryGuardian?.phone ?? null}
             guardianId={primaryGuardian?.id ?? null}
           />
+          <a href={`/recepcao/pacientes/${patient.id}/gestao`} className="btn btn-secondary">
+            Convênios, cobranças e equipe
+          </a>
           <a href="/recepcao" className="btn btn-primary">
             Nova sessão
           </a>
@@ -399,7 +448,7 @@ export default async function PacientePage({
 
       {stage < 5 && (
         <div className="px-10 pt-8">
-          <div className="card max-w-[720px]">
+          <div id="proximo-passo" className="card max-w-[720px] scroll-mt-6">
             <div className="card-kicker">Próximo passo</div>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <StageChecklist stage={stage} />
@@ -429,17 +478,7 @@ export default async function PacientePage({
                 )}
                 {stage === 3 && (
                   <StageActionForm action={registerAuthorization.bind(null, patient.id)} submitLabel="Registrar autorização">
-                    <select name="insurer_id" required className="input">
-                      <option value="">Convênio</option>
-                      {(insurers ?? []).map((i) => (
-                        <option key={i.id} value={i.id}>{i.name}</option>
-                      ))}
-                    </select>
-                    <input type="text" name="guide_number" placeholder="Número da guia" className="input" />
-                    <input type="text" name="procedure_code" required placeholder="Código do procedimento" className="input" />
-                    <input type="number" name="sessions_authorized" required placeholder="Sessões autorizadas" className="input" />
-                    <input type="date" name="valid_from" required className="input" />
-                    <input type="date" name="valid_to" required className="input" />
+                    <AuthorizationFormFields insurers={insurers} />
                   </StageActionForm>
                 )}
                 {stage === 4 && (
@@ -466,6 +505,89 @@ export default async function PacientePage({
           </div>
         </div>
       )}
+
+      <div className="px-10 pt-8">
+        <div id="checklist-entrada" className="scroll-mt-6 card max-w-[720px]">
+          <div className="card-kicker">Módulo 3 MAAIS · Checklist operacional de entrada</div>
+          <IntakeChecklist
+            patientId={patient.id}
+            steps={intakeSteps}
+            fmtDate={fmtDate}
+            manualActions={{
+              primeiro_contato: { label: "Registrar contato", action: registerFirstContact },
+              contrato_enviado: { label: "Marcar contrato enviado", action: (pid) => completeIntakeStep(pid, "contrato_enviado") },
+              pagamento_confirmado: { label: "Confirmar pagamento", action: (pid) => completeIntakeStep(pid, "pagamento_confirmado") },
+              grupo_whatsapp: { label: "Incluído no grupo", action: (pid) => completeIntakeStep(pid, "grupo_whatsapp") },
+            }}
+            links={{
+              anamnese_realizada: { label: "Registrar anamnese", href: `/supervisao/pacientes/${patient.id}/anamnese` },
+              equipe_definida: { label: "Definir equipe", href: `/recepcao/pacientes/${patient.id}/gestao#equipe` },
+              reuniao_interdisciplinar: { label: "Nova reunião", href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=interdisciplinar` },
+              pdi_construido: { label: "Montar PEI", href: `/supervisao/planos/novo?paciente=${patient.id}` },
+              pdi_validado: { label: "Fila de aprovação", href: `/supervisao` },
+              devolutiva_familia: { label: "Registrar devolutiva", href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=devolutiva` },
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="px-10 pt-8">
+        <div id="guias" className="scroll-mt-6 card max-w-[900px]">
+          <div className="mb-3.5 flex items-center justify-between gap-3">
+            <div className="card-kicker">Guias</div>
+            <NewAuthorizationToggle patientId={patient.id} insurers={insurers} />
+          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Convênio</th>
+                <th>Nº guia / senha</th>
+                <th>Procedimento</th>
+                <th>Sessões</th>
+                <th>Vigência</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {authorizationHistory.map((a) => {
+                const style = AUTHORIZATION_STATUS_STYLE[a.status] ?? AUTHORIZATION_STATUS_STYLE.pendente;
+                return (
+                  <tr key={a.id}>
+                    <td className="font-semibold">{a.insurerName}</td>
+                    <td>
+                      {a.guideNumber ?? "—"}
+                      {a.authorizationPassword && (
+                        <span className="text-ink-faint">
+                          {" "}
+                          · senha {a.authorizationPassword}
+                          {a.passwordValidUntil && ` (até ${fmtDate(`${a.passwordValidUntil}T00:00:00`)})`}
+                        </span>
+                      )}
+                    </td>
+                    <td>{a.procedureCode}</td>
+                    <td>
+                      {a.sessionsUsed} de {a.sessionsAuthorized}
+                    </td>
+                    <td>
+                      {fmtDate(`${a.validFrom}T00:00:00`)} – {fmtDate(`${a.validTo}T00:00:00`)}
+                    </td>
+                    <td>
+                      <span className={`tag-status ${style.tagClass}`}>{style.label}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {authorizationHistory.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-ink-faint">
+                    Nenhuma guia cadastrada ainda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="px-10 pt-6">
         <div className="flex flex-wrap items-center gap-2">

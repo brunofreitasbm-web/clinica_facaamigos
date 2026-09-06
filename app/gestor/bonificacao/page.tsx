@@ -1,4 +1,5 @@
 import { GestorNav } from "@/components/gestor-nav";
+import { EquipeSubnav } from "@/components/equipe-subnav";
 import { getBonificacaoData } from "./actions";
 import { TierApprovalForm } from "./tier-approval-form";
 
@@ -17,8 +18,9 @@ export default async function BonificacaoPage() {
   const { bonusRows, tierRows, closedHistory } = await getBonificacaoData();
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <GestorNav />
+    <div className="min-h-screen bg-canvas flex flex-col">
+      <GestorNav active="equipe" />
+      <EquipeSubnav activeTab="bonificacao" />
 
       <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
         <div>
@@ -26,9 +28,10 @@ export default async function BonificacaoPage() {
             Metrificação, PLR e Progressão de Faixas (PJ)
           </h1>
           <p className="text-sm text-ink-soft">
-            Indicadores calculados ao vivo sobre o mês corrente (§10 do PRD). Ainda não há
-            `targets`/`metric_snapshots` gravados (job mensal de fechamento é trabalho futuro) —
-            por isso não há peso ponderado nem memória de cálculo em PDF ainda: os números abaixo
+            Indicadores calculados ao vivo sobre o mês corrente (§10 do PRD). O job mensal
+            `close_monthly_metric_snapshots` (dia 1) já grava a maior parte das métricas em
+            `metric_snapshots` — veja o histórico fechado abaixo — mas a apuração ponderada por
+            peso e a memória de cálculo em PDF para PLR ainda não existem: os números desta seção
             são os indicadores reais recalculados a cada carregamento da página.
           </p>
         </div>

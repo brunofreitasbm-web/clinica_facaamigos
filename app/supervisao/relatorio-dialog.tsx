@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 
+export interface ReportGoalItem {
+  domain: string;
+  description: string;
+  status: string;
+}
+
 export interface ReportPatientData {
   patientName: string;
   birthDate: string;
@@ -15,6 +21,7 @@ export interface ReportPatientData {
   achievedGoalsCount: number;
   supervisorName: string;
   supervisorCouncil: string;
+  goalsList?: ReportGoalItem[];
 }
 
 const DEFAULT_PATIENT_DATA: ReportPatientData = {
@@ -228,21 +235,39 @@ export function RelatorioReavaliacaoDialog({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-paper-line">
-                      <tr>
-                        <td className="p-2 font-medium">Comunicação Verbal (ABA)</td>
-                        <td className="p-2">Solicitar itens desejados por gesto/apontar de forma independente</td>
-                        <td className="p-2"><span className="text-emerald-700 font-semibold">✓ Atingida</span></td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 font-medium">Terapia Ocupacional</td>
-                        <td className="p-2">Manter autorregulação em ambiente com estímulo sonoro por 30 min</td>
-                        <td className="p-2"><span className="text-emerald-700 font-semibold">✓ Atingida</span></td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 font-medium">Fonoaudiologia</td>
-                        <td className="p-2">Produção dos fonemas /r/ e /l/ em sílabas simples sem auxílio</td>
-                        <td className="p-2"><span className="text-amber-700 font-semibold">⟳ Em Aquisição</span></td>
-                      </tr>
+                      {data.goalsList && data.goalsList.length > 0 ? (
+                        data.goalsList.map((g, idx) => (
+                          <tr key={idx}>
+                            <td className="p-2 font-medium">{g.domain}</td>
+                            <td className="p-2">{g.description}</td>
+                            <td className="p-2">
+                              {g.status === "suspensa" || g.status === "validada" ? (
+                                <span className="text-emerald-700 font-semibold">✓ Validade / Atingida</span>
+                              ) : (
+                                <span className="text-amber-700 font-semibold">⟳ Em Análise</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <>
+                          <tr>
+                            <td className="p-2 font-medium">Comunicação Verbal (ABA)</td>
+                            <td className="p-2">Solicitar itens desejados por gesto/apontar de forma independente</td>
+                            <td className="p-2"><span className="text-emerald-700 font-semibold">✓ Atingida</span></td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-medium">Terapia Ocupacional</td>
+                            <td className="p-2">Manter autorregulação em ambiente com estímulo sonoro por 30 min</td>
+                            <td className="p-2"><span className="text-emerald-700 font-semibold">✓ Atingida</span></td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-medium">Fonoaudiologia</td>
+                            <td className="p-2">Produção dos fonemas /r/ e /l/ em sílabas simples sem auxílio</td>
+                            <td className="p-2"><span className="text-amber-700 font-semibold">⟳ Em Aquisição</span></td>
+                          </tr>
+                        </>
+                      )}
                     </tbody>
                   </table>
                 </div>

@@ -1,10 +1,10 @@
-import { PageHeader } from "@/components/page-header";
+import Link from "next/link";
+import { FaturamentoHeader } from "../faturamento-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { GlosaRegisterForm, type EligibleBillingItem, type Therapist } from "./glosa-register-form";
 import { GlosaRowActions } from "./glosa-row-actions";
 import { CsvImportForm } from "./csv-import-form";
-import { getGlosaBreakdown, type GlosaBreakdownRow } from "@/lib/glosa-analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -133,7 +133,7 @@ export default async function GlosasPage({
 
   const supabase = await createClient();
 
-  const [{ data: therapistsRaw }, { data: rawGlosas }, breakdown] = await Promise.all([
+  const [{ data: therapistsRaw }, { data: rawGlosas }] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name")
@@ -151,7 +151,6 @@ export default async function GlosasPage({
       // pra billing_items (que também não tem created_at).
       .order("id", { ascending: false })
       .limit(200),
-    getGlosaBreakdown(supabase, DEV_CLINIC_ID),
   ]);
 
   const therapists: Therapist[] = (therapistsRaw ?? []).map((t) => ({ id: t.id, fullName: t.full_name }));
@@ -179,12 +178,19 @@ export default async function GlosasPage({
 
   return (
     <main className="flex flex-1 flex-col">
-      <PageHeader
-        axisLabel="Faturamento"
-        title="Glosas"
-        description="Registro manual de glosas recebidas dos convênios, acompanhamento de recurso e recuperação."
-      />
+      <FaturamentoHeader active="glosas" />
       <div className="flex flex-col gap-6 p-6 sm:p-10">
+        <div>
+          <h1 className="m-0 text-xl font-semibold text-ink">Glosas</h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            Registro manual de glosas recebidas dos convênios, acompanhamento de recurso e recuperação. Análise por
+            motivo/convênio/pessoa está em{" "}
+            <Link href="/gestor/financeiro" className="underline">
+              Gestão › Financeiro
+            </Link>
+            .
+          </p>
+        </div>
         <section className="flex flex-col gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-5">
           <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
             Registrar glosa
@@ -208,25 +214,6 @@ export default async function GlosasPage({
         </section>
 
         <CsvImportForm />
-
-        {breakdown.totalCount > 0 && (
-          <section className="rounded-md border border-paper-line-strong bg-paper/60 p-5">
-            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
-              <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
-                Painel de glosa ({breakdown.totalCount})
-              </h2>
-              <span className="text-sm text-ink-soft">
-                Total glosado: <strong className="text-status-negative-text">{currencyFormatter.format(breakdown.totalAmount)}</strong>
-                {" · "}Recuperado: <strong className="text-status-positive-text">{currencyFormatter.format(breakdown.totalRecovered)}</strong>
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-              <GlosaBreakdownTable title="Por motivo" rows={breakdown.byReason} />
-              <GlosaBreakdownTable title="Por convênio" rows={breakdown.byInsurer} />
-              <GlosaBreakdownTable title="Por pessoa/cargo atribuído" rows={breakdown.byPerson} />
-            </div>
-          </section>
-        )}
 
         <section>
           <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
@@ -272,35 +259,5 @@ export default async function GlosasPage({
         </section>
       </div>
     </main>
-  );
-}
-
-function GlosaBreakdownTable({ title, rows }: { title: string; rows: GlosaBreakdownRow[] }) {
-  return (
-    <div>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{title}</h3>
-      {rows.length === 0 ? (
-        <p className="text-xs text-ink-faint">Sem dados.</p>
-      ) : (
-        <table className="w-full text-left text-xs">
-          <tbody className="divide-y divide-paper-line">
-            {rows.map((r) => (
-              <tr key={r.label}>
-                <td className="py-1.5 pr-2">
-                  <p className="font-medium text-ink">{r.label}</p>
-                  <p className="text-ink-faint">{r.count} glosa(s)</p>
-                </td>
-                <td className="py-1.5 text-right tabular-figure">
-                  <p className="font-medium text-status-negative-text">{currencyFormatter.format(r.amount)}</p>
-                  <p className="text-ink-faint">
-                    {r.recoveryRatePct !== null ? `${r.recoveryRatePct}% recuperado` : "—"}
-                  </p>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
   );
 }

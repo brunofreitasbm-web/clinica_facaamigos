@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { getReceptionQueue, type PendingQueueCategory } from "@/lib/reception-queue";
 import { RegisterContactButton } from "./register-contact-button";
+import { AutorizacaoWizard } from "./autorizacao-wizard";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function PendenciasPage() {
         description="§9.1 do PRD: guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido e lead sem retorno — tudo numa fila só, por urgência."
       />
       <div className="flex flex-col gap-8 p-6 sm:p-10">
+        <AutorizacaoWizard />
         {queue.length === 0 && (
           <p className="text-sm text-ink-faint">Nenhuma pendência no momento. 🎉</p>
         )}

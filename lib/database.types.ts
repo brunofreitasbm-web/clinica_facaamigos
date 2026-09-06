@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -132,6 +132,57 @@ export type Database = {
             columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      anamneses: {
+        Row: {
+          conducted_at: string
+          conducted_by: string
+          free_text: string | null
+          id: string
+          patient_id: string
+          presented_absence_policy: boolean
+          presented_pillars: boolean
+          presented_protocols: boolean
+          structured: Json
+        }
+        Insert: {
+          conducted_at?: string
+          conducted_by: string
+          free_text?: string | null
+          id?: string
+          patient_id: string
+          presented_absence_policy?: boolean
+          presented_pillars?: boolean
+          presented_protocols?: boolean
+          structured?: Json
+        }
+        Update: {
+          conducted_at?: string
+          conducted_by?: string
+          free_text?: string | null
+          id?: string
+          patient_id?: string
+          presented_absence_policy?: boolean
+          presented_pillars?: boolean
+          presented_protocols?: boolean
+          structured?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anamneses_conducted_by_fkey"
+            columns: ["conducted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anamneses_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]
@@ -343,9 +394,11 @@ export type Database = {
       authorizations: {
         Row: {
           approved_at: string | null
+          authorization_password: string | null
           document_id: string | null
           guide_number: string | null
           id: string
+          password_valid_until: string | null
           patient_insurance_id: string
           previous_authorization_id: string | null
           procedure_code: string
@@ -358,9 +411,11 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          authorization_password?: string | null
           document_id?: string | null
           guide_number?: string | null
           id?: string
+          password_valid_until?: string | null
           patient_insurance_id: string
           previous_authorization_id?: string | null
           procedure_code: string
@@ -373,9 +428,11 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          authorization_password?: string | null
           document_id?: string | null
           guide_number?: string | null
           id?: string
+          password_valid_until?: string | null
           patient_insurance_id?: string
           previous_authorization_id?: string | null
           procedure_code?: string
@@ -483,24 +540,88 @@ export type Database = {
           },
         ]
       }
+      bonding_reports: {
+        Row: {
+          engagement_score: number
+          id: string
+          observations: string | null
+          patient_id: string
+          period_end: string
+          period_start: string
+          ready_to_increase_demands: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          therapist_id: string
+        }
+        Insert: {
+          engagement_score: number
+          id?: string
+          observations?: string | null
+          patient_id: string
+          period_end: string
+          period_start: string
+          ready_to_increase_demands?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          therapist_id: string
+        }
+        Update: {
+          engagement_score?: number
+          id?: string
+          observations?: string | null
+          patient_id?: string
+          period_end?: string
+          period_start?: string
+          ready_to_increase_demands?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          therapist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonding_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonding_reports_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonding_reports_therapist_id_fkey"
+            columns: ["therapist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinics: {
         Row: {
           cnpj: string | null
           created_at: string
           id: string
           name: string
+          reassessment_cycle_months: number
         }
         Insert: {
           cnpj?: string | null
           created_at?: string
           id?: string
           name: string
+          reassessment_cycle_months?: number
         }
         Update: {
           cnpj?: string | null
           created_at?: string
           id?: string
           name?: string
+          reassessment_cycle_months?: number
         }
         Relationships: []
       }
@@ -670,6 +791,48 @@ export type Database = {
           },
           {
             foreignKeyName: "draft_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_feedback: {
+        Row: {
+          category_ratings: Json
+          comments: string | null
+          created_at: string
+          guardian_id: string
+          id: string
+          patient_id: string
+        }
+        Insert: {
+          category_ratings?: Json
+          comments?: string | null
+          created_at?: string
+          guardian_id: string
+          id?: string
+          patient_id: string
+        }
+        Update: {
+          category_ratings?: Json
+          comments?: string | null
+          created_at?: string
+          guardian_id?: string
+          id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_feedback_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_feedback_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
@@ -904,6 +1067,7 @@ export type Database = {
           clinic_id: string
           id: string
           name: string
+          provider_code: string | null
         }
         Insert: {
           ans_code?: string | null
@@ -911,6 +1075,7 @@ export type Database = {
           clinic_id: string
           id?: string
           name: string
+          provider_code?: string | null
         }
         Update: {
           ans_code?: string | null
@@ -918,6 +1083,7 @@ export type Database = {
           clinic_id?: string
           id?: string
           name?: string
+          provider_code?: string | null
         }
         Relationships: [
           {
@@ -925,6 +1091,57 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intake_steps: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          due_at: string | null
+          id: string
+          notes: string | null
+          patient_id: string
+          status: string
+          step_key: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          notes?: string | null
+          patient_id: string
+          status?: string
+          step_key: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          status?: string
+          step_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intake_steps_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intake_steps_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]
@@ -1054,47 +1271,133 @@ export type Database = {
           },
         ]
       }
+      meetings: {
+        Row: {
+          agenda: Json
+          conducted_by: string
+          decisions: string | null
+          family_present: boolean
+          held_at: string
+          id: string
+          kind: string
+          minutes: string | null
+          participants: string[]
+          patient_id: string
+          treatment_plan_id: string | null
+        }
+        Insert: {
+          agenda?: Json
+          conducted_by: string
+          decisions?: string | null
+          family_present?: boolean
+          held_at?: string
+          id?: string
+          kind: string
+          minutes?: string | null
+          participants?: string[]
+          patient_id: string
+          treatment_plan_id?: string | null
+        }
+        Update: {
+          agenda?: Json
+          conducted_by?: string
+          decisions?: string | null
+          family_present?: boolean
+          held_at?: string
+          id?: string
+          kind?: string
+          minutes?: string | null
+          participants?: string[]
+          patient_id?: string
+          treatment_plan_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_conducted_by_fkey"
+            columns: ["conducted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_treatment_plan_id_fkey"
+            columns: ["treatment_plan_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string | null
           channel: string
+          conversation_id: string | null
           delivered_at: string | null
+          delivery_status: string | null
           direction: string
           guardian_id: string | null
           id: string
+          media_url: string | null
           patient_id: string
           read_at: string | null
           related_appointment_id: string | null
+          sender_type: string
           sent_at: string | null
           template_key: string | null
+          twilio_sid: string | null
         }
         Insert: {
           body?: string | null
           channel: string
+          conversation_id?: string | null
           delivered_at?: string | null
+          delivery_status?: string | null
           direction: string
           guardian_id?: string | null
           id?: string
+          media_url?: string | null
           patient_id: string
           read_at?: string | null
           related_appointment_id?: string | null
+          sender_type?: string
           sent_at?: string | null
           template_key?: string | null
+          twilio_sid?: string | null
         }
         Update: {
           body?: string | null
           channel?: string
+          conversation_id?: string | null
           delivered_at?: string | null
+          delivery_status?: string | null
           direction?: string
           guardian_id?: string | null
           id?: string
+          media_url?: string | null
           patient_id?: string
           read_at?: string | null
           related_appointment_id?: string | null
+          sender_type?: string
           sent_at?: string | null
           template_key?: string | null
+          twilio_sid?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "twilio_conversations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_guardian_id_fkey"
             columns: ["guardian_id"]
@@ -1151,33 +1454,126 @@ export type Database = {
         }
         Relationships: []
       }
+      nps_surveys: {
+        Row: {
+          alert_status: string
+          alert_updated_at: string | null
+          alert_updated_by: string | null
+          appointment_id: string | null
+          created_at: string
+          dispatched_at: string
+          feedback_text: string | null
+          guardian_id: string
+          id: string
+          meeting_id: string | null
+          patient_id: string
+          phone_number: string
+          responded_at: string | null
+          score: number | null
+        }
+        Insert: {
+          alert_status?: string
+          alert_updated_at?: string | null
+          alert_updated_by?: string | null
+          appointment_id?: string | null
+          created_at?: string
+          dispatched_at?: string
+          feedback_text?: string | null
+          guardian_id: string
+          id?: string
+          meeting_id?: string | null
+          patient_id: string
+          phone_number: string
+          responded_at?: string | null
+          score?: number | null
+        }
+        Update: {
+          alert_status?: string
+          alert_updated_at?: string | null
+          alert_updated_by?: string | null
+          appointment_id?: string | null
+          created_at?: string
+          dispatched_at?: string
+          feedback_text?: string | null
+          guardian_id?: string
+          id?: string
+          meeting_id?: string | null
+          patient_id?: string
+          phone_number?: string
+          responded_at?: string | null
+          score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nps_surveys_alert_updated_by_fkey"
+            columns: ["alert_updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_surveys_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_surveys_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_surveys_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_surveys_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_access: {
         Row: {
           access_type: string
+          discipline: string | null
           granted_at: string
           granted_by: string | null
           id: string
           patient_id: string
           profile_id: string
           revoked_at: string | null
+          role_in_team: string | null
         }
         Insert: {
           access_type: string
+          discipline?: string | null
           granted_at?: string
           granted_by?: string | null
           id?: string
           patient_id: string
           profile_id: string
           revoked_at?: string | null
+          role_in_team?: string | null
         }
         Update: {
           access_type?: string
+          discipline?: string | null
           granted_at?: string
           granted_by?: string | null
           id?: string
           patient_id?: string
           profile_id?: string
           revoked_at?: string | null
+          role_in_team?: string | null
         }
         Relationships: [
           {
@@ -1344,6 +1740,8 @@ export type Database = {
           cid: string | null
           clinic_id: string
           complaint: string | null
+          contract_sent_at: string | null
+          contract_signed_at: string | null
           created_at: string
           created_by: string | null
           entry_source: string | null
@@ -1352,14 +1750,18 @@ export type Database = {
           first_session_at: string | null
           full_name: string
           id: string
+          payment_confirmed_at: string | null
           status: string
           support_level: string | null
+          whatsapp_group_added_at: string | null
         }
         Insert: {
           birth_date: string
           cid?: string | null
           clinic_id: string
           complaint?: string | null
+          contract_sent_at?: string | null
+          contract_signed_at?: string | null
           created_at?: string
           created_by?: string | null
           entry_source?: string | null
@@ -1368,14 +1770,18 @@ export type Database = {
           first_session_at?: string | null
           full_name: string
           id?: string
+          payment_confirmed_at?: string | null
           status?: string
           support_level?: string | null
+          whatsapp_group_added_at?: string | null
         }
         Update: {
           birth_date?: string
           cid?: string | null
           clinic_id?: string
           complaint?: string | null
+          contract_sent_at?: string | null
+          contract_signed_at?: string | null
           created_at?: string
           created_by?: string | null
           entry_source?: string | null
@@ -1384,8 +1790,10 @@ export type Database = {
           first_session_at?: string | null
           full_name?: string
           id?: string
+          payment_confirmed_at?: string | null
           status?: string
           support_level?: string | null
+          whatsapp_group_added_at?: string | null
         }
         Relationships: [
           {
@@ -1486,8 +1894,12 @@ export type Database = {
           description: string
           discipline: string
           domain: string
+          horizon: string | null
           id: string
+          methodology: string | null
           status: string
+          strategy: string | null
+          supervisor_notes: string | null
           target: string | null
           treatment_plan_id: string
           validated_by: string | null
@@ -1499,8 +1911,12 @@ export type Database = {
           description: string
           discipline: string
           domain: string
+          horizon?: string | null
           id?: string
+          methodology?: string | null
           status?: string
+          strategy?: string | null
+          supervisor_notes?: string | null
           target?: string | null
           treatment_plan_id: string
           validated_by?: string | null
@@ -1512,8 +1928,12 @@ export type Database = {
           description?: string
           discipline?: string
           domain?: string
+          horizon?: string | null
           id?: string
+          methodology?: string | null
           status?: string
+          strategy?: string | null
+          supervisor_notes?: string | null
           target?: string | null
           treatment_plan_id?: string
           validated_by?: string | null
@@ -1546,6 +1966,7 @@ export type Database = {
           esdm_certified: boolean
           full_name: string
           id: string
+          is_rt: boolean
           phone: string | null
           role: string
         }
@@ -1559,6 +1980,7 @@ export type Database = {
           esdm_certified?: boolean
           full_name: string
           id: string
+          is_rt?: boolean
           phone?: string | null
           role: string
         }
@@ -1572,6 +1994,7 @@ export type Database = {
           esdm_certified?: boolean
           full_name?: string
           id?: string
+          is_rt?: boolean
           phone?: string | null
           role?: string
         }
@@ -1723,30 +2146,39 @@ export type Database = {
       }
       protocols: {
         Row: {
+          area: string | null
           clinic_id: string
           digitization_risk_accepted_at: string
           digitization_risk_accepted_by: string
+          display_name: string | null
           id: string
+          is_validated: boolean
           license_note: string | null
           license_purchased_at: string | null
           name: string
           version: string | null
         }
         Insert: {
+          area?: string | null
           clinic_id: string
           digitization_risk_accepted_at: string
           digitization_risk_accepted_by: string
+          display_name?: string | null
           id?: string
+          is_validated?: boolean
           license_note?: string | null
           license_purchased_at?: string | null
           name: string
           version?: string | null
         }
         Update: {
+          area?: string | null
           clinic_id?: string
           digitization_risk_accepted_at?: string
           digitization_risk_accepted_by?: string
+          display_name?: string | null
           id?: string
+          is_validated?: boolean
           license_note?: string | null
           license_purchased_at?: string | null
           name?: string
@@ -1763,6 +2195,51 @@ export type Database = {
           {
             foreignKeyName: "protocols_digitization_risk_accepted_by_fkey"
             columns: ["digitization_risk_accepted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quick_responses: {
+        Row: {
+          clinic_id: string
+          content_text: string
+          created_at: string
+          created_by: string | null
+          id: string
+          shortcut: string
+          title: string
+        }
+        Insert: {
+          clinic_id: string
+          content_text: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          shortcut: string
+          title: string
+        }
+        Update: {
+          clinic_id?: string
+          content_text?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          shortcut?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_responses_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quick_responses_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2202,31 +2679,52 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          delivered_at: string | null
+          delivered_by: string | null
           discipline_mix: Json
+          family_accepted_at: string | null
+          family_priorities: string | null
+          general_objective: string | null
           id: string
           patient_id: string
+          previous_plan_id: string | null
           review_due_at: string | null
           status: string
+          supervisor_notes: string | null
           version: number
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          delivered_at?: string | null
+          delivered_by?: string | null
           discipline_mix?: Json
+          family_accepted_at?: string | null
+          family_priorities?: string | null
+          general_objective?: string | null
           id?: string
           patient_id: string
+          previous_plan_id?: string | null
           review_due_at?: string | null
           status?: string
+          supervisor_notes?: string | null
           version?: number
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          delivered_at?: string | null
+          delivered_by?: string | null
           discipline_mix?: Json
+          family_accepted_at?: string | null
+          family_priorities?: string | null
+          general_objective?: string | null
           id?: string
           patient_id?: string
+          previous_plan_id?: string | null
           review_due_at?: string | null
           status?: string
+          supervisor_notes?: string | null
           version?: number
         }
         Relationships: [
@@ -2238,10 +2736,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "treatment_plans_delivered_by_fkey"
+            columns: ["delivered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "treatment_plans_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_plans_previous_plan_id_fkey"
+            columns: ["previous_plan_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -2290,6 +2802,70 @@ export type Database = {
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      twilio_conversations: {
+        Row: {
+          assigned_to: string | null
+          conversation_sid: string | null
+          created_at: string
+          guardian_id: string | null
+          id: string
+          is_bot_active: boolean
+          last_message_at: string | null
+          patient_id: string
+          phone_number: string
+          status: string
+          unread_count: number
+        }
+        Insert: {
+          assigned_to?: string | null
+          conversation_sid?: string | null
+          created_at?: string
+          guardian_id?: string | null
+          id?: string
+          is_bot_active?: boolean
+          last_message_at?: string | null
+          patient_id: string
+          phone_number: string
+          status?: string
+          unread_count?: number
+        }
+        Update: {
+          assigned_to?: string | null
+          conversation_sid?: string | null
+          created_at?: string
+          guardian_id?: string | null
+          id?: string
+          is_bot_active?: boolean
+          last_message_at?: string | null
+          patient_id?: string
+          phone_number?: string
+          status?: string
+          unread_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "twilio_conversations_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "twilio_conversations_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "twilio_conversations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]
@@ -2489,6 +3065,115 @@ export type Database = {
           width?: number | null
         }
         Relationships: []
+      }
+      voice_emergency_broadcasts: {
+        Row: {
+          created_at: string
+          id: string
+          message_template: string
+          occurrence_date: string
+          shift: string | null
+          supervisor_id: string
+          therapist_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_template: string
+          occurrence_date: string
+          shift?: string | null
+          supervisor_id: string
+          therapist_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_template?: string
+          occurrence_date?: string
+          shift?: string | null
+          supervisor_id?: string
+          therapist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_emergency_broadcasts_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_emergency_broadcasts_therapist_id_fkey"
+            columns: ["therapist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_emergency_logs: {
+        Row: {
+          attempt_number: number
+          broadcast_id: string
+          call_sid: string | null
+          call_status: string
+          created_at: string
+          fallback_sent: boolean
+          guardian_id: string | null
+          id: string
+          patient_id: string
+          phone_number: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_number?: number
+          broadcast_id: string
+          call_sid?: string | null
+          call_status?: string
+          created_at?: string
+          fallback_sent?: boolean
+          guardian_id?: string | null
+          id?: string
+          patient_id: string
+          phone_number: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          broadcast_id?: string
+          call_sid?: string | null
+          call_status?: string
+          created_at?: string
+          fallback_sent?: boolean
+          guardian_id?: string | null
+          id?: string
+          patient_id?: string
+          phone_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_emergency_logs_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "voice_emergency_broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_emergency_logs_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_emergency_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspaces: {
         Row: {
@@ -2711,9 +3396,22 @@ export type Database = {
       runtests:
         | { Args: never; Returns: string[] }
         | { Args: { "": string }; Returns: string[] }
+      seed_intake_steps: { Args: { p_patient_id: string }; Returns: undefined }
       session_note_pending: {
         Args: { p_appointment_id: string }
         Returns: boolean
+      }
+      set_intake_step_complete: {
+        Args: {
+          p_completed_by?: string
+          p_patient_id: string
+          p_step_key: string
+        }
+        Returns: undefined
+      }
+      set_intake_step_na: {
+        Args: { p_patient_id: string; p_step_key: string }
+        Returns: undefined
       }
       skip:
         | { Args: { "": string }; Returns: string }
@@ -2728,6 +3426,17 @@ export type Database = {
       todo_start:
         | { Args: never; Returns: boolean[] }
         | { Args: { "": string }; Returns: boolean[] }
+      upsert_metric_snapshot: {
+        Args: {
+          p_metric_key: string
+          p_period_end: string
+          p_period_start: string
+          p_scope_id: string
+          p_scope_type: string
+          p_value: number
+        }
+        Returns: undefined
+      }
       vitrine_device_heartbeat: {
         Args: { p_now_playing_video_id?: string; p_token: string }
         Returns: boolean

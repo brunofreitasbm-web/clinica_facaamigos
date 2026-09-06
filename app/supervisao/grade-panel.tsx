@@ -24,6 +24,12 @@ export type PendingNote = {
   hoursOverdue: number;
 };
 
+export type PendingPlan = {
+  patientId: string;
+  patientName: string;
+  daysOverdue: number;
+};
+
 function AppointmentChip({
   appt,
   onClick,
@@ -75,6 +81,7 @@ export function GradePanel({
   rooms,
   appointments,
   pendingNotes,
+  pendingPlans,
   carteira,
 }: {
   weekLabel: string;
@@ -85,6 +92,7 @@ export function GradePanel({
   rooms: { id: string; name: string }[];
   appointments: GradeAppointment[];
   pendingNotes: PendingNote[];
+  pendingPlans: PendingPlan[];
   carteira: { sessionsInGrid: number; provisionalNoGuide: number; onTimePercent: number | null };
 }) {
   const [mode, setMode] = useState<"terapeuta" | "sala">("terapeuta");
@@ -430,6 +438,42 @@ export function GradePanel({
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mt-14">
+        <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-4">
+          Pendências da equipe · PDI atrasado
+        </h6>
+        {pendingPlans.length === 0 ? (
+          <p className="text-sm text-ink-faint">Nenhum PDI atrasado — prazo de 50 dias em dia (§2.3).</p>
+        ) : (
+          <div className="flex flex-col">
+            {pendingPlans.map((p) => (
+              <div
+                key={p.patientId}
+                className="flex items-center justify-between gap-3 border-b py-3 text-sm"
+                style={{ borderColor: "var(--color-divider)" }}
+              >
+                <div className="font-medium">{p.patientName}</div>
+                <div className="flex items-center gap-3">
+                  <span className="tabular-figure" style={{ color: "var(--status-falta)" }}>
+                    {p.daysOverdue} dia(s) atrasado
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      setNotification(`Lembrete de PDI pendente enviado para a equipe de ${p.patientName}`);
+                      setTimeout(() => setNotification(null), 4000);
+                    }}
+                  >
+                    Lembrar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

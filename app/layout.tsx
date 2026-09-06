@@ -1,20 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Source_Serif_4, IBM_Plex_Mono } from "next/font/google";
+import { Nunito, Fredoka } from "next/font/google";
 import { AuthStatus } from "@/components/auth-status";
 import { OfflineBanner } from "@/components/offline-banner";
 import "./globals.css";
 
-const sourceSerif = Source_Serif_4({
-  variable: "--font-source-serif",
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
-  weight: ["400", "600"],
+  weight: ["400", "600", "700", "800", "900"],
   style: ["normal", "italic"],
 });
 
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
+const fredoka = Fredoka({
+  variable: "--font-fredoka",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -23,8 +23,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14284b",
+  themeColor: "#f0196b",
 };
+
+import { ToastProvider } from "@/components/toast-provider";
+import { RouteProgressBar } from "@/components/route-progress-bar";
+import { Suspense } from "react";
 
 export default function RootLayout({
   children,
@@ -32,12 +36,17 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${sourceSerif.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${nunito.variable} ${fredoka.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <OfflineBanner />
-        <AuthStatus />
-        {children}
+        <ToastProvider>
+          <Suspense fallback={null}>
+            <RouteProgressBar />
+          </Suspense>
+          <OfflineBanner />
+          <AuthStatus />
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

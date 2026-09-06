@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ABSENCE_REASON_CATEGORIES } from "@/lib/absence-reasons";
 import { currentSurveyPeriod } from "@/lib/survey-period";
+import { FEEDBACK_CATEGORIES, FEEDBACK_RATING_VALUES, type FeedbackRatingValue } from "@/lib/family-feedback";
 
 type ActionResult = { success: true } | { success: false; error: string };
 type UrlResult = { success: true; url: string } | { success: false; error: string };
@@ -161,6 +162,55 @@ export async function submitSurvey(
   }
 
   revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
+ * "Avalie" (app/familia/avalie) — diferente da pesquisa trimestral acima
+ * (survey_responses, 1 resposta/trimestre): página sempre disponível, sem
+ * limite de periodicidade, gravada em `family_feedback`. Até 4 categorias
+ * fixas (FEEDBACK_CATEGORIES) + texto livre de críticas ou sugestões.
+ */
+export async function submitFamilyFeedback(
+  patientId: string,
+  guardianId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  const categoryRatings: Record<string, FeedbackRatingValue> = {};
+  for (const cat of FEEDBACK_CATEGORIES) {
+    const raw = formData.get(`rating_${cat.key}`);
+    if (raw == null || raw === "") continue;
+    if (!FEEDBACK_RATING_VALUES.includes(raw as FeedbackRatingValue)) {
+      return { success: false, error: "Avaliação inválida." };
+    }
+    categoryRatings[cat.key] = raw as FeedbackRatingValue;
+  }
+  if (Object.keys(categoryRatings).length === 0) {
+    return { success: false, error: "Avalie pelo menos uma categoria." };
+  }
+
+  const comments = String(formData.get("comments") ?? "").trim().slice(0, 2000);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  const { error } = await supabase.from("family_feedback").insert({
+    patient_id: patientId,
+    guardian_id: guardianId,
+    category_ratings: categoryRatings,
+    comments: comments || null,
+  });
+
+  if (error) {
+    return { success: false, error: "Não foi possível enviar sua avaliação. Tente de novo." };
+  }
+
+  revalidatePath("/familia/avalie");
   return { success: true };
 }
 

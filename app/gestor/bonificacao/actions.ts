@@ -9,11 +9,12 @@ export type { BonusRow, TierRow, ClosedMetricRow };
 
 /**
  * Métricas de bonificação: cálculo ao vivo direto das tabelas operacionais
- * (mesma função usada no painel executivo em app/gestor/page.tsx). `targets`
- * e `metric_snapshots` ainda não têm nenhuma linha gravada nesta clínica —
- * não existe job mensal que as popule — então, em vez de exibir uma média
- * ponderada por peso inventado, mostramos o indicador real de cada cargo
- * contra a meta do PRD (§10) e o status calculado.
+ * (mesma função usada no painel executivo em app/gestor/page.tsx) para o mês
+ * em andamento. `close_monthly_metric_snapshots` (migrations 20260904000027
+ * e 20260905150000) já fecha boa parte do §10 em `metric_snapshots` no dia 1,
+ * mas isso ainda não vira apuração ponderada por peso nem PDF de PLR — então,
+ * em vez de inventar uma média ponderada, mostramos o indicador real de cada
+ * cargo contra a meta do PRD (§10) e o status calculado.
  */
 export async function getBonificacaoData(): Promise<{
   bonusRows: BonusRow[];

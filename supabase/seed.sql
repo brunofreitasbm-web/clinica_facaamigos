@@ -1,6 +1,5 @@
 -- =====================================================================
 -- Seed de Dados e Usuários de Teste - Clínica FaçaAmigos
--- Senha Padrão para Todos os Perfis: facaamigos123
 -- =====================================================================
 
 -- 1. Clínica Padrão de Teste
@@ -20,11 +19,8 @@ values
   ('22222222-2222-2222-2222-222222222203', '11111111-1111-1111-1111-111111111111', 'Sala 03 - Fonoaudiologia', 1)
 on conflict (id) do nothing;
 
--- Nota: Os usuários auth.users devem ser criados via Supabase Auth (Dashboard ou CLI)
--- utilizando a senha padrão 'facaamigos123' para os seguintes e-mails:
--- 
--- - Gestor:       gestor@facaamigos.com.br
--- - Supervisor:   supervisor@facaamigos.com.br
--- - Terapeuta:    terapeuta@facaamigos.com.br
--- - Recepção:     recepcao@facaamigos.com.br
--- - Faturamento:  faturamento@facaamigos.com.br
+-- Nota: Os usuários auth.users devem ser criados via Supabase Auth (Dashboard
+-- ou CLI), um por perfil (gestor, supervisor, terapeuta, recepção,
+-- faturamento), cada um com e-mail e senha próprios definidos localmente por
+-- quem for testar — ver docs/CREDENCIAIS_TESTE.md. Não versionar credenciais
+-- aqui.

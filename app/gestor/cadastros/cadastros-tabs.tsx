@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { QuickActionsBar } from "@/components/quick-actions-bar";
 import type { TherapistRow, InsurerRow, ProtocolRow, PatientRow, AppointmentTypeRow } from "./data";
 
 const TABS = [
@@ -92,7 +93,7 @@ export function CadastrosTabs({
                 <th>Faixa</th>
                 <th>Contrato</th>
                 <th>Certificações</th>
-                <th></th>
+                <th className="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -107,9 +108,12 @@ export function CadastrosTabs({
                   <td>{t.contractLabel}</td>
                   <td>{t.certifications}</td>
                   <td className="text-right">
-                    <Link href="/gestor/equipe" className="btn btn-ghost text-xs">
-                      Editar
-                    </Link>
+                    <QuickActionsBar
+                      finance={{ href: "/gestor/financeiro", title: `Financeiro/Repasse de ${t.name}` }}
+                      profile={{ href: "/gestor/equipe", title: `Ficha de ${t.name}` }}
+                      edit={{ href: "/gestor/equipe", title: `Editar ${t.name}` }}
+                      schedule={{ href: "/gestor/atendimentos", title: `Agenda de ${t.name}` }}
+                    />
                   </td>
                 </tr>
               ))}
@@ -132,7 +136,7 @@ export function CadastrosTabs({
                 <th>Tabela vigente</th>
                 <th>Preços cadastrados</th>
                 <th>Glosas em aberto</th>
-                <th></th>
+                <th className="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -150,9 +154,12 @@ export function CadastrosTabs({
                   <td className="tabular-figure">{i.priceCount}</td>
                   <td className="tabular-figure">{i.openGlosasCount}</td>
                   <td className="text-right">
-                    <Link href={`/gestor/convenios/${i.id}/precos`} className="btn btn-ghost text-xs">
-                      Tabela de preços
-                    </Link>
+                    <QuickActionsBar
+                      finance={{ href: `/gestor/convenios/${i.id}/precos`, title: `Preços do convênio ${i.name}` }}
+                      profile={{ href: `/gestor/convenios`, title: `Ver convênio ${i.name}` }}
+                      edit={{ href: `/gestor/convenios`, title: `Editar convênio ${i.name}` }}
+                      schedule={{ href: `/faturamento/guias`, title: `Guias do convênio ${i.name}` }}
+                    />
                   </td>
                 </tr>
               ))}
@@ -170,38 +177,47 @@ export function CadastrosTabs({
         {tab === "terapias" && (
           <>
             <p className="mb-4 max-w-[720px] text-[13px] text-ink-soft">
-              Protocolos licenciados (VB-MAPP, ABLLS-R, Denver/ESDM) — cadastro é decisão jurídica do gestor (PRD
-              §9.4-A), sem fluxo de criação nesta tela.
+              Protocolos licenciados (Módulo 3 MAAIS, slide 25) — cadastrar é uma decisão jurídica do gestor (PRD
+              §9.4-A): quem cadastra assume o risco de digitização.
             </p>
+            <div className="mb-3 flex justify-end">
+              <Link href="/gestor/protocolos/nova" className="btn btn-primary text-sm no-underline">
+                + Novo protocolo
+              </Link>
+            </div>
             <table className="table">
               <thead>
                 <tr>
                   <th>Protocolo</th>
+                  <th>Área</th>
                   <th>Versão</th>
                   <th>Licença comprada em</th>
                   <th>Risco de digitização aceito por</th>
                   <th>Itens cadastrados</th>
-                  <th></th>
+                  <th className="text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {protocols.map((p) => (
                   <tr key={p.id}>
                     <td className="font-semibold">{p.name}</td>
+                    <td>{p.area ?? "—"}</td>
                     <td>{p.version ?? "—"}</td>
                     <td>{p.licensePurchasedAtLabel}</td>
                     <td>{p.riskAcceptedLabel}</td>
                     <td className="tabular-figure">{p.itemCount}</td>
                     <td className="text-right">
-                      <Link href={`/gestor/protocolos/${p.id}`} className="btn btn-ghost text-xs">
-                        Gerenciar itens
-                      </Link>
+                      <QuickActionsBar
+                        profile={{ href: `/gestor/protocolos/${p.id}`, title: `Ver ${p.name}` }}
+                        edit={{ href: `/gestor/protocolos/${p.id}`, title: `Gerenciar ${p.name}` }}
+                        schedule={{ href: `/gestor/protocolos/${p.id}`, title: `Histórico de ${p.name}` }}
+                      />
                     </td>
                   </tr>
                 ))}
                 {protocols.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-ink-faint">
+                    <td colSpan={7} className="text-ink-faint">
                       Nenhum protocolo licenciado cadastrado ainda.
                     </td>
                   </tr>
@@ -220,7 +236,7 @@ export function CadastrosTabs({
                 <th>Duração</th>
                 <th>Exibição</th>
                 <th>Recorrência</th>
-                <th></th>
+                <th className="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -232,9 +248,12 @@ export function CadastrosTabs({
                   <td>A cada {a.displayIntervalMinutes} minutos</td>
                   <td>{RECURRENCE_LABEL[a.recurrence] ?? a.recurrence}</td>
                   <td className="text-right">
-                    <Link href="/gestor/atendimentos" className="btn btn-ghost text-xs">
-                      Editar
-                    </Link>
+                    <QuickActionsBar
+                      finance={{ href: "/gestor/financeiro", title: `Valores de ${a.name}` }}
+                      profile={{ href: "/gestor/atendimentos", title: `Ver ${a.name}` }}
+                      edit={{ href: "/gestor/atendimentos", title: `Editar ${a.name}` }}
+                      schedule={{ href: "/gestor/atendimentos", title: `Escala de ${a.name}` }}
+                    />
                   </td>
                 </tr>
               ))}
@@ -259,13 +278,14 @@ export function CadastrosTabs({
                 <th>Convênio</th>
                 <th>Terapeuta principal</th>
                 <th>Status</th>
+                <th className="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
               {patients.map((p) => (
                 <tr key={p.id}>
                   <td className="font-semibold">
-                    <Link href={`/gestor/pacientes/${p.id}`}>{p.name}</Link>
+                    <Link href={`/recepcao/pacientes/${p.id}/gestao`}>{p.name}</Link>
                   </td>
                   <td>{p.guardianName}</td>
                   <td>{p.birthDateLabel}</td>
@@ -274,11 +294,18 @@ export function CadastrosTabs({
                   <td>
                     <span className={`tag-status ${PATIENT_STATUS_TAG[p.status] ?? "st-cancelada"}`}>{p.status}</span>
                   </td>
+                  <td className="text-right">
+                    <QuickActionsBar
+                      profile={{ href: `/recepcao/pacientes/${p.id}/gestao`, title: `Ficha completa de ${p.name}` }}
+                      edit={{ href: `/recepcao/pacientes/${p.id}/gestao`, title: `Editar paciente ${p.name}` }}
+                      schedule={{ href: `/recepcao/pacientes/${p.id}/gestao`, title: `Agenda de ${p.name}` }}
+                    />
+                  </td>
                 </tr>
               ))}
               {patients.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-ink-faint">
+                  <td colSpan={7} className="text-ink-faint">
                     Nenhum paciente cadastrado ainda.
                   </td>
                 </tr>

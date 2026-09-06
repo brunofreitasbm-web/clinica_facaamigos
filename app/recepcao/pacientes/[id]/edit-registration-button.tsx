@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { EditBasicsForm } from "@/app/gestor/pacientes/[id]/edit-basics-form";
+import { EditBasicsForm } from "./gestao/edit-basics-form";
 
 export function EditRegistrationButton({
   patientId,

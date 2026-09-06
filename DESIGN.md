@@ -1,148 +1,229 @@
 ---
 name: FaçaAmigos — Gestão Clínica
-description: Gráfico de crescimento pediátrico como sistema operacional para uma clínica de TEA/TDAH
+description: Identidade oficial da marca FaçaAmigos (Playground Inclusivo) aplicada ao sistema interno de gestão da clínica
 colors:
-  paper: "#faf8f3"
-  paper-line: "#e4dfd2"
-  paper-line-strong: "#cfc8b4"
-  ink: "#1c2530"
-  ink-soft: "#57606b"
-  ink-faint: "#5f656f"
-  chart: "#0f5c7d"
-  chart-strong: "#0a4a5f"
-  chart-soft: "#d9e8ee"
-  status-positive: "#1b8a6b"
-  status-positive-soft: "#dcefe8"
-  status-positive-text: "#0e5c44"
-  status-pending: "#c97c1f"
-  status-pending-soft: "#f6e8d5"
-  status-pending-text: "#8a530e"
-  status-active: "#0f5c7d"
-  status-active-soft: "#d9e8ee"
-  status-active-text: "#0a4a5f"
-  status-negative: "#c4432b"
-  status-negative-soft: "#f5ded8"
-  status-negative-text: "#93301c"
-  status-neutral: "#8a8f98"
-  status-neutral-soft: "#e7e6e2"
-  status-neutral-text: "#4b4f56"
-  milestone: "#c9971f"
+  bg: "#f7f5f2"
+  surface: "#ffffff"
+  text: "#1a3f35"
+  pink: "#f0196b"
+  pink-hover: "#c8155a"
+  pink-active: "#a01248"
+  teal: "#2ecfb5"
+  amber: "#c99020"
+  yellow: "#ffe234"
+  status-positive: "#28c880"
+  status-positive-soft: "#e2f9ee"
+  status-positive-text: "#0e6b3f"
+  status-pending: "#c99020"
+  status-pending-soft: "#faf1de"
+  status-pending-text: "#7c5a0b"
+  status-active: "#f0196b"
+  status-active-soft: "#fde6ef"
+  status-active-text: "#a01248"
+  status-negative: "#e83030"
+  status-negative-soft: "#fce4e4"
+  status-negative-text: "#8a1f1f"
+  status-neutral: "#5a636e"
+  status-neutral-soft: "#e8eaec"
+  status-neutral-text: "#262c32"
 typography:
   display:
-    fontFamily: "Inter, system-ui, sans-serif"
-    fontSize: "1.875rem"
+    fontFamily: "Fredoka, Nunito, system-ui, sans-serif"
+    fontSize: "2.5rem"
     fontWeight: 600
-    lineHeight: 1.2
+    lineHeight: 1.15
   body:
-    fontFamily: "Inter, system-ui, sans-serif"
-    fontSize: "0.875rem"
+    fontFamily: "Nunito, Segoe UI, sans-serif"
+    fontSize: "0.9375rem"
     fontWeight: 400
-    lineHeight: 1.5
-  measured:
-    fontFamily: "IBM Plex Mono, ui-monospace, monospace"
-    fontSize: "1.875rem"
-    fontWeight: 600
-    letterSpacing: "-0.01em"
+    lineHeight: 1.55
+  numbers:
+    fontFamily: "Nunito, Segoe UI, sans-serif"
+    fontVariantNumeric: "tabular-nums"
+    fontWeight: 800
 rounded:
-  card: "6px"
+  button: "9999px"
+  card: "24px"
+  input: "14px"
 spacing:
-  card-padding: "20px 20px"
+  card-padding: "20px"
   grid-gap: "24px"
 components:
-  measurement-card:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
+  card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
     rounded: "{rounded.card}"
     padding: "{spacing.card-padding}"
+    shadow: "var(--shadow-sm)"
 ---
 
 # Design System: FaçaAmigos — Gestão Clínica
 
-<!-- SEED-TO-SCAN: mundo escolhido via new-work (impeccable, seed 2b7f8b5e,
-assignedIndex 6, roll degradado sem rede) e implementado no scaffold Next.js
-(app/globals.css, app/layout.tsx, components/). Passou por revisão final em
-2 rodadas: 8 material_fixes na primeira, 5 resolved + 3 partial na segunda
-(bug de escala de SVG corrigido; a fita de tendência repetida e a banda de
-referência sem dado seguem como débito conhecido — ver Do's and Don'ts). -->
+<!-- REBRAND: em 2026-09-05, a pedido explícito do dono do produto, o sistema
+saiu do mundo "Broadsheet/Gráfico de Crescimento Pediátrico" (navy #14284b +
+dourado #b8933a, papel neutro, sem sombra, fio de 1px) para a identidade
+oficial da marca FaçaAmigos (Playground Inclusivo), fonte:
+`fa-aamigos-design-system` (pasta de branding do projeto-irmão). O pedido foi
+"aplicar em absolutamente tudo": recepção, agenda, prontuário, faturamento,
+financeiro, portal da família — não só telas de marketing/consumo. Isso
+substitui integralmente as decisões abaixo; ver git history para o racional
+antigo. -->
 
 ## Overview
 
-**Creative North Star: "O Gráfico de Crescimento Pediátrico"**
+**Creative North Star: "FaçaAmigos, o playground inclusivo, por trás do balcão"**
 
-O sistema lê como uma caderneta de crescimento pendurada aos pés da mesa de exame, não como um app de bem-estar. Cada tela é uma página de medição: papel milimetrado quente ao fundo, tinta azul de caderneta clínica como único acento, números medidos em mono tabular, bandeirinha dourada quando uma meta é atingida de verdade. Nada de gradiente decorativo, nada de sombra dura fora do fio de 1px que separa um cartão do papel. Rejeitado explicitamente: o dashboard SaaS genérico de bem-estar (cards roxo/rosa, ícones fofos, sidebar arredondada) que é o padrão do setor, e o extremo oposto, o EHR hospitalar cinza e frio.
+O sistema é a mesma marca que a família já reconhece no playground — rosa
+vibrante, cantos sempre arredondados, tipografia bem-humorada — só que
+operando em modo denso: telas de recepção, faturamento e prontuário
+carregam muito texto e número o dia inteiro, então usam fundo claro e
+cartões brancos com sombra (não o app escuro do playground), exatamente
+como a própria marca já resolve isso no kiosk do operador. O portal da
+família (`app/familia`) é onde a marca aparece mais "solta": cabeçalho
+escuro, títulos grandes em Fredoka, tom de voz direto na segunda pessoa.
 
 **Key Characteristics:**
-- Fundo de papel quente com grade milimetrada de duas ordens (linha fina a cada 24px, linha de escala a cada 96px) — nunca decoração, é a superfície de medição do mundo.
-- Um único acento saturado (azul de caderneta), usado com parcimônia — pontos de status, números-chave, rótulo de eixo.
-- Números medidos sempre em mono tabular; unidades e legendas continuam em sans.
-- Honestidade de dado: um valor que ainda não é medição real nunca se veste de veredito (nunca "0 → atenção" em vermelho).
+- Rosa `#F0196B` como accent primário (ação, link, foco, chrome ativo) — o
+  único lugar que herdou o papel do antigo azul de caderneta.
+- Teal `#2ECFB5` como secundário (status "realizada"/concluído) e âmbar
+  `#C99020` como accent raro (marco, destaque de card, kicker de seção) —
+  o âmbar é o mesmo tom dourado da marca-mãe, então herdou literalmente o
+  papel do antigo dourado (`--color-gold`/`--color-milestone` continuam
+  sendo o alias do âmbar).
+- Fredoka nos títulos grandes (`h1`, `--font-display`); Nunito em todo o
+  resto da UI (botão, rótulo, corpo, número) — números ainda usam
+  `tabular-nums` (`.tabular-figure`), mas na fonte da marca, não mais em
+  mono dedicado.
+- Cantos sempre arredondados: botão/tag/badge são pílula (`--radius-full`),
+  cartão/diálogo usam 24px (`--radius-lg`). Nenhum canto reto no sistema.
+- Cartão sempre tem sombra (`--shadow-sm` em repouso, `--shadow-md`/
+  `--shadow-pink`/`--shadow-teal` em hover) — nunca só um fio de 1px.
 
 ## Colors
 
-Paleta restrita: neutros quentes de papel/tinta + um único acento azul + cinco cores de status com par claro (fundo) / escuro (texto, AA).
+Rosa como único accent saturado de interação; âmbar como accent raro de
+destaque; cinco cores de status com par claro (fundo) / escuro (texto, AA).
 
 ### Primary
-- **Azul de Caderneta Clínica** (`#0f5c7d`): rótulo de eixo, pontos de status "ativo", número-chave em destaque, hover de navegação. Nunca mais que um elemento saturado por tela.
+- **Rosa FaçaAmigos** (`#F0196B`): botão primário, link, foco, borda ativa
+  de navegação, status "em atendimento". Hover `#C8155A`, active `#A01248`.
+
+### Secondary / rare accent
+- **Teal** (`#2ECFB5`): status "realizada" (sessão concluída), botão
+  variante secundária alternativa.
+- **Âmbar** (`#C99020`): status "agendada" (a confirmar), bandeirinha de
+  marco/meta atingida, kicker de card — herdeiro direto do antigo dourado.
 
 ### Neutral
-- **Papel** (`#faf8f3`): fundo de página. Nunca branco puro — é a cor de papel de caderneta real.
-- **Linha do Papel** (`#e4dfd2`) / **Linha de Escala** (`#cfc8b4`): as duas ordens da grade milimetrada de fundo, também usada como borda de cartão (linha de escala).
-- **Tinta** (`#1c2530`): texto primário. **Tinta Suave** (`#57606b`): descrições. **Tinta Fraca** (`#5f656f`, ≥4.5:1 sobre o papel): unidades, texto auxiliar.
+- **Fundo** (`#F7F5F2`): fundo de página, quente mas claro (nunca o app
+  escuro `#141414` do playground — ver nota de kiosk abaixo).
+- **Superfície** (`#FFFFFF`): fundo de cartão/diálogo/input.
+- **Tinta** (`#1A3F35`, o "verde-escuro Faça" da marca): texto primário.
+
+### Status (sessão/faturamento — iguais em todas as telas)
+- **Confirmada** → verde de sucesso `#28C880`
+- **Agendada / a confirmar** → âmbar `#C99020`
+- **Em atendimento** → rosa `#F0196B`
+- **Realizada** → teal `#2ECFB5`
+- **Falta** → vermelho `#E83030`
+- **Cancelada** → cinza neutro `#5A636E`
 
 ### Named Rules
-**A Regra do Zero Honesto.** Um valor placeholder nunca herda uma cor de status que implique medição real. `MeasurementCard` tem `placeholder=true` por padrão nesta fase: força tratamento neutro ("aguardando dado real"), ignora `status` e suprime a bandeirinha de marco. Só a query real do Supabase no root usa `placeholder={false}`.
+**Por que o sistema não é escuro.** A marca FaçaAmigos define
+explicitamente que o app de consumo é escuro, mas que o **kiosk do
+operador é claro de propósito** — porque é a tela mais densa de texto que
+a equipe lê o dia inteiro. Recepção, faturamento e prontuário são
+exatamente esse caso, então seguem claro; só o hero do portal da família
+usa o fundo escuro `--color-dark` como bloco decorativo pontual.
 
 ## Typography
 
-**Display/Body Font:** Inter (system-ui como fallback)
-**Measured Font:** IBM Plex Mono — reservada estritamente ao número medido (`.tabular-figure`), nunca à unidade ou legenda ao lado dele.
+**Display:** Fredoka (weights 500–700) — usada só em `h1` (título de
+página) e nos poucos lugares que precisam do impacto "app de playground"
+(ex. nome da marca no header do portal da família).
+**Body/UI:** Nunito (400–900) — todo o resto: `h2`–`h6`, botão, input,
+tag, badge, nav, tabela, número tabular.
 
-**Character:** Inter é o cavalo de batalha de UI Operate — legível a 1m de distância na recepção (PRD §9.11). O Plex Mono entra só onde há uma medição de verdade, reforçando "isto é um número contado", nunca decorando prosa.
+**Font substitution:** Fredoka é o `Fredoka` variável do Google Fonts
+(a fonte de peso único "Fredoka One" não está disponível via `next/font`
+nesta versão do Next.js); usamos peso 600 para aproximar o visual "bubbly"
+de peso único da marca.
 
 ### Hierarchy
-- **Título de página** (600, 1.875rem–2.25rem responsivo, 1.2): um por rota.
-- **Rótulo de eixo** (500, 0.75rem, tracking 0.14em, uppercase, mono): acompanha uma régua SVG com tique — nunca aparece sozinho como eyebrow decorativo.
-- **Corpo** (400, 0.875rem, 1.5): descrições, legendas.
-- **Medição** (600, 1.875rem, mono tabular): o valor numérico central de cada `MeasurementCard`.
+- **Título de página** (`h1`, Fredoka 600, 40px): um por rota.
+- **Subtítulo/section** (`h2`–`h4`, Nunito 800): título de card, diálogo.
+- **Kicker/tagline** (`h6`, Nunito 800, uppercase, tracking 0.14em, cor
+  âmbar): segue a regra "tagline" da marca (ver `PLAYGROUND INCLUSIVO` no
+  logo) — nunca aparece como eyebrow decorativo sem contexto.
+- **Corpo** (Nunito 400, 15px, 1.55): texto padrão de UI.
+- **Número medido** (`.tabular-figure`, Nunito 800, tabular-nums): contagem,
+  percentual, valor monetário.
 
 ## Layout
 
-Grid CSS responsivo (`grid-cols-1` no mobile, 3–4 colunas no desktop), com `content-start items-start` explícito — decisão corrigida durante o build: sem esses dois, o grid herda `align-items: stretch` e os cartões esticam pra preencher toda a altura restante da viewport (achado real, não teórico). Espaçamento de 24px entre cartões. Padding de página 24px (mobile) / 40px (desktop, `sm:p-10`).
+Sem mudança estrutural: grid CSS responsivo (`grid-cols-1` no mobile,
+3–4 colunas no desktop), `content-start items-start` explícito. Espaçamento
+de 24px entre cartões, padding de página 24px (mobile) / 40px (desktop).
 
 ## Elevation & Depth
 
-Sem sombra. Profundidade vem só do fio de 1px (`shadow-[0_1px_0_0_var(--color-paper-line-strong)]`) na borda inferior do cartão — como o traço de régua de uma tabela impressa, não elevação de material design.
-
-### Named Rules
-**A Regra do Fio, Não Sombra.** Nenhum componente usa `box-shadow` com blur. Separação de camada é sempre um fio de 1px na cor de linha do papel.
+Ao contrário do sistema anterior ("Regra do Fio, Não Sombra"), a marca
+FaçaAmigos usa sombra de verdade: `.card` tem `--shadow-sm` em repouso e
+`--shadow-md` (ou `--shadow-pink`/`--shadow-teal` em botões/CTAs) em
+hover. A escala padrão do Tailwind (`shadow-sm`/`shadow-md`/`shadow-lg`/
+`shadow-xl`) foi reapontada no `@theme inline` de `app/globals.css` para
+esses mesmos tokens, então qualquer rota que já usava `shadow-md` cru
+herdou a sombra da marca sem precisar editar a rota.
 
 ## Shapes
 
-Cantos levemente arredondados (`rounded-md`, 6px) em cartões — o suficiente pra não parecer recorte de papel serrilhado, pouco o bastante pra não puxar pro mundo de app de consumo. Sem clipping decorativo, sem ícone de glifo solto — os únicos SVGs desenhados a mão são a régua de eixo e a bandeirinha de marco, ambos dispositivos nativos do mundo.
+Cantos sempre arredondados, sem exceção — a mesma reapontada de tema
+eleva a escala padrão do Tailwind: `rounded-md` agora é 14px, `rounded-lg`
+24px, e a classe `.btn`/`.tag`/`.tag-status`/`.btn-icon` força pílula
+(`--radius-full`) explicitamente. Nenhum componente novo deve usar
+`rounded-none` ou depender de canto reto.
 
 ## Components
 
-### Measurement Card (`components/measurement-card.tsx`)
-- **Forma:** `rounded-md`, borda 1px `paper-line-strong`, fundo `paper/60` (deixa a grade de fundo passar através).
-- **Anatomia:** ponto de status (8px) + rótulo uppercase → número em mono tabular + unidade em sans → pílula de status (texto sempre na variante `-text`, AA contra o fundo `-soft`) → bandeirinha de marco opcional (canto superior direito, só quando `placeholder=false`).
-- **Regra de honestidade:** `placeholder=true` por padrão; força neutro e "aguardando dado real", ignora status/milestone.
+Toda a superfície de componente reaproveitável (`.btn`, `.card`, `.input`,
+`.tag`, `.tag-status`, `.table`, `.dialog`, `.nav`, `.seg`, `.radio`) mora em
+`app/globals.css` e foi retematizada lá — ver os comentários no topo do
+arquivo. Os nomes de classe e de variável CSS **não mudaram** (só os
+valores), então nenhum componente React precisou ser reescrito para herdar
+a marca nova; só telas que tinham cor crua hardcoded (hex direto em vez de
+token) precisaram de edição pontual — ver histórico de commit do rebrand.
 
-### Page Header (`components/page-header.tsx`)
-- Rótulo de eixo (mono, uppercase) + régua SVG com 7 tiques (`vector-effect="non-scaling-stroke"` — sem isso os traços de 1px distorcem quando o SVG estica de forma não-uniforma, achado real do build) + título + descrição.
+### Botão (`.btn-primary`/`.btn-secondary`/`.btn-gold`/`.btn-ghost`)
+Pílula, sem borda (exceto `.btn-secondary`, que é contorno rosa 2px, igual
+ao componente `Button` oficial da marca), com leve `scale()` de
+press/hover (`--transition-bounce`) e brilho colorido (`--shadow-pink`) no
+hover do botão primário.
 
-### Trend Strip (`components/trend-strip.tsx`)
-- Painel com legenda, banda de referência (`chart-soft`) e polyline de tendência (mono, tracejada quando não há histórico). **Débito conhecido:** hoje é idêntica nas 6 rotas de papel (só a legenda muda) e a banda de referência lê como medição real mesmo dizendo "sem histórico" na legenda abaixo — ver Do's and Don'ts.
+### Cartão / Diálogo
+Fundo branco, `border-radius: 24px`, sombra sempre, nunca borda sozinha.
+
+### Status pill (`.tag-status` + `.st-*`)
+Pílula com ponto colorido + texto no par `-text` (AA garantido) — ver
+mapeamento de cor de status acima.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** usar `vector-effect="non-scaling-stroke"` em qualquer linha/polyline dentro de um SVG com `preserveAspectRatio="none"` — é a única forma de manter traço de 1px fino quando o viewBox estica sem manter proporção.
-- **Do** usar `placeholder=true` (padrão) em `MeasurementCard` sempre que o valor não vier de uma query real — a Regra do Zero Honesto é o ponto mais citado pela revisão final deste build.
-- **Do** manter a grade de fundo em duas ordens (24px / 96px) — uma ordem só lê como textura decorativa, não como escala de medição real (achado da revisão final).
-- **Do** restringir `.tabular-figure` só ao `<span>` do número, nunca ao parágrafo inteiro com a unidade junto.
+- **Do** usar sempre uma classe/token existente (`bg-paper`, `text-ink`,
+  `bg-status-positive-soft`, `var(--color-accent-2)`, ...) em vez de um
+  hex cru — é o que mantém o app inteiro reskinável a partir de
+  `app/globals.css`.
+- **Do** reservar Fredoka (`--font-display`) só para `h1`/títulos de
+  impacto — usá-la em rótulo pequeno (11–13px) fica ilegível.
+- **Do** manter recepção/faturamento/prontuário claros (fundo `--color-bg`
+  claro) — é a decisão de kiosk documentada pela própria marca, não um
+  esquecimento.
 
 ### Don't:
-- **Don't** dar à `TrendStrip` uma banda de referência sólida sem rótulo/escala — a revisão final apontou que isso reintroduz, uma camada acima, exatamente o problema que a Regra do Zero Honesto resolveu nos cartões (forma sem medição lendo como dado real). Corrigir antes de replicar o componente em telas com dado de verdade.
-- **Don't** deixar `TrendStrip` idêntica entre rotas quando houver dado real disponível — hoje as 6 instâncias só diferem na legenda; isso é aceitável só enquanto não há série temporal real por trás.
-- **Don't** usar `axisLabel`/kicker sem a régua SVG que o acompanha — sozinho ele é exatamente o eyebrow genérico que o piso do impeccable proíbe.
-- **Don't** aplicar `flex-1` diretamente num container `grid` sem também setar `items-start`/`content-start` — o grid herda `align-items: stretch` e os cartões filhos esticam pra ocupar toda a altura disponível (bug real encontrado e corrigido durante este build).
+- **Don't** reintroduzir o fundo escuro `#141414` do app de consumo em
+  telas operacionais densas — a marca define isso como erro de produto,
+  não só de estilo.
+- **Don't** hardcodar hex novo em uma rota — se a cor que você precisa não
+  existe como token, adicione o token em `app/globals.css` primeiro.
+- **Don't** usar `rounded-none`/canto reto em componente novo — a marca é
+  explícita: "no sharp corners anywhere".

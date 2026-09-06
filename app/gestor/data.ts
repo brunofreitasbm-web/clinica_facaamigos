@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { countOverdueSessionNotes } from "@/lib/session-note-pending";
+import { formatMetricValue } from "@/lib/metric-catalog";
 
 type Supa = SupabaseClient<Database>;
 
@@ -438,6 +439,25 @@ const CLOSED_METRIC_LABEL: Record<string, string> = {
   no_show_rate: "No-show (recepção)",
   occupancy_rate: "Ocupação (coordenação)",
   glosa_rate: "Glosa (faturamento)",
+  no_auth_sessions: "Sessões sem guia vigente",
+  confirm_d1_rate: "Confirmação D-1 (recepção)",
+  clinic_cancel_rate: "Cancelamento pela clínica/terapeuta",
+  churn_rate: "Evasão (coordenação)",
+  queue_days: "Dias até 1ª sessão",
+  first_response_min: "Tempo de primeira resposta",
+  recovery_rate: "Recuperação de faltas",
+  lead_to_eval_rate: "Lead → avaliação agendada",
+  eval_show_rate: "Avaliação realizada / agendada",
+  glosa_recovery: "Recuperação de glosa",
+  batch_lead_days: "Dias até exportar lote",
+  dso_days: "Dias até o pagamento (DSO)",
+};
+
+const CLOSED_METRIC_UNIT: Record<string, "pct" | "dias" | "min" | "score"> = {
+  queue_days: "dias",
+  first_response_min: "min",
+  batch_lead_days: "dias",
+  dso_days: "dias",
 };
 
 export type ClosedMetricRow = {
@@ -459,11 +479,12 @@ export async function getClosedMetricHistory(supabase: Supa, clinicId: string, m
 
   return (data ?? []).map((r) => {
     const [year, month] = r.period_start.split("-");
+    const unit = CLOSED_METRIC_UNIT[r.metric_key] ?? "pct";
     return {
       periodLabel: `${month}/${year}`,
       metricKey: r.metric_key,
       metricLabel: CLOSED_METRIC_LABEL[r.metric_key] ?? r.metric_key,
-      valueLabel: `${(Number(r.value) * 100).toFixed(1)}%`,
+      valueLabel: formatMetricValue(Number(r.value), unit),
     };
   });
 }

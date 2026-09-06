@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getWhatsappQueue, getWhatsappHistory } from "./actions";
 import { SendQueueItem } from "./send-queue-item";
 
@@ -11,31 +10,14 @@ export default async function WhatsappDashboardPage() {
   return (
     <div className="min-h-screen bg-canvas p-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        {/* Navigation & Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-ink-soft">
-              <Link href="/recepcao" className="hover:underline">
-                Recepção
-              </Link>
-              <span>/</span>
-              <span className="text-ink">WhatsApp D-1</span>
-            </div>
-            <h1 className="mt-1 text-2xl font-bold text-ink">Confirmação D-1 por WhatsApp</h1>
-            <p className="text-sm text-ink-soft">
-              Envio manual: cada card abre o WhatsApp já logado no seu celular/computador com a
-              mensagem pronta. Não há integração automática (Meta Cloud API/Z-API) — você confere
-              e aperta enviar.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/recepcao"
-              className="rounded-md border border-paper-line-strong bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-paper-subtle"
-            >
-              Voltar para Recepção
-            </Link>
-          </div>
+        {/* Cabeçalho + atalhos globais da recepção vêm do layout (RecepcaoNav). */}
+        <div>
+          <h1 className="mt-1 text-2xl font-bold text-ink">Confirmação D-1 por WhatsApp</h1>
+          <p className="text-sm text-ink-soft">
+            Envio manual: cada card abre o WhatsApp já logado no seu celular/computador com a
+            mensagem pronta. Não há integração automática (Meta Cloud API/Z-API) — você confere
+            e aperta enviar.
+          </p>
         </div>
 
         {/* Métricas Principais */}
