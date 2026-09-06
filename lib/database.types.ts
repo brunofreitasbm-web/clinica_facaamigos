@@ -343,9 +343,11 @@ export type Database = {
       authorizations: {
         Row: {
           approved_at: string | null
+          authorization_password: string | null
           document_id: string | null
           guide_number: string | null
           id: string
+          password_valid_until: string | null
           patient_insurance_id: string
           previous_authorization_id: string | null
           procedure_code: string
@@ -358,9 +360,11 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          authorization_password?: string | null
           document_id?: string | null
           guide_number?: string | null
           id?: string
+          password_valid_until?: string | null
           patient_insurance_id: string
           previous_authorization_id?: string | null
           procedure_code: string
@@ -373,9 +377,11 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          authorization_password?: string | null
           document_id?: string | null
           guide_number?: string | null
           id?: string
+          password_valid_until?: string | null
           patient_insurance_id?: string
           previous_authorization_id?: string | null
           procedure_code?: string

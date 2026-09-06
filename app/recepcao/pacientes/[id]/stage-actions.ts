@@ -112,6 +112,15 @@ export async function registerAuthorization(
   const sessionsAuthorized = Number(formData.get("sessions_authorized") ?? 0);
   const validFrom = String(formData.get("valid_from") ?? "");
   const validTo = String(formData.get("valid_to") ?? "");
+  // Senha de autorização: a maioria dos convênios emite separada do número
+  // da guia, com vigência própria — nem todo plano emite (por isso ambos
+  // opcionais). Ver migration 20260905170000_authorization_password.
+  const authorizationPassword = String(formData.get("authorization_password") ?? "").trim();
+  const passwordValidUntil = String(formData.get("password_valid_until") ?? "").trim();
+  // CID (patients.cid, migration 20260904000002): existia a coluna mas
+  // nenhum formulário gravava nela — a recepção só descobre o CID nesse
+  // estágio (documentação do convênio), então captura junto da autorização.
+  const cid = String(formData.get("cid") ?? "").trim();
 
   if (!insurerId || !procedureCode || !sessionsAuthorized || !validFrom || !validTo) {
     return { success: false, error: "Preencha convênio, procedimento, sessões autorizadas e vigência." };
@@ -119,28 +128,57 @@ export async function registerAuthorization(
 
   const supabase = await createClient();
 
-  const { data: patientInsurance, error: piError } = await supabase
+  // Reaproveita o vínculo patient_insurance já existente para esse
+  // paciente+convênio em vez de duplicar a linha a cada nova guia — uma
+  // única (patient_id, insurer_id) pode ter várias autorizações ao longo
+  // do tempo (ex.: renovação de guia).
+  const { data: existingInsurance, error: lookupError } = await supabase
     .from("patient_insurance")
-    .insert({ patient_id: patientId, insurer_id: insurerId, is_private: false })
     .select("id")
-    .single();
+    .eq("patient_id", patientId)
+    .eq("insurer_id", insurerId)
+    .maybeSingle();
 
-  if (piError || !patientInsurance) {
-    return { success: false, error: "Não foi possível vincular o convênio ao paciente." };
+  if (lookupError) {
+    return { success: false, error: "Não foi possível verificar o convênio do paciente." };
+  }
+
+  let patientInsuranceId = existingInsurance?.id ?? null;
+
+  if (!patientInsuranceId) {
+    const { data: patientInsurance, error: piError } = await supabase
+      .from("patient_insurance")
+      .insert({ patient_id: patientId, insurer_id: insurerId, is_private: false })
+      .select("id")
+      .single();
+
+    if (piError || !patientInsurance) {
+      return { success: false, error: "Não foi possível vincular o convênio ao paciente." };
+    }
+    patientInsuranceId = patientInsurance.id;
   }
 
   const { error: authError } = await supabase.from("authorizations").insert({
-    patient_insurance_id: patientInsurance.id,
+    patient_insurance_id: patientInsuranceId,
     guide_number: guideNumber || null,
     procedure_code: procedureCode,
     sessions_authorized: sessionsAuthorized,
     valid_from: validFrom,
     valid_to: validTo,
     status: "ativa",
+    authorization_password: authorizationPassword || null,
+    password_valid_until: passwordValidUntil || null,
   });
 
   if (authError) {
     return { success: false, error: "Convênio vinculado, mas houve erro ao registrar a autorização." };
+  }
+
+  if (cid) {
+    const { error: cidError } = await supabase.from("patients").update({ cid }).eq("id", patientId);
+    if (cidError) {
+      return { success: false, error: "Autorização registrada, mas houve erro ao salvar o CID do paciente." };
+    }
   }
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
@@ -192,7 +230,7 @@ export async function activatePatient(patientId: string, formData: FormData): Pr
 
   const supabase = await createClient();
 
-  const authorizationId = await getActiveAuthorizationId(supabase, patientId);
+  const authorizationId = await getActiveAuthorizationId(supabase, patientId, discipline);
 
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + 50 * 60 * 1000);

@@ -1,17 +1,17 @@
 // app/recepcao/agenda/session-actions.ts
 "use server";
 
-import { createAdminClient } from "@/lib/supabase/admin";
-import { DEV_RECEPTION_PROFILE_ID, CLINIC_TIMEZONE } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/server";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reasons";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
 import { revalidatePath } from "next/cache";
 
-type ActionResult = { success: true } | { success: false; error: string };
+type ActionResult = { success: true; warning?: string } | { success: false; error: string };
 
-const ADMIN_CLIENT_ERROR: ActionResult = {
+const SESSION_EXPIRED_ERROR: ActionResult = {
   success: false,
-  error: "Servidor sem SUPABASE_SERVICE_ROLE_KEY configurada — avise o time técnico.",
+  error: "Sessão expirada. Faça login novamente.",
 };
 
 function mapAuthorizationGuardError(message: string): string {
@@ -39,12 +39,7 @@ function revalidateAgendaViews() {
 }
 
 export async function confirmAppointment(appointmentId: string): Promise<ActionResult> {
-  let supabase;
-  try {
-    supabase = createAdminClient();
-  } catch {
-    return ADMIN_CLIENT_ERROR;
-  }
+  const supabase = await createClient();
 
   const { data: appointment } = await supabase
     .from("appointments")
@@ -72,13 +67,66 @@ export async function confirmAppointment(appointmentId: string): Promise<ActionR
   return { success: true };
 }
 
-export async function checkIn(appointmentId: string): Promise<ActionResult> {
-  let supabase;
-  try {
-    supabase = createAdminClient();
-  } catch {
-    return ADMIN_CLIENT_ERROR;
+/**
+ * Checagem da guia no check-in (Gap 3 do audit de recepção): não bloqueia o
+ * check-in — a família já está na clínica e a recepção pode preferir deixar
+ * entrar e resolver a cobrança depois — mas devolve um aviso pra UI exibir,
+ * já que o único bloqueio hoje é o trigger `appointments_authorization_guard`
+ * no check-out, tarde demais pra agir (a sessão já aconteceu).
+ */
+async function buildAuthorizationWarning(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  appointmentId: string,
+): Promise<string | undefined> {
+  const { data: appointment } = await supabase
+    .from("appointments")
+    .select(
+      "authorization_id, starts_at, is_provisional, is_evaluation, authorizations(status, valid_from, valid_to, sessions_used, sessions_authorized, password_valid_until)",
+    )
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (!appointment || appointment.is_evaluation || appointment.is_provisional) {
+    return undefined;
   }
+
+  if (!appointment.authorization_id) {
+    return "Sessão sem guia de convênio vinculada.";
+  }
+
+  const authorization = appointment.authorizations as {
+    status: string;
+    valid_from: string;
+    valid_to: string;
+    sessions_used: number;
+    sessions_authorized: number;
+    password_valid_until: string | null;
+  } | null;
+
+  if (!authorization) {
+    return "Guia vinculada não foi encontrada.";
+  }
+
+  const today = todayInTimeZone(CLINIC_TIMEZONE);
+
+  if (authorization.status !== "ativa") {
+    return "Guia vinculada não está mais ativa.";
+  }
+  if (today < authorization.valid_from || today > authorization.valid_to) {
+    return "Sessão fora da vigência da guia.";
+  }
+  if (authorization.sessions_used >= authorization.sessions_authorized) {
+    return "Guia sem sessões restantes.";
+  }
+  if (authorization.password_valid_until && authorization.password_valid_until < today) {
+    return "Senha de autorização da guia está vencida.";
+  }
+
+  return undefined;
+}
+
+export async function checkIn(appointmentId: string): Promise<ActionResult> {
+  const supabase = await createClient();
 
   const { data: appointment } = await supabase
     .from("appointments")
@@ -96,6 +144,8 @@ export async function checkIn(appointmentId: string): Promise<ActionResult> {
     return { success: false, error: "Check-in já registrado." };
   }
 
+  const warning = await buildAuthorizationWarning(supabase, appointmentId);
+
   const { error } = await supabase
     .from("appointments")
     .update({ checkin_at: new Date().toISOString() })
@@ -106,16 +156,11 @@ export async function checkIn(appointmentId: string): Promise<ActionResult> {
   }
 
   revalidateAgendaViews();
-  return { success: true };
+  return { success: true, warning };
 }
 
 export async function checkOut(appointmentId: string): Promise<ActionResult> {
-  let supabase;
-  try {
-    supabase = createAdminClient();
-  } catch {
-    return ADMIN_CLIENT_ERROR;
-  }
+  const supabase = await createClient();
 
   const { data: appointment } = await supabase
     .from("appointments")
@@ -176,11 +221,14 @@ export async function markMissedOrCancelled(
     return { success: false, error: "Descreva o motivo." };
   }
 
-  let supabase;
-  try {
-    supabase = createAdminClient();
-  } catch {
-    return ADMIN_CLIENT_ERROR;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return SESSION_EXPIRED_ERROR;
   }
 
   const { data: appointment } = await supabase
@@ -201,7 +249,7 @@ export async function markMissedOrCancelled(
     .update({
       status: targetStatus,
       cancel_reason: reason === "outro" ? reasonOther : reason,
-      cancelled_by: DEV_RECEPTION_PROFILE_ID,
+      cancelled_by: user.id,
       cancelled_at: new Date().toISOString(),
     })
     .eq("id", appointmentId);
@@ -212,6 +260,92 @@ export async function markMissedOrCancelled(
 
   revalidateAgendaViews();
   return { success: true };
+}
+
+/**
+ * Vincula uma guia à sessão depois de criada (Gap 3 do audit de recepção) —
+ * cobre o caso da sessão "provisória" agendada antes da guia chegar (ver
+ * `is_provisional` em app/recepcao/nova-sessao-dialog.tsx). Só permite
+ * setar quando ainda não há authorization_id, pra não sobrescrever um
+ * vínculo já feito (e já contabilizado pelo guard de check-out).
+ */
+export async function linkAuthorizationToAppointment(
+  appointmentId: string,
+  authorizationId: string,
+): Promise<ActionResult> {
+  if (!authorizationId) {
+    return { success: false, error: "Selecione uma guia." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: appointment } = await supabase
+    .from("appointments")
+    .select("id, authorization_id")
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (!appointment) {
+    return { success: false, error: "Sessão não encontrada." };
+  }
+  if (appointment.authorization_id) {
+    return { success: false, error: "Essa sessão já tem guia vinculada." };
+  }
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({ authorization_id: authorizationId })
+    .eq("id", appointmentId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível vincular a guia. Tente de novo." };
+  }
+
+  revalidateAgendaViews();
+  return { success: true };
+}
+
+export type PatientAuthorizationOption = {
+  id: string;
+  guideNumber: string | null;
+  procedureCode: string;
+  sessionsUsed: number;
+  sessionsAuthorized: number;
+  validTo: string;
+};
+
+/**
+ * Guias ativas do paciente pra popular o dropdown "Vincular guia" (Gap 3) —
+ * busca client-side a partir do botão na linha da sessão, sem precisar
+ * carregar isso pra toda a agenda do dia.
+ */
+export async function getPatientActiveAuthorizations(
+  patientId: string,
+): Promise<PatientAuthorizationOption[]> {
+  const supabase = await createClient();
+
+  const { data: patientInsurances } = await supabase
+    .from("patient_insurance")
+    .select("id")
+    .eq("patient_id", patientId);
+
+  const insuranceIds = (patientInsurances ?? []).map((pi) => pi.id);
+  if (insuranceIds.length === 0) return [];
+
+  const { data: authorizations } = await supabase
+    .from("authorizations")
+    .select("id, guide_number, procedure_code, sessions_used, sessions_authorized, valid_to")
+    .in("patient_insurance_id", insuranceIds)
+    .eq("status", "ativa");
+
+  return (authorizations ?? []).map((a) => ({
+    id: a.id,
+    guideNumber: a.guide_number,
+    procedureCode: a.procedure_code,
+    sessionsUsed: a.sessions_used,
+    sessionsAuthorized: a.sessions_authorized,
+    validTo: a.valid_to,
+  }));
 }
 
 const WEEKDAY_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
@@ -235,7 +369,7 @@ export async function getAvailableSlots(
   durationMinutes: number,
   excludeAppointmentId: string,
 ): Promise<AvailableSlot[]> {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const days: string[] = [];
   let cursor = todayInTimeZone(CLINIC_TIMEZONE);
@@ -299,7 +433,7 @@ export async function rescheduleAppointmentAction(
   newStartsAtIso: string,
   newEndsAtIso: string
 ): Promise<ActionResult> {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("appointments")

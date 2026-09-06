@@ -440,6 +440,9 @@ export default async function PacientePage({
                     <input type="number" name="sessions_authorized" required placeholder="Sessões autorizadas" className="input" />
                     <input type="date" name="valid_from" required className="input" />
                     <input type="date" name="valid_to" required className="input" />
+                    <input type="text" name="authorization_password" placeholder="Senha de autorização" className="input" />
+                    <input type="date" name="password_valid_until" placeholder="Validade da senha" className="input" />
+                    <input type="text" name="cid" placeholder="CID" className="input" />
                   </StageActionForm>
                 )}
                 {stage === 4 && (

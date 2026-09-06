@@ -88,7 +88,7 @@ export default async function RecepcaoPage({
   const { data: rawAppointments } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, room_id, patient_id, therapist_id, appointment_type_id, discipline, checkin_at, attendance_started_at, checkout_at, confirmed_at, cancelled_at, cancel_reason, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
+      "id, starts_at, ends_at, status, room_id, patient_id, therapist_id, appointment_type_id, discipline, checkin_at, attendance_started_at, checkout_at, confirmed_at, cancelled_at, cancel_reason, authorization_id, is_provisional, is_evaluation, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
     )
     .gte("starts_at", dayStart)
     .lt("starts_at", dayEnd)
@@ -113,6 +113,9 @@ export default async function RecepcaoPage({
     confirmedAt: a.confirmed_at,
     cancelledAt: a.cancelled_at,
     cancelReason: a.cancel_reason,
+    authorizationId: a.authorization_id,
+    isProvisional: a.is_provisional,
+    isEvaluation: a.is_evaluation,
   }));
 
   // Indicador "registro pendente" (ícone de caneta na linha da sessão): só
@@ -180,6 +183,9 @@ export default async function RecepcaoPage({
     attendanceStartedAt: a.attendanceStartedAt,
     checkoutAt: a.checkoutAt,
     pendingNote: pendingNoteByAppointment.get(a.id) ?? false,
+    authorizationId: a.authorizationId,
+    isProvisional: a.isProvisional,
+    isEvaluation: a.isEvaluation,
   }));
 
   // ── Guias vencendo · 7 dias + mapa paciente→guia ativa (preview no diálogo

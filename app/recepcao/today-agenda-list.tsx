@@ -7,6 +7,9 @@ import {
   checkIn,
   checkOut,
   markMissedOrCancelled,
+  linkAuthorizationToAppointment,
+  getPatientActiveAuthorizations,
+  type PatientAuthorizationOption,
 } from "./agenda/session-actions";
 import { ReagendamentoDialog } from "./agenda/reagendamento-dialog";
 import { computeAppointmentUiState, UI_STATE_LABEL, type AppointmentUiState } from "@/lib/appointment-ui-state";
@@ -33,6 +36,9 @@ export type TodaySession = {
   checkoutAt: string | null;
   /** Sessão `realizada` sem session_notes assinada ainda — ver session_note_pending (RPC). */
   pendingNote: boolean;
+  authorizationId: string | null;
+  isProvisional: boolean;
+  isEvaluation: boolean;
 };
 
 export type GuardianContact = {
@@ -427,9 +433,13 @@ function RoomGrid({
 
 function SessionRow({ session, guardians }: { session: TodaySession; guardians: GuardianContact[] }) {
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [showFaltaForm, setShowFaltaForm] = useState(false);
   const [showGuardians, setShowGuardians] = useState(false);
+  const [showLinkGuide, setShowLinkGuide] = useState(false);
+  const [guideOptions, setGuideOptions] = useState<PatientAuthorizationOption[] | null>(null);
+  const [selectedGuideId, setSelectedGuideId] = useState("");
 
   const uiState = uiStateOf(session);
   const display = statusDisplay(session);
@@ -439,13 +449,25 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
   const canCheckout = Boolean(session.checkinAt) && !session.checkoutAt;
   const canReschedule = uiState === "aguardando" || uiState === "na_recepcao" || uiState === "em_atendimento";
   const durationMinutes = Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60_000);
+  // Botão "Vincular guia" (Gap 3 do audit): só faz sentido pra sessão normal
+  // (não avaliação, não provisória de propósito) que ainda não tem guia.
+  const canLinkGuide = !session.authorizationId && !session.isProvisional && !session.isEvaluation;
 
-  function runAction(action: () => Promise<{ success: true } | { success: false; error: string }>) {
+  function runAction(action: () => Promise<{ success: true; warning?: string } | { success: false; error: string }>) {
     setError(null);
+    setWarning(null);
     startTransition(async () => {
       const result = await action();
       if (!result.success) setError(result.error);
+      else if (result.warning) setWarning(result.warning);
     });
+  }
+
+  function openLinkGuide() {
+    setShowLinkGuide(true);
+    if (!guideOptions) {
+      getPatientActiveAuthorizations(session.patientId).then(setGuideOptions);
+    }
   }
 
   function handleStatusChange(value: string) {
@@ -539,6 +561,68 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
           </form>
         )}
         {error && <p className="mt-1 text-[11px] text-status-negative-text">{error}</p>}
+        {warning && (
+          <p className="mt-1 text-[11px]" style={{ color: "var(--status-agendada)" }}>
+            ⚠ {warning}
+          </p>
+        )}
+
+        {canLinkGuide && !showLinkGuide && (
+          <button type="button" onClick={openLinkGuide} className="mt-1 text-[11px] text-chart underline">
+            Vincular guia
+          </button>
+        )}
+        {canLinkGuide && showLinkGuide && (
+          <div className="mt-2 flex flex-col gap-1.5">
+            {guideOptions === null ? (
+              <p className="text-[11px] text-ink-faint">Carregando guias…</p>
+            ) : guideOptions.length === 0 ? (
+              <p className="text-[11px] text-ink-faint">Paciente sem guia ativa cadastrada.</p>
+            ) : (
+              <select
+                value={selectedGuideId}
+                onChange={(e) => setSelectedGuideId(e.target.value)}
+                className="input text-xs"
+              >
+                <option value="">Selecione a guia</option>
+                {guideOptions.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.procedureCode} · {g.guideNumber ?? "s/ nº"} · {g.sessionsUsed}/{g.sessionsAuthorized}
+                  </option>
+                ))}
+              </select>
+            )}
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                disabled={isPending || !selectedGuideId}
+                onClick={() =>
+                  runAction(async () => {
+                    const result = await linkAuthorizationToAppointment(session.id, selectedGuideId);
+                    if (result.success) {
+                      setShowLinkGuide(false);
+                      setSelectedGuideId("");
+                    }
+                    return result;
+                  })
+                }
+                className="btn btn-primary text-xs"
+              >
+                Confirmar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLinkGuide(false);
+                  setSelectedGuideId("");
+                }}
+                className="btn btn-secondary text-xs"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="relative flex items-center justify-end gap-1.5">
