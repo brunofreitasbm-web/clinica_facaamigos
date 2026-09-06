@@ -228,6 +228,20 @@ export default async function FamiliaPage({
     : { data: null };
   const showSurveyPrompt = !!guardianRow && !existingSurvey;
 
+  // Aviso de faltas (MAAIS §13 / "risco de evasão") — refresh_absence_alerts
+  // (20260906000015) abre a linha quando o paciente cruza 3 faltas
+  // consecutivas ou >=50% em 3 meses; aqui só mostramos o alerta ainda não
+  // resolvido pela recepção, em linguagem simples (nunca o número bruto de
+  // "3 faltas consecutivas" — isso fica só na tela de gestão).
+  const { data: absenceAlert } = await supabase
+    .from("absence_alerts")
+    .select("id")
+    .eq("patient_id", patientId)
+    .in("status", ["pendente", "notificado"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const therapistName =
     (nextAppt &&
       (Array.isArray(nextAppt.therapist) ? nextAppt.therapist[0]?.full_name : nextAppt.therapist?.full_name)) ||
@@ -385,6 +399,22 @@ export default async function FamiliaPage({
       </header>
 
       <div style={{ flex: 1, overflow: "auto", padding: "26px 20px 40px", display: "flex", flexDirection: "column", gap: 30 }}>
+        {absenceAlert && (
+          <div
+            style={{
+              borderRadius: 12,
+              border: "1px solid var(--status-falta)",
+              background: "color-mix(in srgb, var(--status-falta) 12%, transparent)",
+              padding: "14px 16px",
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            Notamos algumas faltas recentes. Se está difícil manter os horários, fala com a
+            recepção — a gente ajuda a reorganizar a agenda.
+          </div>
+        )}
+
         {showSurveyPrompt && guardianRow && (
           <SurveyPrompt patientId={patientId} guardianId={guardianRow.id} />
         )}

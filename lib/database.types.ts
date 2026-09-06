@@ -75,6 +75,57 @@ export type Database = {
           },
         ]
       }
+      absence_alerts: {
+        Row: {
+          consecutive_faltas: number
+          created_at: string
+          faltas_pct_3m: number
+          id: string
+          notified_at: string | null
+          patient_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          consecutive_faltas: number
+          created_at?: string
+          faltas_pct_3m: number
+          id?: string
+          notified_at?: string | null
+          patient_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          consecutive_faltas?: number
+          created_at?: string
+          faltas_pct_3m?: number
+          id?: string
+          notified_at?: string | null
+          patient_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "absence_alerts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "absence_alerts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       absence_reports: {
         Row: {
           appointment_id: string
@@ -3381,6 +3432,10 @@ export type Database = {
       pass:
         | { Args: never; Returns: string }
         | { Args: { "": string }; Returns: string }
+      patient_absence_stats: {
+        Args: { p_patient_id: string }
+        Returns: { consecutive_faltas: number; faltas_pct_3m: number }[]
+      }
       patient_status_as_of: {
         Args: { p_at: string; p_patient_id: string }
         Returns: string
@@ -3388,6 +3443,7 @@ export type Database = {
       pg_version: { Args: never; Returns: string }
       pg_version_num: { Args: never; Returns: number }
       pgtap_version: { Args: never; Returns: number }
+      refresh_absence_alerts: { Args: never; Returns: number }
       refresh_reassessment_alerts: { Args: never; Returns: undefined }
       reset_intern_password: {
         Args: { p_intern_id: string; p_new_password: string }
