@@ -4,7 +4,7 @@ import { ModuleSkeleton } from "@/components/module-skeleton";
 export default function BonificacaoLoading() {
   return (
     <>
-      <GestorNav active="bonificacao" />
+      <GestorNav active="equipe" />
       <ModuleSkeleton title="PLR & Faixas de Premiação" subtitle="Carregando regras e cálculos de bonificação" />
     </>
   );

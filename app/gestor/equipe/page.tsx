@@ -1,5 +1,6 @@
 import { GestorNav } from "@/components/gestor-nav";
 import { PageHeader } from "@/components/page-header";
+import { EquipeSubnav } from "@/components/equipe-subnav";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { QuickActionsBar } from "@/components/quick-actions-bar";
@@ -16,12 +17,13 @@ export default async function EquipePage() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <GestorNav active="cadastros" />
+      <GestorNav active="equipe" />
       <PageHeader
         axisLabel="Gestor"
-        title="Equipe"
-        description="Cadastro de contas — cada pessoa entra com o e-mail e a senha definidos aqui."
+        title="Equipe & Pessoas"
+        description="Cadastro de contas e controle centralizado de colaboradores."
       />
+      <EquipeSubnav activeTab="contas" />
       <div className="flex flex-col gap-6 p-6 sm:p-10">
         <StaffForm />
         <ul className="flex flex-col gap-2">

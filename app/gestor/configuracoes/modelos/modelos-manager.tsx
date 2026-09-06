@@ -3,16 +3,7 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { ConfigSidebar } from "../config-sidebar";
-
-interface TemplateItem {
-  id: string;
-  title: string;
-  category: "evolucao" | "laudo" | "contrato";
-  discipline?: string;
-  description: string;
-  tags: string[];
-  updatedAt: string;
-}
+import { ModeloDialog, type TemplateItem } from "./modelo-dialog";
 
 const INITIAL_TEMPLATES: TemplateItem[] = [
   {
@@ -55,7 +46,7 @@ const INITIAL_TEMPLATES: TemplateItem[] = [
     title: "Contrato de Prestação de Serviços Clínicos",
     category: "contrato",
     description: "Minuta padrão de prestação de serviços com o responsável legal do paciente.",
-    tags: ["{nome_paciente}", "{cpf_responsavel}", "{valor_mensalidaded}"],
+    tags: ["{nome_paciente}", "{cpf_responsavel}", "{valor_mensalidade}"],
     updatedAt: "2026-07-15",
   },
 ];
@@ -64,6 +55,31 @@ export function ModelosManager() {
   const [templates, setTemplates] = useState<TemplateItem[]>(INITIAL_TEMPLATES);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<TemplateItem | null>(null);
+
+  const handleCreate = () => {
+    setEditingTemplate(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleEdit = (tpl: TemplateItem) => {
+    setEditingTemplate(tpl);
+    setIsDialogOpen(true);
+  };
+
+  const handleSave = (savedTpl: TemplateItem) => {
+    setTemplates((prev) => {
+      const idx = prev.findIndex((t) => t.id === savedTpl.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = savedTpl;
+        return copy;
+      }
+      return [savedTpl, ...prev];
+    });
+  };
 
   const filtered = templates.filter((t) => {
     const matchesCategory = filterCategory === "all" || t.category === filterCategory;
@@ -108,10 +124,7 @@ export function ModelosManager() {
               </select>
             </div>
 
-            <button
-              onClick={() => alert("Janela de criação de novo modelo pronta para salvar no Supabase.")}
-              className="button button-primary"
-            >
+            <button onClick={handleCreate} className="button button-primary">
               + Novo Modelo
             </button>
           </div>
@@ -144,7 +157,7 @@ export function ModelosManager() {
                     ))}
                   </div>
                   <button
-                    onClick={() => alert(`Editando modelo: ${tpl.title}`)}
+                    onClick={() => handleEdit(tpl)}
                     className="text-xs font-medium text-accent hover:underline shrink-0"
                   >
                     Editar
@@ -160,6 +173,13 @@ export function ModelosManager() {
             )}
           </div>
         </div>
+
+        <ModeloDialog
+          isOpen={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          templateToEdit={editingTemplate}
+          onSave={handleSave}
+        />
       </div>
     </>
   );

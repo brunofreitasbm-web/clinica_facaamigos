@@ -2,12 +2,12 @@ import Link from "next/link";
 
 const SIDEBAR_ITEMS = [
   { key: "gerais", label: "Gerais", href: "/gestor/configuracoes/gerais", enabled: true },
-  { key: "servicos", label: "Serviços", href: "/gestor/configuracoes/servicos", enabled: true },
-  { key: "modelos", label: "Modelos", href: "/gestor/configuracoes/modelos", enabled: true },
+  { key: "atendimentos", label: "Atendimentos & Salas", href: "/gestor/configuracoes/atendimentos", enabled: true },
   { key: "cobrancas", label: "Cobranças", href: "/gestor/configuracoes/cobrancas", enabled: true },
-  { key: "atendimentos", label: "Atendimentos", href: "/gestor/configuracoes/atendimentos", enabled: true },
+  { key: "modelos", label: "Modelos", href: "/gestor/configuracoes/modelos", enabled: true },
   { key: "profissionais", label: "Profissionais", href: "/gestor/configuracoes/profissionais", enabled: true },
   { key: "notificacoes", label: "Notificações", href: "/gestor/configuracoes/notificacoes", enabled: true },
+  { key: "usuarios", label: "Usuários", href: "/gestor/configuracoes/usuarios", enabled: true },
 ] as const;
 
 export type ConfigSidebarKey = (typeof SIDEBAR_ITEMS)[number]["key"];

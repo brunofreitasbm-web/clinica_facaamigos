@@ -1,7 +1,5 @@
 import { AtendimentosManager } from "./atendimentos-manager";
 
-export const dynamic = "force-dynamic";
-
-export default function AtendimentosPage() {
+export default function AtendimentosConfigPage() {
   return <AtendimentosManager />;
 }

@@ -25,7 +25,31 @@ export function CobrancasForm() {
   const [diaFechamento, setDiaFechamento] = useState(25);
   const [exigirEvolucaoAssinadaRepasse, setExigirEvolucaoAssinadaRepasse] = useState(true);
   const [modeloRepasse, setModeloRepasse] = useState<"faixa_hora" | "porcentagem" | "fixo_sessao">("faixa_hora");
+  const [multaAtrasoPct, setMultaAtrasoPct] = useState(2.0);
+  const [jurosMesPct, setJurosMesPct] = useState(1.0);
+  const [chavePix, setChavePix] = useState("financeiro@clinicafacaamigos.com.br");
+  const [emissaoReciboAuto, setEmissaoReciboAuto] = useState(true);
+
   const [glosas, setGlosas] = useState<GlosaCategory[]>(DEFAULT_GLOSA_CATEGORIES);
+  const [newCode, setNewCode] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newAttr, setNewAttr] = useState<"terapeuta" | "recepcao" | "faturamento" | "operadora">("terapeuta");
+
+  const handleAddGlosa = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCode || !newDesc) return;
+    setGlosas((prev) => [
+      ...prev,
+      {
+        id: `g-${Date.now()}`,
+        code: newCode,
+        description: newDesc,
+        attributableTo: newAttr,
+      },
+    ]);
+    setNewCode("");
+    setNewDesc("");
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,13 +68,13 @@ export function CobrancasForm() {
         <PageHeader
           axisLabel="Configurações"
           title="Cobranças & Financeiro"
-          description="Regras de fechamento de competência, cálculo de repasse para profissionais PJ e atribuição de glosas."
+          description="Regras de fechamento de competência, parcelamento, juros/multa, PIX e atribuição de glosas."
         />
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-8 p-6 sm:p-10 max-w-4xl">
           {saved && (
             <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              Regras financeiras atualizadas com sucesso!
+              Regras financeiras salvas com sucesso!
             </div>
           )}
 
@@ -103,6 +127,62 @@ export function CobrancasForm() {
             </div>
           </div>
 
+          {/* Recebimento Particular e Inadimplência */}
+          <div className="flex flex-col gap-4 rounded-xl border border-paper-line bg-paper-panel p-6 shadow-sm">
+            <h3 className="text-base font-semibold text-ink-strong">Cobrança Particular & Recebimento PIX</h3>
+            <p className="text-xs text-ink-faint">Configurações para emissão de recibos, taxas e juros de mora para pacientes particulares.</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-ink-strong">Chave PIX Oficial da Clínica</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={chavePix}
+                  onChange={(e) => setChavePix(e.target.value)}
+                />
+                <span className="text-[11px] text-ink-faint">Exibida nos comprovantes e faturas de cobrança particular.</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-ink-strong">Multa por Atraso (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="input"
+                    value={multaAtrasoPct}
+                    onChange={(e) => setMultaAtrasoPct(Number(e.target.value))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-ink-strong">Juros / Mês (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="input"
+                    value={jurosMesPct}
+                    onChange={(e) => setJurosMesPct(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 pt-2 border-t border-paper-line">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-paper-line text-accent focus:ring-accent"
+                    checked={emissaoReciboAuto}
+                    onChange={(e) => setEmissaoReciboAuto(e.target.checked)}
+                  />
+                  <span className="text-sm font-medium text-ink-strong">
+                    Gerar recibo automático após a confirmação de recebimento no sistema
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
           {/* Atribuição de Glosas */}
           <div className="flex flex-col gap-4 rounded-xl border border-paper-line bg-paper-panel p-6 shadow-sm">
             <div className="flex items-center justify-between">
@@ -110,6 +190,36 @@ export function CobrancasForm() {
                 <h3 className="text-base font-semibold text-ink-strong">Categorias & Atribuição de Glosas</h3>
                 <p className="text-xs text-ink-faint">Mapeamento de motivos de glosa com atribuição direta ao responsável (Recepção, Terapeuta, Faturamento, Operadora).</p>
               </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 items-end pt-2">
+              <input
+                type="text"
+                placeholder="Código (Ex: G-505)"
+                className="input text-xs w-32"
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Descrição do motivo de glosa"
+                className="input text-xs flex-1"
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+              />
+              <select
+                className="input text-xs cursor-pointer w-36"
+                value={newAttr}
+                onChange={(e) => setNewAttr(e.target.value as any)}
+              >
+                <option value="terapeuta">Terapeuta</option>
+                <option value="recepcao">Recepção</option>
+                <option value="faturamento">Faturamento</option>
+                <option value="operadora">Operadora</option>
+              </select>
+              <button type="button" onClick={handleAddGlosa} className="button button-outline text-xs">
+                + Adicionar Glosa
+              </button>
             </div>
 
             <table className="table mt-2">

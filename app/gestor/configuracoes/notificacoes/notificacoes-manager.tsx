@@ -44,11 +44,43 @@ export function NotificacoesManager() {
   const [templates, setTemplates] = useState<TemplateMessage[]>(INITIAL_TEMPLATES);
   const [horaInicio, setHoraInicio] = useState("08:00");
   const [horaFim, setHoraFim] = useState("20:00");
+  const [savedAlert, setSavedAlert] = useState(false);
+
+  const [isAdding, setIsAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newChannel, setNewChannel] = useState<"WhatsApp" | "E-mail" | "SMS">("WhatsApp");
+  const [newTrigger, setNewTrigger] = useState("");
+  const [newBody, setNewBody] = useState("");
 
   const toggleTemplate = (id: string) => {
     setTemplates((prev) =>
       prev.map((t) => (t.id === id ? { ...t, active: !t.active } : t))
     );
+  };
+
+  const handleAddTemplate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName || !newBody) return;
+    setTemplates((prev) => [
+      ...prev,
+      {
+        id: `n-${Date.now()}`,
+        name: newName,
+        channel: newChannel,
+        triggerEvent: newTrigger || "Evento customizado",
+        body: newBody,
+        active: true,
+      },
+    ]);
+    setNewName("");
+    setNewTrigger("");
+    setNewBody("");
+    setIsAdding(false);
+  };
+
+  const handleSaveAll = () => {
+    setSavedAlert(true);
+    setTimeout(() => setSavedAlert(false), 3000);
   };
 
   return (
@@ -62,6 +94,12 @@ export function NotificacoesManager() {
         />
 
         <div className="flex flex-col gap-8 p-6 sm:p-10 max-w-4xl">
+          {savedAlert && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              Regras e templates de notificação salvos com sucesso!
+            </div>
+          )}
+
           {/* Janela de Envio */}
           <div className="flex flex-col gap-4 rounded-xl border border-paper-line bg-paper-panel p-6 shadow-sm">
             <h3 className="text-base font-semibold text-ink-strong">Janela de Envio Automático</h3>
@@ -96,7 +134,58 @@ export function NotificacoesManager() {
                 <h3 className="text-base font-semibold text-ink-strong">Templates de Mensagens</h3>
                 <p className="text-xs text-ink-faint">Modelos com variáveis dinâmicas enviadas pelo gateway WhatsApp (PRD §116).</p>
               </div>
+              <button onClick={() => setIsAdding(true)} className="button button-primary">
+                + Novo Template
+              </button>
             </div>
+
+            {isAdding && (
+              <form onSubmit={handleAddTemplate} className="flex flex-col gap-3 p-4 rounded-lg bg-paper-line/30 border border-paper-line mt-2">
+                <h4 className="text-xs font-semibold text-ink-strong">Cadastrar Novo Template de Notificação</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Nome do Template (ex: Lembrete de Aniversário)"
+                    className="input text-xs"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                  <select
+                    className="input text-xs cursor-pointer"
+                    value={newChannel}
+                    onChange={(e) => setNewChannel(e.target.value as any)}
+                  >
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="E-mail">E-mail</option>
+                    <option value="SMS">SMS</option>
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Gatilho de disparo (ex: 2h antes da consulta)"
+                  className="input text-xs"
+                  value={newTrigger}
+                  onChange={(e) => setNewTrigger(e.target.value)}
+                />
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Texto da mensagem com tags {responsavel}, {paciente}, {hora}..."
+                  className="input font-mono text-xs"
+                  value={newBody}
+                  onChange={(e) => setNewBody(e.target.value)}
+                />
+                <div className="flex justify-end gap-2 pt-1">
+                  <button type="button" onClick={() => setIsAdding(false)} className="button button-outline text-xs">
+                    Cancelar
+                  </button>
+                  <button type="submit" className="button button-primary text-xs">
+                    Salvar Template
+                  </button>
+                </div>
+              </form>
+            )}
 
             <div className="flex flex-col gap-4 mt-2">
               {templates.map((t) => (
@@ -129,7 +218,7 @@ export function NotificacoesManager() {
             </div>
 
             <div className="pt-4 border-t border-paper-line flex justify-end">
-              <button onClick={() => alert("Configuração de notificações salva com sucesso!")} className="button button-primary">
+              <button onClick={handleSaveAll} className="button button-primary">
                 Salvar Templates de Notificação
               </button>
             </div>

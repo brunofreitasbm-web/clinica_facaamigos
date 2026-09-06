@@ -15,10 +15,9 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   { key: "painel", label: "Painel", href: "/gestor/dashboard" },
   { key: "inteligencia", label: "Inteligência BI", href: "/gestor/inteligencia" },
+  { key: "equipe", label: "Equipe", href: "/gestor/equipe" },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro" },
-  { key: "bonificacao", label: "PLR & Faixas", href: "/gestor/bonificacao" },
-  { key: "metas", label: "Metas por Cargo", href: "/gestor/metas" },
   { key: "auditoria", label: "Auditoria (LGPD)", href: "/gestor/auditoria" },
   { key: "configuracoes", label: "Configurações", href: "/gestor/configuracoes" },
 ] as const;
