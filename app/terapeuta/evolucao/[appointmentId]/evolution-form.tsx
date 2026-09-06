@@ -82,6 +82,7 @@ export function EvolutionForm({
   const [pinSetupError, setPinSetupError] = useState<string | null>(null);
   const [isSettingUpPin, startPinSetupTransition] = useTransition();
   const [signaturePin, setSignaturePinInput] = useState("");
+  const [resumingPendingSignature, setResumingPendingSignature] = useState(false);
 
   function handleSetupPin() {
     setPinSetupError(null);
@@ -131,13 +132,28 @@ export function EvolutionForm({
         });
       }
     } catch {}
-  }, [appointmentId]);
+    // Com experimental.useOffline, uma assinatura feita sem internet fica
+    // pendente pelo próprio Next.js enquanto a aba continua aberta e é
+    // reenviada sozinha quando a rede volta (ver comentário em
+    // ../actions.ts::createSessionNote). Isso NÃO sobrevive a fechar a aba
+    // ou o app ser encerrado em segundo plano no celular. Este marcador
+    // local é a rede de segurança pra esse caso: se sobrou um marcador de
+    // uma tentativa anterior que nunca confirmou (a página só chega a
+    // mostrar este formulário se o servidor ainda não tem nota salva),
+    // avisamos o terapeuta em vez de deixar a assinatura evaporar.
+    try {
+      if (localStorage.getItem(`pending_sign_${appointmentId}`)) {
+        setResumingPendingSignature(true);
+      }
+    } catch {}
+  }, [appointmentId, editing]);
 
   // Salva alterações no localStorage
   useEffect(() => {
     if (editing) return;
     if (signed) {
       localStorage.removeItem(`draft_evolution_${appointmentId}`);
+      localStorage.removeItem(`pending_sign_${appointmentId}`);
       return;
     }
     const timer = setTimeout(() => {
@@ -323,9 +339,21 @@ export function EvolutionForm({
               return;
             }
             formData.set("signature_pin", signaturePin);
+            // Marcador de "assinatura em andamento" — se a aba for fechada
+            // ou o app for encerrado enquanto esta chamada ainda está
+            // pendente (rede fora do ar), este marcador sobra no
+            // localStorage e o efeito de restauração acima avisa o
+            // terapeuta na próxima visita a esta página, em vez de deixar
+            // a assinatura evaporar silenciosamente.
+            try {
+              localStorage.setItem(`pending_sign_${appointmentId}`, new Date().toISOString());
+            } catch {}
             startTransition(async () => {
               const result = await createSessionNote(appointmentId, formData);
               if (!result.success) {
+                try {
+                  localStorage.removeItem(`pending_sign_${appointmentId}`);
+                } catch {}
                 setError(result.error);
                 return;
               }
@@ -333,6 +361,20 @@ export function EvolutionForm({
             });
           }}
         >
+          {resumingPendingSignature && (
+            <div
+              className="rounded-md border p-3 text-sm"
+              style={{ borderColor: "var(--status-agendada)", background: "var(--status-agendada-bg)" }}
+            >
+              <p className="font-semibold text-ink">Assinatura anterior não confirmada</p>
+              <p className="mt-1 text-ink-soft">
+                Uma tentativa de assinatura desta sessão foi feita sem conexão e o app foi fechado antes de
+                confirmar com o servidor. Os dados abaixo foram restaurados do rascunho local — revise e assine
+                novamente.
+              </p>
+            </div>
+          )}
+
           {/* Passo 1 — presença/engajamento e comportamentos-alvo, campos de
               lib/session-note-fields.ts já gravados em session_notes.structured. */}
           <div className={step === 1 ? "flex flex-col gap-6" : "hidden"}>

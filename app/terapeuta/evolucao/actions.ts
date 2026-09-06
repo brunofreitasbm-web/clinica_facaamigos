@@ -212,7 +212,14 @@ export async function createSessionNote(
     structured,
     free_text: freeText || null,
     created_at_device: createdAtDevice,
-    signed_at: new Date().toISOString(),
+    // signed_at = o mesmo instante de created_at_device (quando o
+    // terapeuta apertou "Assinar" no aparelho), não `new Date()` aqui.
+    // Com experimental.useOffline (next.config.ts), esta Server Action
+    // fica pendente sem lançar erro enquanto a rede está fora e só
+    // executa de fato quando a conexão volta — se usássemos `new Date()`
+    // neste ponto, uma assinatura feita sem internet apareceria assinada
+    // na hora em que o wi-fi voltou, não na hora real da sessão.
+    signed_at: createdAtDevice,
   });
 
   if (error) {

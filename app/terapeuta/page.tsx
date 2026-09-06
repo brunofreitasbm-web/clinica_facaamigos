@@ -217,12 +217,20 @@ export default async function TerapeutaPage({
             <h6 style={{ color: "var(--color-accent-2-600)" }}>
               Sessões de hoje
             </h6>
-            <a
-              href="/terapeuta/repasse"
-              className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
-            >
-              📄 Meu Extrato de Repasse
-            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href="/terapeuta/metricas"
+                className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+              >
+                📊 Minhas Métricas
+              </a>
+              <a
+                href="/terapeuta/repasse"
+                className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+              >
+                📄 Meu Extrato de Repasse
+              </a>
+            </div>
           </div>
           <TodaySessionsList
             sessions={(todaySessions ?? []).map((a) => ({
