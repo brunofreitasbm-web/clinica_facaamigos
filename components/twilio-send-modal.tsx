@@ -29,7 +29,9 @@ export function TwilioSendModal({
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    if (defaultPhone) setPhone(defaultPhone);
+    if (defaultPhone) {
+      queueMicrotask(() => setPhone(defaultPhone));
+    }
   }, [defaultPhone]);
 
   useEffect(() => {

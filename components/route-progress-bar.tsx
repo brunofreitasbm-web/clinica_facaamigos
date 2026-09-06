@@ -10,7 +10,7 @@ export function RouteProgressBar() {
 
   useEffect(() => {
     // When path or query params change, hide progress bar
-    setLoading(false);
+    queueMicrotask(() => setLoading(false));
   }, [pathname, searchParams]);
 
   useEffect(() => {

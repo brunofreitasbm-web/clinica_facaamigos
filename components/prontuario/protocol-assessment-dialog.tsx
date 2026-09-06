@@ -73,7 +73,7 @@ export function ProtocolAssessmentDialog({
                   </label>
                   <select
                     value={protocol}
-                    onChange={(e) => setProtocol(e.target.value as any)}
+                    onChange={(e) => setProtocol(e.target.value as "vbmapp" | "ablls_r" | "esdm")}
                     className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm font-semibold text-ink"
                   >
                     <option value="vbmapp">VB-MAPP (Avaliação de Marcos)</option>
@@ -88,7 +88,7 @@ export function ProtocolAssessmentDialog({
                   </label>
                   <select
                     value={level}
-                    onChange={(e) => setLevel(Number(e.target.value) as any)}
+                    onChange={(e) => setLevel(Number(e.target.value) as 1 | 2 | 3)}
                     className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm font-semibold text-ink"
                   >
                     <option value={1}>Nível 1 (0 a 18 meses)</option>

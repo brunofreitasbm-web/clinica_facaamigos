@@ -159,7 +159,7 @@ export function NotificacoesManager() {
                   <select
                     className="input text-xs cursor-pointer"
                     value={newChannel}
-                    onChange={(e) => setNewChannel(e.target.value as any)}
+                    onChange={(e) => setNewChannel(e.target.value as "WhatsApp" | "E-mail" | "SMS")}
                   >
                     <option value="WhatsApp">WhatsApp</option>
                     <option value="E-mail">E-mail</option>

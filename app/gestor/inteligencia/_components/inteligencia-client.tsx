@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { InteligenciaMetrics } from "../data";
@@ -50,24 +50,26 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
   const donutItems = metrics.statusDonut;
   const totalDonut = metrics.statusTotalCount || metrics.totalAppointments || 0;
 
-  let accumulatedAngle = 0;
-  const slices = donutItems.map((item) => {
-    const pct = totalDonut > 0 ? item.count / totalDonut : 0;
-    const angle = pct * 360;
-    const startAngle = accumulatedAngle;
-    accumulatedAngle += angle;
+  const slices = useMemo(() => {
+    return donutItems.map((item, idx) => {
+      const pct = totalDonut > 0 ? item.count / totalDonut : 0;
+      const previousPctSum = donutItems
+        .slice(0, idx)
+        .reduce((sum, prev) => sum + (totalDonut > 0 ? prev.count / totalDonut : 0), 0);
+      const startAngle = previousPctSum * 360;
 
-    const radius = 40;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDasharray = `${(pct * circumference).toFixed(2)} ${(circumference * (1 - pct)).toFixed(2)}`;
-    const strokeDashoffset = -((startAngle / 360) * circumference).toFixed(2);
+      const radius = 40;
+      const circumference = 2 * Math.PI * radius;
+      const strokeDasharray = `${(pct * circumference).toFixed(2)} ${(circumference * (1 - pct)).toFixed(2)}`;
+      const strokeDashoffset = -((startAngle / 360) * circumference).toFixed(2);
 
-    return {
-      ...item,
-      strokeDasharray,
-      strokeDashoffset,
-    };
-  });
+      return {
+        ...item,
+        strokeDasharray,
+        strokeDashoffset,
+      };
+    });
+  }, [donutItems, totalDonut]);
 
   return (
     <div className="flex min-h-[calc(100vh-64px)] bg-paper">

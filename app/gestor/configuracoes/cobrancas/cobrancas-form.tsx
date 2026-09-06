@@ -102,7 +102,7 @@ export function CobrancasForm() {
                 <select
                   className="input cursor-pointer"
                   value={modeloRepasse}
-                  onChange={(e) => setModeloRepasse(e.target.value as any)}
+                  onChange={(e) => setModeloRepasse(e.target.value as "faixa_hora" | "porcentagem" | "fixo_sessao")}
                 >
                   <option value="faixa_hora">Tabela por Faixa de Valor-Hora (Tier do Contrato)</option>
                   <option value="porcentagem">Porcentagem sobre o valor faturado da sessão</option>
@@ -210,7 +210,7 @@ export function CobrancasForm() {
               <select
                 className="input text-xs cursor-pointer w-36"
                 value={newAttr}
-                onChange={(e) => setNewAttr(e.target.value as any)}
+                onChange={(e) => setNewAttr(e.target.value as "terapeuta" | "recepcao" | "faturamento" | "operadora")}
               >
                 <option value="terapeuta">Terapeuta</option>
                 <option value="recepcao">Recepção</option>
