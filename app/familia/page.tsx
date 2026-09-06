@@ -132,6 +132,7 @@ export default async function FamiliaPage({
     { data: treatmentPlan },
     { data: documents },
     { data: familyMessages },
+    { data: upcomingAppts },
   ] = await Promise.all([
     supabase
       .from("appointments")
@@ -156,18 +157,14 @@ export default async function FamiliaPage({
       .gte("starts_at", monthStartIso)
       .lt("starts_at", monthEndIso)
       .order("starts_at", { ascending: true }),
-    // Ponte responsável → guardian_id, usada só pra anexar guardian_id na
-    // mensagem de "Fale com a Coordenação" (guardians.profile_id, PRD §7.1).
-    // guardians_read (20260904000002_patients.sql) já restringe a linha ao
-    // próprio profile_id, então isso nunca vaza guardian de outro paciente.
+    // Ponte responsável → guardian_id
     supabase
       .from("guardians")
       .select("id")
       .eq("patient_id", patientId)
       .eq("profile_id", user.id)
       .maybeSingle(),
-    // Só o plano já aprovado — família não vê metas de um rascunho ainda em
-    // elaboração pela equipe.
+    // Plano aprovado
     supabase
       .from("treatment_plans")
       .select("id")
@@ -176,22 +173,28 @@ export default async function FamiliaPage({
       .order("version", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    // documents_read (20260904000008_documents.sql) só devolve pro
-    // responsável as linhas com shared_with_family=true — o filtro abaixo é
-    // redundante com a RLS, mantido só como documentação da regra.
+    // Documentos liberados
     supabase
       .from("documents")
       .select("id, category, uploaded_at, valid_until")
       .eq("patient_id", patientId)
       .eq("shared_with_family", true)
       .order("uploaded_at", { ascending: false }),
-    // Mensagens trocadas entre a família e a coordenação clínica
+    // Mensagens trocadas
     supabase
       .from("messages")
       .select("id, direction, body, sent_at, read_at")
       .eq("patient_id", patientId)
       .eq("channel", "portal")
       .order("sent_at", { ascending: false }),
+    // Próximas sessões com justificativa de ausência (se houver)
+    supabase
+      .from("appointments")
+      .select("id, starts_at, status, discipline, therapist:profiles!therapist_id(full_name)")
+      .eq("patient_id", patientId)
+      .gte("starts_at", nowIso)
+      .order("starts_at", { ascending: true })
+      .limit(6),
   ]);
 
   const { data: goalsRaw } = treatmentPlan
@@ -365,7 +368,12 @@ export default async function FamiliaPage({
               </div>
               {confirmed && <div style={{ color: "var(--color-teal-300)", fontSize: 13 }}>✓ Presença confirmada pela recepção.</div>}
               {notConfirmed && <ConfirmAttendance appointmentId={nextAppt.id} />}
-              {(notConfirmed || confirmed) && <ReportAbsence appointmentId={nextAppt.id} />}
+              {(notConfirmed || confirmed) && (
+                <ReportAbsence
+                  appointmentId={nextAppt.id}
+                  sessionLabel={`${fmtWhen(nextAppt.starts_at)} · ${nextAppt.discipline}${therapistName ? ` (${therapistName})` : ""}`}
+                />
+              )}
             </>
           ) : (
             <span style={{ fontSize: 14, opacity: 0.85 }}>Nenhuma sessão agendada no momento.</span>
@@ -378,6 +386,57 @@ export default async function FamiliaPage({
       <div style={{ flex: 1, overflow: "auto", padding: "26px 20px 40px", display: "flex", flexDirection: "column", gap: 30 }}>
         {showSurveyPrompt && guardianRow && (
           <SurveyPrompt patientId={patientId} guardianId={guardianRow.id} />
+        )}
+
+        {(upcomingAppts ?? []).length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">Agenda & Próximas Sessões</h6>
+              <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                {(upcomingAppts ?? []).length} agendadas
+              </span>
+            </div>
+            <div className="flex flex-col gap-2.5 mt-2">
+              {(upcomingAppts ?? []).map((appt) => {
+                const apptTherapist = Array.isArray(appt.therapist) ? appt.therapist[0] : appt.therapist;
+                const isAbsenceReported = appt.status === "falta_familia";
+                const isCancelled = appt.status === "cancelada" || appt.status === "falta_sem_justificativa";
+                const label = `${fmtWhen(appt.starts_at)} · ${appt.discipline}${apptTherapist?.full_name ? ` (${apptTherapist.full_name})` : ""}`;
+                
+                return (
+                  <div
+                    key={appt.id}
+                    className="p-3 rounded-lg border flex flex-col gap-2 bg-white shadow-xs"
+                    style={{ borderColor: isAbsenceReported ? "var(--color-accent-2-300)" : "var(--color-divider)" }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="font-semibold text-sm block text-ink-strong">{fmtWhen(appt.starts_at)}</span>
+                        <span className="text-xs text-ink-soft">
+                          {appt.discipline} {apptTherapist?.full_name ? `· ${apptTherapist.full_name}` : ""}
+                        </span>
+                      </div>
+                      {isAbsenceReported ? (
+                        <span className="tag-status st-falta font-semibold text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                          ⚠️ Ausência Informada
+                        </span>
+                      ) : isCancelled ? (
+                        <span className="tag-status st-cancelada text-xs">Cancelada</span>
+                      ) : (
+                        <span className="tag-status st-agendada text-xs">Agendada</span>
+                      )}
+                    </div>
+
+                    {!isAbsenceReported && !isCancelled && (
+                      <div className="pt-1.5 border-t border-gray-100 flex justify-end">
+                        <ReportAbsence appointmentId={appt.id} sessionLabel={label} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         )}
 
         <section>
