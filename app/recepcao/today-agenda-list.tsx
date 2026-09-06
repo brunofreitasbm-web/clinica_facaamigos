@@ -7,6 +7,7 @@ import {
   checkIn,
   checkOut,
   markMissedOrCancelled,
+  undoAutoFalta,
   linkAuthorizationToAppointment,
   getPatientActiveAuthorizations,
   type PatientAuthorizationOption,
@@ -34,6 +35,8 @@ export type TodaySession = {
   checkinAt: string | null;
   attendanceStartedAt: string | null;
   checkoutAt: string | null;
+  /** true quando status/checkout foram definidos por auto_resolve_appointments (pg_cron), não por um clique. */
+  autoMarked: boolean;
   /** Sessão `realizada` sem session_notes assinada ainda — ver session_note_pending (RPC). */
   pendingNote: boolean;
   authorizationId: string | null;
@@ -452,6 +455,10 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
   // Botão "Vincular guia" (Gap 3 do audit): só faz sentido pra sessão normal
   // (não avaliação, não provisória de propósito) que ainda não tem guia.
   const canLinkGuide = !session.authorizationId && !session.isProvisional && !session.isEvaluation;
+  // Falta marcada por auto_resolve_appointments (pg_cron) sem check-in até
+  // 20 min do início — a recepção pode desfazer se a família chegou atrasada
+  // (ver undoAutoFalta em app/recepcao/agenda/session-actions.ts).
+  const canUndoAutoFalta = session.status === "falta_familia" && session.autoMarked && !session.checkoutAt;
 
   function runAction(action: () => Promise<{ success: true; warning?: string } | { success: false; error: string }>) {
     setError(null);
@@ -524,6 +531,17 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
           </select>
         ) : (
           <span className={`tag-status ${display.tagClass}`}>{display.label}</span>
+        )}
+
+        {canUndoAutoFalta && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => runAction(() => undoAutoFalta(session.id))}
+            className="mt-1 block text-[11px] font-medium text-ink-soft underline decoration-dotted hover:text-ink disabled:opacity-50"
+          >
+            Falta automática (sem check-in) · desfazer
+          </button>
         )}
 
         {showFaltaForm && (
