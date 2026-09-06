@@ -25,6 +25,8 @@ export type PendingQueueItem = {
   detail: string;
   urgencyLabel: string;
   href: string;
+  /** Só preenchido em falta_sem_motivo — id do appointment pra ação de definir motivo/desfazer. */
+  appointmentId?: string;
 };
 
 const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
@@ -212,12 +214,13 @@ async function getAutoFaltasSemMotivo(supabase: Supa, clinicId: string): Promise
  * função só junta e ordena pra exibição, sem duplicar regra.
  */
 export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_CLINIC_ID): Promise<PendingQueueItem[]> {
-  const [expiringAuths, pendingPatients, overdueNotes, expiredDocuments, unansweredLeads] = await Promise.all([
+  const [expiringAuths, pendingPatients, overdueNotes, expiredDocuments, unansweredLeads, autoFaltas] = await Promise.all([
     getExpiringAuthorizations(supabase, clinicId),
     getPendingPatients(supabase, 3),
     listOverdueSessionNotes(supabase),
     getExpiredDocuments(supabase, clinicId),
     getUnansweredLeads(supabase, clinicId),
+    getAutoFaltasSemMotivo(supabase, clinicId),
   ]);
 
   const items: PendingQueueItem[] = [];
@@ -299,6 +302,20 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       detail: `Cadastrado há ${l.minutesWaiting} min sem retorno`,
       urgencyLabel: `${l.minutesWaiting}min`,
       href: `/recepcao/pacientes/${l.patientId}`,
+    });
+  }
+
+  for (const f of autoFaltas.sort((a, b) => b.minutesAgo - a.minutesAgo)) {
+    items.push({
+      id: `falta-auto-${f.appointmentId}`,
+      category: "falta_sem_motivo",
+      categoryLabel: CATEGORY_LABEL.falta_sem_motivo,
+      patientId: f.patientId,
+      patientName: f.patientName,
+      detail: `Sessão de ${new Date(f.startsAt).toLocaleString("pt-BR")} sem check-in`,
+      urgencyLabel: `${f.minutesAgo}min`,
+      href: `/recepcao/pacientes/${f.patientId}`,
+      appointmentId: f.appointmentId,
     });
   }
 
