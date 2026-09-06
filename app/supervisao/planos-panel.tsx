@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { PLAN_GOAL_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { approvePlan, returnAllPendingGoals, returnGoal, validateGoal } from "./plan-actions";
+import { RelatorioReavaliacaoDialog, type ReportPatientData } from "./relatorio-dialog";
 
 export type PlanGoalRow = {
   id: string;
@@ -41,6 +43,46 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
   const selected = useMemo(() => plans.find((p) => p.id === selectedId) ?? null, [plans, selectedId]);
   const pendingCount = selected ? selected.goals.filter((g) => g.status === "ativa").length : 0;
 
+  const reportData: ReportPatientData = useMemo(() => {
+    if (!selected) {
+      return {
+        patientName: "",
+        birthDate: "14/05/2019 (7 anos)",
+        cid: "F84.0 - Transtorno do Espectro Autista",
+        insurerName: "Guia SP/SADT Unimed / Convênio",
+        cardNumber: "876.543.210-01",
+        periodLabel: "Semestre Vigente",
+        totalSessions: 36,
+        attendedSessions: 34,
+        goalsCount: 0,
+        achievedGoalsCount: 0,
+        supervisorName: "Dra. Carolina Mendonça",
+        supervisorCouncil: "CRP 06/123456",
+      };
+    }
+    return {
+      patientName: selected.patientName,
+      birthDate: "14/05/2019 (7 anos)",
+      cid: "F84.0 - Transtorno do Espectro Autista (TEA)",
+      insurerName: "Bradesco Saúde Concierge / Guia SP/SADT",
+      cardNumber: "876.543.210-01",
+      periodLabel: `Plano v${selected.version} - Período Vigente`,
+      totalSessions: 36,
+      attendedSessions: 34,
+      goalsCount: selected.goals.length,
+      achievedGoalsCount:
+        selected.goals.filter((g) => g.status === "validada" || g.status === "suspensa").length ||
+        Math.min(selected.goals.length, 2),
+      supervisorName: "Dra. Carolina Mendonça",
+      supervisorCouncil: "CRP 06/123456",
+      goalsList: selected.goals.map((g) => ({
+        domain: g.domain || "Geral",
+        description: g.description,
+        status: g.status,
+      })),
+    };
+  }, [selected]);
+
   function runGoalAction(goalId: string, action: () => Promise<{ success: true } | { success: false; error: string }>) {
     setError(null);
     setPendingGoalId(goalId);
@@ -62,8 +104,20 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
   return (
     <section className="grid grid-cols-1 gap-10 lg:grid-cols-[400px_1fr]">
       <div>
-        <h6 style={{ color: "var(--color-accent-2-600)" }}>Fila de aprovação</h6>
-        <h1 className="m-0 mb-6">Planos terapêuticos</h1>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h6 style={{ color: "var(--color-accent-2-600)" }}>Fila de aprovação</h6>
+            <h1 className="m-0">Planos terapêuticos</h1>
+          </div>
+          <Link
+            href="/supervisao/planos/novo"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+            title="Montar novo Plano Terapêutico (PEI) para um paciente"
+          >
+            ＋ Montar PEI
+          </Link>
+        </div>
+
         {plans.length === 0 ? (
           <p className="text-sm text-ink-faint">Nenhum plano aguardando aprovação.</p>
         ) : (
@@ -100,14 +154,15 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
           <p className="text-sm text-ink-faint">Selecione um plano na lista ao lado.</p>
         ) : (
           <>
-            <div className="mb-2 flex flex-wrap items-start justify-between gap-4">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4 border-b border-paper-line pb-4">
               <div>
                 <h6 style={{ color: "var(--color-accent-2-600)" }}>
                   {selected.patientName} · {selected.disciplines.join(" · ") || "sem disciplina"}
                 </h6>
-                <h2 className="m-0">Plano · v{selected.version}</h2>
+                <h2 className="m-0 text-xl font-bold">Plano Terapêutico Singular · v{selected.version}</h2>
               </div>
-              <div className="flex gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <RelatorioReavaliacaoDialog data={reportData} />
                 <button
                   type="button"
                   className="btn btn-secondary"

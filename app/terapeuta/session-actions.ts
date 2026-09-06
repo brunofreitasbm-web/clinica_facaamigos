@@ -83,7 +83,7 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
 
   const { data: appointment } = await supabase
     .from("appointments")
-    .select("id, checkin_at, checkout_at, is_evaluation, therapist_id")
+    .select("id, checkin_at, checkout_at, is_evaluation, is_provisional, therapist_id")
     .eq("id", appointmentId)
     .maybeSingle();
 
@@ -100,15 +100,16 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
     return { success: false, error: "Check-out já registrado." };
   }
 
-  // Sessões de avaliação não têm autorização de convênio associada — usamos
-  // is_provisional para satisfazer o guard `appointments_authorization_guard`,
-  // igual ao check-out da recepção.
+  // is_provisional é decidido pela recepção no momento do agendamento (ex.:
+  // guia do convênio ainda não chegou, ou sessão de avaliação sem autorização)
+  // e não deve ser sobrescrito aqui — preservamos o valor já existente, igual
+  // ao check-out da recepção (app/recepcao/agenda/session-actions.ts).
   const { error } = await supabase
     .from("appointments")
     .update({
       checkout_at: new Date().toISOString(),
       status: "realizada",
-      is_provisional: appointment.is_evaluation === true,
+      is_provisional: appointment.is_provisional === true,
     })
     .eq("id", appointmentId);
 
