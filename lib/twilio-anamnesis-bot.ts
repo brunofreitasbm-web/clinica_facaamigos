@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatE164Phone, sendTwilioWhatsApp } from "@/lib/twilio";
+import { formatE164Phone } from "@/lib/twilio";
 
 export interface TwilioIncomingParams {
   from: string;
@@ -116,6 +116,7 @@ export async function processAnamnesisChatbotStep(
   }
 
   const currentStep = session?.current_step || "idle";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = (session?.collected_data as Record<string, any>) || {};
 
   // 2. Detecção de Início do Fluxo de Agendamento/Anamnese se estiver em `idle`
@@ -423,6 +424,7 @@ export async function processAnamnesisChatbotStep(
     }
 
     // Executar RPC de agendamento atômico no banco com Lock Otimista
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rpcResult, error: rpcErr } = await (supabase as any).rpc("book_anamnesis_slot_atomic", {
       p_request_id: data.request_id,
       p_therapist_id: selectedSlot.therapist_id,

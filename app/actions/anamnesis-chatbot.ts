@@ -150,6 +150,7 @@ export async function approveAnamnesisDocumentAction(
       .eq("phone_number", formattedPhone)
       .single();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const collected = (session?.collected_data as Record<string, any>) || {};
     collected.request_id = requestId;
     collected.child_name = req.child_name;

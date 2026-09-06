@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { generateGuiasXml } from "./actions";
 import type { GuiaPeriodGroup } from "./data";
 
@@ -156,9 +157,9 @@ export function GuiasClient({ groups }: { groups: GuiaPeriodGroup[] }) {
     return (
       <div className="rounded-lg border border-paper-line bg-white p-8 text-center text-sm text-ink-faint shadow-sm">
         Nenhuma guia pendente de envio. Feche uma competência em{" "}
-        <a href="/faturamento/competencias" className="text-chart hover:underline">
+        <Link href="/faturamento/competencias" className="text-chart hover:underline">
           Faturamento → Competência
-        </a>{" "}
+        </Link>{" "}
         para gerar guias aqui.
       </div>
     );
