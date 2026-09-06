@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc } from "@/lib/timezone";
-import { GRID_EXCLUDED_STATUSES } from "../grade-data";
+import { GRID_EXCLUDED_STATUSES } from "@/app/supervisao/grade-data";
 import { EMERGENCY_MESSAGE_TEMPLATE, buildEmergencyMessage, createEmergencyVoiceCall } from "@/lib/twilio-voice";
 
 export type EmergencyShift = "manha" | "tarde";

@@ -1,8 +1,8 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone, civilDateInTimeZone } from "@/lib/timezone";
 import { RESOURCE_CATEGORY_LABEL } from "@/lib/resource-categories";
-import { NewResourceForm } from "./new-resource-form";
 import { BookResourceForm } from "./book-resource-form";
 import { ResourceBookingsList, type ResourceBookingRow } from "./resource-bookings-list";
 
@@ -10,16 +10,6 @@ export const dynamic = "force-dynamic";
 
 export default async function RecursosPage() {
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let canManageResources = false;
-  if (user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    canManageResources = profile?.role === "gestor" || profile?.role === "supervisor";
-  }
 
   const { data: resources } = await supabase
     .from("resources")
@@ -65,7 +55,9 @@ export default async function RecursosPage() {
         <div className="card max-w-[900px]">
           <div className="flex items-center justify-between gap-3">
             <div className="card-kicker">Recursos cadastrados</div>
-            {canManageResources && <NewResourceForm />}
+            <Link href="/gestor/configuracoes/atendimentos" className="text-xs text-ink-faint no-underline hover:underline">
+              Cadastrar novo recurso (Configurações) →
+            </Link>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {(resources ?? []).map((r) => (

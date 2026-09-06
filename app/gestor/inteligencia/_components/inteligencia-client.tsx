@@ -615,7 +615,8 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                         🎂 {aniv.formattedDate}
                       </span>
                       <Link
-                        href={`/gestor/integracoes/whatsapp?contact=${encodeURIComponent(aniv.name)}`}
+                        href="/recepcao/atendimento"
+                        title="Contato com a família é feito pela Central de Atendimento da Recepção"
                         className="text-[11px] font-semibold text-emerald-600 hover:underline"
                       >
                         Enviar Parabéns 💬

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { currentMonthRange } from "../data";
 import { getRepasseRows, getGlosaRows, getFinanceiroKpis, getRevenueByMonth, getRepasseByTier } from "./data";
+import { getGlosaBreakdown } from "@/lib/glosa-analytics";
 import { FinanceiroTabs } from "./financeiro-tabs";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +16,10 @@ export default async function GestorFinanceiroPage() {
   const { competenceMonth } = currentMonthRange();
   const { rows: repasseRows, totalOpenPayout } = await getRepasseRows(supabase, DEV_CLINIC_ID);
   const glosaRows = await getGlosaRows(supabase, DEV_CLINIC_ID);
-  const [kpis, revenueByMonth] = await Promise.all([
+  const [kpis, revenueByMonth, glosaBreakdown] = await Promise.all([
     getFinanceiroKpis(supabase, DEV_CLINIC_ID, totalOpenPayout, glosaRows),
     getRevenueByMonth(supabase, DEV_CLINIC_ID),
+    getGlosaBreakdown(supabase, DEV_CLINIC_ID),
   ]);
   const tierBars = getRepasseByTier(repasseRows);
 
@@ -65,7 +67,7 @@ export default async function GestorFinanceiroPage() {
       </section>
 
       <section className="px-10 pt-10">
-        <FinanceiroTabs repasseRows={repasseRows} glosaRows={glosaRows} competenceMonth={competenceMonth} />
+        <FinanceiroTabs repasseRows={repasseRows} glosaRows={glosaRows} glosaBreakdown={glosaBreakdown} competenceMonth={competenceMonth} />
       </section>
 
       <section className="grid grid-cols-1 gap-15 px-10 pt-14 lg:grid-cols-2">

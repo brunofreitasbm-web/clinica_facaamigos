@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { ConfigSidebar } from "../config-sidebar";
 
@@ -61,7 +62,7 @@ export function ProfissionaisManager() {
         <PageHeader
           axisLabel="Configurações"
           title="Profissionais & Tiers"
-          description="Tabelas de faixas de valor-hora, requisitos de conselho de classe e certificações exigidas."
+          description="Política de faixas de valor-hora e requisitos de conselho. A progressão individual de cada terapeuta, com aprovação de mudança de faixa, fica em Equipe › PLR & Desempenho."
         />
 
         <div className="flex flex-col gap-8 p-6 sm:p-10 max-w-4xl">
@@ -82,6 +83,10 @@ export function ProfissionaisManager() {
                 + Nova Faixa
               </button>
             </div>
+
+            <Link href="/gestor/bonificacao" className="text-xs text-accent no-underline hover:underline">
+              Ver progressão individual e aprovar mudança de faixa por terapeuta →
+            </Link>
 
             {isAddingTier && (
               <form onSubmit={handleAddTier} className="flex flex-col gap-3 p-4 rounded-lg bg-paper-line/30 border border-paper-line mt-2">

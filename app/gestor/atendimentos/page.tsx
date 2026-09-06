@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { AtendimentosManager } from "./atendimentos-manager";
 import type { AppointmentType } from "./types";
-import { SalasCockpit } from "@/components/gestor/salas-cockpit";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +33,6 @@ export default async function AtendimentosPage() {
         title="Atendimentos"
         description="Crie tipos de atendimento definindo duração e recorrência. Personalize formatos como consultas rápidas, sessões longas ou atendimentos semanais."
       />
-      <div className="p-6 sm:p-10 pb-0">
-        <SalasCockpit />
-      </div>
       <AtendimentosManager appointmentTypes={appointmentTypes} />
     </main>
   );

@@ -16,9 +16,9 @@ import { MessageCircle, Smile } from "lucide-react";
 const NAV_ITEMS = [
   { key: "painel", label: "Painel", href: "/gestor/dashboard" },
   { key: "inteligencia", label: "Inteligência BI", href: "/gestor/inteligencia" },
-  { key: "atendimento", label: "Central de Atendimento", href: "/gestor/atendimento", icon: MessageCircle },
+  { key: "atendimento", label: "Central de Atendimento", href: "/recepcao/atendimento", icon: MessageCircle },
   { key: "nps", label: "NPS", href: "/gestor/nps", icon: Smile },
-  { key: "whatsapp-bot", label: "WhatsApp Bot", href: "/whatsapp-bot" },
+  { key: "whatsapp-bot", label: "WhatsApp Bot", href: "/gestor/configuracoes/notificacoes" },
   { key: "equipe", label: "Equipe", href: "/gestor/bonificacao" },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro" },

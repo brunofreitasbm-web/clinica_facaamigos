@@ -13,7 +13,7 @@ import { getReceptionQueue } from "@/lib/reception-queue";
 import { NovaSessaoDialog, type GuideSummary } from "./nova-sessao-dialog";
 import { TodayAgendaList, type TodaySession, type GuardianContact } from "./today-agenda-list";
 import { MiniCalendarPicker } from "./mini-calendar-picker";
-import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-panel";
+import { AnamnesisPendingBadge } from "@/components/anamnesis-pending-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -156,7 +156,7 @@ export default async function RecepcaoPage({
   }
 
   // Tags do paciente (filtro "Tags do paciente") — mesma tabela usada em
-  // app/gestor/pacientes/[id]/patient-tags.tsx, aqui só leitura pra filtrar
+  // app/recepcao/pacientes/[id]/gestao/patient-tags.tsx, aqui só leitura pra filtrar
   // a agenda do dia por paciente marcado.
   const { data: tagRows } = todaysPatientIds.length
     ? await supabase.from("patient_tags").select("patient_id, label").in("patient_id", todaysPatientIds)
@@ -362,9 +362,7 @@ export default async function RecepcaoPage({
             </div>
           </div>
 
-          <div className="mb-8">
-            <AnamnesisValidationPanel />
-          </div>
+          <AnamnesisPendingBadge />
 
           <TodayAgendaList
             sessions={sessions}

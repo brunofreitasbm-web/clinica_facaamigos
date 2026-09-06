@@ -18,7 +18,7 @@ export default async function EmergenciasPage() {
     <main className="flex flex-1 flex-col gap-6 p-10">
       <div>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-          Supervisão
+          Recepção
         </h6>
         <h1 className="m-0">Central de Chamadas de Emergência por Voz</h1>
         <p className="mt-1 text-[13px] text-ink-soft">

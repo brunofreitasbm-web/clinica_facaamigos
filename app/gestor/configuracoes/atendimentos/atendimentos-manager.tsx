@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { ConfigSidebar } from "../config-sidebar";
+import { NewResourceForm } from "./new-resource-form";
+import { RESOURCE_CATEGORY_LABEL } from "@/lib/resource-categories";
+import type { ResourceRow } from "./types";
 
 interface RoomItem {
   id: string;
@@ -33,9 +36,9 @@ const CANCEL_REASONS: CancelReason[] = [
   { id: "c-4", label: "Manutenção Emergencial de Sala", origin: "clinica", requiresJustification: true },
 ];
 
-export function AtendimentosManager() {
-  const [rooms, setRooms] = useState<RoomItem[]>(INITIAL_ROOMS);
-  const [activeTab, setActiveTab] = useState<"salas" | "motivos" | "reagendamento">("salas");
+export function AtendimentosManager({ resources }: { resources: ResourceRow[] }) {
+  const [rooms] = useState<RoomItem[]>(INITIAL_ROOMS);
+  const [activeTab, setActiveTab] = useState<"salas" | "recursos" | "motivos" | "reagendamento">("salas");
 
   const [janelaReagendamentoDias, setJanelaReagendamentoDias] = useState(7);
 
@@ -63,6 +66,16 @@ export function AtendimentosManager() {
               Salas Físicas ({rooms.length})
             </button>
             <button
+              onClick={() => setActiveTab("recursos")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors ${
+                activeTab === "recursos"
+                  ? "border-accent text-accent"
+                  : "border-transparent text-ink-faint hover:text-ink-strong"
+              }`}
+            >
+              Recursos ({resources.length})
+            </button>
+            <button
               onClick={() => setActiveTab("motivos")}
               className={`pb-3 text-sm font-semibold border-b-2 transition-colors ${
                 activeTab === "motivos"
@@ -88,13 +101,10 @@ export function AtendimentosManager() {
           {activeTab === "salas" && (
             <div className="flex flex-col gap-4">
               <div className="flex justify-between items-center">
-                <p className="text-xs text-ink-faint">Cadastro de espaços com restrição de capacidade e recursos para prevenção de conflito de agenda (PRD §7.1).</p>
-                <button
-                  onClick={() => alert("Janela para cadastrar nova sala física.")}
-                  className="button button-primary"
-                >
-                  + Nova Sala
-                </button>
+                <p className="text-xs text-ink-faint">
+                  Lista de referência das salas físicas da clínica (PRD §7.1). O cadastro de salas ainda não tem
+                  formulário — hoje as salas usadas na Agenda vêm direto da tabela `rooms` no banco.
+                </p>
               </div>
 
               <table className="table">
@@ -123,6 +133,43 @@ export function AtendimentosManager() {
                       <td className="text-xs text-ink-faint">{r.resources}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Aba Recursos: cadastro real (brinquedos sensoriais, testes, pranchas) */}
+          {activeTab === "recursos" && (
+            <div className="flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-ink-faint">
+                  Cadastro mestre de recursos reserváveis (PRD §10). A recepção só reserva, em Salas e recursos.
+                </p>
+                <NewResourceForm />
+              </div>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Categoria</th>
+                    <th>Observações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resources.map((r) => (
+                    <tr key={r.id}>
+                      <td className="font-semibold text-sm">{r.name}</td>
+                      <td>{RESOURCE_CATEGORY_LABEL[r.category] ?? r.category}</td>
+                      <td className="text-xs text-ink-faint">{r.notes || "—"}</td>
+                    </tr>
+                  ))}
+                  {resources.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="text-ink-faint">
+                        Nenhum recurso cadastrado ainda.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

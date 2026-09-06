@@ -1,9 +1,9 @@
+import Link from "next/link";
 import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { currentMonthRange } from "../data";
 import { NpsMetricsCards, type ScoreDistribution } from "./nps-metrics-cards";
-import { NpsAlertsPanel, type NpsAlertRow } from "./nps-alerts-panel";
 import { FamilyFeedbackPanel, type FamilyFeedbackRow } from "./family-feedback-panel";
 import { normalizeFeedbackToNps10, normalizeTwilioScoreToNps10 } from "@/lib/family-feedback";
 
@@ -13,7 +13,7 @@ export default async function NpsPage() {
   const supabase = await createClient();
   const { startISO, endISO } = currentMonthRange();
 
-  const [{ data: monthSurveys }, { data: alertsRaw }, { data: monthFamilyFeedback }, { data: familyFeedbackRaw }] =
+  const [{ data: monthSurveys }, { count: pendingAlertsCount }, { data: monthFamilyFeedback }, { data: familyFeedbackRaw }] =
     await Promise.all([
       supabase
         .from("nps_surveys")
@@ -21,13 +21,12 @@ export default async function NpsPage() {
         .gte("dispatched_at", startISO)
         .lt("dispatched_at", endISO)
         .not("responded_at", "is", null),
+      // A triagem de detrator (contatar/resolver) é atendimento à família —
+      // fica na caixa de entrada da Supervisão. Aqui só o contador.
       supabase
         .from("nps_surveys")
-        .select(
-          "id, score, feedback_text, alert_status, dispatched_at, responded_at, patients(full_name), guardians(full_name)",
-        )
-        .in("alert_status", ["pending_contact", "em_atendimento"])
-        .order("responded_at", { ascending: false }),
+        .select("id", { count: "exact", head: true })
+        .in("alert_status", ["pending_contact", "em_atendimento"]),
       // Portal "Avalie" (family_feedback) — sem periodicidade, entram na
       // média combinada do mês igual às respostas do Twilio.
       supabase
@@ -60,22 +59,6 @@ export default async function NpsPage() {
   const combinedScore10 =
     combinedAll.length > 0 ? Math.round((combinedAll.reduce((sum, n) => sum + n, 0) / combinedAll.length) * 10) / 10 : null;
 
-  const alerts: NpsAlertRow[] = (alertsRaw ?? []).map((a) => {
-    const patient = Array.isArray(a.patients) ? a.patients[0] : a.patients;
-    const guardian = Array.isArray(a.guardians) ? a.guardians[0] : a.guardians;
-    return {
-      id: a.id,
-      patientName: patient?.full_name ?? "Paciente",
-      guardianName: guardian?.full_name ?? null,
-      score: a.score,
-      feedbackText: a.feedback_text,
-      alertStatus: a.alert_status as NpsAlertRow["alertStatus"],
-      dateLabel: a.responded_at
-        ? new Date(a.responded_at).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE })
-        : new Date(a.dispatched_at).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE }),
-    };
-  });
-
   const familyFeedback: FamilyFeedbackRow[] = (familyFeedbackRaw ?? []).map((f) => {
     const patient = Array.isArray(f.patients) ? f.patients[0] : f.patients;
     const guardian = Array.isArray(f.guardians) ? f.guardians[0] : f.guardians;
@@ -91,7 +74,7 @@ export default async function NpsPage() {
 
   return (
     <main className="flex min-h-screen flex-1 flex-col">
-      <GestorNav active="nps" pendingNpsAlerts={alerts.filter((a) => a.alertStatus === "pending_contact").length} />
+      <GestorNav active="nps" pendingNpsAlerts={pendingAlertsCount ?? 0} />
 
       <div className="flex flex-col gap-8 px-10 py-9">
         <div>
@@ -112,7 +95,17 @@ export default async function NpsPage() {
           combinedResponseCount={combinedAll.length}
         />
 
-        <NpsAlertsPanel alerts={alerts} />
+        {(pendingAlertsCount ?? 0) > 0 && (
+          <Link
+            href="/supervisao"
+            className="flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm no-underline"
+          >
+            <span className="font-semibold text-red-800">
+              {pendingAlertsCount} alerta(s) de insatisfação aguardando contato
+            </span>
+            <span className="text-xs font-medium text-red-700">Triagem e resolução ficam na Supervisão →</span>
+          </Link>
+        )}
 
         <FamilyFeedbackPanel items={familyFeedback} />
       </div>

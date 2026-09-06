@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { updateAlertStatus } from "./actions";
+import { updateAlertStatus } from "./inbox-actions";
 
 export type NpsAlertRow = {
   id: string;

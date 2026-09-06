@@ -44,7 +44,7 @@ export async function sendManualMessage(conversationId: string, body: string) {
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", conversationId);
 
-  revalidatePath("/gestor/atendimento");
+  revalidatePath("/recepcao/atendimento");
   return { success: true as const };
 }
 
@@ -56,7 +56,7 @@ export async function toggleBotActive(conversationId: string, value: boolean) {
     .eq("id", conversationId);
 
   if (error) return { success: false as const, error: error.message };
-  revalidatePath("/gestor/atendimento");
+  revalidatePath("/recepcao/atendimento");
   return { success: true as const };
 }
 
@@ -86,7 +86,7 @@ export async function createQuickResponse(clinicId: string, shortcut: string, ti
   });
 
   if (error) return { success: false as const, error: error.message };
-  revalidatePath("/gestor/atendimento");
+  revalidatePath("/recepcao/atendimento");
   return { success: true as const };
 }
 
@@ -98,7 +98,7 @@ export async function updateQuickResponse(id: string, title: string, contentText
     .eq("id", id);
 
   if (error) return { success: false as const, error: error.message };
-  revalidatePath("/gestor/atendimento");
+  revalidatePath("/recepcao/atendimento");
   return { success: true as const };
 }
 
@@ -107,6 +107,6 @@ export async function deleteQuickResponse(id: string) {
   const { error } = await supabase.from("quick_responses").delete().eq("id", id);
 
   if (error) return { success: false as const, error: error.message };
-  revalidatePath("/gestor/atendimento");
+  revalidatePath("/recepcao/atendimento");
   return { success: true as const };
 }

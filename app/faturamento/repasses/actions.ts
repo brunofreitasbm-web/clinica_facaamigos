@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { hoursBetween } from "../data";
+import { hoursBetween } from "@/app/gestor/data";
 
 type CloseResult =
   | { success: true; closedCount: number; skipped: string[] }

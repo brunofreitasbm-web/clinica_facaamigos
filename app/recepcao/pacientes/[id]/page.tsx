@@ -437,6 +437,9 @@ export default async function PacientePage({
             phone={primaryGuardian?.phone ?? null}
             guardianId={primaryGuardian?.id ?? null}
           />
+          <a href={`/recepcao/pacientes/${patient.id}/gestao`} className="btn btn-secondary">
+            Convênios, cobranças e equipe
+          </a>
           <a href="/recepcao" className="btn btn-primary">
             Nova sessão
           </a>
@@ -518,7 +521,7 @@ export default async function PacientePage({
             }}
             links={{
               anamnese_realizada: { label: "Registrar anamnese", href: `/supervisao/pacientes/${patient.id}/anamnese` },
-              equipe_definida: { label: "Definir equipe", href: `/gestor/pacientes/${patient.id}#equipe` },
+              equipe_definida: { label: "Definir equipe", href: `/recepcao/pacientes/${patient.id}/gestao#equipe` },
               reuniao_interdisciplinar: { label: "Nova reunião", href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=interdisciplinar` },
               pdi_construido: { label: "Montar PEI", href: `/supervisao/planos/novo?paciente=${patient.id}` },
               pdi_validado: { label: "Fila de aprovação", href: `/supervisao` },

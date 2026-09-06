@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
@@ -200,12 +199,11 @@ export default async function GestaoPacientePage({
 
   return (
     <main className="flex flex-1 flex-col">
-      <GestorNav active="cadastros" />
-
       <div className="px-10 pt-9">
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-          <Link href="/gestor/cadastros">Pacientes</Link>
+          <Link href={`/recepcao/pacientes/${patient.id}`}>← Ficha do paciente</Link>
         </h6>
+        <h1 className="m-0">Cadastro e gestão · {patient.full_name}</h1>
       </div>
 
       <PatientManagementPanel

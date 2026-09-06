@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 type ActionResult = { success: true } | { success: false; error: string };
 
 function revalidatePatient(patientId: string) {
-  revalidatePath(`/gestor/pacientes/${patientId}`);
+  revalidatePath(`/recepcao/pacientes/${patientId}/gestao`);
   // A ficha de recepção (app/recepcao/pacientes/[id]) mostra os mesmos dados
   // básicos do paciente (nome/nascimento/telefone) via EditBasicsForm — as
   // duas telas precisam ficar em sincronia depois de qualquer escrita aqui.

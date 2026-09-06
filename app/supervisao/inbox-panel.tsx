@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { resolveMessage, sendReply } from "./inbox-actions";
 import { approveReportFromSupervisao } from "./report-review-actions";
+import { NpsAlertsPanel, type NpsAlertRow } from "./nps-alerts-panel";
 
 export type InboxMessageRow = {
   id: string;
@@ -197,11 +198,13 @@ export function InboxPanel({
   reassessments,
   pendingReports,
   absenceReports = [],
+  npsAlerts = [],
 }: {
   messages: InboxMessageRow[];
   reassessments: ReassessmentRow[];
   pendingReports: PendingReportRow[];
   absenceReports?: AbsenceReportRow[];
+  npsAlerts?: NpsAlertRow[];
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(messages[0]?.id ?? null);
   const [reply, setReply] = useState("");
@@ -264,6 +267,11 @@ export function InboxPanel({
             ))}
           </div>
         )}
+      </section>
+
+      {/* ALERTAS DE INSATISFAÇÃO (NPS) — triagem de detrator, contato e resolução */}
+      <section className="card p-5">
+        <NpsAlertsPanel alerts={npsAlerts} />
       </section>
 
       {/* CHAMADOS E CAIXA DE ENTRADA DO PORTAL */}

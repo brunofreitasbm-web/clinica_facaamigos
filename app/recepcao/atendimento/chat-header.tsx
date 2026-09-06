@@ -13,7 +13,7 @@ export function ChatHeader({ conversation }: { conversation: ConversationRow }) 
     <div className="flex items-center justify-between gap-4 border-b border-paper-line-strong px-5 py-3">
       <div className="min-w-0">
         <Link
-          href={`/gestor/pacientes/${conversation.patientId}`}
+          href={`/recepcao/pacientes/${conversation.patientId}`}
           className="truncate text-sm font-semibold text-ink hover:underline"
         >
           {conversation.patientName}

@@ -289,7 +289,7 @@ export interface FindOrCreateConversationParams {
 /**
  * Busca (ou cria) a conversa (`twilio_conversations`) associada a um número de
  * telefone. Usada tanto pelo webhook de entrada quanto pela Central de
- * Atendimento (`/gestor/atendimento`) para agrupar as mensagens em threads.
+ * Atendimento (`/recepcao/atendimento`) para agrupar as mensagens em threads.
  */
 export async function findOrCreateConversation(params: FindOrCreateConversationParams) {
   const { phoneNumber, patientId, guardianId } = params;

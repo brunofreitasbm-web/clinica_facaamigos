@@ -1,4 +1,3 @@
-import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { AtendimentoShell, type ConversationRow } from "./atendimento-shell";
 
@@ -33,7 +32,6 @@ export default async function AtendimentoPage() {
 
   return (
     <main className="flex min-h-screen flex-1 flex-col">
-      <GestorNav active="atendimento" />
       <AtendimentoShell initialConversations={conversations} />
     </main>
   );

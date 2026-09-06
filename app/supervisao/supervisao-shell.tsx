@@ -93,7 +93,7 @@ export function SupervisaoShell({
             </button>
           ))}
           <Link
-            href="/supervisao/emergencias"
+            href="/recepcao/emergencias"
             className="flex h-full items-center gap-1.5 border-b-2 border-transparent"
             style={{ color: "var(--color-on-accent-soft)" }}
           >

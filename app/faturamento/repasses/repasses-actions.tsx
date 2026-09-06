@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { closePayouts, markPayoutPaid } from "@/app/gestor/financeiro/actions";
+import { closePayouts, markPayoutPaid } from "./actions";
 
 export function CloseCompetenceButton({ competenceMonth }: { competenceMonth: string }) {
   const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);

@@ -15,6 +15,7 @@ import {
 import { GradePanel, type GradeAppointment, type PendingNote } from "./grade-panel";
 import { PlanosPanel, type PlanRow } from "./planos-panel";
 import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingReportRow, type AbsenceReportRow } from "./inbox-panel";
+import type { NpsAlertRow } from "./nps-alerts-panel";
 import { SupervisaoShell } from "./supervisao-shell";
 import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
 import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-panel";
@@ -46,6 +47,7 @@ export default async function SupervisaoPage() {
     onboardingPatients,
     { data: rawActivePatients },
     { data: rawAbsenceReports },
+    { data: rawNpsAlerts },
   ] = await Promise.all([
     supabase.from("patients").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("reassessment_alerts").select("id", { count: "exact", head: true }).eq("status", "notificado"),
@@ -106,6 +108,15 @@ export default async function SupervisaoPage() {
         "id, appointment_id, reason_category, reason_text, attachment_storage_path, status, created_at, resolved_at, appointments(id, starts_at, discipline, patients(full_name), therapist:profiles!therapist_id(full_name))",
       )
       .order("created_at", { ascending: false }),
+    // Alertas de insatisfação (NPS) — triagem de detrator é atendimento à
+    // família, tratada aqui junto com o resto da caixa de entrada.
+    supabase
+      .from("nps_surveys")
+      .select(
+        "id, score, feedback_text, alert_status, dispatched_at, responded_at, patients(full_name), guardians(full_name)",
+      )
+      .in("alert_status", ["pending_contact", "em_atendimento"])
+      .order("responded_at", { ascending: false }),
   ]);
 
   // ── Grade semanal ──────────────────────────────────────────────────────
@@ -270,6 +281,23 @@ export default async function SupervisaoPage() {
     };
   });
 
+  // ── Alertas de insatisfação (NPS) ───────────────────────────────────────
+  const npsAlerts: NpsAlertRow[] = (rawNpsAlerts ?? []).map((a) => {
+    const patient = Array.isArray(a.patients) ? a.patients[0] : a.patients;
+    const guardian = Array.isArray(a.guardians) ? a.guardians[0] : a.guardians;
+    return {
+      id: a.id,
+      patientName: patient?.full_name ?? "Paciente",
+      guardianName: guardian?.full_name ?? null,
+      score: a.score,
+      feedbackText: a.feedback_text,
+      alertStatus: a.alert_status as NpsAlertRow["alertStatus"],
+      dateLabel: a.responded_at
+        ? new Date(a.responded_at).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE })
+        : new Date(a.dispatched_at).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE }),
+    };
+  });
+
   // ── Fluxos (passo a passo com atalhos) ─────────────────────────────────
   const flowPatients: FlowPatient[] = [
     ...onboardingPatients.map((p) => ({ id: p.id, name: p.full_name, status: p.status, stage: p.stage })),
@@ -277,7 +305,7 @@ export default async function SupervisaoPage() {
   ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
   const pendingAbsencesCount = absenceReportRows.filter((a) => !a.resolved).length;
-  const openFamilyMessages = inboxMessages.filter((m) => !m.resolved).length + pendingAbsencesCount;
+  const openFamilyMessages = inboxMessages.filter((m) => !m.resolved).length + pendingAbsencesCount + npsAlerts.length;
   const flowCounters: FlowCounters = {
     leads: onboardingPatients.filter((p) => p.stage === 1).length,
     stuckOnboarding: onboardingPatients.filter((p) => p.daysSinceCreated >= 3).length,
@@ -324,6 +352,7 @@ export default async function SupervisaoPage() {
           reassessments={reassessmentRows}
           pendingReports={pendingReportRows}
           absenceReports={absenceReportRows}
+          npsAlerts={npsAlerts}
         />
       }
     />

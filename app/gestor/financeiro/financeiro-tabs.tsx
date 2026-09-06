@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { RepasseRow, GlosaRow } from "./data";
-import { closePayouts, markPayoutPaid } from "./actions";
+import { closePayouts, markPayoutPaid } from "@/app/faturamento/repasses/actions";
+import type { GlosaBreakdown, GlosaBreakdownRow } from "@/lib/glosa-analytics";
 
 const REPASSE_STATUS_TAG: Record<RepasseRow["statusLabel"], string> = {
   "A pagar": "st-agendada",
@@ -80,10 +81,12 @@ function MarkPaidAction({ payoutId }: { payoutId: string }) {
 export function FinanceiroTabs({
   repasseRows,
   glosaRows,
+  glosaBreakdown,
   competenceMonth,
 }: {
   repasseRows: RepasseRow[];
   glosaRows: GlosaRow[];
+  glosaBreakdown: GlosaBreakdown;
   competenceMonth: string;
 }) {
   const [view, setView] = useState<"repasses" | "glosas">("repasses");
@@ -144,6 +147,14 @@ export function FinanceiroTabs({
         </table>
       )}
 
+      {view === "glosas" && glosaBreakdown.totalCount > 0 && (
+        <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <GlosaBreakdownTable title="Por motivo" rows={glosaBreakdown.byReason} />
+          <GlosaBreakdownTable title="Por convênio" rows={glosaBreakdown.byInsurer} />
+          <GlosaBreakdownTable title="Por pessoa/cargo atribuído" rows={glosaBreakdown.byPerson} />
+        </div>
+      )}
+
       {view === "glosas" && (
         <table className="table mt-6">
           <thead>
@@ -176,6 +187,34 @@ export function FinanceiroTabs({
                 </td>
               </tr>
             )}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function GlosaBreakdownTable({ title, rows }: { title: string; rows: GlosaBreakdownRow[] }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-xs text-ink-faint">Sem dados.</p>
+      ) : (
+        <table className="w-full text-left text-xs">
+          <tbody className="divide-y divide-paper-line">
+            {rows.map((r) => (
+              <tr key={r.label}>
+                <td className="py-1.5 pr-2">
+                  <p className="font-medium text-ink">{r.label}</p>
+                  <p className="text-ink-faint">{r.count} glosa(s)</p>
+                </td>
+                <td className="py-1.5 text-right tabular-figure">
+                  <p className="font-medium" style={{ color: "var(--status-falta)" }}>{currency.format(r.amount)}</p>
+                  <p className="text-ink-faint">{r.recoveryRatePct !== null ? `${r.recoveryRatePct}% recuperado` : "—"}</p>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}

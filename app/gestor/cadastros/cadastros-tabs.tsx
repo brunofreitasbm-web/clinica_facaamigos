@@ -285,7 +285,7 @@ export function CadastrosTabs({
               {patients.map((p) => (
                 <tr key={p.id}>
                   <td className="font-semibold">
-                    <Link href={`/gestor/pacientes/${p.id}`}>{p.name}</Link>
+                    <Link href={`/recepcao/pacientes/${p.id}/gestao`}>{p.name}</Link>
                   </td>
                   <td>{p.guardianName}</td>
                   <td>{p.birthDateLabel}</td>
@@ -296,9 +296,9 @@ export function CadastrosTabs({
                   </td>
                   <td className="text-right">
                     <QuickActionsBar
-                      profile={{ href: `/gestor/pacientes/${p.id}`, title: `Ficha completa de ${p.name}` }}
-                      edit={{ href: `/gestor/pacientes/${p.id}`, title: `Editar paciente ${p.name}` }}
-                      schedule={{ href: `/gestor/pacientes/${p.id}`, title: `Agenda de ${p.name}` }}
+                      profile={{ href: `/recepcao/pacientes/${p.id}/gestao`, title: `Ficha completa de ${p.name}` }}
+                      edit={{ href: `/recepcao/pacientes/${p.id}/gestao`, title: `Editar paciente ${p.name}` }}
+                      schedule={{ href: `/recepcao/pacientes/${p.id}/gestao`, title: `Agenda de ${p.name}` }}
                     />
                   </td>
                 </tr>
