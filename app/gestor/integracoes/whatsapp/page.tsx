@@ -71,7 +71,12 @@ export default function GestorWhatsappPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-ink-soft">Status do Bot:</span>
+          <Link
+            href="/whatsapp-bot"
+            className="px-4 py-2 text-xs font-bold rounded-lg bg-teal-700 hover:bg-teal-600 text-white transition shadow-sm"
+          >
+            Abrir Módulo Exclusivo WhatsApp Bot →
+          </Link>
           <button
             onClick={() => setIsBotActive(!isBotActive)}
             className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${
