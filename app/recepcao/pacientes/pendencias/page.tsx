@@ -19,7 +19,7 @@ const CATEGORY_ORDER: PendingQueueCategory[] = [
   "cadastro_incompleto",
   "evolucao_atrasada",
   "documento_vencido",
-  "lead_sem_retorno",
+  "interessado_sem_retorno",
   "falta_sem_motivo",
   "remarcacao_solicitada",
   "documento_familia_novo",
@@ -54,7 +54,7 @@ export default async function PendenciasPage() {
       <PageHeader
         axisLabel="Recepção"
         title="Fila de pendências"
-        description="§9.1 do PRD: guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, lead sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
+        description="§9.1 do PRD: guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
       />
       <div className="flex flex-col gap-8 p-6 sm:p-10">
         <AutorizacaoWizard />
@@ -93,7 +93,7 @@ export default async function PendenciasPage() {
                         </div>
                       )}
                       <div className="flex flex-col items-end gap-1">
-                        {category === "lead_sem_retorno" && item.patientId ? (
+                        {category === "interessado_sem_retorno" && item.patientId ? (
                           <RegisterContactButton patientId={item.patientId} />
                         ) : category === "falta_sem_motivo" && item.appointmentId ? (
                           <ResolveAutoFaltaButton appointmentId={item.appointmentId} />

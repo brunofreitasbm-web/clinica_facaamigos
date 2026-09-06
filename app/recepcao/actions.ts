@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { logRecordAccess } from "@/lib/record-access-log";
 
-export type CreateLeadInput = {
+export type CreateInteressadoInput = {
   fullName: string;
   birthDate?: string;
   guardianName: string;
@@ -16,10 +16,10 @@ export type CreateLeadInput = {
 };
 
 /**
- * Lead Rápido (≤ 30 segundos - §9.1 do PRD)
- * Cadastra o paciente com status inicial 'lead' e vincula o primeiro responsável.
+ * Interessado Rápido (≤ 30 segundos - §9.1 do PRD)
+ * Cadastra o paciente com status inicial 'interessado' e vincula o primeiro responsável.
  */
-export async function createLeadAction(input: CreateLeadInput): Promise<{ success: boolean; patientId?: string; error?: string }> {
+export async function createInteressadoAction(input: CreateInteressadoInput): Promise<{ success: boolean; patientId?: string; error?: string }> {
   try {
     const supabase = await createClient();
 
@@ -30,14 +30,14 @@ export async function createLeadAction(input: CreateLeadInput): Promise<{ succes
       return { success: false, error: "Telefone do responsável é obrigatório." };
     }
 
-    // 1. Inserir paciente em status 'lead'
+    // 1. Inserir paciente em status 'interessado'
     const { data: patient, error: patientErr } = await supabase
       .from("patients")
       .insert({
         clinic_id: DEV_CLINIC_ID,
         full_name: input.fullName.trim(),
         birth_date: input.birthDate || "2020-01-01",
-        status: "lead",
+        status: "interessado",
         entry_source: input.origin || "Recepção",
         complaint: input.chiefComplaint?.trim() || null,
       })
@@ -45,7 +45,7 @@ export async function createLeadAction(input: CreateLeadInput): Promise<{ succes
       .single();
 
     if (patientErr || !patient) {
-      console.error("Erro ao cadastrar lead paciente:", patientErr);
+      console.error("Erro ao cadastrar interessado paciente:", patientErr);
       return { success: false, error: patientErr?.message || "Falha ao criar paciente." };
     }
 
@@ -60,7 +60,7 @@ export async function createLeadAction(input: CreateLeadInput): Promise<{ succes
     });
 
     if (guardianErr) {
-      console.error("Erro ao cadastrar responsável do lead:", guardianErr);
+      console.error("Erro ao cadastrar responsável do interessado:", guardianErr);
     }
 
     revalidatePath("/recepcao");
@@ -68,7 +68,7 @@ export async function createLeadAction(input: CreateLeadInput): Promise<{ succes
 
     return { success: true, patientId: patient.id };
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Erro inesperado ao criar lead.";
+    const msg = err instanceof Error ? err.message : "Erro inesperado ao criar interessado.";
     return { success: false, error: msg };
   }
 }

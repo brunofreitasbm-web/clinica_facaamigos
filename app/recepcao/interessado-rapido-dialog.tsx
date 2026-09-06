@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { createLeadAction } from "./actions";
+import { createInteressadoAction } from "./actions";
 
-export function LeadRapidoDialog() {
+export function InteressadoRapidoDialog() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +21,7 @@ export function LeadRapidoDialog() {
     setLoading(true);
     setError(null);
 
-    const res = await createLeadAction({
+    const res = await createInteressadoAction({
       fullName,
       birthDate: birthDate || undefined,
       guardianName,
@@ -34,7 +34,7 @@ export function LeadRapidoDialog() {
     setLoading(false);
 
     if (!res.success) {
-      setError(res.error || "Erro ao cadastrar lead.");
+      setError(res.error || "Erro ao cadastrar interessado.");
       return;
     }
 
@@ -58,7 +58,7 @@ export function LeadRapidoDialog() {
           color: "#ffffff",
         }}
       >
-        ⚡ Lead Rápido (30s)
+        ⚡ Interessado Rápido (30s)
       </button>
 
       {open && (
@@ -70,7 +70,7 @@ export function LeadRapidoDialog() {
             <div className="mb-4 flex items-center justify-between border-b pb-3">
               <div>
                 <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-lg font-bold">
-                  ⚡ Novo Lead (Cadastro Rápido - 30s)
+                  ⚡ Novo Interessado (Cadastro Rápido - 30s)
                 </h3>
                 <p className="text-xs text-neutral-500">
                   Preencha apenas os dados essenciais para iniciar a jornada.
@@ -120,7 +120,7 @@ export function LeadRapidoDialog() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-neutral-700">
-                    Origem do Lead
+                    Origem do Interessado
                   </label>
                   <select
                     value={origin}
@@ -192,7 +192,7 @@ export function LeadRapidoDialog() {
                   disabled={loading}
                   className="rounded-md bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {loading ? "Salvando..." : "Cadastrar Lead"}
+                  {loading ? "Salvando..." : "Cadastrar Interessado"}
                 </button>
               </div>
             </form>

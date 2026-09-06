@@ -17,7 +17,7 @@ const QUEUE_CATEGORY_LABEL: Record<string, string> = {
   cadastro_incompleto: "Cadastro incompleto",
   evolucao_atrasada: "Evolução pendente",
   documento_vencido: "Documento vencido",
-  lead_sem_retorno: "Lead sem retorno",
+  interessado_sem_retorno: "Interessado sem retorno",
   falta_sem_motivo: "Falta sem motivo",
 };
 

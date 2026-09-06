@@ -24,7 +24,7 @@ export type MetricDef = {
 export const METRIC_CATALOG: Partial<Record<Role, MetricDef[]>> = {
   recepcao: [
     { key: "first_response_min", label: "Tempo de primeira resposta", direction: "max", unit: "min", computed: true },
-    { key: "lead_to_eval_rate", label: "Lead → avaliação agendada", direction: "min", unit: "pct", computed: true },
+    { key: "interessado_to_eval_rate", label: "Interessado → avaliação agendada", direction: "min", unit: "pct", computed: true },
     { key: "eval_show_rate", label: "Avaliação realizada / agendada", direction: "min", unit: "pct", computed: true },
     { key: "confirm_d1_rate", label: "Confirmação D-1", direction: "min", unit: "pct", computed: true },
     { key: "no_show_rate", label: "No-show", direction: "max", unit: "pct", computed: true },

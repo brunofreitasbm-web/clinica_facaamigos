@@ -5,7 +5,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 
 const STAGE_LABEL: Record<number, string> = {
-  1: "Lead sem avaliação agendada",
+  1: "Interessado sem avaliação agendada",
   2: "Avaliação agendada, aguardando",
   3: "Avaliação feita, sem autorização",
   4: "Autorizado, sem grade montada",
@@ -68,7 +68,7 @@ export default async function PacientesPage() {
           href="/recepcao/pacientes/novo"
           className="self-start rounded-md border border-paper-line-strong px-4 py-2 text-sm text-chart hover:border-chart"
         >
-          Novo paciente (lead)
+          Novo paciente (interessado)
         </Link>
         <div className="flex flex-col gap-2">
           {rows.length === 0 && (

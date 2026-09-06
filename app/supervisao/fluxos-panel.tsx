@@ -39,12 +39,12 @@ export type FlowPatient = {
   id: string;
   name: string;
   status: string;
-  /** 1 Lead · 2 Avaliação agendada · 3 Avaliação realizada · 4 Autorização · 5 Grade montada */
+  /** 1 Interessado · 2 Avaliação agendada · 3 Avaliação realizada · 4 Autorização · 5 Grade montada */
   stage: 1 | 2 | 3 | 4 | 5;
 };
 
 export type FlowCounters = {
-  leads: number;
+  interessados: number;
   stuckOnboarding: number;
   awaitingEvaluation: number;
   evaluatedNoGuide: number;
@@ -77,7 +77,7 @@ type Flow = {
 };
 
 const STAGE_LABEL: Record<FlowPatient["stage"], string> = {
-  1: "Lead",
+  1: "Interessado",
   2: "Avaliação agendada",
   3: "Avaliação realizada",
   4: "Autorização",
@@ -143,11 +143,11 @@ const FLOWS: Flow[] = [
     summary:
       "Primeiro contato até a avaliação agendada. Princípio do PRD §9.1: cadastro nunca bloqueia, pendência sim. Cadastro mínimo em 30 segundos.",
     badges: (c) => [
-      { label: `${c.leads} leads em aberto`, tone: c.leads ? "pending" : "positive" },
+      { label: `${c.interessados} interessados em aberto`, tone: c.interessados ? "pending" : "positive" },
       { label: `${c.stuckOnboarding} travados há 3+ dias`, tone: c.stuckOnboarding ? "negative" : "positive" },
     ],
     tools: [
-      { label: "Novo lead", href: "/recepcao/pacientes/novo", icon: icon(<UserPlus />), primary: true },
+      { label: "Novo interessado", href: "/recepcao/pacientes/novo", icon: icon(<UserPlus />), primary: true },
       { label: "Pendências", href: "/recepcao/pacientes/pendencias", icon: icon(<ClipboardList />) },
       { label: "Pacientes", href: "/recepcao/pacientes", icon: icon(<Users />) },
       { label: "Fila WhatsApp", href: "/recepcao/whatsapp", icon: icon(<MessageCircle />) },
@@ -155,9 +155,9 @@ const FLOWS: Flow[] = [
     ],
     steps: [
       {
-        title: "Registrar o lead",
-        detail: "Nome da criança, idade, responsável, telefone, origem e queixa em uma linha. Status vira lead com hora do primeiro contato.",
-        tools: [{ label: "Novo lead", href: "/recepcao/pacientes/novo", icon: icon(<UserPlus />), primary: true }],
+        title: "Registrar o interessado",
+        detail: "Nome da criança, idade, responsável, telefone, origem e queixa em uma linha. Status vira interessado com hora do primeiro contato.",
+        tools: [{ label: "Novo interessado", href: "/recepcao/pacientes/novo", icon: icon(<UserPlus />), primary: true }],
       },
       {
         title: "Retornar em até 15 minutos",

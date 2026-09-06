@@ -13,7 +13,7 @@ export type PendingQueueCategory =
   | "cadastro_incompleto"
   | "evolucao_atrasada"
   | "documento_vencido"
-  | "lead_sem_retorno"
+  | "interessado_sem_retorno"
   | "falta_sem_motivo"
   | "remarcacao_solicitada"
   | "documento_familia_novo"
@@ -58,19 +58,19 @@ export type PendingQueueItem = {
  * prazo"). Escolha documentada aqui por não existir constante de app
  * compartilhada entre SQL e TS pra isso (mesma situação de
  * ATTENDANCE_GRACE_MINUTES em auto_resolve_appointments):
- *  - lead_sem_retorno: já é o item mais urgente da fila (só entra depois de
- *    15min sem retorno) — 1h de prazo pra não deixar o lead esfriar.
+ *  - interessado_sem_retorno: já é o item mais urgente da fila (só entra depois de
+ *    15min sem retorno) — 1h de prazo pra não deixar o interessado esfriar.
  *  - falta_sem_motivo: precisa de contato com a família no mesmo dia — 24h.
  *  - cadastro_incompleto / evolucao_atrasada / remarcacao_solicitada /
  *    documento_familia_novo: mesma janela de 24h — itens que dependem de um
- *    retorno humano rápido, mas não são tão urgentes quanto um lead novo.
+ *    retorno humano rápido, mas não são tão urgentes quanto um interessado novo.
  *  - guia_vencendo / guia_poucas_sessoes / documento_vencido /
  *    renovacao_solicitada: prazos administrativos que dependem de terceiros
  *    (convênio, família trazendo documento) — 3 dias de folga antes de
  *    escalar pro supervisor.
  */
 const DUE_MINUTES_BY_CATEGORY: Record<PendingQueueCategory, number> = {
-  lead_sem_retorno: 60,
+  interessado_sem_retorno: 60,
   falta_sem_motivo: 24 * 60,
   cadastro_incompleto: 24 * 60,
   evolucao_atrasada: 24 * 60,
@@ -88,7 +88,7 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   cadastro_incompleto: "Cadastro incompleto",
   evolucao_atrasada: "Evolução pendente > 24h",
   documento_vencido: "Documento vencido",
-  lead_sem_retorno: "Lead sem retorno > 15 min",
+  interessado_sem_retorno: "Interessado sem retorno > 15 min",
   falta_sem_motivo: "Falta sem motivo",
   remarcacao_solicitada: "Pedido de remarcação",
   documento_familia_novo: "Documento enviado pela família",
@@ -192,7 +192,7 @@ async function getExpiredDocuments(supabase: Supa, clinicId: string): Promise<Ex
   });
 }
 
-export type UnansweredLead = {
+export type UnansweredInteressado = {
   patientId: string;
   patientName: string;
   minutesWaiting: number;
@@ -200,19 +200,19 @@ export type UnansweredLead = {
 };
 
 /**
- * Leads sem primeiro retorno humano há mais de 15 minutos (§9.1). Depende de
+ * Interessados sem primeiro retorno humano há mais de 15 minutos (§9.1). Depende de
  * `patients.first_contact_at` só ser gravado quando alguém de fato retorna o
  * contato (ver `registerFirstContact` em app/recepcao/pacientes/actions.ts) —
  * nunca no momento do cadastro, senão esse alerta nunca dispara.
  */
-async function getUnansweredLeads(supabase: Supa, clinicId: string, minutesThreshold = 15): Promise<UnansweredLead[]> {
+async function getUnansweredInteressados(supabase: Supa, clinicId: string, minutesThreshold = 15): Promise<UnansweredInteressado[]> {
   const cutoff = new Date(Date.now() - minutesThreshold * 60_000).toISOString();
 
   const { data } = await supabase
     .from("patients")
     .select("id, full_name, created_at")
     .eq("clinic_id", clinicId)
-    .eq("status", "lead")
+    .eq("status", "interessado")
     .is("first_contact_at", null)
     .lte("created_at", cutoff)
     .order("created_at", { ascending: true });
@@ -482,7 +482,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     pendingPatients,
     overdueNotes,
     expiredDocuments,
-    unansweredLeads,
+    unansweredInteressados,
     autoFaltas,
     rescheduleRequests,
     pendingFamilyDocuments,
@@ -492,7 +492,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     getPendingPatients(supabase, 3),
     listOverdueSessionNotes(supabase),
     getExpiredDocuments(supabase, clinicId),
-    getUnansweredLeads(supabase, clinicId),
+    getUnansweredInteressados(supabase, clinicId),
     getAutoFaltasSemMotivo(supabase, clinicId),
     getPendingRescheduleRequests(supabase, clinicId),
     getPendingFamilyDocuments(supabase, clinicId),
@@ -568,11 +568,11 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     });
   }
 
-  for (const l of unansweredLeads) {
+  for (const l of unansweredInteressados) {
     items.push({
-      id: `lead-${l.patientId}`,
-      category: "lead_sem_retorno",
-      categoryLabel: CATEGORY_LABEL.lead_sem_retorno,
+      id: `interessado-${l.patientId}`,
+      category: "interessado_sem_retorno",
+      categoryLabel: CATEGORY_LABEL.interessado_sem_retorno,
       patientId: l.patientId,
       patientName: l.patientName,
       detail: `Cadastrado há ${l.minutesWaiting} min sem retorno`,

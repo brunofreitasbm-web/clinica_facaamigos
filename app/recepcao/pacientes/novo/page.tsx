@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
-import { createLead } from "../actions";
+import { createInteressado } from "../actions";
 
 export default function NovoPacientePage() {
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export default function NovoPacientePage() {
         action={(formData) => {
           setError(null);
           startTransition(async () => {
-            const result = await createLead(formData);
+            const result = await createInteressado(formData);
             if (!result.success) {
               setError(result.error);
               return;

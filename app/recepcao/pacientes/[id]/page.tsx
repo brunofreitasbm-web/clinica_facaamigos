@@ -192,7 +192,7 @@ export default async function PacientePage({
 
   // ── Conteúdo das abas do prontuário (Paciente.dc.html) — só vale a pena
   // buscar quando o paciente já tem histórico de operação (estágio 5); um
-  // lead/avaliação ainda não tem sessão, plano ou lançamento algum.
+  // interessado/avaliação ainda não tem sessão, plano ou lançamento algum.
   const [
     { data: recentAppointments },
     { data: treatmentPlan },

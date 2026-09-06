@@ -1,5 +1,5 @@
 const STAGES = [
-  { n: 1, label: "Lead" },
+  { n: 1, label: "Interessado" },
   { n: 2, label: "Avaliação agendada" },
   { n: 3, label: "Avaliação realizada" },
   { n: 4, label: "Autorização" },

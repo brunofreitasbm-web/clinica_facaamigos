@@ -19,7 +19,7 @@ const RECURRENCE_LABEL: Record<string, string> = { unica: "Única", semanal: "Se
 type TabKey = (typeof TABS)[number]["key"];
 
 const PATIENT_STATUS_TAG: Record<string, string> = {
-  lead: "st-agendada",
+  interessado: "st-agendada",
   avaliacao: "st-agendada",
   ativo: "st-realizada",
   pausado: "st-em-atendimento",

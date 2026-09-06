@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 
-export async function createLead(
+export async function createInteressado(
   formData: FormData,
 ): Promise<{ success: true; patientId: string } | { success: false; error: string }> {
   const childName = String(formData.get("child_name") ?? "").trim();
@@ -26,12 +26,12 @@ export async function createLead(
       clinic_id: DEV_CLINIC_ID,
       full_name: childName,
       birth_date: birthDate,
-      status: "lead",
+      status: "interessado",
       entry_source: entrySource || null,
       complaint: complaint || null,
       // first_contact_at NÃO é gravado aqui de propósito: §10.1 mede
-      // first_response_min = primeiro retorno humano − criação do lead. Se
-      // gravássemos no cadastro, a métrica seria sempre ~0 e o alerta "lead
+      // first_response_min = primeiro retorno humano − criação do interessado. Se
+      // gravássemos no cadastro, a métrica seria sempre ~0 e o alerta "interessado
       // sem retorno > 15 min" (§9.1) nunca dispararia. Fica null até alguém
       // de fato retornar o contato via registerFirstContact().
     })
@@ -56,7 +56,7 @@ export async function createLead(
 }
 
 /**
- * Registra o primeiro retorno humano ao lead (§9.1/§10.1 first_response_min).
+ * Registra o primeiro retorno humano ao interessado (§9.1/§10.1 first_response_min).
  * Idempotente: só grava na primeira chamada (coalesce), pra não sobrescrever
  * o timestamp real caso alguém clique de novo.
  */

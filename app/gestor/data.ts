@@ -446,7 +446,7 @@ const CLOSED_METRIC_LABEL: Record<string, string> = {
   queue_days: "Dias até 1ª sessão",
   first_response_min: "Tempo de primeira resposta",
   recovery_rate: "Recuperação de faltas",
-  lead_to_eval_rate: "Lead → avaliação agendada",
+  interessado_to_eval_rate: "Interessado → avaliação agendada",
   eval_show_rate: "Avaliação realizada / agendada",
   glosa_recovery: "Recuperação de glosa",
   batch_lead_days: "Dias até exportar lote",

@@ -316,7 +316,7 @@ export default async function SupervisaoPage() {
   const pendingAbsencesCount = absenceReportRows.filter((a) => !a.resolved).length;
   const openFamilyMessages = inboxMessages.filter((m) => !m.resolved).length + pendingAbsencesCount + npsAlerts.length;
   const flowCounters: FlowCounters = {
-    leads: onboardingPatients.filter((p) => p.stage === 1).length,
+    interessados: onboardingPatients.filter((p) => p.stage === 1).length,
     stuckOnboarding: onboardingPatients.filter((p) => p.daysSinceCreated >= 3).length,
     awaitingEvaluation: onboardingPatients.filter((p) => p.stage === 2).length,
     evaluatedNoGuide: onboardingPatients.filter((p) => p.stage === 3).length,
