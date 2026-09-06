@@ -6,6 +6,7 @@ const TABS = [
   { key: "grade", label: "Grade" },
   { key: "planos", label: "Planos" },
   { key: "inbox", label: "Caixa de entrada" },
+  { key: "whatsapp", label: "WhatsApp" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -22,15 +23,19 @@ import { RelatorioReavaliacaoDialog } from "./relatorio-dialog";
 export function SupervisaoShell({
   nPlanos,
   nInbox,
+  nWhatsapp,
   gradeTab,
   planosTab,
   inboxTab,
+  whatsappTab,
 }: {
   nPlanos: number;
   nInbox: number;
+  nWhatsapp: number;
   gradeTab: ReactNode;
   planosTab: ReactNode;
   inboxTab: ReactNode;
+  whatsappTab: ReactNode;
 }) {
   const [tab, setTab] = useState<TabKey>("grade");
 
@@ -38,6 +43,7 @@ export function SupervisaoShell({
     grade: "Grade",
     planos: `Planos · ${nPlanos}`,
     inbox: `Caixa de entrada · ${nInbox}`,
+    whatsapp: `WhatsApp · ${nWhatsapp}`,
   };
 
   return (
@@ -87,6 +93,7 @@ export function SupervisaoShell({
         {tab === "grade" && gradeTab}
         {tab === "planos" && planosTab}
         {tab === "inbox" && inboxTab}
+        {tab === "whatsapp" && whatsappTab}
       </main>
     </>
   );

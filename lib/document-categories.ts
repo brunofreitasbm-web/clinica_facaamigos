@@ -17,6 +17,17 @@ export const DOCUMENT_CATEGORIES = [
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]["value"];
 
+/**
+ * Sanitiza nome de arquivo pra path do Storage — extraído de
+ * app/recepcao/pacientes/[id]/documents-actions.ts pra ser reusado também
+ * pelo upload de documento vindo do bot do WhatsApp (lib/whatsapp/intake.ts).
+ */
+export function sanitizeFileName(name: string): string {
+  const trimmed = name.trim().slice(-120);
+  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return cleaned || "arquivo";
+}
+
 export const DOCUMENT_CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
   DOCUMENT_CATEGORIES.map((c) => [c.value, c.label]),
 );
