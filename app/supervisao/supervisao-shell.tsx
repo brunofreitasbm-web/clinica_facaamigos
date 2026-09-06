@@ -4,6 +4,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 
 const TABS = [
   { key: "grade", label: "Grade" },
+  { key: "triagens", label: "Triagens Anamnese" },
   { key: "fluxos", label: "Fluxos" },
   { key: "planos", label: "Planos" },
   { key: "inbox", label: "Caixa de entrada" },
@@ -21,28 +22,23 @@ export function useSupervisaoTab() {
   return useContext(SupervisaoTabContext);
 }
 
-/**
- * Cabeçalho + navegação por abas do painel de supervisão (Coordenador.dc.html).
- * As abas trocam sem navegação de rota — os painéis já vêm renderizados
- * do server (cada um busca seus próprios dados em page.tsx) e este client
- * component só decide qual mostrar, igual ao padrão de
- * components/prontuario/patient-tabs.tsx.
- */
-
 export function SupervisaoShell({
   nPlanos,
   nInbox,
   nFluxos,
+  nTriagens = 0,
   gradeTab,
+  triagensTab,
   fluxosTab,
   planosTab,
   inboxTab,
 }: {
   nPlanos: number;
   nInbox: number;
-  /** Itens que exigem ação em algum fluxo (leads travados, avaliados sem guia, chamados abertos…). */
   nFluxos: number;
+  nTriagens?: number;
   gradeTab: ReactNode;
+  triagensTab?: ReactNode;
   fluxosTab: ReactNode;
   planosTab: ReactNode;
   inboxTab: ReactNode;
@@ -51,6 +47,7 @@ export function SupervisaoShell({
 
   const badge: Record<SupervisaoTabKey, string> = {
     grade: "Grade",
+    triagens: nTriagens > 0 ? `Triagens Anamnese · ${nTriagens}` : "Triagens Anamnese",
     fluxos: nFluxos > 0 ? `Fluxos · ${nFluxos}` : "Fluxos",
     planos: `Planos · ${nPlanos}`,
     inbox: `Caixa de entrada · ${nInbox}`,
@@ -98,6 +95,7 @@ export function SupervisaoShell({
 
       <main className="px-10 py-9">
         {tab === "grade" && gradeTab}
+        {tab === "triagens" && triagensTab}
         {tab === "fluxos" && fluxosTab}
         {tab === "planos" && planosTab}
         {tab === "inbox" && inboxTab}

@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
     let bodyText = "";
     let to = "";
 
+    let mediaUrl0 = "";
+    let mediaContentType0 = "";
+
     const contentType = req.headers.get("content-type") || "";
 
     if (contentType.includes("application/x-www-form-urlencoded")) {
@@ -34,11 +37,15 @@ export async function POST(req: NextRequest) {
       from = formData.get("From")?.toString() || "";
       bodyText = formData.get("Body")?.toString() || "";
       to = formData.get("To")?.toString() || "";
+      mediaUrl0 = formData.get("MediaUrl0")?.toString() || "";
+      mediaContentType0 = formData.get("MediaContentType0")?.toString() || "";
     } else if (contentType.includes("application/json")) {
       const json = await req.json();
       from = json.From || json.from || "";
       bodyText = json.Body || json.body || json.message || "";
       to = json.To || json.to || "";
+      mediaUrl0 = json.MediaUrl0 || json.mediaUrl0 || "";
+      mediaContentType0 = json.MediaContentType0 || json.mediaContentType0 || "";
     } else {
       // Fallback: tentar ler como FormData primeiro, depois como texto se falhar
       try {
@@ -46,20 +53,26 @@ export async function POST(req: NextRequest) {
         from = formData.get("From")?.toString() || "";
         bodyText = formData.get("Body")?.toString() || "";
         to = formData.get("To")?.toString() || "";
+        mediaUrl0 = formData.get("MediaUrl0")?.toString() || "";
+        mediaContentType0 = formData.get("MediaContentType0")?.toString() || "";
       } catch {
         const text = await req.text();
         const params = new URLSearchParams(text);
         from = params.get("From") || "";
         bodyText = params.get("Body") || "";
         to = params.get("To") || "";
+        mediaUrl0 = params.get("MediaUrl0") || "";
+        mediaContentType0 = params.get("MediaContentType0") || "";
       }
     }
 
-    console.log(`[Twilio Webhook Received] From: ${from} | Body: "${bodyText}"`);
+    console.log(`[Twilio Webhook Received] From: ${from} | Body: "${bodyText}" | MediaUrl0: "${mediaUrl0}"`);
 
     const result = await handleTwilioIncomingMessage({
       from,
       body: bodyText,
+      mediaUrl0,
+      mediaContentType0,
     });
 
     // Se for mensagem vinda do WhatsApp ou se o número possuir o prefixo 'whatsapp:'

@@ -14,6 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
+      anamnesis_scheduling_requests: {
+        Row: {
+          id: string
+          clinic_id: string | null
+          guardian_name: string
+          guardian_phone: string
+          guardian_cpf: string
+          child_name: string
+          laudo_pdf_url: string | null
+          guia_pdf_url: string | null
+          status: string
+          rejection_reason: string | null
+          supervisor_id: string | null
+          approved_at: string | null
+          selected_slot_starts_at: string | null
+          selected_slot_ends_at: string | null
+          appointment_id: string | null
+          patient_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id?: string | null
+          guardian_name: string
+          guardian_phone: string
+          guardian_cpf: string
+          child_name: string
+          laudo_pdf_url?: string | null
+          guia_pdf_url?: string | null
+          status?: string
+          rejection_reason?: string | null
+          supervisor_id?: string | null
+          approved_at?: string | null
+          selected_slot_starts_at?: string | null
+          selected_slot_ends_at?: string | null
+          appointment_id?: string | null
+          patient_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string | null
+          guardian_name?: string
+          guardian_phone?: string
+          guardian_cpf?: string
+          child_name?: string
+          laudo_pdf_url?: string | null
+          guia_pdf_url?: string | null
+          status?: string
+          rejection_reason?: string | null
+          supervisor_id?: string | null
+          approved_at?: string | null
+          selected_slot_starts_at?: string | null
+          selected_slot_ends_at?: string | null
+          appointment_id?: string | null
+          patient_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chatbot_sessions: {
+        Row: {
+          id: string
+          phone_number: string
+          current_step: string
+          collected_data: Json
+          updated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          phone_number: string
+          current_step?: string
+          collected_data?: Json
+          updated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          phone_number?: string
+          current_step?: string
+          collected_data?: Json
+          updated_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       aba_abc_logs: {
         Row: {
           antecedent: string

@@ -17,6 +17,7 @@ import { PlanosPanel, type PlanRow } from "./planos-panel";
 import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingReportRow, type AbsenceReportRow } from "./inbox-panel";
 import { SupervisaoShell } from "./supervisao-shell";
 import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
+import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -301,6 +302,7 @@ export default async function SupervisaoPage() {
       nPlanos={plans.length}
       nInbox={openFamilyMessages}
       nFluxos={nFluxos}
+      triagensTab={<AnamnesisValidationPanel />}
       fluxosTab={<FluxosPanel patients={flowPatients} counters={flowCounters} />}
       gradeTab={
         <GradePanel

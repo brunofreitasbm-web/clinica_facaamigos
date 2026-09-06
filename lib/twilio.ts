@@ -286,9 +286,32 @@ export async function getAcceptedInsurersFormatted(clinicId = "c0000000-0000-000
 export async function handleTwilioIncomingMessage(params: {
   from: string;
   body: string;
+  mediaUrl0?: string;
+  mediaContentType0?: string;
 }): Promise<{ replyMessage: string; intent: string }> {
-  const { body } = params;
+  const { from, body, mediaUrl0, mediaContentType0 } = params;
 
+  // 1. Tentar processar via Máquina de Estados do Agendamento de Anamnese (WhatsApp)
+  try {
+    const { processAnamnesisChatbotStep } = await import("./twilio-anamnesis-bot");
+    const anamnesisResult = await processAnamnesisChatbotStep({
+      from,
+      body,
+      mediaUrl0,
+      mediaContentType0,
+    });
+
+    if (anamnesisResult.handled) {
+      return {
+        intent: "agendamento_anamnese",
+        replyMessage: anamnesisResult.replyMessage,
+      };
+    }
+  } catch (err) {
+    console.error("[Twilio Anamnesis Bot Error]:", err);
+  }
+
+  // 2. Consulta de convênios/planos de saúde aceitos
   if (isHealthPlanInquiry(body)) {
     const replyMessage = await getAcceptedInsurersFormatted();
     return {
@@ -297,13 +320,15 @@ export async function handleTwilioIncomingMessage(params: {
     };
   }
 
-  // Resposta padrão amigável para outras dúvidas
+  // 3. Resposta padrão amigável para outras dúvidas
   return {
     intent: "atendimento_geral",
     replyMessage:
       "Olá! 👋 Agradecemos seu contato com a nossa clínica.\n\n" +
-      "Caso sua dúvida seja sobre *planos de saúde aceitos*, por favor pergunte 'Quais planos vocês aceitam?'.\n\n" +
-      "Para agendamentos, dúvidas ou falar com a recepção, basta enviar sua mensagem que responderemos em breve!",
+      "• Digite *AGENDAR* para agendar uma Avaliação / Anamnese autorizada pelo seu plano de saúde.\n" +
+      "• Pergunte sobre *PLANOS DE SAÚDE* para consultar a lista de convênios aceitos.\n\n" +
+      "Como podemos te ajudar hoje?",
   };
 }
+
 
