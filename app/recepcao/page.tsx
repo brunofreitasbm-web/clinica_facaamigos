@@ -345,12 +345,6 @@ export default async function RecepcaoPage({
               <h1 className="m-0">Agenda do dia</h1>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <Link href="/recepcao/pacientes/novo" className="btn btn-ghost">
-                <svg width="16" height="16" viewBox="0 0 256 256" fill="none" aria-hidden>
-                  <path d="M128 40v176M40 128h176" stroke="currentColor" strokeWidth="24" strokeLinecap="round" />
-                </svg>
-                Paciente
-              </Link>
               <NovaSessaoDialog
                 patients={patients ?? []}
                 therapists={therapists ?? []}
