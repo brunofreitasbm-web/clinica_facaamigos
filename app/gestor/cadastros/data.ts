@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { PROTOCOL_LABEL as CATALOG_PROTOCOL_LABEL, AREA_LABEL } from "@/lib/protocol-catalog";
 
 type Supa = SupabaseClient<Database>;
 
@@ -108,22 +109,23 @@ export async function getInsurerRows(supabase: Supa, clinicId: string): Promise<
 export type ProtocolRow = {
   id: string;
   name: string;
+  area: string | null;
   version: string | null;
   licensePurchasedAtLabel: string;
   riskAcceptedLabel: string;
   itemCount: number;
 };
 
-export const PROTOCOL_LABEL: Record<string, string> = {
-  vbmapp: "VB-MAPP",
-  ablls_r: "ABLLS-R",
-  esdm: "Denver / ESDM",
-};
+// Reexportado do catálogo compartilhado (lib/protocol-catalog.ts) — desde a
+// migration 20260906000005 `protocols.name` não tem mais CHECK fixo em 3
+// valores, então este mapa cobre a lista de protocolos do Módulo 3 MAAIS
+// (slide 25), não só os 3 originais.
+export const PROTOCOL_LABEL = CATALOG_PROTOCOL_LABEL;
 
 export async function getProtocolRows(supabase: Supa, clinicId: string): Promise<ProtocolRow[]> {
   const { data: protocols } = await supabase
     .from("protocols")
-    .select("id, name, version, license_purchased_at, digitization_risk_accepted_at, digitization_risk_accepted_by")
+    .select("id, name, area, version, license_purchased_at, digitization_risk_accepted_at, digitization_risk_accepted_by")
     .eq("clinic_id", clinicId)
     .order("name");
   const list = protocols ?? [];
@@ -141,6 +143,7 @@ export async function getProtocolRows(supabase: Supa, clinicId: string): Promise
   return list.map((p) => ({
     id: p.id,
     name: PROTOCOL_LABEL[p.name] ?? p.name,
+    area: p.area ? (AREA_LABEL[p.area] ?? p.area) : null,
     version: p.version,
     licensePurchasedAtLabel: p.license_purchased_at ? new Date(`${p.license_purchased_at}T00:00:00`).toLocaleDateString("pt-BR") : "—",
     riskAcceptedLabel: `${nameById.get(p.digitization_risk_accepted_by) ?? "—"} · ${new Date(p.digitization_risk_accepted_at).toLocaleDateString("pt-BR")}`,

@@ -183,6 +183,7 @@ export async function closePayouts(competenceMonthInput: string): Promise<CloseR
   }
 
   revalidatePath("/gestor/financeiro");
+  revalidatePath("/faturamento/repasses");
   return { success: true, closedCount, skipped };
 }
 
@@ -200,5 +201,7 @@ export async function markPayoutPaid(payoutId: string): Promise<MarkPaidResult> 
   if (error) return { success: false, error: "Não foi possível marcar o repasse como pago. Tente de novo." };
 
   revalidatePath("/gestor/financeiro");
+  revalidatePath("/faturamento/repasses");
+  revalidatePath("/terapeuta/repasse");
   return { success: true };
 }

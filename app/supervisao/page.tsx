@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
+import { getPendingPatients } from "@/lib/patient-stage";
+import { ABSENCE_REASON_LABEL } from "@/lib/absence-reasons";
 import {
   currentWeek,
   weekBounds,
@@ -12,9 +14,10 @@ import {
 } from "./grade-data";
 import { GradePanel, type GradeAppointment, type PendingNote } from "./grade-panel";
 import { PlanosPanel, type PlanRow } from "./planos-panel";
-import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingReportRow } from "./inbox-panel";
+import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingReportRow, type AbsenceReportRow } from "./inbox-panel";
 import { WhatsappRequestsPanel, type WhatsappRequestRow } from "./whatsapp-requests-panel";
 import { SupervisaoShell } from "./supervisao-shell";
+import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
 import { maskCpf } from "@/lib/whatsapp/validators";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +45,9 @@ export default async function SupervisaoPage() {
     { data: rawReassessments },
     { data: rawDraftReports },
     { data: rawWhatsappRequests },
+    onboardingPatients,
+    { data: rawActivePatients },
+    { data: rawAbsenceReports },
   ] = await Promise.all([
     supabase.from("patients").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("reassessment_alerts").select("id", { count: "exact", head: true }).eq("status", "notificado"),
@@ -63,7 +69,9 @@ export default async function SupervisaoPage() {
     listOverdueSessionNotes(supabase),
     supabase
       .from("treatment_plans")
-      .select("id, version, patient_id, patients(full_name), plan_goals(id, description, domain, criterion, status, discipline)")
+      .select(
+        "id, version, patient_id, general_objective, family_priorities, patients(full_name), plan_goals(id, description, domain, criterion, status, discipline, horizon, strategy, methodology, supervisor_notes)",
+      )
       .eq("status", "rascunho")
       .order("version", { ascending: false }),
     supabase
@@ -92,6 +100,22 @@ export default async function SupervisaoPage() {
       .eq("clinic_id", DEV_CLINIC_ID)
       .eq("status", "pendente")
       .order("created_at", { ascending: true }),
+    // Aba Fluxos: todo paciente ainda em onboarding (threshold 0 = sem filtro
+    // de dias), com o estágio já calculado pela mesma regra da recepção.
+    getPendingPatients(supabase, 0),
+    supabase
+      .from("patients")
+      .select("id, full_name, status")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .in("status", ["ativo", "pausado"])
+      .order("full_name"),
+    // Notificações / quadro de ausências informadas pela família
+    supabase
+      .from("absence_reports")
+      .select(
+        "id, appointment_id, reason_category, reason_text, attachment_storage_path, status, created_at, resolved_at, appointments(id, starts_at, discipline, patients(full_name), therapist:profiles!therapist_id(full_name))",
+      )
+      .order("created_at", { ascending: false }),
   ]);
 
   // ── Grade semanal ──────────────────────────────────────────────────────
@@ -170,6 +194,8 @@ export default async function SupervisaoPage() {
       id: plan.id,
       patientName: patient?.full_name ?? "—",
       version: plan.version,
+      generalObjective: plan.general_objective,
+      familyPriorities: plan.family_priorities,
       disciplines: Array.from(new Set(goals.map((g) => g.discipline))),
       goals: goals.map((g) => ({
         id: g.id,
@@ -177,6 +203,10 @@ export default async function SupervisaoPage() {
         domain: g.domain,
         criterion: g.criterion,
         status: g.status,
+        horizon: g.horizon,
+        strategy: g.strategy,
+        methodology: g.methodology,
+        supervisorNotes: g.supervisor_notes,
       })),
     };
   });
@@ -255,11 +285,66 @@ export default async function SupervisaoPage() {
     };
   });
 
+  // ── Quadro de Avisos / Ausências informadas pela família ───────────────
+  const absenceReportRows: AbsenceReportRow[] = (rawAbsenceReports ?? []).map((rep) => {
+    const appt = Array.isArray(rep.appointments) ? rep.appointments[0] : rep.appointments;
+    const patient = appt && (Array.isArray(appt.patients) ? appt.patients[0] : appt.patients);
+    const therapist = appt && (Array.isArray(appt.therapist) ? appt.therapist[0] : appt.therapist);
+
+    const sessionDate = appt?.starts_at ? fmtDateTime(appt.starts_at) : "—";
+    const createdAtLabel = rep.created_at ? fmtDateTime(rep.created_at) : "—";
+
+    return {
+      id: rep.id,
+      appointmentId: rep.appointment_id,
+      patientName: patient?.full_name ?? "—",
+      therapistName: therapist?.full_name ?? "—",
+      discipline: appt?.discipline ?? "Sessão",
+      sessionDateLabel: sessionDate,
+      reasonCategory: rep.reason_category,
+      reasonCategoryLabel: ABSENCE_REASON_LABEL[rep.reason_category] ?? rep.reason_category,
+      reasonText: rep.reason_text ?? null,
+      attachmentStoragePath: rep.attachment_storage_path ?? null,
+      status: rep.status as "em_analise" | "aprovado" | "rejeitado",
+      createdAtLabel,
+      resolved: !!rep.resolved_at,
+    };
+  });
+
+  // ── Fluxos (passo a passo com atalhos) ─────────────────────────────────
+  const flowPatients: FlowPatient[] = [
+    ...onboardingPatients.map((p) => ({ id: p.id, name: p.full_name, status: p.status, stage: p.stage })),
+    ...(rawActivePatients ?? []).map((p) => ({ id: p.id, name: p.full_name, status: p.status, stage: 5 as const })),
+  ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  const pendingAbsencesCount = absenceReportRows.filter((a) => !a.resolved).length;
+  const openFamilyMessages = inboxMessages.filter((m) => !m.resolved).length + pendingAbsencesCount;
+  const flowCounters: FlowCounters = {
+    leads: onboardingPatients.filter((p) => p.stage === 1).length,
+    stuckOnboarding: onboardingPatients.filter((p) => p.daysSinceCreated >= 3).length,
+    awaitingEvaluation: onboardingPatients.filter((p) => p.stage === 2).length,
+    evaluatedNoGuide: onboardingPatients.filter((p) => p.stage === 3).length,
+    sessionsInGrid: carteira.sessionsInGrid,
+    provisionalNoGuide: carteira.provisionalNoGuide,
+    pendingNotes: pendingNoteRows.length,
+    plansToApprove: plans.length,
+    reassessmentsDue: reassessmentRows.length,
+    openFamilyMessages,
+    pendingReports: pendingReportRows.length,
+  };
+  const nFluxos =
+    flowCounters.stuckOnboarding +
+    flowCounters.evaluatedNoGuide +
+    flowCounters.provisionalNoGuide +
+    flowCounters.openFamilyMessages;
+
   return (
     <SupervisaoShell
       nPlanos={plans.length}
-      nInbox={inboxMessages.filter((m) => !m.resolved).length}
+      nInbox={openFamilyMessages}
       nWhatsapp={whatsappRequests.length}
+      nFluxos={nFluxos}
+      fluxosTab={<FluxosPanel patients={flowPatients} counters={flowCounters} />}
       gradeTab={
         <GradePanel
           weekLabel={week.rangeLabel}
@@ -279,6 +364,7 @@ export default async function SupervisaoPage() {
           messages={inboxMessages}
           reassessments={reassessmentRows}
           pendingReports={pendingReportRows}
+          absenceReports={absenceReportRows}
         />
       }
       whatsappTab={<WhatsappRequestsPanel requests={whatsappRequests} />}

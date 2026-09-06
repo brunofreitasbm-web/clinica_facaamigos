@@ -1,30 +1,34 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
 const TABS = [
   { key: "grade", label: "Grade" },
+  { key: "fluxos", label: "Fluxos" },
   { key: "planos", label: "Planos" },
   { key: "inbox", label: "Caixa de entrada" },
   { key: "whatsapp", label: "WhatsApp" },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+export type SupervisaoTabKey = (typeof TABS)[number]["key"];
 
-/**
- * Cabeçalho + navegação por abas do painel de supervisão (Coordenador.dc.html).
- * As abas trocam sem navegação de rota — os três painéis já vêm renderizados
- * do server (cada um busca seus próprios dados em page.tsx) e este client
- * component só decide qual mostrar, igual ao padrão de
- * components/prontuario/patient-tabs.tsx.
- */
-import { RelatorioReavaliacaoDialog } from "./relatorio-dialog";
+const SupervisaoTabContext = createContext<{ tab: SupervisaoTabKey; setTab: (t: SupervisaoTabKey) => void }>({
+  tab: "grade",
+  setTab: () => {},
+});
+
+/** Permite que um painel filho (ex.: atalhos da aba Fluxos) troque a aba ativa sem navegar. */
+export function useSupervisaoTab() {
+  return useContext(SupervisaoTabContext);
+}
 
 export function SupervisaoShell({
   nPlanos,
   nInbox,
   nWhatsapp,
+  nFluxos,
   gradeTab,
+  fluxosTab,
   planosTab,
   inboxTab,
   whatsappTab,
@@ -32,22 +36,25 @@ export function SupervisaoShell({
   nPlanos: number;
   nInbox: number;
   nWhatsapp: number;
+  nFluxos: number;
   gradeTab: ReactNode;
+  fluxosTab: ReactNode;
   planosTab: ReactNode;
   inboxTab: ReactNode;
   whatsappTab: ReactNode;
 }) {
-  const [tab, setTab] = useState<TabKey>("grade");
+  const [tab, setTab] = useState<SupervisaoTabKey>("grade");
 
-  const badge: Record<TabKey, string> = {
+  const badge: Record<SupervisaoTabKey, string> = {
     grade: "Grade",
+    fluxos: nFluxos > 0 ? `Fluxos · ${nFluxos}` : "Fluxos",
     planos: `Planos · ${nPlanos}`,
     inbox: `Caixa de entrada · ${nInbox}`,
     whatsapp: `WhatsApp · ${nWhatsapp}`,
   };
 
   return (
-    <>
+    <SupervisaoTabContext.Provider value={{ tab, setTab }}>
       <header
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
         className="flex h-16 items-center gap-8 px-10"
@@ -63,12 +70,12 @@ export function SupervisaoShell({
           </svg>
           <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
             Faça Amigos{" "}
-            <span style={{ color: "var(--color-accent-2)" }} className="font-normal italic">
+            <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
               · Coordenação
             </span>
           </span>
         </span>
-        <nav className="flex h-full items-center gap-6 text-[15px]">
+        <nav className="flex h-full items-center gap-6 text-[15px] font-semibold">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -76,25 +83,23 @@ export function SupervisaoShell({
               onClick={() => setTab(t.key)}
               className="h-full border-b-2"
               style={{
-                color: tab === t.key ? "var(--color-bg)" : "color-mix(in srgb, var(--color-bg) 70%, transparent)",
-                borderColor: tab === t.key ? "var(--color-accent-2)" : "transparent",
+                color: tab === t.key ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
+                borderColor: tab === t.key ? "var(--color-on-accent)" : "transparent",
               }}
             >
               {badge[t.key]}
             </button>
           ))}
-          <div className="flex items-center gap-2">
-            <RelatorioReavaliacaoDialog />
-          </div>
         </nav>
       </header>
 
       <main className="px-10 py-9">
         {tab === "grade" && gradeTab}
+        {tab === "fluxos" && fluxosTab}
         {tab === "planos" && planosTab}
         {tab === "inbox" && inboxTab}
         {tab === "whatsapp" && whatsappTab}
       </main>
-    </>
+    </SupervisaoTabContext.Provider>
   );
 }

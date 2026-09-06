@@ -54,6 +54,47 @@ export async function getTargetsData(): Promise<{ targets: TargetRow[]; roles: {
     if (!latestByMetric.has(s.metric_key)) latestByMetric.set(s.metric_key, s);
   }
 
+  // Métricas de terapeuta (§10.3) são gravadas em metric_snapshots por
+  // profile (uma linha por terapeuta), mas `targets` é por cargo, não por
+  // pessoa — não há "o" terapeuta pra comparar com a meta. Até o produto
+  // decidir uma visão por-pessoa aqui, o atingimento do cargo usa a média
+  // entre os terapeutas ativos da clínica no último mês fechado.
+  const terapeutaMetricKeys = metricKeys.filter((k) => !latestByMetric.has(k));
+  if (terapeutaMetricKeys.length > 0) {
+    const { data: therapists } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .eq("role", "terapeuta")
+      .eq("active", true);
+    const therapistIds = (therapists ?? []).map((t) => t.id);
+
+    if (therapistIds.length > 0) {
+      const { data: profileSnapshots } = await supabase
+        .from("metric_snapshots")
+        .select("metric_key, period_start, value")
+        .eq("scope_type", "profile")
+        .in("scope_id", therapistIds)
+        .in("metric_key", terapeutaMetricKeys);
+
+      const byMetricPeriod = new Map<string, Map<string, number[]>>();
+      for (const s of profileSnapshots ?? []) {
+        const byPeriod = byMetricPeriod.get(s.metric_key) ?? new Map<string, number[]>();
+        const arr = byPeriod.get(s.period_start) ?? [];
+        arr.push(Number(s.value));
+        byPeriod.set(s.period_start, arr);
+        byMetricPeriod.set(s.metric_key, byPeriod);
+      }
+      for (const [metricKey, byPeriod] of byMetricPeriod) {
+        const latestPeriod = [...byPeriod.keys()].sort().at(-1);
+        if (!latestPeriod) continue;
+        const values = byPeriod.get(latestPeriod)!;
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        latestByMetric.set(metricKey, { period_start: latestPeriod, value: avg });
+      }
+    }
+  }
+
   const rows: TargetRow[] = (targets ?? []).map((t) => {
     const def = findMetricDef(t.role, t.metric_key);
     const unit = def?.unit ?? "pct";
@@ -68,7 +109,7 @@ export async function getTargetsData(): Promise<{ targets: TargetRow[]; roles: {
       const [year, month] = snapshot.period_start.split("-");
       achievement = {
         status: met ? "atingida" : "abaixo",
-        actualLabel: formatMetricValue(snapshot.value, unit),
+        actualLabel: formatMetricValue(snapshot.value, unit) + (t.role === "terapeuta" ? " (média)" : ""),
         periodLabel: `${month}/${year}`,
       };
     }

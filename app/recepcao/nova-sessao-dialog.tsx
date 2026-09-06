@@ -6,7 +6,7 @@
 // (PRD §9.3: "bloqueio de agendamento sem guia vigente" vira aviso + checkbox
 // "provisória" em vez de bloqueio duro — quem decide é a recepção).
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { createAppointment } from "./agenda/actions";
 
 export type GuideSummary = {
@@ -49,6 +49,22 @@ export function NovaSessaoDialog({
   const [isPending, startTransition] = useTransition();
 
   const guide = useMemo(() => guidesByPatient[patientId] ?? null, [guidesByPatient, patientId]);
+
+  // Deep link `/recepcao#nova-sessao` (atalho da aba Fluxos da supervisão):
+  // abre o diálogo direto e limpa o hash pra um F5 não reabrir sozinho.
+  function openFromHash() {
+    if (window.location.hash !== "#nova-sessao") return;
+    setOpen(true);
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+  }
+  useEffect(() => {
+    const initial = window.setTimeout(openFromHash, 0);
+    window.addEventListener("hashchange", openFromHash);
+    return () => {
+      window.clearTimeout(initial);
+      window.removeEventListener("hashchange", openFromHash);
+    };
+  }, []);
 
   function close() {
     setOpen(false);

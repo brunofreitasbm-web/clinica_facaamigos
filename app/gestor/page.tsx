@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getLeakCards, getBonusRows, getTierProgression, currentMonthRange } from "./data";
 import { ExecutiveLeaks } from "./executive-leaks";
+import { GestorCockpit } from "@/components/gestor/gestor-cockpit";
 
 export const dynamic = "force-dynamic";
 
@@ -154,6 +155,8 @@ export default async function GestorPage() {
           </div>
         </div>
       </div>
+
+      <GestorCockpit />
 
       <ExecutiveLeaks leaks={leaks} bonusPanel={bonusPanel} />
 

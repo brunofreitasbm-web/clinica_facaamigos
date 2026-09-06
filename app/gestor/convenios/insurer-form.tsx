@@ -44,6 +44,17 @@ export function InsurerForm() {
           className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
         />
       </div>
+      <div className="sm:w-48">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="provider_code">
+          Código do prestador
+        </label>
+        <input
+          id="provider_code"
+          name="provider_code"
+          placeholder="credenciamento na operadora"
+          className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
+        />
+      </div>
       <button
         type="submit"
         disabled={isPending}

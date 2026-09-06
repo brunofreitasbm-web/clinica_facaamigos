@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { InsurerForm } from "./insurer-form";
+import { ProviderCodeInline } from "./provider-code-inline";
+import { AutorizacaoWizard } from "@/components/gestor/autorizacao-wizard";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +13,7 @@ export default async function ConveniosPage() {
   const supabase = await createClient();
   const { data: insurers } = await supabase
     .from("insurers")
-    .select("id, name, ans_code")
+    .select("id, name, ans_code, provider_code")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
 
@@ -24,6 +26,7 @@ export default async function ConveniosPage() {
         description="Só o gestor cadastra convênio novo — recepção e faturamento usam a lista pra vincular ao paciente."
       />
       <div className="flex flex-col gap-6 p-6 sm:p-10">
+        <AutorizacaoWizard />
         <InsurerForm />
         <ul className="flex flex-col gap-2">
           {(insurers ?? []).map((insurer) => (
@@ -37,12 +40,15 @@ export default async function ConveniosPage() {
                   <span className="ml-2 text-ink-faint">ANS {insurer.ans_code}</span>
                 )}
               </div>
-              <Link
-                href={`/gestor/convenios/${insurer.id}/precos`}
-                className="text-sm font-medium text-chart hover:underline"
-              >
-                Tabela de preços
-              </Link>
+              <div className="flex items-center gap-4">
+                <ProviderCodeInline insurerId={insurer.id} initialValue={insurer.provider_code} />
+                <Link
+                  href={`/gestor/convenios/${insurer.id}/precos`}
+                  className="text-sm font-medium text-chart hover:underline"
+                >
+                  Tabela de preços
+                </Link>
+              </div>
             </li>
           ))}
           {(insurers ?? []).length === 0 && (

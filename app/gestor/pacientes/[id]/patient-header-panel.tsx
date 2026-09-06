@@ -26,7 +26,7 @@ export function PatientHeaderPanel({
   isArchived: boolean;
   whatsappHref: string | null;
   tags: PatientTagRow[];
-  onCobrar: () => void;
+  onCobrar?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -94,9 +94,6 @@ export function PatientHeaderPanel({
               <MessageCircle size={16} />
             </a>
           )}
-          <button type="button" className="btn btn-secondary" onClick={onCobrar}>
-            Cobrar
-          </button>
           <Link href={`/recepcao/pacientes/${patientId}`} className="btn btn-primary">
             <Stethoscope size={16} />
             Prontuário

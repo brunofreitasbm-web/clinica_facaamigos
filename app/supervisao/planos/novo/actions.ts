@@ -12,6 +12,9 @@ type GoalInput = {
   baseline?: string;
   target?: string;
   criterion?: string;
+  horizon?: string;
+  strategy?: string;
+  methodology?: string;
 };
 
 type DisciplineMixInput = Record<string, { sessoesSemana?: number }>;
@@ -25,6 +28,8 @@ export async function createTreatmentPlan(
   }
 
   const reviewDueAt = String(formData.get("review_due_at") ?? "").trim();
+  const generalObjective = String(formData.get("general_objective") ?? "").trim();
+  const familyPriorities = String(formData.get("family_priorities") ?? "").trim();
 
   let disciplineMix: DisciplineMixInput;
   let goalsInput: GoalInput[];
@@ -51,6 +56,9 @@ export async function createTreatmentPlan(
       baseline: (g.baseline ?? "").trim() || null,
       target: (g.target ?? "").trim() || null,
       criterion: (g.criterion ?? "").trim() || null,
+      horizon: (g.horizon ?? "").trim() || null,
+      strategy: (g.strategy ?? "").trim() || null,
+      methodology: (g.methodology ?? "").trim() || null,
     }))
     .filter((g) => g.discipline || g.domain || g.description);
 
@@ -75,9 +83,12 @@ export async function createTreatmentPlan(
 
   // version é sequencial por paciente (não o default de coluna, que é
   // sempre 1) — precisa buscar o maior version já existente e somar 1.
+  // Também usado como previous_plan_id — dá pra seguir o histórico entre
+  // versões, que antes só existia como um contador solto (PDI, slide 34:
+  // "o PDI não termina quando é entregue").
   const { data: lastPlan } = await supabase
     .from("treatment_plans")
-    .select("version")
+    .select("id, version")
     .eq("patient_id", patientId)
     .order("version", { ascending: false })
     .limit(1)
@@ -92,6 +103,9 @@ export async function createTreatmentPlan(
       version: nextVersion,
       discipline_mix: disciplineMix,
       review_due_at: reviewDueAt || null,
+      general_objective: generalObjective || null,
+      family_priorities: familyPriorities || null,
+      previous_plan_id: lastPlan?.id ?? null,
     })
     .select("id")
     .single();
@@ -109,6 +123,9 @@ export async function createTreatmentPlan(
       baseline: g.baseline,
       target: g.target,
       criterion: g.criterion,
+      horizon: g.horizon,
+      strategy: g.strategy,
+      methodology: g.methodology,
     })),
   );
 

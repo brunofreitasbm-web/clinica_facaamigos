@@ -1,4 +1,5 @@
 import { GestorNav } from "@/components/gestor-nav";
+import { EquipeSubnav } from "@/components/equipe-subnav";
 import { getTargetsData } from "./actions";
 import { TargetForm } from "./target-form";
 import { DeleteTargetButton } from "./delete-target-button";
@@ -31,8 +32,9 @@ export default async function MetasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <GestorNav />
+    <div className="min-h-screen bg-canvas flex flex-col">
+      <GestorNav active="equipe" />
+      <EquipeSubnav activeTab="metas" />
 
       <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
         <div>

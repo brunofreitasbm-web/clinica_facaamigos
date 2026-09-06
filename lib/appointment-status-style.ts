@@ -21,6 +21,14 @@ export const PLAN_GOAL_STATUS_STYLE: Record<string, { label: string; tagClass: s
   suspensa: { label: "Suspensa", tagClass: "st-cancelada" },
 };
 
+export const AUTHORIZATION_STATUS_STYLE: Record<string, { label: string; tagClass: string }> = {
+  pendente: { label: "Pendente", tagClass: "st-agendada" },
+  ativa: { label: "Ativa", tagClass: "st-confirmada" },
+  esgotada: { label: "Esgotada", tagClass: "st-falta" },
+  vencida: { label: "Vencida", tagClass: "st-falta" },
+  negada: { label: "Negada", tagClass: "st-cancelada" },
+};
+
 export const BILLING_ITEM_STATUS_STYLE: Record<string, { label: string; tagClass: string }> = {
   pendente: { label: "Pendente", tagClass: "st-agendada" },
   enviado: { label: "Enviada", tagClass: "st-em-atendimento" },

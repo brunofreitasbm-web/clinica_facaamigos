@@ -11,7 +11,6 @@ export type AppointmentRow = { id: string; dateLabel: string; statusLabel: strin
 
 const TABS = [
   { key: "visao", label: "Visão Geral" },
-  { key: "cobrancas", label: "Cobranças" },
   { key: "atendimentos", label: "Atendimentos" },
   { key: "documentos", label: "Documentos" },
 ] as const;
@@ -65,10 +64,6 @@ export function PatientManagementPanel({
         isArchived={isArchived}
         whatsappHref={whatsappHref}
         tags={tags}
-        onCobrar={() => {
-          setTab("cobrancas");
-          setChargeFormOpen(true);
-        }}
       />
 
       <div className="px-10 pt-6">
@@ -140,15 +135,6 @@ export function PatientManagementPanel({
               </div>
             </div>
           </div>
-        )}
-
-        {tab === "cobrancas" && (
-          <ChargesPanel
-            patientId={patientId}
-            charges={charges}
-            open={chargeFormOpen}
-            onOpenChange={setChargeFormOpen}
-          />
         )}
 
         {tab === "atendimentos" && (
