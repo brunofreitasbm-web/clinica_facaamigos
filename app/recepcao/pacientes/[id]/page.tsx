@@ -7,7 +7,7 @@ import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
-import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
+import { APPOINTMENT_STATUS_STYLE, AUTHORIZATION_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getFeedPosts } from "@/lib/feed-posts";
 import { getPatientAbaLearningCurves } from "@/lib/patient-metrics";
 import { logRecordAccess } from "@/lib/record-access-log";
@@ -17,6 +17,8 @@ import { DocumentViewButton } from "./document-view-button";
 import { DocumentUploadForm } from "./document-upload-form";
 import { FeedPostForm } from "./feed-post-form";
 import { AbsenceReportsList, type PendingAbsenceReport } from "./absence-reports-list";
+import { AuthorizationFormFields } from "./authorization-form-fields";
+import { NewAuthorizationToggle } from "./new-authorization-toggle";
 import {
   scheduleEvaluation,
   markEvaluationDone,
@@ -102,6 +104,36 @@ export default async function PacientePage({
     .select("id, name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
+
+  // Seção fixa "Guias" (sempre visível, inclusive com o paciente já ativo —
+  // diferente do formulário do passo 3 do checklist, que só aparece durante
+  // o onboarding). Histórico completo, mais recente primeiro.
+  const { data: authorizationHistoryRaw } = await supabase
+    .from("authorizations")
+    .select(
+      "id, guide_number, procedure_code, sessions_authorized, sessions_used, valid_from, valid_to, status, authorization_password, password_valid_until, patient_insurance!inner(patient_id, insurers(name))",
+    )
+    .eq("patient_insurance.patient_id", id)
+    .order("valid_from", { ascending: false });
+
+  const authorizationHistory = (authorizationHistoryRaw ?? []).map((a) => {
+    const pi = a.patient_insurance;
+    const insurer = Array.isArray(pi) ? pi[0]?.insurers : pi?.insurers;
+    const insurerName = Array.isArray(insurer) ? insurer[0]?.name : insurer?.name;
+    return {
+      id: a.id,
+      insurerName: insurerName ?? "—",
+      guideNumber: a.guide_number,
+      procedureCode: a.procedure_code,
+      sessionsUsed: a.sessions_used,
+      sessionsAuthorized: a.sessions_authorized,
+      validFrom: a.valid_from,
+      validTo: a.valid_to,
+      status: a.status,
+      authorizationPassword: a.authorization_password,
+      passwordValidUntil: a.password_valid_until,
+    };
+  });
 
   // RLS de `documents` decide sozinha o que aparece aqui por papel — nunca
   // filtramos manualmente por role na aplicação (gestor/supervisor/recepção/
@@ -429,20 +461,7 @@ export default async function PacientePage({
                 )}
                 {stage === 3 && (
                   <StageActionForm action={registerAuthorization.bind(null, patient.id)} submitLabel="Registrar autorização">
-                    <select name="insurer_id" required className="input">
-                      <option value="">Convênio</option>
-                      {(insurers ?? []).map((i) => (
-                        <option key={i.id} value={i.id}>{i.name}</option>
-                      ))}
-                    </select>
-                    <input type="text" name="guide_number" placeholder="Número da guia" className="input" />
-                    <input type="text" name="procedure_code" required placeholder="Código do procedimento" className="input" />
-                    <input type="number" name="sessions_authorized" required placeholder="Sessões autorizadas" className="input" />
-                    <input type="date" name="valid_from" required className="input" />
-                    <input type="date" name="valid_to" required className="input" />
-                    <input type="text" name="authorization_password" placeholder="Senha de autorização" className="input" />
-                    <input type="date" name="password_valid_until" placeholder="Validade da senha" className="input" />
-                    <input type="text" name="cid" placeholder="CID" className="input" />
+                    <AuthorizationFormFields insurers={insurers} />
                   </StageActionForm>
                 )}
                 {stage === 4 && (
@@ -469,6 +488,64 @@ export default async function PacientePage({
           </div>
         </div>
       )}
+
+      <div className="px-10 pt-8">
+        <div className="card max-w-[900px]">
+          <div className="mb-3.5 flex items-center justify-between gap-3">
+            <div className="card-kicker">Guias</div>
+            <NewAuthorizationToggle patientId={patient.id} insurers={insurers} />
+          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Convênio</th>
+                <th>Nº guia / senha</th>
+                <th>Procedimento</th>
+                <th>Sessões</th>
+                <th>Vigência</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {authorizationHistory.map((a) => {
+                const style = AUTHORIZATION_STATUS_STYLE[a.status] ?? AUTHORIZATION_STATUS_STYLE.pendente;
+                return (
+                  <tr key={a.id}>
+                    <td className="font-semibold">{a.insurerName}</td>
+                    <td>
+                      {a.guideNumber ?? "—"}
+                      {a.authorizationPassword && (
+                        <span className="text-ink-faint">
+                          {" "}
+                          · senha {a.authorizationPassword}
+                          {a.passwordValidUntil && ` (até ${fmtDate(`${a.passwordValidUntil}T00:00:00`)})`}
+                        </span>
+                      )}
+                    </td>
+                    <td>{a.procedureCode}</td>
+                    <td>
+                      {a.sessionsUsed} de {a.sessionsAuthorized}
+                    </td>
+                    <td>
+                      {fmtDate(`${a.validFrom}T00:00:00`)} – {fmtDate(`${a.validTo}T00:00:00`)}
+                    </td>
+                    <td>
+                      <span className={`tag-status ${style.tagClass}`}>{style.label}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {authorizationHistory.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-ink-faint">
+                    Nenhuma guia cadastrada ainda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="px-10 pt-6">
         <div className="flex flex-wrap items-center gap-2">

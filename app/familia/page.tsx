@@ -131,6 +131,7 @@ export default async function FamiliaPage({
     { data: guardianRow },
     { data: treatmentPlan },
     { data: documents },
+    { data: familyMessages },
   ] = await Promise.all([
     supabase
       .from("appointments")
@@ -184,6 +185,13 @@ export default async function FamiliaPage({
       .eq("patient_id", patientId)
       .eq("shared_with_family", true)
       .order("uploaded_at", { ascending: false }),
+    // Mensagens trocadas entre a família e a coordenação clínica
+    supabase
+      .from("messages")
+      .select("id, direction, body, sent_at, read_at")
+      .eq("patient_id", patientId)
+      .eq("channel", "portal")
+      .order("sent_at", { ascending: false }),
   ]);
 
   const { data: goalsRaw } = treatmentPlan
@@ -529,6 +537,48 @@ export default async function FamiliaPage({
             ) : (
               <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
                 Nenhum recado da equipe ainda.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between">
+            <h6>Mensagens & Respostas da Coordenação</h6>
+            {(familyMessages ?? []).some((m) => m.direction === "outbound") && (
+              <span className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                ✓ Resposta Recebida
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+            {(familyMessages ?? []).length > 0 ? (
+              (familyMessages ?? []).map((msg) => {
+                const isFromCoordination = msg.direction === "outbound";
+                return (
+                  <div
+                    key={msg.id}
+                    className="card"
+                    style={{
+                      borderLeft: isFromCoordination ? "4px solid var(--color-accent)" : "1px solid var(--color-divider)",
+                      background: isFromCoordination ? "var(--color-surface)" : "transparent",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: isFromCoordination ? "var(--color-accent)" : "var(--color-neutral-700)" }}>
+                        {isFromCoordination ? "💬 Resposta da Coordenação Faça Amigos" : "👤 Sua mensagem enviada"}
+                      </span>
+                      <span style={{ fontSize: 10, color: "var(--color-neutral-500)" }}>
+                        {msg.sent_at ? fmtWhen(msg.sent_at) : "—"}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 13, margin: 0, whiteSpace: "pre-wrap" }}>{msg.body}</p>
+                  </div>
+                );
+              })
+            ) : (
+              <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
+                Nenhuma mensagem trocada com a coordenação ainda. Use &ldquo;Fale com a Coordenação&rdquo; acima se precisar de suporte.
               </p>
             )}
           </div>

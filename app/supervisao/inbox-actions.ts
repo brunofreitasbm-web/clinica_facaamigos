@@ -66,5 +66,6 @@ export async function sendReply(
     .eq("direction", "inbound");
 
   revalidatePath("/supervisao");
+  revalidatePath("/familia");
   return { success: true };
 }
