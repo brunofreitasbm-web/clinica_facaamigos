@@ -32,7 +32,7 @@ export default async function GestaoPacientePage({
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")
-    .select("id, full_name, birth_date, status")
+    .select("id, full_name, birth_date, status, complaint, cid, support_level, entry_source")
     .eq("id", id)
     .maybeSingle();
 
@@ -213,6 +213,10 @@ export default async function GestaoPacientePage({
         birthDateLabel={fmtDate(`${patient.birth_date}T00:00:00`)}
         phone={primaryGuardian?.phone ?? null}
         guardianId={primaryGuardian?.id ?? null}
+        complaint={patient.complaint}
+        cid={patient.cid}
+        supportLevel={patient.support_level}
+        entrySource={patient.entry_source}
         isArchived={patient.status === "arquivado"}
         whatsappHref={whatsappHref}
         tags={tags}

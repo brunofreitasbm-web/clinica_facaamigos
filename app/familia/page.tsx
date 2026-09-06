@@ -211,13 +211,20 @@ export default async function FamiliaPage({
       .eq("patient_id", patientId)
       .eq("category", "familia_envio")
       .order("uploaded_at", { ascending: false }),
-    // Mensagens trocadas
+    // Mensagens trocadas — portal E WhatsApp juntos num histórico só (PRD
+    // §9.7/§3.8: "histórico das últimas mensagens trocadas com a clínica via
+    // WhatsApp/Portal"). messages_read (20260904000012) já libera os dois
+    // canais pro responsável via has_patient_access — o filtro por
+    // channel='portal' que existia aqui era só da aplicação, não da RLS, e
+    // escondia todo o histórico de WhatsApp (bot + atendimento humano,
+    // 20260906000010_twilio_conversations.sql) que o app/api/webhooks/twilio
+    // já grava normalmente.
     supabase
       .from("messages")
-      .select("id, direction, body, sent_at, read_at")
+      .select("id, channel, direction, sender_type, body, media_url, sent_at, read_at")
       .eq("patient_id", patientId)
-      .eq("channel", "portal")
-      .order("sent_at", { ascending: false }),
+      .order("sent_at", { ascending: false })
+      .limit(30),
     // Próximas sessões com justificativa de ausência (se houver)
     supabase
       .from("appointments")
@@ -721,6 +728,15 @@ export default async function FamiliaPage({
             {(familyMessages ?? []).length > 0 ? (
               (familyMessages ?? []).map((msg) => {
                 const isFromCoordination = msg.direction === "outbound";
+                // Mensagem automática do bot de WhatsApp (lib/twilio.ts,
+                // handleTwilioIncomingMessage) — rotulada à parte pra família
+                // não confundir uma resposta automática com um retorno humano.
+                const isBot = msg.sender_type === "bot";
+                const label = !isFromCoordination
+                  ? "👤 Sua mensagem enviada"
+                  : isBot
+                    ? "🤖 Assistente virtual Faça Amigos"
+                    : "💬 Resposta da Coordenação Faça Amigos";
                 return (
                   <div
                     key={msg.id}
@@ -732,13 +748,37 @@ export default async function FamiliaPage({
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <span style={{ fontSize: 12, fontWeight: 600, color: isFromCoordination ? "var(--color-accent)" : "var(--color-neutral-700)" }}>
-                        {isFromCoordination ? "💬 Resposta da Coordenação Faça Amigos" : "👤 Sua mensagem enviada"}
+                        {label}
+                        {msg.channel === "whatsapp" && (
+                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 500, color: "var(--color-neutral-500)" }}>
+                            · via WhatsApp
+                          </span>
+                        )}
                       </span>
                       <span style={{ fontSize: 10, color: "var(--color-neutral-500)" }}>
                         {msg.sent_at ? fmtWhen(msg.sent_at) : "—"}
                       </span>
                     </div>
-                    <p style={{ fontSize: 13, margin: 0, whiteSpace: "pre-wrap" }}>{msg.body}</p>
+                    {msg.body && <p style={{ fontSize: 13, margin: 0, whiteSpace: "pre-wrap" }}>{msg.body}</p>}
+                    {msg.media_url &&
+                      (/\.(jpe?g|png|gif|webp)$/i.test(msg.media_url) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={msg.media_url}
+                          alt=""
+                          style={{ marginTop: 6, maxWidth: 160, borderRadius: "var(--radius-md)" }}
+                        />
+                      ) : (
+                        <a
+                          href={msg.media_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-ghost text-xs"
+                          style={{ marginTop: 6 }}
+                        >
+                          Abrir anexo
+                        </a>
+                      ))}
                   </div>
                 );
               })

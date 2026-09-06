@@ -53,7 +53,7 @@ export default async function PacientePage({
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")
-    .select("id, full_name, status, birth_date, evaluated_at, first_session_at, entry_source, complaint")
+    .select("id, full_name, status, birth_date, evaluated_at, first_session_at, entry_source, complaint, cid, support_level")
     .eq("id", id)
     .maybeSingle();
 
@@ -303,10 +303,13 @@ export default async function PacientePage({
 
   const guardianText =
     (guardians ?? []).length > 0 ? (
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-2">
         {(guardians ?? []).map((g) => (
           <span key={g.id}>
             {g.full_name}
+            {g.is_emergency_contact && (
+              <span className="tag-status st-agendada ml-2">Emergência</span>
+            )}
             <br />
             <span className="text-ink-faint">{g.phone}</span>
           </span>
@@ -335,7 +338,6 @@ export default async function PacientePage({
         <thead>
           <tr>
             <th>Documento</th>
-            <th>Categoria</th>
             <th>Data</th>
             <th>Visível à família</th>
             <th></th>
@@ -356,7 +358,6 @@ export default async function PacientePage({
                     </span>
                   )}
                 </td>
-                <td>{doc.category}</td>
                 <td>
                   {fmtDate(doc.uploaded_at)}
                   {doc.valid_until && ` · válido até ${fmtDate(`${doc.valid_until}T00:00:00`)}`}
@@ -370,7 +371,7 @@ export default async function PacientePage({
           })}
           {(documents ?? []).length === 0 && (
             <tr>
-              <td colSpan={5} className="text-ink-faint">
+              <td colSpan={4} className="text-ink-faint">
                 Nenhum documento anexado.
               </td>
             </tr>
@@ -436,6 +437,10 @@ export default async function PacientePage({
             birthDate={patient.birth_date}
             phone={primaryGuardian?.phone ?? null}
             guardianId={primaryGuardian?.id ?? null}
+            complaint={patient.complaint}
+            cid={patient.cid}
+            supportLevel={patient.support_level}
+            entrySource={patient.entry_source}
           />
           <a href={`/recepcao/pacientes/${patient.id}/gestao`} className="btn btn-secondary">
             Convênios, cobranças e equipe
@@ -445,6 +450,32 @@ export default async function PacientePage({
           </a>
         </div>
       </div>
+
+      {(patient.complaint || patient.cid || patient.support_level || patient.entry_source) && (
+        <div className="px-10 pt-8">
+          <div className="card max-w-[900px]">
+            <div className="card-kicker">Dados clínicos</div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">Queixa principal</div>
+                <div className="mt-0.5">{patient.complaint || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">CID</div>
+                <div className="mt-0.5">{patient.cid || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">Nível de suporte</div>
+                <div className="mt-0.5">{patient.support_level || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">Origem</div>
+                <div className="mt-0.5">{patient.entry_source || "—"}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {stage < 5 && (
         <div className="px-10 pt-8">

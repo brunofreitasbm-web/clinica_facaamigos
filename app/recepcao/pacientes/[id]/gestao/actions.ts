@@ -154,6 +154,10 @@ export async function updatePatientBasics(patientId: string, formData: FormData)
   const birthDate = String(formData.get("birth_date") ?? "");
   const phone = String(formData.get("phone") ?? "").trim();
   const guardianId = String(formData.get("guardian_id") ?? "");
+  const complaint = String(formData.get("complaint") ?? "").trim();
+  const cid = String(formData.get("cid") ?? "").trim();
+  const supportLevel = String(formData.get("support_level") ?? "").trim();
+  const entrySource = String(formData.get("entry_source") ?? "").trim();
 
   if (!fullName || !birthDate) {
     return { success: false, error: "Preencha nome e data de nascimento." };
@@ -163,7 +167,14 @@ export async function updatePatientBasics(patientId: string, formData: FormData)
 
   const { error: patientError } = await supabase
     .from("patients")
-    .update({ full_name: fullName, birth_date: birthDate })
+    .update({
+      full_name: fullName,
+      birth_date: birthDate,
+      complaint: complaint || null,
+      cid: cid || null,
+      support_level: supportLevel || null,
+      entry_source: entrySource || null,
+    })
     .eq("id", patientId);
 
   if (patientError) return { success: false, error: "Não foi possível atualizar os dados do paciente." };

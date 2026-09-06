@@ -13,6 +13,10 @@ export function PatientHeaderPanel({
   birthDate,
   phone,
   guardianId,
+  complaint,
+  cid,
+  supportLevel,
+  entrySource,
   isArchived,
   whatsappHref,
   tags,
@@ -23,6 +27,10 @@ export function PatientHeaderPanel({
   birthDate: string;
   phone: string | null;
   guardianId: string | null;
+  complaint: string | null;
+  cid: string | null;
+  supportLevel: string | null;
+  entrySource: string | null;
   isArchived: boolean;
   whatsappHref: string | null;
   tags: PatientTagRow[];
@@ -108,6 +116,10 @@ export function PatientHeaderPanel({
           birthDate={birthDate}
           phone={phone}
           guardianId={guardianId}
+          complaint={complaint}
+          cid={cid}
+          supportLevel={supportLevel}
+          entrySource={entrySource}
           onDone={() => setEditing(false)}
         />
       )}

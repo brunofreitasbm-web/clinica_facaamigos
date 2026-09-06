@@ -9,6 +9,10 @@ export function EditBasicsForm({
   birthDate,
   phone,
   guardianId,
+  complaint,
+  cid,
+  supportLevel,
+  entrySource,
   onDone,
 }: {
   patientId: string;
@@ -16,6 +20,10 @@ export function EditBasicsForm({
   birthDate: string;
   phone: string | null;
   guardianId: string | null;
+  complaint: string | null;
+  cid: string | null;
+  supportLevel: string | null;
+  entrySource: string | null;
   onDone: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +56,22 @@ export function EditBasicsForm({
         <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Telefone</label>
         <input name="phone" defaultValue={phone ?? ""} disabled={!guardianId} className="input mt-1" />
         <input type="hidden" name="guardian_id" value={guardianId ?? ""} />
+      </div>
+      <div className="w-44">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Origem</label>
+        <input name="entry_source" defaultValue={entrySource ?? ""} placeholder="WhatsApp, indicação…" className="input mt-1" />
+      </div>
+      <div className="flex-1 basis-56">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Queixa principal</label>
+        <input name="complaint" defaultValue={complaint ?? ""} className="input mt-1" />
+      </div>
+      <div className="w-32">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">CID</label>
+        <input name="cid" defaultValue={cid ?? ""} className="input mt-1" />
+      </div>
+      <div className="w-40">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Nível de suporte</label>
+        <input name="support_level" defaultValue={supportLevel ?? ""} placeholder="1, 2 ou 3" className="input mt-1" />
       </div>
       <button type="submit" disabled={isPending} className="btn btn-primary text-xs">
         {isPending ? "Salvando…" : "Salvar"}

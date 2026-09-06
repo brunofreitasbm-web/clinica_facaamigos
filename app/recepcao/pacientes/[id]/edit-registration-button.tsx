@@ -9,12 +9,20 @@ export function EditRegistrationButton({
   birthDate,
   phone,
   guardianId,
+  complaint,
+  cid,
+  supportLevel,
+  entrySource,
 }: {
   patientId: string;
   fullName: string;
   birthDate: string;
   phone: string | null;
   guardianId: string | null;
+  complaint: string | null;
+  cid: string | null;
+  supportLevel: string | null;
+  entrySource: string | null;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -27,6 +35,10 @@ export function EditRegistrationButton({
           birthDate={birthDate}
           phone={phone}
           guardianId={guardianId}
+          complaint={complaint}
+          cid={cid}
+          supportLevel={supportLevel}
+          entrySource={entrySource}
           onDone={() => setEditing(false)}
         />
       </div>

@@ -24,6 +24,10 @@ export function PatientManagementPanel({
   birthDateLabel,
   phone,
   guardianId,
+  complaint,
+  cid,
+  supportLevel,
+  entrySource,
   isArchived,
   whatsappHref,
   tags,
@@ -40,6 +44,10 @@ export function PatientManagementPanel({
   birthDateLabel: string;
   phone: string | null;
   guardianId: string | null;
+  complaint: string | null;
+  cid: string | null;
+  supportLevel: string | null;
+  entrySource: string | null;
   isArchived: boolean;
   whatsappHref: string | null;
   tags: PatientTagRow[];
@@ -61,6 +69,10 @@ export function PatientManagementPanel({
         birthDate={birthDate}
         phone={phone}
         guardianId={guardianId}
+        complaint={complaint}
+        cid={cid}
+        supportLevel={supportLevel}
+        entrySource={entrySource}
         isArchived={isArchived}
         whatsappHref={whatsappHref}
         tags={tags}
