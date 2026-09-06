@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import type { TissGuiaItem } from "@/lib/tiss/xml-builder";
+import type { TissValidationItem, TissValidationIssue } from "@/lib/tiss/pre-validate";
+import { preValidateTissBatch } from "@/lib/tiss/pre-validate";
 
 type Supa = SupabaseClient<Database>;
 
@@ -10,7 +11,15 @@ export type GuiaPeriodGroup = {
   ansCode: string | null;
   providerCode: string | null;
   competenceLabel: string;
-  guias: TissGuiaItem[];
+  /**
+   * `TissValidationItem` é um superset de `TissGuiaItem` (o tipo que
+   * `generateTissXml` espera) — os campos extras (guia, sessão, tabela de
+   * preço) só existem pra alimentar `preValidateTissBatch`; o gerador de XML
+   * ignora o que não conhece.
+   */
+  guias: TissValidationItem[];
+  /** Pré-validação já calculada pra TODAS as guias do grupo (não só as selecionadas). */
+  issues: TissValidationIssue[];
 };
 
 export type ClinicHeaderInfo = {
@@ -50,10 +59,17 @@ export async function getPendingGuias(supabase: Supa, clinicId: string): Promise
     .in("insurer_id", insurerIds);
   const procedureNameByInsurerCode = new Map((priceTables ?? []).map((pt) => [`${pt.insurer_id}:${pt.procedure_code}`, pt.procedure_name]));
 
+  // Campos extras (status/validade/sessões da guia, carteirinha, nota de sessão)
+  // só servem pra pré-validação (lib/tiss/pre-validate.ts) — generateTissXml
+  // continua lendo só os campos de TissGuiaItem que já conhecia.
   const { data: items } = await supabase
     .from("billing_items")
     .select(
-      "id, billing_period_id, procedure_code, amount, appointments(starts_at, discipline, patients(full_name), authorizations(guide_number, patient_insurance(card_number)))",
+      `id, billing_period_id, procedure_code, amount, appointment_id,
+      appointments(starts_at, discipline, patient_id, patients(full_name),
+      authorizations(guide_number, status, valid_from, valid_to, sessions_authorized, sessions_used,
+      patient_insurance(card_number, card_valid_until)),
+      session_notes(signed_at))`,
     )
     .in(
       "billing_period_id",
@@ -72,8 +88,18 @@ export async function getPendingGuias(supabase: Supa, clinicId: string): Promise
     const appt = item.appointments as {
       starts_at: string;
       discipline: string;
+      patient_id: string | null;
       patients: { full_name: string } | null;
-      authorizations: { guide_number: string | null; patient_insurance: { card_number: string | null } | null } | null;
+      authorizations: {
+        guide_number: string | null;
+        status: string;
+        valid_from: string | null;
+        valid_to: string | null;
+        sessions_authorized: number;
+        sessions_used: number;
+        patient_insurance: { card_number: string | null; card_valid_until: string | null } | null;
+      } | null;
+      session_notes: { signed_at: string | null }[] | null;
     } | null;
 
     let group = groups.get(period.id);
@@ -86,14 +112,22 @@ export async function getPendingGuias(supabase: Supa, clinicId: string): Promise
         providerCode: insurer.provider_code,
         competenceLabel: `${month}/${year}`,
         guias: [],
+        issues: [],
       };
       groups.set(period.id, group);
     }
 
+    const auth = appt?.authorizations ?? null;
+    const sessionNotes = appt?.session_notes ?? [];
+    // pega a nota mais recente assinada, ou a primeira se nenhuma estiver assinada
+    const signedNote = sessionNotes.find((sn) => sn.signed_at) ?? sessionNotes[0] ?? null;
+
     group.guias.push({
       id: item.id,
-      numeroGuiaPrestador: appt?.authorizations?.guide_number ?? `SEM-GUIA-${item.id.slice(0, 8)}`,
-      numeroCarteira: appt?.authorizations?.patient_insurance?.card_number ?? "",
+      appointmentId: item.appointment_id,
+      patientId: appt?.patient_id ?? null,
+      numeroGuiaPrestador: auth?.guide_number ?? `SEM-GUIA-${item.id.slice(0, 8)}`,
+      numeroCarteira: auth?.patient_insurance?.card_number ?? "",
       nomeBeneficiario: appt?.patients?.full_name ?? "—",
       codigoConvenio: insurer.ans_code ?? "",
       nomeConvenio: insurer.name,
@@ -102,7 +136,25 @@ export async function getPendingGuias(supabase: Supa, clinicId: string): Promise
         procedureNameByInsurerCode.get(`${period.insurer_id}:${item.procedure_code}`) ?? appt?.discipline ?? item.procedure_code,
       dataAtendimento: appt?.starts_at ? appt.starts_at.slice(0, 10) : "",
       valorTotal: Number(item.amount),
+      codigoPrestador: insurer.provider_code ?? "",
+      hasSessionNote: sessionNotes.length > 0,
+      sessionNoteSignedAt: signedNote?.signed_at ?? null,
+      authorization: auth
+        ? {
+            status: auth.status,
+            validFrom: auth.valid_from,
+            validTo: auth.valid_to,
+            sessionsAuthorized: auth.sessions_authorized,
+            sessionsUsed: auth.sessions_used,
+          }
+        : null,
+      cardValidUntil: auth?.patient_insurance?.card_valid_until ?? null,
+      procedureInPriceTable: procedureNameByInsurerCode.has(`${period.insurer_id}:${item.procedure_code}`),
     });
+  }
+
+  for (const group of groups.values()) {
+    group.issues = preValidateTissBatch(group.guias);
   }
 
   return [...groups.values()];

@@ -201,6 +201,32 @@ export async function registerRecovery(glosaId: string, formData: FormData): Pro
 }
 
 /**
+ * Reconhece um padrão recorrente de glosa (convênio+motivo que bateu o
+ * limiar em `glosa_recurring_patterns` — ver
+ * supabase/migrations/20260906000017_glosa_recurring_patterns.sql). É a
+ * única transição manual da tabela: `refresh_glosa_patterns()` (cron
+ * diário) só cria/atualiza contagens, nunca marca como 'reconhecido' nem
+ * volta um padrão reconhecido para 'ativo' sozinho.
+ */
+export async function acknowledgeGlosaPattern(patternId: string): Promise<ActionResult> {
+  if (!patternId) return { success: false, error: "Padrão inválido." };
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("glosa_recurring_patterns")
+    .update({ status: "reconhecido" })
+    .eq("id", patternId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível reconhecer o padrão. Verifique sua permissão." };
+  }
+
+  revalidatePath("/faturamento/glosas");
+  return { success: true };
+}
+
+/**
  * `123,45` (vírgula BR, com ou sem separador de milhar em ponto) ou
  * `123.45` (ponto já como decimal) — cobre os dois formatos mais prováveis
  * de vir num CSV de retorno de convênio.

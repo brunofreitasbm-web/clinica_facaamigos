@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { DEV_CLINIC_ID } from "@/lib/constants";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -57,6 +58,34 @@ export async function reviewFamilyDocument(documentId: string): Promise<ActionRe
 
   if (error) {
     return { success: false, error: "Não foi possível marcar como revisado." };
+  }
+
+  revalidatePath("/recepcao/pacientes/pendencias");
+  return { success: true };
+}
+
+/**
+ * Reatribuição manual de um item da fila de pendências (§9.1 "dono + prazo").
+ * `itemId` é o mesmo `PendingQueueItem.id` usado como `item_id` em
+ * `pending_queue_assignments` (ver attachQueueAssignments em
+ * lib/reception-queue.ts) — a linha já existe nesse ponto porque a página só
+ * mostra o seletor depois que a fila (que cria o assignment se faltar) já
+ * carregou.
+ */
+export async function reassignQueueItem(itemId: string, assigneeId: string): Promise<ActionResult> {
+  if (!assigneeId) {
+    return { success: false, error: "Selecione um responsável." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("pending_queue_assignments")
+    .update({ assigned_to: assigneeId })
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("item_id", itemId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível reatribuir. Tente de novo." };
   }
 
   revalidatePath("/recepcao/pacientes/pendencias");

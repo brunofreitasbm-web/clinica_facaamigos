@@ -16,7 +16,8 @@ export type PendingQueueCategory =
   | "lead_sem_retorno"
   | "falta_sem_motivo"
   | "remarcacao_solicitada"
-  | "documento_familia_novo";
+  | "documento_familia_novo"
+  | "renovacao_solicitada";
 
 export type PendingQueueItem = {
   id: string;
@@ -33,6 +34,52 @@ export type PendingQueueItem = {
   rescheduleRequestId?: string;
   /** Só preenchido em documento_familia_novo — id do documento pra ação de marcar como revisado. */
   documentId?: string;
+  /** Só preenchido em renovacao_solicitada — id da linha em
+   * authorization_renewal_requests, pra ação de marcar como resolvida. */
+  renewalRequestId?: string;
+  /**
+   * Dono + prazo (pending_queue_assignments) — preenchido por
+   * attachQueueAssignments logo abaixo, depois que todas as categorias já
+   * empurraram seus itens em `items`. Opcionais aqui de propósito: cada
+   * `items.push(...)` das categorias continua sem precisar declarar esses
+   * 4 campos, então uma categoria nova adicionada em paralelo por outro
+   * agente não quebra por esquecer deles.
+   */
+  assignedToId?: string | null;
+  assignedToName?: string | null;
+  dueAt?: string | null;
+  escalatedAt?: string | null;
+  /** dueAt no passado e ainda não resolvido — cálculo em JS (não depende do cron já ter rodado). */
+  overdue?: boolean;
+};
+
+/**
+ * Prazo padrão por categoria pra pending_queue_assignments (§9.1 "dono +
+ * prazo"). Escolha documentada aqui por não existir constante de app
+ * compartilhada entre SQL e TS pra isso (mesma situação de
+ * ATTENDANCE_GRACE_MINUTES em auto_resolve_appointments):
+ *  - lead_sem_retorno: já é o item mais urgente da fila (só entra depois de
+ *    15min sem retorno) — 1h de prazo pra não deixar o lead esfriar.
+ *  - falta_sem_motivo: precisa de contato com a família no mesmo dia — 24h.
+ *  - cadastro_incompleto / evolucao_atrasada / remarcacao_solicitada /
+ *    documento_familia_novo: mesma janela de 24h — itens que dependem de um
+ *    retorno humano rápido, mas não são tão urgentes quanto um lead novo.
+ *  - guia_vencendo / guia_poucas_sessoes / documento_vencido /
+ *    renovacao_solicitada: prazos administrativos que dependem de terceiros
+ *    (convênio, família trazendo documento) — 3 dias de folga antes de
+ *    escalar pro supervisor.
+ */
+const DUE_MINUTES_BY_CATEGORY: Record<PendingQueueCategory, number> = {
+  lead_sem_retorno: 60,
+  falta_sem_motivo: 24 * 60,
+  cadastro_incompleto: 24 * 60,
+  evolucao_atrasada: 24 * 60,
+  remarcacao_solicitada: 24 * 60,
+  documento_familia_novo: 24 * 60,
+  guia_vencendo: 3 * 24 * 60,
+  guia_poucas_sessoes: 3 * 24 * 60,
+  documento_vencido: 3 * 24 * 60,
+  renovacao_solicitada: 3 * 24 * 60,
 };
 
 const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
@@ -45,6 +92,7 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   falta_sem_motivo: "Falta sem motivo",
   remarcacao_solicitada: "Pedido de remarcação",
   documento_familia_novo: "Documento enviado pela família",
+  renovacao_solicitada: "Renovação de guia solicitada",
 };
 
 export type ExpiringAuthorization = {
@@ -283,6 +331,143 @@ async function getPendingFamilyDocuments(supabase: Supa, clinicId: string): Prom
   });
 }
 
+export type AuthorizationRenewalRequest = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  insurerName: string;
+  status: "pendente" | "solicitada_convenio";
+  createdAt: string;
+};
+
+/**
+ * Solicitações de renovação já abertas automaticamente (tabela
+ * `authorization_renewal_requests`, ver supabase/migrations/20260906000017_
+ * authorization_renewal_requests.sql) pela rotina diária
+ * `refresh_authorization_renewal_requests` — a mesma condição de vencimento
+ * ≤15 dias / ≤4 sessões restantes que `getExpiringAuthorizations` já mostra
+ * como aviso, só que aqui a solicitação (e o aviso à família) já foi
+ * disparada; falta só a recepção cadastrar a nova guia na AutorizacaoWizard
+ * e marcar como resolvida (ver authorization-renewal-actions.ts nesta pasta).
+ */
+async function getAuthorizationRenewalRequests(supabase: Supa, clinicId: string): Promise<AuthorizationRenewalRequest[]> {
+  const { data } = await supabase
+    .from("authorization_renewal_requests")
+    .select(
+      "id, status, created_at, patient_insurance:patient_insurance_id(patient_id, insurers(name), patients(id, full_name, clinic_id))",
+    )
+    .in("status", ["pendente", "solicitada_convenio"])
+    .order("created_at", { ascending: true });
+
+  const result: AuthorizationRenewalRequest[] = [];
+  for (const r of data ?? []) {
+    const pi = Array.isArray(r.patient_insurance) ? r.patient_insurance[0] : r.patient_insurance;
+    if (!pi) continue;
+    const patient = Array.isArray(pi.patients) ? pi.patients[0] : pi.patients;
+    if (!patient || patient.clinic_id !== clinicId) continue;
+    const insurerName = (Array.isArray(pi.insurers) ? pi.insurers[0]?.name : pi.insurers?.name) ?? "Convênio";
+
+    result.push({
+      id: r.id,
+      patientId: patient.id,
+      patientName: patient.full_name,
+      insurerName,
+      status: r.status as "pendente" | "solicitada_convenio",
+      createdAt: r.created_at,
+    });
+  }
+  return result;
+}
+
+/**
+ * Dá dono + prazo a cada item da fila (pending_queue_assignments, §9.1):
+ * qualquer item sem assignment ganha um agora (assigned_to = plantonista
+ * padrão, due_at = agora + DUE_MINUTES_BY_CATEGORY[categoria]); itens que já
+ * têm assignment só carregam o que já existe. Roda a cada carregamento da
+ * fila (mesmo desenho "calculada on-demand" do resto do arquivo) — o
+ * `unique (clinic_id, item_id)` da tabela garante que chamadas concorrentes
+ * não dupliquem assignment pro mesmo item.
+ *
+ * Muta e devolve os próprios itens (evita recriar os objetos e perder
+ * qualquer campo extra que outra categoria tenha colocado neles).
+ */
+async function attachQueueAssignments(
+  supabase: Supa,
+  clinicId: string,
+  items: PendingQueueItem[],
+): Promise<PendingQueueItem[]> {
+  if (items.length === 0) return items;
+
+  const { data: existing } = await supabase
+    .from("pending_queue_assignments")
+    .select("item_id, assigned_to, due_at, escalated_at, resolved_at, profiles(full_name)")
+    .eq("clinic_id", clinicId)
+    .in(
+      "item_id",
+      items.map((i) => i.id),
+    );
+
+  const existingByItemId = new Map((existing ?? []).map((row) => [row.item_id, row]));
+  const missing = items.filter((item) => !existingByItemId.has(item.id));
+
+  if (missing.length > 0) {
+    // Regra de "plantão" documentada (§9.1 da tarefa): o sistema não tem
+    // conceito de escala/plantão hoje, então o dono padrão de um item recém
+    // detectado é, deterministicamente, o profile ativo mais antigo com
+    // role='recepcao' — evita sortear um dono diferente a cada carregamento
+    // de página enquanto ninguém reatribui manualmente.
+    const { data: onDuty } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("clinic_id", clinicId)
+      .eq("role", "recepcao")
+      .eq("active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const now = Date.now();
+    const inserts = missing.map((item) => ({
+      clinic_id: clinicId,
+      item_id: item.id,
+      category: item.category,
+      patient_id: item.patientId,
+      assigned_to: onDuty?.id ?? null,
+      due_at: new Date(now + DUE_MINUTES_BY_CATEGORY[item.category] * 60_000).toISOString(),
+    }));
+
+    // onConflict com ignoreDuplicates: se outra requisição concorrente já
+    // inseriu o mesmo item_id entre a leitura acima e este insert, este
+    // upsert não sobrescreve o assignment que já existe (não queremos
+    // "resetar" due_at/assigned_to de um item que já tinha dono).
+    const { data: inserted } = await supabase
+      .from("pending_queue_assignments")
+      .upsert(inserts, { onConflict: "clinic_id,item_id", ignoreDuplicates: true })
+      .select("item_id, assigned_to, due_at, escalated_at, resolved_at, profiles(full_name)");
+
+    for (const row of inserted ?? []) {
+      existingByItemId.set(row.item_id, row);
+    }
+    // Se o upsert ignorou por já existir (corrida concorrente), o item ainda
+    // não está em existingByItemId — os campos ficam null abaixo, o que é
+    // seguro (próximo carregamento da página resolve).
+  }
+
+  const nowIso = new Date().toISOString();
+  for (const item of items) {
+    const row = existingByItemId.get(item.id);
+    if (!row) continue;
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    item.assignedToId = row.assigned_to;
+    item.assignedToName = profile?.full_name ?? null;
+    item.dueAt = row.due_at;
+    item.escalatedAt = row.escalated_at;
+    item.overdue = !row.resolved_at && row.due_at < nowIso;
+  }
+
+  return items;
+}
+
 /**
  * Fila única de pendências da recepção (§9.1), ordenada por urgência —
  * agrega as 6 categorias que o PRD descreve pra home da recepção. Cada
@@ -291,7 +476,17 @@ async function getPendingFamilyDocuments(supabase: Supa, clinicId: string): Prom
  * função só junta e ordena pra exibição, sem duplicar regra.
  */
 export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_CLINIC_ID): Promise<PendingQueueItem[]> {
-  const [expiringAuths, pendingPatients, overdueNotes, expiredDocuments, unansweredLeads, autoFaltas, rescheduleRequests, pendingFamilyDocuments] = await Promise.all([
+  const [
+    expiringAuths,
+    pendingPatients,
+    overdueNotes,
+    expiredDocuments,
+    unansweredLeads,
+    autoFaltas,
+    rescheduleRequests,
+    pendingFamilyDocuments,
+    renewalRequests,
+  ] = await Promise.all([
     getExpiringAuthorizations(supabase, clinicId),
     getPendingPatients(supabase, 3),
     listOverdueSessionNotes(supabase),
@@ -300,6 +495,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     getAutoFaltasSemMotivo(supabase, clinicId),
     getPendingRescheduleRequests(supabase, clinicId),
     getPendingFamilyDocuments(supabase, clinicId),
+    getAuthorizationRenewalRequests(supabase, clinicId),
   ]);
 
   const items: PendingQueueItem[] = [];
@@ -426,5 +622,19 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     });
   }
 
-  return items;
+  for (const r of renewalRequests) {
+    items.push({
+      id: `renovacao-${r.id}`,
+      category: "renovacao_solicitada",
+      categoryLabel: CATEGORY_LABEL.renovacao_solicitada,
+      patientId: r.patientId,
+      patientName: r.patientName,
+      detail: `${r.insurerName} · ${r.status === "solicitada_convenio" ? "solicitada ao convênio" : "aguardando início"}`,
+      urgencyLabel: new Date(r.createdAt).toLocaleDateString("pt-BR"),
+      href: `/recepcao/pacientes/${r.patientId}`,
+      renewalRequestId: r.id,
+    });
+  }
+
+  return attachQueueAssignments(supabase, clinicId, items);
 }

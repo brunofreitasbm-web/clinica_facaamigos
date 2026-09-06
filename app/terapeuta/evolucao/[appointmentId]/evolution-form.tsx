@@ -8,6 +8,7 @@ import { BEHAVIOR_TYPES, BEHAVIOR_INTENSITIES, FAMILY_GUIDANCE_OPTIONS } from "@
 import { generateAIEvolutionText } from "@/lib/aba-actions";
 import { ABCLogger } from "@/components/aba/abc-logger";
 import { AbaAiHelper } from "@/components/aba/aba-ai-helper";
+import { VoiceEvolutionRecorder } from "./voice-evolution-recorder";
 
 const PRESENCE_SCALE = [1, 2, 3, 4, 5] as const;
 
@@ -133,6 +134,47 @@ export function EvolutionForm({
     const id = setInterval(compute, 1000);
     return () => clearInterval(id);
   }, [attendanceStartedAt]);
+
+  // Aplica a sugestão da transcrição por voz (rota
+  // app/api/aba/session-note-voice/route.ts) aos campos do formulário —
+  // NUNCA salva sozinho, só pré-preenche pro terapeuta revisar e depois
+  // seguir o fluxo normal (Continuar → texto livre → Assinar evolução).
+  function applyVoiceSuggestion(suggestion: {
+    presenca_engajamento: number | null;
+    comportamentos: { tipo: string; intensidade: string }[];
+    orientacoes: string[];
+    free_text: string;
+  }) {
+    if (suggestion.presenca_engajamento !== null) {
+      setPresence(suggestion.presenca_engajamento);
+      setStepError(null);
+    }
+
+    if (suggestion.comportamentos.length > 0) {
+      setSelectedBehaviors((prev) => {
+        const next = { ...prev };
+        for (const c of suggestion.comportamentos) next[c.tipo] = true;
+        return next;
+      });
+      setIntensities((prev) => {
+        const next = { ...prev };
+        for (const c of suggestion.comportamentos) next[c.tipo] = c.intensidade;
+        return next;
+      });
+    }
+
+    if (suggestion.orientacoes.length > 0) {
+      setSelectedOrientations((prev) => {
+        const next = { ...prev };
+        for (const o of suggestion.orientacoes) next[o] = true;
+        return next;
+      });
+    }
+
+    if (suggestion.free_text) {
+      setFreeText((prev) => (prev ? `${prev}\n\n${suggestion.free_text}` : suggestion.free_text));
+    }
+  }
 
   function toggleBehavior(value: string) {
     setSelectedBehaviors((prev) => ({ ...prev, [value]: !prev[value] }));
@@ -263,6 +305,8 @@ export function EvolutionForm({
           {/* Passo 1 — presença/engajamento e comportamentos-alvo, campos de
               lib/session-note-fields.ts já gravados em session_notes.structured. */}
           <div className={step === 1 ? "flex flex-col gap-6" : "hidden"}>
+            <VoiceEvolutionRecorder onSuggestion={applyVoiceSuggestion} />
+
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
                 Presença e engajamento

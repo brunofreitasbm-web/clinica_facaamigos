@@ -5,6 +5,7 @@ import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { GlosaRegisterForm, type EligibleBillingItem, type Therapist } from "./glosa-register-form";
 import { GlosaRowActions } from "./glosa-row-actions";
 import { CsvImportForm } from "./csv-import-form";
+import { PatternAcknowledgeButton } from "./pattern-acknowledge-button";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +115,7 @@ type RawGlosaRow = {
   recovered_amount: number | null;
   billing_items: {
     procedure_code: string;
+    billing_periods: { insurer_id: string } | null;
     appointments: {
       starts_at: string;
       patients: { full_name: string } | null;
@@ -123,17 +125,63 @@ type RawGlosaRow = {
   attributable_profile: { full_name: string } | null;
 };
 
+type RecurringPattern = {
+  id: string;
+  insurerId: string;
+  insurerName: string;
+  reasonCode: string;
+  occurrencesCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
+/**
+ * Padrões recorrentes ativos (glosa_recurring_patterns, recalculada
+ * diariamente por refresh_glosa_patterns via pg_cron — ver
+ * supabase/migrations/20260906000017_glosa_recurring_patterns.sql). Mesmo
+ * cuidado de getGlosaBreakdown (lib/glosa-analytics.ts): filtra clinic_id
+ * na tabela-base (insurers) em vez de `.eq()` num embed aninhado.
+ */
+async function getActiveRecurringPatterns(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clinicId: string,
+): Promise<RecurringPattern[]> {
+  const { data: insurers } = await supabase.from("insurers").select("id, name").eq("clinic_id", clinicId);
+  const insurerIds = (insurers ?? []).map((i) => i.id);
+  const insurerNameById = new Map((insurers ?? []).map((i) => [i.id, i.name]));
+  if (insurerIds.length === 0) return [];
+
+  const { data: patterns } = await supabase
+    .from("glosa_recurring_patterns")
+    .select("id, insurer_id, reason_code, occurrences_count, first_seen_at, last_seen_at")
+    .in("insurer_id", insurerIds)
+    .eq("status", "ativo")
+    .order("occurrences_count", { ascending: false });
+
+  return (patterns ?? []).map((p) => ({
+    id: p.id,
+    insurerId: p.insurer_id,
+    insurerName: insurerNameById.get(p.insurer_id) ?? "Convênio",
+    reasonCode: p.reason_code,
+    occurrencesCount: p.occurrences_count,
+    firstSeenAt: p.first_seen_at,
+    lastSeenAt: p.last_seen_at,
+  }));
+}
+
 export default async function GlosasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; padrao_convenio?: string; padrao_motivo?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, padrao_convenio, padrao_motivo } = await searchParams;
   const query = (q ?? "").trim();
+  const patternInsurerFilter = (padrao_convenio ?? "").trim();
+  const patternReasonFilter = (padrao_motivo ?? "").trim();
 
   const supabase = await createClient();
 
-  const [{ data: therapistsRaw }, { data: rawGlosas }] = await Promise.all([
+  const [{ data: therapistsRaw }, { data: rawGlosas }, recurringPatterns] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name")
@@ -143,7 +191,7 @@ export default async function GlosasPage({
     supabase
       .from("glosas")
       .select(
-        "id, reason_code, reason_text, attributable_to, amount, appealed_at, recovered_amount, billing_items(procedure_code, appointments(starts_at, patients(full_name), authorizations(guide_number))), attributable_profile:profiles!attributable_profile_id(full_name)",
+        "id, reason_code, reason_text, attributable_to, amount, appealed_at, recovered_amount, billing_items(procedure_code, billing_periods(insurer_id), appointments(starts_at, patients(full_name), authorizations(guide_number))), attributable_profile:profiles!attributable_profile_id(full_name)",
       )
       // `glosas` não tem coluna de data de criação — `id` (ordem de inserção
       // aproximada) é o melhor proxy disponível pra "mais recentes primeiro",
@@ -151,13 +199,14 @@ export default async function GlosasPage({
       // pra billing_items (que também não tem created_at).
       .order("id", { ascending: false })
       .limit(200),
+    getActiveRecurringPatterns(supabase, DEV_CLINIC_ID),
   ]);
 
   const therapists: Therapist[] = (therapistsRaw ?? []).map((t) => ({ id: t.id, fullName: t.full_name }));
 
   const eligibleItems = query.length >= 2 ? await searchEligibleBillingItems(supabase, query) : [];
 
-  const glosas = ((rawGlosas ?? []) as unknown as RawGlosaRow[]).map((g) => {
+  const allGlosas = ((rawGlosas ?? []) as unknown as RawGlosaRow[]).map((g) => {
     const item = g.billing_items;
     const appt = item?.appointments ?? null;
     return {
@@ -170,11 +219,18 @@ export default async function GlosasPage({
       appealedAt: g.appealed_at,
       recoveredAmount: g.recovered_amount === null ? null : Number(g.recovered_amount),
       procedureCode: item?.procedure_code ?? "—",
+      insurerId: item?.billing_periods?.insurer_id ?? null,
       patientName: appt?.patients?.full_name ?? "Paciente",
       guideNumber: appt?.authorizations?.guide_number ?? null,
       startsAt: appt?.starts_at ?? null,
     };
   });
+
+  // Filtro "ver ocorrências" vindo do destaque de padrão recorrente — mesma
+  // combinação convênio+motivo usada por refresh_glosa_patterns().
+  const glosas = patternInsurerFilter
+    ? allGlosas.filter((g) => g.insurerId === patternInsurerFilter && g.reasonCode === patternReasonFilter)
+    : allGlosas;
 
   return (
     <main className="flex flex-1 flex-col">
@@ -191,6 +247,45 @@ export default async function GlosasPage({
             .
           </p>
         </div>
+
+        {recurringPatterns.length > 0 && (
+          <section className="flex flex-col gap-3 rounded-md border border-status-negative-text/40 bg-status-negative-text/5 p-5">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-status-negative-text">
+              Padrões recorrentes a evitar
+            </h2>
+            <p className="text-xs text-ink-soft">
+              Estas combinações de convênio + motivo já bateram 3 ou mais ocorrências nos últimos 6 meses — vale
+              investigar a causa raiz antes de faturar de novo.
+            </p>
+            <ul className="flex flex-col gap-2">
+              {recurringPatterns.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper px-4 py-3 text-sm"
+                >
+                  <div>
+                    <span className="font-medium text-ink">
+                      {p.insurerName} + {p.reasonCode}
+                    </span>
+                    <span className="ml-2 text-ink-soft">
+                      {p.occurrencesCount}ª ocorrência em 6 meses
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/faturamento/glosas?padrao_convenio=${p.insurerId}&padrao_motivo=${encodeURIComponent(p.reasonCode)}`}
+                      className="text-xs underline text-ink-soft hover:text-ink"
+                    >
+                      Ver ocorrências
+                    </Link>
+                    <PatternAcknowledgeButton patternId={p.id} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="flex flex-col gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-5">
           <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
             Registrar glosa
@@ -216,9 +311,17 @@ export default async function GlosasPage({
         <CsvImportForm />
 
         <section>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
-            Glosas registradas ({glosas.length})
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
+              Glosas registradas ({glosas.length})
+              {patternInsurerFilter && " · filtrado pelo padrão recorrente"}
+            </h2>
+            {patternInsurerFilter && (
+              <Link href="/faturamento/glosas" className="text-xs underline text-ink-soft hover:text-ink">
+                Limpar filtro
+              </Link>
+            )}
+          </div>
           <ul className="mt-2 flex flex-col gap-2">
             {glosas.map((g) => (
               <li
