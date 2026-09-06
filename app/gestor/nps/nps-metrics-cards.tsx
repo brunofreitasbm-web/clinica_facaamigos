@@ -4,24 +4,40 @@ export function NpsMetricsCards({
   avgScore,
   responseCount,
   distribution,
+  combinedScore10,
+  combinedResponseCount,
 }: {
   avgScore: number | null;
   responseCount: number;
   distribution: ScoreDistribution[];
+  combinedScore10?: number | null;
+  combinedResponseCount?: number;
 }) {
   const maxCount = Math.max(1, ...distribution.map((d) => d.count));
 
   return (
     <div className="flex flex-wrap gap-6">
+      {combinedScore10 !== undefined && (
+        <div className="card min-w-[220px]">
+          <span className="card-kicker">Satisfação geral (combinada, 0-10)</span>
+          <span className="text-3xl font-bold text-ink" style={{ fontFamily: "var(--font-heading)" }}>
+            {combinedScore10 ?? "—"}
+          </span>
+          <span className="text-xs text-ink-faint">
+            {combinedResponseCount ?? 0} respostas · Twilio + Avalie (família)
+          </span>
+        </div>
+      )}
+
       <div className="card min-w-[180px]">
-        <span className="card-kicker">Nota média</span>
+        <span className="card-kicker">Nota média Twilio (1-5)</span>
         <span className="text-3xl font-bold text-ink" style={{ fontFamily: "var(--font-heading)" }}>
           {avgScore ?? "—"}
         </span>
       </div>
 
       <div className="card min-w-[180px]">
-        <span className="card-kicker">Respostas no mês</span>
+        <span className="card-kicker">Respostas Twilio no mês</span>
         <span className="text-3xl font-bold text-ink" style={{ fontFamily: "var(--font-heading)" }}>
           {responseCount}
         </span>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
@@ -687,7 +688,7 @@ export default async function FamiliaPage({
           bottom: 0,
           background: "var(--color-surface)",
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(5, 1fr)",
           padding: "10px 0 16px",
           fontSize: 11,
           borderTop: "1px solid var(--color-divider)",
@@ -697,6 +698,9 @@ export default async function FamiliaPage({
         <span style={{ textAlign: "center", color: "var(--color-neutral-600)" }}>Agenda</span>
         <span style={{ textAlign: "center", color: "var(--color-neutral-600)" }}>Progresso</span>
         <span style={{ textAlign: "center", color: "var(--color-neutral-600)" }}>Documentos</span>
+        <Link href={`/familia/avalie?patient=${patientId}`} style={{ textAlign: "center", color: "var(--color-neutral-600)", textDecoration: "none" }}>
+          Avalie
+        </Link>
       </nav>
     </main>
   );

@@ -19,7 +19,7 @@ const NAV_ITEMS = [
   { key: "atendimento", label: "Central de Atendimento", href: "/gestor/atendimento", icon: MessageCircle },
   { key: "nps", label: "NPS", href: "/gestor/nps", icon: Smile },
   { key: "whatsapp-bot", label: "WhatsApp Bot", href: "/whatsapp-bot" },
-  { key: "equipe", label: "Equipe", href: "/gestor/equipe" },
+  { key: "equipe", label: "Equipe", href: "/gestor/bonificacao" },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro" },
   { key: "auditoria", label: "Auditoria (LGPD)", href: "/gestor/auditoria" },
