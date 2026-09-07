@@ -7,7 +7,7 @@ import { logRecordAccess } from "@/lib/record-access-log";
 
 export type CreateInteressadoInput = {
   fullName: string;
-  birthDate?: string;
+  birthDate: string;
   guardianName: string;
   guardianPhone: string;
   guardianRelationship?: string;
@@ -29,6 +29,14 @@ export async function createInteressadoAction(input: CreateInteressadoInput): Pr
     if (!input.guardianPhone.trim()) {
       return { success: false, error: "Telefone do responsável é obrigatório." };
     }
+    // patients.birth_date é NOT NULL — este formulário gravava "2020-01-01"
+    // sempre que o campo vinha vazio, um dado falso indistinguível de uma
+    // data real (nenhuma tela sinalizava isso depois). Em vez de inventar
+    // dado, exige a data aqui também (mesma regra do formulário completo em
+    // app/recepcao/pacientes/novo/page.tsx).
+    if (!input.birthDate.trim()) {
+      return { success: false, error: "Data de nascimento é obrigatória." };
+    }
 
     // 1. Inserir paciente em status 'interessado'
     const { data: patient, error: patientErr } = await supabase
@@ -36,7 +44,7 @@ export async function createInteressadoAction(input: CreateInteressadoInput): Pr
       .insert({
         clinic_id: DEV_CLINIC_ID,
         full_name: input.fullName.trim(),
-        birth_date: input.birthDate || "2020-01-01",
+        birth_date: input.birthDate,
         status: "interessado",
         entry_source: input.origin || "Recepção",
         complaint: input.chiefComplaint?.trim() || null,
@@ -61,6 +69,15 @@ export async function createInteressadoAction(input: CreateInteressadoInput): Pr
 
     if (guardianErr) {
       console.error("Erro ao cadastrar responsável do interessado:", guardianErr);
+      // Paciente já existe sem responsável algum — melhor reportar o erro
+      // de verdade pra recepção corrigir na hora do que deixar como se
+      // tivesse dado certo (o cadastro rápido não tem tela própria pra
+      // adicionar responsável depois, só a ficha completa).
+      return {
+        success: true,
+        patientId: patient.id,
+        error: "Paciente cadastrado, mas houve um erro ao salvar o responsável — complete pela ficha do paciente.",
+      };
     }
 
     revalidatePath("/recepcao");

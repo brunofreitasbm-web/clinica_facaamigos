@@ -40,13 +40,16 @@ export async function getWhatsappQueue(): Promise<WhatsappQueueItem[]> {
   const rangeStart = zonedDateTimeToUtc(tomorrow, "00:00", CLINIC_TIMEZONE).toISOString();
   const rangeEnd = zonedDateTimeToUtc(tomorrow, "23:59", CLINIC_TIMEZONE).toISOString();
 
+  // `guardians` não tem FK pra `appointments` (só pra `patients`) — um embed
+  // `guardians!guardians_patient_id_fkey` direto em cima de `appointments`
+  // não existe pro PostgREST, retorna PGRST200 e deixava a fila sempre
+  // vazia. Busca os responsáveis à parte, por patient_id.
   const { data: appointments, error } = await supabase
     .from("appointments")
     .select(
       `id, patient_id, discipline, starts_at, status,
        patients ( full_name ),
-       rooms ( name ),
-       guardians:guardians!guardians_patient_id_fkey ( id, full_name, phone, is_financial )`,
+       rooms ( name )`,
     )
     .gte("starts_at", rangeStart)
     .lte("starts_at", rangeEnd)
@@ -57,23 +60,34 @@ export async function getWhatsappQueue(): Promise<WhatsappQueueItem[]> {
   if (error || !appointments || appointments.length === 0) return [];
 
   const appointmentIds = appointments.map((a) => a.id);
-  const { data: alreadySent } = await supabase
-    .from("messages")
-    .select("related_appointment_id")
-    .eq("channel", "whatsapp")
-    .eq("template_key", "lembrete_d1")
-    .in("related_appointment_id", appointmentIds);
+  const patientIds = [...new Set(appointments.map((a) => a.patient_id))];
+
+  const [{ data: alreadySent }, { data: guardianRows }] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("related_appointment_id")
+      .eq("channel", "whatsapp")
+      .eq("template_key", "lembrete_d1")
+      .in("related_appointment_id", appointmentIds),
+    supabase
+      .from("guardians")
+      .select("id, patient_id, full_name, phone, is_financial")
+      .in("patient_id", patientIds),
+  ]);
 
   const sentSet = new Set((alreadySent ?? []).map((m) => m.related_appointment_id));
+  const guardiansByPatient = new Map<string, { id: string; full_name: string; phone: string; is_financial: boolean }[]>();
+  for (const g of guardianRows ?? []) {
+    const list = guardiansByPatient.get(g.patient_id) ?? [];
+    list.push(g);
+    guardiansByPatient.set(g.patient_id, list);
+  }
 
   return appointments
     .filter((a) => !sentSet.has(a.id))
     .map((a) => {
-      const guardiansList = (a.guardians ?? []) as unknown as
-        | { id: string; full_name: string; phone: string; is_financial: boolean }[]
-        | null;
-      const guardian =
-        guardiansList?.find((g) => g.is_financial) ?? guardiansList?.[0] ?? null;
+      const guardiansList = guardiansByPatient.get(a.patient_id) ?? [];
+      const guardian = guardiansList.find((g) => g.is_financial) ?? guardiansList[0] ?? null;
 
       const startsAt = new Date(a.starts_at);
       const appointmentDate = startsAt.toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE });

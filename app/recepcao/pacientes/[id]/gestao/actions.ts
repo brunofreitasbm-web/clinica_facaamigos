@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -248,7 +249,30 @@ export async function setPatientArchived(patientId: string, archived: boolean): 
     const { error } = await supabase.from("patients").update({ status: "arquivado" }).eq("id", patientId);
     if (error) return { success: false, error: "Não foi possível arquivar o paciente." };
   } else {
-    const { error } = await supabase.from("patients").update({ status: "ativo" }).eq("id", patientId);
+    // Não existe coluna que guarde o status anterior ao arquivamento —
+    // reconstrói a partir do audit_log (mesmo princípio de
+    // patient_status_as_of, 20260904000013) em vez de forçar 'ativo' pra
+    // todo mundo, o que promovia até quem só era 'interessado'/'avaliacao'
+    // direto pro fim do funil de entrada. audit_log_read só libera pra
+    // gestor — quem desarquiva normalmente é a recepção, então usa o
+    // admin client só pra esta leitura pontual (mesmo padrão de
+    // lib/anamnesis-prefill.ts).
+    const admin = createAdminClient();
+    const { data: lastArchiveEntry } = await admin
+      .from("audit_log")
+      .select("before")
+      .eq("table_name", "patients")
+      .eq("row_id", patientId)
+      .eq("action", "UPDATE")
+      .contains("after", { status: "arquivado" })
+      .order("at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const before = lastArchiveEntry?.before as { status?: string } | null;
+    const restoredStatus = before?.status ?? "ativo";
+
+    const { error } = await supabase.from("patients").update({ status: restoredStatus }).eq("id", patientId);
     if (error) return { success: false, error: "Não foi possível reativar o paciente." };
   }
 

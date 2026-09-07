@@ -50,11 +50,19 @@ export function NovaSessaoDialog({
 
   const guide = useMemo(() => guidesByPatient[patientId] ?? null, [guidesByPatient, patientId]);
 
-  // Deep link `/recepcao#nova-sessao` (atalho da aba Fluxos da supervisão):
-  // abre o diálogo direto e limpa o hash pra um F5 não reabrir sozinho.
+  // Deep link `/recepcao#nova-sessao` (atalho da aba Fluxos da supervisão) ou
+  // `/recepcao#nova-sessao:<patientId>` (botão "Nova sessão" da ficha do
+  // paciente, app/recepcao/pacientes/[id]/page.tsx, que antes só mandava pra
+  // "/recepcao" sem nenhum contexto — o atendente tinha que reabrir o
+  // diálogo e reselecionar o paciente do zero): abre o diálogo direto,
+  // pré-seleciona o paciente se veio um id, e limpa o hash pra um F5 não
+  // reabrir sozinho.
   function openFromHash() {
-    if (window.location.hash !== "#nova-sessao") return;
+    const hash = window.location.hash;
+    if (hash !== "#nova-sessao" && !hash.startsWith("#nova-sessao:")) return;
+    const preselectId = hash.startsWith("#nova-sessao:") ? hash.slice("#nova-sessao:".length) : "";
     setOpen(true);
+    if (preselectId) setPatientId(preselectId);
     history.replaceState(null, "", window.location.pathname + window.location.search);
   }
   useEffect(() => {

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createInteressadoAction } from "./actions";
 
 export function InteressadoRapidoDialog() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export function InteressadoRapidoDialog() {
 
     const res = await createInteressadoAction({
       fullName,
-      birthDate: birthDate || undefined,
+      birthDate,
       guardianName,
       guardianPhone,
       guardianRelationship,
@@ -45,6 +47,18 @@ export function InteressadoRapidoDialog() {
     setGuardianPhone("");
     setChiefComplaint("");
     setOpen(false);
+
+    // O cadastro fica em `patients`/`guardians` na hora, mas a home da
+    // recepção (fila de pendências, lista de pacientes) só reflete isso
+    // depois de um refresh — sem isso o atendente via o modal fechar e
+    // nada mudar na tela, parecia que o cadastro não tinha ido pra lugar
+    // nenhum. Manda direto pra ficha do paciente recém-criado, mesma UX do
+    // formulário completo (app/recepcao/pacientes/novo/page.tsx).
+    if (res.patientId) {
+      router.push(`/recepcao/pacientes/${res.patientId}`);
+    } else {
+      router.refresh();
+    }
   };
 
   return (
@@ -109,10 +123,11 @@ export function InteressadoRapidoDialog() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-neutral-700">
-                    Data de Nascimento
+                    Data de Nascimento <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
+                    required
                     value={birthDate}
                     onChange={(e) => setBirthDate(e.target.value)}
                     className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"

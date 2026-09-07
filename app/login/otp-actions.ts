@@ -81,8 +81,7 @@ export async function requestFamilyOtp(
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutos
 
   // Inserir registro de OTP no banco
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: insertError } = await (admin as any).from("family_otp_codes").insert({
+  const { error: insertError } = await admin.from("family_otp_codes").insert({
     phone: digits,
     code,
     expires_at: expiresAt,
@@ -93,11 +92,15 @@ export async function requestFamilyOtp(
     return { success: false, error: "Falha ao gerar código OTP. Tente novamente." };
   }
 
-  console.log(`[OTP FAMÍLIA] Código gerado para o telefone ${digits}: ${code}`);
-
   // Envio real via WhatsApp (com fallback pra SMS) quando o Twilio está
   // configurado — em dev/sem credenciais, isTwilioConfigured() é false e o
-  // console.log acima continua sendo o único "envio", exatamente como antes.
+  // console.log abaixo é o único "envio". Só loga o código em texto claro
+  // nesse caso (sem Twilio configurado não é produção); com Twilio ativo o
+  // código nunca vai pro log do servidor.
+  if (!isTwilioConfigured()) {
+    console.log(`[OTP FAMÍLIA] Código gerado para o telefone ${digits}: ${code}`);
+  }
+
   if (isTwilioConfigured()) {
     const messageText = `Seu código de acesso ao Portal da Família Faça Amigos é: ${code}\n\nEle expira em 5 minutos. Não compartilhe este código.`;
     const whatsappResult = await sendTwilioWhatsApp({ to: digits, message: messageText });
@@ -130,8 +133,7 @@ export async function verifyFamilyOtp(
   const admin = createAdminClient();
 
   // Buscar último OTP ativo para o número
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: otpRecords, error: otpError } = await (admin as any)
+  const { data: otpRecords, error: otpError } = await admin
     .from("family_otp_codes")
     .select("*")
     .eq("phone", digits)
@@ -158,8 +160,7 @@ export async function verifyFamilyOtp(
 
   // Validar o código digitado
   if (otp.code !== cleanCode) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from("family_otp_codes")
       .update({ attempts: otp.attempts + 1 })
       .eq("id", otp.id);
@@ -203,8 +204,7 @@ export async function verifyFamilyOtp(
     if (cpfDigits !== guardian.cpf.replace(/\D/g, "")) {
       // Mesmo contador de tentativas do código OTP (family_otp_codes.attempts)
       // — evita brute-force de CPF sem precisar de uma coluna nova.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (admin as any)
+      await admin
         .from("family_otp_codes")
         .update({ attempts: otp.attempts + 1 })
         .eq("id", otp.id);
@@ -218,8 +218,7 @@ export async function verifyFamilyOtp(
   }
 
   // Marcar código como utilizado
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).from("family_otp_codes").update({ used: true }).eq("id", otp.id);
+  await admin.from("family_otp_codes").update({ used: true }).eq("id", otp.id);
 
   // Buscar dados da clínica vinculada ao paciente
   const { data: patient } = await admin

@@ -159,6 +159,10 @@ export default async function PacientePage({
   } = await supabase.auth.getUser();
 
   let canUploadDocuments = false;
+  // Quem pode de fato abrir /supervisao pra usar os links do checklist de
+  // entrada (ver lib/roles.ts ROLE_ALLOWED_PREFIXES) — recepção não pode,
+  // o middleware manda de volta; ver IntakeChecklist.linksNavigable.
+  let canNavigateToSupervisao = false;
   if (user) {
     const { data: viewerProfile } = await supabase
       .from("profiles")
@@ -166,6 +170,7 @@ export default async function PacientePage({
       .eq("id", user.id)
       .maybeSingle();
     canUploadDocuments = !!viewerProfile && CAN_UPLOAD_ROLES.includes(viewerProfile.role);
+    canNavigateToSupervisao = viewerProfile?.role === "supervisor" || viewerProfile?.role === "gestor";
   }
 
   // Mural da família (PRD §4) — mural independente das evoluções, mesma
@@ -427,7 +432,7 @@ export default async function PacientePage({
           </span>
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-              {patient.birth_date ? `Nasc. ${fmtDate(patient.birth_date)} · ` : ""}
+              {patient.birth_date ? `Nasc. ${fmtDate(`${patient.birth_date}T00:00:00`)} · ` : ""}
               {activeInsurance?.insurerName ?? "Particular"}
               {activeAuthorization?.guideNumber ? ` · guia ${activeAuthorization.guideNumber}` : ""}
             </h6>
@@ -449,7 +454,7 @@ export default async function PacientePage({
           <a href={`/recepcao/pacientes/${patient.id}/gestao`} className="btn btn-secondary">
             Convênios, cobranças e equipe
           </a>
-          <a href="/recepcao" className="btn btn-primary">
+          <a href={`/recepcao#nova-sessao:${patient.id}`} className="btn btn-primary">
             Nova sessão
           </a>
         </div>
@@ -555,12 +560,28 @@ export default async function PacientePage({
               grupo_whatsapp: { label: "Incluído no grupo", action: (pid) => completeIntakeStep(pid, "grupo_whatsapp") },
             }}
             links={{
-              anamnese_realizada: { label: "Registrar anamnese", href: `/supervisao/pacientes/${patient.id}/anamnese` },
+              anamnese_realizada: {
+                label: "Registrar anamnese",
+                href: `/supervisao/pacientes/${patient.id}/anamnese`,
+                navigable: canNavigateToSupervisao,
+              },
               equipe_definida: { label: "Definir equipe", href: `/recepcao/pacientes/${patient.id}/gestao#equipe` },
-              reuniao_interdisciplinar: { label: "Nova reunião", href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=interdisciplinar` },
-              pdi_construido: { label: "Montar PEI", href: `/supervisao/planos/novo?paciente=${patient.id}` },
-              pdi_validado: { label: "Fila de aprovação", href: `/supervisao` },
-              devolutiva_familia: { label: "Registrar devolutiva", href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=devolutiva` },
+              reuniao_interdisciplinar: {
+                label: "Nova reunião",
+                href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=interdisciplinar`,
+                navigable: canNavigateToSupervisao,
+              },
+              pdi_construido: {
+                label: "Montar PEI",
+                href: `/supervisao/planos/novo?paciente=${patient.id}`,
+                navigable: canNavigateToSupervisao,
+              },
+              pdi_validado: { label: "Fila de aprovação", href: `/supervisao`, navigable: canNavigateToSupervisao },
+              devolutiva_familia: {
+                label: "Registrar devolutiva",
+                href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=devolutiva`,
+                navigable: canNavigateToSupervisao,
+              },
             }}
           />
         </div>

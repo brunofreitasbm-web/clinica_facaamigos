@@ -42,10 +42,17 @@ export async function createInteressado(
     return { success: false, error: "Não foi possível salvar o paciente. Tente de novo." };
   }
 
+  // is_financial/is_emergency_contact = true: único responsável cadastrado
+  // no intake é o contato padrão até um segundo ser adicionado (mesma regra
+  // do cadastro rápido em app/recepcao/actions.ts). Sem isso, a ficha do
+  // paciente só oferece o seletor de contato de emergência quando já existem
+  // 2+ responsáveis — o primeiro cadastro nunca tinha nenhum marcado.
   const { error: guardianError } = await supabase.from("guardians").insert({
     patient_id: patient.id,
     full_name: guardianName,
     phone: guardianPhone,
+    is_financial: true,
+    is_emergency_contact: true,
   });
 
   if (guardianError) {

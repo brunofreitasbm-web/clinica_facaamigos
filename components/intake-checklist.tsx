@@ -28,7 +28,15 @@ export function IntakeChecklist({
   patientId: string;
   steps: IntakeStepRow[];
   manualActions?: Record<string, { label: string; action: (patientId: string) => Promise<ActionResult> } | undefined>;
-  links?: Partial<Record<IntakeStepKey, { label: string; href: string }>>;
+  /**
+   * Alguns `links` apontam pra fora de `/recepcao` (ex.: anamnese, PDI e
+   * reuniões vivem em `/supervisao`). `lib/roles.ts` não libera esse
+   * prefixo pra `recepcao` — o middleware simplesmente manda de volta pra
+   * `/recepcao`, então o botão parecia clicável mas não levava a lugar
+   * nenhum pra quem realmente usa esta tela no dia a dia. `navigable: false`
+   * (default true) mostra o rótulo como texto informativo em vez de link.
+   */
+  links?: Partial<Record<IntakeStepKey, { label: string; href: string; navigable?: boolean }>>;
   fmtDate: (iso: string) => string;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -82,10 +90,13 @@ export function IntakeChecklist({
                 {manual.label}
               </button>
             )}
-            {status === "pendente" && !manual && link && (
+            {status === "pendente" && !manual && link && link.navigable !== false && (
               <Link href={link.href} className="btn btn-ghost text-xs no-underline">
                 {link.label}
               </Link>
+            )}
+            {status === "pendente" && !manual && link && link.navigable === false && (
+              <span className="text-xs text-ink-faint">Aguardando ação da supervisão</span>
             )}
           </li>
         );
