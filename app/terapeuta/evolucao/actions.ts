@@ -148,8 +148,8 @@ export async function createSessionNote(
   if (signerProfileError || !signerProfile) {
     return { success: false, error: "Não foi possível verificar seu perfil. Tente de novo." };
   }
-  if (signerProfile.role !== "terapeuta" && signerProfile.role !== "supervisor") {
-    return { success: false, error: "Seu perfil não pode assinar evoluções." };
+  if (signerProfile.role !== "terapeuta" && signerProfile.role !== "supervisor" && signerProfile.role !== "gestor") {
+    return { success: false, error: "Seu perfil não tem permissão para assinar evoluções." };
   }
 
   // Metas trabalhadas (PRD §9.4): re-consultamos `plan_goals` no servidor e

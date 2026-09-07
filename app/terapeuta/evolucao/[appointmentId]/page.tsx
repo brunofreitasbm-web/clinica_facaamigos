@@ -70,10 +70,9 @@ export default async function EvolucaoPage({
   // Qualquer terapeuta da clínica pode assinar a evolução, não só o dono
   // original da sessão (RLS de appointments_read/session_notes_insert
   // espelha a mesma regra — ver migração 20260907_open_session_note_signing).
-  const canSign = profile.role === "terapeuta";
+  const canSign = profile.role === "terapeuta" || profile.role === "gestor";
 
-  // Quem pode editar (criar nova versão) espelha exatamente a RLS de
-  // session_notes_insert: qualquer terapeuta, ou um supervisor.
+  // Quem pode editar (criar nova versão) espelha a permissão do terapeuta, supervisor e gestor.
   const canEdit = canSign || profile.role === "supervisor";
 
   // coleta ABA: programas do plano aprovado do paciente, pra registrar

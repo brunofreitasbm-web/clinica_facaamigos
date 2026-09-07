@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { User, PenLine, CalendarClock, X } from "lucide-react";
 import {
   confirmAppointment,
+  setAguardando,
   checkIn,
   checkOut,
   markMissedOrCancelled,
@@ -464,13 +465,14 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
   const canCheckout = Boolean(session.checkinAt) && !session.checkoutAt;
   const canReschedule = uiState === "aguardando" || uiState === "na_recepcao" || uiState === "em_atendimento";
   const durationMinutes = Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60_000);
-  // Botão "Vincular guia" (Gap 3 do audit): só faz sentido pra sessão normal
-  // (não avaliação, não provisória de propósito) que ainda não tem guia.
+
   const canLinkGuide = !session.authorizationId && !session.isProvisional && !session.isEvaluation;
-  // Falta marcada por auto_resolve_appointments (pg_cron) sem check-in até
-  // 20 min do início — a recepção pode desfazer se a família chegou atrasada
-  // (ver undoAutoFalta em app/recepcao/agenda/session-actions.ts).
   const canUndoAutoFalta = session.status === "falta_familia" && session.autoMarked && !session.checkoutAt;
+
+  const isAguardando = session.status === "agendada" && !session.checkinAt;
+  const isConfirmado = session.status === "confirmada" && !session.checkinAt;
+  const isCheckedIn = Boolean(session.checkinAt);
+  const isFaltaOrCancelled = NEGATIVE_STATUSES.some((s) => s.value === session.status) || session.status === "falta_familia";
 
   function runAction(action: () => Promise<{ success: true; warning?: string } | { success: false; error: string }>) {
     setError(null);
@@ -489,17 +491,10 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
     }
   }
 
-  function handleStatusChange(value: string) {
-    if (value === "confirmar") runAction(() => confirmAppointment(session.id));
-    else if (value === "checkin") runAction(() => checkIn(session.id));
-    else if (value === "checkout") runAction(() => checkOut(session.id));
-    else if (value === "falta_cancelar") setShowFaltaForm(true);
-  }
-
   return (
     <div
       className="grid items-center gap-3 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3"
-      style={{ gridTemplateColumns: "72px 1fr 170px 132px" }}
+      style={{ gridTemplateColumns: "72px 1fr 130px auto" }}
     >
       <div className="text-xs">
         <p className="font-mono font-medium text-ink">{formatTime(session.startsAt)}</p>
@@ -514,36 +509,8 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
         <p className="truncate text-xs text-ink-faint">{session.roomName}</p>
       </div>
 
-      <div className="text-xs">
-        {(uiState === "aguardando" && (canConfirm || canCheckin)) ? (
-          <select
-            value=""
-            onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={isPending}
-            className={`tag-status ${display.tagClass} cursor-pointer border-0`}
-          >
-            <option value="" disabled>
-              {display.label}
-            </option>
-            {canConfirm && <option value="confirmar">Confirmar</option>}
-            {canCheckin && <option value="checkin">Check-in</option>}
-            <option value="falta_cancelar">Falta / Cancelar</option>
-          </select>
-        ) : canCheckout ? (
-          <select
-            value=""
-            onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={isPending}
-            className={`tag-status ${display.tagClass} cursor-pointer border-0`}
-          >
-            <option value="" disabled>
-              {display.label}
-            </option>
-            <option value="checkout">Check-out</option>
-          </select>
-        ) : (
-          <span className={`tag-status ${display.tagClass}`}>{display.label}</span>
-        )}
+      <div className="text-xs flex flex-col items-start gap-1">
+        <span className={`tag-status ${display.tagClass}`}>{display.label}</span>
 
         {canUndoAutoFalta && (
           <button
@@ -552,7 +519,7 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
             onClick={() => runAction(() => undoAutoFalta(session.id))}
             className="mt-1 block text-[11px] font-medium text-ink-soft underline decoration-dotted hover:text-ink disabled:opacity-50"
           >
-            Falta automática (sem check-in) · desfazer
+            Falta automática · desfazer
           </button>
         )}
 
@@ -607,7 +574,7 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
             {guideOptions === null ? (
               <p className="text-[11px] text-ink-faint">Carregando guias…</p>
             ) : guideOptions.length === 0 ? (
-              <p className="text-[11px] text-ink-faint">Paciente sem guia ativa cadastrada.</p>
+              <p className="text-[11px] text-ink-faint">Paciente sem guia ativa.</p>
             ) : (
               <select
                 value={selectedGuideId}
@@ -655,64 +622,58 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
         )}
       </div>
 
-      <div className="relative flex items-center justify-end gap-1.5">
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
         <button
           type="button"
-          title="Responsáveis"
-          onClick={() => setShowGuardians((v) => !v)}
-          className="btn btn-icon"
+          disabled={isPending || isAguardando}
+          onClick={() => runAction(() => setAguardando(session.id))}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+            isAguardando
+              ? "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700 font-semibold shadow-xs"
+              : "bg-paper/40 text-ink-soft border border-paper-line-strong hover:bg-amber-50 hover:text-amber-800 hover:border-amber-300 dark:hover:bg-amber-950/30"
+          }`}
         >
-          <User size={16} />
+          Aguardando
         </button>
-        {showGuardians && (
-          <div className="absolute right-0 top-full z-10 mt-1 w-64 rounded-md border border-paper-line-strong bg-paper p-3 text-xs shadow-lg">
-            {guardians.length === 0 && <p className="text-ink-faint">Nenhum responsável cadastrado.</p>}
-            {guardians.map((g, i) => (
-              <div key={i} className="border-b border-paper-line py-1.5 last:border-0">
-                <p className="font-medium text-ink">
-                  {g.fullName} {g.isEmergencyContact && <span className="text-ink-faint">· emergência</span>}
-                </p>
-                <p className="text-ink-soft">{g.relationship ?? "—"} · {g.phone}</p>
-              </div>
-            ))}
-          </div>
-        )}
 
-        {session.status === "realizada" && session.pendingNote ? (
-          <a
-            href={`/terapeuta/evolucao/${session.id}`}
-            target="_blank"
-            rel="noreferrer"
-            title="Registro pendente"
-            className="btn btn-icon"
-            style={{ color: "var(--status-falta)", borderColor: "var(--status-falta)" }}
-          >
-            <PenLine size={16} />
-          </a>
-        ) : (
-          <span
-            title={session.status === "realizada" ? "Registro já feito" : "Registro só após a sessão"}
-            className="btn btn-icon opacity-30"
-            aria-disabled
-          >
-            <PenLine size={16} />
-          </span>
-        )}
+        <button
+          type="button"
+          disabled={isPending || isConfirmado}
+          onClick={() => runAction(() => confirmAppointment(session.id))}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+            isConfirmado
+              ? "bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700 font-semibold shadow-xs"
+              : "bg-paper/40 text-ink-soft border border-paper-line-strong hover:bg-sky-50 hover:text-sky-800 hover:border-sky-300 dark:hover:bg-sky-950/30"
+          }`}
+        >
+          Confirmado
+        </button>
 
-        {canReschedule ? (
-          <ReagendamentoDialog
-            appointmentId={session.id}
-            patientName={session.patientName}
-            therapistName={session.therapistName}
-            roomId={session.roomId}
-            therapistId={session.therapistId}
-            durationMinutes={durationMinutes}
-          />
-        ) : (
-          <span title="Não é possível reagendar" className="btn btn-icon opacity-30" aria-disabled>
-            <CalendarClock size={16} />
-          </span>
-        )}
+        <button
+          type="button"
+          disabled={isPending || isCheckedIn}
+          onClick={() => runAction(() => checkIn(session.id))}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+            isCheckedIn
+              ? "bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700 font-semibold shadow-xs"
+              : "bg-paper/40 text-ink-soft border border-paper-line-strong hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 dark:hover:bg-emerald-950/30"
+          }`}
+        >
+          Check-in
+        </button>
+
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => setShowFaltaForm((v) => !v)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+            isFaltaOrCancelled || showFaltaForm
+              ? "bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700 font-semibold shadow-xs"
+              : "bg-paper/40 text-ink-soft border border-paper-line-strong hover:bg-rose-50 hover:text-rose-800 hover:border-rose-300 dark:hover:bg-rose-950/30"
+          }`}
+        >
+          Falta / Cancelar
+        </button>
       </div>
     </div>
   );

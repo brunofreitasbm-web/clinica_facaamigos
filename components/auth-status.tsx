@@ -52,8 +52,8 @@ export async function AuthStatus() {
           <span>
             <strong className="text-white">{userDisplayName}</strong>
             {currentRole && (
-              <span className="ml-1 text-slate-400">
-                ({ROLE_LABEL[currentRole] ?? currentRole})
+              <span className="ml-1.5 inline-flex items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-semibold text-amber-300 border border-amber-500/30">
+                {currentRole === "gestor" ? "⚡ Modo Deus (Gestor)" : (ROLE_LABEL[currentRole] ?? currentRole)}
               </span>
             )}
           </span>

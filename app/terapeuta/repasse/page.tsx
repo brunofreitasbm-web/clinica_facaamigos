@@ -28,7 +28,7 @@ export default async function TerapeutaRepassePage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile || profile.role !== "terapeuta") redirect("/");
+  if (!profile || (profile.role !== "terapeuta" && profile.role !== "gestor")) redirect("/");
 
   const contract = await getMyContract(supabase, profile.id);
   const history = await getMyPayoutHistory(supabase, profile.id, contract);

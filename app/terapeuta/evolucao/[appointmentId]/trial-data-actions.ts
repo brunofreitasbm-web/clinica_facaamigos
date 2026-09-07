@@ -77,8 +77,8 @@ export async function recordTrial(
   if (profileError || !profile) {
     return { success: false, error: "Não foi possível verificar seu perfil. Tente de novo." };
   }
-  if (profile.role !== "terapeuta") {
-    return { success: false, error: "Seu perfil não pode registrar tentativas." };
+  if (profile.role !== "terapeuta" && profile.role !== "supervisor" && profile.role !== "gestor") {
+    return { success: false, error: "Seu perfil não tem permissão para registrar tentativas." };
   }
 
   // `program_id` chega do formulário: a policy de INSERT de `trial_data` só

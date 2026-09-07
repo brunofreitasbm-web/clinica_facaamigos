@@ -23,7 +23,7 @@ export default async function TerapeutaMetricasPage() {
   // Métricas pessoais: só o próprio terapeuta enxerga as suas (mesma regra
   // da RLS de metric_snapshots). Gestor/supervisor já têm sua própria
   // visão por cargo em /gestor/metas — não é "ver como" aqui.
-  if (!profile || profile.role !== "terapeuta") {
+  if (!profile || (profile.role !== "terapeuta" && profile.role !== "gestor")) {
     redirect("/");
   }
 
