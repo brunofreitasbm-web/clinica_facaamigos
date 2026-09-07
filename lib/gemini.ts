@@ -3,11 +3,7 @@
  * Suporta modelos de texto e visão/multimodal via REST API oficial (gemini-1.5-flash / gemini-2.0-flash)
  */
 
-import {
-  BEHAVIOR_TYPES,
-  BEHAVIOR_INTENSITIES,
-  FAMILY_GUIDANCE_OPTIONS,
-} from "@/lib/session-note-fields";
+import { BEHAVIOR_INTENSITIES, FAMILY_GUIDANCE_OPTIONS } from "@/lib/session-note-fields";
 
 export interface GeminiResponse {
   success: boolean;
@@ -37,7 +33,7 @@ export interface DocumentAnalysisResult {
  * Os campos espelham `SessionNoteStructured` (lib/session-note-fields.ts)
  * mais `free_text`, mas aqui tudo é OPCIONAL e SEM validação de schema —
  * é só a interpretação do texto que o Gemini devolveu. Quem valida contra
- * os valores permitidos (BEHAVIOR_TYPES/BEHAVIOR_INTENSITIES/
+ * os valores permitidos (behavior_catalog da clínica, BEHAVIOR_INTENSITIES,
  * FAMILY_GUIDANCE_OPTIONS) é a rota de API que chama esta função, nunca
  * este módulo — ver app/api/aba/session-note-voice/route.ts.
  */
@@ -74,8 +70,8 @@ export function isGeminiConfigured(): boolean {
  * (chat, classificação de intenção, análise de documento) estavam
  * quebradas em produção com o nome antigo.
  */
-const GEMINI_MODEL = "gemini-3.5-flash-lite";
-const GEMINI_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+export const GEMINI_MODEL = "gemini-3.5-flash-lite";
+export const GEMINI_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /**
  * Gera uma resposta de chat inteligente usando o Google Gemini AI.
@@ -295,6 +291,7 @@ Responda APENAS o JSON válido sem nenhum texto adicional.`;
 export async function transcribeAndStructureSessionNote(
   audioBase64: string,
   mimeType: string,
+  behaviorCatalogValues: string[],
 ): Promise<SessionNoteVoiceSuggestion> {
   const apiKey = process.env.GEMINI_API_KEY;
 
@@ -312,7 +309,10 @@ export async function transcribeAndStructureSessionNote(
     };
   }
 
-  const behaviorValues = BEHAVIOR_TYPES.map((b) => b.value).join(", ");
+  // Lista de comportamentos vem do catálogo da clínica (behavior_catalog,
+  // PRD §9.4 "lista configurável"), não mais de um enum fixo — quem busca
+  // o catálogo é a rota de API (app/api/aba/session-note-voice/route.ts).
+  const behaviorValues = behaviorCatalogValues.join(", ");
   const intensityValues = BEHAVIOR_INTENSITIES.map((i) => i.value).join(", ");
   const orientationValues = FAMILY_GUIDANCE_OPTIONS.map((g) => g.value).join(", ");
 

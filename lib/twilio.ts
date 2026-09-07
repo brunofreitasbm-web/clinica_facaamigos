@@ -54,6 +54,18 @@ export interface SendMessageOptions {
   to: string;
   message: string;
   mediaUrl?: string[];
+  /**
+   * Template aprovado pela Meta (Twilio Content API) — obrigatório fora da
+   * janela de 24h de serviço. Quando informado, `contentSid`+
+   * `contentVariables` substituem `body` na chamada; `message` continua
+   * sendo gravado em `messages.body` pra manter o histórico legível mesmo
+   * que o envio real tenha sido via template. Usado pelo bot de acolhimento
+   * de plano de saúde (lib/twilio-intake-bot.ts) via
+   * TWILIO_INTAKE_TEMPLATE_CONTENT_SID; em sandbox (variável ausente) o
+   * envio cai para mensagem livre, igual aos outros bots.
+   */
+  contentSid?: string;
+  contentVariables?: Record<string, string>;
 }
 
 export interface SendMessageResult {
@@ -162,10 +174,12 @@ export async function sendTwilioWhatsApp(options: SendMessageOptions): Promise<S
 
   try {
     const res = await client.messages.create({
-      body: options.message,
       from: fromNumber,
       to: formattedTo,
       mediaUrl: options.mediaUrl,
+      ...(options.contentSid
+        ? { contentSid: options.contentSid, contentVariables: JSON.stringify(options.contentVariables ?? {}) }
+        : { body: options.message }),
     });
 
     return {
@@ -328,20 +342,54 @@ export async function findOrCreateConversation(params: FindOrCreateConversationP
  * de telefone — mesma lógica de resolução já usada pela máquina de estados de
  * anamnese (busca em `guardians.phone`).
  */
-async function resolvePatientFromPhone(phone: string): Promise<{ patientId: string; guardianId?: string } | null> {
+export async function resolvePatientFromPhone(phone: string): Promise<{ patientId: string; guardianId?: string } | null> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
+  // `guardians.phone` nem sempre está em E.164 (formulários antigos gravam
+  // em formato BR cru) — comparar só pelo E.164 exato perde conversas. Filtra
+  // no banco pelos últimos 8 dígitos (bem menos seletivo, mas barato o
+  // bastante pro volume desta tabela) e confirma em memória normalizando os
+  // dois lados com formatE164Phone, pra não colar números diferentes que só
+  // coincidem no sufixo.
+  const last8 = phone.replace(/\D/g, "").slice(-8);
+  if (last8.length < 8) return null;
+
   const { data: guardians } = await supabase
     .from("guardians")
-    .select("id, patient_id")
-    .eq("phone", phone)
-    .limit(1);
+    .select("id, patient_id, phone")
+    .ilike("phone", `%${last8}`);
 
-  const guardian = guardians?.[0];
+  const guardian = (guardians ?? []).find((g) => formatE164Phone(g.phone) === phone);
   if (!guardian) return null;
 
   return { patientId: guardian.patient_id, guardianId: guardian.id };
+}
+
+// Etapas de chatbot_sessions em que outro bot já está esperando um anexo
+// (PDF/foto) do telefone — se estiver numa delas, a ingestão de "cadastro
+// assistido por IA" (passo 0.7) não deve interceptar a mensagem, senão o
+// anexo nunca chega ao fluxo que o pediu. `awaiting_laudo_pdf`/
+// `awaiting_guia_pdf` são do bot de anamnese (lib/twilio-anamnesis-bot.ts);
+// os steps `intake_*` (bot de acolhimento de plano de saúde,
+// lib/twilio-intake-bot.ts) já são tratados antes disso no passo 0.6, mas o
+// prefixo entra aqui também como segunda trava, caso a ordem mude no futuro.
+const ANAMNESIS_AWAITING_ATTACHMENT_STEPS = ["awaiting_laudo_pdf", "awaiting_guia_pdf"];
+
+async function isAwaitingAnamnesisPdf(phone: string): Promise<boolean> {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("chatbot_sessions")
+      .select("current_step")
+      .eq("phone_number", phone)
+      .maybeSingle();
+    const step = data?.current_step ?? "";
+    return Boolean(data && (ANAMNESIS_AWAITING_ATTACHMENT_STEPS.includes(step) || step.startsWith("intake_")));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -402,8 +450,13 @@ export async function handleTwilioIncomingMessage(params: {
   body: string;
   mediaUrl0?: string;
   mediaContentType0?: string;
+  /** Todos os anexos da mensagem (NumMedia/MediaUrl{i}), não só o primeiro —
+   * usado pela ingestão de documentos do "cadastro assistido por IA" (ver
+   * passo 0.7 abaixo). Opcional: quem chama sem media (ex.: o painel de
+   * teste do chatbot) simplesmente não aciona esse fluxo. */
+  media?: { url: string; contentType?: string }[];
 }): Promise<{ replyMessage: string; intent: string }> {
-  const { from, body, mediaUrl0, mediaContentType0 } = params;
+  const { from, body, mediaUrl0, mediaContentType0, media } = params;
   const phone = formatE164Phone(from.replace("whatsapp:", ""));
 
   // 0. Central Multicanal: resolve/cria a conversa, verifica resposta de NPS
@@ -445,8 +498,72 @@ export async function handleTwilioIncomingMessage(params: {
         sent_at: new Date().toISOString(),
       });
 
+      // 0.6 Máquina de estados do bot de ACOLHIMENTO DE PLANO DE SAÚDE
+      // (lib/twilio-intake-bot.ts) — roda antes da ingestão genérica de
+      // "cadastro assistido por IA" porque os documentos que ele coleta
+      // (laudo/guia) têm um destino próprio (insurance_intake_lead_files,
+      // vinculados ao lead) e uma resposta guiada (perguntando o que falta,
+      // recebendo PRONTO). Roda mesmo com a conversa assumida por um
+      // humano, mesma justificativa da ingestão de rascunhos: o documento
+      // precisa entrar na fila de qualquer forma.
+      try {
+        const { processIntakeBotStep } = await import("./twilio-intake-bot");
+        const intakeResult = await processIntakeBotStep({ from, body, media });
+        if (intakeResult.handled) {
+          return { intent: "acolhimento_plano_saude", replyMessage: intakeResult.replyMessage };
+        }
+      } catch (err) {
+        console.error("[Twilio Intake Bot Error]:", err);
+      }
+
+      // 0.7 Ingestão de documentos do "cadastro assistido por IA" — roda
+      // mesmo que um humano já tenha assumido a conversa (a família pode
+      // mandar a carteirinha enquanto fala com a recepção; o item só entra
+      // na fila de validação, não substitui a conversa humana). Só desvia
+      // se o telefone NÃO estiver numa etapa do bot de anamnese que também
+      // consome anexo (awaiting_laudo_pdf/awaiting_guia_pdf/intake_*) —
+      // nesse caso o passo acima (ou o passo 1 abaixo) já tratou o anexo.
+      if (media && media.length > 0) {
+        const isAwaitingAnamnesisAttachment = await isAwaitingAnamnesisPdf(phone);
+        if (!isAwaitingAnamnesisAttachment) {
+          try {
+            const { ingestWhatsappMedia } = await import("./registration-drafts-ingest");
+            const ingestResult = await ingestWhatsappMedia({ from, media, body });
+            return { intent: "cadastro_documentos", replyMessage: ingestResult.replyMessage };
+          } catch (err) {
+            console.error("[Twilio Registration Draft Ingest Error]:", err);
+          }
+        }
+      }
+
       if (!conversation.is_bot_active) {
         return { replyMessage: "", intent: "human_handled" };
+      }
+    } else if (media && media.length > 0) {
+      // Número desconhecido (ainda sem guardians.phone) mandando documento
+      // direto: pode ser um lead de acolhimento (bot já registrou o
+      // telefone em chatbot_sessions mesmo sem twilio_conversations) ou um
+      // pré-cadastro novo — tenta o bot de acolhimento primeiro, senão cai
+      // na ingestão genérica.
+      try {
+        const { processIntakeBotStep } = await import("./twilio-intake-bot");
+        const intakeResult = await processIntakeBotStep({ from, body, media });
+        if (intakeResult.handled) {
+          return { intent: "acolhimento_plano_saude", replyMessage: intakeResult.replyMessage };
+        }
+      } catch (err) {
+        console.error("[Twilio Intake Bot Error]:", err);
+      }
+
+      const isAwaitingAnamnesisAttachment = await isAwaitingAnamnesisPdf(phone);
+      if (!isAwaitingAnamnesisAttachment) {
+        try {
+          const { ingestWhatsappMedia } = await import("./registration-drafts-ingest");
+          const ingestResult = await ingestWhatsappMedia({ from, media, body });
+          return { intent: "cadastro_documentos", replyMessage: ingestResult.replyMessage };
+        } catch (err) {
+          console.error("[Twilio Registration Draft Ingest Error]:", err);
+        }
       }
     }
   } catch (err) {

@@ -14,10 +14,12 @@ import { getFeedPosts } from "@/lib/feed-posts";
 import { getPatientAbaLearningCurves } from "@/lib/patient-metrics";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { fmtDate as fmtDateShared, fmtDateTime } from "@/lib/format";
+import { getBehaviorCatalog } from "@/lib/behavior-catalog";
+import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
 import { StageActionForm } from "./stage-action-form";
 import { EditRegistrationButton } from "./edit-registration-button";
-import { DocumentViewButton } from "./document-view-button";
-import { DocumentUploadForm } from "./document-upload-form";
+import { DocumentViewButton } from "@/components/prontuario/document-view-button";
+import { DocumentUploadForm } from "@/components/prontuario/document-upload-form";
 import { FeedPostForm } from "./feed-post-form";
 import { AbsenceReportsList, type PendingAbsenceReport } from "./absence-reports-list";
 import { AuthorizationFormFields } from "./authorization-form-fields";
@@ -175,6 +177,17 @@ export default async function PacientePage({
   // regra de RLS (feed_posts_read) decide o que aparece; ver lib/feed-posts.ts.
   const feedPosts = await getFeedPosts(supabase, id);
 
+  // Cadastro assistido por IA (20260907000001_registration_drafts.sql) —
+  // documentos enviados por WhatsApp/portal deste paciente ainda não
+  // processados/validados. status='validated'/'rejected' não aparece mais
+  // (já virou dado real ou foi descartado).
+  const { data: registrationDrafts } = await supabase
+    .from("registration_drafts")
+    .select("id, status, created_at")
+    .eq("patient_id", id)
+    .in("status", ["pending", "processing", "extracted", "failed"])
+    .order("created_at", { ascending: false });
+
   // Faltas informadas pela família ainda aguardando decisão da recepção
   // (PRD §5) — as que já foram auto-aprovadas pelo trigger
   // absence_report_apply (anexo ou categoria 'doenca') não aparecem aqui.
@@ -243,11 +256,23 @@ export default async function PacientePage({
   const { data: notesRaw } = await supabase
     .from("session_notes")
     .select(
-      "id, version, free_text, created_at_server, appointment_id, appointments!inner(patient_id, starts_at), profiles!session_notes_therapist_id_fkey(full_name)",
+      "id, version, structured, free_text, created_at_server, appointment_id, appointments!inner(patient_id, starts_at), profiles!session_notes_therapist_id_fkey(full_name)",
     )
     .eq("appointments.patient_id", id)
     .order("created_at_server", { ascending: false })
     .limit(10);
+
+  const behaviorCatalog = await getBehaviorCatalog(supabase, { activeOnly: false });
+  const allMetaGoalIds = Array.from(
+    new Set(
+      (notesRaw ?? []).flatMap((n) => getMetasTrabalhadas(n.structured as SessionNoteStructured | null).map((m) => m.plan_goal_id)),
+    ),
+  );
+  const goalDescriptionById = new Map<string, string>();
+  if (allMetaGoalIds.length > 0) {
+    const { data: metaGoals } = await supabase.from("plan_goals").select("id, description").in("id", allMetaGoalIds);
+    for (const g of metaGoals ?? []) goalDescriptionById.set(g.id, g.description);
+  }
 
   const frequency: FrequencyDay[] = (recentAppointments ?? [])
     .slice()
@@ -279,6 +304,8 @@ export default async function PacientePage({
     therapistName:
       (Array.isArray(n.profiles) ? n.profiles[0]?.full_name : n.profiles?.full_name) ?? "—",
     freeText: n.free_text,
+    structured: n.structured as SessionNoteStructured | null,
+    appointmentId: n.appointment_id,
   }));
 
   const billing: BillingRow[] = (billingItems ?? []).map((b) => ({
@@ -568,12 +595,12 @@ export default async function PacientePage({
                 href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=interdisciplinar`,
                 navigable: canNavigateToSupervisao,
               },
-              pdi_construido: {
-                label: "Montar PEI",
+              pts_construido: {
+                label: "Montar PTS",
                 href: `/supervisao/planos/novo?paciente=${patient.id}`,
                 navigable: canNavigateToSupervisao,
               },
-              pdi_validado: { label: "Fila de aprovação", href: `/supervisao`, navigable: canNavigateToSupervisao },
+              pts_validado: { label: "Fila de aprovação", href: `/supervisao`, navigable: canNavigateToSupervisao },
               devolutiva_familia: {
                 label: "Registrar devolutiva",
                 href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=devolutiva`,
@@ -674,7 +701,33 @@ export default async function PacientePage({
         documentsContent={documentsContent}
         billing={billing}
         abaPrograms={abaPrograms}
+        behaviorCatalog={behaviorCatalog}
+        goalDescriptionById={goalDescriptionById}
       />
+
+      {(registrationDrafts ?? []).length > 0 && (
+        <div className="px-10 pt-6">
+          <div className="card max-w-[720px]">
+            <div className="card-kicker">Dados extraídos aguardando validação</div>
+            <ul className="flex flex-col gap-2">
+              {(registrationDrafts ?? []).map((d) => (
+                <li key={d.id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-ink-soft">
+                    {d.status === "extracted"
+                      ? "Documentos lidos pela IA — pronto para conferir"
+                      : d.status === "failed"
+                        ? "Extração falhou — reprocessar ou preencher manualmente"
+                        : "Lendo documentos…"}
+                  </span>
+                  <a href={`/recepcao/pre-cadastros/${d.id}`} className="btn btn-secondary text-xs">
+                    Conferir
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {pendingAbsenceReports.length > 0 && (
         <div className="px-10 pt-6">

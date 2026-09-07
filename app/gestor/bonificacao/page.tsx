@@ -78,7 +78,7 @@ export default async function BonificacaoPage() {
               Progressão de Faixa de Valor-Hora
             </h2>
             <p className="text-xs text-ink-soft mt-1">
-              Critérios objetivos avaliados: evoluções registradas em 24h ≥ 98%, faltas recuperadas e acompanhamento dos PEIs.
+              Critérios objetivos avaliados: evoluções registradas em 24h ≥ 98%, faltas recuperadas e acompanhamento dos PTS.
               A progressão exige ação explícita do gestor (Aprovação ou Manutenção justificada gravada em audit_log).
             </p>
           </div>

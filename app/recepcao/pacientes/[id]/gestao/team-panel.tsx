@@ -65,12 +65,12 @@ export function TeamPanel({
             </button>
           </li>
         ))}
-        {members.length === 0 && <li className="text-sm text-ink-faint">Nenhum profissional definido ainda.</li>}
+        {members.length === 0 && <li className="text-sm text-ink-faint">Nenhum terapeuta definido ainda.</li>}
       </ul>
 
       <form action={handleAdd} className="mt-4 flex flex-wrap items-end gap-2">
         <select name="profile_id" required className="input">
-          <option value="">Profissional…</option>
+          <option value="">Terapeuta…</option>
           {candidates.map((c) => (
             <option key={c.id} value={c.id}>
               {c.full_name}

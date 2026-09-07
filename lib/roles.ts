@@ -46,7 +46,13 @@ export const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
   // Recepção (agenda, ficha do paciente, fila de WhatsApp, documentos,
   // pendências) e dos relatórios do Terapeuta — por isso o acesso é ao
   // módulo inteiro, não a subcaminhos avulsos.
-  supervisor: ["/supervisao", "/recepcao", "/terapeuta/paciente", "/gestor/configuracoes/atendimentos"],
+  supervisor: [
+    "/supervisao",
+    "/recepcao",
+    "/terapeuta/paciente",
+    "/gestor/configuracoes/atendimentos",
+    "/gestor/configuracoes/comportamentos",
+  ],
   terapeuta: ["/terapeuta"],
   recepcao: ["/recepcao"],
   faturamento: ["/faturamento", "/gestor/convenios"],

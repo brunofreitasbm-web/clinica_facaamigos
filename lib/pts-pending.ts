@@ -2,16 +2,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 /**
- * Prazo interno de PDI (Boaspraticas.md §2.3: "Prazo interno para PDI: 50
+ * Prazo interno de PTS (Boaspraticas.md §2.3: "Prazo interno para PDI: 50
  * dias"), contado da anamnese — mesma âncora já usada para o prazo de 60
  * dias da devolutiva à família (trg_anamneses_after_insert em
  * supabase/migrations/20260906000001_intake_journey.sql), então os dois
  * prazos do §2.3 ficam medidos a partir do mesmo evento.
  */
-export const PDI_DEADLINE_DAYS = 50;
+export const PTS_DEADLINE_DAYS = 50;
 
-// Pacientes fora do fluxo ativo de PDI não geram alerta de atraso.
-const PDI_EXCLUDED_PATIENT_STATUSES = ["evadido", "alta"];
+// Pacientes fora do fluxo ativo de PTS não geram alerta de atraso.
+const PTS_EXCLUDED_PATIENT_STATUSES = ["evadido", "alta"];
 
 async function overduePlanCandidates(supabase: SupabaseClient<Database>, thresholdDays: number) {
   const cutoff = new Date(Date.now() - thresholdDays * 24 * 60 * 60 * 1000).toISOString();
@@ -25,7 +25,7 @@ async function overduePlanCandidates(supabase: SupabaseClient<Database>, thresho
   for (const a of anamneses ?? []) {
     if (earliestByPatient.has(a.patient_id)) continue; // já guardou a anamnese mais antiga
     const patient = Array.isArray(a.patients) ? a.patients[0] : a.patients;
-    if (!patient || PDI_EXCLUDED_PATIENT_STATUSES.includes(patient.status)) continue;
+    if (!patient || PTS_EXCLUDED_PATIENT_STATUSES.includes(patient.status)) continue;
     earliestByPatient.set(a.patient_id, { conductedAt: a.conducted_at, patientName: patient.full_name });
   }
 
@@ -52,7 +52,7 @@ async function overduePlanCandidates(supabase: SupabaseClient<Database>, thresho
  */
 export async function countOverduePlans(
   supabase: SupabaseClient<Database>,
-  thresholdDays = PDI_DEADLINE_DAYS,
+  thresholdDays = PTS_DEADLINE_DAYS,
 ): Promise<number> {
   return (await overduePlanCandidates(supabase, thresholdDays)).length;
 }
@@ -72,7 +72,7 @@ export type OverduePlan = {
  */
 export async function listOverduePlans(
   supabase: SupabaseClient<Database>,
-  thresholdDays = PDI_DEADLINE_DAYS,
+  thresholdDays = PTS_DEADLINE_DAYS,
 ): Promise<OverduePlan[]> {
   const candidates = await overduePlanCandidates(supabase, thresholdDays);
 

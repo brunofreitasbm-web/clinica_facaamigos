@@ -241,7 +241,7 @@ export function TodayAgendaList({
                   checked={groupMode === "profissional"}
                   onChange={() => setGroupMode("profissional")}
                 />
-                Por profissional
+                Por terapeuta
               </label>
               <label className="seg-opt">
                 <input type="radio" name="group-mode" checked={groupMode === "sala"} onChange={() => setGroupMode("sala")} />
@@ -292,7 +292,7 @@ export function TodayAgendaList({
           </summary>
           <div className="flex flex-col gap-3 border-t border-paper-line-strong p-3">
             <details open>
-              <summary className="cursor-pointer text-xs font-medium text-ink">Profissionais</summary>
+              <summary className="cursor-pointer text-xs font-medium text-ink">Terapeutas</summary>
               <div className="mt-1.5 flex flex-col gap-1">
                 {therapistOptions.length === 0 && <p className="text-xs text-ink-faint">Nenhum hoje.</p>}
                 {therapistOptions.map((t) => (

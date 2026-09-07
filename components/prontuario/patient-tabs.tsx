@@ -3,19 +3,27 @@
 import { useState, type ReactNode } from "react";
 import { PLAN_GOAL_STATUS_STYLE, BILLING_ITEM_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { fmtCurrency } from "@/lib/format";
+import type { SessionNoteStructured } from "@/lib/session-note-fields";
+import type { BehaviorCatalogItem } from "@/lib/behavior-catalog";
 import { AbaLearningCurveChart, type ProgramTrialSummary } from "./aba-learning-curve-chart";
 import { ProtocolAssessmentDialog } from "./protocol-assessment-dialog";
+import { SessionNoteStructuredView } from "./session-note-structured";
 
-const TABS = [
+const BASE_TABS = [
   { key: "visao", label: "Visão geral" },
   { key: "evolucao", label: "Evolução" },
   { key: "aba", label: "Coleta ABA & Tentativas" },
   { key: "plano", label: "Plano terapêutico" },
   { key: "documentos", label: "Documentos" },
-  { key: "financeiro", label: "Financeiro" },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+const AGENDA_TAB = { key: "agenda", label: "Agenda" } as const;
+const FINANCEIRO_TAB = { key: "financeiro", label: "Financeiro" } as const;
+
+type TabKey =
+  | (typeof BASE_TABS)[number]["key"]
+  | typeof AGENDA_TAB.key
+  | typeof FINANCEIRO_TAB.key;
 
 export type FrequencyDay = { id: string; colorVar: string; title: string };
 export type GoalRow = {
@@ -31,6 +39,10 @@ export type EvolutionNote = {
   version: number;
   therapistName: string;
   freeText: string | null;
+  structured?: SessionNoteStructured | null;
+  appointmentId?: string;
+  href?: string;
+  historyHref?: string;
 };
 export type BillingRow = {
   id: string;
@@ -51,6 +63,10 @@ export function PatientTabs({
   documentsContent,
   billing,
   abaPrograms,
+  agendaContent,
+  behaviorCatalog,
+  goalDescriptionById,
+  paddingClassName = "px-10",
 }: {
   frequency: FrequencyDay[];
   goals: GoalRow[];
@@ -60,16 +76,26 @@ export function PatientTabs({
   teamText: ReactNode;
   notes: EvolutionNote[];
   documentsContent: ReactNode;
-  billing: BillingRow[];
+  /** Ausente para papéis que não veem valores de convênio (PRD §4). */
+  billing?: BillingRow[];
   abaPrograms: ProgramTrialSummary[];
+  agendaContent?: ReactNode;
+  behaviorCatalog?: BehaviorCatalogItem[];
+  goalDescriptionById?: Map<string, string>;
+  paddingClassName?: string;
 }) {
+  const tabs = [
+    ...BASE_TABS,
+    ...(agendaContent ? [AGENDA_TAB] : []),
+    ...(billing ? [FINANCEIRO_TAB] : []),
+  ];
   const [tab, setTab] = useState<TabKey>("visao");
 
   return (
     <>
-      <div className="px-10 pt-6">
+      <div className={`${paddingClassName} pt-6`}>
         <div className="seg w-fit">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <label key={t.key} className="seg-opt">
               <input
                 type="radio"
@@ -83,7 +109,7 @@ export function PatientTabs({
         </div>
       </div>
 
-      <main className="px-10 pb-16 pt-8">
+      <main className={`${paddingClassName} pb-16 pt-8`}>
         {tab === "visao" && (
           <section className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_340px]">
             <div className="flex flex-col gap-8">
@@ -180,11 +206,20 @@ export function PatientTabs({
                         v{n.version} · {n.therapistName}
                       </div>
                     </div>
-                    <div>
+                    {behaviorCatalog ? (
+                      <SessionNoteStructuredView
+                        structured={n.structured ?? null}
+                        freeText={n.freeText}
+                        behaviorCatalog={behaviorCatalog}
+                        goalDescriptionById={goalDescriptionById}
+                        version={n.version}
+                        historyHref={n.historyHref}
+                      />
+                    ) : (
                       <div className="text-sm italic text-ink-soft">
                         {n.freeText ? `“${n.freeText}”` : "Sem texto livre nesta versão."}
                       </div>
-                    </div>
+                    )}
                   </div>
                 ))
               ) : (
@@ -241,7 +276,9 @@ export function PatientTabs({
 
         {tab === "documentos" && <section className="max-w-[800px]">{documentsContent}</section>}
 
-        {tab === "financeiro" && (
+        {tab === "agenda" && <section className="max-w-[800px]">{agendaContent}</section>}
+
+        {tab === "financeiro" && billing && (
           <section className="max-w-[900px]">
             <table className="table">
               <thead>

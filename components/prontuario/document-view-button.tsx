@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { getDocumentUrl } from "./documents-actions";
+import { getDocumentUrl } from "@/app/recepcao/pacientes/[id]/documents-actions";
 
 export function DocumentViewButton({ documentId }: { documentId: string }) {
   const [error, setError] = useState<string | null>(null);

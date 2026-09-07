@@ -31,7 +31,7 @@ import { useSupervisaoTab } from "./supervisao-shell";
  * → reavaliação com os mesmos instrumentos).
  *
  * O seletor de paciente no topo reescreve os atalhos que dependem de um
- * paciente (ficha, avaliação de protocolo, PEI, relatórios) — sem paciente
+ * paciente (ficha, avaliação de protocolo, PTS, relatórios) — sem paciente
  * escolhido eles ficam desabilitados em vez de levar a uma tela genérica.
  */
 
@@ -241,15 +241,15 @@ const FLOWS: Flow[] = [
     kicker: "Fluxo 4",
     icon: <Target className="h-5 w-5" />,
     summary:
-      "PTS/PEI construído com a família: metas SMART por disciplina e domínio, aprovação da coordenação, revisão datada e devolutiva.",
+      "PTS construído com a família: metas SMART por disciplina e domínio, aprovação da coordenação, revisão datada e devolutiva.",
     badges: (c) => [
       { label: `${c.plansToApprove} planos na fila`, tone: c.plansToApprove ? "pending" : "positive" },
-      { label: `${c.pendingPlans} PDIs atrasados (§2.3)`, tone: c.pendingPlans ? "negative" : "positive" },
+      { label: `${c.pendingPlans} PTS atrasados (§2.3)`, tone: c.pendingPlans ? "negative" : "positive" },
       { label: `${c.pendingReports} relatórios para validar`, tone: c.pendingReports ? "pending" : "positive" },
     ],
     tools: [
-      { label: "Montar PEI", hrefFor: (id) => `/supervisao/planos/novo?paciente=${id}`, icon: icon(<Target />), needsPatient: true, primary: true },
-      { label: "Montar PEI (escolher paciente)", href: "/supervisao/planos/novo", icon: icon(<Target />) },
+      { label: "Montar PTS", hrefFor: (id) => `/supervisao/planos/novo?paciente=${id}`, icon: icon(<Target />), needsPatient: true, primary: true },
+      { label: "Montar PTS (escolher paciente)", href: "/supervisao/planos/novo", icon: icon(<Target />) },
       { label: "Fila de aprovação", tab: "planos", icon: icon(<ClipboardList />) },
       { label: "Relatório devolutivo", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio`, icon: icon(<FileText />), needsPatient: true },
       { label: "Relatório para convênio", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio-convenio`, icon: icon(<FileText />), needsPatient: true },
@@ -258,7 +258,7 @@ const FLOWS: Flow[] = [
       {
         title: "Traduzir a avaliação em metas",
         detail: "Item de protocolo para ABA/Denver; meta SMART por domínio próprio para as demais disciplinas. Data de revisão obrigatória.",
-        tools: [{ label: "Montar PEI", hrefFor: (id) => `/supervisao/planos/novo?paciente=${id}`, icon: icon(<Target />), needsPatient: true, primary: true }],
+        tools: [{ label: "Montar PTS", hrefFor: (id) => `/supervisao/planos/novo?paciente=${id}`, icon: icon(<Target />), needsPatient: true, primary: true }],
       },
       {
         title: "Validar ou devolver metas",
@@ -433,7 +433,7 @@ function PatientPicker({
         <Search className="h-4 w-4 text-ink-faint" />
         <input
           className="input flex-1"
-          placeholder="Buscar paciente para apontar os atalhos (ficha, protocolo, PEI, relatórios)…"
+          placeholder="Buscar paciente para apontar os atalhos (ficha, protocolo, PTS, relatórios)…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -485,7 +485,7 @@ export function FluxosPanel({ patients, counters }: { patients: FlowPatient[]; c
         </div>
         <p className="max-w-[520px] text-sm text-ink-soft">
           Cinco fluxos consolidados, cada passo com a ferramenta que o executa. Escolha um paciente para os atalhos
-          apontarem direto para a ficha, o protocolo, o PEI e os relatórios dele.
+          apontarem direto para a ficha, o protocolo, o PTS e os relatórios dele.
         </p>
       </div>
 

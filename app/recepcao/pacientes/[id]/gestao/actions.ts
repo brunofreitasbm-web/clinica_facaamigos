@@ -192,7 +192,7 @@ export async function updatePatientBasics(patientId: string, formData: FormData)
 /**
  * Equipe de avaliação (Módulo 3 MAAIS, slide 23): terapeuta avaliador ou
  * supervisor de área, vinculados via `patient_access` com
- * `access_type='terapeuta'` (mantém a RLS de prontuário/PDI/protocolos
+ * `access_type='terapeuta'` (mantém a RLS de prontuário/PTS/protocolos
  * funcionando pra esse profissional) e `role_in_team` marcando o papel
  * específico na equipe deste paciente. Um trigger de banco conclui a etapa
  * `equipe_definida` do checklist assim que houver ao menos 1
@@ -204,7 +204,7 @@ export async function addTeamMember(patientId: string, formData: FormData): Prom
   const discipline = String(formData.get("discipline") ?? "").trim();
 
   if (!profileId || !["terapeuta_avaliador", "supervisor_area"].includes(roleInTeam)) {
-    return { success: false, error: "Selecione o profissional e o papel na equipe." };
+    return { success: false, error: "Selecione o terapeuta e o papel na equipe." };
   }
 
   const supabase = await createClient();
@@ -221,7 +221,7 @@ export async function addTeamMember(patientId: string, formData: FormData): Prom
     granted_by: user?.id ?? null,
   });
 
-  if (error) return { success: false, error: "Não foi possível adicionar este profissional à equipe." };
+  if (error) return { success: false, error: "Não foi possível adicionar este terapeuta à equipe." };
 
   revalidatePatient(patientId);
   revalidatePath("/supervisao");
@@ -235,7 +235,7 @@ export async function revokeTeamMember(patientId: string, patientAccessId: strin
     .update({ revoked_at: new Date().toISOString() })
     .eq("id", patientAccessId);
 
-  if (error) return { success: false, error: "Não foi possível remover este profissional da equipe." };
+  if (error) return { success: false, error: "Não foi possível remover este terapeuta da equipe." };
 
   revalidatePatient(patientId);
   revalidatePath("/supervisao");

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 const KIND_LABEL: Record<string, string> = {
   interdisciplinar: "Reunião técnica multidisciplinar",
   devolutiva: "Devolutiva à família",
-  revisao_pdi: "Revisão do PDI",
+  revisao_pts: "Revisão do PTS",
   visita_escolar: "Visita escolar",
 };
 

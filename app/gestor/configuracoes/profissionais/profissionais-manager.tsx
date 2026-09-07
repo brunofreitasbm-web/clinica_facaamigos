@@ -91,7 +91,7 @@ export function ProfissionaisManager({ therapists }: { therapists: TherapistRow[
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Configurações"
-          title="Profissionais"
+          title="Terapeutas"
           description="Valor-hora por terapeuta (therapist_contracts) — usado pelo fechamento mensal de repasse."
         />
         <div className="flex flex-col gap-4 p-6 sm:p-10 max-w-3xl">

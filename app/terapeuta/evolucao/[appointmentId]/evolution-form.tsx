@@ -1,22 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useOffline } from "next/offline";
 import { createSessionNote, setSignaturePin } from "../actions";
-import { BEHAVIOR_TYPES, BEHAVIOR_INTENSITIES, FAMILY_GUIDANCE_OPTIONS } from "@/lib/session-note-fields";
+import {
+  BEHAVIOR_INTENSITIES,
+  FAMILY_GUIDANCE_OPTIONS,
+  GOAL_RESULT_LEVELS,
+  type GoalResultLevel,
+} from "@/lib/session-note-fields";
 import { generateAIEvolutionText } from "@/lib/aba-actions";
 import { ABCLogger } from "@/components/aba/abc-logger";
 import { VoiceEvolutionRecorder } from "./voice-evolution-recorder";
+import { uploadSessionNoteMedia } from "./media-actions";
+import { compressImageIfNeeded } from "@/lib/compress-image";
+import { saveDraft, loadDraft, clearDraft } from "@/lib/offline-draft";
 
 const PRESENCE_SCALE = [1, 2, 3, 4, 5] as const;
 
-// Duas etapas reais (presença/comportamentos → texto livre + assinatura).
-// A 3ª etapa do "Evolução em 2 min" — coleta de tentativas por programa
-// (ABA) — não fica aqui: é o `TrialDataPanel` renderizado antes deste
-// formulário em page.tsx, alimentado por `getProgramsForAppointment`
-// (lib/trial-data.ts). Este componente cobre só presença/comportamentos e
-// o texto livre gravado em `session_notes.structured`.
+// Três etapas reais (metas/presença/comportamentos → texto livre + mídia +
+// assinatura). A coleta de tentativas por programa (ABA) não fica aqui: é o
+// `TrialDataPanel` renderizado antes deste formulário em page.tsx,
+// alimentado por `getProgramsForAppointment` (lib/trial-data.ts). Este
+// componente cobre presença, metas trabalhadas, comportamentos, orientações,
+// mídia e o texto livre gravado em `session_notes.structured`/anexos.
 
 function formatElapsed(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -24,31 +32,61 @@ function formatElapsed(totalSeconds: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+type DraftShape = {
+  presence: number | null;
+  freeText: string;
+  selectedBehaviors: Record<string, boolean>;
+  intensities: Record<string, string>;
+  selectedOrientations: Record<string, boolean>;
+  metas: Record<string, GoalResultLevel | null>;
+  openedAt: string;
+};
+
 export type EditingContext = {
   previousVersion: number;
   initialPresence: number | null;
   initialBehaviors: Record<string, boolean>;
   initialIntensities: Record<string, string>;
   initialOrientations: Record<string, boolean>;
+  initialMetas: Record<string, GoalResultLevel>;
   initialFreeText: string;
 };
 
+export type ActiveGoalOption = {
+  id: string;
+  description: string;
+  domain: string;
+  discipline: string;
+};
+
+type MediaUpload = { id: string; name: string; status: "enviando" | "enviado" | "erro"; error?: string };
+
 export function EvolutionForm({
   appointmentId,
+  patientId,
   patientName,
   discipline,
   sessionTime,
   attendanceStartedAt,
   editing,
   pinConfigured,
+  activeGoals,
+  preCheckedGoalIds,
+  behaviorTypes,
+  imageConsent,
 }: {
   appointmentId: string;
+  patientId: string;
   patientName: string;
   discipline: string;
   sessionTime: string;
   attendanceStartedAt: string | null;
   editing?: EditingContext;
   pinConfigured: boolean;
+  activeGoals: ActiveGoalOption[];
+  preCheckedGoalIds: string[];
+  behaviorTypes: { value: string; label: string }[];
+  imageConsent: boolean;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
   const [signed, setSigned] = useState(false);
@@ -60,6 +98,15 @@ export function EvolutionForm({
   const [selectedOrientations, setSelectedOrientations] = useState<Record<string, boolean>>(
     editing?.initialOrientations ?? {},
   );
+  // Metas trabalhadas (PRD §9.4): chave = plan_goal_id marcado, valor =
+  // resultado escolhido (null até o terapeuta escolher). Em edição, parte
+  // já vem com resultado (initialMetas); em sessão nova, vem pré-marcada com
+  // as metas da sessão anterior, sem resultado ainda.
+  const [metas, setMetas] = useState<Record<string, GoalResultLevel | null>>(() => {
+    if (editing) return { ...editing.initialMetas };
+    return Object.fromEntries(preCheckedGoalIds.map((id) => [id, null]));
+  });
+  const [mediaUploads, setMediaUploads] = useState<MediaUpload[]>([]);
   const [freeText, setFreeText] = useState(editing?.initialFreeText ?? "");
   const [editJustification, setEditJustification] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +118,14 @@ export function EvolutionForm({
   const [aiError, setAiError] = useState<string | null>(null);
   const isOffline = useOffline();
 
+  // Instante em que o formulário abriu (PRD §9.4 — "medir o tempo entre
+  // abrir e assinar"). Fixado uma única vez no mount: restaurar um rascunho
+  // NÃO deve reiniciar esse relógio, senão a métrica mentiria a favor do
+  // terapeuta. Um rascunho restaurado com `openedAt` próprio sobrescreve
+  // este valor (ver efeito de restauração abaixo).
+  const [openedAt] = useState(() => new Date().toISOString());
+  const draftOpenedAtRef = useRef(openedAt);
+
   // Assinatura digital por PIN (PRD §9.4). Se o terapeuta ainda não tem
   // PIN configurado, mostramos o cadastro primeiro; depois disso, o PIN é
   // pedido antes de assinar/salvar nova versão.
@@ -80,7 +135,19 @@ export function EvolutionForm({
   const [pinSetupError, setPinSetupError] = useState<string | null>(null);
   const [isSettingUpPin, startPinSetupTransition] = useTransition();
   const [signaturePin, setSignaturePinInput] = useState("");
-  const [resumingPendingSignature, setResumingPendingSignature] = useState(false);
+  // Lazy initializer em vez de efeito: ler localStorage síncrono no mount
+  // não precisa de "sincronizar com sistema externo" — só precisa rodar uma
+  // vez antes da primeira renderização (setState dentro de efeito sem
+  // dependência de dado assíncrono é o antipadrão que o eslint-plugin-
+  // react-hooks (set-state-in-effect) sinaliza).
+  const [resumingPendingSignature] = useState(() => {
+    if (editing) return false;
+    try {
+      return !!localStorage.getItem(`pending_sign_${appointmentId}`);
+    } catch {
+      return false;
+    }
+  });
 
   function handleSetupPin() {
     setPinSetupError(null);
@@ -113,58 +180,80 @@ export function EvolutionForm({
     }
   }
 
-  // Restaura rascunho salvo do localStorage se existir (não aplicável a
-  // edições — o estado inicial já vem da versão anterior).
+  // Restaura rascunho salvo (IndexedDB, com migração de um rascunho antigo
+  // em localStorage) se existir. Não aplicável a edições — o estado inicial
+  // já vem da versão anterior.
   useEffect(() => {
     if (editing) return;
-    try {
-      const saved = localStorage.getItem(`draft_evolution_${appointmentId}`);
-      if (saved) {
-        const data = JSON.parse(saved);
+
+    (async () => {
+      let data: DraftShape | null = null;
+
+      // Migração única: um rascunho salvo antes desta versão (localStorage)
+      // não pode ser perdido. Lido uma vez e removido.
+      try {
+        const legacy = localStorage.getItem(`draft_evolution_${appointmentId}`);
+        if (legacy) {
+          const parsed = JSON.parse(legacy);
+          data = {
+            presence: parsed.presence ?? null,
+            freeText: parsed.freeText ?? "",
+            selectedBehaviors: parsed.selectedBehaviors ?? {},
+            intensities: parsed.intensities ?? {},
+            selectedOrientations: parsed.selectedOrientations ?? {},
+            metas: {},
+            openedAt,
+          };
+          localStorage.removeItem(`draft_evolution_${appointmentId}`);
+        }
+      } catch {}
+
+      if (!data) {
+        data = await loadDraft<DraftShape>(`evolution_${appointmentId}`);
+      }
+
+      if (data) {
         queueMicrotask(() => {
-          if (data.presence) setPresence(data.presence);
-          if (data.freeText) setFreeText(data.freeText);
-          if (data.selectedBehaviors) setSelectedBehaviors(data.selectedBehaviors);
-          if (data.intensities) setIntensities(data.intensities);
-          if (data.selectedOrientations) setSelectedOrientations(data.selectedOrientations);
+          if (data!.presence) setPresence(data!.presence);
+          if (data!.freeText) setFreeText(data!.freeText);
+          if (data!.selectedBehaviors) setSelectedBehaviors(data!.selectedBehaviors);
+          if (data!.intensities) setIntensities(data!.intensities);
+          if (data!.selectedOrientations) setSelectedOrientations(data!.selectedOrientations);
+          if (data!.metas && Object.keys(data!.metas).length > 0) setMetas(data!.metas);
+          if (data!.openedAt) draftOpenedAtRef.current = data!.openedAt;
         });
       }
-    } catch {}
-    // Com experimental.useOffline, uma assinatura feita sem internet fica
-    // pendente pelo próprio Next.js enquanto a aba continua aberta e é
-    // reenviada sozinha quando a rede volta (ver comentário em
-    // ../actions.ts::createSessionNote). Isso NÃO sobrevive a fechar a aba
-    // ou o app ser encerrado em segundo plano no celular. Este marcador
-    // local é a rede de segurança pra esse caso: se sobrou um marcador de
-    // uma tentativa anterior que nunca confirmou (a página só chega a
-    // mostrar este formulário se o servidor ainda não tem nota salva),
-    // avisamos o terapeuta em vez de deixar a assinatura evaporar.
-    try {
-      if (localStorage.getItem(`pending_sign_${appointmentId}`)) {
-        setResumingPendingSignature(true);
-      }
-    } catch {}
-  }, [appointmentId, editing]);
+    })();
+    // O aviso de "assinatura anterior não confirmada" (marcador
+    // pending_sign_*, com experimental.useOffline) é lido no lazy
+    // initializer de `resumingPendingSignature` acima, não aqui — evita
+    // setState síncrono dentro do efeito.
+  }, [appointmentId, editing, openedAt]);
 
-  // Salva alterações no localStorage
+  // Salva alterações em IndexedDB (PRD §9.4 — "rascunho salvo
+  // automaticamente a cada campo; funciona offline").
   useEffect(() => {
     if (editing) return;
     if (signed) {
-      localStorage.removeItem(`draft_evolution_${appointmentId}`);
-      localStorage.removeItem(`pending_sign_${appointmentId}`);
+      clearDraft(`evolution_${appointmentId}`);
+      try {
+        localStorage.removeItem(`pending_sign_${appointmentId}`);
+      } catch {}
       return;
     }
     const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(
-          `draft_evolution_${appointmentId}`,
-          JSON.stringify({ presence, freeText, selectedBehaviors, intensities, selectedOrientations })
-        );
-        setDraftSaved(true);
-      } catch {}
+      saveDraft<DraftShape>(`evolution_${appointmentId}`, {
+        presence,
+        freeText,
+        selectedBehaviors,
+        intensities,
+        selectedOrientations,
+        metas,
+        openedAt: draftOpenedAtRef.current,
+      }).then(() => setDraftSaved(true));
     }, 500);
     return () => clearTimeout(timer);
-  }, [presence, freeText, selectedBehaviors, intensities, selectedOrientations, appointmentId, signed]);
+  }, [presence, freeText, selectedBehaviors, intensities, selectedOrientations, metas, appointmentId, signed, editing]);
 
   useEffect(() => {
     if (!attendanceStartedAt) return;
@@ -225,9 +314,57 @@ export function EvolutionForm({
     setSelectedOrientations((prev) => ({ ...prev, [value]: !prev[value] }));
   }
 
+  function toggleGoal(goalId: string) {
+    setMetas((prev) => {
+      const next = { ...prev };
+      if (goalId in next) {
+        delete next[goalId];
+      } else {
+        next[goalId] = null;
+      }
+      return next;
+    });
+  }
+
+  function setGoalResult(goalId: string, level: GoalResultLevel) {
+    setMetas((prev) => ({ ...prev, [goalId]: level }));
+  }
+
+  async function handleMediaSelected(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    for (const rawFile of Array.from(files)) {
+      const uploadId = `${rawFile.name}-${Date.now()}-${Math.random()}`;
+      setMediaUploads((prev) => [...prev, { id: uploadId, name: rawFile.name, status: "enviando" }]);
+      try {
+        const file = await compressImageIfNeeded(rawFile);
+        const fd = new FormData();
+        fd.set("file", file);
+        const result = await uploadSessionNoteMedia(appointmentId, patientId, fd);
+        setMediaUploads((prev) =>
+          prev.map((m) =>
+            m.id === uploadId
+              ? result.success
+                ? { ...m, status: "enviado" }
+                : { ...m, status: "erro", error: result.error }
+              : m,
+          ),
+        );
+      } catch {
+        setMediaUploads((prev) =>
+          prev.map((m) => (m.id === uploadId ? { ...m, status: "erro", error: "Falha no envio." } : m)),
+        );
+      }
+    }
+  }
+
   function goToStep2() {
     if (presence === null) {
       setStepError("Selecione a presença/engajamento (1 a 5).");
+      return;
+    }
+    const goalsMissingResult = Object.entries(metas).filter(([, resultado]) => !resultado);
+    if (goalsMissingResult.length > 0) {
+      setStepError("Selecione o resultado de todas as metas marcadas (ou desmarque as que não foram trabalhadas).");
       return;
     }
     setStepError(null);
@@ -236,6 +373,8 @@ export function EvolutionForm({
 
   const behaviorCount = Object.values(selectedBehaviors).filter(Boolean).length;
   const orientationCount = Object.values(selectedOrientations).filter(Boolean).length;
+  const goalsWorkedCount = Object.values(metas).filter((v) => !!v).length;
+  const mediaDoneCount = mediaUploads.filter((m) => m.status === "enviado").length;
 
   const stepBg = (n: 1 | 2) =>
     step >= n || signed ? "var(--color-accent-2)" : "color-mix(in srgb, #fff 25%, transparent)";
@@ -322,8 +461,12 @@ export function EvolutionForm({
           action={(formData) => {
             setError(null);
             formData.set("created_at_device", new Date().toISOString());
+            formData.set("opened_at", draftOpenedAtRef.current);
             if (presence !== null) {
               formData.set("presenca_engajamento", String(presence));
+            }
+            for (const [goalId, resultado] of Object.entries(metas)) {
+              if (resultado) formData.set(`meta_${goalId}`, resultado);
             }
             if (editing) {
               if (!editJustification.trim()) {
@@ -373,8 +516,9 @@ export function EvolutionForm({
             </div>
           )}
 
-          {/* Passo 1 — presença/engajamento e comportamentos-alvo, campos de
-              lib/session-note-fields.ts já gravados em session_notes.structured. */}
+          {/* Passo 1 — presença/engajamento, metas trabalhadas e
+              comportamentos-alvo, campos de lib/session-note-fields.ts já
+              gravados em session_notes.structured. */}
           <div className={step === 1 ? "flex flex-col gap-6" : "hidden"}>
             <VoiceEvolutionRecorder onSuggestion={applyVoiceSuggestion} />
 
@@ -408,12 +552,79 @@ export function EvolutionForm({
               </div>
             </div>
 
+            {/* Metas trabalhadas (PRD §9.4): checkbox das metas ativas do
+                plano aprovado do paciente, pré-marcadas com as da sessão
+                anterior; cada uma marcada exige um resultado em 4 níveis. */}
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+                Metas trabalhadas na sessão
+              </p>
+              {activeGoals.length === 0 ? (
+                <p className="mt-2 text-xs text-ink-faint">
+                  Sem plano terapêutico aprovado com metas ativas para este paciente.
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-col gap-2.5">
+                  {activeGoals.map((goal) => {
+                    const isChecked = goal.id in metas;
+                    return (
+                      <div
+                        key={goal.id}
+                        className="rounded-md border p-2.5"
+                        style={{
+                          borderColor: isChecked ? "var(--color-accent)" : "var(--color-divider)",
+                          background: isChecked ? "var(--color-accent-100)" : "transparent",
+                        }}
+                      >
+                        <label className="flex cursor-pointer items-start gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleGoal(goal.id)}
+                            className="mt-0.5"
+                          />
+                          <span>
+                            <span className="font-semibold text-ink">{goal.description}</span>
+                            <span className="ml-1.5 text-xs text-ink-faint">
+                              {goal.domain} · {goal.discipline}
+                            </span>
+                          </span>
+                        </label>
+                        {isChecked && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {GOAL_RESULT_LEVELS.map((r) => {
+                              const selected = metas[goal.id] === r.value;
+                              return (
+                                <button
+                                  key={r.value}
+                                  type="button"
+                                  onClick={() => setGoalResult(goal.id, r.value)}
+                                  className="min-h-[36px] rounded px-2.5 py-1 text-xs font-medium transition-all"
+                                  style={{
+                                    border: `1px solid ${selected ? "var(--color-accent-2)" : "var(--color-divider)"}`,
+                                    background: selected ? "var(--color-accent-2)" : "var(--color-surface)",
+                                    color: selected ? "#fff" : "var(--color-text)",
+                                  }}
+                                >
+                                  {r.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
                 Comportamentos-alvo observados
               </p>
               <div className="mt-2 flex flex-col gap-2">
-                {BEHAVIOR_TYPES.map((b) => (
+                {behaviorTypes.map((b) => (
                   <div key={b.value} className="flex flex-wrap items-center gap-2.5">
                     <label
                       className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm"
@@ -456,49 +667,6 @@ export function EvolutionForm({
 
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-                Metas do PEI / ABA trabalhadas na sessão (1-clique)
-              </p>
-              <div className="mt-2 flex flex-col gap-2.5">
-                {[
-                  { id: "meta_comunicacao", label: "Comunicação e Mando Operante" },
-                  { id: "meta_autonomia", label: "Autonomia & AVDs" },
-                  { id: "meta_social", label: "Engajamento Social & Troca de Turnos" },
-                  { id: "meta_motor", label: "Imitação / Motricidade Fina" },
-                ].map((meta) => (
-                  <div key={meta.id} className="rounded-md border p-2.5 bg-paper/40" style={{ borderColor: "var(--color-divider)" }}>
-                    <div className="text-xs font-semibold text-ink mb-1.5">{meta.label}</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {["Independente", "Dica Verbal", "Dica Gestual", "Ajuda Física"].map((promptLevel) => {
-                        const key = `${meta.id}_${promptLevel}`;
-                        const isSelected = selectedBehaviors[key];
-                        return (
-                          <button
-                            key={promptLevel}
-                            type="button"
-                            onClick={() => {
-                              setSelectedBehaviors((prev) => ({
-                                ...prev,
-                                [key]: !prev[key],
-                              }));
-                            }}
-                            className={`px-2.5 py-1 text-xs rounded transition-all font-medium min-h-[36px] ${
-                              isSelected
-                                ? "bg-accent-2 text-white font-semibold shadow-xs"
-                                : "bg-surface border border-divider text-ink-soft hover:bg-paper"
-                            }`}
-                          >
-                            {isSelected ? "✓ " : ""}{promptLevel}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
                 Orientação dada à família
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -532,8 +700,45 @@ export function EvolutionForm({
             {stepError && <p className="text-xs text-status-negative-text">{stepError}</p>}
           </div>
 
-          {/* Passo 2 — texto livre + resumo antes de assinar. */}
+          {/* Passo 2 — mídia, texto livre + resumo antes de assinar. */}
           <div className={step === 2 ? "flex flex-col gap-6" : "hidden"}>
+            {/* Anexo de foto/vídeo (PRD §9.4), condicionado ao consentimento
+                de imagem do responsável (guardians.image_consent) — o banco
+                também recusa via trigger caso a UI seja contornada. */}
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+                Foto ou vídeo curto (opcional)
+              </p>
+              {imageConsent ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    capture="environment"
+                    multiple
+                    onChange={(e) => {
+                      handleMediaSelected(e.target.files);
+                      e.target.value = "";
+                    }}
+                    className="text-sm"
+                  />
+                  {mediaUploads.length > 0 && (
+                    <ul className="flex flex-col gap-1 text-xs">
+                      {mediaUploads.map((m) => (
+                        <li key={m.id} className={m.status === "erro" ? "text-status-negative-text" : "text-ink-soft"}>
+                          {m.name} — {m.status === "enviando" ? "enviando…" : m.status === "enviado" ? "enviado" : m.error}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-ink-faint">
+                  A família não autorizou uso de imagem para este paciente — anexo de foto/vídeo desabilitado.
+                </p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="free_text">
@@ -644,11 +849,15 @@ export function EvolutionForm({
               <div className="flex flex-col gap-1 text-sm text-ink">
                 <span>Presença/engajamento: {presence ?? "—"}/5</span>
                 <span>
+                  Metas trabalhadas: {goalsWorkedCount} de {activeGoals.length}
+                </span>
+                <span>
                   Comportamentos-alvo: {behaviorCount > 0 ? behaviorCount : "nenhum registrado"}
                 </span>
                 <span>
                   Orientações à família: {orientationCount > 0 ? orientationCount : "nenhuma registrada"}
                 </span>
+                <span>Anexos: {mediaDoneCount}</span>
                 <span>Versão: {editing ? editing.previousVersion + 1 : 1}</span>
               </div>
             </div>

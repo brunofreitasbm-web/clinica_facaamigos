@@ -127,9 +127,9 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
           <Link
             href="/supervisao/planos/novo"
             className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
-            title="Montar novo Plano Terapêutico (PEI) para um paciente"
+            title="Montar novo Plano Terapêutico Singular (PTS) para um paciente"
           >
-            ＋ Montar PEI
+            ＋ Montar PTS
           </Link>
         </div>
 

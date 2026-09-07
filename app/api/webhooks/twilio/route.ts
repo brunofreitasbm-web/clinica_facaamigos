@@ -1,17 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import twilio from "twilio";
 import { handleTwilioIncomingMessage, sendTwilioWhatsApp, sendTwilioSMS, formatE164Phone } from "@/lib/twilio";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const EMPTY_TWIML = `<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>`;
+
 /**
- * Escape caracteres especiais para segurança no TwiML XML.
+ * Confere a assinatura X-Twilio-Signature contra o Auth Token da conta —
+ * sem isso qualquer pessoa pode POSTar neste endpoint se passando pelo
+ * Twilio (nenhuma rota deste projeto validava isso). `TWILIO_WEBHOOK_URL`
+ * cobre o caso comum de dev atrás de proxy/túnel (ngrok etc.), onde a URL
+ * pública configurada no console Twilio difere de `req.url`; em produção,
+ * deixe a variável vazia e a própria URL da requisição é usada.
+ * `TWILIO_SKIP_SIGNATURE_VALIDATION=true` existe só para dev local sem
+ * túnel (o Twilio nunca alcança localhost pra assinar de verdade).
  */
-function escapeXml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+function isValidTwilioSignature(req: NextRequest, params: Record<string, string>): boolean {
+  if (process.env.TWILIO_SKIP_SIGNATURE_VALIDATION === "true") return true;
+
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const signature = req.headers.get("x-twilio-signature");
+  if (!authToken || !signature) return false;
+
+  const publicUrl = process.env.TWILIO_WEBHOOK_URL || req.url;
+  return twilio.validateRequest(authToken, signature, publicUrl, params);
 }
 
 export async function GET() {
@@ -30,8 +42,30 @@ export async function POST(req: NextRequest) {
 
     let mediaUrl0 = "";
     let mediaContentType0 = "";
+    // NumMedia + MediaUrl{i}/MediaContentType{i}: Twilio manda o total de
+    // anexos da mensagem (o WhatsApp normalmente entrega 1 por mensagem, mas
+    // o formato suporta mais). Usado pelo fluxo de "cadastro assistido por
+    // IA" (lib/registration-drafts-ingest.ts) — mediaUrl0/mediaContentType0
+    // continuam existindo à parte pra não quebrar o bot de anamnese, que só
+    // olha o primeiro anexo.
+    let media: { url: string; contentType?: string }[] = [];
+
+    function collectMedia(get: (key: string) => string | null): { url: string; contentType?: string }[] {
+      const numMedia = Number(get("NumMedia") ?? "0") || 0;
+      const items: { url: string; contentType?: string }[] = [];
+      for (let i = 0; i < numMedia; i++) {
+        const url = get(`MediaUrl${i}`);
+        if (url) items.push({ url, contentType: get(`MediaContentType${i}`) ?? undefined });
+      }
+      return items;
+    }
 
     const contentType = req.headers.get("content-type") || "";
+    // Parâmetros crus pra validação de assinatura — twilio.validateRequest
+    // exige o dicionário exato que o Twilio assinou. Só o POST
+    // form-urlencoded é o formato real que o Twilio envia; os outros ramos
+    // existem para depuração manual (curl/Postman) e nunca chegam assinados.
+    let signatureParams: Record<string, string> = {};
 
     if (contentType.includes("application/x-www-form-urlencoded")) {
       const formData = await req.formData();
@@ -40,6 +74,10 @@ export async function POST(req: NextRequest) {
       to = formData.get("To")?.toString() || "";
       mediaUrl0 = formData.get("MediaUrl0")?.toString() || "";
       mediaContentType0 = formData.get("MediaContentType0")?.toString() || "";
+      media = collectMedia((key) => formData.get(key)?.toString() ?? null);
+      for (const [key, value] of formData.entries()) {
+        signatureParams[key] = value.toString();
+      }
     } else if (contentType.includes("application/json")) {
       const json = await req.json();
       from = json.From || json.from || "";
@@ -47,6 +85,7 @@ export async function POST(req: NextRequest) {
       to = json.To || json.to || "";
       mediaUrl0 = json.MediaUrl0 || json.mediaUrl0 || "";
       mediaContentType0 = json.MediaContentType0 || json.mediaContentType0 || "";
+      media = collectMedia((key) => (json[key] ?? null) as string | null);
     } else {
       // Fallback: tentar ler como FormData primeiro, depois como texto se falhar
       try {
@@ -56,6 +95,10 @@ export async function POST(req: NextRequest) {
         to = formData.get("To")?.toString() || "";
         mediaUrl0 = formData.get("MediaUrl0")?.toString() || "";
         mediaContentType0 = formData.get("MediaContentType0")?.toString() || "";
+        media = collectMedia((key) => formData.get(key)?.toString() ?? null);
+        for (const [key, value] of formData.entries()) {
+          signatureParams[key] = value.toString();
+        }
       } catch {
         const text = await req.text();
         const params = new URLSearchParams(text);
@@ -64,7 +107,14 @@ export async function POST(req: NextRequest) {
         to = params.get("To") || "";
         mediaUrl0 = params.get("MediaUrl0") || "";
         mediaContentType0 = params.get("MediaContentType0") || "";
+        media = collectMedia((key) => params.get(key));
+        signatureParams = Object.fromEntries(params.entries());
       }
+    }
+
+    if (!isValidTwilioSignature(req, signatureParams)) {
+      console.error("[Twilio Webhook Signature Error]: assinatura inválida ou ausente — requisição rejeitada.");
+      return NextResponse.json({ success: false, error: "Assinatura inválida." }, { status: 403 });
     }
 
     console.log(`[Twilio Webhook Received] From: ${from} | Body: "${bodyText}" | MediaUrl0: "${mediaUrl0}"`);
@@ -74,6 +124,7 @@ export async function POST(req: NextRequest) {
       body: bodyText,
       mediaUrl0,
       mediaContentType0,
+      media,
     });
 
     // Se for mensagem vinda do WhatsApp ou se o número possuir o prefixo 'whatsapp:'
@@ -101,11 +152,17 @@ export async function POST(req: NextRequest) {
       try {
         const phone = formatE164Phone(from.replace("whatsapp:", ""));
         const supabase = createAdminClient();
-        const { data: conversation } = await supabase
+        // .limit(1) em vez de .maybeSingle(): uma segunda linha para o
+        // mesmo telefone (duplicata histórica) faz .maybeSingle() lançar
+        // PGRST116 e o outbound nem é logado — mesmo bug relatado em
+        // findOrCreateConversation (lib/twilio.ts), que já usa .limit(1).
+        const { data: conversations } = await supabase
           .from("twilio_conversations")
           .select("id, patient_id, guardian_id")
           .eq("phone_number", phone)
-          .maybeSingle();
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const conversation = conversations?.[0];
 
         if (conversation) {
           await supabase.from("messages").insert({
@@ -126,17 +183,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Gerar resposta em TwiML XML para que a API do Twilio responda instantaneamente de forma nativa.
-    // replyMessage vazio (ex.: conversa assumida por humano) não gera <Message>.
-    const xmlResponse = result.replyMessage
-      ? `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Message>${escapeXml(result.replyMessage)}</Message>
-</Response>`
-      : `<?xml version="1.0" encoding="UTF-8"?>
-<Response></Response>`;
-
-    return new NextResponse(xmlResponse, {
+    // Sempre devolve TwiML vazio: a resposta já foi enviada acima via REST
+    // (client.messages.create), que é o único jeito de capturar o `sid` e
+    // logar o outbound em `messages`/`twilio_conversations`. Devolver
+    // também um <Message> aqui fazia o Twilio entregar a mesma resposta
+    // DUAS VEZES para a família — bug corrigido nesta entrega.
+    return new NextResponse(EMPTY_TWIML, {
       status: 200,
       headers: {
         "Content-Type": "text/xml; charset=utf-8",

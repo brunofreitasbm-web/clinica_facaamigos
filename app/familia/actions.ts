@@ -472,6 +472,27 @@ export async function uploadFamilyDocument(patientId: string, formData: FormData
     return { success: false, error: "Não foi possível enviar o arquivo. Tente de novo." };
   }
 
+  // Cadastro assistido por IA (20260907000001_registration_drafts.sql):
+  // anexa este envio a um rascunho de extração — reusa o arquivo que acabou
+  // de subir (sem duplicar bytes) e deixa o cron extrair os dados pra a
+  // recepção só validar. Best-effort: se falhar, o documento já está salvo
+  // em 'familia_envio' normalmente, só não ganha o atalho de dados
+  // pré-preenchidos.
+  try {
+    const { attachPortalUploadToDraft } = await import("@/lib/registration-drafts-ingest");
+    await attachPortalUploadToDraft({
+      patientId,
+      submittedBy: user.id,
+      storagePath,
+      mimeType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+      originalName: file.name,
+      documentId,
+    });
+  } catch (err) {
+    console.error("[Family Upload] Falha ao anexar ao rascunho de cadastro assistido:", err);
+  }
+
   revalidatePath("/familia");
   return { success: true };
 }

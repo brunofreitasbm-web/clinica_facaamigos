@@ -84,7 +84,7 @@ export default async function CompetenceDetailPage({
       amount: Number(item.amount),
       startsAt: appt?.starts_at ?? null,
       patientName: appt?.patients?.full_name ?? "Paciente",
-      therapistName: appt?.therapist?.full_name ?? "Profissional",
+      therapistName: appt?.therapist?.full_name ?? "Terapeuta",
     };
   });
 
@@ -133,7 +133,7 @@ export default async function CompetenceDetailPage({
                 <th>Paciente</th>
                 <th>Data</th>
                 <th>Procedimento</th>
-                <th>Profissional</th>
+                <th>Terapeuta</th>
                 <th>Prontuário</th>
                 <th>Valor</th>
               </tr>

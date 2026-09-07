@@ -4,7 +4,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reasons";
-import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
+import { todayInTimeZone } from "@/lib/timezone";
+import { computeAvailableSlots } from "@/lib/available-slots";
 import { revalidatePath } from "next/cache";
 
 type ActionResult = { success: true; warning?: string } | { success: false; error: string };
@@ -456,20 +457,16 @@ export async function getPatientActiveAuthorizations(
   }));
 }
 
-const WEEKDAY_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
-
-export type AvailableSlot = {
-  dateLabel: string;
-  timeLabel: string;
-  startsAtIso: string;
-  endsAtIso: string;
-};
+export type { AvailableSlot } from "@/lib/available-slots";
 
 /**
  * Vagas livres reais pra sala+terapeuta dessa sessão, nos próximos 5 dias,
  * em horário comercial (08h–19h, passo de 30min) — substitui os `mockSlots`
  * hardcoded que existiam em app/recepcao/agenda/reagendamento-dialog.tsx
- * (dados fixos, sem nenhuma consulta ao banco).
+ * (dados fixos, sem nenhuma consulta ao banco). Delega o cálculo puro para
+ * lib/available-slots.ts (computeAvailableSlots), reaproveitado também pelo
+ * bot de acolhimento de plano de saúde (lib/twilio-intake-bot.ts) com
+ * duração/limite diferentes — mesma lógica, sem duplicação.
  */
 export async function getAvailableSlots(
   roomId: string,
@@ -478,62 +475,7 @@ export async function getAvailableSlots(
   excludeAppointmentId: string,
 ): Promise<AvailableSlot[]> {
   const supabase = await createClient();
-
-  const days: string[] = [];
-  let cursor = todayInTimeZone(CLINIC_TIMEZONE);
-  for (let i = 0; i < 5; i++) {
-    days.push(cursor);
-    cursor = nextCalendarDay(cursor);
-  }
-
-  const rangeStart = zonedDateTimeToUtc(days[0], "00:00", CLINIC_TIMEZONE).toISOString();
-  const rangeEnd = zonedDateTimeToUtc(nextCalendarDay(days[days.length - 1]), "00:00", CLINIC_TIMEZONE).toISOString();
-
-  const { data: busy } = await supabase
-    .from("appointments")
-    .select("id, starts_at, ends_at, room_id, therapist_id, status")
-    .gte("starts_at", rangeStart)
-    .lt("starts_at", rangeEnd)
-    .neq("id", excludeAppointmentId)
-    .not(
-      "status",
-      "in",
-      "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,falta_familia)",
-    )
-    .or(`room_id.eq.${roomId},therapist_id.eq.${therapistId}`);
-
-  const busyRanges = (busy ?? []).map((b) => ({
-    start: new Date(b.starts_at).getTime(),
-    end: new Date(b.ends_at).getTime(),
-  }));
-
-  const now = Date.now();
-  const slots: AvailableSlot[] = [];
-
-  for (const day of days) {
-    for (let hour = 8; hour < 19 && slots.length < 8; hour++) {
-      for (const minute of [0, 30]) {
-        if (slots.length >= 8) break;
-        const timeStr = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-        const startsAt = zonedDateTimeToUtc(day, timeStr, CLINIC_TIMEZONE);
-        if (startsAt.getTime() <= now) continue;
-        const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-        const overlaps = busyRanges.some((r) => startsAt.getTime() < r.end && endsAt.getTime() > r.start);
-        if (overlaps) continue;
-
-        const [year, month, dayNum] = day.split("-").map(Number);
-        const weekday = WEEKDAY_PT[new Date(Date.UTC(year, month - 1, dayNum)).getUTCDay()];
-        slots.push({
-          dateLabel: `${String(dayNum).padStart(2, "0")}/${String(month).padStart(2, "0")} (${weekday})`,
-          timeLabel: timeStr,
-          startsAtIso: startsAt.toISOString(),
-          endsAtIso: endsAt.toISOString(),
-        });
-      }
-    }
-  }
-
-  return slots;
+  return computeAvailableSlots(supabase, { roomId, therapistId, durationMinutes, excludeAppointmentId, limit: 8 });
 }
 
 export async function rescheduleAppointmentAction(

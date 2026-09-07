@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
+import type { IntakeExtractionProfile } from "@/lib/insurance-intake-profile";
 
 export async function createInsurer(
   formData: FormData,
@@ -54,5 +55,35 @@ export async function updateInsurerProviderCode(
 
   revalidatePath("/gestor/convenios");
   revalidatePath("/faturamento/guias");
+  return { success: true };
+}
+
+/**
+ * Salva o perfil de extração por convênio ("campos por plano de saúde") do
+ * acolhimento oriundo de plano de saúde — dicas de layout, palavras-chave
+ * de detecção e mapeamento de colunas que ajudam o Gemini a ler o PDF
+ * específico deste convênio (lib/insurance-intake-extraction.ts). Chama a
+ * função SQL `set_insurer_intake_profile` (security definer), que confere
+ * gestor/supervisor e o convênio pertencer à clínica do usuário — nunca
+ * confiar só na policy genérica de `insurers` (essa é gestor-only).
+ */
+export async function setInsurerIntakeProfile(
+  insurerId: string,
+  profile: IntakeExtractionProfile,
+): Promise<{ success: true } | { success: false; error: string }> {
+  if (!insurerId) return { success: false, error: "Convênio inválido." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_insurer_intake_profile", {
+    p_insurer_id: insurerId,
+    p_profile: profile,
+  });
+
+  if (error) {
+    return { success: false, error: "Não foi possível salvar o perfil de extração deste convênio." };
+  }
+
+  revalidatePath("/gestor/convenios");
+  revalidatePath("/supervisao");
   return { success: true };
 }

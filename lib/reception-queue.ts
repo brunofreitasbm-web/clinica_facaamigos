@@ -17,7 +17,8 @@ export type PendingQueueCategory =
   | "falta_sem_motivo"
   | "remarcacao_solicitada"
   | "documento_familia_novo"
-  | "renovacao_solicitada";
+  | "renovacao_solicitada"
+  | "cadastro_assistido_ia";
 
 export type PendingQueueItem = {
   id: string;
@@ -37,6 +38,8 @@ export type PendingQueueItem = {
   /** Só preenchido em renovacao_solicitada — id da linha em
    * authorization_renewal_requests, pra ação de marcar como resolvida. */
   renewalRequestId?: string;
+  /** Só preenchido em cadastro_assistido_ia — id do registration_drafts pra abrir a tela de validação. */
+  draftId?: string;
   /**
    * Dono + prazo (pending_queue_assignments) — preenchido por
    * attachQueueAssignments logo abaixo, depois que todas as categorias já
@@ -80,6 +83,7 @@ const DUE_MINUTES_BY_CATEGORY: Record<PendingQueueCategory, number> = {
   guia_poucas_sessoes: 3 * 24 * 60,
   documento_vencido: 3 * 24 * 60,
   renovacao_solicitada: 3 * 24 * 60,
+  cadastro_assistido_ia: 24 * 60,
 };
 
 const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
@@ -93,6 +97,7 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   remarcacao_solicitada: "Pedido de remarcação",
   documento_familia_novo: "Documento enviado pela família",
   renovacao_solicitada: "Renovação de guia solicitada",
+  cadastro_assistido_ia: "Documentos para conferir (IA)",
 };
 
 export type ExpiringAuthorization = {
@@ -380,6 +385,42 @@ async function getAuthorizationRenewalRequests(supabase: Supa, clinicId: string)
   return result;
 }
 
+export type PendingRegistrationDraft = {
+  id: string;
+  patientId: string | null;
+  patientName: string | null;
+  sourcePhone: string | null;
+  status: "extracted" | "failed";
+  createdAt: string;
+};
+
+/**
+ * Rascunhos do "cadastro assistido por IA" (registration_drafts,
+ * 20260907000001) já extraídos (ou com falha de extração) esperando a
+ * recepção conferir/confirmar. 'pending'/'processing' ficam de fora — ainda
+ * não há nada pra humano revisar enquanto a IA está lendo.
+ */
+async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): Promise<PendingRegistrationDraft[]> {
+  const { data } = await supabase
+    .from("registration_drafts")
+    .select("id, patient_id, source_phone, status, created_at, patients(full_name)")
+    .eq("clinic_id", clinicId)
+    .in("status", ["extracted", "failed"])
+    .order("created_at", { ascending: true });
+
+  return (data ?? []).map((d) => {
+    const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;
+    return {
+      id: d.id,
+      patientId: d.patient_id,
+      patientName: patient?.full_name ?? null,
+      sourcePhone: d.source_phone,
+      status: d.status as "extracted" | "failed",
+      createdAt: d.created_at,
+    };
+  });
+}
+
 /**
  * Dá dono + prazo a cada item da fila (pending_queue_assignments, §9.1):
  * qualquer item sem assignment ganha um agora (assigned_to = plantonista
@@ -487,6 +528,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     rescheduleRequests,
     pendingFamilyDocuments,
     renewalRequests,
+    pendingRegistrationDrafts,
   ] = await Promise.all([
     getExpiringAuthorizations(supabase, clinicId),
     getPendingPatients(supabase, 3),
@@ -497,6 +539,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     getPendingRescheduleRequests(supabase, clinicId),
     getPendingFamilyDocuments(supabase, clinicId),
     getAuthorizationRenewalRequests(supabase, clinicId),
+    getPendingRegistrationDrafts(supabase, clinicId),
   ]);
 
   const items: PendingQueueItem[] = [];
@@ -634,6 +677,20 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       urgencyLabel: new Date(r.createdAt).toLocaleDateString("pt-BR"),
       href: `/recepcao/pacientes/${r.patientId}`,
       renewalRequestId: r.id,
+    });
+  }
+
+  for (const d of pendingRegistrationDrafts) {
+    items.push({
+      id: `cadastro-ia-${d.id}`,
+      category: "cadastro_assistido_ia",
+      categoryLabel: CATEGORY_LABEL.cadastro_assistido_ia,
+      patientId: d.patientId,
+      patientName: d.patientName ?? `Pré-cadastro · ${d.sourcePhone ?? "número novo"}`,
+      detail: d.status === "failed" ? "Extração falhou — reprocessar ou preencher manualmente" : "Pronto para conferir",
+      urgencyLabel: new Date(d.createdAt).toLocaleDateString("pt-BR"),
+      href: `/recepcao/pre-cadastros/${d.id}`,
+      draftId: d.id,
     });
   }
 

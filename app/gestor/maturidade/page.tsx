@@ -63,8 +63,8 @@ export default async function MaturidadePage() {
     { label: "Supervisão por área (equipe de avaliação)", tem: true, funciona: (teamCount ?? 0) > 0, monitorado: false },
     { label: "Reunião interdisciplinar", tem: true, funciona: (interdisciplinaryCount ?? 0) > 0, monitorado: false },
     { label: "Carta ao Terapeuta", tem: true, funciona: false, monitorado: false },
-    { label: "PDI", tem: true, funciona: (plansCount ?? 0) > 0, monitorado: monitored },
-    { label: "Validação do PDI", tem: true, funciona: (approvedPlansCount ?? 0) > 0, monitorado: monitored },
+    { label: "PTS", tem: true, funciona: (plansCount ?? 0) > 0, monitorado: monitored },
+    { label: "Validação do PTS", tem: true, funciona: (approvedPlansCount ?? 0) > 0, monitorado: monitored },
     { label: "Devolutiva à família", tem: true, funciona: (devolutivaCount ?? 0) > 0, monitorado: monitored },
   ];
 

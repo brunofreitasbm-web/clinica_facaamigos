@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
-const MEETING_KINDS = ["interdisciplinar", "devolutiva", "revisao_pdi", "visita_escolar"] as const;
+const MEETING_KINDS = ["interdisciplinar", "devolutiva", "revisao_pts", "visita_escolar"] as const;
 
 /**
  * Registro de reunião (Módulo 3 MAAIS): técnica multidisciplinar (slide 10

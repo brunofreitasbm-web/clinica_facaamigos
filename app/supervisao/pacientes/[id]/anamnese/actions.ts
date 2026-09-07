@@ -57,10 +57,10 @@ export async function saveAnamnese(patientId: string, formData: FormData): Promi
     return { success: false, error: "Não foi possível salvar a anamnese. Verifique sua permissão para este paciente." };
   }
 
-  // Prioridades da família alimentam o PDI (slide 22 — "a família relatou
+  // Prioridades da família alimentam o PTS (slide 22 — "a família relatou
   // uma prioridade, mas ela não chegou ao PDI"): gravamos também em
   // patients-adjacent nenhuma coluna própria existe, então fica só em
-  // anamneses.structured; o formulário do PDI busca de lá.
+  // anamneses.structured; o formulário do PTS busca de lá.
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
   revalidatePath(`/supervisao/pacientes/${patientId}/anamnese`);

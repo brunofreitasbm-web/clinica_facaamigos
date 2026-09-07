@@ -356,12 +356,12 @@ export function GradePanel({
                 type="button"
                 className="btn btn-primary text-xs"
                 onClick={() => {
-                  setNotification(`Visualização de PEI acionada para ${selectedAppt.patientName}`);
+                  setNotification(`Visualização de PTS acionada para ${selectedAppt.patientName}`);
                   setSelectedAppt(null);
                   setTimeout(() => setNotification(null), 4000);
                 }}
               >
-                Ver PEI do Paciente
+                Ver PTS do Paciente
               </button>
             </div>
           </div>
@@ -442,10 +442,10 @@ export function GradePanel({
 
       <div className="mt-14">
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-4">
-          Pendências da equipe · PDI atrasado
+          Pendências da equipe · PTS atrasado
         </h6>
         {pendingPlans.length === 0 ? (
-          <p className="text-sm text-ink-faint">Nenhum PDI atrasado — prazo de 50 dias em dia (§2.3).</p>
+          <p className="text-sm text-ink-faint">Nenhum PTS atrasado — prazo de 50 dias em dia (§2.3).</p>
         ) : (
           <div className="flex flex-col">
             {pendingPlans.map((p) => (
@@ -463,7 +463,7 @@ export function GradePanel({
                     type="button"
                     className="btn btn-ghost"
                     onClick={() => {
-                      setNotification(`Lembrete de PDI pendente enviado para a equipe de ${p.patientName}`);
+                      setNotification(`Lembrete de PTS pendente enviado para a equipe de ${p.patientName}`);
                       setTimeout(() => setNotification(null), 4000);
                     }}
                   >

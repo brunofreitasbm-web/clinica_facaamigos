@@ -147,7 +147,7 @@ export default async function RepassesPage() {
 
         <div className="rounded-lg border border-paper-line-strong bg-white overflow-hidden shadow-sm">
           <div className="p-4 border-b border-paper-line bg-paper flex justify-between items-center">
-            <h3 className="text-sm font-bold text-ink">Detalhamento por Profissional PJ</h3>
+            <h3 className="text-sm font-bold text-ink">Detalhamento por Terapeuta PJ</h3>
             <span className="text-xs text-ink-soft">Competência: {competenceLabel}</span>
           </div>
 
@@ -155,7 +155,7 @@ export default async function RepassesPage() {
             <table className="w-full text-left text-xs text-ink">
               <thead className="bg-paper border-b border-paper-line text-ink-faint font-medium uppercase">
                 <tr>
-                  <th className="p-3.5">Profissional</th>
+                  <th className="p-3.5">Terapeuta</th>
                   <th className="p-3.5">Faixa</th>
                   <th className="p-3.5 text-center">Sessões</th>
                   <th className="p-3.5 text-right">Bruto (R$)</th>

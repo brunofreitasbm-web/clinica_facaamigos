@@ -2,11 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
-import {
-  BEHAVIOR_TYPES,
-  FAMILY_GUIDANCE_OPTIONS,
-  type SessionNoteStructured,
-} from "@/lib/session-note-fields";
+import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
+import { getBehaviorCatalog } from "@/lib/behavior-catalog";
+import { SessionNoteStructuredView } from "@/components/prontuario/session-note-structured";
 
 export default async function EvolucaoHistoricoPage({
   params,
@@ -31,8 +29,10 @@ export default async function EvolucaoHistoricoPage({
   if (!appointment) notFound();
 
   // A RLS de session_notes já restringe o retorno a quem pode ver:
-  // gestor/supervisor da clínica, ou o terapeuta dono do appointment.
-  // Se vier vazio para alguém sem acesso, tratamos como "sem histórico".
+  // gestor/supervisor da clínica, a equipe vinculada ao paciente (patient_
+  // access, 20260907170000_terapeuta_prontuario_rls.sql), ou o terapeuta
+  // dono do appointment. Se vier vazio para alguém sem acesso, tratamos
+  // como "sem histórico".
   const { data: versions } = await supabase
     .from("session_notes")
     .select(
@@ -48,12 +48,20 @@ export default async function EvolucaoHistoricoPage({
     timeStyle: "short",
   });
 
-  function behaviorLabel(value: string) {
-    return BEHAVIOR_TYPES.find((b) => b.value === value)?.label ?? value;
-  }
+  const behaviorCatalog = await getBehaviorCatalog(supabase, { activeOnly: false });
 
-  function orientationLabel(value: string) {
-    return FAMILY_GUIDANCE_OPTIONS.find((g) => g.value === value)?.label ?? value;
+  // Resolve plan_goal_id → descrição pra todas as versões de uma vez — a
+  // meta pode não existir mais (plano revisado), por isso o fallback dentro
+  // de SessionNoteStructuredView.
+  const allMetaGoalIds = Array.from(
+    new Set(
+      (versions ?? []).flatMap((v) => getMetasTrabalhadas(v.structured as SessionNoteStructured | null).map((m) => m.plan_goal_id)),
+    ),
+  );
+  const goalDescriptionById = new Map<string, string>();
+  if (allMetaGoalIds.length > 0) {
+    const { data: goals } = await supabase.from("plan_goals").select("id, description").in("id", allMetaGoalIds);
+    for (const g of goals ?? []) goalDescriptionById.set(g.id, g.description);
   }
 
   return (
@@ -103,28 +111,13 @@ export default async function EvolucaoHistoricoPage({
                   {new Date(v.created_at_device).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })} · Servidor:{" "}
                   {new Date(v.created_at_server).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
                 </div>
-                {v.edit_justification && (
-                  <div className="rounded-md border border-divider bg-paper/40 p-2.5 text-sm">
-                    <span className="font-semibold text-ink">Motivo da edição: </span>
-                    <span className="text-ink-soft">{v.edit_justification}</span>
-                  </div>
-                )}
-                <div className="flex flex-col gap-1 text-sm text-ink">
-                  <span>Presença/engajamento: {structured?.presenca_engajamento ?? "—"}/5</span>
-                  <span>
-                    Comportamentos-alvo:{" "}
-                    {structured?.comportamentos?.length
-                      ? structured.comportamentos.map((c) => behaviorLabel(c.tipo)).join(", ")
-                      : "nenhum registrado"}
-                  </span>
-                  <span>
-                    Orientações à família:{" "}
-                    {structured?.orientacoes?.length
-                      ? structured.orientacoes.map(orientationLabel).join(", ")
-                      : "nenhuma registrada"}
-                  </span>
-                  {v.free_text && <span className="whitespace-pre-wrap">{v.free_text}</span>}
-                </div>
+                <SessionNoteStructuredView
+                  structured={structured}
+                  freeText={v.free_text}
+                  behaviorCatalog={behaviorCatalog}
+                  goalDescriptionById={goalDescriptionById}
+                  editJustification={v.edit_justification}
+                />
               </div>
             );
           })

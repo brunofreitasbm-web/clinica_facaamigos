@@ -8,7 +8,8 @@ import Link from "next/link";
 // cadastro real de therapist_contracts (valor-hora por terapeuta).
 const SIDEBAR_ITEMS = [
   { key: "atendimentos", label: "Atendimentos & Salas", href: "/gestor/configuracoes/atendimentos", enabled: true },
-  { key: "profissionais", label: "Profissionais", href: "/gestor/configuracoes/profissionais", enabled: true },
+  { key: "profissionais", label: "Terapeutas", href: "/gestor/configuracoes/profissionais", enabled: true },
+  { key: "comportamentos", label: "Comportamentos-alvo", href: "/gestor/configuracoes/comportamentos", enabled: true },
   { key: "notificacoes", label: "Notificações", href: "/gestor/configuracoes/notificacoes", enabled: true },
   { key: "usuarios", label: "Usuários", href: "/gestor/configuracoes/usuarios", enabled: true },
 ] as const;

@@ -48,7 +48,7 @@ export function AnamneseForm({ patientId }: { patientId: string }) {
           Prioridades relatadas pela família
         </label>
         <p className="mt-0.5 text-xs text-ink-faint">
-          O que a família apontou como mais urgente — este texto fica disponível na hora de montar o PDI (Módulo 3
+          O que a família apontou como mais urgente — este texto fica disponível na hora de montar o PTS (Módulo 3
           MAAIS, slide 22: &quot;a família relatou uma prioridade, mas ela não chegou ao PDI&quot;).
         </p>
         <textarea name="family_priorities" rows={2} className={inputClass} />

@@ -19,30 +19,36 @@ export type PatientIdentitySummary = {
  * de emergência (guardian marcado, ou o único responsável quando só há um).
  * Compartilhado entre a ficha da recepção e a tela de evolução do terapeuta
  * pra não divergir a lógica de fallback entre as duas.
+ *
+ * Responsáveis e autorizações vêm das RPCs patient_contact_summary /
+ * patient_authorization_summary (supabase/migrations/
+ * 20260907170000_terapeuta_prontuario_rls.sql) em vez de SELECT direto:
+ * guardians_read/authorizations_read não liberam SELECT para `terapeuta`
+ * (só gestor/supervisor/recepcao/faturamento), então antes desta função
+ * sempre devolvia `emergencyContact`/`activeAuthorization` nulos para quem
+ * mais precisa deles — o terapeuta em cima da própria sessão. Para
+ * gestor/supervisor/recepcao o resultado é equivalente ao SELECT direto de
+ * antes; a RPC só filtra as colunas sensíveis (cpf, senha da guia) que este
+ * resumo nunca usou de qualquer forma.
  */
 export async function getPatientIdentitySummary(
   supabase: SupabaseClient<Database>,
   patientId: string,
 ): Promise<PatientIdentitySummary> {
-  const [{ data: activeAuth }, { data: patientInsurances }, { data: guardians }] = await Promise.all([
-    supabase
-      .from("authorizations")
-      .select(
-        "patient_insurance_id, guide_number, sessions_used, sessions_authorized, valid_to, patient_insurance!inner(patient_id)",
-      )
-      .eq("patient_insurance.patient_id", patientId)
-      .eq("status", "ativa")
-      .limit(1)
-      .maybeSingle(),
+  const [
+    { data: patientInsurances },
+    { data: guardians },
+    { data: authorizationsSummary },
+  ] = await Promise.all([
     supabase
       .from("patient_insurance")
       .select("id, card_number, insurers(name)")
       .eq("patient_id", patientId),
-    supabase
-      .from("guardians")
-      .select("full_name, phone, is_emergency_contact")
-      .eq("patient_id", patientId),
+    supabase.rpc("patient_contact_summary", { p_patient_id: patientId }),
+    supabase.rpc("patient_authorization_summary", { p_patient_id: patientId }),
   ]);
+
+  const activeAuth = (authorizationsSummary ?? []).find((a) => a.status === "ativa") ?? null;
 
   const activeInsuranceRow =
     (patientInsurances ?? []).find((pi) => pi.id === activeAuth?.patient_insurance_id) ??
@@ -69,7 +75,7 @@ export async function getPatientIdentitySummary(
   return {
     insurance,
     emergencyContact: emergencyGuardian
-      ? { name: emergencyGuardian.full_name, phone: emergencyGuardian.phone }
+      ? { name: emergencyGuardian.guardian_name, phone: emergencyGuardian.phone }
       : null,
     activeAuthorization: activeAuth
       ? {

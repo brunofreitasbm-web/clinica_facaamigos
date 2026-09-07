@@ -124,6 +124,10 @@ export async function uploadDocument(
   }
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
+  // Este action é reusado pela ficha do terapeuta (components/prontuario/
+  // document-upload-form.tsx é importado de app/terapeuta/paciente/
+  // [patientId]/page.tsx) — revalida os dois caminhos possíveis.
+  revalidatePath(`/terapeuta/paciente/${patientId}`);
   return { success: true };
 }
 

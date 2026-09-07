@@ -85,7 +85,7 @@ export function PlanForm({
 }) {
   const formId = useId();
   const router = useRouter();
-  // Pré-seleção via ?paciente= (atalho "Montar PEI" da aba Fluxos da supervisão);
+  // Pré-seleção via ?paciente= (atalho "Montar PTS" da aba Fluxos da supervisão);
   // só vale se o id estiver na lista elegível (ativo/avaliacao).
   const [patientId, setPatientId] = useState(() =>
     patients.some((p) => p.id === initialPatientId) ? initialPatientId : "",

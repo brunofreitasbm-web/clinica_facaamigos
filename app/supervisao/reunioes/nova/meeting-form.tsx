@@ -49,7 +49,7 @@ export function MeetingForm({
         <select name="kind" value={kind} onChange={(e) => setKind(e.target.value)} className={inputClass}>
           <option value="interdisciplinar">Reunião técnica multidisciplinar</option>
           <option value="devolutiva">Devolutiva à família</option>
-          <option value="revisao_pdi">Revisão do PDI</option>
+          <option value="revisao_pts">Revisão do PTS</option>
           <option value="visita_escolar">Visita escolar</option>
         </select>
       </div>

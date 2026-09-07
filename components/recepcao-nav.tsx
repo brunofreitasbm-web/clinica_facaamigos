@@ -11,6 +11,7 @@ import {
   FileText,
   Boxes,
   PhoneCall,
+  Sparkles,
 } from "lucide-react";
 
 /**
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { key: "atendimento", label: "Atendimento", href: "/recepcao/atendimento", icon: Inbox, exact: false },
   { key: "whatsapp", label: "Confirmar amanhã", href: "/recepcao/whatsapp", icon: MessageCircle, exact: false },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText, exact: false },
+  { key: "precadastros", label: "Cadastro IA", href: "/recepcao/pre-cadastros", icon: Sparkles, exact: false },
   { key: "recursos", label: "Salas e recursos", href: "/recepcao/recursos", icon: Boxes, exact: false },
   { key: "emergencias", label: "Emergências", href: "/recepcao/emergencias", icon: PhoneCall, exact: false },
 ] as const;
@@ -38,6 +40,7 @@ function activeKey(pathname: string | null): NavKey | null {
   if (pathname.startsWith("/recepcao/atendimento")) return "atendimento";
   if (pathname.startsWith("/recepcao/whatsapp")) return "whatsapp";
   if (pathname.startsWith("/recepcao/documentos")) return "documentos";
+  if (pathname.startsWith("/recepcao/pre-cadastros")) return "precadastros";
   if (pathname.startsWith("/recepcao/recursos")) return "recursos";
   if (pathname.startsWith("/recepcao/emergencias")) return "emergencias";
   return null;

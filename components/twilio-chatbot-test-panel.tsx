@@ -6,6 +6,8 @@ import { Bot, Send, Sparkles, CheckCircle2, Copy, ShieldCheck, MessageSquare, Al
 
 export function TwilioChatbotTestPanel() {
   const [inputMessage, setInputMessage] = useState("Quais planos de saúde a clínica atende?");
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [simulatedFrom, setSimulatedFrom] = useState("");
   const [result, setResult] = useState<ChatbotTestResult | null>(null);
   const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
@@ -19,10 +21,10 @@ export function TwilioChatbotTestPanel() {
 
   const handleTest = (msgToTest?: string) => {
     const text = msgToTest ?? inputMessage;
-    if (!text.trim()) return;
+    if (!text.trim() && !mediaUrl.trim()) return;
 
     startTransition(async () => {
-      const res = await testTwilioChatbotResponseAction(text);
+      const res = await testTwilioChatbotResponseAction(text, mediaUrl.trim() || undefined, simulatedFrom.trim() || undefined);
       setResult(res);
     });
   };
@@ -110,13 +112,36 @@ export function TwilioChatbotTestPanel() {
           <button
             type="button"
             onClick={() => handleTest()}
-            disabled={isPending || !inputMessage.trim()}
+            disabled={isPending || (!inputMessage.trim() && !mediaUrl.trim())}
             className="inline-flex items-center gap-2 rounded-lg bg-chart px-4 py-2.5 text-sm font-medium text-white hover:bg-chart/90 disabled:opacity-50 transition-colors shrink-0"
           >
             <Send className="h-4 w-4" />
             {isPending ? "Testando..." : "Simular Envío"}
           </button>
         </div>
+
+        {/* URL de mídia opcional — testa o "cadastro assistido por IA"
+            (lib/registration-drafts-ingest.ts) simulando o envio de uma
+            foto/PDF junto da mensagem, sem precisar de um número real. */}
+        <input
+          type="text"
+          value={mediaUrl}
+          onChange={(e) => setMediaUrl(e.target.value)}
+          placeholder="URL pública de uma imagem/PDF para simular anexo (opcional — testa o cadastro assistido por IA)"
+          className="rounded-lg border border-paper-line bg-paper px-3.5 py-2.5 text-xs text-ink focus:border-chart focus:outline-none focus:ring-1 focus:ring-chart"
+        />
+
+        {/* Número simulado (E.164) opcional — testa um fluxo de bot já em
+            andamento para um telefone específico (ex.: um lead de
+            acolhimento de plano de saúde aguardando "PRONTO" ou a escolha
+            de horário), em vez de sempre usar o número fixo de teste. */}
+        <input
+          type="text"
+          value={simulatedFrom}
+          onChange={(e) => setSimulatedFrom(e.target.value)}
+          placeholder="Número simulado em E.164, ex.: +5511999998888 (opcional — testa um fluxo de bot já em andamento nesse telefone)"
+          className="rounded-lg border border-paper-line bg-paper px-3.5 py-2.5 text-xs text-ink focus:border-chart focus:outline-none focus:ring-1 focus:ring-chart"
+        />
 
         {/* Output Result Display */}
         {result && (

@@ -108,7 +108,7 @@ export async function createTreatmentPlan(
   // version é sequencial por paciente (não o default de coluna, que é
   // sempre 1) — precisa buscar o maior version já existente e somar 1.
   // Também usado como previous_plan_id — dá pra seguir o histórico entre
-  // versões, que antes só existia como um contador solto (PDI, slide 34:
+  // versões, que antes só existia como um contador solto (PTS, slide 34:
   // "o PDI não termina quando é entregue").
   const { data: lastPlan } = await supabase
     .from("treatment_plans")

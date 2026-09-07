@@ -167,7 +167,7 @@ export async function getCurrentCompetenceOverview(
       appointmentId: a.id,
       patientId: a.patient_id,
       patientName: (a.patients as { full_name: string } | null)?.full_name ?? "Paciente",
-      therapistName: (a.therapist as { full_name: string } | null)?.full_name ?? "Profissional",
+      therapistName: (a.therapist as { full_name: string } | null)?.full_name ?? "Terapeuta",
       insurerId,
       insurerName: insurerNameById.get(insurerId) ?? "Convênio",
       guideNumber: auth?.guide_number ?? null,

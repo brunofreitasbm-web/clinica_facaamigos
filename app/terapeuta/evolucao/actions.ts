@@ -3,11 +3,14 @@
 
 import { createClient } from "@/lib/supabase/server";
 import {
-  BEHAVIOR_TYPES,
   BEHAVIOR_INTENSITIES,
   FAMILY_GUIDANCE_OPTIONS,
-  type SessionNoteStructured,
+  GOAL_RESULT_LEVELS,
+  buildSessionNoteStructured,
+  type GoalResultLevel,
+  type MetaTrabalhada,
 } from "@/lib/session-note-fields";
+import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { hashPin, isValidPinFormat, verifyPin } from "@/lib/signature-pin";
 import { revalidatePath } from "next/cache";
 
@@ -77,9 +80,13 @@ export async function createSessionNote(
     return { success: false, error: "Selecione a presença/engajamento (1 a 5)." };
   }
 
+  // Catálogo de comportamentos-alvo da clínica (behavior_catalog, PRD §9.4
+  // "lista configurável pelo supervisor") — substitui o antigo BEHAVIOR_TYPES
+  // fixo. Buscamos aqui, não confiamos em nada vindo do form.
+  const behaviorCatalog = await getBehaviorCatalog(supabase, { activeOnly: true });
   const behaviorTypes = formData.getAll("comportamento_tipo").map(String);
   const comportamentos = behaviorTypes
-    .filter((tipo) => BEHAVIOR_TYPES.some((b) => b.value === tipo))
+    .filter((tipo) => behaviorCatalog.some((b) => b.value === tipo))
     .map((tipo) => {
       const intensidadeRaw = String(formData.get(`comportamento_intensidade_${tipo}`) ?? "");
       const intensidade = BEHAVIOR_INTENSITIES.some((i) => i.value === intensidadeRaw)
@@ -97,13 +104,24 @@ export async function createSessionNote(
   const createdAtDeviceRaw = String(formData.get("created_at_device") ?? "");
   const createdAtDevice = createdAtDeviceRaw || new Date().toISOString();
 
+  // opened_at (PRD §9.4, "medir o tempo entre abrir e assinar") — clampado:
+  // se por qualquer motivo vier depois de created_at_device (relógio do
+  // aparelho ajustado no meio do preenchimento, por exemplo), mandamos null
+  // em vez de deixar a CHECK constraint (session_notes_opened_before_signed)
+  // rejeitar o insert inteiro e o terapeuta perder a evolução.
+  const openedAtRaw = String(formData.get("opened_at") ?? "");
+  const openedAt =
+    openedAtRaw && new Date(openedAtRaw).getTime() <= new Date(createdAtDevice).getTime()
+      ? openedAtRaw
+      : null;
+
   // Client de sessão: a RLS de `appointments` já garante que só devolve a
   // linha se o usuário logado tiver permissão de leitura (dono da sessão,
   // ou gestor/supervisor). Se vier vazio, tratamos como não encontrada —
   // nunca caímos pro admin client pra "contornar".
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, status, therapist_id")
+    .select("id, patient_id, status, therapist_id")
     .eq("id", appointmentId)
     .maybeSingle();
 
@@ -120,6 +138,38 @@ export async function createSessionNote(
   // responsável pela sessão — nunca um valor vindo do formulário/cliente.
   if (appointment.therapist_id !== user.id) {
     return { success: false, error: "Terapeuta não corresponde ao responsável pela sessão." };
+  }
+
+  // Metas trabalhadas (PRD §9.4): re-consultamos `plan_goals` no servidor e
+  // descartamos qualquer id postado que não seja uma meta ATIVA de um plano
+  // APROVADO deste paciente — nunca confiamos nos ids vindos do form, que o
+  // cliente poderia adulterar. Mesmo filtro de getActiveGoalsForPatient
+  // (lib/session-note-goals.ts), repetido aqui porque a Server Action não
+  // pode confiar num resultado calculado no navegador.
+  const { data: approvedPlans } = await supabase
+    .from("treatment_plans")
+    .select("id")
+    .eq("patient_id", appointment.patient_id)
+    .eq("status", "aprovado");
+  const approvedPlanIds = (approvedPlans ?? []).map((p) => p.id);
+
+  let activeGoalIds = new Set<string>();
+  if (approvedPlanIds.length > 0) {
+    const { data: activeGoals } = await supabase
+      .from("plan_goals")
+      .select("id")
+      .in("treatment_plan_id", approvedPlanIds)
+      .eq("status", "ativa");
+    activeGoalIds = new Set((activeGoals ?? []).map((g) => g.id));
+  }
+
+  const validResultLevels = new Set<GoalResultLevel>(GOAL_RESULT_LEVELS.map((r) => r.value));
+  const metasTrabalhadas: MetaTrabalhada[] = [];
+  for (const planGoalId of activeGoalIds) {
+    const resultadoRaw = formData.get(`meta_${planGoalId}`);
+    if (typeof resultadoRaw !== "string" || !resultadoRaw) continue;
+    if (!validResultLevels.has(resultadoRaw as GoalResultLevel)) continue;
+    metasTrabalhadas.push({ plan_goal_id: planGoalId, resultado: resultadoRaw as GoalResultLevel });
   }
 
   // Busca a versão mais recente (se houver) — a evolução é append-only:
@@ -197,11 +247,12 @@ export async function createSessionNote(
       .eq("id", user.id);
   }
 
-  const structured: SessionNoteStructured = {
-    presenca_engajamento: presenca,
+  const structured = buildSessionNoteStructured({
+    presencaEngajamento: presenca,
+    metasTrabalhadas,
     comportamentos,
     orientacoes,
-  };
+  });
 
   const { error } = await supabase.from("session_notes").insert({
     appointment_id: appointmentId,
@@ -212,6 +263,7 @@ export async function createSessionNote(
     structured,
     free_text: freeText || null,
     created_at_device: createdAtDevice,
+    opened_at: openedAt,
     // signed_at = o mesmo instante de created_at_device (quando o
     // terapeuta apertou "Assinar" no aparelho), não `new Date()` aqui.
     // Com experimental.useOffline (next.config.ts), esta Server Action

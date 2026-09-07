@@ -7,7 +7,7 @@ import type { Database } from "@/lib/database.types";
  * `intake_steps` — ver supabase/migrations/20260906000001_intake_journey.sql.
  * A maioria das etapas é concluída automaticamente por triggers de banco
  * quando o evento correspondente acontece (ex.: aprovar o plano conclui
- * `pdi_validado`); esta lista só documenta a etapa e serve pra render.
+ * `pts_validado`); esta lista só documenta a etapa e serve pra render.
  */
 export type IntakeStepKey =
   | "primeiro_contato"
@@ -21,8 +21,8 @@ export type IntakeStepKey =
   | "planejamento_avaliacao"
   | "avaliacoes_realizadas"
   | "reuniao_interdisciplinar"
-  | "pdi_construido"
-  | "pdi_validado"
+  | "pts_construido"
+  | "pts_validado"
   | "devolutiva_familia";
 
 export type IntakeStepStatus = "pendente" | "concluida" | "nao_aplicavel";
@@ -41,8 +41,8 @@ export const INTAKE_STEP_CATALOG: IntakeStepDef[] = [
   { key: "planejamento_avaliacao", label: "Planejamento da avaliação", responsavel: "Supervisor geral / RT" },
   { key: "avaliacoes_realizadas", label: "Avaliações por área realizadas", responsavel: "Terapeutas" },
   { key: "reuniao_interdisciplinar", label: "Reunião técnica multidisciplinar", responsavel: "Equipe" },
-  { key: "pdi_construido", label: "Construção do PDI", responsavel: "Terapeutas e supervisores" },
-  { key: "pdi_validado", label: "Revisão e validação do PDI", responsavel: "Supervisor geral / RT" },
+  { key: "pts_construido", label: "Construção do PTS", responsavel: "Terapeutas e supervisores" },
+  { key: "pts_validado", label: "Revisão e validação do PTS", responsavel: "Supervisor geral / RT" },
   { key: "devolutiva_familia", label: "Devolutiva à família", responsavel: "RT / Supervisor de área" },
 ];
 

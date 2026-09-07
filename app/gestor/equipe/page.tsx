@@ -34,7 +34,7 @@ export default async function EquipePage() {
         <div className="px-6 pt-8 sm:px-10">
           <h1 className="text-2xl font-bold text-ink">Colaboradores & Contas</h1>
           <p className="text-sm text-ink-soft">
-            Cadastro, papel de acesso (RBAC) e status de credencial de todo profissional da clínica.
+            Cadastro, papel de acesso (RBAC) e status de credencial de todo terapeuta da clínica.
           </p>
         </div>
         <StaffTable staff={staff} />

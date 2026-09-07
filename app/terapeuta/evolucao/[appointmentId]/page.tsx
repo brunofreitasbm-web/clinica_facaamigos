@@ -5,9 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { getProgramsForAppointment } from "@/lib/trial-data";
+import { getActiveGoalsForPatient, getPreviousSessionMetaIds } from "@/lib/session-note-goals";
+import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { EvolutionForm, type EditingContext } from "./evolution-form";
 import { TrialDataPanel } from "./trial-data-panel";
-import type { SessionNoteStructured } from "@/lib/session-note-fields";
+import { getMetasTrabalhadas, type GoalResultLevel, type SessionNoteStructured } from "@/lib/session-note-fields";
 
 export default async function EvolucaoPage({
   params,
@@ -87,17 +89,37 @@ export default async function EvolucaoPage({
   });
 
   if (canSign && appointment.status === "realizada" && !existingNote) {
+    // Metas trabalhadas (PRD §9.4): checkbox das metas ativas do plano
+    // aprovado, pré-marcadas com as da sessão anterior; e catálogo de
+    // comportamentos configurável pelo supervisor (behavior_catalog).
+    // Consentimento de imagem via patient_contact_summary — mesma RPC que
+    // alimenta a barra de identidade acima, "nenhum guardian com
+    // image_consent=false" (o trigger no INSERT em session_note_media
+    // reforça a mesma regra, esta é só a UI condicional).
+    const [activeGoals, preCheckedGoalIds, behaviorCatalog, contacts] = await Promise.all([
+      getActiveGoalsForPatient(supabase, appointment.patient_id),
+      getPreviousSessionMetaIds(supabase, appointment.patient_id, appointmentId),
+      getBehaviorCatalog(supabase, { activeOnly: true }),
+      supabase.rpc("patient_contact_summary", { p_patient_id: appointment.patient_id }),
+    ]);
+    const imageConsent = (contacts.data ?? []).every((g) => g.image_consent !== false);
+
     return (
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[640px] flex-col gap-6 p-5 sm:p-10">
           <TrialDataPanel appointmentId={appointment.id} programs={programs} />
           <EvolutionForm
             appointmentId={appointment.id}
+            patientId={appointment.patient_id}
             patientName={patientName}
             discipline={appointment.discipline}
             sessionTime={sessionTime}
             attendanceStartedAt={appointment.attendance_started_at}
             pinConfigured={!!profile.signature_pin_hash}
+            activeGoals={activeGoals}
+            preCheckedGoalIds={preCheckedGoalIds}
+            behaviorTypes={behaviorCatalog}
+            imageConsent={imageConsent}
           />
         </div>
       </main>
@@ -116,26 +138,43 @@ export default async function EvolucaoPage({
     for (const o of structured?.orientacoes ?? []) {
       initialOrientations[o] = true;
     }
+    const initialMetas: Record<string, GoalResultLevel> = {};
+    for (const m of getMetasTrabalhadas(structured)) {
+      initialMetas[m.plan_goal_id] = m.resultado;
+    }
     const editing: EditingContext = {
       previousVersion: existingNote.version,
       initialPresence: structured?.presenca_engajamento ?? null,
       initialBehaviors,
       initialIntensities,
       initialOrientations,
+      initialMetas,
       initialFreeText: existingNote.free_text ?? "",
     };
+
+    const [activeGoals, behaviorCatalog, contacts] = await Promise.all([
+      getActiveGoalsForPatient(supabase, appointment.patient_id),
+      getBehaviorCatalog(supabase, { activeOnly: true }),
+      supabase.rpc("patient_contact_summary", { p_patient_id: appointment.patient_id }),
+    ]);
+    const imageConsent = (contacts.data ?? []).every((g) => g.image_consent !== false);
 
     return (
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[640px] flex-col gap-6 p-5 sm:p-10">
           <EvolutionForm
             appointmentId={appointment.id}
+            patientId={appointment.patient_id}
             patientName={patientName}
             discipline={appointment.discipline}
             sessionTime={sessionTime}
             attendanceStartedAt={appointment.attendance_started_at}
             editing={editing}
             pinConfigured={!!profile.signature_pin_hash}
+            activeGoals={activeGoals}
+            preCheckedGoalIds={[]}
+            behaviorTypes={behaviorCatalog}
+            imageConsent={imageConsent}
           />
         </div>
       </main>
@@ -186,6 +225,9 @@ export default async function EvolucaoPage({
               .
             </p>
             <div className="flex flex-wrap gap-2">
+              <Link href={`/terapeuta/paciente/${appointment.patient_id}`} className="btn btn-secondary w-fit">
+                Ficha do paciente
+              </Link>
               <Link href={`/terapeuta/paciente/${appointment.patient_id}/relatorio`} className="btn btn-secondary w-fit">
                 Relatório devolutivo (IA)
               </Link>

@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
-import { listOverduePlans } from "@/lib/pdi-pending";
+import { listOverduePlans } from "@/lib/pts-pending";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { ABSENCE_REASON_LABEL } from "@/lib/absence-reasons";
 import {

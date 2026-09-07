@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
+import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -60,50 +61,21 @@ export default async function TerapeutaPacientesPage({
           <p className="text-sm text-ink-faint">Nenhum paciente vinculado a você ainda.</p>
         )}
         {patients.map((p) => (
-          <div
+          <Link
             key={p.id}
-            className="flex flex-col gap-2 border-b py-3.5"
-            style={{ borderColor: "var(--color-divider)" }}
+            href={`/terapeuta/paciente/${p.id}`}
+            className="flex items-center justify-between gap-2 border-b py-3.5 no-underline"
+            style={{ borderColor: "var(--color-divider)", color: "var(--color-text)" }}
           >
             <span className="text-[15px] font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
               {p.full_name}
             </span>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <Link href={`/terapeuta/paciente/${p.id}/metricas`} className="btn btn-secondary" style={{ padding: "4px 10px" }}>
-                Evolução/ABA
-              </Link>
-              <Link href={`/terapeuta/paciente/${p.id}/avaliacao`} className="btn btn-secondary" style={{ padding: "4px 10px" }}>
-                Protocolo
-              </Link>
-              <Link href={`/terapeuta/paciente/${p.id}/relatorio`} className="btn btn-secondary" style={{ padding: "4px 10px" }}>
-                Relatório família
-              </Link>
-              <Link href={`/terapeuta/paciente/${p.id}/relatorio-convenio`} className="btn btn-secondary" style={{ padding: "4px 10px" }}>
-                Relatório convênio
-              </Link>
-            </div>
-          </div>
+            <span className="text-xs text-ink-faint">Ver ficha →</span>
+          </Link>
         ))}
       </div>
 
-      <nav
-        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-3 border-t bg-white py-2.5 text-[11px] sm:hidden"
-        style={{ borderColor: "var(--color-divider)" }}
-      >
-        <a href="/terapeuta" className="flex flex-col items-center gap-1 no-underline" style={{ color: "var(--color-neutral-600)" }}>
-          📅 Hoje
-        </a>
-        <a
-          href="/terapeuta/pacientes"
-          className="flex flex-col items-center gap-1 no-underline"
-          style={{ color: "var(--color-accent)", fontWeight: 600 }}
-        >
-          👥 Pacientes
-        </a>
-        <a href="/terapeuta#pendencias" className="flex flex-col items-center gap-1 no-underline" style={{ color: "var(--color-neutral-600)" }}>
-          📈 Pendências
-        </a>
-      </nav>
+      <TerapeutaBottomNav active="pacientes" />
     </main>
   );
 }

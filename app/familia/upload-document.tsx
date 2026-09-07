@@ -80,6 +80,11 @@ export function UploadDocument({ patientId }: { patientId: string }) {
                   });
                 }}
               >
+                <p className="text-xs text-ink-soft">
+                  Certidão, RG/CPF, comprovante de residência, carteirinha ou guia? A recepção recebe os dados já
+                  preenchidos automaticamente e só confere antes de salvar.
+                </p>
+
                 <div className="field">
                   <label className="font-semibold text-xs text-ink-soft mb-1 block">
                     O que é este documento? (opcional)

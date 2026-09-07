@@ -23,9 +23,9 @@ export const AREA_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 /**
- * `discipline` mapeia o protocolo para o valor de disciplina usado no PDI
+ * `discipline` mapeia o protocolo para o valor de disciplina usado no PTS
  * (mesma lista de app/supervisao/planos/novo/disciplines.ts) — usado só para
- * pré-preencher a sugestão de meta ao "Montar PEI" a partir de uma avaliação
+ * pré-preencher a sugestão de meta ao "Montar PTS" a partir de uma avaliação
  * já aplicada; o supervisor pode trocar livremente no formulário.
  */
 export const PROTOCOL_CATALOG = [

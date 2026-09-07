@@ -27,6 +27,12 @@ export const DOCUMENT_CATEGORIES = [
   // upload da recepção (DOCUMENT_CATEGORIES é usado lá só como fonte de
   // labels aqui), só é atribuída pelo próprio insert do responsável.
   { value: "familia_envio", label: "Enviado pela família" },
+  // Cadastro assistido por IA (20260907000001_registration_drafts.sql) —
+  // documentos de identificação da criança/responsável extraídos por
+  // WhatsApp/portal e categorizados pela recepção na tela de validação.
+  { value: "certidao_nascimento", label: "Certidão de nascimento" },
+  { value: "documento_identidade", label: "Documento de identidade (RG/CPF)" },
+  { value: "comprovante_residencia", label: "Comprovante de residência" },
 ] as const;
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]["value"];

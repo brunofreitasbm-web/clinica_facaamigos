@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { RealtimeAppointmentToast } from "@/components/realtime-appointment-toast";
+import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
@@ -301,32 +302,7 @@ export default async function TerapeutaPage({
         </section>
       </div>
 
-      <nav
-        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-3 border-t bg-white py-2.5 text-[11px] sm:hidden"
-        style={{ borderColor: "var(--color-divider)" }}
-      >
-        <a
-          href="/terapeuta"
-          className="flex flex-col items-center gap-1 no-underline"
-          style={{ color: "var(--color-accent)", fontWeight: 600 }}
-        >
-          📅 Hoje
-        </a>
-        <a
-          href="/terapeuta/pacientes"
-          className="flex flex-col items-center gap-1 no-underline"
-          style={{ color: "var(--color-neutral-600)" }}
-        >
-          👥 Pacientes
-        </a>
-        <a
-          href="#pendencias"
-          className="flex flex-col items-center gap-1 no-underline"
-          style={{ color: "var(--color-neutral-600)" }}
-        >
-          📈 Pendências
-        </a>
-      </nav>
+      <TerapeutaBottomNav active="hoje" />
 
       {/* Só a sessão real do próprio terapeuta (não a visão "ver como" de
           gestor/supervisor) recebe o toast de chegada na recepção. */}

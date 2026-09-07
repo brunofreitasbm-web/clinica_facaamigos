@@ -2,11 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isGeminiConfigured, transcribeAndStructureSessionNote } from "@/lib/gemini";
-import {
-  BEHAVIOR_TYPES,
-  BEHAVIOR_INTENSITIES,
-  FAMILY_GUIDANCE_OPTIONS,
-} from "@/lib/session-note-fields";
+import { BEHAVIOR_INTENSITIES, FAMILY_GUIDANCE_OPTIONS } from "@/lib/session-note-fields";
+import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 
 /**
  * Evolução clínica assistida por voz (PRD §9.4 — "evolução em 2 min").
@@ -90,7 +87,15 @@ export async function POST(req: NextRequest) {
 
   const effectiveMimeType = typeof mimeType === "string" && mimeType.trim() ? mimeType : "audio/webm";
 
-  const result = await transcribeAndStructureSessionNote(audioBase64, effectiveMimeType);
+  // Catálogo de comportamentos-alvo da clínica (behavior_catalog, PRD
+  // §9.4 "lista configurável") — substitui o antigo BEHAVIOR_TYPES fixo.
+  const behaviorCatalog = await getBehaviorCatalog(supabase, { activeOnly: true });
+
+  const result = await transcribeAndStructureSessionNote(
+    audioBase64,
+    effectiveMimeType,
+    behaviorCatalog.map((b) => b.value),
+  );
 
   if (!result.success) {
     return NextResponse.json(
@@ -99,16 +104,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Validação contra o schema real (lib/session-note-fields.ts) — nunca
-  // confiamos cegamente no texto/JSON devolvido pelo modelo. Valores fora
-  // do enum são descartados silenciosamente em vez de quebrar a resposta;
-  // o terapeuta revisa e corrige no formulário de qualquer forma.
-  const validBehaviorValues = new Set(BEHAVIOR_TYPES.map((b) => b.value));
+  // Validação contra o schema real — nunca confiamos cegamente no
+  // texto/JSON devolvido pelo modelo. Valores fora do catálogo/enum são
+  // descartados silenciosamente em vez de quebrar a resposta; o terapeuta
+  // revisa e corrige no formulário de qualquer forma.
+  const validBehaviorValues = new Set(behaviorCatalog.map((b) => b.value));
   const validIntensityValues = new Set(BEHAVIOR_INTENSITIES.map((i) => i.value));
   const validOrientationValues = new Set(FAMILY_GUIDANCE_OPTIONS.map((g) => g.value));
 
   const comportamentos = (result.comportamentos ?? [])
-    .filter((c) => validBehaviorValues.has(c.tipo as (typeof BEHAVIOR_TYPES)[number]["value"]))
+    .filter((c) => validBehaviorValues.has(c.tipo))
     .map((c) => ({
       tipo: c.tipo,
       intensidade: validIntensityValues.has(c.intensidade as (typeof BEHAVIOR_INTENSITIES)[number]["value"])

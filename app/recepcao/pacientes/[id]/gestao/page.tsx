@@ -7,7 +7,7 @@ import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { buildWhatsappLink } from "@/lib/whatsapp-message";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { fmtDate as fmtDateShared } from "@/lib/format";
-import { DocumentViewButton } from "@/app/recepcao/pacientes/[id]/document-view-button";
+import { DocumentViewButton } from "@/components/prontuario/document-view-button";
 import {
   PatientManagementPanel,
   type AppointmentRow,

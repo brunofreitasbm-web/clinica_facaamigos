@@ -18,7 +18,7 @@ const fmtDate = (iso: string) => fmtDateShared(iso, CLINIC_TIMEZONE);
  * só refletem o estado; `manualSteps` cobre as poucas que dependem de
  * confirmação manual (grupo de WhatsApp, contrato enviado, pagamento) e
  * `links` aponta pra tela onde a etapa de fato acontece (anamnese, equipe,
- * reunião, PDI).
+ * reunião, PTS).
  *
  * As Server Actions (`registerFirstContact`, `completeIntakeStep`) são
  * importadas direto aqui em vez de recebidas por prop — uma função comum não
@@ -37,7 +37,7 @@ export function IntakeChecklist({
   /** Chave da etapa → rótulo do botão, para as etapas concluídas manualmente. */
   manualSteps?: Partial<Record<IntakeStepKey, string>>;
   /**
-   * Alguns `links` apontam pra fora de `/recepcao` (ex.: anamnese, PDI e
+   * Alguns `links` apontam pra fora de `/recepcao` (ex.: anamnese, PTS e
    * reuniões vivem em `/supervisao`). `lib/roles.ts` não libera esse
    * prefixo pra `recepcao` — o middleware simplesmente manda de volta pra
    * `/recepcao`, então o botão parecia clicável mas não levava a lugar

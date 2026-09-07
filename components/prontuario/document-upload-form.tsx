@@ -1,10 +1,19 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { uploadDocument } from "./documents-actions";
+import { uploadDocument } from "@/app/recepcao/pacientes/[id]/documents-actions";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 
-export function DocumentUploadForm({ patientId }: { patientId: string }) {
+export function DocumentUploadForm({
+  patientId,
+  allowedCategories,
+}: {
+  patientId: string;
+  /** Restringe o `<select>` a um subconjunto (ficha do terapeuta — ver
+   * app/terapeuta/paciente/[patientId]/page.tsx). Sem isto, todas as
+   * categorias exceto 'familia_envio' aparecem, como na recepção. */
+  allowedCategories?: string[];
+}) {
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -60,7 +69,9 @@ export function DocumentUploadForm({ patientId }: { patientId: string }) {
             família (20260906000020) — se a recepção também pudesse marcar
             um upload próprio com essa categoria, ele apareceria como
             pendência "documento enviado pela família" sem ter sido. */}
-        {DOCUMENT_CATEGORIES.filter((c) => c.value !== "familia_envio").map((c) => (
+        {DOCUMENT_CATEGORIES.filter(
+          (c) => c.value !== "familia_envio" && (!allowedCategories || allowedCategories.includes(c.value)),
+        ).map((c) => (
           <option key={c.value} value={c.value}>
             {c.label}
           </option>

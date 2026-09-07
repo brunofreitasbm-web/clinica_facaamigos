@@ -141,7 +141,7 @@ export function PatientManagementPanel({
                     );
                   })}
                   {professionals.length === 0 && (
-                    <p className="text-sm text-ink-faint">Nenhum profissional vinculado ainda.</p>
+                    <p className="text-sm text-ink-faint">Nenhum terapeuta vinculado ainda.</p>
                   )}
                 </div>
               </div>
