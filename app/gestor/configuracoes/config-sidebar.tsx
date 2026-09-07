@@ -1,10 +1,13 @@
 import Link from "next/link";
 
+// gerais, cobrancas e modelos existiram aqui mas eram telas sem função
+// real: formulário local (useState) com "salvar" simulado por setTimeout,
+// sem nenhuma tabela no schema que sustentasse o conceito (razão social/
+// CNPJ estendido, config de cobrança, modelos de documento). Removidas em
+// vez de mantidas como enfeite. `profissionais` foi reconstruída como
+// cadastro real de therapist_contracts (valor-hora por terapeuta).
 const SIDEBAR_ITEMS = [
-  { key: "gerais", label: "Gerais", href: "/gestor/configuracoes/gerais", enabled: true },
   { key: "atendimentos", label: "Atendimentos & Salas", href: "/gestor/configuracoes/atendimentos", enabled: true },
-  { key: "cobrancas", label: "Cobranças", href: "/gestor/configuracoes/cobrancas", enabled: true },
-  { key: "modelos", label: "Modelos", href: "/gestor/configuracoes/modelos", enabled: true },
   { key: "profissionais", label: "Profissionais", href: "/gestor/configuracoes/profissionais", enabled: true },
   { key: "notificacoes", label: "Notificações", href: "/gestor/configuracoes/notificacoes", enabled: true },
   { key: "usuarios", label: "Usuários", href: "/gestor/configuracoes/usuarios", enabled: true },

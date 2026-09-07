@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function ConfiguracoesPage() {
-  redirect("/gestor/configuracoes/gerais");
+  redirect("/gestor/configuracoes/atendimentos");
 }

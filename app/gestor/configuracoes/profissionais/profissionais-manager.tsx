@@ -1,189 +1,121 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useTransition } from "react";
 import { PageHeader } from "@/components/page-header";
 import { ConfigSidebar } from "../config-sidebar";
+import { setTherapistContract } from "./actions";
+import type { TherapistRow } from "./types";
 
-interface TierItem {
-  id: string;
-  name: string;
-  hourlyRate: number;
-  description: string;
+function fmtDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR");
 }
 
-const INITIAL_TIERS: TierItem[] = [
-  { id: "t-1", name: "Tier 1 - Aplicador / Junior", hourlyRate: 45.0, description: "Terapeuta em formação ou aplicador supervisionado." },
-  { id: "t-2", name: "Tier 2 - Terapeuta Pleno", hourlyRate: 65.0, description: "Profissional com 2+ anos de experiência e certificação básica." },
-  { id: "t-3", name: "Tier 3 - Terapeuta Senior", hourlyRate: 85.0, description: "Profissional com pós-graduação e 5+ anos em intervenção TEA." },
-  { id: "t-4", name: "Tier 4 - Supervisor / Especialista ESDM", hourlyRate: 110.0, description: "Supervisor de casos com certificação em protocolos específicos." },
-];
+function fmtCurrency(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 
-export function ProfissionaisManager() {
-  const [tiers, setTiers] = useState<TierItem[]>(INITIAL_TIERS);
-  const [exigirConselhoAtivo, setExigirConselhoAtivo] = useState(true);
-  const [travaEsdmDenver, setTravaEsdmDenver] = useState(true);
-  const [savedAlert, setSavedAlert] = useState(false);
+function TherapistContractRow({ therapist }: { therapist: TherapistRow }) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const today = new Date().toISOString().slice(0, 10);
 
-  const [isAddingTier, setIsAddingTier] = useState(false);
-  const [newTierName, setNewTierName] = useState("");
-  const [newTierRate, setNewTierRate] = useState<number>(50);
-  const [newTierDesc, setNewTierDesc] = useState("");
+  return (
+    <tr>
+      <td className="font-semibold text-sm align-top">{therapist.fullName}</td>
+      <td className="align-top">
+        {therapist.current ? (
+          <>
+            <div className="text-sm">{therapist.current.tier}</div>
+            <div className="text-xs text-ink-faint">{fmtCurrency(therapist.current.hourlyRate)}/h · desde {fmtDate(therapist.current.validFrom)}</div>
+          </>
+        ) : (
+          <span className="text-xs text-status-negative-text">Sem faixa cadastrada — não recebe repasse</span>
+        )}
+        {therapist.history.length > 0 && (
+          <details className="mt-1">
+            <summary className="cursor-pointer text-[11px] text-ink-faint">Histórico ({therapist.history.length})</summary>
+            <ul className="mt-1 flex flex-col gap-0.5 text-[11px] text-ink-faint">
+              {therapist.history.map((c) => (
+                <li key={c.id}>
+                  {c.tier} · {fmtCurrency(c.hourlyRate)}/h · {fmtDate(c.validFrom)} a {c.validTo ? fmtDate(c.validTo) : "—"}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </td>
+      <td className="align-top text-right">
+        {!open ? (
+          <button type="button" onClick={() => setOpen(true)} className="text-xs text-chart">
+            {therapist.current ? "Alterar faixa" : "Cadastrar faixa"}
+          </button>
+        ) : (
+          <form
+            className="flex flex-col items-end gap-2"
+            action={(formData) => {
+              setError(null);
+              startTransition(async () => {
+                const result = await setTherapistContract(therapist.id, formData);
+                if (!result.success) {
+                  setError(result.error);
+                  return;
+                }
+                setOpen(false);
+              });
+            }}
+          >
+            <input type="text" name="tier" required placeholder="Tier (ex: Pleno)" className="input w-40" />
+            <input type="number" name="hourly_rate" required min={0.01} step="0.01" placeholder="Valor-hora (R$)" className="input w-40" />
+            <input type="date" name="valid_from" required defaultValue={today} className="input w-40" />
+            <div className="flex gap-2">
+              <button type="submit" disabled={isPending} className="btn btn-primary">
+                {isPending ? "Salvando…" : "Salvar"}
+              </button>
+              <button type="button" onClick={() => setOpen(false)} className="btn btn-secondary">
+                Cancelar
+              </button>
+            </div>
+            {error && <p className="w-40 text-right text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
+          </form>
+        )}
+      </td>
+    </tr>
+  );
+}
 
-  const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
-  const handleAddTier = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTierName) return;
-    setTiers((prev) => [
-      ...prev,
-      {
-        id: `t-${Date.now()}`,
-        name: newTierName,
-        hourlyRate: newTierRate,
-        description: newTierDesc,
-      },
-    ]);
-    setNewTierName("");
-    setNewTierRate(50);
-    setNewTierDesc("");
-    setIsAddingTier(false);
-  };
-
-  const handleSaveAll = () => {
-    setSavedAlert(true);
-    setTimeout(() => setSavedAlert(false), 3000);
-  };
-
+export function ProfissionaisManager({ therapists }: { therapists: TherapistRow[] }) {
   return (
     <>
       <ConfigSidebar active="profissionais" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Configurações"
-          title="Profissionais & Tiers"
-          description="Política de faixas de valor-hora e requisitos de conselho. A progressão individual de cada terapeuta, com aprovação de mudança de faixa, fica em Equipe › PLR & Desempenho."
+          title="Profissionais"
+          description="Valor-hora por terapeuta (therapist_contracts) — usado pelo fechamento mensal de repasse."
         />
-
-        <div className="flex flex-col gap-8 p-6 sm:p-10 max-w-4xl">
-          {savedAlert && (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              Configurações de profissionais e faixas de remuneração salvas com sucesso!
-            </div>
-          )}
-
-          {/* Tiers de Valor-Hora */}
-          <div className="flex flex-col gap-4 rounded-xl border border-paper-line bg-paper-panel p-6 shadow-sm">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-base font-semibold text-ink-strong">Faixas de Remuneração PJ (Tiers de Valor-Hora)</h3>
-                <p className="text-xs text-ink-faint">Tabela de contrato utilizada para cálculo de repasse por sessão (PRD §0 e §7).</p>
-              </div>
-              <button onClick={() => setIsAddingTier(true)} className="button button-primary">
-                + Nova Faixa
-              </button>
-            </div>
-
-            <Link href="/gestor/bonificacao" className="text-xs text-accent no-underline hover:underline">
-              Ver progressão individual e aprovar mudança de faixa por terapeuta →
-            </Link>
-
-            {isAddingTier && (
-              <form onSubmit={handleAddTier} className="flex flex-col gap-3 p-4 rounded-lg bg-paper-line/30 border border-paper-line mt-2">
-                <h4 className="text-xs font-semibold text-ink-strong">Cadastrar Nova Faixa (Tier)</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Nome da faixa (ex: Tier 5)"
-                    className="input text-xs"
-                    value={newTierName}
-                    onChange={(e) => setNewTierName(e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    required
-                    placeholder="Valor-hora (R$)"
-                    className="input text-xs"
-                    value={newTierRate}
-                    onChange={(e) => setNewTierRate(Number(e.target.value))}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Descrição da qualificação"
-                    className="input text-xs"
-                    value={newTierDesc}
-                    onChange={(e) => setNewTierDesc(e.target.value)}
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-1">
-                  <button type="button" onClick={() => setIsAddingTier(false)} className="button button-outline text-xs">
-                    Cancelar
-                  </button>
-                  <button type="submit" className="button button-primary text-xs">
-                    Salvar Faixa
-                  </button>
-                </div>
-              </form>
-            )}
-
-            <table className="table mt-2">
-              <thead>
+        <div className="flex flex-col gap-4 p-6 sm:p-10 max-w-3xl">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Terapeuta</th>
+                <th>Faixa vigente</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {therapists.map((t) => (
+                <TherapistContractRow key={t.id} therapist={t} />
+              ))}
+              {therapists.length === 0 && (
                 <tr>
-                  <th>Nível / Tier</th>
-                  <th>Valor-Hora de Repasse</th>
-                  <th>Descrição da Qualificação</th>
+                  <td colSpan={3} className="text-ink-faint">
+                    Nenhum terapeuta ativo cadastrado nesta clínica.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {tiers.map((t) => (
-                  <tr key={t.id}>
-                    <td className="font-semibold text-sm">{t.name}</td>
-                    <td className="font-bold tabular-figure text-accent">{currencyFormatter.format(t.hourlyRate)}/h</td>
-                    <td className="text-xs text-ink-faint">{t.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Regras e Certificações */}
-          <div className="flex flex-col gap-4 rounded-xl border border-paper-line bg-paper-panel p-6 shadow-sm">
-            <h3 className="text-base font-semibold text-ink-strong">Requisitos de Registro & Certificação</h3>
-            <p className="text-xs text-ink-faint">Travas automáticas do sistema para conformidade regulatória e clínica.</p>
-
-            <div className="flex flex-col gap-4 mt-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-paper-line text-accent focus:ring-accent"
-                  checked={exigirConselhoAtivo}
-                  onChange={(e) => setExigirConselhoAtivo(e.target.checked)}
-                />
-                <span className="text-sm font-medium text-ink-strong">
-                  Exigir obrigatoriamente conselho profissional ativo no cadastro (CRP, CREFITO, CRFa, CRM)
-                </span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-paper-line text-accent focus:ring-accent"
-                  checked={travaEsdmDenver}
-                  onChange={(e) => setTravaEsdmDenver(e.target.checked)}
-                />
-                <span className="text-sm font-medium text-ink-strong">
-                  Trava de segurança ESDM/Denver: restringir visualização e aplicação de itens Denver/ESDM apenas a terapeutas com flag <code className="text-xs bg-paper-line px-1 rounded">esdm_certified = true</code> (PRD §7.1)
-                </span>
-              </label>
-            </div>
-
-            <div className="pt-4 border-t border-paper-line flex justify-end">
-              <button onClick={handleSaveAll} className="button button-primary">
-                Salvar Configurações de Profissionais
-              </button>
-            </div>
-          </div>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </>

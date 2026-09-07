@@ -38,3 +38,66 @@ export async function createResource(formData: FormData): Promise<ActionResult> 
   revalidatePath("/recepcao/recursos");
   return { success: true };
 }
+
+/**
+ * Cadastro de sala física — a agenda inteira (recepção, grade recorrente,
+ * check-in/check-out) depende de `rooms` existir, mas não havia tela
+ * nenhuma pra criar uma sala além de inserir direto no banco. RLS
+ * (rooms_manage_by_supervisor_gestor_*) é o portão real, gestor/supervisor.
+ */
+export async function createRoom(formData: FormData): Promise<ActionResult> {
+  const name = String(formData.get("name") ?? "").trim();
+  const capacity = Number(formData.get("capacity") ?? 1);
+
+  if (!name) return { success: false, error: "Dê um nome à sala." };
+  if (!Number.isInteger(capacity) || capacity < 1) {
+    return { success: false, error: "Capacidade precisa ser um número inteiro de pelo menos 1." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("rooms").insert({ clinic_id: DEV_CLINIC_ID, name, capacity });
+
+  if (error) {
+    return { success: false, error: "Você não tem permissão para cadastrar salas." };
+  }
+
+  revalidatePath("/gestor/configuracoes/atendimentos");
+  return { success: true };
+}
+
+export async function updateRoom(roomId: string, formData: FormData): Promise<ActionResult> {
+  const name = String(formData.get("name") ?? "").trim();
+  const capacity = Number(formData.get("capacity") ?? 1);
+
+  if (!name) return { success: false, error: "Dê um nome à sala." };
+  if (!Number.isInteger(capacity) || capacity < 1) {
+    return { success: false, error: "Capacidade precisa ser um número inteiro de pelo menos 1." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("rooms").update({ name, capacity }).eq("id", roomId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível atualizar esta sala." };
+  }
+
+  revalidatePath("/gestor/configuracoes/atendimentos");
+  return { success: true };
+}
+
+export async function deleteRoom(roomId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("rooms").delete().eq("id", roomId);
+
+  if (error) {
+    // appointments.room_id é FK sem cascade — sala com sessão associada
+    // (passada ou futura) não pode ser excluída, só editada.
+    return {
+      success: false,
+      error: "Não foi possível excluir esta sala — ela já tem sessões associadas na agenda.",
+    };
+  }
+
+  revalidatePath("/gestor/configuracoes/atendimentos");
+  return { success: true };
+}

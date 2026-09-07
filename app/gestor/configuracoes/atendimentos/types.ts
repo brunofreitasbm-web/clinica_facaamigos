@@ -4,3 +4,9 @@ export type ResourceRow = {
   category: string;
   notes: string | null;
 };
+
+export type RoomRow = {
+  id: string;
+  name: string;
+  capacity: number;
+};

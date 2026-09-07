@@ -4,40 +4,13 @@ import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { ConfigSidebar } from "../config-sidebar";
 import { NewResourceForm } from "./new-resource-form";
+import { NewRoomForm } from "./new-room-form";
+import { RoomRowItem } from "./room-row";
 import { RESOURCE_CATEGORY_LABEL } from "@/lib/resource-categories";
-import type { ResourceRow } from "./types";
+import { CANCEL_REASONS } from "@/lib/appointment-cancel-reasons";
+import type { ResourceRow, RoomRow } from "./types";
 
-interface RoomItem {
-  id: string;
-  name: string;
-  capacity: number;
-  modalities: string[];
-  resources: string;
-}
-
-const INITIAL_ROOMS: RoomItem[] = [
-  { id: "r-1", name: "Sala 01 - ABA Sensorial", capacity: 2, modalities: ["Individual"], resources: "Tatame, Balanço sensorial, Espelho unidirecional" },
-  { id: "r-2", name: "Sala 02 - Fonoaudiologia & Comunicação", capacity: 2, modalities: ["Individual"], resources: "Mesa adaptada, Jogos de fala, Gravador" },
-  { id: "r-3", name: "Sala 03 - Terapia Ocupacional (Integração)", capacity: 3, modalities: ["Individual", "Grupo"], resources: "Piscina de bolinhas, Rampa, Pneu sensorial" },
-  { id: "r-4", name: "Sala 04 - Treino de Habilidades Sociais", capacity: 6, modalities: ["Grupo"], resources: "Mesa coletiva, Brinquedoteca estruturada" },
-];
-
-interface CancelReason {
-  id: string;
-  label: string;
-  origin: "familia" | "terapeuta" | "clinica";
-  requiresJustification: boolean;
-}
-
-const CANCEL_REASONS: CancelReason[] = [
-  { id: "c-1", label: "Atestado Médico do Paciente", origin: "familia", requiresJustification: true },
-  { id: "c-2", label: "Imprevisto Familiar / Falta Não Justificada", origin: "familia", requiresJustification: false },
-  { id: "c-3", label: "Imprevisto / Problema de Saúde do Terapeuta", origin: "terapeuta", requiresJustification: true },
-  { id: "c-4", label: "Manutenção Emergencial de Sala", origin: "clinica", requiresJustification: true },
-];
-
-export function AtendimentosManager({ resources }: { resources: ResourceRow[] }) {
-  const [rooms] = useState<RoomItem[]>(INITIAL_ROOMS);
+export function AtendimentosManager({ resources, rooms }: { resources: ResourceRow[]; rooms: RoomRow[] }) {
   const [activeTab, setActiveTab] = useState<"salas" | "recursos" | "motivos" | "reagendamento">("salas");
 
   const [janelaReagendamentoDias, setJanelaReagendamentoDias] = useState(7);
@@ -97,14 +70,15 @@ export function AtendimentosManager({ resources }: { resources: ResourceRow[] })
             </button>
           </div>
 
-          {/* Aba 1: Salas */}
+          {/* Aba 1: Salas — cadastro real (tabela `rooms`), usada por toda a agenda */}
           {activeTab === "salas" && (
             <div className="flex flex-col gap-4">
               <div className="flex justify-between items-center">
                 <p className="text-xs text-ink-faint">
-                  Lista de referência das salas físicas da clínica (PRD §7.1). O cadastro de salas ainda não tem
-                  formulário — hoje as salas usadas na Agenda vêm direto da tabela `rooms` no banco.
+                  Salas físicas da clínica (PRD §7.1) — as mesmas que aparecem no agendamento da recepção e na grade
+                  recorrente. Excluir uma sala com sessões associadas (passadas ou futuras) não é permitido.
                 </p>
+                <NewRoomForm />
               </div>
 
               <table className="table">
@@ -112,27 +86,20 @@ export function AtendimentosManager({ resources }: { resources: ResourceRow[] })
                   <tr>
                     <th>Nome da Sala</th>
                     <th>Capacidade</th>
-                    <th>Modalidades</th>
-                    <th>Recursos</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
                   {rooms.map((r) => (
-                    <tr key={r.id}>
-                      <td className="font-semibold text-sm">{r.name}</td>
-                      <td>{r.capacity} pessoa(s)</td>
-                      <td>
-                        <div className="flex gap-1 flex-wrap">
-                          {r.modalities.map((m) => (
-                            <span key={m} className="tag tag-outline text-[10px]">
-                              {m}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="text-xs text-ink-faint">{r.resources}</td>
-                    </tr>
+                    <RoomRowItem key={r.id} room={r} />
                   ))}
+                  {rooms.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="text-ink-faint">
+                        Nenhuma sala cadastrada ainda.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -175,30 +142,27 @@ export function AtendimentosManager({ resources }: { resources: ResourceRow[] })
             </div>
           )}
 
-          {/* Aba 2: Motivos */}
+          {/* Aba 2: Motivos — lista fechada usada de verdade pela recepção
+              (lib/appointment-cancel-reasons.ts), compartilhada com a
+              validação no servidor pra nunca divergir. Não é editável aqui:
+              é a mesma lista, não uma cópia solta que podia ficar
+              desatualizada em relação ao que a agenda de fato aceita. */}
           {activeTab === "motivos" && (
             <div className="flex flex-col gap-4">
-              <p className="text-xs text-ink-faint">Mapeamento obrigatório de falta e quem cancelou para alimentar relatórios de no-show por origem (PRD §5).</p>
+              <p className="text-xs text-ink-faint">
+                Motivos de falta/cancelamento que a recepção usa na agenda (PRD §9.2). Lista fixa do sistema — mudar
+                aqui exigiria mudar o código, porque o mesmo motivo é validado no servidor ao registrar a falta.
+              </p>
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Motivo de Cancelamento</th>
-                    <th>Origem (Quem cancelou)</th>
-                    <th>Exige Justificativa</th>
+                    <th>Motivo</th>
                   </tr>
                 </thead>
                 <tbody>
                   {CANCEL_REASONS.map((c) => (
-                    <tr key={c.id}>
-                      <td className="font-medium text-sm">{c.label}</td>
-                      <td>
-                        <span className="tag capitalize font-medium text-[11px]">
-                          {c.origin === "familia" ? "Família / Responsável" : c.origin === "terapeuta" ? "Terapeuta" : "Clínica"}
-                        </span>
-                      </td>
-                      <td className="text-xs font-semibold">
-                        {c.requiresJustification ? "Sim (Documento/Atestado)" : "Não"}
-                      </td>
+                    <tr key={c.value}>
+                      <td className="text-sm">{c.label}</td>
                     </tr>
                   ))}
                 </tbody>
