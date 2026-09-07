@@ -7,18 +7,16 @@ import { createSessionNote, setSignaturePin } from "../actions";
 import { BEHAVIOR_TYPES, BEHAVIOR_INTENSITIES, FAMILY_GUIDANCE_OPTIONS } from "@/lib/session-note-fields";
 import { generateAIEvolutionText } from "@/lib/aba-actions";
 import { ABCLogger } from "@/components/aba/abc-logger";
-import { AbaAiHelper } from "@/components/aba/aba-ai-helper";
 import { VoiceEvolutionRecorder } from "./voice-evolution-recorder";
 
 const PRESENCE_SCALE = [1, 2, 3, 4, 5] as const;
 
 // Duas etapas reais (presença/comportamentos → texto livre + assinatura).
-// O mock "Evolução em 2 min" tem uma 3ª etapa de coleta de tentativas por
-// programa (ABA), mas isso depende de `programs`/`trial_data`, que existem
-// no schema (lib/database.types.ts) porém não têm nenhuma consulta ou tela
-// no app hoje — não dá pra inventar essa feature aqui, então a coleta de
-// tentativas fica de fora e o wizard começa direto no que já está gravado
-// em `session_notes.structured`.
+// A 3ª etapa do "Evolução em 2 min" — coleta de tentativas por programa
+// (ABA) — não fica aqui: é o `TrialDataPanel` renderizado antes deste
+// formulário em page.tsx, alimentado por `getProgramsForAppointment`
+// (lib/trial-data.ts). Este componente cobre só presença/comportamentos e
+// o texto livre gravado em `session_notes.structured`.
 
 function formatElapsed(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -530,15 +528,6 @@ export function EvolutionForm({
 
             {/* Registro Funcional ABC (Antecedente - Comportamento - Consequência) */}
             <ABCLogger appointmentId={appointmentId} />
-
-            {/* Assistente de IA ABA para PEI & Evolução */}
-            <AbaAiHelper
-              patientName={patientName}
-              onApplyEvolution={(text) => {
-                setFreeText((prev) => (prev ? `${prev}\n\n${text}` : text));
-                setStep(2);
-              }}
-            />
 
             {stepError && <p className="text-xs text-status-negative-text">{stepError}</p>}
           </div>

@@ -71,12 +71,16 @@ export async function getAppointmentPrograms(appointmentId: string): Promise<{
     return { success: true, programs: [], patientName };
   }
 
-  // Busca metas do plano
+  // Busca metas do plano. Sem filtro de status: um plano só chega a
+  // 'aprovado' depois que toda meta já saiu de 'ativa' (validada ou
+  // devolvida — ver approvePlan em app/supervisao/plan-actions.ts), então
+  // filtrar por status='ativa' aqui nunca retornava nenhuma meta de um
+  // plano de fato aprovado. Mesmo critério de lib/trial-data.ts::
+  // getProgramsForAppointment (usado de verdade pela tela de evolução).
   const { data: goals } = await supabase
     .from("plan_goals")
     .select("id, domain")
-    .eq("treatment_plan_id", treatmentPlan.id)
-    .eq("status", "ativa");
+    .eq("treatment_plan_id", treatmentPlan.id);
 
   if (!goals || goals.length === 0) {
     return { success: true, programs: [], patientName };

@@ -8,6 +8,31 @@ import type { SuggestedGoal, TeamSuggestion } from "@/lib/plan-suggestions";
 
 type Patient = { id: string; full_name: string };
 
+type ProgramTargetType = "tentativa" | "duracao" | "frequencia" | "tarefa";
+
+const TARGET_TYPE_LABEL: Record<ProgramTargetType, string> = {
+  tentativa: "Tentativa (trial)",
+  duracao: "Duração",
+  frequencia: "Frequência",
+  tarefa: "Tarefa (checklist)",
+};
+
+/**
+ * Um "programa" ABA = alvo de coleta de dados por tentativa dentro de uma
+ * meta (tabela `programs`, 20260904000005_treatment_plans.sql). Precisa de
+ * ou um item de protocolo licenciado (`protocolItemId`, quando a meta veio
+ * de uma sugestão de avaliação) ou um domínio livre (quando adicionado
+ * manualmente — vira `domain_taxonomy` no server, ver actions.ts).
+ */
+type Program = {
+  key: string;
+  name: string;
+  targetType: ProgramTargetType;
+  masteryCriterion: string;
+  protocolItemId: string | null;
+  itemCode?: string;
+};
+
 type Goal = {
   key: string;
   discipline: string;
@@ -19,6 +44,7 @@ type Goal = {
   horizon: string;
   strategy: string;
   methodology: string;
+  programs: Program[];
 };
 
 function emptyGoal(): Goal {
@@ -33,7 +59,12 @@ function emptyGoal(): Goal {
     horizon: "",
     strategy: "",
     methodology: "",
+    programs: [],
   };
+}
+
+function emptyProgram(): Program {
+  return { key: crypto.randomUUID(), name: "", targetType: "tentativa", masteryCriterion: "", protocolItemId: null };
 }
 
 const inputClass =
@@ -87,6 +118,21 @@ export function PlanForm({
       horizon: "",
       strategy: "",
       methodology: "",
+      // Meta de ABA vinda de avaliação: cada item ainda não adquirido já
+      // nasce como um programa de coleta por tentativa, pronto pra reunião
+      // técnica só ajustar critério de mastery — sem isso a coleta de dados
+      // do terapeuta (evolução) nunca teria o que mostrar.
+      programs:
+        s.discipline === "aba"
+          ? s.pendingItems.map((item) => ({
+              key: crypto.randomUUID(),
+              name: item.description,
+              targetType: "tentativa" as const,
+              masteryCriterion: "80% de acertos em 3 sessões consecutivas",
+              protocolItemId: item.id,
+              itemCode: item.itemCode,
+            }))
+          : [],
     };
     setGoals((prev) => {
       const isFirstEmpty =
@@ -117,6 +163,33 @@ export function PlanForm({
 
   function removeGoal(key: string) {
     setGoals((prev) => (prev.length === 1 ? prev : prev.filter((g) => g.key !== key)));
+  }
+
+  function addProgram(goalKey: string) {
+    setGoals((prev) =>
+      prev.map((g) => (g.key === goalKey ? { ...g, programs: [...g.programs, emptyProgram()] } : g)),
+    );
+  }
+
+  function updateProgram(
+    goalKey: string,
+    programKey: string,
+    field: "name" | "targetType" | "masteryCriterion",
+    value: string,
+  ) {
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.key !== goalKey
+          ? g
+          : { ...g, programs: g.programs.map((p) => (p.key === programKey ? { ...p, [field]: value } : p)) },
+      ),
+    );
+  }
+
+  function removeProgram(goalKey: string, programKey: string) {
+    setGoals((prev) =>
+      prev.map((g) => (g.key === goalKey ? { ...g, programs: g.programs.filter((p) => p.key !== programKey) } : g)),
+    );
   }
 
   function handleSubmit() {
@@ -173,6 +246,14 @@ export function PlanForm({
           horizon: g.horizon,
           strategy: g.strategy,
           methodology: g.methodology,
+          programs: g.programs
+            .filter((p) => p.name.trim())
+            .map((p) => ({
+              name: p.name.trim(),
+              targetType: p.targetType,
+              masteryCriterion: p.masteryCriterion.trim() || null,
+              protocolItemId: p.protocolItemId,
+            })),
         })),
       ),
     );
@@ -462,6 +543,94 @@ export function PlanForm({
                   />
                 </div>
               </div>
+
+              {goal.discipline === "aba" && (
+                <div className="mt-4 border-t border-paper-line-strong pt-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+                        Programas ABA (coleta por tentativa)
+                      </h3>
+                      <p className="mt-0.5 text-xs text-ink-faint">
+                        Cada programa vira um alvo que o terapeuta registra tentativa a tentativa na evolução da
+                        sessão. Sem programa aqui, esta meta não gera coleta de dados.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => addProgram(goal.key)}
+                      className="shrink-0 rounded-md border border-paper-line-strong px-3 py-1.5 text-xs font-medium text-chart hover:border-chart"
+                    >
+                      + Adicionar programa
+                    </button>
+                  </div>
+                  {goal.programs.length === 0 && (
+                    <p className="mt-2 text-xs text-ink-faint">Nenhum programa ainda.</p>
+                  )}
+                  <div className="mt-3 flex flex-col gap-2">
+                    {goal.programs.map((program) => (
+                      <div
+                        key={program.key}
+                        className="grid grid-cols-1 items-start gap-2 rounded-md border border-paper-line-strong bg-paper px-3 py-2 sm:grid-cols-[1fr_180px_1fr_auto]"
+                      >
+                        <div>
+                          <label className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
+                            Nome do programa
+                          </label>
+                          <input
+                            value={program.name}
+                            disabled={!!program.protocolItemId}
+                            onChange={(e) => updateProgram(goal.key, program.key, "name", e.target.value)}
+                            placeholder="Ex: aponta para objetos ao ser nomeado"
+                            className={`${inputClass} disabled:opacity-70`}
+                          />
+                          {program.itemCode && (
+                            <p className="mt-0.5 text-[11px] text-ink-faint">Item {program.itemCode} do protocolo</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
+                            Tipo de registro
+                          </label>
+                          <select
+                            value={program.targetType}
+                            onChange={(e) =>
+                              updateProgram(goal.key, program.key, "targetType", e.target.value)
+                            }
+                            className={inputClass}
+                          >
+                            {(Object.keys(TARGET_TYPE_LABEL) as ProgramTargetType[]).map((t) => (
+                              <option key={t} value={t}>
+                                {TARGET_TYPE_LABEL[t]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
+                            Critério de mastery
+                          </label>
+                          <input
+                            value={program.masteryCriterion}
+                            onChange={(e) =>
+                              updateProgram(goal.key, program.key, "masteryCriterion", e.target.value)
+                            }
+                            placeholder="Ex: 80% em 3 sessões"
+                            className={inputClass}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeProgram(goal.key, program.key)}
+                          className="self-end text-xs text-status-negative-text sm:mb-2"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

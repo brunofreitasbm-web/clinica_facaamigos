@@ -12,6 +12,13 @@ export type SuggestedGoal = {
   description: string;
   baseline: string;
   protocolLabel: string;
+  /**
+   * Itens do protocolo por trás desta sugestão (score < 2 na última
+   * avaliação) — cada um vira candidato a virar um `programs` (coleta de
+   * dados por tentativa) quando a meta for de disciplina 'aba'. Ver
+   * app/supervisao/planos/novo/plan-form.tsx e actions.ts::createTreatmentPlan.
+   */
+  pendingItems: { id: string; itemCode: string; description: string }[];
 };
 
 export type TeamSuggestion = { discipline: string; roleLabel: string; profileName: string };
@@ -58,6 +65,7 @@ export async function getSuggestedGoals(
         description: `${sample}${pending.length > 3 ? "…" : ""}`,
         baseline: `${pending.length} de ${domainItems.length} itens não adquiridos (${emergentCount} emergentes, ${notObservedCount} não observados) — ${protocolLabel}`,
         protocolLabel,
+        pendingItems: pending.map((i) => ({ id: i.id, itemCode: i.itemCode, description: i.description })),
       });
     }
   }
