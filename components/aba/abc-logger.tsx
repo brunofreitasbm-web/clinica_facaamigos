@@ -21,8 +21,8 @@ export function ABCLogger({ appointmentId, initialLogs = [] }: ABCLoggerProps) {
   const QUICK_ANTECEDENTS = ["Instrução direta", "Retirada de item preferido", "Transição de atividade", "Ruído/Estímulo sensorial", "Livre brincar"];
   const QUICK_CONSEQUENCES = ["Redirecionamento", "Suporte sensorial", "Pausa estruturada", "Reforço diferencial", "Extinção/Ignorar"];
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(e?: React.SyntheticEvent) {
+    if (e) e.preventDefault();
     if (!antecedent.trim() || !behavior.trim() || !consequence.trim()) {
       setError("Preencha o antecedente, comportamento e a consequência.");
       return;
@@ -43,6 +43,13 @@ export function ABCLogger({ appointmentId, initialLogs = [] }: ABCLoggerProps) {
       }
     });
   }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-3">
@@ -66,7 +73,7 @@ export function ABCLogger({ appointmentId, initialLogs = [] }: ABCLoggerProps) {
 
       {/* Form de Inclusão de Registro ABC */}
       {isOpen && (
-        <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
           <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
             Nova Ocorrência Comportamental na Sessão
           </p>
@@ -80,6 +87,7 @@ export function ABCLogger({ appointmentId, initialLogs = [] }: ABCLoggerProps) {
               type="text"
               value={antecedent}
               onChange={(e) => setAntecedent(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Ex: Pedido de transição da massinha para a mesa"
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             />
@@ -106,6 +114,7 @@ export function ABCLogger({ appointmentId, initialLogs = [] }: ABCLoggerProps) {
               type="text"
               value={behavior}
               onChange={(e) => setBehavior(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Ex: Gritou e jogou objeto no chão por 30 segundos"
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             />
@@ -120,6 +129,7 @@ export function ABCLogger({ appointmentId, initialLogs = [] }: ABCLoggerProps) {
               type="text"
               value={consequence}
               onChange={(e) => setConsequence(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Ex: Oferecido suporte com ajuda tátil e redirecionamento"
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             />
@@ -167,13 +177,14 @@ export function ABCLogger({ appointmentId, initialLogs = [] }: ABCLoggerProps) {
           {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
 
           <button
-            type="submit"
+            type="button"
+            onClick={() => handleSubmit()}
             disabled={isPending}
             className="w-full rounded-lg bg-emerald-700 py-2 text-xs font-bold text-white shadow hover:bg-emerald-800 disabled:opacity-50 transition"
           >
             {isPending ? "Gravando..." : "Salvar Registro ABC"}
           </button>
-        </form>
+        </div>
       )}
 
       {/* Lista de Registros Gravados */}

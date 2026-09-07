@@ -122,6 +122,12 @@ export function AcolhimentosPanel({
 
   return (
     <div className="flex flex-col gap-8">
+      <p className="text-xs text-ink-soft">
+        Envie o PDF com a relação de pacientes encaminhados pelo convênio — a IA extrai os dados de cada beneficiário
+        (paciente, responsável, carteirinha e guia) automaticamente. Confira aqui os documentos extraídos, aprove os
+        que estiverem corretos e acompanhe o contato via WhatsApp até o agendamento da 1ª avaliação.
+      </p>
+
       <section className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm">
         <h2 className="mb-3 text-sm font-bold text-ink">Nova remessa</h2>
         <form

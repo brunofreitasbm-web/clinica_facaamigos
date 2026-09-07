@@ -23,7 +23,7 @@ import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-pane
 import { AcolhimentosPanel, type BatchRow } from "./acolhimentos-panel";
 import type { LeadRow, LeadFileRow } from "./acolhimento-lead-drawer";
 import { AgendaAvaliacoesPanel } from "./agenda-avaliacoes-panel";
-import { getEvaluationAgenda } from "@/lib/evaluation-agenda";
+import { getEvaluationPool } from "@/lib/evaluation-agenda";
 
 export const dynamic = "force-dynamic";
 
@@ -149,8 +149,8 @@ export default async function SupervisaoPage() {
   ]);
 
   // ── Agenda de 1ª Avaliação (WhatsApp anamnese + PDF convênio + presencial) ──
-  const evaluationAgendaItems = await getEvaluationAgenda(supabase, DEV_CLINIC_ID);
-  const nAgenda1a = evaluationAgendaItems.filter((i) => i.phase === "aguardando").length;
+  const evaluationPool = await getEvaluationPool(supabase, DEV_CLINIC_ID);
+  const nAgenda1a = evaluationPool.length;
 
   // ── Grade semanal ──────────────────────────────────────────────────────
   const weekAppointments = (rawAppointments ?? []).filter((a) => !GRID_EXCLUDED_STATUSES.includes(a.status));
@@ -434,8 +434,14 @@ export default async function SupervisaoPage() {
       nFluxos={nFluxos}
       nAcolhimentos={nAcolhimentos}
       nAgenda1a={nAgenda1a}
-      agenda1aTab={<AgendaAvaliacoesPanel items={evaluationAgendaItems} />}
-      triagensTab={<AnamnesisValidationPanel />}
+      agenda1aTab={
+        <AgendaAvaliacoesPanel
+          pool={evaluationPool}
+          therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
+          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
+          triagensPanel={<AnamnesisValidationPanel />}
+        />
+      }
       acolhimentosTab={
         <AcolhimentosPanel
           batches={intakeBatches}

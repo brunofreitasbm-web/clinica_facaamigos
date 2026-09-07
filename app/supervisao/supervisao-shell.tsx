@@ -7,10 +7,9 @@ import { PhoneCall } from "lucide-react";
 const TABS = [
   { key: "grade", label: "Grade" },
   { key: "agenda1a", label: "Agenda 1ª Avaliação" },
-  { key: "triagens", label: "Triagens Anamnese" },
-  { key: "acolhimentos", label: "Acolhimentos" },
+  { key: "acolhimentos", label: "Planilha de Pacientes" },
   { key: "fluxos", label: "Fluxos" },
-  { key: "planos", label: "Planos" },
+  { key: "planos", label: "PTS" },
   { key: "inbox", label: "Caixa de entrada" },
 ] as const;
 
@@ -30,12 +29,10 @@ export function SupervisaoShell({
   nPlanos,
   nInbox,
   nFluxos,
-  nTriagens = 0,
   nAcolhimentos = 0,
   nAgenda1a = 0,
   gradeTab,
   agenda1aTab,
-  triagensTab,
   acolhimentosTab,
   fluxosTab,
   planosTab,
@@ -44,12 +41,10 @@ export function SupervisaoShell({
   nPlanos: number;
   nInbox: number;
   nFluxos: number;
-  nTriagens?: number;
   nAcolhimentos?: number;
   nAgenda1a?: number;
   gradeTab: ReactNode;
   agenda1aTab?: ReactNode;
-  triagensTab?: ReactNode;
   acolhimentosTab?: ReactNode;
   fluxosTab: ReactNode;
   planosTab: ReactNode;
@@ -57,14 +52,12 @@ export function SupervisaoShell({
 }) {
   const [tab, setTab] = useState<SupervisaoTabKey>("grade");
 
-  const badge: Record<SupervisaoTabKey, string> = {
-    grade: "Grade",
-    agenda1a: nAgenda1a > 0 ? `Agenda 1ª Avaliação · ${nAgenda1a}` : "Agenda 1ª Avaliação",
-    triagens: nTriagens > 0 ? `Triagens Anamnese · ${nTriagens}` : "Triagens Anamnese",
-    acolhimentos: nAcolhimentos > 0 ? `Acolhimentos · ${nAcolhimentos}` : "Acolhimentos",
-    fluxos: nFluxos > 0 ? `Fluxos · ${nFluxos}` : "Fluxos",
-    planos: `Planos · ${nPlanos}`,
-    inbox: `Caixa de entrada · ${nInbox}`,
+  const count: Partial<Record<SupervisaoTabKey, number>> = {
+    agenda1a: nAgenda1a,
+    acolhimentos: nAcolhimentos,
+    fluxos: nFluxos,
+    planos: nPlanos,
+    inbox: nInbox,
   };
 
   return (
@@ -90,20 +83,31 @@ export function SupervisaoShell({
           </span>
         </span>
         <nav className="flex h-full items-center gap-6 text-[15px] font-semibold">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className="h-full border-b-2"
-              style={{
-                color: tab === t.key ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
-                borderColor: tab === t.key ? "var(--color-on-accent)" : "transparent",
-              }}
-            >
-              {badge[t.key]}
-            </button>
-          ))}
+          {TABS.map((t) => {
+            const n = count[t.key] ?? 0;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                className="flex h-full items-center gap-1.5 border-b-2"
+                style={{
+                  color: tab === t.key ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
+                  borderColor: tab === t.key ? "var(--color-on-accent)" : "transparent",
+                }}
+              >
+                {t.label}
+                {n > 0 && (
+                  <span
+                    className="inline-flex h-5 min-w-5 animate-pulse items-center justify-center rounded-full px-1.5 text-[11px] font-bold"
+                    style={{ background: "var(--color-accent-2)", color: "var(--color-bg)" }}
+                  >
+                    {n}
+                  </span>
+                )}
+              </button>
+            );
+          })}
           <Link
             href="/recepcao/emergencias"
             className="flex h-full items-center gap-1.5 border-b-2 border-transparent"
@@ -118,7 +122,6 @@ export function SupervisaoShell({
       <main className="px-10 py-9">
         {tab === "grade" && gradeTab}
         {tab === "agenda1a" && agenda1aTab}
-        {tab === "triagens" && triagensTab}
         {tab === "acolhimentos" && acolhimentosTab}
         {tab === "fluxos" && fluxosTab}
         {tab === "planos" && planosTab}

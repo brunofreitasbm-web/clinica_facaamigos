@@ -25,8 +25,8 @@ export function InterventionLogger({ appointmentId, catalog, initialLogs = [] }:
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(e?: React.SyntheticEvent) {
+    if (e) e.preventDefault();
     if (!selectedValue) {
       setError("Selecione qual intervenção foi aplicada.");
       return;
@@ -66,7 +66,7 @@ export function InterventionLogger({ appointmentId, catalog, initialLogs = [] }:
       </div>
 
       {isOpen && (
-        <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
           <div>
             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
               Qual intervenção o terapeuta aplicou?
@@ -98,6 +98,12 @@ export function InterventionLogger({ appointmentId, catalog, initialLogs = [] }:
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
               placeholder="Ex: Reforço social após tentativa independente no programa de imitação"
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             />
@@ -128,13 +134,14 @@ export function InterventionLogger({ appointmentId, catalog, initialLogs = [] }:
           {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
 
           <button
-            type="submit"
+            type="button"
+            onClick={() => handleSubmit()}
             disabled={isPending}
             className="w-full rounded-lg bg-emerald-700 py-2 text-xs font-bold text-white shadow hover:bg-emerald-800 disabled:opacity-50 transition"
           >
             {isPending ? "Gravando..." : "Salvar intervenção"}
           </button>
-        </form>
+        </div>
       )}
 
       {logs.length > 0 ? (

@@ -523,6 +523,9 @@ export async function rescheduleAppointmentAction(
     .eq("id", appointmentId);
 
   if (error) {
+    if (error.code === "23P01") {
+      return { success: false, error: "Sala ou terapeuta já tem sessão nesse horário." };
+    }
     return { success: false, error: "Não foi possível reagendar a sessão. Tente de novo." };
   }
 
