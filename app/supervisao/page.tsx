@@ -20,6 +20,8 @@ import type { NpsAlertRow } from "./nps-alerts-panel";
 import { SupervisaoShell } from "./supervisao-shell";
 import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
 import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-panel";
+import { AcolhimentosPanel, type BatchRow } from "./acolhimentos-panel";
+import type { LeadRow, LeadFileRow } from "./acolhimento-lead-drawer";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +52,9 @@ export default async function SupervisaoPage() {
     { data: rawActivePatients },
     { data: rawAbsenceReports },
     { data: rawNpsAlerts },
+    { data: rawIntakeBatches },
+    { data: rawIntakeLeads },
+    { data: rawInsurers },
   ] = await Promise.all([
     supabase.from("patients").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("reassessment_alerts").select("id", { count: "exact", head: true }).eq("status", "notificado"),
@@ -120,6 +125,21 @@ export default async function SupervisaoPage() {
       )
       .in("alert_status", ["pending_contact", "em_atendimento"])
       .order("responded_at", { ascending: false }),
+    // Acolhimentos oriundos de plano de saúde — últimos 30 dias.
+    supabase
+      .from("insurance_intake_batches")
+      .select("id, insurer_id, detected_insurer_name, status, warnings, error, leads_count, created_at, insurers(name)")
+      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("insurance_intake_leads")
+      .select(
+        "id, batch_id, status, status_reason, rejection_count, patient_full_name, patient_birth_date, patient_cpf, patient_sexo, patient_cid, guardian_full_name, guardian_cpf, guardian_relationship, guardian_email, phone_e164, card_number, plan_name, card_valid_until, guide_number, procedure_code, sessions_authorized, valid_from, valid_to, authorization_password, confidence, warnings, duplicate_patient_id, duplicate_reason, offered_slots, insurance_intake_lead_files(id, original_name, mime_type, kind, review_status)",
+      )
+      .neq("status", "scheduled")
+      .neq("status", "cancelled")
+      .order("row_index", { ascending: true }),
+    supabase.from("insurers").select("id, name, intake_extraction_profile").eq("clinic_id", DEV_CLINIC_ID).order("name"),
   ]);
 
   // ── Grade semanal ──────────────────────────────────────────────────────
@@ -335,12 +355,84 @@ export default async function SupervisaoPage() {
     flowCounters.provisionalNoGuide +
     flowCounters.openFamilyMessages;
 
+  // ── Acolhimentos oriundos de plano de saúde ────────────────────────────
+  const intakeBatches: BatchRow[] = (rawIntakeBatches ?? []).map((b) => {
+    const insurer = Array.isArray(b.insurers) ? b.insurers[0] : b.insurers;
+    return {
+      id: b.id,
+      insurerName: insurer?.name ?? null,
+      detectedInsurerName: b.detected_insurer_name,
+      status: b.status,
+      warnings: b.warnings ?? [],
+      error: b.error,
+      createdAtLabel: fmtDateTime(b.created_at),
+      leadsCount: b.leads_count,
+    };
+  });
+
+  const intakeLeadsByBatch: Record<string, LeadRow[]> = {};
+  for (const l of rawIntakeLeads ?? []) {
+    const files: LeadFileRow[] = (l.insurance_intake_lead_files ?? []).map((f) => ({
+      id: f.id,
+      original_name: f.original_name,
+      mime_type: f.mime_type,
+      kind: f.kind as LeadFileRow["kind"],
+      review_status: f.review_status as LeadFileRow["review_status"],
+    }));
+    const row: LeadRow = {
+      id: l.id,
+      batch_id: l.batch_id,
+      status: l.status,
+      status_reason: l.status_reason,
+      rejection_count: l.rejection_count,
+      patient_full_name: l.patient_full_name,
+      patient_birth_date: l.patient_birth_date,
+      patient_cpf: l.patient_cpf,
+      patient_sexo: l.patient_sexo,
+      patient_cid: l.patient_cid,
+      guardian_full_name: l.guardian_full_name,
+      guardian_cpf: l.guardian_cpf,
+      guardian_relationship: l.guardian_relationship,
+      guardian_email: l.guardian_email,
+      phone_e164: l.phone_e164,
+      card_number: l.card_number,
+      plan_name: l.plan_name,
+      card_valid_until: l.card_valid_until,
+      guide_number: l.guide_number,
+      procedure_code: l.procedure_code,
+      sessions_authorized: l.sessions_authorized,
+      valid_from: l.valid_from,
+      valid_to: l.valid_to,
+      authorization_password: l.authorization_password,
+      confidence: (l.confidence as Record<string, number>) ?? {},
+      warnings: l.warnings ?? [],
+      duplicate_patient_id: l.duplicate_patient_id,
+      duplicate_reason: l.duplicate_reason,
+      offered_slots: l.offered_slots as LeadRow["offered_slots"],
+      files,
+    };
+    (intakeLeadsByBatch[l.batch_id] ??= []).push(row);
+  }
+
+  const nAcolhimentos = (rawIntakeLeads ?? []).filter((l) => l.status === "extracted" || l.status === "pending_supervisor").length;
+  const intakeInsurers = (rawInsurers ?? []).map((i) => ({ id: i.id, name: i.name, intake_extraction_profile: i.intake_extraction_profile }));
+
   return (
     <SupervisaoShell
       nPlanos={plans.length}
       nInbox={openFamilyMessages}
       nFluxos={nFluxos}
+      nAcolhimentos={nAcolhimentos}
       triagensTab={<AnamnesisValidationPanel />}
+      acolhimentosTab={
+        <AcolhimentosPanel
+          batches={intakeBatches}
+          leadsByBatch={intakeLeadsByBatch}
+          insurers={intakeInsurers}
+          therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
+          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
+        />
+      }
       fluxosTab={<FluxosPanel patients={flowPatients} counters={flowCounters} />}
       gradeTab={
         <GradePanel
