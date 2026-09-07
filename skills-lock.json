@@ -6,6 +6,48 @@
       "sourceType": "github",
       "skillPath": "skills/supabase/SKILL.md",
       "computedHash": "a6260582f48df8ba53380bb9b9e870ed2ae5fe147799e90ed783b8aa25167d50"
+    },
+    "twilio-content-template-builder": {
+      "source": "twilio/ai",
+      "sourceType": "github",
+      "skillPath": "skills/twilio/twilio-content-template-builder/SKILL.md",
+      "computedHash": "10c5cd9fa00e58f6fc421513c130351b94d488a5aa49a56c705b4722c7bad4e4"
+    },
+    "twilio-messaging-webhooks": {
+      "source": "twilio/ai",
+      "sourceType": "github",
+      "skillPath": "skills/twilio/twilio-messaging-webhooks/SKILL.md",
+      "computedHash": "59bce6ec58509025bcb3002e17f7ef053e08d5bdedbdc180a010759245fefbd3"
+    },
+    "twilio-verify-send-otp": {
+      "source": "twilio/ai",
+      "sourceType": "github",
+      "skillPath": "skills/twilio/twilio-verify-send-otp/SKILL.md",
+      "computedHash": "8de4f1421368211ab7a2869e30614166778de06ee398e07207bfe4e4a2f70496"
+    },
+    "twilio-voice-outbound-calls": {
+      "source": "twilio/ai",
+      "sourceType": "github",
+      "skillPath": "skills/twilio/twilio-voice-outbound-calls/SKILL.md",
+      "computedHash": "3707efda80e10b61e78848fbad0370e4108d026ba8a116be5fb71a59eb66e4ce"
+    },
+    "twilio-voice-twiml": {
+      "source": "twilio/ai",
+      "sourceType": "github",
+      "skillPath": "skills/twilio/twilio-voice-twiml/SKILL.md",
+      "computedHash": "3c9dc95640faedfe54e63b2abaadf6619784f9b843cd0f42e843099d3777aa0d"
+    },
+    "twilio-whatsapp-manage-senders": {
+      "source": "twilio/ai",
+      "sourceType": "github",
+      "skillPath": "skills/twilio/twilio-whatsapp-manage-senders/SKILL.md",
+      "computedHash": "0d6b177d122a1fa01b63a8e71cf5a29622493aa2df609621f5100ef6172f0f78"
+    },
+    "twilio-whatsapp-send-message": {
+      "source": "twilio/ai",
+      "sourceType": "github",
+      "skillPath": "skills/twilio/twilio-whatsapp-send-message/SKILL.md",
+      "computedHash": "42432029e4dbe074328b2485379bf25d554e20d82f0dcb5a8f0413649ccfd53f"
     }
   }
 }
