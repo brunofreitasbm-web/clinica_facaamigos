@@ -36,8 +36,10 @@ export const ROLE_HOME: Record<Role, string> = {
  * As exceções abaixo existem porque algumas telas seguem em módulo
  * diferente do papel que as opera no dia a dia (ex.: supervisão precisa
  * abrir a ficha do paciente da recepção e os relatórios do terapeuta a
- * partir do painel de Fluxos; faturamento precisa só ver o código de
- * prestador cadastrado em Convênios pra gerar guia TISS).
+ * partir do painel de Fluxos; faturamento precisa ver o código de
+ * prestador cadastrado em Convênios pra gerar guia TISS, e abrir a ficha
+ * do paciente a partir dos links "ver paciente" do próprio módulo de
+ * faturamento/guias).
  */
 export const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
   gestor: [],
@@ -55,6 +57,6 @@ export const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
   ],
   terapeuta: ["/terapeuta"],
   recepcao: ["/recepcao"],
-  faturamento: ["/faturamento", "/gestor/convenios"],
+  faturamento: ["/faturamento", "/gestor/convenios", "/recepcao/pacientes"],
   responsavel: ["/familia"],
 };

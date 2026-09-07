@@ -13,11 +13,22 @@ export default async function NpsPage() {
   const supabase = await createClient();
   const { startISO, endISO } = currentMonthRange();
 
-  const [{ data: monthSurveys }, { count: pendingAlertsCount }, { data: monthFamilyFeedback }, { data: familyFeedbackRaw }] =
+  const [{ data: monthSurveys }, { data: monthlySurveys }, { count: pendingAlertsCount }, { data: monthFamilyFeedback }, { data: familyFeedbackRaw }] =
     await Promise.all([
+      // Disparos por evento (avaliação/devolutiva), escala 1-5.
       supabase
         .from("nps_surveys")
         .select("score, responded_at")
+        .in("trigger_type", ["evaluation", "devolutiva"])
+        .gte("dispatched_at", startISO)
+        .lt("dispatched_at", endISO)
+        .not("responded_at", "is", null),
+      // Disparo mensal (todo paciente ativo), escala 0-10 — já comparável
+      // direto com o combinado, sem normalização.
+      supabase
+        .from("nps_surveys")
+        .select("score, responded_at")
+        .eq("trigger_type", "mensal")
         .gte("dispatched_at", startISO)
         .lt("dispatched_at", endISO)
         .not("responded_at", "is", null),
@@ -49,13 +60,20 @@ export default async function NpsPage() {
     count: scores.filter((s) => s === score).length,
   }));
 
-  // Concilia as duas fontes numa escala comum 0-10 pra um painel único
-  // (nps_surveys é 1-5, family_feedback é 4 categorias ruim..ótimo).
+  const monthlyScores = (monthlySurveys ?? []).map((s) => s.score).filter((s): s is number => s != null);
+  const monthlyAvgScore =
+    monthlyScores.length > 0
+      ? Math.round((monthlyScores.reduce((sum, s) => sum + s, 0) / monthlyScores.length) * 10) / 10
+      : null;
+
+  // Concilia as três fontes numa escala comum 0-10 pra um painel único
+  // (nps_surveys por evento é 1-5, disparo mensal já é 0-10, family_feedback
+  // é 4 categorias ruim..ótimo).
   const normalizedFamily = (monthFamilyFeedback ?? [])
     .map((f) => normalizeFeedbackToNps10(f.category_ratings as Record<string, string>))
     .filter((n): n is number => n != null);
   const normalizedTwilio = scores.map(normalizeTwilioScoreToNps10);
-  const combinedAll = [...normalizedTwilio, ...normalizedFamily];
+  const combinedAll = [...normalizedTwilio, ...monthlyScores, ...normalizedFamily];
   const combinedScore10 =
     combinedAll.length > 0 ? Math.round((combinedAll.reduce((sum, n) => sum + n, 0) / combinedAll.length) * 10) / 10 : null;
 
@@ -82,8 +100,8 @@ export default async function NpsPage() {
             NPS · Pesquisa de Satisfação
           </h1>
           <p className="text-sm text-ink-soft">
-            Pesquisas disparadas 1h após reavaliações e reuniões de devolutiva com a supervisão, combinadas com as
-            avaliações enviadas pela família no portal (&quot;Avalie&quot;).
+            Pesquisas disparadas 1h após reavaliações e reuniões de devolutiva com a supervisão, o disparo mensal
+            (0-10) para todo paciente ativo, e as avaliações enviadas pela família no portal (&quot;Avalie&quot;).
           </p>
         </div>
 
@@ -93,6 +111,8 @@ export default async function NpsPage() {
           distribution={distribution}
           combinedScore10={combinedScore10}
           combinedResponseCount={combinedAll.length}
+          monthlyAvgScore={monthlyAvgScore}
+          monthlyResponseCount={monthlyScores.length}
         />
 
         {(pendingAlertsCount ?? 0) > 0 && (
