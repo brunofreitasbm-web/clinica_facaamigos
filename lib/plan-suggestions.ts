@@ -2,6 +2,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { getPatientProtocolTabs } from "@/lib/protocol-assessments";
 import { findProtocolCatalogEntry } from "@/lib/protocol-catalog";
+import { getLatestConcludedByInstrument } from "@/lib/fono-assessments";
+import {
+  computeAdlResults,
+  computeProcResults,
+  classifyLanguage,
+  getFonoBands,
+  getFonoScaleLabels,
+  ADL_DOUBLE_COUNT_EXPRESSIVE_BAND_KEY,
+  FONO_INSTRUMENT_LABEL,
+  PROC_CATALOG,
+  type AdlManualScores,
+  type AdlResponses,
+  type ProcResponses,
+} from "@/lib/fono-instruments";
 
 type Supa = SupabaseClient<Database>;
 
@@ -24,7 +38,7 @@ export type SuggestedGoal = {
 export type TeamSuggestion = { discipline: string; roleLabel: string; profileName: string };
 
 /**
- * "Montar PEI" a partir da avaliação já aplicada — Módulo 3 MAAIS, slide 27
+ * "Montar PTS" a partir da avaliação já aplicada — Módulo 3 MAAIS, slide 27
  * ("Análise dos dados e construção do PDI: compilação dos dados das
  * avaliações"). Em vez de o supervisor começar do zero, cada domínio do
  * protocolo com itens ainda não adquiridos (score < 2, ou nunca pontuado)
@@ -66,6 +80,88 @@ export async function getSuggestedGoals(
         baseline: `${pending.length} de ${domainItems.length} itens não adquiridos (${emergentCount} emergentes, ${notObservedCount} não observados) — ${protocolLabel}`,
         protocolLabel,
         pendingItems: pending.map((i) => ({ id: i.id, itemCode: i.itemCode, description: i.description })),
+      });
+    }
+  }
+
+  suggestions.push(...(await getFonoSuggestedGoals(supabase, patientId)));
+
+  return suggestions;
+}
+
+function fmtDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR");
+}
+
+/**
+ * Mesma ideia de `getSuggestedGoals` acima, só que a partir das avaliações
+ * de fonoaudiologia (ADL, ADL-2, PROC — lib/fono-instruments/), que não
+ * passam por `protocol_assessments`. Reproduz a lógica da aba "PEI" das
+ * planilhas: cada item marcado como erro ("0") vira um item pendente,
+ * agrupado por escala (Receptiva/Compreensiva e Expressiva). `pendingItems`
+ * usa a chave do catálogo do instrumento como `id` — não é um
+ * `protocol_items.id`, então `discipline: "fonoaudiologia"` nunca cai no
+ * branch de `programs` de ABA em app/supervisao/planos/novo/plan-form.tsx
+ * (que só é acionado para `discipline === "aba"`).
+ */
+async function getFonoSuggestedGoals(supabase: Supa, patientId: string): Promise<SuggestedGoal[]> {
+  const latestByInstrument = await getLatestConcludedByInstrument(supabase, patientId);
+  const suggestions: SuggestedGoal[] = [];
+
+  for (const instrument of ["adl", "adl2"] as const) {
+    const assessment = latestByInstrument[instrument];
+    if (!assessment) continue;
+
+    const bands = getFonoBands(instrument);
+    const { receptive: receptiveLabel, expressive: expressiveLabel } = getFonoScaleLabels(instrument);
+    const manual = assessment.manualScores as unknown as AdlManualScores;
+    const result = computeAdlResults(bands, assessment.responses as AdlResponses, manual, {
+      doubleCountExpressiveBandKey: instrument === "adl" ? ADL_DOUBLE_COUNT_EXPRESSIVE_BAND_KEY : undefined,
+    });
+    const protocolLabel = `${FONO_INSTRUMENT_LABEL[instrument]} — ${fmtDate(assessment.testDate)}`;
+    const classification = classifyLanguage(manual.escorePadraoGlobal);
+    const scoreSummary = `Escore bruto ${result.escoreBrutoGlobal ?? "—"}, EP global ${manual.escorePadraoGlobal ?? "—"}${classification ? ` (${classification})` : ""}`;
+
+    const scales: [string, typeof result.objetivosPrioritariosReceptivo][] = [
+      [receptiveLabel, result.objetivosPrioritariosReceptivo],
+      [expressiveLabel, result.objetivosPrioritariosExpressivo],
+    ];
+    for (const [scaleLabel, items] of scales) {
+      if (items.length === 0) continue;
+      const sample = items
+        .slice(0, 3)
+        .map((i) => i.text)
+        .join("; ");
+      suggestions.push({
+        key: `fono-${instrument}-${assessment.id}-${scaleLabel}`,
+        discipline: "fonoaudiologia",
+        domain: scaleLabel,
+        description: `${sample}${items.length > 3 ? "…" : ""}`,
+        baseline: `${scoreSummary} — ${protocolLabel}`,
+        protocolLabel,
+        pendingItems: items.map((i) => ({ id: i.key, itemCode: String(i.num), description: i.text })),
+      });
+    }
+  }
+
+  const proc = latestByInstrument.proc;
+  if (proc) {
+    const procResult = computeProcResults(PROC_CATALOG, proc.responses as ProcResponses);
+    const protocolLabel = `${FONO_INSTRUMENT_LABEL.proc} — ${fmtDate(proc.testDate)}`;
+    for (const section of procResult.sections) {
+      if (section.score >= section.max) continue;
+      suggestions.push({
+        key: `fono-proc-${proc.id}-${section.key}`,
+        discipline: "fonoaudiologia",
+        domain: section.label,
+        description: section.subsections
+          .filter((s) => s.score < s.max)
+          .slice(0, 3)
+          .map((s) => s.label)
+          .join("; "),
+        baseline: `${section.score}/${section.max} pontos — ${protocolLabel}`,
+        protocolLabel,
+        pendingItems: [],
       });
     }
   }

@@ -195,6 +195,9 @@ export default async function EvolucaoPage({
               <Link href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao`} className="btn btn-secondary w-fit">
                 Avaliação de protocolo
               </Link>
+              <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit">
+                Fono (ADL/ADL-2/PROC)
+              </Link>
               {canEdit && (
                 <Link href={`/terapeuta/evolucao/${appointment.id}?editar=1`} className="btn btn-secondary w-fit">
                   Editar evolução (nova versão)

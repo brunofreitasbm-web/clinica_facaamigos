@@ -195,6 +195,7 @@ const FLOWS: Flow[] = [
     ],
     tools: [
       { label: "Aplicar protocolo", hrefFor: (id) => `/terapeuta/paciente/${id}/avaliacao`, icon: icon(<ClipboardList />), needsPatient: true, primary: true },
+      { label: "Avaliação fono (ADL/ADL-2/PROC)", hrefFor: (id) => `/terapeuta/paciente/${id}/fono`, icon: icon(<ClipboardList />), needsPatient: true },
       { label: "Marcar avaliação realizada", hrefFor: (id) => `/recepcao/pacientes/${id}#proximo-passo`, icon: icon(<Target />), needsPatient: true },
       { label: "Métricas do paciente", hrefFor: (id) => `/terapeuta/paciente/${id}/metricas`, icon: icon(<Target />), needsPatient: true },
       { label: "Reavaliações", tab: "inbox", icon: icon(<Inbox />) },
@@ -207,8 +208,11 @@ const FLOWS: Flow[] = [
       },
       {
         title: "Observação direta e protocolo",
-        detail: "Pontue os marcos do protocolo licenciado por domínio. A curva de aprendizagem já nasce desta aplicação.",
-        tools: [{ label: "Aplicar protocolo", hrefFor: (id) => `/terapeuta/paciente/${id}/avaliacao`, icon: icon(<ClipboardList />), needsPatient: true, primary: true }],
+        detail: "Pontue os marcos do protocolo licenciado por domínio, ou aplique ADL/ADL-2/PROC para fonoaudiologia. A curva de aprendizagem já nasce desta aplicação.",
+        tools: [
+          { label: "Aplicar protocolo", hrefFor: (id) => `/terapeuta/paciente/${id}/avaliacao`, icon: icon(<ClipboardList />), needsPatient: true, primary: true },
+          { label: "Avaliação fono (ADL/ADL-2/PROC)", hrefFor: (id) => `/terapeuta/paciente/${id}/fono`, icon: icon(<ClipboardList />), needsPatient: true },
+        ],
       },
       {
         title: "Reunião técnica multidisciplinar",

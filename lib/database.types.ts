@@ -731,6 +731,50 @@ export type Database = {
           },
         ]
       }
+      behavior_catalog: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          discipline: string | null
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          discipline?: string | null
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          discipline?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "behavior_catalog_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_items: {
         Row: {
           amount: number
@@ -877,7 +921,9 @@ export type Database = {
           collected_data: Json
           created_at: string
           current_step: string
+          flow: string | null
           id: string
+          lead_id: string | null
           phone_number: string
           updated_at: string
         }
@@ -885,7 +931,9 @@ export type Database = {
           collected_data?: Json
           created_at?: string
           current_step?: string
+          flow?: string | null
           id?: string
+          lead_id?: string | null
           phone_number: string
           updated_at?: string
         }
@@ -893,7 +941,9 @@ export type Database = {
           collected_data?: Json
           created_at?: string
           current_step?: string
+          flow?: string | null
           id?: string
+          lead_id?: string | null
           phone_number?: string
           updated_at?: string
         }
@@ -1112,6 +1162,849 @@ export type Database = {
           },
         ]
       }
+      employee_dependents: {
+        Row: {
+          birthdate: string | null
+          cpf: string | null
+          created_at: string | null
+          employee_id: string
+          for_ir: boolean
+          for_salario_familia: boolean
+          id: string
+          name: string
+          relationship: string | null
+        }
+        Insert: {
+          birthdate?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          employee_id: string
+          for_ir?: boolean
+          for_salario_familia?: boolean
+          id?: string
+          name: string
+          relationship?: string | null
+        }
+        Update: {
+          birthdate?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          employee_id?: string
+          for_ir?: boolean
+          for_salario_familia?: boolean
+          id?: string
+          name?: string
+          relationship?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_dependents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_documents: {
+        Row: {
+          content: string
+          created_at: string | null
+          doc_key: string
+          employee_id: string
+          meta: Json | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          doc_key: string
+          employee_id: string
+          meta?: Json | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          doc_key?: string
+          employee_id?: string
+          meta?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_medical_exams: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          doc_key: string | null
+          doctor_crm: string | null
+          doctor_name: string | null
+          employee_id: string
+          exam_date: string
+          exam_type: string
+          id: string
+          restrictions: string | null
+          result: string | null
+          risk_grade: number | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          doc_key?: string | null
+          doctor_crm?: string | null
+          doctor_name?: string | null
+          employee_id: string
+          exam_date: string
+          exam_type: string
+          id?: string
+          restrictions?: string | null
+          result?: string | null
+          risk_grade?: number | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          doc_key?: string | null
+          doctor_crm?: string | null
+          doctor_name?: string | null
+          employee_id?: string
+          exam_date?: string
+          exam_type?: string
+          id?: string
+          restrictions?: string | null
+          result?: string | null
+          risk_grade?: number | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_medical_exams_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_occurrences: {
+        Row: {
+          affects_dsr: boolean
+          affects_vacation: boolean
+          cat_number: string | null
+          created_at: string | null
+          created_by: string | null
+          days: number
+          description: string | null
+          doc_key: string | null
+          employee_id: string
+          end_date: string | null
+          id: string
+          inss_referral: boolean
+          justified: boolean
+          legal_basis: string | null
+          start_date: string
+          type: string
+          unit_id: string
+        }
+        Insert: {
+          affects_dsr?: boolean
+          affects_vacation?: boolean
+          cat_number?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          days?: number
+          description?: string | null
+          doc_key?: string | null
+          employee_id: string
+          end_date?: string | null
+          id?: string
+          inss_referral?: boolean
+          justified?: boolean
+          legal_basis?: string | null
+          start_date: string
+          type: string
+          unit_id: string
+        }
+        Update: {
+          affects_dsr?: boolean
+          affects_vacation?: boolean
+          cat_number?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          days?: number
+          description?: string | null
+          doc_key?: string | null
+          employee_id?: string
+          end_date?: string | null
+          id?: string
+          inss_referral?: boolean
+          justified?: boolean
+          legal_basis?: string | null
+          start_date?: string
+          type?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_occurrences_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_occurrences_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_self_registration_tokens: {
+        Row: {
+          created_at: string | null
+          employee_id: string
+          expires_at: string
+          token_hash: string
+          uploads_used: number
+        }
+        Insert: {
+          created_at?: string | null
+          employee_id: string
+          expires_at: string
+          token_hash: string
+          uploads_used?: number
+        }
+        Update: {
+          created_at?: string | null
+          employee_id?: string
+          expires_at?: string
+          token_hash?: string
+          uploads_used?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_self_registration_tokens_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_terminations: {
+        Row: {
+          checklist: Json | null
+          created_at: string | null
+          created_by: string | null
+          demissional_exam_id: string | null
+          employee_id: string
+          notes: string | null
+          notice_days: number | null
+          notice_reduction: string | null
+          notice_start: string | null
+          notice_type: string | null
+          payment_deadline: string | null
+          projected_end: string | null
+          termination_date: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          checklist?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          demissional_exam_id?: string | null
+          employee_id: string
+          notes?: string | null
+          notice_days?: number | null
+          notice_reduction?: string | null
+          notice_start?: string | null
+          notice_type?: string | null
+          payment_deadline?: string | null
+          projected_end?: string | null
+          termination_date?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          checklist?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          demissional_exam_id?: string | null
+          employee_id?: string
+          notes?: string | null
+          notice_days?: number | null
+          notice_reduction?: string | null
+          notice_start?: string | null
+          notice_type?: string | null
+          payment_deadline?: string | null
+          projected_end?: string | null
+          termination_date?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_terminations_demissional_exam_id_fkey"
+            columns: ["demissional_exam_id"]
+            isOneToOne: false
+            referencedRelation: "employee_medical_exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_terminations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_time_adjustments: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          employee_id: string
+          evidence_doc: Json | null
+          id: string
+          reason: string
+          timestamp: string | null
+          type: string
+          unit_id: string
+          voids_adjustment_id: string | null
+          voids_record_id: string | null
+          work_date: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          employee_id: string
+          evidence_doc?: Json | null
+          id?: string
+          reason: string
+          timestamp?: string | null
+          type: string
+          unit_id: string
+          voids_adjustment_id?: string | null
+          voids_record_id?: string | null
+          work_date: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          employee_id?: string
+          evidence_doc?: Json | null
+          id?: string
+          reason?: string
+          timestamp?: string | null
+          type?: string
+          unit_id?: string
+          voids_adjustment_id?: string | null
+          voids_record_id?: string | null
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_time_adjustments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_time_adjustments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_time_adjustments_voids_adjustment_fk"
+            columns: ["voids_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "employee_time_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_time_adjustments_voids_record_id_fkey"
+            columns: ["voids_record_id"]
+            isOneToOne: false
+            referencedRelation: "employee_time_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_time_nsr: {
+        Row: {
+          last_hash: string | null
+          last_nsr: number
+          unit_id: string
+        }
+        Insert: {
+          last_hash?: string | null
+          last_nsr?: number
+          unit_id: string
+        }
+        Update: {
+          last_hash?: string | null
+          last_nsr?: number
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_time_nsr_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: true
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_time_records: {
+        Row: {
+          auth_method: string
+          biometric: Json | null
+          created_at: string | null
+          created_by: string | null
+          employee_cpf: string | null
+          employee_id: string
+          employee_name: string
+          geo: Json | null
+          id: string
+          nsr: number
+          photo: string | null
+          prev_hash: string | null
+          record_hash: string | null
+          timestamp: string
+          type: string
+          unit_id: string
+          work_date: string
+        }
+        Insert: {
+          auth_method?: string
+          biometric?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          employee_cpf?: string | null
+          employee_id: string
+          employee_name: string
+          geo?: Json | null
+          id?: string
+          nsr: number
+          photo?: string | null
+          prev_hash?: string | null
+          record_hash?: string | null
+          timestamp?: string
+          type: string
+          unit_id: string
+          work_date: string
+        }
+        Update: {
+          auth_method?: string
+          biometric?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          employee_cpf?: string | null
+          employee_id?: string
+          employee_name?: string
+          geo?: Json | null
+          id?: string
+          nsr?: number
+          photo?: string | null
+          prev_hash?: string | null
+          record_hash?: string | null
+          timestamp?: string
+          type?: string
+          unit_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_time_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_time_records_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_timesheet_closures: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          competencia: string
+          employee_id: string
+          reopened_at: string | null
+          summary: Json | null
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          competencia: string
+          employee_id: string
+          reopened_at?: string | null
+          summary?: Json | null
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          competencia?: string
+          employee_id?: string
+          reopened_at?: string | null
+          summary?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_timesheet_closures_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_vacation_periods: {
+        Row: {
+          acquisition_end: string
+          acquisition_start: string
+          concession_end: string
+          created_at: string | null
+          days_entitled: number
+          employee_id: string
+          id: string
+          status: string
+          suspended_reason: string | null
+          unjustified_absences: number
+        }
+        Insert: {
+          acquisition_end: string
+          acquisition_start: string
+          concession_end: string
+          created_at?: string | null
+          days_entitled?: number
+          employee_id: string
+          id?: string
+          status?: string
+          suspended_reason?: string | null
+          unjustified_absences?: number
+        }
+        Update: {
+          acquisition_end?: string
+          acquisition_start?: string
+          concession_end?: string
+          created_at?: string | null
+          days_entitled?: number
+          employee_id?: string
+          id?: string
+          status?: string
+          suspended_reason?: string | null
+          unjustified_absences?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_vacation_periods_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_vacation_schedules: {
+        Row: {
+          abono_days: number
+          created_at: string | null
+          created_by: string | null
+          days: number
+          doc_notice_key: string | null
+          doc_receipt_key: string | null
+          employee_id: string
+          end_date: string
+          id: string
+          notice_issued_at: string | null
+          payment_done_at: string | null
+          payment_due: string | null
+          period_id: string
+          start_date: string
+          status: string
+        }
+        Insert: {
+          abono_days?: number
+          created_at?: string | null
+          created_by?: string | null
+          days: number
+          doc_notice_key?: string | null
+          doc_receipt_key?: string | null
+          employee_id: string
+          end_date: string
+          id?: string
+          notice_issued_at?: string | null
+          payment_done_at?: string | null
+          payment_due?: string | null
+          period_id: string
+          start_date: string
+          status?: string
+        }
+        Update: {
+          abono_days?: number
+          created_at?: string | null
+          created_by?: string | null
+          days?: number
+          doc_notice_key?: string | null
+          doc_receipt_key?: string | null
+          employee_id?: string
+          end_date?: string
+          id?: string
+          notice_issued_at?: string | null
+          payment_done_at?: string | null
+          payment_due?: string | null
+          period_id?: string
+          start_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_vacation_schedules_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_vacation_schedules_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "employee_vacation_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          address: Json | null
+          admission_date: string | null
+          bank_account: string | null
+          bank_account_type: string | null
+          bank_agency: string | null
+          bank_name: string | null
+          base_salary: number | null
+          biometric_consent_at: string | null
+          biometric_consent_version: string | null
+          birthdate: string | null
+          birthplace: string | null
+          cba_reference: string | null
+          cbo: string | null
+          cnh: string | null
+          cnh_category: string | null
+          contract_end: string | null
+          contract_type: string
+          cpf: string | null
+          created_at: string | null
+          ctps_number: string | null
+          ctps_series: string | null
+          ctps_uf: string | null
+          department: string | null
+          education: string | null
+          email: string | null
+          experience_first_end: string | null
+          experience_second_end: string | null
+          face_descriptor: string | null
+          father_name: string | null
+          health_plan: boolean
+          hours_bank: boolean
+          hours_bank_started_at: string | null
+          id: string
+          job_title: string | null
+          lgpd_consent_accepted_at: string | null
+          lgpd_consent_version: string | null
+          marital_status: string | null
+          mother_name: string | null
+          name: string
+          nationality: string | null
+          night_work: boolean
+          notes: string | null
+          phone: string | null
+          photo: string | null
+          pis: string | null
+          pix_key: string | null
+          registration_status: string
+          reservist_cert: string | null
+          rg: string | null
+          rg_issuer: string | null
+          schedule: Json | null
+          self_registered_at: string | null
+          sex: string | null
+          status: string
+          termination_date: string | null
+          union_name: string | null
+          unit_id: string
+          updated_at: string | null
+          voter_title: string | null
+          vr_opted: boolean
+          vt_daily_cost: number | null
+          vt_opted: boolean
+          weekly_hours: number
+          work_regime: string | null
+        }
+        Insert: {
+          address?: Json | null
+          admission_date?: string | null
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          base_salary?: number | null
+          biometric_consent_at?: string | null
+          biometric_consent_version?: string | null
+          birthdate?: string | null
+          birthplace?: string | null
+          cba_reference?: string | null
+          cbo?: string | null
+          cnh?: string | null
+          cnh_category?: string | null
+          contract_end?: string | null
+          contract_type?: string
+          cpf?: string | null
+          created_at?: string | null
+          ctps_number?: string | null
+          ctps_series?: string | null
+          ctps_uf?: string | null
+          department?: string | null
+          education?: string | null
+          email?: string | null
+          experience_first_end?: string | null
+          experience_second_end?: string | null
+          face_descriptor?: string | null
+          father_name?: string | null
+          health_plan?: boolean
+          hours_bank?: boolean
+          hours_bank_started_at?: string | null
+          id?: string
+          job_title?: string | null
+          lgpd_consent_accepted_at?: string | null
+          lgpd_consent_version?: string | null
+          marital_status?: string | null
+          mother_name?: string | null
+          name: string
+          nationality?: string | null
+          night_work?: boolean
+          notes?: string | null
+          phone?: string | null
+          photo?: string | null
+          pis?: string | null
+          pix_key?: string | null
+          registration_status?: string
+          reservist_cert?: string | null
+          rg?: string | null
+          rg_issuer?: string | null
+          schedule?: Json | null
+          self_registered_at?: string | null
+          sex?: string | null
+          status?: string
+          termination_date?: string | null
+          union_name?: string | null
+          unit_id: string
+          updated_at?: string | null
+          voter_title?: string | null
+          vr_opted?: boolean
+          vt_daily_cost?: number | null
+          vt_opted?: boolean
+          weekly_hours?: number
+          work_regime?: string | null
+        }
+        Update: {
+          address?: Json | null
+          admission_date?: string | null
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          base_salary?: number | null
+          biometric_consent_at?: string | null
+          biometric_consent_version?: string | null
+          birthdate?: string | null
+          birthplace?: string | null
+          cba_reference?: string | null
+          cbo?: string | null
+          cnh?: string | null
+          cnh_category?: string | null
+          contract_end?: string | null
+          contract_type?: string
+          cpf?: string | null
+          created_at?: string | null
+          ctps_number?: string | null
+          ctps_series?: string | null
+          ctps_uf?: string | null
+          department?: string | null
+          education?: string | null
+          email?: string | null
+          experience_first_end?: string | null
+          experience_second_end?: string | null
+          face_descriptor?: string | null
+          father_name?: string | null
+          health_plan?: boolean
+          hours_bank?: boolean
+          hours_bank_started_at?: string | null
+          id?: string
+          job_title?: string | null
+          lgpd_consent_accepted_at?: string | null
+          lgpd_consent_version?: string | null
+          marital_status?: string | null
+          mother_name?: string | null
+          name?: string
+          nationality?: string | null
+          night_work?: boolean
+          notes?: string | null
+          phone?: string | null
+          photo?: string | null
+          pis?: string | null
+          pix_key?: string | null
+          registration_status?: string
+          reservist_cert?: string | null
+          rg?: string | null
+          rg_issuer?: string | null
+          schedule?: Json | null
+          self_registered_at?: string | null
+          sex?: string | null
+          status?: string
+          termination_date?: string | null
+          union_name?: string | null
+          unit_id?: string
+          updated_at?: string | null
+          voter_title?: string | null
+          vr_opted?: boolean
+          vt_daily_cost?: number | null
+          vt_opted?: boolean
+          weekly_hours?: number
+          work_regime?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       family_feedback: {
         Row: {
           category_ratings: Json
@@ -1255,6 +2148,85 @@ export type Database = {
           },
         ]
       }
+      fono_assessments: {
+        Row: {
+          age_months: number
+          age_years: number
+          assessed_by: string
+          birth_date: string
+          clinic_id: string
+          created_at: string
+          id: string
+          instrument: string
+          manual_scores: Json
+          observations: string | null
+          patient_id: string
+          responses: Json
+          results: Json
+          status: string
+          test_date: string
+          updated_at: string
+        }
+        Insert: {
+          age_months: number
+          age_years: number
+          assessed_by: string
+          birth_date: string
+          clinic_id: string
+          created_at?: string
+          id?: string
+          instrument: string
+          manual_scores?: Json
+          observations?: string | null
+          patient_id: string
+          responses?: Json
+          results?: Json
+          status?: string
+          test_date: string
+          updated_at?: string
+        }
+        Update: {
+          age_months?: number
+          age_years?: number
+          assessed_by?: string
+          birth_date?: string
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          instrument?: string
+          manual_scores?: Json
+          observations?: string | null
+          patient_id?: string
+          responses?: Json
+          results?: Json
+          status?: string
+          test_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fono_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fono_assessments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fono_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       glosa_recurring_patterns: {
         Row: {
           created_at: string
@@ -1366,6 +2338,7 @@ export type Database = {
           portal_enabled: boolean
           profile_id: string | null
           relationship: string | null
+          rg: string | null
         }
         Insert: {
           cpf?: string | null
@@ -1382,6 +2355,7 @@ export type Database = {
           portal_enabled?: boolean
           profile_id?: string | null
           relationship?: string | null
+          rg?: string | null
         }
         Update: {
           cpf?: string | null
@@ -1398,6 +2372,7 @@ export type Database = {
           portal_enabled?: boolean
           profile_id?: string | null
           relationship?: string | null
+          rg?: string | null
         }
         Relationships: [
           {
@@ -1412,6 +2387,462 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      holidays: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          name: string
+          recurring: boolean
+          scope: string
+          unit_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          name: string
+          recurring?: boolean
+          scope?: string
+          unit_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          name?: string
+          recurring?: boolean
+          scope?: string
+          unit_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holidays_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_intake_batches: {
+        Row: {
+          attempts: number
+          clinic_id: string
+          created_at: string
+          detected_insurer_name: string | null
+          error: string | null
+          extracted: Json | null
+          id: string
+          insurer_id: string | null
+          leads_count: number
+          locked_at: string | null
+          mime_type: string
+          model: string | null
+          original_name: string | null
+          processed_at: string | null
+          size_bytes: number | null
+          status: string
+          storage_path: string
+          uploaded_by: string | null
+          warnings: string[]
+        }
+        Insert: {
+          attempts?: number
+          clinic_id: string
+          created_at?: string
+          detected_insurer_name?: string | null
+          error?: string | null
+          extracted?: Json | null
+          id?: string
+          insurer_id?: string | null
+          leads_count?: number
+          locked_at?: string | null
+          mime_type?: string
+          model?: string | null
+          original_name?: string | null
+          processed_at?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path: string
+          uploaded_by?: string | null
+          warnings?: string[]
+        }
+        Update: {
+          attempts?: number
+          clinic_id?: string
+          created_at?: string
+          detected_insurer_name?: string | null
+          error?: string | null
+          extracted?: Json | null
+          id?: string
+          insurer_id?: string | null
+          leads_count?: number
+          locked_at?: string | null
+          mime_type?: string
+          model?: string | null
+          original_name?: string | null
+          processed_at?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string
+          uploaded_by?: string | null
+          warnings?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_intake_batches_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_batches_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_batches_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_intake_lead_files: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          id: string
+          kind: string | null
+          lead_id: string
+          mime_type: string
+          original_name: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          size_bytes: number | null
+          storage_path: string
+          twilio_media_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          kind?: string | null
+          lead_id: string
+          mime_type: string
+          original_name?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          twilio_media_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          kind?: string | null
+          lead_id?: string
+          mime_type?: string
+          original_name?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          twilio_media_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_intake_lead_files_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_lead_files_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_intake_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_lead_files_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_intake_leads: {
+        Row: {
+          appointment_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          authorization_id: string | null
+          authorization_password: string | null
+          batch_id: string
+          cancelled_at: string | null
+          cancelled_by: string | null
+          card_number: string | null
+          card_valid_until: string | null
+          clinic_id: string
+          confidence: Json
+          contact_sent_at: string | null
+          conversation_id: string | null
+          created_at: string
+          docs_reviewed_at: string | null
+          docs_reviewed_by: string | null
+          duplicate_patient_id: string | null
+          duplicate_reason: string | null
+          extra: Json
+          guardian_cpf: string | null
+          guardian_email: string | null
+          guardian_full_name: string | null
+          guardian_id: string | null
+          guardian_phone_raw: string | null
+          guardian_relationship: string | null
+          guide_number: string | null
+          id: string
+          insurer_id: string | null
+          last_file_at: string | null
+          offered_slots: Json | null
+          patient_birth_date: string | null
+          patient_cid: string | null
+          patient_cpf: string | null
+          patient_full_name: string | null
+          patient_id: string | null
+          patient_insurance_id: string | null
+          patient_sexo: string | null
+          phone_e164: string | null
+          plan_name: string | null
+          procedure_code: string | null
+          rejection_count: number
+          row_index: number
+          scheduled_at: string | null
+          sessions_authorized: number | null
+          slots_sent_at: string | null
+          status: string
+          status_reason: string | null
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+          warnings: string[]
+        }
+        Insert: {
+          appointment_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          authorization_id?: string | null
+          authorization_password?: string | null
+          batch_id: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          card_number?: string | null
+          card_valid_until?: string | null
+          clinic_id: string
+          confidence?: Json
+          contact_sent_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          docs_reviewed_at?: string | null
+          docs_reviewed_by?: string | null
+          duplicate_patient_id?: string | null
+          duplicate_reason?: string | null
+          extra?: Json
+          guardian_cpf?: string | null
+          guardian_email?: string | null
+          guardian_full_name?: string | null
+          guardian_id?: string | null
+          guardian_phone_raw?: string | null
+          guardian_relationship?: string | null
+          guide_number?: string | null
+          id?: string
+          insurer_id?: string | null
+          last_file_at?: string | null
+          offered_slots?: Json | null
+          patient_birth_date?: string | null
+          patient_cid?: string | null
+          patient_cpf?: string | null
+          patient_full_name?: string | null
+          patient_id?: string | null
+          patient_insurance_id?: string | null
+          patient_sexo?: string | null
+          phone_e164?: string | null
+          plan_name?: string | null
+          procedure_code?: string | null
+          rejection_count?: number
+          row_index: number
+          scheduled_at?: string | null
+          sessions_authorized?: number | null
+          slots_sent_at?: string | null
+          status?: string
+          status_reason?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          warnings?: string[]
+        }
+        Update: {
+          appointment_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          authorization_id?: string | null
+          authorization_password?: string | null
+          batch_id?: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          card_number?: string | null
+          card_valid_until?: string | null
+          clinic_id?: string
+          confidence?: Json
+          contact_sent_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          docs_reviewed_at?: string | null
+          docs_reviewed_by?: string | null
+          duplicate_patient_id?: string | null
+          duplicate_reason?: string | null
+          extra?: Json
+          guardian_cpf?: string | null
+          guardian_email?: string | null
+          guardian_full_name?: string | null
+          guardian_id?: string | null
+          guardian_phone_raw?: string | null
+          guardian_relationship?: string | null
+          guide_number?: string | null
+          id?: string
+          insurer_id?: string | null
+          last_file_at?: string | null
+          offered_slots?: Json | null
+          patient_birth_date?: string | null
+          patient_cid?: string | null
+          patient_cpf?: string | null
+          patient_full_name?: string | null
+          patient_id?: string | null
+          patient_insurance_id?: string | null
+          patient_sexo?: string | null
+          phone_e164?: string | null
+          plan_name?: string | null
+          procedure_code?: string | null
+          rejection_count?: number
+          row_index?: number
+          scheduled_at?: string | null
+          sessions_authorized?: number | null
+          slots_sent_at?: string | null
+          status?: string
+          status_reason?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          warnings?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_intake_leads_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_authorization_id_fkey"
+            columns: ["authorization_id"]
+            isOneToOne: false
+            referencedRelation: "authorizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_intake_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "twilio_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_docs_reviewed_by_fkey"
+            columns: ["docs_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_duplicate_patient_id_fkey"
+            columns: ["duplicate_patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_patient_insurance_id_fkey"
+            columns: ["patient_insurance_id"]
+            isOneToOne: false
+            referencedRelation: "patient_insurance"
             referencedColumns: ["id"]
           },
         ]
@@ -1463,6 +2894,7 @@ export type Database = {
           billing_rules: Json
           clinic_id: string
           id: string
+          intake_extraction_profile: Json
           name: string
           provider_code: string | null
         }
@@ -1471,6 +2903,7 @@ export type Database = {
           billing_rules?: Json
           clinic_id: string
           id?: string
+          intake_extraction_profile?: Json
           name: string
           provider_code?: string | null
         }
@@ -1479,6 +2912,7 @@ export type Database = {
           billing_rules?: Json
           clinic_id?: string
           id?: string
+          intake_extraction_profile?: Json
           name?: string
           provider_code?: string | null
         }
@@ -2133,12 +3567,20 @@ export type Database = {
       }
       patients: {
         Row: {
+          address_bairro: string | null
+          address_cep: string | null
+          address_cidade: string | null
+          address_complemento: string | null
+          address_logradouro: string | null
+          address_numero: string | null
+          address_uf: string | null
           birth_date: string
           cid: string | null
           clinic_id: string
           complaint: string | null
           contract_sent_at: string | null
           contract_signed_at: string | null
+          cpf: string | null
           created_at: string
           created_by: string | null
           entry_source: string | null
@@ -2147,18 +3589,28 @@ export type Database = {
           first_session_at: string | null
           full_name: string
           id: string
+          naturalidade: string | null
           payment_confirmed_at: string | null
+          sexo: string | null
           status: string
           support_level: string | null
           whatsapp_group_added_at: string | null
         }
         Insert: {
+          address_bairro?: string | null
+          address_cep?: string | null
+          address_cidade?: string | null
+          address_complemento?: string | null
+          address_logradouro?: string | null
+          address_numero?: string | null
+          address_uf?: string | null
           birth_date: string
           cid?: string | null
           clinic_id: string
           complaint?: string | null
           contract_sent_at?: string | null
           contract_signed_at?: string | null
+          cpf?: string | null
           created_at?: string
           created_by?: string | null
           entry_source?: string | null
@@ -2167,18 +3619,28 @@ export type Database = {
           first_session_at?: string | null
           full_name: string
           id?: string
+          naturalidade?: string | null
           payment_confirmed_at?: string | null
+          sexo?: string | null
           status?: string
           support_level?: string | null
           whatsapp_group_added_at?: string | null
         }
         Update: {
+          address_bairro?: string | null
+          address_cep?: string | null
+          address_cidade?: string | null
+          address_complemento?: string | null
+          address_logradouro?: string | null
+          address_numero?: string | null
+          address_uf?: string | null
           birth_date?: string
           cid?: string | null
           clinic_id?: string
           complaint?: string | null
           contract_sent_at?: string | null
           contract_signed_at?: string | null
+          cpf?: string | null
           created_at?: string
           created_by?: string | null
           entry_source?: string | null
@@ -2187,7 +3649,9 @@ export type Database = {
           first_session_at?: string | null
           full_name?: string
           id?: string
+          naturalidade?: string | null
           payment_confirmed_at?: string | null
+          sexo?: string | null
           status?: string
           support_level?: string | null
           whatsapp_group_added_at?: string | null
@@ -2534,66 +3998,209 @@ export type Database = {
           },
         ]
       }
+      professional_self_registration_tokens: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          professional_id: string
+          token_hash: string
+          uploads_used: number
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          professional_id: string
+          token_hash: string
+          uploads_used?: number
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          professional_id?: string
+          token_hash?: string
+          uploads_used?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_self_registration_tokens_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: true
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       professionals: {
         Row: {
           active: boolean
+          autonomy_declaration_accepted_at: string | null
+          autonomy_declaration_version: string | null
+          bank_account: string | null
+          bank_account_type: string | null
+          bank_agency: string | null
+          bank_name: string | null
+          birthdate: string | null
+          cnae_principal: string | null
           cnpj: string | null
           contract_end: string | null
           contract_notes: string | null
           contract_start: string | null
           council_number: string | null
           council_type: string | null
+          council_uf: string | null
+          council_validity: string | null
           cpf: string | null
           created_at: string | null
           email: string | null
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_cidade: string | null
+          endereco_complemento: string | null
+          endereco_logradouro: string | null
+          endereco_numero: string | null
+          endereco_uf: string | null
           id: string
+          inscricao_municipal: string | null
+          lgpd_consent_accepted_at: string | null
           name: string
+          natureza_juridica: string | null
+          nome_fantasia: string | null
+          notice_days: number | null
+          payment_day: number | null
           phone: string | null
           photo: string | null
+          pix_key: string | null
           profession: string | null
           razao_social: string | null
+          registration_status: string
+          remuneration_model: string | null
+          remuneration_value: number | null
+          rep_birthdate: string | null
+          rep_cpf: string | null
+          rep_email: string | null
+          rep_name: string | null
+          rep_phone: string | null
+          rep_rg: string | null
+          rep_role: string | null
+          self_registered_at: string | null
+          service_description: string | null
+          specialties: string | null
           terms_accepted_at: string | null
           terms_version: string | null
           unit_id: string
         }
         Insert: {
           active?: boolean
+          autonomy_declaration_accepted_at?: string | null
+          autonomy_declaration_version?: string | null
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          birthdate?: string | null
+          cnae_principal?: string | null
           cnpj?: string | null
           contract_end?: string | null
           contract_notes?: string | null
           contract_start?: string | null
           council_number?: string | null
           council_type?: string | null
+          council_uf?: string | null
+          council_validity?: string | null
           cpf?: string | null
           created_at?: string | null
           email?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
           id?: string
+          inscricao_municipal?: string | null
+          lgpd_consent_accepted_at?: string | null
           name: string
+          natureza_juridica?: string | null
+          nome_fantasia?: string | null
+          notice_days?: number | null
+          payment_day?: number | null
           phone?: string | null
           photo?: string | null
+          pix_key?: string | null
           profession?: string | null
           razao_social?: string | null
+          registration_status?: string
+          remuneration_model?: string | null
+          remuneration_value?: number | null
+          rep_birthdate?: string | null
+          rep_cpf?: string | null
+          rep_email?: string | null
+          rep_name?: string | null
+          rep_phone?: string | null
+          rep_rg?: string | null
+          rep_role?: string | null
+          self_registered_at?: string | null
+          service_description?: string | null
+          specialties?: string | null
           terms_accepted_at?: string | null
           terms_version?: string | null
           unit_id: string
         }
         Update: {
           active?: boolean
+          autonomy_declaration_accepted_at?: string | null
+          autonomy_declaration_version?: string | null
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
+          birthdate?: string | null
+          cnae_principal?: string | null
           cnpj?: string | null
           contract_end?: string | null
           contract_notes?: string | null
           contract_start?: string | null
           council_number?: string | null
           council_type?: string | null
+          council_uf?: string | null
+          council_validity?: string | null
           cpf?: string | null
           created_at?: string | null
           email?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
           id?: string
+          inscricao_municipal?: string | null
+          lgpd_consent_accepted_at?: string | null
           name?: string
+          natureza_juridica?: string | null
+          nome_fantasia?: string | null
+          notice_days?: number | null
+          payment_day?: number | null
           phone?: string | null
           photo?: string | null
+          pix_key?: string | null
           profession?: string | null
           razao_social?: string | null
+          registration_status?: string
+          remuneration_model?: string | null
+          remuneration_value?: number | null
+          rep_birthdate?: string | null
+          rep_cpf?: string | null
+          rep_email?: string | null
+          rep_name?: string | null
+          rep_phone?: string | null
+          rep_rg?: string | null
+          rep_role?: string | null
+          self_registered_at?: string | null
+          service_description?: string | null
+          specialties?: string | null
           terms_accepted_at?: string | null
           terms_version?: string | null
           unit_id?: string
@@ -3048,6 +4655,187 @@ export type Database = {
           },
         ]
       }
+      registration_draft_files: {
+        Row: {
+          created_at: string
+          detected_type: string | null
+          document_id: string | null
+          draft_id: string
+          id: string
+          mime_type: string
+          original_name: string | null
+          size_bytes: number | null
+          storage_path: string
+          twilio_media_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          detected_type?: string | null
+          document_id?: string | null
+          draft_id: string
+          id?: string
+          mime_type: string
+          original_name?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          twilio_media_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          detected_type?: string | null
+          document_id?: string | null
+          draft_id?: string
+          id?: string
+          mime_type?: string
+          original_name?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          twilio_media_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registration_draft_files_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_draft_files_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "registration_drafts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registration_drafts: {
+        Row: {
+          attempts: number
+          clinic_id: string
+          created_at: string
+          error: string | null
+          extracted: Json | null
+          fields_confidence: Json | null
+          guardian_id: string | null
+          guardian_message: string | null
+          id: string
+          last_file_at: string
+          locked_at: string | null
+          model: string | null
+          patient_id: string | null
+          processed_at: string | null
+          processing_started_at: string | null
+          reject_reason: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          source: string
+          source_phone: string | null
+          status: string
+          submitted_by: string | null
+          validated_at: string | null
+          validated_by: string | null
+          warnings: string[]
+        }
+        Insert: {
+          attempts?: number
+          clinic_id: string
+          created_at?: string
+          error?: string | null
+          extracted?: Json | null
+          fields_confidence?: Json | null
+          guardian_id?: string | null
+          guardian_message?: string | null
+          id?: string
+          last_file_at?: string
+          locked_at?: string | null
+          model?: string | null
+          patient_id?: string | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          reject_reason?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          source: string
+          source_phone?: string | null
+          status?: string
+          submitted_by?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+          warnings?: string[]
+        }
+        Update: {
+          attempts?: number
+          clinic_id?: string
+          created_at?: string
+          error?: string | null
+          extracted?: Json | null
+          fields_confidence?: Json | null
+          guardian_id?: string | null
+          guardian_message?: string | null
+          id?: string
+          last_file_at?: string
+          locked_at?: string | null
+          model?: string | null
+          patient_id?: string | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          reject_reason?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          source?: string
+          source_phone?: string | null
+          status?: string
+          submitted_by?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+          warnings?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registration_drafts_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_drafts_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_drafts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_drafts_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_drafts_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_drafts_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reschedule_requests: {
         Row: {
           appointment_id: string
@@ -3216,6 +5004,58 @@ export type Database = {
           },
         ]
       }
+      session_note_media: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          id: string
+          mime_type: string
+          patient_id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          id?: string
+          mime_type: string
+          patient_id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          id?: string
+          mime_type?: string
+          patient_id?: string
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_note_media_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_note_media_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_note_media_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_notes: {
         Row: {
           appointment_id: string
@@ -3224,6 +5064,7 @@ export type Database = {
           edit_justification: string | null
           free_text: string | null
           id: string
+          opened_at: string | null
           signed_at: string | null
           structured: Json
           supersedes_id: string | null
@@ -3237,6 +5078,7 @@ export type Database = {
           edit_justification?: string | null
           free_text?: string | null
           id?: string
+          opened_at?: string | null
           signed_at?: string | null
           structured?: Json
           supersedes_id?: string | null
@@ -3250,6 +5092,7 @@ export type Database = {
           edit_justification?: string | null
           free_text?: string | null
           id?: string
+          opened_at?: string | null
           signed_at?: string | null
           structured?: Json
           supersedes_id?: string | null
@@ -3269,6 +5112,13 @@ export type Database = {
             columns: ["supersedes_id"]
             isOneToOne: false
             referencedRelation: "session_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_notes_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "v_session_note_sign_duration"
             referencedColumns: ["id"]
           },
           {
@@ -3324,6 +5174,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_user_audit: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          detail: Json
+          id: string
+          target_email: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          target_email?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          target_email?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
+      system_user_permissions: {
+        Row: {
+          notes: string | null
+          permissions: Json
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          notes?: string | null
+          permissions?: Json
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          notes?: string | null
+          permissions?: Json
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       targets: {
         Row: {
@@ -3597,7 +5504,14 @@ export type Database = {
         Row: {
           address: string | null
           biometric_required: boolean
+          clt_custom_contract_text: string | null
+          clt_enabled: boolean
+          clt_geofence_required: boolean
+          clt_kiosk_email: string | null
+          clt_self_registration_enabled: boolean
+          clt_tolerance_minutes: number
           cnpj: string | null
+          contrato_pj_custom_text: string | null
           created_at: string | null
           declaracao_custom_text: string | null
           ficha_custom_text: string | null
@@ -3611,6 +5525,7 @@ export type Database = {
           phone: string | null
           pj_enabled: boolean
           pj_kiosk_email: string | null
+          pj_self_registration_enabled: boolean
           radius_km: number
           radius_m: number
           razao_social: string | null
@@ -3620,7 +5535,14 @@ export type Database = {
         Insert: {
           address?: string | null
           biometric_required?: boolean
+          clt_custom_contract_text?: string | null
+          clt_enabled?: boolean
+          clt_geofence_required?: boolean
+          clt_kiosk_email?: string | null
+          clt_self_registration_enabled?: boolean
+          clt_tolerance_minutes?: number
           cnpj?: string | null
+          contrato_pj_custom_text?: string | null
           created_at?: string | null
           declaracao_custom_text?: string | null
           ficha_custom_text?: string | null
@@ -3634,6 +5556,7 @@ export type Database = {
           phone?: string | null
           pj_enabled?: boolean
           pj_kiosk_email?: string | null
+          pj_self_registration_enabled?: boolean
           radius_km?: number
           radius_m?: number
           razao_social?: string | null
@@ -3643,7 +5566,14 @@ export type Database = {
         Update: {
           address?: string | null
           biometric_required?: boolean
+          clt_custom_contract_text?: string | null
+          clt_enabled?: boolean
+          clt_geofence_required?: boolean
+          clt_kiosk_email?: string | null
+          clt_self_registration_enabled?: boolean
+          clt_tolerance_minutes?: number
           cnpj?: string | null
+          contrato_pj_custom_text?: string | null
           created_at?: string | null
           declaracao_custom_text?: string | null
           ficha_custom_text?: string | null
@@ -3657,6 +5587,7 @@ export type Database = {
           phone?: string | null
           pj_enabled?: boolean
           pj_kiosk_email?: string | null
+          pj_self_registration_enabled?: boolean
           radius_km?: number
           radius_m?: number
           razao_social?: string | null
@@ -4085,6 +6016,40 @@ export type Database = {
           },
         ]
       }
+      v_session_note_sign_duration: {
+        Row: {
+          appointment_id: string | null
+          created_at_server: string | null
+          id: string | null
+          patient_id: string | null
+          seconds_to_sign: number | null
+          therapist_id: string | null
+          version: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_notes_therapist_id_fkey"
+            columns: ["therapist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _cleanup: { Args: never; Returns: boolean }
@@ -4109,12 +6074,47 @@ export type Database = {
         Returns: undefined
       }
       app_current_role: { Args: never; Returns: string }
+      assert_system_user_admin: {
+        Args: { p_workspace_scope: Json }
+        Returns: undefined
+      }
+      attach_employee_self_registration_document: {
+        Args: {
+          p_content: string
+          p_doc_key: string
+          p_employee_id: string
+          p_meta?: Json
+          p_token: string
+        }
+        Returns: Json
+      }
+      attach_professional_self_registration_document: {
+        Args: {
+          p_content: string
+          p_doc_key: string
+          p_meta?: Json
+          p_professional_id: string
+          p_token: string
+        }
+        Returns: Json
+      }
       auto_resolve_appointments: { Args: never; Returns: undefined }
       book_anamnesis_slot_atomic: {
         Args: {
           p_discipline?: string
           p_ends_at: string
           p_request_id: string
+          p_room_id: string
+          p_starts_at: string
+          p_therapist_id: string
+        }
+        Returns: Json
+      }
+      book_intake_lead_slot_atomic: {
+        Args: {
+          p_discipline?: string
+          p_ends_at: string
+          p_lead_id: string
           p_room_id: string
           p_starts_at: string
           p_therapist_id: string
@@ -4131,6 +6131,76 @@ export type Database = {
           p_new_pin: string
           p_professional_id: string
         }
+        Returns: undefined
+      }
+      claim_insurance_intake_batches: {
+        Args: { p_batch_id?: string; p_limit?: number }
+        Returns: {
+          attempts: number
+          clinic_id: string
+          created_at: string
+          detected_insurer_name: string | null
+          error: string | null
+          extracted: Json | null
+          id: string
+          insurer_id: string | null
+          leads_count: number
+          locked_at: string | null
+          mime_type: string
+          model: string | null
+          original_name: string | null
+          processed_at: string | null
+          size_bytes: number | null
+          status: string
+          storage_path: string
+          uploaded_by: string | null
+          warnings: string[]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "insurance_intake_batches"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_registration_drafts: {
+        Args: { p_draft_id?: string; p_limit?: number }
+        Returns: {
+          attempts: number
+          clinic_id: string
+          created_at: string
+          error: string | null
+          extracted: Json | null
+          fields_confidence: Json | null
+          guardian_id: string | null
+          guardian_message: string | null
+          id: string
+          last_file_at: string
+          locked_at: string | null
+          model: string | null
+          patient_id: string | null
+          processed_at: string | null
+          processing_started_at: string | null
+          reject_reason: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          source: string
+          source_phone: string | null
+          status: string
+          submitted_by: string | null
+          validated_at: string | null
+          validated_by: string | null
+          warnings: string[]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "registration_drafts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      close_employee_timesheet: {
+        Args: { p_competencia: string; p_employee_id: string; p_summary?: Json }
         Returns: undefined
       }
       close_monthly_metric_snapshots: { Args: never; Returns: undefined }
@@ -4175,6 +6245,45 @@ export type Database = {
         Args: { p_appointment_id: string }
         Returns: undefined
       }
+      create_employee_self_registration: {
+        Args: {
+          p_address: Json
+          p_bank_account: string
+          p_bank_account_type: string
+          p_bank_agency: string
+          p_bank_name: string
+          p_biometric_consent_accepted: boolean
+          p_biometric_consent_version: string
+          p_birthdate: string
+          p_birthplace: string
+          p_cnh: string
+          p_cnh_category: string
+          p_cpf: string
+          p_ctps_number: string
+          p_ctps_series: string
+          p_ctps_uf: string
+          p_dependents: Json
+          p_education: string
+          p_email: string
+          p_face_descriptor: string
+          p_father_name: string
+          p_lgpd_consent_accepted: boolean
+          p_marital_status: string
+          p_mother_name: string
+          p_name: string
+          p_nationality: string
+          p_phone: string
+          p_pis: string
+          p_pix_key: string
+          p_reservist_cert: string
+          p_rg: string
+          p_rg_issuer: string
+          p_sex: string
+          p_unit_id: string
+          p_voter_title: string
+        }
+        Returns: Json
+      }
       create_intern_user: {
         Args: {
           p_address?: string
@@ -4208,8 +6317,71 @@ export type Database = {
         }
         Returns: string
       }
+      create_professional_self_registration: {
+        Args: {
+          p_autonomy_declaration_accepted: boolean
+          p_autonomy_declaration_version: string
+          p_bank_account: string
+          p_bank_account_type: string
+          p_bank_agency: string
+          p_bank_name: string
+          p_cnae_principal: string
+          p_cnpj: string
+          p_contract_start: string
+          p_council_number: string
+          p_council_type: string
+          p_council_uf: string
+          p_council_validity: string
+          p_email: string
+          p_endereco_bairro: string
+          p_endereco_cep: string
+          p_endereco_cidade: string
+          p_endereco_complemento: string
+          p_endereco_logradouro: string
+          p_endereco_numero: string
+          p_endereco_uf: string
+          p_inscricao_municipal: string
+          p_lgpd_consent_accepted: boolean
+          p_name: string
+          p_natureza_juridica: string
+          p_nome_fantasia: string
+          p_notice_days: number
+          p_payment_day: number
+          p_phone: string
+          p_pix_key: string
+          p_profession: string
+          p_razao_social: string
+          p_remuneration_model: string
+          p_remuneration_value: number
+          p_rep_birthdate: string
+          p_rep_cpf: string
+          p_rep_email: string
+          p_rep_name: string
+          p_rep_phone: string
+          p_rep_rg: string
+          p_rep_role: string
+          p_service_description: string
+          p_specialties: string
+          p_unit_id: string
+        }
+        Returns: Json
+      }
+      create_system_user: {
+        Args: {
+          p_email: string
+          p_name: string
+          p_notes?: string
+          p_password: string
+          p_permissions?: Json
+          p_role: string
+          p_unit_id?: string
+          p_workspace_scope?: Json
+        }
+        Returns: string
+      }
       current_clinic_id: { Args: never; Returns: string }
       delete_intern_user: { Args: { p_intern_id: string }; Returns: undefined }
+      delete_system_user: { Args: { p_user_id: string }; Returns: undefined }
       diag:
         | {
             Args: { msg: unknown }
@@ -4273,6 +6445,18 @@ export type Database = {
           starts_at: string
         }[]
       }
+      get_employee_kiosk_roster: {
+        Args: { p_unit?: string }
+        Returns: {
+          biometric_consent_at: string
+          face_descriptor: string
+          id: string
+          last_ts: string
+          last_type: string
+          name: string
+          photo: string
+        }[]
+      }
       has_patient_access: {
         Args: { p_patient_id: string; p_types: string[] }
         Returns: boolean
@@ -4291,6 +6475,10 @@ export type Database = {
         Returns: boolean
       }
       jwt_intern_self_workspace: { Args: never; Returns: string }
+      jwt_is_employee_kiosk_for_unit: {
+        Args: { target_unit: string }
+        Returns: boolean
+      }
       jwt_is_professional_kiosk_for_unit: {
         Args: { target_unit: string }
         Returns: boolean
@@ -4300,9 +6488,20 @@ export type Database = {
         Returns: boolean
       }
       jwt_own_unit_workspace: { Args: never; Returns: string }
+      list_system_user_audit: { Args: { p_limit?: number }; Returns: Json }
+      list_system_users: { Args: never; Returns: Json }
       lives_ok: { Args: { "": string }; Returns: string }
       log_patient_access: {
         Args: { p_patient_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      log_system_user_action: {
+        Args: {
+          p_action: string
+          p_detail?: Json
+          p_target_email: string
+          p_target_user_id: string
+        }
         Returns: undefined
       }
       no_plan: { Args: never; Returns: boolean[] }
@@ -4318,11 +6517,37 @@ export type Database = {
           faltas_pct_3m: number
         }[]
       }
+      patient_authorization_summary: {
+        Args: { p_patient_id: string }
+        Returns: {
+          authorization_id: string
+          guide_number: string
+          insurer_name: string
+          patient_insurance_id: string
+          procedure_code: string
+          sessions_authorized: number
+          sessions_used: number
+          status: string
+          valid_from: string
+          valid_to: string
+        }[]
+      }
+      patient_contact_summary: {
+        Args: { p_patient_id: string }
+        Returns: {
+          guardian_id: string
+          guardian_name: string
+          image_consent: boolean
+          is_emergency_contact: boolean
+          is_financial: boolean
+          phone: string
+          relationship: string
+        }[]
+      }
       patient_status_as_of: {
         Args: { p_at: string; p_patient_id: string }
         Returns: string
       }
-      pdi_review_due_at: { Args: { p_patient_id: string }; Returns: string }
       pg_version: { Args: never; Returns: string }
       pg_version_num: { Args: never; Returns: number }
       pgtap_version: { Args: never; Returns: number }
@@ -4330,6 +6555,7 @@ export type Database = {
         Args: { p_professional_id: string }
         Returns: boolean
       }
+      pts_review_due_at: { Args: { p_patient_id: string }; Returns: string }
       refresh_absence_alerts: { Args: never; Returns: number }
       refresh_authorization_renewal_requests: { Args: never; Returns: number }
       refresh_glosa_patterns: { Args: never; Returns: number }
@@ -4337,6 +6563,16 @@ export type Database = {
       regenerate_active_grade_sessions: {
         Args: { p_weeks_ahead?: number }
         Returns: undefined
+      }
+      register_employee_time_record: {
+        Args: {
+          p_biometric?: Json
+          p_employee_id: string
+          p_geo?: Json
+          p_photo?: string
+          p_type: string
+        }
+        Returns: Json
       }
       register_professional_presence: {
         Args: {
@@ -4352,6 +6588,10 @@ export type Database = {
         Args: { p_intern_id: string; p_new_password: string }
         Returns: undefined
       }
+      reset_system_user_password: {
+        Args: { p_new_password: string; p_user_id: string }
+        Returns: undefined
+      }
       runtests:
         | { Args: never; Returns: string[] }
         | { Args: { "": string }; Returns: string[] }
@@ -4362,6 +6602,10 @@ export type Database = {
       }
       set_family_image_consent: {
         Args: { p_consent: boolean }
+        Returns: undefined
+      }
+      set_insurer_intake_profile: {
+        Args: { p_insurer_id: string; p_profile: Json }
         Returns: undefined
       }
       set_intake_step_complete: {
@@ -4380,9 +6624,14 @@ export type Database = {
         Args: { p_pin: string; p_professional_id: string }
         Returns: undefined
       }
+      set_system_user_active: {
+        Args: { p_active: boolean; p_user_id: string }
+        Returns: undefined
+      }
       skip:
         | { Args: { "": string }; Returns: string }
         | { Args: { how_many: number; why: string }; Returns: string }
+      system_user_manageable_roles: { Args: never; Returns: string[] }
       throws_ok: { Args: { "": string }; Returns: string }
       todo:
         | { Args: { how_many: number }; Returns: boolean[] }
@@ -4393,6 +6642,18 @@ export type Database = {
       todo_start:
         | { Args: never; Returns: boolean[] }
         | { Args: { "": string }; Returns: boolean[] }
+      update_system_user: {
+        Args: {
+          p_name?: string
+          p_notes?: string
+          p_permissions?: Json
+          p_role?: string
+          p_unit_id?: string
+          p_user_id: string
+          p_workspace_scope?: Json
+        }
+        Returns: undefined
+      }
       upsert_metric_snapshot: {
         Args: {
           p_metric_key: string

@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { getPatientProtocolTabs } from "@/lib/protocol-assessments";
@@ -36,6 +37,11 @@ export default async function PatientAssessmentPage({
         title={`Avaliação de protocolo — ${patient.full_name}`}
         description="Checklist de marcos do protocolo licenciado (VB-MAPP/ABLLS-R/ESDM), pontuado a cada aplicação, com evolução por domínio."
       />
+      <div className="px-6 sm:px-10">
+        <Link href={`/terapeuta/paciente/${patient.id}/fono`} className="btn btn-secondary w-fit">
+          Avaliação fono (ADL/ADL-2/PROC)
+        </Link>
+      </div>
       <div className="p-6 sm:p-10">
         <ProtocolAssessmentPanel patientId={patient.id} protocols={protocols} />
       </div>
