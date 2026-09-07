@@ -3,7 +3,7 @@ import type { Database } from "@/lib/database.types";
 
 /**
  * Prazo interno de PTS (Boaspraticas.md §2.3: "Prazo interno para PDI: 50
- * dias"), contado da anamnese — mesma âncora já usada para o prazo de 60
+ * dias"), contado da 1ª avaliação (anamnese) — mesma âncora já usada para o prazo de 60
  * dias da devolutiva à família (trg_anamneses_after_insert em
  * supabase/migrations/20260906000001_intake_journey.sql), então os dois
  * prazos do §2.3 ficam medidos a partir do mesmo evento.

@@ -48,9 +48,10 @@ export async function recordTrial(
   }
 
   // Mesma checagem defensiva do fluxo de evolução: a RLS de `appointments`
-  // já restringe a leitura, mas confirmamos aqui que quem está logado é o
-  // terapeuta responsável e que a sessão já aconteceu — nunca confiamos em
-  // valor vindo do cliente pra isso.
+  // já restringe a leitura, mas confirmamos aqui que a sessão já aconteceu
+  // e que quem está logado é um terapeuta da clínica — não precisa mais ser
+  // o terapeuta originalmente responsável pela sessão (qualquer terapeuta
+  // pode assinar/registrar tentativas de um colega).
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
     .select("id, status, therapist_id, patient_id")
@@ -63,11 +64,21 @@ export async function recordTrial(
   if (!appointment) {
     return { success: false, error: "Sessão não encontrada." };
   }
-  if (appointment.therapist_id !== user.id) {
-    return { success: false, error: "Terapeuta não corresponde ao responsável pela sessão." };
-  }
   if (appointment.status !== "realizada") {
     return { success: false, error: "Esta sessão ainda não foi realizada." };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    return { success: false, error: "Não foi possível verificar seu perfil. Tente de novo." };
+  }
+  if (profile.role !== "terapeuta") {
+    return { success: false, error: "Seu perfil não pode registrar tentativas." };
   }
 
   // `program_id` chega do formulário: a policy de INSERT de `trial_data` só

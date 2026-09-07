@@ -37,10 +37,9 @@ export default async function EvolucaoPage({
 
   if (!profile) redirect("/");
 
-  // A RLS de `appointments` (appointments_read) já garante que um terapeuta
-  // só enxerga sessões onde therapist_id = auth.uid() — se a sessão for de
-  // outro terapeuta, a query abaixo simplesmente não retorna linha (não é
-  // preciso filtrar manualmente por therapist_id aqui).
+  // A RLS de `appointments` (appointments_read) permite que qualquer
+  // terapeuta da clínica leia qualquer sessão (não só as suas), pra que
+  // qualquer terapeuta possa abrir e assinar a evolução de um colega.
   const { data: appointment } = await supabase
     .from("appointments")
     .select(
@@ -68,13 +67,13 @@ export default async function EvolucaoPage({
   const therapistName =
     (appointment.profiles as { full_name: string } | null)?.full_name ?? "";
 
-  // Só o terapeuta dono da sessão assina a evolução. Gestor/supervisor
-  // enxergam a sessão (RLS permite leitura ampla), mas não veem o
-  // formulário de assinatura — só quem está com a sessão vinculada.
-  const canSign = profile.role === "terapeuta" && appointment.therapist_id === user.id;
+  // Qualquer terapeuta da clínica pode assinar a evolução, não só o dono
+  // original da sessão (RLS de appointments_read/session_notes_insert
+  // espelha a mesma regra — ver migração 20260907_open_session_note_signing).
+  const canSign = profile.role === "terapeuta";
 
   // Quem pode editar (criar nova versão) espelha exatamente a RLS de
-  // session_notes_insert: o terapeuta dono da sessão, ou um supervisor.
+  // session_notes_insert: qualquer terapeuta, ou um supervisor.
   const canEdit = canSign || profile.role === "supervisor";
 
   // coleta ABA: programas do plano aprovado do paciente, pra registrar

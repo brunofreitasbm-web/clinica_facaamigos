@@ -307,7 +307,7 @@ export function PlanForm({
 
       <div>
         <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-priorities`}>
-          Prioridades relatadas pela família (da anamnese)
+          Prioridades relatadas pela família (da 1ª avaliação / anamnese)
         </label>
         <textarea
           id={`${formId}-priorities`}

@@ -56,7 +56,7 @@ export default async function MaturidadePage() {
   const monitored = (metricSnapshotsCount ?? 0) > 0;
 
   const rows: MaturityRow[] = [
-    { label: "Anamnese padronizada", tem: true, funciona: (anamnesesCount ?? 0) > 0, monitorado: monitored },
+    { label: "1ª avaliação (anamnese) padronizada", tem: true, funciona: (anamnesesCount ?? 0) > 0, monitorado: monitored },
     { label: "Entrevista inicial (primeiro contato)", tem: true, funciona: (intakeInterviewCount ?? 0) > 0, monitorado: true },
     { label: "Protocolo de avaliação", tem: true, funciona: (protocolAssessmentsCount ?? 0) > 0, monitorado: monitored },
     { label: "Registro de vínculo", tem: true, funciona: (bondingReportsCount ?? 0) > 0, monitorado: false },

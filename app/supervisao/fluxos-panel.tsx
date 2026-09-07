@@ -27,8 +27,9 @@ import { useSupervisaoTab } from "./supervisao-shell";
  * passo com a ferramenta que o executa a um clique — sem descer em
  * submenus de recepção/terapeuta/supervisão. As etapas seguem o PRD §9.1
  * (cadastro em fluxo contínuo) e a estrutura das linhas de cuidado TEA
- * (acolhimento → avaliação/anamnese ampliada → PTS construído com a família
- * → reavaliação com os mesmos instrumentos).
+ * (acolhimento → avaliação (a anamnese ampliada é a 1ª avaliação, mesmo
+ * evento) → PTS construído com a família → reavaliação com os mesmos
+ * instrumentos).
  *
  * O seletor de paciente no topo reescreve os atalhos que dependem de um
  * paciente (ficha, avaliação de protocolo, PTS, relatórios) — sem paciente
@@ -77,7 +78,7 @@ type Flow = {
 };
 
 const STAGE_LABEL: Record<FlowPatient["stage"], string> = {
-  1: "Interessado",
+  1: "Paciente sem avaliação",
   2: "Avaliação agendada",
   3: "Avaliação realizada",
   4: "Autorização",
@@ -175,7 +176,7 @@ const FLOWS: Flow[] = [
         tools: [{ label: "Agendar avaliação", hrefFor: (id) => `/recepcao/pacientes/${id}#proximo-passo`, icon: icon(<CalendarPlus />), needsPatient: true, primary: true }],
       },
       {
-        title: "Confirmar D-1 e preparar a anamnese",
+        title: "Confirmar D-1 e preparar a 1ª avaliação (anamnese)",
         detail: "Confirme por WhatsApp e peça que a família traga relatórios escolares e exames anteriores.",
         tools: [{ label: "Fila WhatsApp", href: "/recepcao/whatsapp", icon: icon(<MessageCircle />) }],
       },
@@ -187,7 +188,7 @@ const FLOWS: Flow[] = [
     kicker: "Fluxo 3",
     icon: <Stethoscope className="h-5 w-5" />,
     summary:
-      "Anamnese ampliada com a família, aplicação de protocolo (VB-MAPP, ABLLS-R ou ESDM), reunião técnica e devolutiva. Termina com a guia registrada.",
+      "1ª avaliação (anamnese ampliada) com a família, aplicação de protocolo (VB-MAPP, ABLLS-R ou ESDM), reunião técnica e devolutiva. Termina com a guia registrada.",
     badges: (c) => [
       { label: `${c.awaitingEvaluation} aguardando avaliação`, tone: c.awaitingEvaluation ? "pending" : "positive" },
       { label: `${c.evaluatedNoGuide} avaliados sem guia`, tone: c.evaluatedNoGuide ? "negative" : "positive" },
@@ -202,7 +203,7 @@ const FLOWS: Flow[] = [
     ],
     steps: [
       {
-        title: "Anamnese ampliada com a família",
+        title: "1ª avaliação (anamnese ampliada) com a família",
         detail: "História, rotina, pontos fortes e prioridades da família. Registre no mural da ficha para a equipe.",
         tools: [{ label: "Ficha do paciente", hrefFor: (id) => `/recepcao/pacientes/${id}`, icon: icon(<Users />), needsPatient: true }],
       },

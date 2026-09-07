@@ -31,12 +31,12 @@ type IntakeStepDef = { key: IntakeStepKey; label: string; responsavel: string };
 
 export const INTAKE_STEP_CATALOG: IntakeStepDef[] = [
   { key: "primeiro_contato", label: "Primeiro contato", responsavel: "Recepção" },
-  { key: "agendamento_anamnese", label: "Agendamento da anamnese", responsavel: "Recepção" },
+  { key: "agendamento_anamnese", label: "Agendamento da 1ª avaliação (anamnese)", responsavel: "Recepção" },
   { key: "contrato_enviado", label: "Contrato enviado", responsavel: "Recepção" },
   { key: "contrato_assinado", label: "Contrato assinado", responsavel: "Recepção" },
   { key: "pagamento_confirmado", label: "Pagamento confirmado (particular)", responsavel: "Recepção" },
   { key: "grupo_whatsapp", label: "Inclusão no grupo de WhatsApp", responsavel: "Recepção" },
-  { key: "anamnese_realizada", label: "Anamnese realizada", responsavel: "RT / Supervisor de área" },
+  { key: "anamnese_realizada", label: "1ª avaliação (anamnese) realizada", responsavel: "RT / Supervisor de área" },
   { key: "equipe_definida", label: "Definição da equipe de avaliação", responsavel: "Supervisor geral / RT" },
   { key: "planejamento_avaliacao", label: "Planejamento da avaliação", responsavel: "Supervisor geral / RT" },
   { key: "avaliacoes_realizadas", label: "Avaliações por área realizadas", responsavel: "Terapeutas" },

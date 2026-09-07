@@ -72,7 +72,7 @@ export function InteressadoRapidoDialog() {
           color: "#ffffff",
         }}
       >
-        ⚡ Interessado Rápido (30s)
+        + Paciente sem avaliação
       </button>
 
       {open && (
@@ -84,7 +84,7 @@ export function InteressadoRapidoDialog() {
             <div className="mb-4 flex items-center justify-between border-b pb-3">
               <div>
                 <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-lg font-bold">
-                  ⚡ Novo Interessado (Cadastro Rápido - 30s)
+                  ⚡ Novo Paciente sem Avaliação (Cadastro Rápido - 30s)
                 </h3>
                 <p className="text-xs text-neutral-500">
                   Preencha apenas os dados essenciais para iniciar a jornada.
@@ -135,7 +135,7 @@ export function InteressadoRapidoDialog() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-neutral-700">
-                    Origem do Interessado
+                    Origem do Paciente
                   </label>
                   <select
                     value={origin}
@@ -207,7 +207,7 @@ export function InteressadoRapidoDialog() {
                   disabled={loading}
                   className="rounded-md bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {loading ? "Salvando..." : "Cadastrar Interessado"}
+                  {loading ? "Salvando..." : "Cadastrar Paciente"}
                 </button>
               </div>
             </form>

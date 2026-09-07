@@ -22,8 +22,8 @@ export default async function NovoPlanoPage({
     .order("full_name");
 
   // Prioridades da família (Módulo 3 MAAIS, slide 22) — pré-preenche o campo
-  // do plano com o que a anamnese já registrou, pra não depender de alguém
-  // lembrar de reler a anamnese na hora de montar o PTS.
+  // do plano com o que a 1ª avaliação (anamnese) já registrou, pra não
+  // depender de alguém lembrar de reler a anamnese na hora de montar o PTS.
   let familyPriorities: string | null = null;
   let suggestedGoals: Awaited<ReturnType<typeof getSuggestedGoals>> = [];
   let teamSuggestions: Awaited<ReturnType<typeof getTeamSuggestions>> = [];

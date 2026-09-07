@@ -71,7 +71,7 @@ export function AnamneseForm({ patientId }: { patientId: string }) {
 
       <div className="flex flex-col gap-2">
         <button type="submit" disabled={isPending} className="btn btn-primary self-start">
-          {isPending ? "Salvando…" : "Salvar anamnese"}
+          {isPending ? "Salvando…" : "Salvar 1ª avaliação (anamnese)"}
         </button>
         {error && <p className="text-xs text-status-negative-text">{error}</p>}
       </div>

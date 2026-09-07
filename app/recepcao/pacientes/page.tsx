@@ -5,7 +5,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 
 const STAGE_LABEL: Record<number, string> = {
-  1: "Interessado sem avaliação agendada",
+  1: "Paciente sem avaliação agendada",
   2: "Avaliação agendada, aguardando",
   3: "Avaliação feita, sem autorização",
   4: "Autorizado, sem grade montada",

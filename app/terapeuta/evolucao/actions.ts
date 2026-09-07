@@ -134,10 +134,22 @@ export async function createSessionNote(
   if (appointment.status !== "realizada") {
     return { success: false, error: "Esta sessão ainda não foi realizada." };
   }
-  // Quem assina é sempre o terapeuta logado, e só quando ele é o
-  // responsável pela sessão — nunca um valor vindo do formulário/cliente.
-  if (appointment.therapist_id !== user.id) {
-    return { success: false, error: "Terapeuta não corresponde ao responsável pela sessão." };
+  // Quem assina é sempre o terapeuta logado (registrado em therapist_id do
+  // insert abaixo, nunca um valor vindo do formulário/cliente) — mas não
+  // precisa mais ser o terapeuta originalmente responsável pela sessão:
+  // qualquer terapeuta (ou supervisor) da clínica pode assinar/editar,
+  // espelhando a RLS de session_notes_insert.
+  const { data: signerProfile, error: signerProfileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (signerProfileError || !signerProfile) {
+    return { success: false, error: "Não foi possível verificar seu perfil. Tente de novo." };
+  }
+  if (signerProfile.role !== "terapeuta" && signerProfile.role !== "supervisor") {
+    return { success: false, error: "Seu perfil não pode assinar evoluções." };
   }
 
   // Metas trabalhadas (PRD §9.4): re-consultamos `plan_goals` no servidor e

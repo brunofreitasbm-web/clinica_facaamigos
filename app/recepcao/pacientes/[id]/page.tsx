@@ -585,7 +585,7 @@ export default async function PacientePage({
             }}
             links={{
               anamnese_realizada: {
-                label: "Registrar anamnese",
+                label: "Registrar 1ª avaliação (anamnese)",
                 href: `/supervisao/pacientes/${patient.id}/anamnese`,
                 navigable: canNavigateToSupervisao,
               },
