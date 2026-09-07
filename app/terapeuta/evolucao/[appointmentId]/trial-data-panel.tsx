@@ -1,5 +1,5 @@
-// app/terapeuta/evolucao/[appointmentId]/trial-data-panel.tsx
 "use client";
+// app/terapeuta/evolucao/[appointmentId]/trial-data-panel.tsx
 
 import { useState, useTransition } from "react";
 import { recordTrial } from "./trial-data-actions";

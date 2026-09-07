@@ -3,31 +3,39 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import { INTAKE_STEP_CATALOG, type IntakeStepRow, type IntakeStepKey } from "@/lib/intake-steps";
+import { fmtDate as fmtDateShared } from "@/lib/format";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { registerFirstContact } from "@/app/recepcao/pacientes/actions";
+import { completeIntakeStep } from "@/app/recepcao/pacientes/[id]/stage-actions";
 
-type ActionResult = { success: boolean; error?: string };
-
-const MANUAL_STEPS: Record<string, { label: string; action: (patientId: string) => Promise<ActionResult> } | undefined> = {};
+const fmtDate = (iso: string) => fmtDateShared(iso, CLINIC_TIMEZONE);
 
 /**
  * Checklist operacional de entrada (Módulo 3 MAAIS, slide 20) — mostra as 14
  * etapas na ordem do catálogo com status (pendente / concluída / não
  * aplicável), quem concluiu e quando. Etapas com trigger automático (a
  * maioria — ver migration 20260906000001_intake_journey.sql) não têm botão,
- * só refletem o estado; `manualActions` cobre as poucas que dependem de
+ * só refletem o estado; `manualSteps` cobre as poucas que dependem de
  * confirmação manual (grupo de WhatsApp, contrato enviado, pagamento) e
  * `links` aponta pra tela onde a etapa de fato acontece (anamnese, equipe,
  * reunião, PDI).
+ *
+ * As Server Actions (`registerFirstContact`, `completeIntakeStep`) são
+ * importadas direto aqui em vez de recebidas por prop — uma função comum não
+ * é serializável e não pode atravessar a fronteira Server→Client Component
+ * (ver `node_modules/next/dist/docs/01-app/02-guides/server-and-client-boundary.md`).
+ * Passá-las por prop foi o que causava o React #441 nesta tela.
  */
 export function IntakeChecklist({
   patientId,
   steps,
-  manualActions = MANUAL_STEPS,
+  manualSteps = {},
   links = {},
-  fmtDate,
 }: {
   patientId: string;
   steps: IntakeStepRow[];
-  manualActions?: Record<string, { label: string; action: (patientId: string) => Promise<ActionResult> } | undefined>;
+  /** Chave da etapa → rótulo do botão, para as etapas concluídas manualmente. */
+  manualSteps?: Partial<Record<IntakeStepKey, string>>;
   /**
    * Alguns `links` apontam pra fora de `/recepcao` (ex.: anamnese, PDI e
    * reuniões vivem em `/supervisao`). `lib/roles.ts` não libera esse
@@ -37,14 +45,17 @@ export function IntakeChecklist({
    * (default true) mostra o rótulo como texto informativo em vez de link.
    */
   links?: Partial<Record<IntakeStepKey, { label: string; href: string; navigable?: boolean }>>;
-  fmtDate: (iso: string) => string;
 }) {
   const [isPending, startTransition] = useTransition();
   const byKey = new Map(steps.map((s) => [s.step_key, s]));
 
-  function run(action: (patientId: string) => Promise<ActionResult>) {
+  function run(stepKey: IntakeStepKey) {
     startTransition(async () => {
-      await action(patientId);
+      if (stepKey === "primeiro_contato") {
+        await registerFirstContact(patientId);
+      } else {
+        await completeIntakeStep(patientId, stepKey);
+      }
     });
   }
 
@@ -53,7 +64,7 @@ export function IntakeChecklist({
       {INTAKE_STEP_CATALOG.map((def) => {
         const row = byKey.get(def.key);
         const status = row?.status ?? "pendente";
-        const manual = manualActions[def.key];
+        const manualLabel = manualSteps[def.key];
         const link = links[def.key];
         return (
           <li key={def.key} className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -80,22 +91,22 @@ export function IntakeChecklist({
                 </div>
               </div>
             </div>
-            {status === "pendente" && manual && (
+            {status === "pendente" && manualLabel && (
               <button
                 type="button"
                 disabled={isPending}
-                onClick={() => run(manual.action)}
+                onClick={() => run(def.key)}
                 className="btn btn-ghost text-xs"
               >
-                {manual.label}
+                {manualLabel}
               </button>
             )}
-            {status === "pendente" && !manual && link && link.navigable !== false && (
+            {status === "pendente" && !manualLabel && link && link.navigable !== false && (
               <Link href={link.href} className="btn btn-ghost text-xs no-underline">
                 {link.label}
               </Link>
             )}
-            {status === "pendente" && !manual && link && link.navigable === false && (
+            {status === "pendente" && !manualLabel && link && link.navigable === false && (
               <span className="text-xs text-ink-faint">Aguardando ação da supervisão</span>
             )}
           </li>

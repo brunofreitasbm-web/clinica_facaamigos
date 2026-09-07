@@ -28,9 +28,7 @@ import {
   registerAuthorization,
   activatePatient,
   setEmergencyContact,
-  completeIntakeStep,
 } from "./stage-actions";
-import { registerFirstContact } from "../actions";
 
 // Papéis que a RLS de `documents` permite escrever (clínica inteira, ou
 // terapeuta vinculado ao paciente). Mostrar o formulário pra esses papéis é
@@ -552,12 +550,11 @@ export default async function PacientePage({
           <IntakeChecklist
             patientId={patient.id}
             steps={intakeSteps}
-            fmtDate={fmtDate}
-            manualActions={{
-              primeiro_contato: { label: "Registrar contato", action: registerFirstContact },
-              contrato_enviado: { label: "Marcar contrato enviado", action: (pid) => completeIntakeStep(pid, "contrato_enviado") },
-              pagamento_confirmado: { label: "Confirmar pagamento", action: (pid) => completeIntakeStep(pid, "pagamento_confirmado") },
-              grupo_whatsapp: { label: "Incluído no grupo", action: (pid) => completeIntakeStep(pid, "grupo_whatsapp") },
+            manualSteps={{
+              primeiro_contato: "Registrar contato",
+              contrato_enviado: "Marcar contrato enviado",
+              pagamento_confirmado: "Confirmar pagamento",
+              grupo_whatsapp: "Incluído no grupo",
             }}
             links={{
               anamnese_realizada: {

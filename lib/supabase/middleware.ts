@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { ROLE_HOME, ROLE_ALLOWED_PREFIXES, type Role } from "@/lib/roles";
+import { isNextError } from "@/lib/next-utils";
 
 const PUBLIC_PATHS = ["/login"];
 
@@ -60,7 +61,16 @@ export async function updateSession(request: NextRequest) {
         }
       }
     }
-  } catch {
+  } catch (error) {
+    // Antes isto engolia qualquer exceção (falha de rede ao Supabase, env
+    // var ausente) e mandava pra /login sem log algum — uma falha de
+    // infraestrutura virava, na prática, um "logout" silencioso e
+    // indistinguível de sessão expirada. Loga antes de decidir o que fazer;
+    // erros internos de controle de fluxo do Next (redirect/notFound) não
+    // devem ser tratados como falha real, daí o `isNextError`.
+    if (!isNextError(error)) {
+      console.error("[updateSession] Erro ao validar sessão:", error);
+    }
     if (!isPublicPath) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
