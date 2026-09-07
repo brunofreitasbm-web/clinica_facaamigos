@@ -13,3 +13,14 @@ export function currentSurveyPeriod(): string {
   const quarter = Math.floor((month - 1) / 3) + 1;
   return `${year}-Q${quarter}`;
 }
+
+/**
+ * Período mensal civil ("2026-09") usado pelo disparo de NPS mensal via
+ * WhatsApp (nps_surveys.trigger_type = 'mensal') — mesma lógica de
+ * currentSurveyPeriod, granularidade mensal em vez de trimestral.
+ */
+export function currentMonthlyNpsPeriod(): string {
+  const today = todayInTimeZone(CLINIC_TIMEZONE);
+  const [year, month] = today.split("-");
+  return `${year}-${month}`;
+}

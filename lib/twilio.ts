@@ -345,16 +345,19 @@ async function resolvePatientFromPhone(phone: string): Promise<{ patientId: stri
 }
 
 /**
- * Verifica se a mensagem recebida é uma resposta numérica (1-5) a uma
- * pesquisa NPS disparada nas últimas 48h e, se for, registra a resposta.
+ * Verifica se a mensagem recebida é uma resposta numérica a uma pesquisa
+ * NPS disparada nas últimas 48h e, se for, registra a resposta. A faixa
+ * aceita e o limiar de detrator dependem de trigger_type: disparos por
+ * evento (evaluation/devolutiva) usam escala 1-5, o disparo mensal usa
+ * escala 0-10 (nps_surveys.trigger_type, ver 20260907000000_nps_mensal.sql).
  */
 async function tryHandleNpsResponse(
   phone: string,
   body: string,
 ): Promise<{ replyMessage: string; intent: string } | null> {
   const trimmed = (body || "").trim();
-  const match = trimmed.match(/^([1-5])\s*([\s\S]*)$/);
-  if (!match) return null;
+  const leadingNumber = trimmed.match(/^(\d{1,2})\s*([\s\S]*)$/);
+  if (!leadingNumber) return null;
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
@@ -363,7 +366,7 @@ async function tryHandleNpsResponse(
 
   const { data: survey } = await supabase
     .from("nps_surveys")
-    .select("id, score, alert_status")
+    .select("id, score, alert_status, trigger_type")
     .eq("phone_number", phone)
     .is("responded_at", null)
     .gt("dispatched_at", cutoffISO)
@@ -373,8 +376,14 @@ async function tryHandleNpsResponse(
 
   if (!survey) return null;
 
-  const score = Number(match[1]);
-  const feedbackText = match[2]?.trim() || null;
+  const isMensal = survey.trigger_type === "mensal";
+  const score = Number(leadingNumber[1]);
+  const minScore = isMensal ? 0 : 1;
+  const maxScore = isMensal ? 10 : 5;
+  if (score < minScore || score > maxScore) return null;
+
+  const feedbackText = leadingNumber[2]?.trim() || null;
+  const isDetractor = isMensal ? score <= 6 : score <= 3;
 
   await supabase
     .from("nps_surveys")
@@ -382,14 +391,13 @@ async function tryHandleNpsResponse(
       score,
       responded_at: new Date().toISOString(),
       feedback_text: feedbackText,
-      ...(score <= 3 ? { alert_status: "pending_contact" } : {}),
+      ...(isDetractor ? { alert_status: "pending_contact" } : {}),
     })
     .eq("id", survey.id);
 
-  const replyMessage =
-    score <= 3
-      ? "Muito obrigado pelo seu feedback! 🙏\n\nSentimos muito que a experiência não tenha sido a melhor — nossa equipe vai entrar em contato com você em breve para entender melhor e te ajudar."
-      : "Muito obrigado pelo seu feedback! 🙏\n\nFicamos muito felizes em saber disso!";
+  const replyMessage = isDetractor
+    ? "Muito obrigado pelo seu feedback! 🙏\n\nSentimos muito que a experiência não tenha sido a melhor — nossa equipe vai entrar em contato com você em breve para entender melhor e te ajudar."
+    : "Muito obrigado pelo seu feedback! 🙏\n\nFicamos muito felizes em saber disso!";
 
   return { replyMessage, intent: "nps_response" };
 }
