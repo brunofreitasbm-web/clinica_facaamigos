@@ -92,7 +92,7 @@ export function EvolutionForm({
   interventionCatalog: InterventionCatalogItem[];
   imageConsent: boolean;
 }) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [signed, setSigned] = useState(false);
   const [presence, setPresence] = useState<number | null>(editing?.initialPresence ?? null);
   const [selectedBehaviors, setSelectedBehaviors] = useState<Record<string, boolean>>(
@@ -361,7 +361,7 @@ export function EvolutionForm({
     }
   }
 
-  function goToStep2() {
+  function goToStep3() {
     if (presence === null) {
       setStepError("Selecione a presença/engajamento (1 a 5).");
       return;
@@ -372,7 +372,7 @@ export function EvolutionForm({
       return;
     }
     setStepError(null);
-    setStep(2);
+    setStep(3);
   }
 
   const behaviorCount = Object.values(selectedBehaviors).filter(Boolean).length;
@@ -380,7 +380,7 @@ export function EvolutionForm({
   const goalsWorkedCount = Object.values(metas).filter((v) => !!v).length;
   const mediaDoneCount = mediaUploads.filter((m) => m.status === "enviado").length;
 
-  const stepBg = (n: 1 | 2) =>
+  const stepBg = (n: 1 | 2 | 3) =>
     step >= n || signed ? "var(--color-accent-2)" : "color-mix(in srgb, #fff 25%, transparent)";
 
   return (
@@ -427,11 +427,11 @@ export function EvolutionForm({
         </div>
         {!signed && (
           <div className="mt-1 flex gap-1">
-            {[1, 2].map((n) => (
+            {[1, 2, 3].map((n) => (
               <span
                 key={n}
                 className="h-[3px] flex-1 rounded-sm"
-                style={{ background: stepBg(n as 1 | 2) }}
+                style={{ background: stepBg(n as 1 | 2 | 3) }}
               />
             ))}
           </div>
@@ -520,10 +520,18 @@ export function EvolutionForm({
             </div>
           )}
 
-          {/* Passo 1 — presença/engajamento, metas trabalhadas e
+          {/* Passo 1 — intervenções do terapeuta (técnicas aplicadas +
+              resposta do paciente): primeira tela ao clicar em "Registrar
+              evolução", linha do tempo da sessão que alimenta a síntese de
+              texto por IA no passo 3 (generateAIEvolutionText). */}
+          <div className={step === 1 ? "flex flex-col gap-6" : "hidden"}>
+            <InterventionLogger appointmentId={appointmentId} catalog={interventionCatalog} />
+          </div>
+
+          {/* Passo 2 — presença/engajamento, metas trabalhadas e
               comportamentos-alvo, campos de lib/session-note-fields.ts já
               gravados em session_notes.structured. */}
-          <div className={step === 1 ? "flex flex-col gap-6" : "hidden"}>
+          <div className={step === 2 ? "flex flex-col gap-6" : "hidden"}>
             <VoiceEvolutionRecorder onSuggestion={applyVoiceSuggestion} />
 
             <div>
@@ -698,19 +706,14 @@ export function EvolutionForm({
               </div>
             </div>
 
-            {/* Intervenções do terapeuta (técnicas aplicadas + resposta do
-                paciente): linha do tempo da sessão que alimenta a síntese
-                de texto por IA abaixo (generateAIEvolutionText). */}
-            <InterventionLogger appointmentId={appointmentId} catalog={interventionCatalog} />
-
             {/* Registro Funcional ABC (Antecedente - Comportamento - Consequência) */}
             <ABCLogger appointmentId={appointmentId} />
 
             {stepError && <p className="text-xs text-status-negative-text">{stepError}</p>}
           </div>
 
-          {/* Passo 2 — mídia, texto livre + resumo antes de assinar. */}
-          <div className={step === 2 ? "flex flex-col gap-6" : "hidden"}>
+          {/* Passo 3 — mídia, texto livre + resumo antes de assinar. */}
+          <div className={step === 3 ? "flex flex-col gap-6" : "hidden"}>
             {/* Anexo de foto/vídeo (PRD §9.4), condicionado ao consentimento
                 de imagem do responsável (guardians.image_consent) — o banco
                 também recusa via trigger caso a UI seja contornada. */}
@@ -878,21 +881,37 @@ export function EvolutionForm({
             className="fixed inset-x-0 bottom-0 z-10 flex gap-2.5 bg-white px-5 pb-7 pt-3 sm:px-10"
             style={{ borderTop: "1px solid var(--color-divider)" }}
           >
-            {step === 2 && (
-              <button type="button" className="btn btn-secondary" style={{ minHeight: 48 }} onClick={() => setStep(1)}>
+            {step !== 1 && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ minHeight: 48 }}
+                onClick={() => setStep(step === 3 ? 2 : 1)}
+              >
                 Voltar
               </button>
             )}
-            {step === 1 ? (
+            {step === 1 && (
               <button
                 type="button"
                 className="btn btn-primary flex-1"
                 style={{ minHeight: 48, fontSize: 15 }}
-                onClick={goToStep2}
+                onClick={() => setStep(2)}
               >
                 Continuar
               </button>
-            ) : (
+            )}
+            {step === 2 && (
+              <button
+                type="button"
+                className="btn btn-primary flex-1"
+                style={{ minHeight: 48, fontSize: 15 }}
+                onClick={goToStep3}
+              >
+                Continuar
+              </button>
+            )}
+            {step === 3 && (
               <button
                 type="submit"
                 className="btn btn-gold flex-1"
