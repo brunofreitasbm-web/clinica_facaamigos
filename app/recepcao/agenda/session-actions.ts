@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reasons";
 import { todayInTimeZone } from "@/lib/timezone";
-import { computeAvailableSlots } from "@/lib/available-slots";
+import { computeAvailableSlots, type AvailableSlot } from "@/lib/available-slots";
 import { revalidatePath } from "next/cache";
 
 type ActionResult = { success: true; warning?: string } | { success: false; error: string };
@@ -457,7 +457,7 @@ export async function getPatientActiveAuthorizations(
   }));
 }
 
-export type { AvailableSlot } from "@/lib/available-slots";
+export type { AvailableSlot };
 
 /**
  * Vagas livres reais pra sala+terapeuta dessa sessão, nos próximos 5 dias,

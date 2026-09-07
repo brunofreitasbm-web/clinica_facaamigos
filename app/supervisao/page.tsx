@@ -35,6 +35,10 @@ export default async function SupervisaoPage() {
   const bounds = weekBounds(week);
   const weekStartIso = zonedDateTimeToUtc(bounds.start, "00:00", CLINIC_TIMEZONE).toISOString();
   const weekEndIso = zonedDateTimeToUtc(bounds.end, "00:00", CLINIC_TIMEZONE).toISOString();
+  // Server Component: cada requisição já roda de novo no servidor, não há
+  // "re-render" de cliente pra esta chamada ficar instável.
+  // eslint-disable-next-line react-hooks/purity
+  const intakeBatchesSinceIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   const [
     { count: activePatientsCount },
@@ -129,7 +133,7 @@ export default async function SupervisaoPage() {
     supabase
       .from("insurance_intake_batches")
       .select("id, insurer_id, detected_insurer_name, status, warnings, error, leads_count, created_at, insurers(name)")
-      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .gte("created_at", intakeBatchesSinceIso)
       .order("created_at", { ascending: false }),
     supabase
       .from("insurance_intake_leads")

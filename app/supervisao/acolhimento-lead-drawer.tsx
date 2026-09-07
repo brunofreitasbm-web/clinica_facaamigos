@@ -174,7 +174,6 @@ export function AcolhimentoLeadDrawer({
     });
   }
 
-  const pendingFiles = lead.files.filter((f) => f.review_status === "pending");
   const approvedFiles = lead.files.filter((f) => f.review_status === "approved");
 
   return (

@@ -21,7 +21,6 @@ type IntakeStep = "intake_awaiting_documents" | "intake_pending_supervisor" | "i
 
 type OfferedSlot = { index: number; label: string; starts_at: string; ends_at: string; therapist_id: string; room_id: string };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 async function getLeadFileCount(admin: AdminClient, leadId: string): Promise<number> {

@@ -3,6 +3,7 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -101,9 +102,12 @@ export async function uploadIntakeBatch(formData: FormData): Promise<{ success: 
     after: { insurer_id: insurerId, original_name: file.name },
   });
 
-  // Processa já, sem esperar o próximo minuto do cron — best-effort: se
-  // falhar aqui, o cron cobre na próxima execução.
-  claimAndProcessIntakeBatches({ batchId }).catch((err) => console.error("[Intake] Falha ao processar lote na hora:", err));
+  // Processa já, sem esperar o próximo minuto do cron — `after()` roda
+  // depois da resposta ser entregue, mas ainda dentro do tempo de vida da
+  // função serverless (maxDuration), diferente de só disparar a Promise sem
+  // aguardar (que pode ser encerrada no meio em ambientes serverless). Se
+  // falhar aqui mesmo assim, o cron cobre no minuto seguinte.
+  after(() => claimAndProcessIntakeBatches({ batchId }).catch((err) => console.error("[Intake] Falha ao processar lote na hora:", err)));
 
   revalidatePath("/supervisao");
   return { success: true, batchId };
@@ -173,7 +177,10 @@ export async function updateIntakeLeadFields(leadId: string, patch: Record<strin
   if (Object.keys(update).length === 0) return { success: true };
 
   update.updated_at = new Date().toISOString();
-  const { error } = await supabase.from("insurance_intake_leads").update(update).eq("id", leadId);
+  // Chaves montadas dinamicamente a partir da whitelist EDITABLE_LEAD_FIELDS
+  // acima — o cast só contorna o índice genérico de Record<string,unknown>,
+  // não abre campo novo (o whitelist já filtrou tudo antes daqui).
+  const { error } = await supabase.from("insurance_intake_leads").update(update as never).eq("id", leadId);
   if (error) return { success: false, error: "Não foi possível salvar as alterações." };
 
   revalidatePath("/supervisao");
@@ -328,7 +335,7 @@ export async function reviewIntakeLeadFile(fileId: string, patch: { kind?: "laud
   }
   if (Object.keys(update).length === 0) return { success: true };
 
-  const { error } = await supabase.from("insurance_intake_lead_files").update(update).eq("id", fileId);
+  const { error } = await supabase.from("insurance_intake_lead_files").update(update as never).eq("id", fileId);
   if (error) return { success: false, error: "Não foi possível salvar a classificação do arquivo." };
 
   revalidatePath("/supervisao");
@@ -437,7 +444,8 @@ export async function approveIntakeLeadDocuments(leadId: string, therapistId: st
       const profile: IntakeExtractionProfile | undefined = insurer ? parseIntakeProfile(insurer.intake_extraction_profile) : undefined;
       const procedureCode = lead.procedure_code || profile?.procedure_code_default || null;
 
-      if (procedureCode && (lead.sessions_authorized ?? 0) > 0 && lead.valid_from && lead.valid_to) {
+      const sessionsAuthorized = lead.sessions_authorized ?? 0;
+      if (procedureCode && sessionsAuthorized > 0 && lead.valid_from && lead.valid_to) {
         const guiaFile = files?.find((f) => f.kind === "guia" && f.document_id);
         const { data: authRow, error: authError } = await supabase
           .from("authorizations")
@@ -445,7 +453,7 @@ export async function approveIntakeLeadDocuments(leadId: string, therapistId: st
             patient_insurance_id: patientInsuranceId,
             guide_number: lead.guide_number,
             procedure_code: procedureCode,
-            sessions_authorized: lead.sessions_authorized,
+            sessions_authorized: sessionsAuthorized,
             valid_from: lead.valid_from,
             valid_to: lead.valid_to,
             status: "ativa",
