@@ -7,6 +7,7 @@ import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { getProgramsForAppointment } from "@/lib/trial-data";
 import { getActiveGoalsForPatient, getPreviousSessionMetaIds } from "@/lib/session-note-goals";
 import { getBehaviorCatalog } from "@/lib/behavior-catalog";
+import { getInterventionCatalog } from "@/lib/intervention-catalog";
 import { EvolutionForm, type EditingContext } from "./evolution-form";
 import { TrialDataPanel } from "./trial-data-panel";
 import { getMetasTrabalhadas, type GoalResultLevel, type SessionNoteStructured } from "@/lib/session-note-fields";
@@ -96,10 +97,11 @@ export default async function EvolucaoPage({
     // alimenta a barra de identidade acima, "nenhum guardian com
     // image_consent=false" (o trigger no INSERT em session_note_media
     // reforça a mesma regra, esta é só a UI condicional).
-    const [activeGoals, preCheckedGoalIds, behaviorCatalog, contacts] = await Promise.all([
+    const [activeGoals, preCheckedGoalIds, behaviorCatalog, interventionCatalog, contacts] = await Promise.all([
       getActiveGoalsForPatient(supabase, appointment.patient_id),
       getPreviousSessionMetaIds(supabase, appointment.patient_id, appointmentId),
       getBehaviorCatalog(supabase, { activeOnly: true }),
+      getInterventionCatalog(supabase, { activeOnly: true }),
       supabase.rpc("patient_contact_summary", { p_patient_id: appointment.patient_id }),
     ]);
     const imageConsent = (contacts.data ?? []).every((g) => g.image_consent !== false);
@@ -119,6 +121,7 @@ export default async function EvolucaoPage({
             activeGoals={activeGoals}
             preCheckedGoalIds={preCheckedGoalIds}
             behaviorTypes={behaviorCatalog}
+            interventionCatalog={interventionCatalog}
             imageConsent={imageConsent}
           />
         </div>
@@ -152,9 +155,10 @@ export default async function EvolucaoPage({
       initialFreeText: existingNote.free_text ?? "",
     };
 
-    const [activeGoals, behaviorCatalog, contacts] = await Promise.all([
+    const [activeGoals, behaviorCatalog, interventionCatalog, contacts] = await Promise.all([
       getActiveGoalsForPatient(supabase, appointment.patient_id),
       getBehaviorCatalog(supabase, { activeOnly: true }),
+      getInterventionCatalog(supabase, { activeOnly: true }),
       supabase.rpc("patient_contact_summary", { p_patient_id: appointment.patient_id }),
     ]);
     const imageConsent = (contacts.data ?? []).every((g) => g.image_consent !== false);
@@ -174,6 +178,7 @@ export default async function EvolucaoPage({
             activeGoals={activeGoals}
             preCheckedGoalIds={[]}
             behaviorTypes={behaviorCatalog}
+            interventionCatalog={interventionCatalog}
             imageConsent={imageConsent}
           />
         </div>

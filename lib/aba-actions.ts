@@ -271,6 +271,22 @@ export async function generateAIEvolutionText(appointmentId: string): Promise<{
     .select("antecedent, behavior_description, consequence, intensity")
     .eq("appointment_id", appointmentId);
 
+  // 4. Busca intervenções aplicadas pelo terapeuta durante a sessão
+  // (session_intervention_logs) — é essa linha do tempo que "ensejou" a
+  // evolução, então ela entra na síntese por IA junto das tentativas e
+  // registros ABC. Sem FK entre intervention_value e intervention_catalog
+  // (o value é só uma chave estável, como em behavior_catalog), então
+  // resolvemos o rótulo com uma segunda query em vez de join automático.
+  const [{ data: interventionLogs }, { data: interventionCatalogRows }] = await Promise.all([
+    supabase
+      .from("session_intervention_logs")
+      .select("intervention_value, description, resultado")
+      .eq("appointment_id", appointmentId)
+      .order("recorded_at", { ascending: true }),
+    supabase.from("intervention_catalog").select("value, label"),
+  ]);
+  const interventionLabelMap = new Map((interventionCatalogRows ?? []).map((c) => [c.value, c.label]));
+
   // Processa estatísticas de tentativas
   const totalTrials = trials?.length || 0;
   const correctTrials = trials?.filter((t) => t.result === "correto").length || 0;
@@ -310,11 +326,39 @@ export async function generateAIEvolutionText(appointmentId: string): Promise<{
     abcText = "\nNão foram registrados comportamentos disruptivos significativos durante o atendimento.";
   }
 
+  // Síntese das intervenções aplicadas pelo terapeuta na sessão.
+  let interventionText = "";
+  if (interventionLogs && interventionLogs.length > 0) {
+    interventionText =
+      `\nIntervenções aplicadas durante a sessão:\n` +
+      interventionLogs
+        .map((log) => {
+          const label = interventionLabelMap.get(log.intervention_value) ?? log.intervention_value;
+          const resultadoText =
+            log.resultado === "resposta_esperada"
+              ? "resposta esperada"
+              : log.resultado === "resposta_parcial"
+                ? "resposta parcial"
+                : log.resultado === "sem_resposta"
+                  ? "sem resposta"
+                  : null;
+          return (
+            `- ${label}` +
+            (log.description ? `: ${log.description}` : "") +
+            (resultadoText ? ` (${resultadoText}).` : ".")
+          );
+        })
+        .join("\n");
+  } else {
+    interventionText = "\nNenhuma intervenção específica foi registrada na linha do tempo da sessão.";
+  }
+
   const generatedText = `Sessão de ${appt.discipline.toUpperCase()} realizada com ${patientName}.\n\n` +
     `Métricas de Desempenho e Tentativas (${totalTrials} tentativas realizadas no total):\n` +
     (programSummaryText ? `${programSummaryText}\n` : "Tentativas aplicadas com foco na manutenção de engajamento.\n") +
     `Taxa global de respostas independentes: ${pctCorrect}% (${correctTrials} acertos, ${promptTrials} com suporte/ajuda, ${incorrectTrials} incorretos).\n` +
-    `${abcText}\n\n` +
+    `${abcText}\n` +
+    `${interventionText}\n\n` +
     `Conclusão: O paciente apresentou boa receptividade às atividades propostas, mantendo engajamento e progresso na esteira terapêutica.`;
 
   return { success: true, generatedText };

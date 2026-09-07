@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { PLAN_GOAL_STATUS_STYLE, BILLING_ITEM_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { fmtCurrency } from "@/lib/format";
 import type { SessionNoteStructured } from "@/lib/session-note-fields";
@@ -51,6 +52,7 @@ export type BillingRow = {
   amount: number;
   status: string;
 };
+export type PendingEvolution = { id: string; date: string; discipline: string };
 
 export function PatientTabs({
   frequency,
@@ -60,6 +62,7 @@ export function PatientTabs({
   authorizationText,
   teamText,
   notes,
+  pendingEvolutions,
   documentsContent,
   billing,
   abaPrograms,
@@ -75,6 +78,8 @@ export function PatientTabs({
   authorizationText: ReactNode;
   teamText: ReactNode;
   notes: EvolutionNote[];
+  /** Sessões já realizadas deste terapeuta com este paciente que ainda não têm evolução — entrada direta pra gravar por voz. */
+  pendingEvolutions?: PendingEvolution[];
   documentsContent: ReactNode;
   /** Ausente para papéis que não veem valores de convênio (PRD §4). */
   billing?: BillingRow[];
@@ -184,6 +189,32 @@ export function PatientTabs({
 
         {tab === "evolucao" && (
           <section className="max-w-[800px]">
+            {pendingEvolutions && pendingEvolutions.length > 0 && (
+              <div
+                className="mb-8 rounded-md border p-4"
+                style={{ borderColor: "var(--status-agendada)", background: "var(--status-agendada-bg)" }}
+              >
+                <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
+                  Sessões aguardando evolução
+                </h6>
+                <p className="mb-3 text-[13px] text-ink-soft">
+                  Grave um relato curto por voz (~30s) e a IA pré-preenche presença, comportamentos,
+                  orientações e o texto — você revisa e assina depois.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {pendingEvolutions.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span>
+                        {p.date} <span className="text-ink-faint">· {p.discipline}</span>
+                      </span>
+                      <Link href={`/terapeuta/evolucao/${p.id}`} className="btn btn-gold w-fit text-xs">
+                        🎤 Registrar evolução
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1.5">
               Append-only · nunca editada por cima
             </h6>

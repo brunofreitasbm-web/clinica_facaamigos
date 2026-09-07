@@ -12,6 +12,8 @@ import {
 } from "@/lib/session-note-fields";
 import { generateAIEvolutionText } from "@/lib/aba-actions";
 import { ABCLogger } from "@/components/aba/abc-logger";
+import { InterventionLogger } from "@/components/interventions/intervention-logger";
+import type { InterventionCatalogItem } from "@/lib/intervention-catalog";
 import { VoiceEvolutionRecorder } from "./voice-evolution-recorder";
 import { uploadSessionNoteMedia } from "./media-actions";
 import { compressImageIfNeeded } from "@/lib/compress-image";
@@ -73,6 +75,7 @@ export function EvolutionForm({
   activeGoals,
   preCheckedGoalIds,
   behaviorTypes,
+  interventionCatalog,
   imageConsent,
 }: {
   appointmentId: string;
@@ -86,6 +89,7 @@ export function EvolutionForm({
   activeGoals: ActiveGoalOption[];
   preCheckedGoalIds: string[];
   behaviorTypes: { value: string; label: string }[];
+  interventionCatalog: InterventionCatalogItem[];
   imageConsent: boolean;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
@@ -693,6 +697,11 @@ export function EvolutionForm({
                 ))}
               </div>
             </div>
+
+            {/* Intervenções do terapeuta (técnicas aplicadas + resposta do
+                paciente): linha do tempo da sessão que alimenta a síntese
+                de texto por IA abaixo (generateAIEvolutionText). */}
+            <InterventionLogger appointmentId={appointmentId} catalog={interventionCatalog} />
 
             {/* Registro Funcional ABC (Antecedente - Comportamento - Consequência) */}
             <ABCLogger appointmentId={appointmentId} />

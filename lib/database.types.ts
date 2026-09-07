@@ -3102,6 +3102,50 @@ export type Database = {
           },
         ]
       }
+      intervention_catalog: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          discipline: string | null
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          discipline?: string | null
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          discipline?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intervention_catalog_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meetings: {
         Row: {
           agenda: Json
@@ -3298,11 +3342,9 @@ export type Database = {
           id: string
           meeting_id: string | null
           patient_id: string
-          period: string | null
           phone_number: string
           responded_at: string | null
           score: number | null
-          trigger_type: string
         }
         Insert: {
           alert_status?: string
@@ -3316,11 +3358,9 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id: string
-          period?: string | null
           phone_number: string
           responded_at?: string | null
           score?: number | null
-          trigger_type?: string
         }
         Update: {
           alert_status?: string
@@ -3334,11 +3374,9 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id?: string
-          period?: string | null
           phone_number?: string
           responded_at?: string | null
           score?: number | null
-          trigger_type?: string
         }
         Relationships: [
           {
@@ -5006,6 +5044,61 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_intervention_logs: {
+        Row: {
+          appointment_id: string
+          description: string | null
+          id: string
+          intervention_value: string
+          patient_id: string
+          recorded_at: string
+          resultado: string | null
+          therapist_id: string
+        }
+        Insert: {
+          appointment_id: string
+          description?: string | null
+          id?: string
+          intervention_value: string
+          patient_id: string
+          recorded_at?: string
+          resultado?: string | null
+          therapist_id: string
+        }
+        Update: {
+          appointment_id?: string
+          description?: string | null
+          id?: string
+          intervention_value?: string
+          patient_id?: string
+          recorded_at?: string
+          resultado?: string | null
+          therapist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_intervention_logs_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_intervention_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_intervention_logs_therapist_id_fkey"
+            columns: ["therapist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

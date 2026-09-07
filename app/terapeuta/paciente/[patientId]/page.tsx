@@ -87,6 +87,33 @@ export default async function TerapeutaFichaPacientePage({
     historyHref: n.appointmentId ? `/terapeuta/evolucao/${n.appointmentId}/historico` : undefined,
   }));
 
+  // Ponto de entrada pra evolução (incl. gravação por voz de ~30s, ver
+  // voice-evolution-recorder.tsx) direto da ficha, sem depender de estar na
+  // agenda do dia — só sessões já realizadas do próprio terapeuta e ainda
+  // sem nota, pois session_notes exige um appointment_id real (é a sessão
+  // que ancora a evolução, não um registro solto).
+  let pendingEvolutions: { id: string; date: string; discipline: string }[] = [];
+  if (profile.role === "terapeuta") {
+    const { data: pendingAppts } = await supabase
+      .from("appointments")
+      .select("id, starts_at, discipline")
+      .eq("patient_id", patientId)
+      .eq("therapist_id", user.id)
+      .eq("status", "realizada")
+      .order("starts_at", { ascending: false })
+      .limit(20);
+
+    const pendingApptIds = (pendingAppts ?? []).map((a) => a.id);
+    const { data: notesForPending } = pendingApptIds.length
+      ? await supabase.from("session_notes").select("appointment_id").in("appointment_id", pendingApptIds)
+      : { data: null };
+    const notedSet = new Set((notesForPending ?? []).map((n) => n.appointment_id));
+
+    pendingEvolutions = (pendingAppts ?? [])
+      .filter((a) => !notedSet.has(a.id))
+      .map((a) => ({ id: a.id, date: fmtDateTime(a.starts_at, CLINIC_TIMEZONE), discipline: a.discipline }));
+  }
+
   const clinicalDocuments = dossier.documents.filter((d) => THERAPIST_DOCUMENT_CATEGORIES.includes(d.category));
 
   const documentsContent = (
@@ -224,6 +251,7 @@ export default async function TerapeutaFichaPacientePage({
           )
         }
         notes={notesWithLinks}
+        pendingEvolutions={pendingEvolutions}
         documentsContent={documentsContent}
         abaPrograms={dossier.abaPrograms}
         agendaContent={agendaContent}

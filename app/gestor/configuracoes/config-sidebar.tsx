@@ -10,6 +10,7 @@ const SIDEBAR_ITEMS = [
   { key: "atendimentos", label: "Atendimentos & Salas", href: "/gestor/configuracoes/atendimentos", enabled: true },
   { key: "profissionais", label: "Terapeutas", href: "/gestor/configuracoes/profissionais", enabled: true },
   { key: "comportamentos", label: "Comportamentos-alvo", href: "/gestor/configuracoes/comportamentos", enabled: true },
+  { key: "intervencoes", label: "Intervenções", href: "/gestor/configuracoes/intervencoes", enabled: true },
   { key: "notificacoes", label: "Notificações", href: "/gestor/configuracoes/notificacoes", enabled: true },
   { key: "usuarios", label: "Usuários", href: "/gestor/configuracoes/usuarios", enabled: true },
 ] as const;
