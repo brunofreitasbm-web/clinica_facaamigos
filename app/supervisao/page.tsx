@@ -22,6 +22,8 @@ import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel
 import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-panel";
 import { AcolhimentosPanel, type BatchRow } from "./acolhimentos-panel";
 import type { LeadRow, LeadFileRow } from "./acolhimento-lead-drawer";
+import { AgendaAvaliacoesPanel } from "./agenda-avaliacoes-panel";
+import { getEvaluationAgenda } from "@/lib/evaluation-agenda";
 
 export const dynamic = "force-dynamic";
 
@@ -145,6 +147,10 @@ export default async function SupervisaoPage() {
       .order("row_index", { ascending: true }),
     supabase.from("insurers").select("id, name, intake_extraction_profile").eq("clinic_id", DEV_CLINIC_ID).order("name"),
   ]);
+
+  // ── Agenda de 1ª Avaliação (WhatsApp anamnese + PDF convênio + presencial) ──
+  const evaluationAgendaItems = await getEvaluationAgenda(supabase, DEV_CLINIC_ID);
+  const nAgenda1a = evaluationAgendaItems.filter((i) => i.phase === "aguardando").length;
 
   // ── Grade semanal ──────────────────────────────────────────────────────
   const weekAppointments = (rawAppointments ?? []).filter((a) => !GRID_EXCLUDED_STATUSES.includes(a.status));
@@ -427,6 +433,8 @@ export default async function SupervisaoPage() {
       nInbox={openFamilyMessages}
       nFluxos={nFluxos}
       nAcolhimentos={nAcolhimentos}
+      nAgenda1a={nAgenda1a}
+      agenda1aTab={<AgendaAvaliacoesPanel items={evaluationAgendaItems} />}
       triagensTab={<AnamnesisValidationPanel />}
       acolhimentosTab={
         <AcolhimentosPanel

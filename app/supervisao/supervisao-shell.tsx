@@ -6,6 +6,7 @@ import { PhoneCall } from "lucide-react";
 
 const TABS = [
   { key: "grade", label: "Grade" },
+  { key: "agenda1a", label: "Agenda 1ª Avaliação" },
   { key: "triagens", label: "Triagens Anamnese" },
   { key: "acolhimentos", label: "Acolhimentos" },
   { key: "fluxos", label: "Fluxos" },
@@ -31,7 +32,9 @@ export function SupervisaoShell({
   nFluxos,
   nTriagens = 0,
   nAcolhimentos = 0,
+  nAgenda1a = 0,
   gradeTab,
+  agenda1aTab,
   triagensTab,
   acolhimentosTab,
   fluxosTab,
@@ -43,7 +46,9 @@ export function SupervisaoShell({
   nFluxos: number;
   nTriagens?: number;
   nAcolhimentos?: number;
+  nAgenda1a?: number;
   gradeTab: ReactNode;
+  agenda1aTab?: ReactNode;
   triagensTab?: ReactNode;
   acolhimentosTab?: ReactNode;
   fluxosTab: ReactNode;
@@ -54,6 +59,7 @@ export function SupervisaoShell({
 
   const badge: Record<SupervisaoTabKey, string> = {
     grade: "Grade",
+    agenda1a: nAgenda1a > 0 ? `Agenda 1ª Avaliação · ${nAgenda1a}` : "Agenda 1ª Avaliação",
     triagens: nTriagens > 0 ? `Triagens Anamnese · ${nTriagens}` : "Triagens Anamnese",
     acolhimentos: nAcolhimentos > 0 ? `Acolhimentos · ${nAcolhimentos}` : "Acolhimentos",
     fluxos: nFluxos > 0 ? `Fluxos · ${nFluxos}` : "Fluxos",
@@ -111,6 +117,7 @@ export function SupervisaoShell({
 
       <main className="px-10 py-9">
         {tab === "grade" && gradeTab}
+        {tab === "agenda1a" && agenda1aTab}
         {tab === "triagens" && triagensTab}
         {tab === "acolhimentos" && acolhimentosTab}
         {tab === "fluxos" && fluxosTab}
