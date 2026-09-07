@@ -57,13 +57,13 @@ export async function POST(req: NextRequest) {
     const alreadyDispatchedAppointments = new Set((existingByAppointment ?? []).map((r) => r.appointment_id));
     const alreadyDispatchedMeetings = new Set((existingByMeeting ?? []).map((r) => r.meeting_id));
 
-    const eligible: { patientId: string; appointmentId?: string; meetingId?: string }[] = [
+    const eligible: { patientId: string; appointmentId?: string; meetingId?: string; triggerType: "evaluation" | "devolutiva" }[] = [
       ...(evaluations ?? [])
         .filter((a) => !alreadyDispatchedAppointments.has(a.id))
-        .map((a) => ({ patientId: a.patient_id, appointmentId: a.id })),
+        .map((a) => ({ patientId: a.patient_id, appointmentId: a.id, triggerType: "evaluation" as const })),
       ...(devolutivas ?? [])
         .filter((m) => !alreadyDispatchedMeetings.has(m.id))
-        .map((m) => ({ patientId: m.patient_id, meetingId: m.id })),
+        .map((m) => ({ patientId: m.patient_id, meetingId: m.id, triggerType: "devolutiva" as const })),
     ];
 
     for (const item of eligible) {
@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
       const { error: insertError } = await admin.from("nps_surveys").insert({
         appointment_id: item.appointmentId ?? null,
         meeting_id: item.meetingId ?? null,
+        trigger_type: item.triggerType,
         patient_id: item.patientId,
         guardian_id: guardian.id,
         phone_number: guardian.phone,

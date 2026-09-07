@@ -6,12 +6,16 @@ export function NpsMetricsCards({
   distribution,
   combinedScore10,
   combinedResponseCount,
+  monthlyAvgScore,
+  monthlyResponseCount,
 }: {
   avgScore: number | null;
   responseCount: number;
   distribution: ScoreDistribution[];
   combinedScore10?: number | null;
   combinedResponseCount?: number;
+  monthlyAvgScore?: number | null;
+  monthlyResponseCount?: number;
 }) {
   const maxCount = Math.max(1, ...distribution.map((d) => d.count));
 
@@ -42,6 +46,16 @@ export function NpsMetricsCards({
           {responseCount}
         </span>
       </div>
+
+      {monthlyAvgScore !== undefined && (
+        <div className="card min-w-[180px]">
+          <span className="card-kicker">NPS mensal (0-10)</span>
+          <span className="text-3xl font-bold text-ink" style={{ fontFamily: "var(--font-heading)" }}>
+            {monthlyAvgScore ?? "—"}
+          </span>
+          <span className="text-xs text-ink-faint">{monthlyResponseCount ?? 0} respostas no mês</span>
+        </div>
+      )}
 
       <div className="card min-w-[320px] flex-1">
         <span className="card-kicker">Distribuição das notas</span>
