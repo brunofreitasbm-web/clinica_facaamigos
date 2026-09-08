@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Filter,
   Calendar,
-  User,
 } from "lucide-react";
 import { FixedSizeList, ListChildComponentProps } from "react-window";
 import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
@@ -246,21 +245,16 @@ export function PatientListClient({ rows }: PatientListClientProps) {
   const [isPending, startTransition] = useTransition();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const parentRef = useRef<HTMLDivElement>(null);
 
-  // Debounce de 300ms na busca
+  // Debounce de 300ms na busca com reset de página
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(searchQuery);
+      setCurrentPage(1);
     }, 300);
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
-
-  // Resetar paginação ao alterar query ou filtro de status
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedQuery, statusFilter]);
 
   // Atalhos de teclado (Ctrl + K, Cmd + K ou /) para focar na busca
   useEffect(() => {
@@ -402,7 +396,10 @@ export function PatientListClient({ rows }: PatientListClientProps) {
             </div>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="rounded-lg border border-paper-line-strong bg-paper/80 pl-9 pr-8 py-2.5 text-sm text-ink font-medium transition-all focus:border-[#841B4D] focus:outline-none focus:ring-2 focus:ring-[#841B4D]/20 cursor-pointer appearance-none"
             >
               <option value="todos">Todos os Status</option>
