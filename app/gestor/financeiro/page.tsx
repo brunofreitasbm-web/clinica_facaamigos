@@ -5,6 +5,7 @@ import { currentMonthRange } from "../data";
 import { getRepasseRows, getGlosaRows, getFinanceiroKpis, getRevenueByMonth, getRepasseByTier } from "./data";
 import { getGlosaBreakdown } from "@/lib/glosa-analytics";
 import { FinanceiroTabs } from "./financeiro-tabs";
+import { FinanceiroSubnav } from "@/components/financeiro-subnav";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export default async function GestorFinanceiroPage() {
   return (
     <main className="flex flex-1 flex-col pb-16">
       <GestorNav active="financeiro" />
+      <FinanceiroSubnav activeTab="repasses" />
 
       <div className="px-10 pt-9">
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">

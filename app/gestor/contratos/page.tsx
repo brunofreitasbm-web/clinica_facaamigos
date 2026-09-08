@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { GestorNav } from "@/components/gestor-nav";
-import { FileText, Plus, CheckCircle, Clock, CreditCard, Send, Download } from "lucide-react";
+import { FinanceiroSubnav } from "@/components/financeiro-subnav";
+import { FileText, Clock, CreditCard } from "lucide-react";
+import { NewContractDialog } from "./new-contract-dialog";
+import { GenerateInvoiceButton, MarkInvoicePaidButton } from "./invoice-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -9,92 +12,98 @@ function formatCurrency(val: number) {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+const PLAN_LABEL: Record<string, string> = {
+  particular: "Particular Puro",
+  reembolso_assistido: "Reembolso Assistido",
+  coparticipacao: "Co-participação",
+};
+
+const INVOICE_STATUS_TAG: Record<string, string> = {
+  pendente: "st-agendada",
+  pago: "st-realizada",
+  atrasado: "st-falta",
+  cancelado: "st-cancelada",
+};
+
 export default async function ContratosPage() {
   const supabase = await createClient();
 
-  let contractsList: any[] = [];
-  try {
-    const { data } = await (supabase as any)
-      .from("patient_contracts")
-      .select(`
-        *,
-        patients(full_name, cpf)
-      `)
-      .eq("clinic_id", DEV_CLINIC_ID)
-      .order("created_at", { ascending: false });
-    if (data) contractsList = data;
-  } catch (e) {
-    contractsList = [];
+  const { data: contractRows } = await supabase
+    .from("patient_contracts")
+    .select("id, plan_type, monthly_fee, payment_day, status, start_date, patient_id, patients(full_name, cpf)")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .order("created_at", { ascending: false });
+
+  const contracts = contractRows ?? [];
+  const contractIds = contracts.map((c) => c.id);
+
+  type InvoiceRow = {
+    id: string;
+    contract_id: string;
+    due_date: string;
+    amount: number;
+    status: string;
+    paid_at: string | null;
+  };
+
+  const { data: invoiceRowsRaw } = contractIds.length
+    ? await supabase
+        .from("contract_invoices")
+        .select("id, contract_id, due_date, amount, status, paid_at")
+        .in("contract_id", contractIds)
+        .order("due_date", { ascending: false })
+    : { data: [] as InvoiceRow[] };
+
+  const invoiceRows = invoiceRowsRaw ?? [];
+
+  const invoicesByContract = new Map<string, InvoiceRow[]>();
+  for (const inv of invoiceRows) {
+    const list = invoicesByContract.get(inv.contract_id) ?? [];
+    list.push(inv);
+    invoicesByContract.set(inv.contract_id, list);
   }
 
-  // Mocks caso a tabela ainda não tenha sido populada
-  const mockContracts = [
-    {
-      id: "1",
-      patient: "Matheus Henrique Silva",
-      cpf: "123.456.789-00",
-      plan_type: "particular",
-      monthly_fee: 3800.00,
-      payment_day: 5,
-      status: "ativo",
-      start_date: "2026-01-10"
-    },
-    {
-      id: "2",
-      patient: "Isabella Rocha",
-      cpf: "987.654.321-11",
-      plan_type: "reembolso_assistido",
-      monthly_fee: 4500.00,
-      payment_day: 10,
-      status: "ativo",
-      start_date: "2026-02-01"
-    },
-    {
-      id: "3",
-      patient: "Bernardo Costa",
-      cpf: "456.789.123-22",
-      plan_type: "coparticipacao",
-      monthly_fee: 850.00,
-      payment_day: 15,
-      status: "ativo",
-      start_date: "2026-03-15"
-    }
-  ];
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
 
-  const displayContracts = contractsList.length > 0 ? contractsList : mockContracts;
+  const activeContracts = contracts.filter((c) => c.status === "ativo");
+  const totalMonthlyFee = activeContracts.reduce((sum, c) => sum + Number(c.monthly_fee), 0);
 
-  const totalMonthlyFee = displayContracts.reduce((sum, c) => sum + Number(c.monthly_fee), 0);
+  const pendingInvoicesThisMonth = invoiceRows.filter(
+    (inv) => inv.due_date >= monthStart && inv.due_date < nextMonthStart && (inv.status === "pendente" || inv.status === "atrasado")
+  );
+  const pendingTotal = pendingInvoicesThisMonth.reduce((sum, inv) => sum + Number(inv.amount), 0);
+
+  const { data: allPatients } = await supabase
+    .from("patients")
+    .select("id, full_name")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .order("full_name", { ascending: true });
 
   return (
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
       <GestorNav active="financeiro" />
+      <FinanceiroSubnav activeTab="contratos" />
 
       <div className="flex flex-col gap-8 px-10 pt-9">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-              Faturamento Particular & Convênio
+              Faturamento Particular
             </h6>
             <h1 className="m-0">Gestão de Contratos e Cobrança Particular</h1>
           </div>
-          <div className="flex gap-3">
-            <button className="btn btn-secondary flex items-center gap-2">
-              <Download size={16} /> Emitir Declaração Anual IR
-            </button>
-            <button className="btn btn-primary flex items-center gap-2">
-              <Plus size={16} /> Novo Contrato de Paciente
-            </button>
-          </div>
+          <NewContractDialog patients={allPatients ?? []} />
         </div>
 
-        {/* Resumo Financeiro de Contratos */}
         <section className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
             <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-2">
               <FileText size={18} className="text-blue-600" /> Contratos Particulares Ativos
             </div>
             <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)" }}>
-              {displayContracts.length} contratos
+              {activeContracts.length} contrato{activeContracts.length === 1 ? "" : "s"}
             </div>
             <span className="text-xs text-ink-faint mt-1 block">Pacientes no modelo particular/reembolso</span>
           </div>
@@ -106,7 +115,7 @@ export default async function ContratosPage() {
             <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--status-realizada)" }}>
               {formatCurrency(totalMonthlyFee)}
             </div>
-            <span className="text-xs text-ink-faint mt-1 block">Faturamento mensal em contratos particulares</span>
+            <span className="text-xs text-ink-faint mt-1 block">Soma das mensalidades de contratos ativos</span>
           </div>
 
           <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
@@ -114,58 +123,70 @@ export default async function ContratosPage() {
               <Clock size={18} className="text-amber-500" /> Cobranças Pendentes no Mês
             </div>
             <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--color-accent-2-600)" }}>
-              2 faturas (R$ 5.350,00)
+              {pendingInvoicesThisMonth.length} fatura{pendingInvoicesThisMonth.length === 1 ? "" : "s"} ({formatCurrency(pendingTotal)})
             </div>
-            <span className="text-xs text-ink-faint mt-1 block">Envio automático de lembrete de PIX ativado</span>
+            <span className="text-xs text-ink-faint mt-1 block">Faturas do mês corrente ainda em aberto</span>
           </div>
         </section>
 
-        {/* Tabela de Contratos */}
         <section className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
-          <h3 className="mb-4">Lista de Contratos Vigentes</h3>
+          <h3 className="mb-4">Lista de Contratos</h3>
 
-          <table className="table w-full">
-            <thead>
-              <tr>
-                <th>Paciente</th>
-                <th>Modalidade</th>
-                <th>Mensalidade</th>
-                <th>Dia de Vencimento</th>
-                <th>Início do Contrato</th>
-                <th>Status</th>
-                <th>Ações de Cobrança</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayContracts.map((c: any) => (
-                <tr key={c.id}>
-                  <td>
-                    <div className="font-semibold">{c.patient || c.patients?.full_name}</div>
-                    <div className="text-xs text-ink-faint">CPF: {c.cpf || c.patients?.cpf || '123.456.789-00'}</div>
-                  </td>
-                  <td className="capitalize text-xs font-medium">
-                    {c.plan_type === 'reembolso_assistido' ? 'Reembolso Assistido' : c.plan_type === 'coparticipacao' ? 'Co-participação' : 'Particular Puro'}
-                  </td>
-                  <td className="tabular-figure font-bold text-sm">{formatCurrency(c.monthly_fee)}</td>
-                  <td className="tabular-figure text-xs">Todo dia {c.payment_day}</td>
-                  <td className="tabular-figure text-xs text-ink-faint">{c.start_date}</td>
-                  <td>
-                    <span className="tag-status st-realizada">Ativo</span>
-                  </td>
-                  <td>
-                    <div className="flex gap-2">
-                      <button className="btn btn-ghost text-xs flex items-center gap-1">
-                        <Send size={12} /> Enviar PIX
-                      </button>
-                      <button className="btn btn-ghost text-xs flex items-center gap-1">
-                        <FileText size={12} /> Recibo
-                      </button>
-                    </div>
-                  </td>
+          {contracts.length === 0 ? (
+            <p className="text-sm text-ink-faint">Nenhum contrato particular cadastrado ainda.</p>
+          ) : (
+            <table className="table w-full">
+              <thead>
+                <tr>
+                  <th>Paciente</th>
+                  <th>Modalidade</th>
+                  <th>Mensalidade</th>
+                  <th>Vencimento</th>
+                  <th>Início</th>
+                  <th>Status</th>
+                  <th>Faturas do Mês</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {contracts.map((c) => {
+                  const invoices = (invoicesByContract.get(c.id) ?? []).filter(
+                    (inv) => inv.due_date >= monthStart && inv.due_date < nextMonthStart
+                  );
+                  return (
+                    <tr key={c.id}>
+                      <td>
+                        <div className="font-semibold">{(c.patients as any)?.full_name ?? "—"}</div>
+                        <div className="text-xs text-ink-faint">CPF: {(c.patients as any)?.cpf || "não informado"}</div>
+                      </td>
+                      <td className="text-xs font-medium">{PLAN_LABEL[c.plan_type] ?? c.plan_type}</td>
+                      <td className="tabular-figure font-bold text-sm">{formatCurrency(Number(c.monthly_fee))}</td>
+                      <td className="tabular-figure text-xs">Todo dia {c.payment_day}</td>
+                      <td className="tabular-figure text-xs text-ink-faint">{c.start_date}</td>
+                      <td>
+                        <span className={`tag-status ${c.status === "ativo" ? "st-realizada" : "st-cancelada"}`}>
+                          {c.status === "ativo" ? "Ativo" : c.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex flex-col gap-1">
+                          {invoices.length === 0 && c.status === "ativo" && <GenerateInvoiceButton contractId={c.id} />}
+                          {invoices.map((inv) => (
+                            <div key={inv.id} className="flex items-center gap-2">
+                              <span className={`tag-status ${INVOICE_STATUS_TAG[inv.status] ?? "st-agendada"}`}>
+                                {inv.status === "pago" ? "Paga" : inv.status === "atrasado" ? "Atrasada" : inv.status === "pendente" ? "Pendente" : "Cancelada"}
+                              </span>
+                              <span className="text-xs">{formatCurrency(Number(inv.amount))}</span>
+                              {inv.status !== "pago" && <MarkInvoicePaidButton invoiceId={inv.id} />}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </section>
       </div>
     </main>

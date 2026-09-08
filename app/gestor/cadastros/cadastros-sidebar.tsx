@@ -16,6 +16,7 @@ const SIDEBAR_ITEMS = [
   { key: "comportamentos", label: "Comportamentos-alvo", href: "/gestor/cadastros/comportamentos" },
   { key: "intervencoes", label: "Intervenções", href: "/gestor/cadastros/intervencoes" },
   { key: "salas", label: "Salas & Recursos", href: "/gestor/cadastros/salas" },
+  { key: "estoque", label: "Estoque & Almoxarifado", href: "/gestor/cadastros/estoque" },
 ] as const;
 
 export type CadastrosSidebarKey = (typeof SIDEBAR_ITEMS)[number]["key"];

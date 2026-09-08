@@ -8,7 +8,7 @@ const SIDEBAR_ITEMS = [
   { key: "prioridades", label: "Regras de Agendamento", href: "/gestor/configuracoes/prioridades-avaliacao" },
   { key: "profissionais", label: "Contratos & Valor-hora", href: "/gestor/configuracoes/profissionais" },
   { key: "usuarios", label: "Usuários & Permissões", href: "/gestor/configuracoes/usuarios" },
-  { key: "notificacoes", label: "WhatsApp Bot", href: "/gestor/configuracoes/notificacoes" },
+  { key: "notificacoes", label: "Comunicação & WhatsApp", href: "/gestor/configuracoes/notificacoes" },
 ] as const;
 
 export type ConfigSidebarKey = (typeof SIDEBAR_ITEMS)[number]["key"];

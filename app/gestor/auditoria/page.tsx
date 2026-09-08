@@ -1,4 +1,5 @@
 import { GestorNav } from "@/components/gestor-nav";
+import { AuditoriaSubnav } from "@/components/auditoria-subnav";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 
@@ -70,7 +71,8 @@ export default async function AuditoriaPage() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <GestorNav />
+      <GestorNav active="auditoria" />
+      <AuditoriaSubnav activeTab="lgpd" />
 
       <main className="mx-auto max-w-7xl px-6 py-8 space-y-6">
         <div>

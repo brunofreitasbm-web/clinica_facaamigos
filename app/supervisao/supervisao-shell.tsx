@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { UserX } from "lucide-react";
+import { ShieldCheck, UserX, ListOrdered } from "lucide-react";
 
 const TABS = [
   { key: "grade", label: "Grade" },
@@ -108,6 +108,22 @@ export function SupervisaoShell({
               </button>
             );
           })}
+          <Link
+            href="/supervisao/lista-espera"
+            className="flex h-full items-center gap-1.5 border-b-2 border-transparent"
+            style={{ color: "var(--color-on-accent-soft)" }}
+          >
+            <ListOrdered size={15} />
+            Lista de Espera
+          </Link>
+          <Link
+            href="/supervisao/prontuario-unificado"
+            className="flex h-full items-center gap-1.5 border-b-2 border-transparent"
+            style={{ color: "var(--color-on-accent-soft)" }}
+          >
+            <ShieldCheck size={15} />
+            Prontuário Unificado
+          </Link>
           <Link
             href="/recepcao/emergencias"
             className="flex h-full items-center gap-1.5 border-b-2 border-transparent"

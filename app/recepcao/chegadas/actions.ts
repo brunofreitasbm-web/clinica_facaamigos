@@ -44,8 +44,7 @@ export async function confirmCheckinRequest(requestId: string, appointmentId: st
     return { success: false, error: "Essa chegada já foi resolvida." };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: appointment } = await (supabase as any)
+  const { data: appointment } = await supabase
     .from("appointments")
     .select("status, auto_marked")
     .eq("id", appointmentId)
