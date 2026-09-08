@@ -9,6 +9,7 @@ import { getActiveGoalsForPatient, getPreviousSessionMetaIds } from "@/lib/sessi
 import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getInterventionCatalog } from "@/lib/intervention-catalog";
 import { getPatientProtocolOptions } from "@/lib/protocol-assessments";
+import { PROTOCOL_LABEL } from "@/lib/protocol-catalog";
 import { EvolutionForm, type EditingContext } from "./evolution-form";
 import { TrialDataPanel } from "./trial-data-panel";
 import { getMetasTrabalhadas, type GoalResultLevel, type SessionNoteStructured } from "@/lib/session-note-fields";
@@ -97,18 +98,38 @@ export default async function EvolucaoPage({
     // alimenta a barra de identidade acima, "nenhum guardian com
     // image_consent=false" (o trigger no INSERT em session_note_media
     // reforça a mesma regra, esta é só a UI condicional).
-    const [activeGoals, preCheckedGoalIds, behaviorCatalog, interventionCatalog, contacts] = await Promise.all([
-      getActiveGoalsForPatient(supabase, appointment.patient_id),
-      getPreviousSessionMetaIds(supabase, appointment.patient_id, appointmentId),
-      getBehaviorCatalog(supabase, { activeOnly: true }),
-      getInterventionCatalog(supabase, { activeOnly: true }),
-      supabase.rpc("patient_contact_summary", { p_patient_id: appointment.patient_id }),
-    ]);
+    const [activeGoals, preCheckedGoalIds, behaviorCatalog, interventionCatalog, contacts, protocolOptions] =
+      await Promise.all([
+        getActiveGoalsForPatient(supabase, appointment.patient_id),
+        getPreviousSessionMetaIds(supabase, appointment.patient_id, appointmentId),
+        getBehaviorCatalog(supabase, { activeOnly: true }),
+        getInterventionCatalog(supabase, { activeOnly: true }),
+        supabase.rpc("patient_contact_summary", { p_patient_id: appointment.patient_id }),
+        patientRecord ? getPatientProtocolOptions(supabase, patientRecord.clinic_id) : Promise.resolve([]),
+      ]);
     const imageConsent = (contacts.data ?? []).every((g) => g.image_consent !== false);
 
     return (
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[640px] flex-col gap-6 p-5 sm:p-10">
+          {protocolOptions.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Instrumentos de Avaliação
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {protocolOptions.map((protocol) => (
+                  <Link
+                    key={protocol.id}
+                    href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.id}`}
+                    className="btn btn-secondary w-fit text-xs"
+                  >
+                    📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
           <TrialDataPanel appointmentId={appointment.id} programs={programs} />
           <EvolutionForm
             appointmentId={appointment.id}
@@ -258,7 +279,7 @@ export default async function EvolucaoPage({
                     href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.id}`}
                     className="btn btn-secondary w-fit"
                   >
-                    Protocolo: {protocol.name}
+                    📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.name}
                   </Link>
                 ))
               ) : (

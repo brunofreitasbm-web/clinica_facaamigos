@@ -19,8 +19,6 @@ export default async function InstrumentosConfigPage() {
     description: i.description,
     disciplineLabel: DISCIPLINE_LABEL[i.discipline] ?? i.discipline,
     enabled: i.enabled,
-    licensePurchasedAt: i.licensePurchasedAt,
-    licenseNote: i.licenseNote,
   }));
 
   return <InstrumentosManager instruments={rows} />;

@@ -15,7 +15,7 @@ type ActionResult = { success: true } | { success: false; error: string };
  */
 async function upsertInstrument(
   instrument: string,
-  patch: { enabled?: boolean; license_purchased_at?: string | null; license_note?: string | null },
+  patch: { enabled?: boolean },
   notFoundMessage: string,
 ): Promise<ActionResult> {
   if (!isNativeInstrumentKey(instrument)) {
@@ -28,9 +28,6 @@ async function upsertInstrument(
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Sessão expirada — faça login de novo." };
 
-  // upsert em vez de insert/update separados: a linha só passa a existir
-  // quando o gestor mexe pela primeira vez, e `unique (clinic_id, instrument)`
-  // é o alvo do conflito.
   const { error } = await supabase.from("clinic_instruments").upsert(
     {
       clinic_id: DEV_CLINIC_ID,
@@ -56,16 +53,3 @@ export async function setInstrumentEnabled(instrument: string, enabled: boolean)
   );
 }
 
-export async function saveInstrumentLicense(instrument: string, formData: FormData): Promise<ActionResult> {
-  const rawDate = String(formData.get("license_purchased_at") ?? "").slice(0, 10);
-  if (rawDate && !/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-    return { success: false, error: "Data de compra inválida." };
-  }
-  const note = String(formData.get("license_note") ?? "").trim();
-
-  return upsertInstrument(
-    instrument,
-    { license_purchased_at: rawDate || null, license_note: note || null },
-    "Não foi possível salvar os dados de licença deste instrumento.",
-  );
-}

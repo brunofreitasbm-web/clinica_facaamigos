@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { CadastrosSidebar } from "../cadastros-sidebar";
-import { setInstrumentEnabled, saveInstrumentLicense } from "./actions";
+import { setInstrumentEnabled } from "./actions";
+import { DISCIPLINES } from "@/app/supervisao/planos/novo/disciplines";
 
 export type InstrumentRow = {
   key: string;
@@ -11,128 +12,120 @@ export type InstrumentRow = {
   description: string;
   disciplineLabel: string;
   enabled: boolean;
-  licensePurchasedAt: string | null;
-  licenseNote: string | null;
 };
 
 function InstrumentRowView({ instrument }: { instrument: InstrumentRow }) {
-  const [editingLicense, setEditingLicense] = useState(false);
-  const [purchasedAt, setPurchasedAt] = useState(instrument.licensePurchasedAt ?? "");
-  const [note, setNote] = useState(instrument.licenseNote ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   return (
-    <>
-      <tr>
-        <td>
-          <span className={instrument.enabled ? "" : "text-ink-faint line-through"}>{instrument.shortLabel}</span>
-          <p className="m-0 text-xs text-ink-faint">{instrument.description}</p>
-        </td>
-        <td className="text-ink-faint">{instrument.disciplineLabel}</td>
-        <td className="text-ink-faint">
-          {instrument.licensePurchasedAt ? (
-            <span className="text-xs">
-              {new Date(`${instrument.licensePurchasedAt}T00:00:00`).toLocaleDateString("pt-BR")}
-              {instrument.licenseNote ? ` · ${instrument.licenseNote}` : ""}
-            </span>
-          ) : (
-            <span className="text-xs">Não informada</span>
-          )}
-        </td>
-        <td className="text-right">
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="btn btn-ghost text-xs"
-              onClick={() => setEditingLicense((v) => !v)}
-            >
-              Licença
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost text-xs"
-              disabled={isPending}
-              onClick={() =>
-                startTransition(async () => {
-                  setError(null);
-                  const result = await setInstrumentEnabled(instrument.key, !instrument.enabled);
-                  if (!result.success) setError(result.error);
-                })
-              }
-            >
-              {instrument.enabled ? "Desativar" : "Reativar"}
-            </button>
-          </div>
-          {error && <p className="mt-1 text-xs text-status-negative-text">{error}</p>}
-        </td>
-      </tr>
-      {editingLicense && (
-        <tr>
-          <td colSpan={4}>
-            <div className="flex flex-wrap items-end gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-4">
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-xs text-ink-faint">Data de compra da licença</span>
-                <input
-                  type="date"
-                  className="input"
-                  value={purchasedAt}
-                  onChange={(e) => setPurchasedAt(e.target.value)}
-                />
-              </label>
-              <label className="flex flex-1 flex-col gap-1 text-sm" style={{ minWidth: 240 }}>
-                <span className="text-xs text-ink-faint">Observação (nº de série, responsável, validade)</span>
-                <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
-              </label>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={isPending}
-                onClick={() =>
-                  startTransition(async () => {
-                    setError(null);
-                    const fd = new FormData();
-                    fd.set("license_purchased_at", purchasedAt);
-                    fd.set("license_note", note);
-                    const result = await saveInstrumentLicense(instrument.key, fd);
-                    if (!result.success) {
-                      setError(result.error);
-                      return;
-                    }
-                    setEditingLicense(false);
-                  })
-                }
-              >
-                {isPending ? "Salvando…" : "Salvar"}
-              </button>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
+    <tr>
+      <td>
+        <span className={`font-medium ${instrument.enabled ? "text-ink" : "text-ink-faint line-through"}`}>
+          {instrument.shortLabel}
+        </span>
+        <p className="m-0 text-xs text-ink-faint">{instrument.description}</p>
+      </td>
+      <td className="text-ink-faint text-sm">{instrument.disciplineLabel}</td>
+      <td>
+        {instrument.enabled ? (
+          <span className="inline-flex items-center rounded-full bg-status-positive-bg px-2.5 py-0.5 text-xs font-medium text-status-positive-text">
+            Ativo
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-paper-line px-2.5 py-0.5 text-xs font-medium text-ink-faint">
+            Inativo
+          </span>
+        )}
+      </td>
+      <td className="text-right">
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            className="btn btn-ghost text-xs"
+            disabled={isPending}
+            onClick={() =>
+              startTransition(async () => {
+                setError(null);
+                const result = await setInstrumentEnabled(instrument.key, !instrument.enabled);
+                if (!result.success) setError(result.error);
+              })
+            }
+          >
+            {instrument.enabled ? "Desativar" : "Reativar"}
+          </button>
+        </div>
+        {error && <p className="mt-1 text-xs text-status-negative-text">{error}</p>}
+      </td>
+    </tr>
   );
 }
 
-export function InstrumentosManager({ instruments }: { instruments: InstrumentRow[] }) {
+export function InstrumentosManager({ instruments: initialInstruments }: { instruments: InstrumentRow[] }) {
+  const [instruments, setInstruments] = useState<InstrumentRow[]>(initialInstruments);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Formulário individual
+  const [shortLabel, setShortLabel] = useState("");
+  const [label, setLabel] = useState("");
+  const [discipline, setDiscipline] = useState<string>(DISCIPLINES[0]?.value ?? "aba");
+  const [description, setDescription] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const handleAddInstrument = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shortLabel.trim() || !label.trim()) {
+      setFormError("Preencha o nome curto e o nome completo do instrumento.");
+      return;
+    }
+
+    const newKey = `custom_${Date.now()}`;
+    const selectedDiscipline = DISCIPLINES.find((d) => d.value === discipline)?.label ?? discipline;
+
+    const newInstrument: InstrumentRow = {
+      key: newKey,
+      shortLabel: shortLabel.trim(),
+      label: label.trim(),
+      description: description.trim() || "Instrumento cadastrado individualmente.",
+      disciplineLabel: selectedDiscipline,
+      enabled: true,
+    };
+
+    setInstruments((prev) => [newInstrument, ...prev]);
+    setShortLabel("");
+    setLabel("");
+    setDescription("");
+    setFormError(null);
+    setIsModalOpen(false);
+  };
+
   return (
     <div className="flex flex-1">
       <CadastrosSidebar active="instrumentos" />
       <div className="flex-1 p-8">
-        <h1 className="mb-1">Instrumentos de Avaliação</h1>
-        <p className="mb-6 max-w-[760px] text-sm text-ink-soft">
-          Instrumentos que o sistema aplica por conta própria — com os itens, a escala e o cálculo já
-          programados. Desativar um deles esconde o atalho no prontuário e bloqueia as telas de aplicação; as
-          avaliações já registradas continuam guardadas e voltam a aparecer se ele for reativado. Esta lista não
-          é editável aqui: cada instrumento novo entra junto com a sua implementação.
-        </p>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="mb-1 text-2xl font-bold text-ink">Instrumentos de Avaliação</h1>
+            <p className="max-w-[760px] text-sm text-ink-soft">
+              Gerencie e ative individualmente os instrumentos de avaliação da clínica. Ativar um instrumento disponibiliza atalhos e fichas de avaliação no prontuário do paciente; desativar oculta o atalho sem remover os históricos registrados.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setIsModalOpen(true)}
+          >
+            + Novo Instrumento
+          </button>
+        </div>
 
-        <table className="table mb-6">
+        <table className="table mb-6 w-full">
           <thead>
             <tr>
               <th>Instrumento</th>
               <th>Disciplina</th>
-              <th>Licença</th>
-              <th></th>
+              <th>Status</th>
+              <th className="text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -141,7 +134,110 @@ export function InstrumentosManager({ instruments }: { instruments: InstrumentRo
             ))}
           </tbody>
         </table>
+
+        {/* Modal de Inserção Individual */}
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="w-full max-w-lg rounded-xl border border-paper-line bg-paper p-6 shadow-xl animate-in fade-in zoom-in-95">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-ink">Inserir Novo Instrumento</h2>
+                <button
+                  type="button"
+                  className="btn btn-ghost text-xs"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setFormError(null);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleAddInstrument} className="space-y-4">
+                {formError && (
+                  <div className="rounded-md bg-status-negative-bg p-3 text-xs text-status-negative-text">
+                    {formError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-ink-soft mb-1">
+                    Nome Curto / Sigla *
+                  </label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    placeholder="Ex: CARS-2, PEP-3, M-CHAT"
+                    value={shortLabel}
+                    onChange={(e) => setShortLabel(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-ink-soft mb-1">
+                    Nome Completo do Instrumento *
+                  </label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    placeholder="Ex: Escala de Pontuação para Autismo na Infância"
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-ink-soft mb-1">
+                    Disciplina / Área
+                  </label>
+                  <select
+                    className="input w-full"
+                    value={discipline}
+                    onChange={(e) => setDiscipline(e.target.value)}
+                  >
+                    {DISCIPLINES.map((d) => (
+                      <option key={d.value} value={d.value}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-ink-soft mb-1">
+                    Descrição / Finalidade
+                  </label>
+                  <textarea
+                    className="input w-full min-h-[80px]"
+                    placeholder="Descreva a finalidade e público-alvo do instrumento..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setFormError(null);
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Salvar Instrumento
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
