@@ -165,11 +165,17 @@ function AssessmentForm({ patientId, protocol }: { patientId: string; protocol: 
 export function ProtocolAssessmentPanel({
   patientId,
   protocols,
+  initialProtocolId,
 }: {
   patientId: string;
   protocols: ProtocolTabData[];
+  initialProtocolId?: string;
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(protocols[0]?.id ?? null);
+  const initialId =
+    (initialProtocolId && protocols.some((p) => p.id === initialProtocolId) ? initialProtocolId : null) ??
+    protocols[0]?.id ??
+    null;
+  const [selectedId, setSelectedId] = useState<string | null>(initialId);
   const selected = protocols.find((p) => p.id === selectedId) ?? null;
 
   if (protocols.length === 0) {
@@ -186,12 +192,17 @@ export function ProtocolAssessmentPanel({
   return (
     <div className="flex flex-col gap-6">
       {protocols.length > 1 && (
-        <div className="seg w-fit">
+        <div className="seg w-fit" role="group" aria-label="Escolha o protocolo a aplicar">
           {protocols.map((p) => (
-            <label key={p.id} className="seg-opt">
-              <input type="radio" name="protocol-tab" checked={p.id === selectedId} onChange={() => setSelectedId(p.id)} />
+            <button
+              key={p.id}
+              type="button"
+              className="seg-btn"
+              aria-pressed={p.id === selectedId}
+              onClick={() => setSelectedId(p.id)}
+            >
               {p.name}
-            </label>
+            </button>
           ))}
         </div>
       )}

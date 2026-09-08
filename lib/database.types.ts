@@ -6379,6 +6379,92 @@ export type Database = {
         }
         Relationships: []
       }
+      bonus_rule_sets: {
+        Row: {
+          id: string
+          clinic_id: string
+          role: string
+          module: string
+          valid_from: string
+          valid_to: string | null
+          created_by: string | null
+          created_at: string
+          note: string | null
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          role: string
+          module: string
+          valid_from: string
+          valid_to?: string | null
+          created_by?: string | null
+          created_at?: string
+          note?: string | null
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          role?: string
+          module?: string
+          valid_from?: string
+          valid_to?: string | null
+          created_by?: string | null
+          created_at?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_rule_sets_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonus_rule_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bonus_rule_set_items: {
+        Row: {
+          id: string
+          rule_set_id: string
+          metric_key: string
+          weight_pct: number
+          target_value: number
+          eliminatory: boolean
+        }
+        Insert: {
+          id?: string
+          rule_set_id: string
+          metric_key: string
+          weight_pct: number
+          target_value: number
+          eliminatory?: boolean
+        }
+        Update: {
+          id?: string
+          rule_set_id?: string
+          metric_key?: string
+          weight_pct?: number
+          target_value?: number
+          eliminatory?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_rule_set_items_rule_set_id_fkey"
+            columns: ["rule_set_id"]
+            isOneToOne: false
+            referencedRelation: "bonus_rule_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       targets: {
         Row: {
           clinic_id: string

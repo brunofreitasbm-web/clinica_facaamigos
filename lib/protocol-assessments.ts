@@ -61,6 +61,36 @@ function computeDomainTrends(items: ProtocolItemRow[], assessments: AssessmentPo
     .filter((d) => d.points.length > 0);
 }
 
+export type ProtocolOption = { id: string; name: string };
+
+/**
+ * Versão leve de `getPatientProtocolTabs`: só id/nome dos protocolos
+ * licenciados pela clínica com item visível ao usuário atual, sem carregar
+ * itens/avaliações/tendências. Usada pra montar os botões de escolha de
+ * protocolo no início da intervenção (evolução da sessão), antes de entrar
+ * na tela de avaliação em si.
+ */
+export async function getPatientProtocolOptions(supabase: Supa, clinicId: string): Promise<ProtocolOption[]> {
+  const { data: protocols } = await supabase
+    .from("protocols")
+    .select("id, name")
+    .eq("clinic_id", clinicId)
+    .order("name");
+  const protocolList = protocols ?? [];
+  if (protocolList.length === 0) return [];
+
+  const { data: itemRows } = await supabase
+    .from("protocol_items")
+    .select("protocol_id")
+    .in(
+      "protocol_id",
+      protocolList.map((p) => p.id),
+    );
+  const visibleIds = new Set((itemRows ?? []).map((i) => i.protocol_id));
+
+  return protocolList.filter((p) => visibleIds.has(p.id));
+}
+
 /**
  * Protocolos licenciados pela clínica com pelo menos um item visível ao
  * usuário atual (RLS de `protocol_items` já resolve certificação — ex.:
