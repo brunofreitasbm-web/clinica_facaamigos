@@ -207,7 +207,7 @@ export function AcolhimentosPanel({
                 {batch.warnings.length > 0 && (
                   <ul className="list-disc space-y-1 px-4 pt-3 pl-8 text-xs text-ink-soft">
                     {batch.warnings.map((w, i) => (
-                      <li key={i}>{w}</li>
+                      <li key={`warning-${i}`}>{w}</li>
                     ))}
                   </ul>
                 )}

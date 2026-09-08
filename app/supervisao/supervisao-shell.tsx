@@ -120,12 +120,12 @@ export function SupervisaoShell({
       </header>
 
       <main className="px-10 py-9">
-        {tab === "grade" && gradeTab}
-        {tab === "agenda1a" && agenda1aTab}
-        {tab === "acolhimentos" && acolhimentosTab}
-        {tab === "fluxos" && fluxosTab}
-        {tab === "planos" && planosTab}
-        {tab === "inbox" && inboxTab}
+        {tab === "grade" ? <div key="tab-grade">{gradeTab}</div> : null}
+        {tab === "agenda1a" ? <div key="tab-agenda1a">{agenda1aTab}</div> : null}
+        {tab === "acolhimentos" ? <div key="tab-acolhimentos">{acolhimentosTab}</div> : null}
+        {tab === "fluxos" ? <div key="tab-fluxos">{fluxosTab}</div> : null}
+        {tab === "planos" ? <div key="tab-planos">{planosTab}</div> : null}
+        {tab === "inbox" ? <div key="tab-inbox">{inboxTab}</div> : null}
       </main>
     </SupervisaoTabContext.Provider>
   );

@@ -7,6 +7,7 @@ import { zonedDateTimeToUtc } from "@/lib/timezone";
 import { getActiveAuthorizationId } from "@/lib/active-authorization";
 import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
+import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -73,6 +74,15 @@ export async function scheduleEvaluation(
     patientId,
     appointmentId: appointment.id,
     startsAt: startsAt.toISOString(),
+  });
+
+  // Notificar responsável com confirmação de data, horário e orientações do dia via Twilio WhatsApp
+  await sendEvaluationConfirmationNotification({
+    patientId,
+    therapistId,
+    roomId,
+    date,
+    time,
   });
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);

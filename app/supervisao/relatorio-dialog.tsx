@@ -251,17 +251,17 @@ export function RelatorioReavaliacaoDialog({
                         ))
                       ) : (
                         <>
-                          <tr>
+                          <tr key="fallback-goal-1">
                             <td className="p-2 font-medium">Comunicação Verbal (ABA)</td>
                             <td className="p-2">Solicitar itens desejados por gesto/apontar de forma independente</td>
                             <td className="p-2"><span className="text-emerald-700 font-semibold">✓ Atingida</span></td>
                           </tr>
-                          <tr>
+                          <tr key="fallback-goal-2">
                             <td className="p-2 font-medium">Terapia Ocupacional</td>
                             <td className="p-2">Manter autorregulação em ambiente com estímulo sonoro por 30 min</td>
                             <td className="p-2"><span className="text-emerald-700 font-semibold">✓ Atingida</span></td>
                           </tr>
-                          <tr>
+                          <tr key="fallback-goal-3">
                             <td className="p-2 font-medium">Fonoaudiologia</td>
                             <td className="p-2">Produção dos fonemas /r/ e /l/ em sílabas simples sem auxílio</td>
                             <td className="p-2"><span className="text-amber-700 font-semibold">⟳ Em Aquisição</span></td>

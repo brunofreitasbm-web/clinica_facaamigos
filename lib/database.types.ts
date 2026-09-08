@@ -2005,6 +2005,66 @@ export type Database = {
           },
         ]
       }
+      evaluation_appointment_priorities: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          insurance_id: string
+          label: string
+          priority_level: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          insurance_id: string
+          label: string
+          priority_level: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          insurance_id?: string
+          label?: string
+          priority_level?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluation_appointment_priorities_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluation_appointment_priorities_insurance_id_fkey"
+            columns: ["insurance_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       family_feedback: {
         Row: {
           category_ratings: Json
@@ -3342,9 +3402,11 @@ export type Database = {
           id: string
           meeting_id: string | null
           patient_id: string
+          period: string | null
           phone_number: string
           responded_at: string | null
           score: number | null
+          trigger_type: string | null
         }
         Insert: {
           alert_status?: string
@@ -3358,9 +3420,11 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id: string
+          period?: string | null
           phone_number: string
           responded_at?: string | null
           score?: number | null
+          trigger_type?: string | null
         }
         Update: {
           alert_status?: string
@@ -3374,9 +3438,11 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id?: string
+          period?: string | null
           phone_number?: string
           responded_at?: string | null
           score?: number | null
+          trigger_type?: string | null
         }
         Relationships: [
           {

@@ -271,7 +271,7 @@ export function GradePanel({
               </div>
               {row.days.map((dayAppointments, dayIndex) => (
                 <div
-                  key={dayIndex}
+                  key={`${row.id}-day-${dayIndex}`}
                   className="min-h-20 border-b p-1 bg-paper/30 hover:bg-paper/80 transition-colors"
                   style={{ borderColor: "var(--color-divider)" }}
                 >

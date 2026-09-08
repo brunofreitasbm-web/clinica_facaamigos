@@ -13,6 +13,7 @@ import {
 } from "@/lib/evaluation-agenda";
 import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions";
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
+import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -89,8 +90,9 @@ export async function scheduleFromPoolAction(
           p_ends_at: endsAt.toISOString(),
         };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any).rpc(rpcName, rpcArgs);
+  const res = await (admin as any).rpc(rpcName, rpcArgs);
+  const data = res?.data;
+  const error = res?.error;
 
   if (error) {
     return { success: false, error: "Não foi possível agendar. Tente de novo." };
@@ -98,6 +100,15 @@ export async function scheduleFromPoolAction(
   if (!data?.success) {
     return { success: false, error: data?.error ?? "Não foi possível agendar." };
   }
+
+  // Disparar confirmação de data e horário com orientações do dia via Twilio WhatsApp
+  await sendEvaluationConfirmationNotification({
+    bookInput,
+    therapistId,
+    roomId,
+    date,
+    time,
+  });
 
   return { success: true };
 }
