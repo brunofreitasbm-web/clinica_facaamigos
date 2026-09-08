@@ -233,6 +233,7 @@ export function AcolhimentosPanel({
                           <th className="p-3">Responsável</th>
                           <th className="p-3">Telefone</th>
                           <th className="p-3">Carteirinha</th>
+                          <th className="p-3">Terapias / Procedimentos</th>
                           <th className="p-3">Status</th>
                           <th className="p-3"></th>
                         </tr>
@@ -255,6 +256,9 @@ export function AcolhimentosPanel({
                               <td className="p-3 text-ink-soft">{lead.guardian_full_name || "—"}</td>
                               <td className="p-3 text-ink-soft">{lead.phone_e164 || "—"}</td>
                               <td className="p-3 font-mono text-[11px] text-ink-soft">{lead.card_number || "—"}</td>
+                              <td className="p-3 text-ink-soft max-w-[200px] truncate" title={lead.procedure_code || "—"}>
+                                {lead.procedure_code || "—"}
+                              </td>
                               <td className="p-3">
                                 <span className={`tag-status ${LEAD_STATUS_TAG[lead.status] ?? "st-agendada"}`}>{LEAD_STATUS_LABEL[lead.status] ?? lead.status}</span>
                               </td>

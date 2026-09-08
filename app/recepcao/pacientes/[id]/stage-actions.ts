@@ -140,8 +140,13 @@ export async function registerAuthorization(
 ): Promise<ActionResult> {
   const insurerId = String(formData.get("insurer_id") ?? "");
   const guideNumber = String(formData.get("guide_number") ?? "").trim();
-  const procedureCode = String(formData.get("procedure_code") ?? "").trim();
-  const sessionsAuthorized = Number(formData.get("sessions_authorized") ?? 0);
+  // Uma guia pode autorizar mais de um procedimento (ex.: fono + psicologia
+  // na mesma guia), cada um com sua própria quantidade de sessões — o
+  // formulário envia listas paralelas procedure_code[]/sessions_authorized[]
+  // e gravamos uma linha em `authorizations` por procedimento, todas com o
+  // mesmo guide_number/vigência.
+  const procedureCodes = formData.getAll("procedure_code").map((v) => String(v).trim());
+  const sessionsAuthorizedList = formData.getAll("sessions_authorized").map((v) => Number(v));
   const validFrom = String(formData.get("valid_from") ?? "");
   const validTo = String(formData.get("valid_to") ?? "");
   // Senha de autorização: a maioria dos convênios emite separada do número
@@ -154,8 +159,18 @@ export async function registerAuthorization(
   // estágio (documentação do convênio), então captura junto da autorização.
   const cid = String(formData.get("cid") ?? "").trim();
 
-  if (!insurerId || !procedureCode || !sessionsAuthorized || !validFrom || !validTo) {
-    return { success: false, error: "Preencha convênio, procedimento, sessões autorizadas e vigência." };
+  const procedures = procedureCodes
+    .map((code, i) => ({ code, sessions: sessionsAuthorizedList[i] }))
+    .filter((p) => p.code);
+
+  if (
+    !insurerId ||
+    procedures.length === 0 ||
+    procedures.some((p) => !p.sessions) ||
+    !validFrom ||
+    !validTo
+  ) {
+    return { success: false, error: "Preencha convênio, ao menos um procedimento com sessões autorizadas, e vigência." };
   }
 
   const supabase = await createClient();
@@ -190,17 +205,19 @@ export async function registerAuthorization(
     patientInsuranceId = patientInsurance.id;
   }
 
-  const { error: authError } = await supabase.from("authorizations").insert({
-    patient_insurance_id: patientInsuranceId,
-    guide_number: guideNumber || null,
-    procedure_code: procedureCode,
-    sessions_authorized: sessionsAuthorized,
-    valid_from: validFrom,
-    valid_to: validTo,
-    status: "ativa",
-    authorization_password: authorizationPassword || null,
-    password_valid_until: passwordValidUntil || null,
-  });
+  const { error: authError } = await supabase.from("authorizations").insert(
+    procedures.map((p) => ({
+      patient_insurance_id: patientInsuranceId,
+      guide_number: guideNumber || null,
+      procedure_code: p.code,
+      sessions_authorized: p.sessions,
+      valid_from: validFrom,
+      valid_to: validTo,
+      status: "ativa",
+      authorization_password: authorizationPassword || null,
+      password_valid_until: passwordValidUntil || null,
+    })),
+  );
 
   if (authError) {
     return { success: false, error: "Convênio vinculado, mas houve erro ao registrar a autorização." };

@@ -69,7 +69,7 @@ function buildIntakePrompt(insurerNames: string[], profile?: IntakeExtractionPro
         .join("\n")
     : "";
 
-  return `Você recebe um PDF enviado por um plano de saúde/convênio para uma clínica de desenvolvimento infantil (TEA/terapias). O PDF é uma RELAÇÃO/LISTA de pacientes/beneficiários encaminhados, cada um com seu responsável e (quando houver) dados de guia/autorização.
+  return `Você recebe um PDF enviado por um plano de saúde/convênio (ex: Unimed) para uma clínica de desenvolvimento infantil (TEA/terapias). O PDF é um documento de controle padrão (ex: com título no formato "CONTROLE [NOME DA CLÍNICA] TERAPIAS", onde o nome da clínica pode variar) contendo uma RELAÇÃO/LISTA de pacientes/beneficiários encaminhados, cada um com seu responsável e dados de guia/autorização.
 
 Devolva UMA entrada em "rows" para CADA beneficiário/paciente encontrado no documento — não resuma, não pule nenhuma linha da tabela.
 
@@ -81,7 +81,8 @@ Extraia SOMENTE o que estiver legível. Use null (ou lista vazia) quando não en
 - CPF só dígitos (sem pontuação).
 - "patient_sexo" só "F" ou "M" (null se não achar).
 - "guardian_phones": lista com TODOS os telefones da linha, como aparecem no PDF (não normalize aqui).
-- "sessions_authorized" um número inteiro, ou null.
+- "procedure_code": se o PDF listar múltiplas terapias/procedimentos para o mesmo paciente (ex: "FONOAUDIOLOGIA, TERAPIA OCUPACIONAL, PSICOMOTRICIDADE e PSICOLOGIA – ABA"), capture a lista completa de terapias separadas por vírgula ou em "extra.therapies_list".
+- "sessions_authorized" um número inteiro ou a soma de sessões autorizadas, ou null.
 - Se o documento tiver mais linhas do que você conseguir processar nesta resposta, devolva o máximo possível e marque "truncated": true.
 
 Responda APENAS um JSON com exatamente este formato:

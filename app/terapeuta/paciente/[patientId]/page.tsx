@@ -222,6 +222,9 @@ export default async function TerapeutaFichaPacientePage({
         <Link href={`/terapeuta/paciente/${patient.id}/fono`} className="btn btn-secondary">
           Fono (ADL/ADL-2/PROC)
         </Link>
+        <Link href={`/terapeuta/paciente/${patient.id}/socially-savvy`} className="btn btn-secondary">
+          Socially Savvy
+        </Link>
         <Link href={`/terapeuta/paciente/${patient.id}/relatorio`} className="btn btn-secondary">
           Relatório família
         </Link>

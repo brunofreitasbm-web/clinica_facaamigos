@@ -7,6 +7,70 @@ import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reas
 import { todayInTimeZone } from "@/lib/timezone";
 import { computeAvailableSlots, type AvailableSlot } from "@/lib/available-slots";
 import { revalidatePath } from "next/cache";
+import { sendTwilioWhatsApp, formatE164Phone } from "@/lib/twilio";
+
+// Status que tiram uma sessão da disputa por "primeira do dia" do terapeuta —
+// mesmo conjunto que markMissedOrCancelled/NEGATIVE_STATUSES cobre, mais
+// 'remarcada' (a sessão original perdeu o lugar pra nova data).
+const NON_ACTIVE_STATUSES = [
+  "cancelada_familia",
+  "cancelada_terapeuta",
+  "cancelada_clinica",
+  "falta_familia",
+  "remarcada",
+];
+
+/**
+ * Se a sessão em check-in for a primeira (não cancelada) do dia do terapeuta,
+ * avisa o terapeuta por WhatsApp que o paciente chegou. Não bloqueia nem
+ * reporta falha ao chamador — aviso é best-effort, o check-in em si já foi
+ * gravado com sucesso.
+ */
+async function notifyTherapistOfFirstCheckIn(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  appointmentId: string,
+) {
+  try {
+    const { data: appointment } = await supabase
+      .from("appointments")
+      .select("id, therapist_id, starts_at, patients(full_name), therapist:profiles!therapist_id(full_name, phone)")
+      .eq("id", appointmentId)
+      .maybeSingle();
+
+    if (!appointment) return;
+
+    const therapist = appointment.therapist as unknown as { full_name: string; phone: string | null } | null;
+    const patient = appointment.patients as unknown as { full_name: string } | null;
+    if (!therapist?.phone) return;
+
+    const today = todayInTimeZone(CLINIC_TIMEZONE);
+    const { data: firstOfDay } = await supabase
+      .from("appointments")
+      .select("id")
+      .eq("therapist_id", appointment.therapist_id)
+      .gte("starts_at", `${today}T00:00:00`)
+      .lt("starts_at", `${today}T23:59:59.999`)
+      .not("status", "in", `(${NON_ACTIVE_STATUSES.join(",")})`)
+      .order("starts_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (!firstOfDay || firstOfDay.id !== appointmentId) return;
+
+    const time = new Date(appointment.starts_at).toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: CLINIC_TIMEZONE,
+    });
+
+    await sendTwilioWhatsApp({
+      to: formatE164Phone(therapist.phone),
+      message: `Olá, ${therapist.full_name?.split(" ")[0] ?? ""}! O paciente ${patient?.full_name ?? "da sua primeira sessão"} (${time}) acabou de fazer check-in na recepção.`,
+    });
+  } catch (err) {
+    console.error("[notifyTherapistOfFirstCheckIn] erro ao notificar terapeuta:", err);
+  }
+}
 
 type ActionResult = { success: true; warning?: string } | { success: false; error: string };
 
@@ -181,6 +245,8 @@ export async function checkIn(appointmentId: string): Promise<ActionResult> {
   if (error) {
     return { success: false, error: "Não foi possível registrar o check-in. Tente de novo." };
   }
+
+  void notifyTherapistOfFirstCheckIn(supabase, appointmentId);
 
   revalidateAgendaViews();
   return { success: true, warning };

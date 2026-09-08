@@ -85,6 +85,7 @@ export async function getSuggestedGoals(
   }
 
   suggestions.push(...(await getFonoSuggestedGoals(supabase, patientId)));
+  suggestions.push(...(await getSociallySavvySuggestedGoals(supabase, patientId)));
 
   return suggestions;
 }
