@@ -50,6 +50,68 @@ export async function getPendingAnamnesisRequestsAction(): Promise<{
 }
 
 /**
+ * Cria uma solicitação de paciente fictício vindo do WhatsApp para testes na fila de validação.
+ */
+export async function createMockWhatsAppAnamnesisRequestAction(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createAdminClient() as any;
+
+    const mockPhone = "+5511987654321";
+    const mockChild = "Lucas Gabriel Santana";
+    const mockGuardian = "Mariana Santana";
+    const mockCpf = "123.456.789-00";
+
+    const { data: inserted, error } = await supabase
+      .from("anamnesis_scheduling_requests")
+      .insert({
+        guardian_name: mockGuardian,
+        guardian_phone: mockPhone,
+        guardian_cpf: mockCpf,
+        child_name: mockChild,
+        status: "pendente_supervisor",
+        laudo_pdf_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        guia_pdf_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // Criar ou atualizar sessão fictícia no chatbot
+    await supabase.from("chatbot_sessions").upsert(
+      {
+        phone_number: mockPhone,
+        current_step: "awaiting_laudo",
+        collected_data: {
+          child_name: mockChild,
+          guardian_name: mockGuardian,
+          guardian_cpf: mockCpf,
+          request_id: inserted.id,
+          canal: "WhatsApp Direct",
+        },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "phone_number" }
+    );
+
+    revalidatePath("/supervisao");
+    revalidatePath("/recepcao");
+
+    return { success: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
+  }
+}
+
+/**
  * Auxiliar: gera slots vagos simulados baseados na agenda dos terapeutas/supervisores.
  */
 async function generateAvailableSlotsForSupervisor() {

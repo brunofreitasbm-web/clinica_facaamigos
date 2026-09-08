@@ -610,14 +610,15 @@ export function EvolutionForm({
                                 <button
                                   key={r.value}
                                   type="button"
+                                  aria-pressed={selected}
                                   onClick={() => setGoalResult(goal.id, r.value)}
-                                  className="min-h-[36px] rounded px-2.5 py-1 text-xs font-medium transition-all"
-                                  style={{
-                                    border: `1px solid ${selected ? "var(--color-accent-2)" : "var(--color-divider)"}`,
-                                    background: selected ? "var(--color-accent-2)" : "var(--color-surface)",
-                                    color: selected ? "#fff" : "var(--color-text)",
-                                  }}
+                                  className={`inline-flex items-center gap-1 min-h-[36px] rounded-md px-3 py-1 text-xs font-bold transition-all border ${
+                                    selected
+                                      ? "bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-600/30"
+                                      : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 hover:border-slate-400 hover:text-slate-900"
+                                  }`}
                                 >
+                                  {selected && <span className="text-xs font-black">✓</span>}
                                   {r.label}
                                 </button>
                               );

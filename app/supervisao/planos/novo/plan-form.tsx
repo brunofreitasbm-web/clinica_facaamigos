@@ -480,125 +480,161 @@ export function PlanForm({
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-8 p-6 sm:p-10">
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-patient`}>
-          Paciente
-        </label>
-        <select
-          id={`${formId}-patient`}
-          value={patientId}
-          onChange={(e) => setPatientId(e.target.value)}
-          className={inputClass}
-        >
-          <option value="">Selecione…</option>
-          {patients.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.full_name}
-            </option>
-          ))}
-        </select>
-        {patients.length === 0 && (
-          <p className="mt-1 text-xs text-ink-faint">Nenhum paciente ativo ou em avaliação nesta clínica.</p>
-        )}
-      </div>
-
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-objective`}>
-          Objetivo geral do plano
-        </label>
-        <textarea
-          id={`${formId}-objective`}
-          value={generalObjective}
-          onChange={(e) => setGeneralObjective(e.target.value)}
-          rows={2}
-          className={inputClass}
-        />
-      </div>
-
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-priorities`}>
-          Prioridades relatadas pela família (da 1ª avaliação / anamnese)
-        </label>
-        <textarea
-          id={`${formId}-priorities`}
-          value={familyPriorities}
-          onChange={(e) => setFamilyPriorities(e.target.value)}
-          rows={2}
-          className={inputClass}
-        />
-      </div>
-
-      {teamSuggestions.length > 0 && (
-        <div className="rounded-md border border-paper-line-strong bg-paper/60 p-4">
-          <div className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-            Equipe de avaliação já definida
-          </div>
-          <p className="mt-1 text-xs text-ink-faint">Disciplinas abaixo já vêm marcadas — só falta informar sessões/semana.</p>
-          <ul className="mt-2 flex flex-col gap-1 text-sm text-ink">
-            {teamSuggestions.map((t, i) => (
-              <li key={i}>
-                {t.profileName} · {t.roleLabel}
-                {t.discipline && (
-                  <span className="text-ink-faint"> · {DISCIPLINES.find((d) => d.value === t.discipline)?.label ?? t.discipline}</span>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+      {/* SEÇÃO SUPERIOR: Grid 2 colunas equilibradas no Desktop (6 colunas / 6 colunas) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        {/* COLUNA ESQUERDA (Informações Principais & Equipe) */}
+        <div className="lg:col-span-6 flex flex-col gap-6">
+          <div className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm space-y-4 flex-1">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2 border-b border-paper-line pb-2.5 m-0">
+              <span>👤</span> Informações Principais do Plano
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-patient`}>
+                  Paciente *
+                </label>
+                <select
+                  id={`${formId}-patient`}
+                  value={patientId}
+                  onChange={(e) => setPatientId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Selecione…</option>
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name}
+                    </option>
+                  ))}
+                </select>
+                {patients.length === 0 && (
+                  <p className="mt-1 text-xs text-ink-faint">Nenhum paciente ativo ou em avaliação nesta clínica.</p>
                 )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+              </div>
 
-      {suggestedGoals.length > 0 && (
-        <div className="rounded-md border border-paper-line-strong bg-paper/60 p-4">
-          <div className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-            Sugestões de meta a partir da avaliação
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-review`}>
+                  Data de Revisão
+                </label>
+                <input
+                  id={`${formId}-review`}
+                  type="date"
+                  value={reviewDueAt}
+                  onChange={(e) => setReviewDueAt(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-objective`}>
+                Objetivo geral do plano
+              </label>
+              <textarea
+                id={`${formId}-objective`}
+                value={generalObjective}
+                onChange={(e) => setGeneralObjective(e.target.value)}
+                rows={2}
+                placeholder="Descreva o propósito geral da intervenção terapêutica…"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-priorities`}>
+                Prioridades relatadas pela família (1ª avaliação / anamnese)
+              </label>
+              <textarea
+                id={`${formId}-priorities`}
+                value={familyPriorities}
+                onChange={(e) => setFamilyPriorities(e.target.value)}
+                rows={2}
+                placeholder="Principais queixas ou prioridades pontuadas pela família…"
+                className={inputClass}
+              />
+            </div>
           </div>
-          <p className="mt-1 text-xs text-ink-faint">
-            Domínios com itens ainda não adquiridos nos protocolos já aplicados (Módulo 3 MAAIS, slide 27). Adicione e
-            ajuste antes de salvar.
-          </p>
-          <ul className="mt-3 flex flex-col gap-3">
-            {suggestedGoals.map((s) => {
-              const added = addedSuggestionKeys.includes(s.key);
-              return (
-                <li key={s.key} className="flex items-start justify-between gap-3 rounded-md border border-paper-line-strong bg-paper px-3 py-2">
-                  <div>
-                    <div className="text-sm font-medium text-ink">
-                      {s.domain} <span className="text-ink-faint">· {s.protocolLabel}</span>
-                    </div>
-                    <div className="mt-0.5 text-xs text-ink-soft">{s.description}</div>
-                    <div className="mt-0.5 text-xs text-ink-faint">{s.baseline}</div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={added}
-                    onClick={() => addSuggestedGoal(s)}
-                    className="shrink-0 rounded-md border border-paper-line-strong px-3 py-1.5 text-xs font-medium text-chart hover:border-chart disabled:opacity-40"
-                  >
-                    {added ? "Adicionada" : "+ Adicionar meta"}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+
+          {teamSuggestions.length > 0 && (
+            <div className="rounded-lg border border-paper-line-strong bg-paper/60 p-4 shadow-sm space-y-2">
+              <div className="text-xs font-bold uppercase tracking-wide text-ink flex items-center gap-2">
+                <span>👥</span> Equipe de avaliação já definida
+              </div>
+              <p className="text-xs text-ink-faint m-0">Disciplinas abaixo já vêm marcadas conforme a equipe avaliadora.</p>
+              <ul className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-ink">
+                {teamSuggestions.map((t, i) => (
+                  <li key={i} className="bg-white border border-paper-line rounded-md p-2 flex flex-col">
+                    <span className="font-semibold text-ink">{t.profileName}</span>
+                    <span className="text-ink-faint">{t.roleLabel} {t.discipline && `• ${DISCIPLINES.find((d) => d.value === t.discipline)?.label ?? t.discipline}`}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* COLUNA DIREITA (Sugestões da Avaliação expandidas) */}
+        <div className="lg:col-span-6 flex flex-col">
+          {suggestedGoals.length > 0 ? (
+            <div className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm space-y-3 flex-1 flex flex-col">
+              <div className="text-xs font-bold uppercase tracking-wide text-ink flex items-center gap-2 border-b border-paper-line pb-2">
+                <span>💡</span> Sugestões de metas (da Avaliação do Paciente)
+              </div>
+              <p className="text-xs text-ink-faint m-0">
+                Itens pendentes dos protocolos aplicados na avaliação. Adicione diretamente às metas SMART.
+              </p>
+              <ul className="flex flex-col gap-2.5 overflow-y-auto max-h-[360px] pr-1 flex-1">
+                {suggestedGoals.map((s) => {
+                  const added = addedSuggestionKeys.includes(s.key);
+                  return (
+                    <li key={s.key} className="flex items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper/50 p-3 hover:bg-paper transition-all">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-ink">
+                          {s.domain} <span className="font-normal text-ink-faint">· {s.protocolLabel}</span>
+                        </div>
+                        <div className="text-xs text-ink-soft line-clamp-2">{s.description}</div>
+                        {s.baseline && <div className="text-[11px] text-ink-faint italic">{s.baseline}</div>}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={added}
+                        onClick={() => addSuggestedGoal(s)}
+                        className="shrink-0 rounded-md border border-paper-line-strong bg-white px-3 py-1.5 text-xs font-semibold text-chart hover:border-chart hover:bg-chart-soft/30 disabled:opacity-40 transition-all shadow-sm"
+                      >
+                        {added ? "✓ Adicionada" : "+ Adicionar"}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-paper-line-strong bg-paper/30 p-5 shadow-sm space-y-2 flex-1 flex flex-col items-center justify-center text-center">
+              <span className="text-2xl">📋</span>
+              <div className="text-xs font-bold uppercase tracking-wider text-ink-soft">Pronto para Planejamento</div>
+              <p className="text-xs text-ink-faint max-w-xs m-0">
+                Preencha a grade semanal e adicione as metas SMART abaixo para concluir a elaboração do PTS.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* GRADE SEMANAL DE ATENDIMENTO E CONCILIAÇÃO DE CALENDÁRIO DO PTS */}
-      <div className="rounded-xl border border-indigo-500/30 bg-slate-900/40 p-5 backdrop-blur-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+      <div className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-paper-line">
           <div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-2">
-              <span>📋</span> Grade de Sessões Semanais do PTS
+            <h2 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2 m-0">
+              <span className="text-base">📋</span> Grade de Sessões Semanais do PTS
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-ink-soft mt-0.5 m-0">
               Configure a especialidade, quantidade de sessões, dias disponíveis (Seg-Sáb), turno e terapeuta direcionado.
             </p>
           </div>
           <button
             type="button"
             onClick={addGridRow}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg border border-indigo-500/30 transition-colors"
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-chart bg-chart-soft hover:bg-chart-soft/80 rounded-md border border-chart/30 transition-all"
           >
             <span>+</span> Adicionar Mais uma Sessão
           </button>
@@ -609,17 +645,17 @@ export function PlanForm({
           {gridRows.map((row, index) => (
             <div
               key={row.id}
-              className="p-3.5 rounded-lg bg-slate-950/70 border border-slate-800 space-y-3 relative group"
+              className="p-4 rounded-md border border-paper-line-strong bg-paper/60 space-y-3 relative"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-faint">
                   Sessão / Especialidade #{index + 1}
                 </span>
                 {gridRows.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeGridRow(row.id)}
-                    className="text-xs text-rose-400 hover:text-rose-300 font-medium"
+                    className="text-xs text-status-negative-text hover:underline font-medium"
                   >
                     Remover Linha
                   </button>
@@ -629,13 +665,13 @@ export function PlanForm({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* 1. Especialidade / Terapia */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                  <label className="block text-[10px] font-bold uppercase text-ink-soft mb-1">
                     Especialidade / Terapia
                   </label>
                   <select
                     value={row.discipline}
                     onChange={(e) => updateGridRow(row.id, "discipline", e.target.value)}
-                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-md border border-paper-line-strong bg-white px-2.5 py-1.5 text-xs text-ink focus:border-chart focus:outline-none"
                   >
                     {DISCIPLINES.map((d) => (
                       <option key={d.value} value={d.value}>
@@ -647,7 +683,7 @@ export function PlanForm({
 
                 {/* 2. Número de Sessões Semanal */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                  <label className="block text-[10px] font-bold uppercase text-ink-soft mb-1">
                     Sessões / Semana
                   </label>
                   <input
@@ -656,19 +692,19 @@ export function PlanForm({
                     max={6}
                     value={row.sessionsPerWeek}
                     onChange={(e) => updateGridRow(row.id, "sessionsPerWeek", Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-md border border-paper-line-strong bg-white px-2.5 py-1.5 text-xs text-ink focus:border-chart focus:outline-none"
                   />
                 </div>
 
                 {/* 3. Turno */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                  <label className="block text-[10px] font-bold uppercase text-ink-soft mb-1">
                     Turno Disponível
                   </label>
                   <select
                     value={row.shift}
                     onChange={(e) => updateGridRow(row.id, "shift", e.target.value as "MANHA" | "TARDE")}
-                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-md border border-paper-line-strong bg-white px-2.5 py-1.5 text-xs text-ink focus:border-chart focus:outline-none"
                   >
                     <option value="MANHA">Manhã (08:00 - 12:00)</option>
                     <option value="TARDE">Tarde (13:00 - 18:00)</option>
@@ -677,7 +713,7 @@ export function PlanForm({
 
                 {/* 4. Terapeuta Direcionado (Opcional) */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                  <label className="block text-[10px] font-bold uppercase text-ink-soft mb-1">
                     Terapeuta Direcionado (Opcional)
                   </label>
                   <input
@@ -685,14 +721,14 @@ export function PlanForm({
                     placeholder="Nome do profissional…"
                     value={row.therapistName}
                     onChange={(e) => updateGridRow(row.id, "therapistName", e.target.value)}
-                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-md border border-paper-line-strong bg-white px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-chart focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* 5. Dias da Semana (Segunda a Sábado) */}
               <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">
+                <label className="block text-[10px] font-bold uppercase text-ink-soft mb-1.5">
                   Disponibilidade de Dias da Semana (Segunda a Sábado)
                 </label>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -702,13 +738,15 @@ export function PlanForm({
                       <button
                         key={day}
                         type="button"
+                        aria-pressed={selected}
                         onClick={() => toggleDayOfWeek(row.id, day)}
-                        className={`px-3 py-1 rounded-md text-xs font-semibold transition-all border ${
+                        className={`inline-flex items-center justify-center gap-1 min-w-[54px] px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                           selected
-                            ? "bg-indigo-600 text-white border-indigo-500 shadow-sm shadow-indigo-500/30"
-                            : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200"
+                            ? "bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-600/30"
+                            : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 hover:border-slate-400 hover:text-slate-900"
                         }`}
                       >
+                        {selected && <span className="text-[10px] font-black leading-none">✓</span>}
                         {DAY_LABELS[day]}
                       </button>
                     );
@@ -720,23 +758,23 @@ export function PlanForm({
         </div>
 
         {/* Data de Início e Ação de Gerar Calendário de 6 Meses */}
-        <div className="pt-3 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="pt-3 border-t border-paper-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <label className="text-xs font-medium text-slate-300 whitespace-nowrap">
+            <label className="text-xs font-medium text-ink-soft whitespace-nowrap">
               Início do Atendimento:
             </label>
             <input
               type="date"
               value={startDateStr}
               onChange={(e) => setStartDateStr(e.target.value)}
-              className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+              className="rounded-md border border-paper-line-strong bg-white px-3 py-1.5 text-xs text-ink focus:border-chart focus:outline-none"
             />
           </div>
 
           <button
             type="button"
             onClick={handleGenerateCalendar}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-lg shadow-emerald-600/30 transition-all"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-status-positive hover:opacity-90 rounded-md shadow-sm transition-all"
           >
             <span className="text-sm">🗓️</span> Criar Calendário de Sessões (Mensal - 6 Meses)
           </button>
@@ -765,47 +803,46 @@ export function PlanForm({
         />
       )}
 
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-review`}>
-          Data de revisão (opcional)
-        </label>
-        <input
-          id={`${formId}-review`}
-          type="date"
-          value={reviewDueAt}
-          onChange={(e) => setReviewDueAt(e.target.value)}
-          className={`${inputClass} max-w-xs`}
-        />
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Metas (SMART)</h2>
+      {/* METAS SMART (Layout Grid Responsivo de 2 colunas no Desktop grande) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between border-b border-paper-line pb-2">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2 m-0">
+              <span>🎯</span> Metas SMART e Programas ABA
+            </h2>
+            <p className="text-xs text-ink-soft mt-0.5 m-0">
+              Defina os objetivos específicos, critérios de domínio, estratégias e programas para coleta.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setGoals((prev) => [...prev, emptyGoal()])}
-            className="rounded-md border border-paper-line-strong px-3 py-1.5 text-xs font-medium text-chart hover:border-chart"
+            className="rounded-md border border-paper-line-strong bg-white px-3.5 py-1.5 text-xs font-bold text-chart hover:border-chart hover:bg-chart-soft/30 transition-all shadow-sm"
           >
             + Adicionar meta
           </button>
         </div>
-        <div className="mt-3 flex flex-col gap-4">
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
           {goals.map((goal, index) => (
-            <div key={goal.key} className="rounded-md border border-paper-line-strong bg-paper/60 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium uppercase tracking-wide text-ink-faint">Meta {index + 1}</span>
+            <div key={goal.key} className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm space-y-4 relative">
+              <div className="flex items-center justify-between border-b border-paper-line pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-soft">
+                  Meta #{index + 1}
+                </span>
                 <button
                   type="button"
                   onClick={() => removeGoal(goal.key)}
                   disabled={goals.length === 1}
-                  className="text-xs text-status-negative-text disabled:opacity-40"
+                  className="text-xs text-status-negative-text hover:underline font-semibold disabled:opacity-40"
                 >
                   Remover
                 </button>
               </div>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Disciplina</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Disciplina *</label>
                   <select
                     value={goal.discipline}
                     onChange={(e) => updateGoal(goal.key, "discipline", e.target.value)}
@@ -820,7 +857,7 @@ export function PlanForm({
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Domínio</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Domínio *</label>
                   <input
                     value={goal.domain}
                     onChange={(e) => updateGoal(goal.key, "domain", e.target.value)}
@@ -828,17 +865,20 @@ export function PlanForm({
                     className={inputClass}
                   />
                 </div>
+
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Meta (descrição)</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Meta (descrição) *</label>
                   <textarea
                     value={goal.description}
                     onChange={(e) => updateGoal(goal.key, "description", e.target.value)}
                     rows={2}
+                    placeholder="Descreva o objetivo específico SMART…"
                     className={inputClass}
                   />
                 </div>
+
                 <div>
-                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Linha de base (opcional)</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Linha de base (opcional)</label>
                   <input
                     value={goal.baseline}
                     onChange={(e) => updateGoal(goal.key, "baseline", e.target.value)}
@@ -846,23 +886,26 @@ export function PlanForm({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Alvo (opcional)</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Alvo (opcional)</label>
                   <input
                     value={goal.target}
                     onChange={(e) => updateGoal(goal.key, "target", e.target.value)}
                     className={inputClass}
                   />
                 </div>
+
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Critério de mastery (opcional)</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Critério de mastery (opcional)</label>
                   <input
                     value={goal.criterion}
                     onChange={(e) => updateGoal(goal.key, "criterion", e.target.value)}
+                    placeholder="Ex: 80% de precisão em 3 sessões consecutivas"
                     className={inputClass}
                   />
                 </div>
+
                 <div>
-                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Horizonte</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Horizonte</label>
                   <select
                     value={goal.horizon}
                     onChange={(e) => updateGoal(goal.key, "horizon", e.target.value)}
@@ -875,7 +918,7 @@ export function PlanForm({
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Metodologia</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Metodologia</label>
                   <select
                     value={goal.methodology}
                     onChange={(e) => updateGoal(goal.key, "methodology", e.target.value)}
@@ -888,70 +931,63 @@ export function PlanForm({
                     <option value="outra">Outra</option>
                   </select>
                 </div>
+
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
                     Estratégia (o que exatamente será feito)
                   </label>
-                  <p className="mt-0.5 text-xs text-ink-faint">
-                    Se dois terapeutas lerem esta meta, eles saberão exatamente o que ensinar e registrar?
-                  </p>
                   <textarea
                     value={goal.strategy}
                     onChange={(e) => updateGoal(goal.key, "strategy", e.target.value)}
                     rows={2}
+                    placeholder="Procedimento detalhado para aplicação…"
                     className={inputClass}
                   />
                 </div>
               </div>
 
               {goal.discipline === "aba" && (
-                <div className="mt-4 border-t border-paper-line-strong pt-3">
+                <div className="mt-4 border-t border-paper-line-strong pt-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+                      <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">
                         Programas ABA (coleta por tentativa)
                       </h3>
-                      <p className="mt-0.5 text-xs text-ink-faint">
-                        Cada programa vira um alvo que o terapeuta registra tentativa a tentativa na evolução da
-                        sessão. Sem programa aqui, esta meta não gera coleta de dados.
+                      <p className="text-[11px] text-ink-faint m-0">
+                        Alvos de coleta registrados tentativa a tentativa pelo terapeuta.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => addProgram(goal.key)}
-                      className="shrink-0 rounded-md border border-paper-line-strong px-3 py-1.5 text-xs font-medium text-chart hover:border-chart"
+                      className="shrink-0 rounded-md border border-paper-line-strong bg-white px-2.5 py-1 text-xs font-semibold text-chart hover:border-chart transition-all"
                     >
-                      + Adicionar programa
+                      + Programa
                     </button>
                   </div>
+
                   {goal.programs.length === 0 && (
-                    <p className="mt-2 text-xs text-ink-faint">Nenhum programa ainda.</p>
+                    <p className="text-xs text-ink-faint italic m-0">Nenhum programa cadastrado para esta meta.</p>
                   )}
-                  <div className="mt-3 flex flex-col gap-2">
+
+                  <div className="space-y-2">
                     {goal.programs.map((program) => (
                       <div
                         key={program.key}
-                        className="grid grid-cols-1 items-start gap-2 rounded-md border border-paper-line-strong bg-paper px-3 py-2 sm:grid-cols-[1fr_180px_1fr_auto]"
+                        className="grid grid-cols-1 items-start gap-2 rounded-md border border-paper-line-strong bg-paper/60 p-2.5 sm:grid-cols-[1fr_140px_1fr_auto]"
                       >
                         <div>
-                          <label className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
-                            Nome do programa
-                          </label>
+                          <label className="text-[10px] font-bold uppercase text-ink-faint">Nome do programa</label>
                           <input
                             value={program.name}
                             disabled={!!program.protocolItemId}
                             onChange={(e) => updateProgram(goal.key, program.key, "name", e.target.value)}
-                            placeholder="Ex: aponta para objetos ao ser nomeado"
+                            placeholder="Ex: aponta objetos…"
                             className={`${inputClass} disabled:opacity-70`}
                           />
-                          {program.itemCode && (
-                            <p className="mt-0.5 text-[11px] text-ink-faint">Item {program.itemCode} do protocolo</p>
-                          )}
                         </div>
                         <div>
-                          <label className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
-                            Tipo de registro
-                          </label>
+                          <label className="text-[10px] font-bold uppercase text-ink-faint">Tipo registro</label>
                           <select
                             value={program.targetType}
                             onChange={(e) =>
@@ -967,9 +1003,7 @@ export function PlanForm({
                           </select>
                         </div>
                         <div>
-                          <label className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
-                            Critério de mastery
-                          </label>
+                          <label className="text-[10px] font-bold uppercase text-ink-faint">Critério mastery</label>
                           <input
                             value={program.masteryCriterion}
                             onChange={(e) =>
@@ -982,9 +1016,9 @@ export function PlanForm({
                         <button
                           type="button"
                           onClick={() => removeProgram(goal.key, program.key)}
-                          className="self-end text-xs text-status-negative-text sm:mb-2"
+                          className="self-end text-xs text-status-negative-text font-semibold hover:underline sm:mb-2"
                         >
-                          Remover
+                          ✕
                         </button>
                       </div>
                     ))}
@@ -996,16 +1030,37 @@ export function PlanForm({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={handleSubmit}
-          className="self-start rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
-        >
-          {isPending ? "Salvando…" : "Criar plano em rascunho"}
-        </button>
-        {error && <p className="text-xs text-status-negative-text">{error}</p>}
+      {/* BARRA DE AÇÃO FIXA / RODAPÉ DO FORMULÁRIO */}
+      <div className="sticky bottom-4 z-20 rounded-xl border border-paper-line-strong bg-white/95 backdrop-blur-md p-4 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          {error ? (
+            <p className="text-xs font-semibold text-status-negative-text flex items-center gap-1.5 m-0">
+              <span>⚠️</span> {error}
+            </p>
+          ) : (
+            <p className="text-xs text-ink-soft m-0">
+              Revise a grade de atendimento e as metas SMART antes de salvar o PTS.
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <button
+            type="button"
+            onClick={() => router.push("/supervisao")}
+            className="px-4 py-2 text-xs font-semibold text-ink-soft bg-paper hover:bg-paper-line-strong rounded-md border border-paper-line transition-all"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleSubmit}
+            className="inline-flex items-center justify-center gap-2 px-6 py-2 text-xs font-bold text-white bg-chart hover:opacity-90 rounded-md shadow-md transition-all disabled:opacity-50"
+          >
+            {isPending ? "Salvando PTS…" : "💾 Salvar Plano em Rascunho"}
+          </button>
+        </div>
       </div>
     </div>
   );

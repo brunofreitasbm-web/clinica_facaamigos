@@ -16,12 +16,14 @@ import {
   getPendingAnamnesisRequestsAction,
   approveAnamnesisDocumentAction,
   rejectAnamnesisDocumentAction,
+  createMockWhatsAppAnamnesisRequestAction,
   type AnamnesisRequestItem,
 } from "@/app/actions/anamnesis-chatbot";
 
 export function AnamnesisValidationPanel() {
   const [requests, setRequests] = useState<AnamnesisRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creatingMock, setCreatingMock] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -33,6 +35,26 @@ export function AnamnesisValidationPanel() {
       setRequests(res.requests);
     }
     setLoading(false);
+  };
+
+  const handleCreateMock = async () => {
+    setCreatingMock(true);
+    setFeedback(null);
+    const res = await createMockWhatsAppAnamnesisRequestAction();
+    setCreatingMock(false);
+
+    if (res.success) {
+      setFeedback({
+        type: "success",
+        text: "Paciente fictício 'Lucas Gabriel Santana' adicionado à fila com dados do WhatsApp!",
+      });
+      fetchRequests();
+    } else {
+      setFeedback({
+        type: "error",
+        text: res.error || "Erro ao criar paciente fictício.",
+      });
+    }
   };
 
   useEffect(() => {
@@ -94,15 +116,26 @@ export function AnamnesisValidationPanel() {
         <p className="text-xs text-ink-faint">
           Valide laudos e guias recebidos via robô de WhatsApp para liberar horários de agendamento.
         </p>
-        <button
-          type="button"
-          onClick={fetchRequests}
-          disabled={loading}
-          className="btn btn-secondary text-xs py-1.5 px-3 self-start sm:self-auto"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          Atualizar fila
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleCreateMock}
+            disabled={creatingMock || loading}
+            className="btn btn-primary text-xs py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Phone className="h-3.5 w-3.5" />
+            {creatingMock ? "Criando..." : "+ Gerar Paciente WhatsApp (Teste)"}
+          </button>
+          <button
+            type="button"
+            onClick={fetchRequests}
+            disabled={loading}
+            className="btn btn-secondary text-xs py-1.5 px-3"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Atualizar fila
+          </button>
+        </div>
       </div>
 
       {/* Alerta de Feedback */}
@@ -140,12 +173,23 @@ export function AnamnesisValidationPanel() {
             Carregando triagens pendentes...
           </div>
         ) : pendingRequests.length === 0 ? (
-          <div className="card items-center gap-2 text-center">
+          <div className="card items-center gap-3 text-center py-6">
             <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500 opacity-80" />
-            <p className="text-sm font-medium text-ink">Nenhum documento pendente no momento!</p>
-            <p className="text-xs text-ink-faint">
-              Todas as triagens de anamnese recebidas via WhatsApp já foram processadas.
-            </p>
+            <div>
+              <p className="text-sm font-medium text-ink">Nenhum documento pendente no momento!</p>
+              <p className="text-xs text-ink-faint mt-1">
+                Todas as triagens de anamnese recebidas via WhatsApp já foram processadas.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCreateMock}
+              disabled={creatingMock}
+              className="btn btn-primary text-xs py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white mt-1"
+            >
+              <Phone className="h-4 w-4" />
+              {creatingMock ? "Gerando..." : "Criar Paciente Fictício (WhatsApp)"}
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

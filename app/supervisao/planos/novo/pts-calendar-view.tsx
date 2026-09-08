@@ -112,19 +112,19 @@ export function PTSCalendarView({
   };
 
   return (
-    <div className="mt-6 border border-emerald-500/30 bg-slate-900/60 rounded-xl p-5 shadow-lg backdrop-blur-md">
+    <div className="mt-6 border border-paper-line-strong bg-white rounded-lg p-5 shadow-sm space-y-4">
       {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-paper-line">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+            <h3 className="text-base font-bold text-ink flex items-center gap-2 m-0">
               <span className="text-xl">🗓️</span> Calendário de Sessões Conciliado (6 Meses)
             </h3>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            <span className="tag-status st-confirmada">
               Vagas Reservadas Indefinidamente
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-ink-soft mt-1 m-0">
             Início em {new Date(startDate + "T00:00:00").toLocaleDateString("pt-BR")} • Validade do Plano: até{" "}
             {new Date(validUntil + "T00:00:00").toLocaleDateString("pt-BR")} (6 Meses)
           </p>
@@ -133,7 +133,7 @@ export function PTSCalendarView({
         <button
           onClick={onOpenPrintModal}
           type="button"
-          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-md shadow-indigo-500/20 transition-all border border-indigo-400/30"
+          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-chart hover:bg-chart-strong rounded-md shadow-sm transition-all"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -148,7 +148,7 @@ export function PTSCalendarView({
       </div>
 
       {/* Navegação por Meses */}
-      <div className="flex items-center gap-2 overflow-x-auto py-3 border-b border-slate-800 scrollbar-thin scrollbar-thumb-slate-700">
+      <div className="flex items-center gap-2 overflow-x-auto py-2 border-b border-paper-line">
         {monthKeys.map((mKey, idx) => {
           const [year, month] = mKey.split("-");
           const monthLabel = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString("pt-BR", {
@@ -166,10 +166,10 @@ export function PTSCalendarView({
               key={mKey}
               onClick={() => setActiveMonthKey(mKey)}
               type="button"
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
                 isActive
-                  ? "bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/30"
-                  : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-accent text-white font-bold shadow-xs"
+                  : "bg-paper text-ink-soft hover:bg-paper-line hover:text-ink border border-paper-line-strong"
               }`}
             >
               <span>
@@ -178,10 +178,10 @@ export function PTSCalendarView({
               <span
                 className={`px-1.5 py-0.2 rounded-full text-[10px] ${
                   hasManualRequired
-                    ? "bg-rose-500 text-white font-bold animate-pulse"
+                    ? "bg-status-negative text-white font-bold animate-pulse"
                     : isActive
-                    ? "bg-indigo-800 text-indigo-100"
-                    : "bg-slate-700 text-slate-400"
+                    ? "bg-white/20 text-white"
+                    : "bg-paper-line-strong text-ink-faint"
                 }`}
               >
                 {count}
@@ -193,9 +193,9 @@ export function PTSCalendarView({
 
       {/* Tabela do Mês Selecionado */}
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full text-left text-xs text-slate-300 border-collapse">
+        <table className="w-full text-left text-xs text-ink border-collapse">
           <thead>
-            <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400 font-semibold uppercase text-[10px]">
+            <tr className="border-b border-paper-line bg-paper text-ink-faint font-semibold uppercase text-[10px]">
               <th className="py-2.5 px-3">Data</th>
               <th className="py-2.5 px-3">Dia da Semana</th>
               <th className="py-2.5 px-3">Especialidade / Terapia</th>
@@ -206,33 +206,33 @@ export function PTSCalendarView({
               <th className="py-2.5 px-3 text-right">Ação</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60">
+          <tbody className="divide-y divide-paper-line">
             {currentMonthSessions.map((session) => (
-              <tr key={session.id} className="hover:bg-slate-800/40 transition-colors">
-                <td className="py-2.5 px-3 font-semibold text-slate-100">
+              <tr key={session.id} className="hover:bg-paper/60 transition-colors">
+                <td className="py-2.5 px-3 font-semibold text-ink">
                   {new Date(session.date + "T00:00:00").toLocaleDateString("pt-BR")}
                 </td>
-                <td className="py-2.5 px-3 text-slate-400">{session.dayOfWeek}</td>
-                <td className="py-2.5 px-3 font-medium text-indigo-300">{session.disciplineLabel}</td>
+                <td className="py-2.5 px-3 text-ink-soft">{session.dayOfWeek}</td>
+                <td className="py-2.5 px-3 font-medium text-chart-strong">{session.disciplineLabel}</td>
                 <td className="py-2.5 px-3">
                   <span
                     className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
                       session.shift === "MANHA"
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                        : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                        ? "bg-amber-100 text-amber-900 border border-amber-300"
+                        : "bg-blue-100 text-blue-900 border border-blue-300"
                     }`}
                   >
                     {session.shift === "MANHA" ? "Manhã" : "Tarde"} ({session.timeSlot})
                   </span>
                 </td>
-                <td className="py-2.5 px-3 text-slate-300">{session.therapistName || "Terapeuta Direcionado"}</td>
-                <td className="py-2.5 px-3 text-slate-400">{session.roomName || "Sala Integrada"}</td>
+                <td className="py-2.5 px-3 text-ink-soft">{session.therapistName || "Terapeuta Direcionado"}</td>
+                <td className="py-2.5 px-3 text-ink-faint">{session.roomName || "Sala Integrada"}</td>
                 <td className="py-2.5 px-3">{renderStatusBadge(session.conflictStatus, session.conflictNote)}</td>
                 <td className="py-2.5 px-3 text-right">
                   <button
                     type="button"
                     onClick={() => setEditingSession(session)}
-                    className="px-2.5 py-1 text-[11px] font-semibold text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-600 rounded border border-indigo-500/30 transition-all"
+                    className="px-2.5 py-1 text-[11px] font-semibold text-chart bg-chart-soft hover:bg-chart-soft/80 rounded border border-chart/30 transition-all"
                   >
                     ✏️ Ajustar
                   </button>
@@ -245,15 +245,15 @@ export function PTSCalendarView({
 
       {/* MODAL DE EDIÇÃO/AGENDAMENTO MANUAL PELO SUPERVISOR */}
       {editingSession && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+        <div className="dialog-backdrop z-50">
+          <div className="dialog max-w-md bg-white border border-paper-line-strong rounded-xl p-6 shadow-lg space-y-4">
+            <div className="flex items-center justify-between border-b border-paper-line pb-3">
+              <h4 className="text-sm font-bold text-ink flex items-center gap-2 m-0">
                 <span>✏️</span> Ajuste Manual pelo Supervisor
               </h4>
               <button
                 onClick={() => setEditingSession(null)}
-                className="text-slate-400 hover:text-slate-200 text-xs font-bold"
+                className="text-ink-faint hover:text-ink text-xs font-bold"
               >
                 ✕
               </button>
@@ -261,17 +261,17 @@ export function PTSCalendarView({
 
             <form onSubmit={handleSaveManualEdit} className="space-y-3 text-xs">
               <div>
-                <label className="block font-bold text-slate-400 mb-1">Especialidade / Terapia</label>
+                <label className="block font-bold text-ink-soft mb-1">Especialidade / Terapia</label>
                 <input
                   type="text"
                   disabled
                   value={editingSession.disciplineLabel}
-                  className="w-full rounded bg-slate-800 border border-slate-700 px-3 py-1.5 text-slate-300 opacity-70"
+                  className="w-full rounded bg-paper border border-paper-line-strong px-3 py-1.5 text-ink-soft opacity-70"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-400 mb-1">Data da Sessão</label>
+                <label className="block font-bold text-ink-soft mb-1">Data da Sessão</label>
                 <input
                   type="date"
                   value={editingSession.date}
@@ -281,13 +281,13 @@ export function PTSCalendarView({
                     const dayName = d.toLocaleDateString("pt-BR", { weekday: "short" }).toUpperCase();
                     setEditingSession({ ...editingSession, date: newDate, dayOfWeek: dayName });
                   }}
-                  className="w-full rounded bg-slate-800 border border-slate-700 px-3 py-1.5 text-slate-100"
+                  className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-400 mb-1">Turno</label>
+                  <label className="block font-bold text-ink-soft mb-1">Turno</label>
                   <select
                     value={editingSession.shift}
                     onChange={(e) =>
@@ -296,7 +296,7 @@ export function PTSCalendarView({
                         shift: e.target.value as "MANHA" | "TARDE",
                       })
                     }
-                    className="w-full rounded bg-slate-800 border border-slate-700 px-3 py-1.5 text-slate-100"
+                    className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
                   >
                     <option value="MANHA">Manhã</option>
                     <option value="TARDE">Tarde</option>
@@ -304,50 +304,50 @@ export function PTSCalendarView({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-400 mb-1">Horário (Slot)</label>
+                  <label className="block font-bold text-ink-soft mb-1">Horário (Slot)</label>
                   <input
                     type="text"
                     value={editingSession.timeSlot}
                     onChange={(e) => setEditingSession({ ...editingSession, timeSlot: e.target.value })}
                     placeholder="Ex: 09:00 - 10:00"
-                    className="w-full rounded bg-slate-800 border border-slate-700 px-3 py-1.5 text-slate-100"
+                    className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-400 mb-1">Terapeuta Responsável</label>
+                <label className="block font-bold text-ink-soft mb-1">Terapeuta Responsável</label>
                 <input
                   type="text"
                   value={editingSession.therapistName || ""}
                   onChange={(e) => setEditingSession({ ...editingSession, therapistName: e.target.value })}
                   placeholder="Nome do terapeuta…"
-                  className="w-full rounded bg-slate-800 border border-slate-700 px-3 py-1.5 text-slate-100"
+                  className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-400 mb-1">Sala de Atendimento</label>
+                <label className="block font-bold text-ink-soft mb-1">Sala de Atendimento</label>
                 <input
                   type="text"
                   value={editingSession.roomName || ""}
                   onChange={(e) => setEditingSession({ ...editingSession, roomName: e.target.value })}
                   placeholder="Ex: Sala 01 - Fono"
-                  className="w-full rounded bg-slate-800 border border-slate-700 px-3 py-1.5 text-slate-100"
+                  className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+              <div className="pt-3 border-t border-paper-line flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingSession(null)}
-                  className="px-3 py-1.5 text-slate-300 hover:bg-slate-800 rounded font-medium"
+                  className="btn btn-ghost text-xs"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded shadow-md"
+                  className="btn btn-primary text-xs"
                 >
                   Salvar Ajuste Manual
                 </button>
