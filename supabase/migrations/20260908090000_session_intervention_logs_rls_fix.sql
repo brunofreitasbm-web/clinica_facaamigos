@@ -15,9 +15,10 @@ create policy session_intervention_logs_insert on session_intervention_logs for 
       select 1 from appointments a
       join patients p on p.id = a.patient_id
       where a.id = session_intervention_logs.appointment_id
+        and a.patient_id = session_intervention_logs.patient_id
         and p.clinic_id = (select current_clinic_id())
     )
-    and (select app_current_role()) = any (array['terapeuta','supervisor'])
+    and (select app_current_role()) = any (array['gestor','supervisor','terapeuta'])
   );
 
 drop policy if exists session_intervention_logs_read on session_intervention_logs;
@@ -27,6 +28,7 @@ create policy session_intervention_logs_read on session_intervention_logs for se
       select 1 from appointments a
       join patients p on p.id = a.patient_id
       where a.id = session_intervention_logs.appointment_id
+        and a.patient_id = session_intervention_logs.patient_id
         and p.clinic_id = (select current_clinic_id())
         and (
           (select app_current_role()) = any (array['gestor','supervisor','terapeuta'])
