@@ -70,7 +70,7 @@ export default async function TerapeutaMetricasPage() {
         <p className="text-xs opacity-70">Último mês fechado, calculado no dia 1.</p>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 p-5 sm:p-10">
+      <div className="mx-auto grid w-full max-w-[640px] grid-cols-1 gap-3 p-5 sm:p-10 md:max-w-[900px] md:grid-cols-2 lg:grid-cols-3">
         {metrics.map((m) => {
           const empty = m.valueLabel ? null : metricEmptyState(m);
           return (

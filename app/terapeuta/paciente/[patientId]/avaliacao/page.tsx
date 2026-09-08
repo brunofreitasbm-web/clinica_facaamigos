@@ -65,8 +65,8 @@ export default async function PatientAssessmentPage({
             </p>
             <p className="text-sm text-ink-faint">
               Peça ao gestor para cadastrar os marcos em{" "}
-              <Link href="/gestor/cadastros/terapias" className="underline">
-                Cadastros → Terapias
+              <Link href="/gestor/cadastros/protocolos" className="underline">
+                Cadastros → Protocolos
               </Link>
               .
             </p>

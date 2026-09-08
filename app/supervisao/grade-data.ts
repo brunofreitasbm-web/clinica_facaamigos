@@ -64,69 +64,17 @@ export function weekBounds(week: WeekInfo): { start: string; end: string } {
   return { start: week.days[0], end: addDays(week.days[4], 1) };
 }
 
-export type AppointmentKind = "recorrente" | "avaliacao" | "provisoria" | "supervisao";
-
-/**
- * O schema (PRD §7) não tem um "tipo de sessão" explícito — só booleans
- * (`is_evaluation`, `is_provisional`) e `discipline` livre. O mock
- * (Coordenador.dc.html) pinta 4 categorias; reconstruímos a 4ª
- * ("Supervisão", sem coluna própria) por convenção de nome de disciplina.
- */
-export function classifyAppointmentKind(appointment: {
-  isEvaluation: boolean;
-  isProvisional: boolean;
-  discipline: string;
-}): AppointmentKind {
-  if (appointment.isEvaluation) return "avaliacao";
-  if (appointment.isProvisional) return "provisoria";
-  if (appointment.discipline.toLowerCase().includes("supervis")) return "supervisao";
-  return "recorrente";
-}
-
-export const KIND_STYLE: Record<
-  AppointmentKind,
-  { label: string; bg: string; text: string; border: string; swatch: string; badge?: string }
-> = {
-  recorrente: {
-    label: "Terapia recorrente",
-    bg: "var(--color-accent-100)",
-    text: "var(--color-ink)",
-    border: "var(--color-divider)",
-    swatch: "🟦",
-  },
-  avaliacao: {
-    label: "Avaliação",
-    bg: "var(--status-agendada-bg)",
-    text: "var(--status-agendada)",
-    border: "var(--status-agendada-border, #fcd34d)",
-    swatch: "🟨",
-  },
-  provisoria: {
-    label: "Provisória · sem guia",
-    bg: "var(--status-falta-bg)",
-    text: "#b91c1c",
-    border: "#fca5a5",
-    swatch: "🟥",
-    badge: "Sem Guia",
-  },
-  supervisao: {
-    label: "Supervisão",
-    bg: "var(--color-neutral-200)",
-    text: "var(--color-ink)",
-    border: "var(--color-neutral-400, #cbd5e1)",
-    swatch: "⬜",
-  },
-};
-
-
-// Statuses que não entram na grade "planejada" — cancelamento/remarcação já
-// liberou o horário.
-export const GRID_EXCLUDED_STATUSES = [
-  "cancelada_familia",
-  "cancelada_terapeuta",
-  "cancelada_clinica",
-  "remarcada",
-];
+// AppointmentKind/classifyAppointmentKind/KIND_STYLE/GRID_EXCLUDED_STATUSES
+// moraram aqui até app/terapeuta/agenda precisar da mesma classificação
+// visual — mudaram para lib/appointment-status-style.ts (evita import
+// cruzado app/terapeuta/** -> app/supervisao/**) e são reexportados abaixo
+// pra nada em app/supervisao/** precisar mudar.
+export {
+  type AppointmentKind,
+  classifyAppointmentKind,
+  KIND_STYLE,
+  GRID_EXCLUDED_STATUSES,
+} from "@/lib/appointment-status-style";
 
 /** "HH:mm" de um instante ISO, no fuso da clínica. */
 export function timeLabel(isoInstant: string, timeZone: string): string {

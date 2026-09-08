@@ -112,13 +112,13 @@ export function TrialDataPanel({
             <div className="mt-3 flex flex-wrap items-end gap-3">
               <div>
                 <p className="text-xs text-ink-soft">Resultado</p>
-                <div className="mt-1 flex gap-1">
+                <div className="mt-1 flex flex-wrap gap-1.5">
                   {RESULT_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => updateProgram(program.id, { result: opt.value })}
-                      className={`rounded-md border px-2 py-1 text-xs font-medium ${
+                      className={`min-h-[44px] rounded-md border px-3 py-1 text-xs font-medium ${
                         ps.result === opt.value
                           ? "border-chart bg-chart text-paper"
                           : "border-paper-line-strong bg-paper text-ink"
@@ -163,7 +163,7 @@ export function TrialDataPanel({
                 type="button"
                 disabled={isSaving}
                 onClick={() => handleSave(program)}
-                className="rounded-md bg-chart px-3 py-1.5 text-xs font-medium text-paper disabled:opacity-50"
+                className="min-h-[44px] rounded-md bg-chart px-4 py-1.5 text-xs font-medium text-paper disabled:opacity-50"
               >
                 {isSaving ? "Salvando…" : "Registrar tentativa"}
               </button>

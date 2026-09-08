@@ -69,3 +69,45 @@ export const PROTOCOL_LABEL: Record<string, string> = Object.fromEntries(
 export function findProtocolCatalogEntry(name: string): ProtocolCatalogEntry | undefined {
   return PROTOCOL_CATALOG.find((p) => p.name === name);
 }
+
+export async function getEnabledProtocolsForClinic(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  clinicId: string
+): Promise<{ name: string; displayName: string; area: string | null; discipline: string }[]> {
+  const { data: registeredProtocols } = await supabase
+    .from("protocols")
+    .select("name, display_name")
+    .eq("clinic_id", clinicId);
+
+  if (!registeredProtocols || registeredProtocols.length === 0) {
+    return PROTOCOL_CATALOG.filter((p) => p.name !== "outro");
+  }
+
+  const registeredMap = new Map<string, { name: string; display_name?: string | null }>(
+    registeredProtocols.map((r: { name: string; display_name?: string | null }) => [r.name, r])
+  );
+
+  const enabledFromCatalog = PROTOCOL_CATALOG.filter((p) => p.name !== "outro" && registeredMap.has(p.name)).map(
+    (p) => {
+      const reg = registeredMap.get(p.name);
+      return {
+        ...p,
+        displayName: reg?.display_name || p.displayName,
+      };
+    }
+  );
+
+  const catalogNames = new Set<string>(PROTOCOL_CATALOG.map((p) => p.name));
+  const customProtocols = registeredProtocols
+    .filter((r: { name: string }) => r.name !== "outro" && !catalogNames.has(r.name))
+    .map((r: { name: string; display_name?: string | null }) => ({
+      name: r.name,
+      displayName: r.display_name || r.name,
+      area: null,
+      discipline: "outra",
+    }));
+
+  return [...enabledFromCatalog, ...customProtocols];
+}
+

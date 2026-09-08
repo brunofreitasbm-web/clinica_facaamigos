@@ -90,7 +90,7 @@ export default async function EvolucaoHistoricoPage({
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4 p-5 sm:p-10">
+      <div className="mx-auto flex w-full max-w-[640px] md:max-w-[760px] flex-col gap-4 p-5 sm:p-10">
         {!versions || versions.length === 0 ? (
           <div className="card">
             <p className="text-sm text-ink-soft">Nenhuma versão de evolução visível para este acesso.</p>

@@ -33,6 +33,10 @@ export const DOCUMENT_CATEGORIES = [
   { value: "certidao_nascimento", label: "Certidão de nascimento" },
   { value: "documento_identidade", label: "Documento de identidade (RG/CPF)" },
   { value: "comprovante_residencia", label: "Comprovante de residência" },
+  // PDF consolidado gerado pela Supervisão no Prontuário Unificado
+  // (20260908210000_family_share_document_category.sql) — sempre
+  // shared_with_family=true, nunca aparece no seletor de upload da recepção.
+  { value: "compartilhamento_familia", label: "Compartilhamento com a família" },
 ] as const;
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]["value"];

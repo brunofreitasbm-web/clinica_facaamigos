@@ -2,8 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { ShieldCheck, FileCheck, Search, History, Lock } from "lucide-react";
 import Link from "next/link";
+import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
 import { logProntuarioAccess } from "./actions";
 import { PrintButton } from "./print-button";
+import { ShareFamilyButton } from "./share-family-button";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +35,15 @@ export default async function ProntuarioUnificadoPage({
   const { q, p: selectedPatientId } = await searchParams;
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let canShareWithFamily = false;
+  if (user) {
+    const { data: viewerProfile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    canShareWithFamily = viewerProfile?.role === "supervisor" || viewerProfile?.role === "gestor";
+  }
+
   let patientQuery = supabase
     .from("patients")
     .select("id, full_name, cpf, birth_date, status")
@@ -52,11 +63,14 @@ export default async function ProntuarioUnificadoPage({
   let signedNotesCount = 0;
   let totalNotesCount = 0;
   let accessCount30d = 0;
+  let shareableDocuments: { id: string; categoryLabel: string; uploadedAt: string }[] = [];
+  let shareableGoals: { id: string; description: string; statusLabel: string }[] = [];
+  let shareableMeetings: { id: string; kindLabel: string; heldAt: string }[] = [];
 
   if (selectedPatient) {
     await logProntuarioAccess(selectedPatient.id);
 
-    const [notesRes, assessmentsRes, meetingsRes, documentsRes, accessRes] = await Promise.all([
+    const [notesRes, assessmentsRes, meetingsRes, documentsRes, accessRes, treatmentPlanRes] = await Promise.all([
       supabase
         .from("session_notes")
         .select("id, version, free_text, signed_at, created_at_server, appointments!inner(patient_id, starts_at), profiles!session_notes_therapist_id_fkey(full_name)")
@@ -86,6 +100,14 @@ export default async function ProntuarioUnificadoPage({
         .select("id, accessed_at")
         .eq("patient_id", selectedPatient.id)
         .gte("accessed_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+      supabase
+        .from("treatment_plans")
+        .select("id")
+        .eq("patient_id", selectedPatient.id)
+        .eq("status", "aprovado")
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     const notes = notesRes.data ?? [];
@@ -146,6 +168,37 @@ export default async function ProntuarioUnificadoPage({
       .slice(0, 30);
 
     accessCount30d = accessRes.data?.length ?? 0;
+
+    // Itens elegíveis para o PDF de compartilhamento com a família (botão
+    // ShareFamilyButton) — só documentos, metas ativas/atingidas do plano
+    // aprovado e reuniões; nunca evoluções clínicas nem avaliações de
+    // protocolo (§9.4-A, ver generateFamilyShare em ./actions.ts).
+    shareableDocuments = (documentsRes.data ?? []).map((d: any) => ({
+      id: d.id,
+      categoryLabel: DOCUMENT_CATEGORY_LABEL[d.category] ?? d.category,
+      uploadedAt: fmt(d.uploaded_at),
+    }));
+
+    const treatmentPlanId = treatmentPlanRes.data?.id;
+    if (treatmentPlanId) {
+      const { data: goalsData } = await supabase
+        .from("plan_goals")
+        .select("id, description, status")
+        .eq("treatment_plan_id", treatmentPlanId)
+        .in("status", ["ativa", "atingida"]);
+
+      shareableGoals = (goalsData ?? []).map((g) => ({
+        id: g.id,
+        description: g.description,
+        statusLabel: g.status === "atingida" ? "Atingida" : "Em andamento",
+      }));
+    }
+
+    shareableMeetings = (meetingsRes.data ?? []).map((m: any) => ({
+      id: m.id,
+      kindLabel: m.kind === "revisao_pts" ? "Revisão de PTS" : m.kind === "devolutiva" ? "Devolutiva" : m.kind,
+      heldAt: fmt(m.held_at),
+    }));
   }
 
   return (
@@ -169,7 +222,19 @@ export default async function ProntuarioUnificadoPage({
             </h6>
             <h1 className="m-0">Prontuário Eletrônico Unificado & Trilha de Auditoria</h1>
           </div>
-          {selectedPatient && <PrintButton hasRecords={timeline.length > 0} />}
+          {selectedPatient && (
+            <div className="flex items-center gap-2">
+              {canShareWithFamily && (
+                <ShareFamilyButton
+                  patientId={selectedPatient.id}
+                  documents={shareableDocuments}
+                  goals={shareableGoals}
+                  meetings={shareableMeetings}
+                />
+              )}
+              <PrintButton hasRecords={timeline.length > 0} />
+            </div>
+          )}
         </div>
 
         <section className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">

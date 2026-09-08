@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
+import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
@@ -8,11 +9,9 @@ import { getProgramsForAppointment } from "@/lib/trial-data";
 import { getActiveGoalsForPatient, getPreviousSessionMetaIds } from "@/lib/session-note-goals";
 import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getInterventionCatalog } from "@/lib/intervention-catalog";
-import { PROTOCOL_CATALOG, PROTOCOL_LABEL } from "@/lib/protocol-catalog";
+import { PROTOCOL_LABEL, getEnabledProtocolsForClinic } from "@/lib/protocol-catalog";
 import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
 import type { NativeInstrumentKey } from "@/lib/native-instruments";
-
-const CONFIGURABLE_PROTOCOLS = PROTOCOL_CATALOG.filter((p) => p.name !== "outro");
 import { EvolutionForm, type EditingContext } from "./evolution-form";
 import { TrialDataPanel } from "./trial-data-panel";
 import { getMetasTrabalhadas, type GoalResultLevel, type SessionNoteStructured } from "@/lib/session-note-fields";
@@ -22,11 +21,16 @@ export default async function EvolucaoPage({
   searchParams,
 }: {
   params: Promise<{ appointmentId: string }>;
-  searchParams: Promise<{ editar?: string }>;
+  searchParams: Promise<{ editar?: string; voltar?: string; date?: string }>;
 }) {
   const { appointmentId } = await params;
-  const { editar } = await searchParams;
+  const { editar, voltar, date } = await searchParams;
   const supabase = await createClient();
+
+  // Vindo da agenda (?voltar=agenda&date=), o "← voltar" retorna pra lá em
+  // vez de forçar uma parada na ficha do paciente — ver plano "evolução
+  // mobile", assimetria do back-link.
+  const agendaBackHref = voltar === "agenda" ? `/terapeuta/agenda?view=dia${date ? `&date=${date}` : ""}` : null;
 
   const {
     data: { user },
@@ -93,6 +97,10 @@ export default async function EvolucaoPage({
     timeZone: CLINIC_TIMEZONE,
   });
 
+  const enabledProtocols = patientRecord
+    ? await getEnabledProtocolsForClinic(supabase, patientRecord.clinic_id)
+    : [];
+
   if (canSign && appointment.status === "realizada" && !existingNote) {
     // Metas trabalhadas (PRD §9.4): checkbox das metas ativas do plano
     // aprovado, pré-marcadas com as da sessão anterior; e catálogo de
@@ -116,52 +124,55 @@ export default async function EvolucaoPage({
 
     return (
       <main className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-[640px] flex-col gap-6 p-5 sm:p-10">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-2">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Instrumentos de Avaliação
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {CONFIGURABLE_PROTOCOLS.map((protocol) => (
-                  <Link
-                    key={protocol.name}
-                    href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.name}`}
-                    className="btn btn-secondary w-fit text-xs"
-                  >
-                    📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
-                  </Link>
-                ))}
-                {showFono && (
-                  <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit text-xs">
-                    🗣️ Fono (ADL/ADL-2/PROC)
-                  </Link>
-                )}
-                {showSociallySavvy && (
-                  <Link
-                    href={`/terapeuta/paciente/${appointment.patient_id}/socially-savvy`}
-                    className="btn btn-secondary w-fit text-xs"
-                  >
-                    🤝 Socially Savvy
-                  </Link>
-                )}
+        <EvolutionForm
+          appointmentId={appointment.id}
+          patientId={appointment.patient_id}
+          patientName={patientName}
+          discipline={appointment.discipline}
+          sessionTime={sessionTime}
+          attendanceStartedAt={appointment.attendance_started_at}
+          pinConfigured={!!profile.signature_pin_hash}
+          activeGoals={activeGoals}
+          preCheckedGoalIds={preCheckedGoalIds}
+          behaviorTypes={behaviorCatalog}
+          interventionCatalog={interventionCatalog}
+          imageConsent={imageConsent}
+          backHref={agendaBackHref ?? undefined}
+          topContent={
+            <>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-2">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Instrumentos de Avaliação
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {enabledProtocols.map((protocol) => (
+                    <Link
+                      key={protocol.name}
+                      href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.name}`}
+                      className="btn btn-secondary w-fit text-xs"
+                    >
+                      📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
+                    </Link>
+                  ))}
+                  {showFono && (
+                    <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit text-xs">
+                      🗣️ Fono (ADL/ADL-2/PROC)
+                    </Link>
+                  )}
+                  {showSociallySavvy && (
+                    <Link
+                      href={`/terapeuta/paciente/${appointment.patient_id}/socially-savvy`}
+                      className="btn btn-secondary w-fit text-xs"
+                    >
+                      🤝 Socially Savvy
+                    </Link>
+                  )}
+                </div>
               </div>
-          </div>
-          <TrialDataPanel appointmentId={appointment.id} programs={programs} />
-          <EvolutionForm
-            appointmentId={appointment.id}
-            patientId={appointment.patient_id}
-            patientName={patientName}
-            discipline={appointment.discipline}
-            sessionTime={sessionTime}
-            attendanceStartedAt={appointment.attendance_started_at}
-            pinConfigured={!!profile.signature_pin_hash}
-            activeGoals={activeGoals}
-            preCheckedGoalIds={preCheckedGoalIds}
-            behaviorTypes={behaviorCatalog}
-            interventionCatalog={interventionCatalog}
-            imageConsent={imageConsent}
-          />
-        </div>
+              <TrialDataPanel appointmentId={appointment.id} programs={programs} />
+            </>
+          }
+        />
       </main>
     );
   }
@@ -202,7 +213,7 @@ export default async function EvolucaoPage({
 
     return (
       <main className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-[640px] flex-col gap-6 p-5 sm:p-10">
+        <div className="mx-auto flex w-full max-w-[640px] md:max-w-[760px] flex-col gap-6 p-5 sm:p-10">
           <EvolutionForm
             appointmentId={appointment.id}
             patientId={appointment.patient_id}
@@ -217,20 +228,23 @@ export default async function EvolucaoPage({
             behaviorTypes={behaviorCatalog}
             interventionCatalog={interventionCatalog}
             imageConsent={imageConsent}
+            backHref={agendaBackHref ?? undefined}
           />
         </div>
       </main>
     );
   }
 
+  const readOnlyBackHref = agendaBackHref ?? `/terapeuta/paciente/${appointment.patient_id}`;
+
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="flex flex-1 flex-col pb-24 md:pb-0">
       <header
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
         className="flex flex-col gap-2.5 px-5 pb-4 pt-7 sm:px-10"
       >
-        <Link href={`/terapeuta/paciente/${appointment.patient_id}`} className="text-[13px] no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
-          ← Prontuário de {patientName.split(" ")[0]}
+        <Link href={readOnlyBackHref} className="text-[13px] no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
+          ← {agendaBackHref ? "Voltar para a agenda" : `Prontuário de ${patientName.split(" ")[0]}`}
         </Link>
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -255,7 +269,7 @@ export default async function EvolucaoPage({
         </div>
       </header>
       <PatientIdentityBar patientName={patientName} insurance={insurance} emergencyContact={emergencyContact} />
-      <div className="mx-auto w-full max-w-[640px] p-5 sm:p-10">
+      <div className="mx-auto w-full max-w-[640px] md:max-w-[760px] p-5 sm:p-10">
         {appointment.status !== "realizada" ? (
           <div className="card">
             <span className="tag-status st-cancelada w-fit">Não realizada</span>
@@ -275,27 +289,15 @@ export default async function EvolucaoPage({
                 : "—"}
               .
             </p>
+            {/* 3 primários (mobile já cabe sem quebrar em ~9 linhas) + o
+                resto (relatórios, gráficos, instrumentos) atrás de um
+                <details> — mesmo gate de showFono/showSociallySavvy que a
+                sessão nova usa (ver bloco canSign acima), só que aqui o
+                catálogo de protocolo é sempre exibido porque a nota já foi
+                assinada e pode ter havido avaliação em paralelo. */}
             <div className="flex flex-wrap gap-2">
               <Link href={`/terapeuta/paciente/${appointment.patient_id}`} className="btn btn-secondary w-fit">
                 Ficha do paciente
-              </Link>
-              <Link href={`/terapeuta/paciente/${appointment.patient_id}/relatorio`} className="btn btn-secondary w-fit">
-                Relatório devolutivo (IA)
-              </Link>
-              <Link href={`/terapeuta/paciente/${appointment.patient_id}/metricas`} className="btn btn-secondary w-fit">
-                Evolução (gráficos)
-              </Link>
-              {CONFIGURABLE_PROTOCOLS.map((protocol) => (
-                <Link
-                  key={protocol.name}
-                  href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.name}`}
-                  className="btn btn-secondary w-fit"
-                >
-                  📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
-                </Link>
-              ))}
-              <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit">
-                Fono (ADL/ADL-2/PROC)
               </Link>
               {canEdit && (
                 <Link href={`/terapeuta/evolucao/${appointment.id}?editar=1`} className="btn btn-secondary w-fit">
@@ -308,6 +310,29 @@ export default async function EvolucaoPage({
                 </Link>
               )}
             </div>
+            <details className="mt-1">
+              <summary className="cursor-pointer text-xs font-semibold text-accent">Mais opções</summary>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link href={`/terapeuta/paciente/${appointment.patient_id}/relatorio`} className="btn btn-secondary w-fit text-xs">
+                  Relatório devolutivo (IA)
+                </Link>
+                <Link href={`/terapeuta/paciente/${appointment.patient_id}/metricas`} className="btn btn-secondary w-fit text-xs">
+                  Evolução (gráficos)
+                </Link>
+                {enabledProtocols.map((protocol) => (
+                  <Link
+                    key={protocol.name}
+                    href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.name}`}
+                    className="btn btn-secondary w-fit text-xs"
+                  >
+                    📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
+                  </Link>
+                ))}
+                <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit text-xs">
+                  Fono (ADL/ADL-2/PROC)
+                </Link>
+              </div>
+            </details>
           </div>
         ) : (
           <div className="card">
@@ -318,6 +343,12 @@ export default async function EvolucaoPage({
           </div>
         )}
       </div>
+
+      {/* Só pro papel terapeuta de verdade — gestor/supervisor abrindo esta
+          tela pra assinar por um colega não usam a nav do portal do
+          terapeuta. Sem isso, este estado de leitura era um beco sem saída
+          no celular (ver plano "evolução mobile"). */}
+      {profile.role === "terapeuta" && <TerapeutaBottomNav active="hoje" />}
     </main>
   );
 }

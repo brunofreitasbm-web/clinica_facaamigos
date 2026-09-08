@@ -38,7 +38,7 @@ export async function createProtocolItem(protocolId: string, formData: FormData)
   }
 
   revalidatePath(`/gestor/cadastros/terapias/${protocolId}`);
-  revalidatePath("/gestor/cadastros/terapias");
+  revalidatePath("/gestor/cadastros/protocolos");
   return { success: true };
 }
 
@@ -51,7 +51,7 @@ export async function deleteProtocolItem(protocolId: string, itemId: string): Pr
   }
 
   revalidatePath(`/gestor/cadastros/terapias/${protocolId}`);
-  revalidatePath("/gestor/cadastros/terapias");
+  revalidatePath("/gestor/cadastros/protocolos");
   return { success: true };
 }
 
@@ -119,6 +119,6 @@ export async function importProtocolItems(
   }
 
   revalidatePath(`/gestor/cadastros/terapias/${protocolId}`);
-  revalidatePath("/gestor/cadastros/terapias");
+  revalidatePath("/gestor/cadastros/protocolos");
   return { success: true, itemCount: rows.length };
 }

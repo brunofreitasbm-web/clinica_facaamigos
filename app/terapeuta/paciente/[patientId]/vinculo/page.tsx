@@ -36,7 +36,7 @@ export default async function VinculoPage({ params }: { params: Promise<{ patien
       <BondingForm patientId={patientId} />
 
       {(reports ?? []).length > 0 && (
-        <div className="card max-w-xl">
+        <div className="card max-w-xl md:max-w-2xl">
           <div className="card-kicker">Histórico</div>
           <ul className="flex flex-col gap-2 text-sm">
             {(reports ?? []).map((r) => (

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveBondingReport } from "./actions";
 
-const inputClass = "mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink";
+const inputClass = "mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink md:min-h-11";
 
 export function BondingForm({ patientId }: { patientId: string }) {
   const router = useRouter();
@@ -24,7 +24,7 @@ export function BondingForm({ patientId }: { patientId: string }) {
   }
 
   return (
-    <form action={handleSubmit} className="flex max-w-xl flex-col gap-4">
+    <form action={handleSubmit} className="flex max-w-xl flex-col gap-4 md:max-w-2xl">
       <div className="flex gap-3">
         <div>
           <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Período · início</label>

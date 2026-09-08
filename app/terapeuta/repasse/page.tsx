@@ -96,7 +96,9 @@ export default async function TerapeutaRepassePage() {
               <div className="rounded-lg border border-paper-line bg-paper-subtle p-4">
                 <span className="text-xs font-medium text-ink-soft uppercase">Status do período</span>
                 <p className="mt-2 text-lg font-bold text-ink">
-                  <span className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${STATUS_BADGE[current.statusLabel]}`}>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium md:min-h-[44px] md:px-3 md:py-2.5 ${STATUS_BADGE[current.statusLabel]}`}
+                  >
                     {current.statusLabel}
                   </span>
                 </p>
@@ -137,7 +139,9 @@ export default async function TerapeutaRepassePage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE[row.statusLabel]}`}>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium md:min-h-[44px] md:px-3 md:py-2.5 ${STATUS_BADGE[row.statusLabel]}`}
+                  >
                     {row.statusLabel}
                   </span>
                   <PayoutStatementModal data={pastStatements[i]} hasContract={!!contract} />

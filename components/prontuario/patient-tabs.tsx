@@ -385,7 +385,7 @@ export function PatientTabs({
         {tab === "agenda" && <section className="max-w-[800px]">{agendaContent}</section>}
 
         {tab === "financeiro" && billing && (
-          <section className="max-w-[900px]">
+          <section className="max-w-[900px] overflow-x-auto">
             <table className="table">
               <thead>
                 <tr>

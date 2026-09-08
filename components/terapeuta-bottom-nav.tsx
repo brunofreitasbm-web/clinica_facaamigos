@@ -1,46 +1,85 @@
 /**
- * Nav inferior do portal do terapeuta (mobile) — antes duplicada
- * literalmente em app/terapeuta/page.tsx e app/terapeuta/pacientes/page.tsx
- * (cada uma com o item ativo hardcoded diferente). Extraída pra
- * app/terapeuta/paciente/[patientId]/page.tsx (ficha do paciente) poder
- * usar a mesma nav sem duplicar de novo.
+ * Nav do portal do terapeuta — antes duplicada literalmente em
+ * app/terapeuta/page.tsx e app/terapeuta/pacientes/page.tsx (cada uma
+ * com o item ativo hardcoded diferente). Extraída pra app/terapeuta/agenda
+ * e app/terapeuta/prontuario (e a ficha do paciente,
+ * app/terapeuta/paciente/[patientId]/page.tsx) usarem a mesma nav sem
+ * duplicar de novo.
+ *
+ * "Pendências" saiu (07/09→08/09/2026): era uma âncora de página
+ * (`/terapeuta#pendencias`), não uma rota, e nenhum call site passava
+ * `active="pendencias"` — a contagem já aparece no card de alerta da Hoje.
+ * No lugar entraram Agenda e Prontuário, que são rotas de verdade.
+ *
+ * Abaixo de `md` (tablet), a barra inferior fixa é a navegação. A partir
+ * de `md` ela some (`md:hidden`) e uma barra superior persistente assume
+ * (`hidden md:flex`) — sem ela, a navegação principal desaparecia por
+ * completo em qualquer tablet (08/09/2026).
  */
-export function TerapeutaBottomNav({ active }: { active: "hoje" | "pacientes" | "pendencias" }) {
+const NAV_ITEMS: Array<{
+  key: "hoje" | "agenda" | "pacientes" | "prontuario";
+  href: string;
+  icon: string;
+  label: string;
+}> = [
+  { key: "hoje", href: "/terapeuta", icon: "📅", label: "Hoje" },
+  { key: "agenda", href: "/terapeuta/agenda", icon: "🗓", label: "Agenda" },
+  { key: "pacientes", href: "/terapeuta/pacientes", icon: "👥", label: "Pacientes" },
+  { key: "prontuario", href: "/terapeuta/prontuario", icon: "📋", label: "Prontuário" },
+];
+
+export function TerapeutaBottomNav({
+  active,
+}: {
+  active: "hoje" | "agenda" | "pacientes" | "prontuario";
+}) {
   const itemStyle = (key: typeof active) => ({
     color: active === key ? "var(--color-accent)" : "var(--color-neutral-600)",
     fontWeight: active === key ? 600 : 400,
   });
 
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-3 border-t bg-white py-2.5 text-[11px] sm:hidden"
-      style={{ borderColor: "var(--color-divider)" }}
-      aria-label="Navegação do terapeuta"
-    >
-      <a
-        href="/terapeuta"
-        aria-current={active === "hoje" ? "page" : undefined}
-        className="flex flex-col items-center gap-1 no-underline"
-        style={itemStyle("hoje")}
+    <>
+      <nav
+        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t bg-white py-2 text-[10px] md:hidden"
+        style={{ borderColor: "var(--color-divider)" }}
+        aria-label="Navegação do terapeuta"
       >
-        📅 Hoje
-      </a>
-      <a
-        href="/terapeuta/pacientes"
-        aria-current={active === "pacientes" ? "page" : undefined}
-        className="flex flex-col items-center gap-1 no-underline"
-        style={itemStyle("pacientes")}
+        {NAV_ITEMS.map(({ key, href, icon, label }) => (
+          <a
+            key={key}
+            href={href}
+            aria-current={active === key ? "page" : undefined}
+            className="flex flex-col items-center gap-1 no-underline"
+            style={{ ...itemStyle(key), minHeight: 44 }}
+          >
+            {icon} {label}
+          </a>
+        ))}
+      </nav>
+
+      <nav
+        className="sticky top-0 z-10 hidden justify-center gap-2 border-b bg-white px-4 py-2 md:flex"
+        style={{ borderColor: "var(--color-divider)" }}
+        aria-label="Navegação do terapeuta"
       >
-        👥 Pacientes
-      </a>
-      <a
-        href="/terapeuta#pendencias"
-        aria-current={active === "pendencias" ? "page" : undefined}
-        className="flex flex-col items-center gap-1 no-underline"
-        style={itemStyle("pendencias")}
-      >
-        📈 Pendências
-      </a>
-    </nav>
+        {NAV_ITEMS.map(({ key, href, icon, label }) => (
+          <a
+            key={key}
+            href={href}
+            aria-current={active === key ? "page" : undefined}
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm no-underline"
+            style={{
+              ...itemStyle(key),
+              minHeight: 44,
+              background: active === key ? "color-mix(in srgb, var(--color-accent) 10%, transparent)" : "transparent",
+            }}
+          >
+            <span aria-hidden="true">{icon}</span>
+            {label}
+          </a>
+        ))}
+      </nav>
+    </>
   );
 }

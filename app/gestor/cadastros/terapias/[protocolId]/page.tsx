@@ -42,7 +42,7 @@ export default async function ProtocoloItensPage({
     <main className="flex flex-1 flex-col">
       <div className="px-10 pt-9">
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-          <Link href="/gestor/cadastros/terapias">Terapias</Link>
+          <Link href="/gestor/cadastros/protocolos">Protocolos</Link>
         </h6>
         <h1 className="m-0">
           {PROTOCOL_LABEL[protocol.name] ?? protocol.name}

@@ -95,6 +95,25 @@ export async function createTreatmentPlan(
 
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.role && profile.role !== "supervisor" && profile.role !== "gestor") {
+      return {
+        success: false,
+        error: "Apenas usuários com perfil de Supervisor têm permissão para criar um Plano Terapêutico Singular (PTS).",
+      };
+    }
+  }
+
   const { data: patient, error: patientLookupError } = await supabase
     .from("patients")
     .select("id, clinic_id")

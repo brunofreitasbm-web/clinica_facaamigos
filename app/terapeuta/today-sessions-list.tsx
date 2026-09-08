@@ -185,16 +185,16 @@ export function TodaySessionsList({
             {upcoming.map((s) => (
               <div
                 key={s.id}
-                className="grid grid-cols-[52px_1fr_auto] items-center gap-3 border-b py-3.5"
+                className="grid grid-cols-[52px_1fr_auto] items-center gap-3 border-b py-3.5 md:gap-4 md:py-4"
                 style={{ borderColor: "var(--color-divider)" }}
               >
-                <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
+                <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold md:text-lg">
                   {fmtTime(s.startsAt)}
                 </span>
                 <span>
-                  <span className="text-[15px] font-semibold">{s.patientName}</span>
+                  <span className="text-[15px] font-semibold md:text-base">{s.patientName}</span>
                   <br />
-                  <span className="text-xs text-ink-faint">
+                  <span className="text-xs text-ink-faint md:text-sm">
                     {s.discipline}
                     {s.roomName ? ` · ${s.roomName}` : ""}
                   </span>

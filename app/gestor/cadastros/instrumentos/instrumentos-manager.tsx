@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { setInstrumentEnabled } from "./actions";
 import { DISCIPLINES } from "@/app/supervisao/planos/novo/disciplines";
 
@@ -100,9 +99,7 @@ export function InstrumentosManager({ instruments: initialInstruments }: { instr
   };
 
   return (
-    <div className="flex flex-1">
-      <CadastrosSidebar active="instrumentos" />
-      <div className="flex-1 p-8">
+    <div className="p-6 sm:p-10">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="mb-1 text-2xl font-bold text-ink">Instrumentos de Avaliação</h1>
@@ -236,7 +233,6 @@ export function InstrumentosManager({ instruments: initialInstruments }: { instr
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

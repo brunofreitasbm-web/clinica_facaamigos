@@ -82,7 +82,7 @@ export async function createProtocol(formData: FormData): Promise<ActionResult> 
       return { success: false, error: `Não foi possível semear os itens do template: ${seedResult.error}` };
     }
 
-    revalidatePath("/gestor/cadastros/terapias");
+    revalidatePath("/gestor/cadastros/protocolos");
     return { success: true, redirectTo: `/gestor/cadastros/terapias/${inserted.id}` };
   }
 
@@ -103,6 +103,6 @@ export async function createProtocol(formData: FormData): Promise<ActionResult> 
     return { success: false, error: "Não foi possível cadastrar o protocolo." };
   }
 
-  revalidatePath("/gestor/cadastros/terapias");
+  revalidatePath("/gestor/cadastros/protocolos");
   return { success: true };
 }

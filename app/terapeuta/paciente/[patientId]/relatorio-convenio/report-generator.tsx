@@ -37,7 +37,7 @@ export function ReportGenerator({
             type="date"
             value={periodStart}
             onChange={(e) => setPeriodStart(e.target.value)}
-            className="mt-1 block rounded-md border border-paper-line-strong bg-paper px-2 py-1.5 text-sm text-ink"
+            className="mt-1 block rounded-md border border-paper-line-strong bg-paper px-2 py-1.5 text-sm text-ink md:min-h-11"
           />
         </div>
         <div>
@@ -46,7 +46,7 @@ export function ReportGenerator({
             type="date"
             value={periodEnd}
             onChange={(e) => setPeriodEnd(e.target.value)}
-            className="mt-1 block rounded-md border border-paper-line-strong bg-paper px-2 py-1.5 text-sm text-ink"
+            className="mt-1 block rounded-md border border-paper-line-strong bg-paper px-2 py-1.5 text-sm text-ink md:min-h-11"
           />
         </div>
         <button
@@ -66,7 +66,7 @@ export function ReportGenerator({
               ]);
             });
           }}
-          className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
+          className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50 md:min-h-11"
         >
           {isPending ? "Gerando…" : "Gerar PDF"}
         </button>
@@ -102,7 +102,7 @@ export function ReportGenerator({
                     window.open(result.url, "_blank", "noopener,noreferrer");
                   });
                 }}
-                className="rounded-md border border-paper-line-strong px-3 py-1.5 text-xs text-ink hover:border-chart"
+                className="rounded-md border border-paper-line-strong px-3 py-1.5 text-xs text-ink hover:border-chart md:min-h-11 md:px-4"
               >
                 Ver PDF
               </button>

@@ -7873,6 +7873,15 @@ export type Database = {
           relationship: string
         }[]
       }
+      patient_record_access_trail: {
+        Args: { p_days?: number; p_patient_id: string }
+        Returns: {
+          accessed_at: string
+          accessor_name: string
+          accessor_role: string
+          reason: string
+        }[]
+      }
       patient_status_as_of: {
         Args: { p_at: string; p_patient_id: string }
         Returns: string

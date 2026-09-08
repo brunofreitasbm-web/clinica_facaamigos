@@ -31,7 +31,7 @@ export function ProtocolForm() {
         setError(result.error);
         return;
       }
-      router.push(result.redirectTo ?? "/gestor/cadastros/terapias");
+      router.push(result.redirectTo ?? "/gestor/cadastros/protocolos");
     });
   }
 

@@ -180,7 +180,7 @@ export default async function TerapeutaPage({
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-7 px-5 pb-28 pt-6 sm:px-10 sm:pb-10">
+      <div className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-7 px-5 pb-28 pt-6 sm:px-10 md:max-w-[900px] md:pb-10">
         {canChooseTherapist && (
           <form className="flex items-center gap-2" method="get">
             <select name="therapist" defaultValue={therapistId} className="input">
@@ -248,7 +248,19 @@ export default async function TerapeutaPage({
             <h6 style={{ color: "var(--color-accent-2-600)" }}>
               Sessões de hoje
             </h6>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="/terapeuta/agenda"
+                className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+              >
+                🗓 Minha agenda
+              </a>
+              <a
+                href="/terapeuta/prontuario"
+                className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+              >
+                📋 Prontuário & Auditoria
+              </a>
               <a
                 href="/terapeuta/metricas"
                 className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"

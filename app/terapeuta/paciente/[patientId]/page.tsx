@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
+import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { PatientTabs } from "@/components/prontuario/patient-tabs";
 import { DocumentViewButton } from "@/components/prontuario/document-view-button";
@@ -17,9 +18,7 @@ import { logRecordAccess } from "@/lib/record-access-log";
 import { canConductFirstAssessment } from "@/lib/anamnese-access";
 import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
 import type { NativeInstrumentKey } from "@/lib/native-instruments";
-import { PROTOCOL_CATALOG, PROTOCOL_LABEL } from "@/lib/protocol-catalog";
-
-const CONFIGURABLE_PROTOCOLS = PROTOCOL_CATALOG.filter((p) => p.name !== "outro");
+import { PROTOCOL_LABEL, getEnabledProtocolsForClinic } from "@/lib/protocol-catalog";
 
 const fmtDate = (iso: string | null | undefined) => fmtDateShared(iso, CLINIC_TIMEZONE);
 
@@ -71,12 +70,13 @@ export default async function TerapeutaFichaPacientePage({
 
   await logRecordAccess(supabase, patientId, "prontuario_terapeuta");
 
-  const [dossier, { insurance, emergencyContact }, behaviorCatalog, contacts, enabledInstruments] = await Promise.all([
+  const [dossier, { insurance, emergencyContact }, behaviorCatalog, contacts, enabledInstruments, enabledProtocols] = await Promise.all([
     getPatientDossier(supabase, patientId, { includeBilling: false }),
     getPatientIdentitySummary(supabase, patientId),
     getBehaviorCatalog(supabase, { activeOnly: false }),
     supabase.rpc("patient_contact_summary", { p_patient_id: patientId }),
     getEnabledInstrumentKeys(supabase, patient.clinic_id),
+    getEnabledProtocolsForClinic(supabase, patient.clinic_id),
   ]);
 
   // Atalhos de instrumento só aparecem se a clínica os mantém ativos
@@ -136,46 +136,48 @@ export default async function TerapeutaFichaPacientePage({
 
   const documentsContent = (
     <>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Documento</th>
-            <th>Data</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {clinicalDocuments.map((doc) => {
-            const validityBadge = getValidityBadge(doc.validUntil);
-            return (
-              <tr key={doc.id}>
-                <td className="font-semibold">
-                  {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
-                  {validityBadge && (
-                    <span className={`tag-status ml-2 ${validityBadge.label === "Vencido" ? "st-falta" : "st-agendada"}`}>
-                      {validityBadge.label}
-                    </span>
-                  )}
-                </td>
-                <td>
-                  {fmtDate(doc.uploadedAt)}
-                  {doc.validUntil && ` · válido até ${fmtDate(`${doc.validUntil}T00:00:00`)}`}
-                </td>
-                <td className="text-right">
-                  <DocumentViewButton documentId={doc.id} />
+      <div className="overflow-x-auto">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Documento</th>
+              <th>Data</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {clinicalDocuments.map((doc) => {
+              const validityBadge = getValidityBadge(doc.validUntil);
+              return (
+                <tr key={doc.id}>
+                  <td className="font-semibold">
+                    {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
+                    {validityBadge && (
+                      <span className={`tag-status ml-2 ${validityBadge.label === "Vencido" ? "st-falta" : "st-agendada"}`}>
+                        {validityBadge.label}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {fmtDate(doc.uploadedAt)}
+                    {doc.validUntil && ` · válido até ${fmtDate(`${doc.validUntil}T00:00:00`)}`}
+                  </td>
+                  <td className="text-right">
+                    <DocumentViewButton documentId={doc.id} />
+                  </td>
+                </tr>
+              );
+            })}
+            {clinicalDocuments.length === 0 && (
+              <tr>
+                <td colSpan={3} className="text-ink-faint">
+                  Nenhum documento clínico anexado.
                 </td>
               </tr>
-            );
-          })}
-          {clinicalDocuments.length === 0 && (
-            <tr>
-              <td colSpan={3} className="text-ink-faint">
-                Nenhum documento clínico anexado.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
       <div className="mt-4">
         <DocumentUploadForm patientId={patient.id} allowedCategories={THERAPIST_DOCUMENT_CATEGORIES} />
       </div>
@@ -226,14 +228,14 @@ export default async function TerapeutaFichaPacientePage({
   );
 
   return (
-    <main className="flex flex-1 flex-col pb-10">
+    <main className="flex flex-1 flex-col pb-24 md:pb-10">
       <PageHeader axisLabel="Terapeuta" title={patient.full_name} description="Ficha do paciente" />
 
       <div className="mx-auto w-full max-w-[1720px] px-4 py-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
           {/* Coluna Lateral Sticky: Identidade + Atalhos Rápidos */}
-          <aside className="lg:col-span-4 xl:col-span-3">
-            <div className="space-y-4 lg:sticky lg:top-4">
+          <aside className="md:col-span-4 xl:col-span-3">
+            <div className="space-y-4 md:sticky md:top-4">
               <PatientIdentityBar
                 patientName={patient.full_name}
                 insurance={insurance}
@@ -255,7 +257,7 @@ export default async function TerapeutaFichaPacientePage({
                       <span className="text-xs font-semibold leading-tight text-ink">1ª Avaliação</span>
                     </Link>
                   )}
-                  {CONFIGURABLE_PROTOCOLS.map((protocol) => (
+                  {enabledProtocols.map((protocol) => (
                     <Link
                       key={protocol.name}
                       href={`/terapeuta/paciente/${patient.id}/avaliacao?protocolo=${protocol.name}`}
@@ -291,7 +293,7 @@ export default async function TerapeutaFichaPacientePage({
           </aside>
 
           {/* Painel Conteúdo Principal */}
-          <div className="lg:col-span-8 xl:col-span-9">
+          <div className="md:col-span-8 xl:col-span-9">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-paper-line pb-4">
               <h2 className="text-base font-bold text-ink">Prontuário & Atividades</h2>
               <div className="flex flex-wrap gap-2">
@@ -306,6 +308,9 @@ export default async function TerapeutaFichaPacientePage({
                 </Link>
                 <Link href={`/terapeuta/paciente/${patient.id}/vinculo`} className="btn btn-secondary text-xs">
                   🔗 Vínculo
+                </Link>
+                <Link href={`/terapeuta/prontuario?p=${patient.id}`} className="btn btn-secondary text-xs">
+                  📋 Prontuário & Auditoria
                 </Link>
               </div>
             </div>
@@ -339,6 +344,8 @@ export default async function TerapeutaFichaPacientePage({
           </div>
         </div>
       </div>
+
+      <TerapeutaBottomNav active="prontuario" />
     </main>
   );
 }

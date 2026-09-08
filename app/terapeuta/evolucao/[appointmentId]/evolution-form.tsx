@@ -82,6 +82,8 @@ export function EvolutionForm({
   behaviorTypes,
   interventionCatalog,
   imageConsent,
+  backHref,
+  topContent,
 }: {
   appointmentId: string;
   patientId: string;
@@ -96,6 +98,11 @@ export function EvolutionForm({
   behaviorTypes: { value: string; label: string }[];
   interventionCatalog: InterventionCatalogItem[];
   imageConsent: boolean;
+  /** Pra onde o "← Prontuário de..." do topo volta. Default é a ficha do
+   * paciente; quando a entrada veio da agenda (?voltar=agenda&date=), volta
+   * pra lá em vez de forçar uma parada na ficha. */
+  backHref?: string;
+  topContent?: React.ReactNode;
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [signed, setSigned] = useState(false);
@@ -423,7 +430,7 @@ export function EvolutionForm({
         className="flex flex-col gap-2.5 px-5 pb-4 pt-7 sm:px-10"
       >
         <div className="flex items-center justify-between text-[13px]">
-          <Link href={`/terapeuta/paciente/${patientId}`} className="no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
+          <Link href={backHref ?? `/terapeuta/paciente/${patientId}`} className="no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
             ← Prontuário de {patientName.split(" ")[0]}
           </Link>
           {!signed && (
@@ -513,7 +520,7 @@ export function EvolutionForm({
         </div>
       ) : (
         <form
-          className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-6 px-5 pb-28 pt-6 sm:px-10 sm:pb-10"
+          className="mx-auto flex w-full max-w-[640px] md:max-w-[760px] flex-1 flex-col gap-6 px-5 pb-28 pt-6 sm:px-10 sm:pb-10"
           action={(formData) => {
             setError(null);
             formData.set("created_at_device", new Date().toISOString());
@@ -563,6 +570,7 @@ export function EvolutionForm({
             });
           }}
         >
+          {topContent}
           {resumingPendingSignature && (
             <div
               className="rounded-md border p-3 text-sm"
@@ -685,7 +693,7 @@ export function EvolutionForm({
                                   type="button"
                                   aria-pressed={selected}
                                   onClick={() => setGoalResult(goal.id, r.value)}
-                                  className={`inline-flex items-center gap-1 min-h-[36px] rounded-md px-3 py-1 text-xs font-bold transition-all border ${
+                                  className={`inline-flex items-center gap-1 min-h-[44px] rounded-md px-3 py-1 text-xs font-bold transition-all border ${
                                     selected
                                       ? "bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-600/30"
                                       : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 hover:border-slate-400 hover:text-slate-900"
@@ -914,7 +922,7 @@ export function EvolutionForm({
                   <button
                     type="button"
                     onClick={() => setShowPin((v) => !v)}
-                    className="absolute right-2 p-1.5 text-xs text-ink-soft hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                    className="absolute right-2 p-2.5 text-xs text-ink-soft hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                     aria-label={showPin ? "Ocultar PIN" : "Mostrar PIN"}
                     title={showPin ? "Ocultar PIN" : "Mostrar PIN"}
                   >

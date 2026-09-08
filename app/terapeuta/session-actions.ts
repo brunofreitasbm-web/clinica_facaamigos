@@ -59,6 +59,7 @@ export async function startAttendance(appointmentId: string): Promise<ActionResu
   }
 
   revalidatePath("/terapeuta");
+  revalidatePath("/terapeuta/agenda");
   return { success: true };
 }
 
@@ -118,5 +119,6 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
   }
 
   revalidatePath("/terapeuta");
+  revalidatePath("/terapeuta/agenda");
   return { success: true };
 }

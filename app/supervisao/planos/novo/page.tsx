@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -13,6 +14,22 @@ export default async function NovoPlanoPage({
 }) {
   const { paciente } = await searchParams;
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.role && profile.role !== "supervisor" && profile.role !== "gestor") {
+      redirect("/supervisao");
+    }
+  }
 
   const { data: patients } = await supabase
     .from("patients")

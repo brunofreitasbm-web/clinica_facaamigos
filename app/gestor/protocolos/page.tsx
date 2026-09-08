@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Movido para Cadastros (ver app/gestor/cadastros/terapias).
+// Unificado em Cadastros (ver app/gestor/cadastros/protocolos).
 export default function ProtocolosRedirect() {
-  redirect("/gestor/cadastros/terapias");
+  redirect("/gestor/cadastros/protocolos");
 }

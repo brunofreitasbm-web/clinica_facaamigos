@@ -41,7 +41,7 @@ async function upsertInstrument(
 
   if (error) return { success: false, error: notFoundMessage };
 
-  revalidatePath("/gestor/cadastros/instrumentos");
+  revalidatePath("/gestor/cadastros/protocolos");
   return { success: true };
 }
 
