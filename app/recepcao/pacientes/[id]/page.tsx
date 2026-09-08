@@ -573,7 +573,7 @@ export default async function PacientePage({
 
       <div className="px-10 pt-8">
         <div id="checklist-entrada" className="scroll-mt-6 card max-w-[720px]">
-          <div className="card-kicker">Módulo 3 MAAIS · Checklist operacional de entrada</div>
+          <div className="card-kicker">Checklist operacional de entrada</div>
           <IntakeChecklist
             patientId={patient.id}
             steps={intakeSteps}

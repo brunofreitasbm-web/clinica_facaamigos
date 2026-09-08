@@ -101,7 +101,7 @@ export function ComportamentosManager({ behaviors }: { behaviors: BehaviorRow[] 
       <div className="flex-1 p-8">
         <h1 className="mb-1">Comportamentos-alvo</h1>
         <p className="mb-6 text-sm text-ink-soft">
-          Lista de comportamentos-alvo que aparece no formulário de evolução do terapeuta (PRD §9.4). Um
+          Lista de comportamentos-alvo que aparece no formulário de evolução do terapeuta. Um
           comportamento já usado em alguma evolução assinada não pode ser apagado — desative-o em vez disso; o
           nome (rótulo) pode ser corrigido a qualquer momento.
         </p>

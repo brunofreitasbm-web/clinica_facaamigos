@@ -49,6 +49,9 @@ export default async function RecursosPage() {
           Brinquedos sensoriais, testes padronizados e pranchas de comunicação — reserva com bloqueio automático de
           conflito de horário. Salas continuam reservadas junto com a sessão, na Agenda.
         </p>
+        <Link href="/recepcao/recursos/qr-checkin" className="mt-3 inline-block text-sm text-chart no-underline hover:underline">
+          Cartaz de check-in por QR da entrada →
+        </Link>
       </div>
 
       <div className="px-10 pt-8">

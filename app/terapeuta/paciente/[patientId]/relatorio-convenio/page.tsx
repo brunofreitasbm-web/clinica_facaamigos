@@ -32,7 +32,7 @@ export default async function InsurerReportPage({
       <PageHeader
         axisLabel="Terapeuta"
         title={`Relatório de evolução para o convênio — ${patient.full_name}`}
-        description="§8 Fase 2 do PRD: PDF gerado a partir das metas do plano aprovado e da frequência no período, pra anexar ao paciente e a recepção protocolar junto ao convênio na renovação de guia."
+        description="PDF gerado a partir das metas do plano aprovado e da frequência no período, pra anexar ao paciente e a recepção protocolar junto ao convênio na renovação de guia."
       />
       <div className="p-6 sm:p-10">
         <ReportGenerator patientId={patientId} initialHistory={history} />

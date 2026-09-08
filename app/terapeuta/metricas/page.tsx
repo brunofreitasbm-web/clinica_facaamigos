@@ -44,7 +44,7 @@ export default async function TerapeutaMetricasPage() {
         >
           Minhas métricas
         </h1>
-        <p className="text-xs opacity-70">Último mês fechado, calculado no dia 1 (PRD §10.3).</p>
+        <p className="text-xs opacity-70">Último mês fechado, calculado no dia 1.</p>
       </header>
 
       <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 p-5 sm:p-10">

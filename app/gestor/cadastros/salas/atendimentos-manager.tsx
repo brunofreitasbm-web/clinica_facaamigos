@@ -75,7 +75,7 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
             <div className="flex flex-col gap-4">
               <div className="flex justify-between items-center">
                 <p className="text-xs text-ink-faint">
-                  Salas físicas da clínica (PRD §7.1) — as mesmas que aparecem no agendamento da recepção e na grade
+                  Salas físicas da clínica — as mesmas que aparecem no agendamento da recepção e na grade
                   recorrente. Excluir uma sala com sessões associadas (passadas ou futuras) não é permitido.
                 </p>
                 <NewRoomForm />
@@ -110,7 +110,7 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
             <div className="flex flex-col gap-4">
               <div className="flex justify-between items-center">
                 <p className="text-xs text-ink-faint">
-                  Cadastro mestre de recursos reserváveis (PRD §10). A recepção só reserva, em Salas e recursos.
+                  Cadastro mestre de recursos reserváveis. A recepção só reserva, em Salas e recursos.
                 </p>
                 <NewResourceForm />
               </div>
@@ -150,7 +150,7 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
           {activeTab === "motivos" && (
             <div className="flex flex-col gap-4">
               <p className="text-xs text-ink-faint">
-                Motivos de falta/cancelamento que a recepção usa na agenda (PRD §9.2). Lista fixa do sistema — mudar
+                Motivos de falta/cancelamento que a recepção usa na agenda. Lista fixa do sistema — mudar
                 aqui exigiria mudar o código, porque o mesmo motivo é validado no servidor ao registrar a falta.
               </p>
               <table className="table">

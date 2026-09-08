@@ -445,7 +445,7 @@ export function GradePanel({
           Pendências da equipe · PTS atrasado
         </h6>
         {pendingPlans.length === 0 ? (
-          <p className="text-sm text-ink-faint">Nenhum PTS atrasado — prazo de 50 dias em dia (§2.3).</p>
+          <p className="text-sm text-ink-faint">Nenhum PTS atrasado — prazo de 50 dias em dia.</p>
         ) : (
           <div className="flex flex-col">
             {pendingPlans.map((p) => (

@@ -38,7 +38,7 @@ export default async function MetasPage() {
 
       <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Metas por cargo (§10.6 do PRD)</h1>
+          <h1 className="text-2xl font-bold text-ink">Metas por cargo</h1>
           <p className="text-sm text-ink-soft">
             Cadastre meta e peso por métrica e cargo. O atingimento compara com o último mês
             fechado em `metric_snapshots` (job `close_monthly_metric_snapshots`, dia 1) — métricas

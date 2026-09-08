@@ -74,7 +74,7 @@ export default async function MaturidadePage() {
       <div className="px-10 pt-9 pb-10 flex flex-col gap-6">
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-            Módulo 3 MAAIS · Slide 40
+            Maturidade da clínica
           </h6>
           <h1 className="m-0">A clínica possui...</h1>
           <p className="mt-2 max-w-2xl text-sm text-ink-soft">

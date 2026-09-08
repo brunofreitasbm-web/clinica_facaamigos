@@ -184,7 +184,7 @@ export async function submitNpsResponse(surveyId: string, score: number, feedbac
     return { success: false, error: "Sessão expirada. Faça login de novo." };
   }
 
-  const { error } = await supabase.rpc("submit_nps_response", {
+  const { error } = await (supabase as any).rpc("submit_nps_response", {
     p_survey_id: surveyId,
     p_score: score,
     p_feedback: feedback.trim() || undefined,

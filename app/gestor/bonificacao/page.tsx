@@ -18,7 +18,7 @@ export default async function BonificacaoPage() {
             Metrificação, PLR e Progressão de Faixas (PJ)
           </h1>
           <p className="text-sm text-ink-soft">
-            Indicadores calculados ao vivo sobre o mês corrente (§10 do PRD). O job mensal
+            Indicadores calculados ao vivo sobre o mês corrente. O job mensal
             `close_monthly_metric_snapshots` (dia 1) grava as métricas congeladas em
             `metric_snapshots`. Abaixo você pode gerar o extrato oficial de PLR em PDF (Lei 10.101/2000) com apuração ponderada.
           </p>
@@ -31,7 +31,7 @@ export default async function BonificacaoPage() {
         <section className="rounded-xl border border-paper-line bg-paper p-6 shadow-sm space-y-4">
           <div className="border-b border-paper-line pb-4">
             <span className="text-xs font-semibold text-accent uppercase tracking-wider">
-              §10.6 · Fechamento mensal automático
+              Fechamento mensal automático
             </span>
             <h2 className="text-lg font-bold text-ink">Histórico de meses fechados</h2>
             <p className="text-xs text-ink-soft mt-1">
@@ -72,7 +72,7 @@ export default async function BonificacaoPage() {
         <section className="rounded-xl border border-paper-line bg-paper p-6 shadow-sm space-y-6">
           <div className="border-b border-paper-line pb-4">
             <span className="text-xs font-semibold text-accent uppercase tracking-wider">
-              Revisão Trimestral Contratual PJ (§10.3 & §13)
+              Revisão Trimestral Contratual PJ
             </span>
             <h2 className="text-lg font-bold text-ink">
               Progressão de Faixa de Valor-Hora

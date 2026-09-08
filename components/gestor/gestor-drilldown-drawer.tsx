@@ -58,7 +58,7 @@ export function GestorDrilldownDrawer({ isOpen, onClose, data }: GestorDrilldown
         <div className="flex items-center justify-between border-b border-paper-line px-6 py-5">
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-accent">
-              Rastreabilidade & Drill-Down (§10)
+              Rastreabilidade & Drill-Down
             </div>
             <h2 className="text-xl font-bold text-ink">{data.title}</h2>
             <p className="text-xs text-ink-soft mt-0.5">{data.subtitle}</p>

@@ -16,6 +16,7 @@ import { MiniCalendarPicker } from "./mini-calendar-picker";
 import { AnamnesisPendingBadge } from "@/components/anamnesis-pending-badge";
 import { InteressadoRapidoDialog } from "./interessado-rapido-dialog";
 import { ChecklistEntradaDialog } from "./checklist-entrada-dialog";
+import { ChegadasBanner } from "./chegadas-banner";
 
 export const dynamic = "force-dynamic";
 
@@ -267,6 +268,18 @@ export default async function RecepcaoPage({
     (item) => item.category !== "guia_vencendo" && item.category !== "guia_poucas_sessoes",
   );
 
+  // Chegadas pelo QR da entrada ainda não confirmadas (só relevante pro dia
+  // de hoje — não faz sentido mostrar isso navegando pra outra data).
+  const { count: chegadasPendingCount } =
+    day === today
+      ? await supabase
+          .from("checkin_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", DEV_CLINIC_ID)
+          .eq("service_date", today)
+          .eq("status", "aguardando")
+      : { count: 0 };
+
   // ── Salas agora — quem está fisicamente na sala (checkin sem checkout);
   // sem ninguém no local, mostra a próxima sessão já em curso no horário.
   const roomsNow = (rooms ?? []).map((room) => {
@@ -363,6 +376,7 @@ export default async function RecepcaoPage({
             </div>
           </div>
 
+          <ChegadasBanner count={chegadasPendingCount ?? 0} />
           <AnamnesisPendingBadge />
 
           <TodayAgendaList

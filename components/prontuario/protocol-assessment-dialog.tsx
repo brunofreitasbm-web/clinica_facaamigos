@@ -100,7 +100,7 @@ export function ProtocolAssessmentDialog({
 
               {/* Aviso RLS e Salvaguardas §9.4-A */}
               <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-200">
-                <span className="font-bold">Salvaguarda RLS (§9.4-A):</span> Este conteúdo é estritamente de uso interno para acompanhamento clínico. Nunca é exposto ao portal da família ou exportado em PDF.
+                <span className="font-bold">Salvaguarda RLS:</span> Este conteúdo é estritamente de uso interno para acompanhamento clínico. Nunca é exposto ao portal da família ou exportado em PDF.
               </div>
 
               {/* Tabela de Itens de Avaliação */}

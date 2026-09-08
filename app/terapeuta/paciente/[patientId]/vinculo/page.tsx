@@ -28,7 +28,7 @@ export default async function VinculoPage({ params }: { params: Promise<{ patien
           ← {patient.full_name}
         </Link>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mt-3 mb-1">
-          Módulo 3 MAAIS · Registro de vínculo
+          Registro de vínculo
         </h6>
         <h1 className="m-0">Acompanhamento inicial e vínculo</h1>
       </div>

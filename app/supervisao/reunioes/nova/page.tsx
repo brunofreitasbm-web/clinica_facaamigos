@@ -33,7 +33,7 @@ export default async function NovaReuniaoPage({
           ← {patient.full_name}
         </Link>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mt-3 mb-1">
-          Módulo 3 MAAIS
+          Supervisão
         </h6>
         <h1 className="m-0">Nova reunião</h1>
       </div>

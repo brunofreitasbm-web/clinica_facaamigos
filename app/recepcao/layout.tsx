@@ -18,7 +18,7 @@ export default async function RecepcaoLayout({ children }: { children: React.Rea
   const rangeStart = zonedDateTimeToUtc(tomorrow, "00:00", CLINIC_TIMEZONE).toISOString();
   const rangeEnd = zonedDateTimeToUtc(nextCalendarDay(tomorrow), "00:00", CLINIC_TIMEZONE).toISOString();
 
-  const [queue, { data: tomorrowAppointments }] = await Promise.all([
+  const [queue, { data: tomorrowAppointments }, { count: chegadasCount }] = await Promise.all([
     getReceptionQueue(supabase, DEV_CLINIC_ID),
     supabase
       .from("appointments")
@@ -27,13 +27,26 @@ export default async function RecepcaoLayout({ children }: { children: React.Rea
       .lt("starts_at", rangeEnd)
       .in("status", ["agendada", "confirmada"])
       .eq("is_provisional", false),
+    // Chegadas declaradas pelo QR ainda não confirmadas (nem descartadas/
+    // expiradas) — badge visível em toda a /recepcao, não só na página
+    // dedicada, porque não dá para assumir que alguém está com ela aberta.
+    supabase
+      .from("checkin_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .eq("service_date", today)
+      .eq("status", "aguardando"),
   ]);
 
   const tomorrowUnconfirmedCount = (tomorrowAppointments ?? []).filter((a) => !a.confirmed_at).length;
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <RecepcaoNav pendingCount={queue.length} tomorrowUnconfirmedCount={tomorrowUnconfirmedCount} />
+      <RecepcaoNav
+        pendingCount={queue.length}
+        tomorrowUnconfirmedCount={tomorrowUnconfirmedCount}
+        chegadasCount={chegadasCount ?? 0}
+      />
       {children}
     </div>
   );

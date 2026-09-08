@@ -55,7 +55,7 @@ export default async function PendenciasPage() {
       <PageHeader
         axisLabel="Recepção"
         title="Fila de pendências"
-        description="§9.1 do PRD: guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
+        description="Guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
       />
       <div className="flex flex-col gap-8 p-6 sm:p-10">
         <AutorizacaoWizard />

@@ -19,7 +19,7 @@ export default async function TerapiasPage() {
         <PageHeader
           axisLabel="Cadastros"
           title="Terapias"
-          description="Protocolos licenciados (Módulo 3 MAAIS, slide 25) — cadastrar é uma decisão jurídica do gestor (PRD §9.4-A): quem cadastra assume o risco de digitização."
+          description="Protocolos licenciados — cadastrar é uma decisão jurídica do gestor: quem cadastra assume o risco de digitização."
         />
 
         <div className="flex justify-end px-6 sm:px-10">

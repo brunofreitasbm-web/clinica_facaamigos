@@ -949,6 +949,219 @@ export type Database = {
         }
         Relationships: []
       }
+      checkin_requests: {
+        Row: {
+          appointment_id: string | null
+          candidate_appointment_ids: string[]
+          clinic_id: string
+          created_at: string
+          declared_birth_date: string
+          declared_first_name: string
+          id: string
+          ip_hash: string | null
+          kind: string
+          match_quality: string
+          patient_id: string | null
+          public_token: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          service_date: string
+          source: string
+          status: string
+          ticket_label: string
+          ticket_number: number
+        }
+        Insert: {
+          appointment_id?: string | null
+          candidate_appointment_ids?: string[]
+          clinic_id: string
+          created_at?: string
+          declared_birth_date: string
+          declared_first_name: string
+          id?: string
+          ip_hash?: string | null
+          kind: string
+          match_quality?: string
+          patient_id?: string | null
+          public_token?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          service_date: string
+          source?: string
+          status?: string
+          ticket_label?: string
+          ticket_number?: number
+        }
+        Update: {
+          appointment_id?: string | null
+          candidate_appointment_ids?: string[]
+          clinic_id?: string
+          created_at?: string
+          declared_birth_date?: string
+          declared_first_name?: string
+          id?: string
+          ip_hash?: string | null
+          kind?: string
+          match_quality?: string
+          patient_id?: string | null
+          public_token?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          service_date?: string
+          source?: string
+          status?: string
+          ticket_label?: string
+          ticket_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkin_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkin_requests_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkin_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkin_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checkin_ticket_counters: {
+        Row: {
+          clinic_id: string
+          last_number: number
+          service_date: string
+        }
+        Insert: {
+          clinic_id: string
+          last_number?: number
+          service_date: string
+        }
+        Update: {
+          clinic_id?: string
+          last_number?: number
+          service_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkin_ticket_counters_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_checkin_tokens: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          id: string
+          label: string
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          id?: string
+          label?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_checkin_tokens_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_instruments: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          instrument: string
+          license_note: string | null
+          license_purchased_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          instrument: string
+          license_note?: string | null
+          license_purchased_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          instrument?: string
+          license_note?: string | null
+          license_purchased_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_instruments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_instruments_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinics: {
         Row: {
           cnpj: string | null
@@ -3402,11 +3615,9 @@ export type Database = {
           id: string
           meeting_id: string | null
           patient_id: string
-          period: string | null
           phone_number: string
           responded_at: string | null
           score: number | null
-          trigger_type: string | null
         }
         Insert: {
           alert_status?: string
@@ -3420,11 +3631,9 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id: string
-          period?: string | null
           phone_number: string
           responded_at?: string | null
           score?: number | null
-          trigger_type?: string | null
         }
         Update: {
           alert_status?: string
@@ -3438,11 +3647,9 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id?: string
-          period?: string | null
           phone_number?: string
           responded_at?: string | null
           score?: number | null
-          trigger_type?: string | null
         }
         Relationships: [
           {
@@ -4331,57 +4538,87 @@ export type Database = {
           clinic_id: string
           council_number: string | null
           council_type: string | null
+          council_uf: string | null
+          council_validity: string | null
+          cpf: string | null
           created_at: string
           discipline: string | null
+          email: string | null
           esdm_certified: boolean
           full_name: string
           id: string
           is_evaluator: boolean
           is_rt: boolean
+          must_change_password: boolean
+          pending_role: string | null
           phone: string | null
+          photo_url: string | null
           role: string
           signature_pin_failed_attempts: number
           signature_pin_hash: string | null
           signature_pin_locked_until: string | null
           signature_pin_updated_at: string | null
+          source_id: string | null
+          source_system: string | null
+          specialty_id: string | null
         }
         Insert: {
           active?: boolean
           clinic_id: string
           council_number?: string | null
           council_type?: string | null
+          council_uf?: string | null
+          council_validity?: string | null
+          cpf?: string | null
           created_at?: string
           discipline?: string | null
+          email?: string | null
           esdm_certified?: boolean
           full_name: string
           id: string
           is_evaluator?: boolean
           is_rt?: boolean
+          must_change_password?: boolean
+          pending_role?: string | null
           phone?: string | null
+          photo_url?: string | null
           role: string
           signature_pin_failed_attempts?: number
           signature_pin_hash?: string | null
           signature_pin_locked_until?: string | null
           signature_pin_updated_at?: string | null
+          source_id?: string | null
+          source_system?: string | null
+          specialty_id?: string | null
         }
         Update: {
           active?: boolean
           clinic_id?: string
           council_number?: string | null
           council_type?: string | null
+          council_uf?: string | null
+          council_validity?: string | null
+          cpf?: string | null
           created_at?: string
           discipline?: string | null
+          email?: string | null
           esdm_certified?: boolean
           full_name?: string
           id?: string
           is_evaluator?: boolean
           is_rt?: boolean
+          must_change_password?: boolean
+          pending_role?: string | null
           phone?: string | null
+          photo_url?: string | null
           role?: string
           signature_pin_failed_attempts?: number
           signature_pin_hash?: string | null
           signature_pin_locked_until?: string | null
           signature_pin_updated_at?: string | null
+          source_id?: string | null
+          source_system?: string | null
+          specialty_id?: string | null
         }
         Relationships: [
           {
@@ -4389,6 +4626,13 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
             referencedColumns: ["id"]
           },
         ]
@@ -5292,57 +5536,6 @@ export type Database = {
           {
             foreignKeyName: "session_notes_therapist_id_fkey"
             columns: ["therapist_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      clinic_instruments: {
-        Row: {
-          clinic_id: string
-          created_at: string
-          enabled: boolean
-          id: string
-          instrument: string
-          license_note: string | null
-          license_purchased_at: string | null
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          clinic_id: string
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          instrument: string
-          license_note?: string | null
-          license_purchased_at?: string | null
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          clinic_id?: string
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          instrument?: string
-          license_note?: string | null
-          license_purchased_at?: string | null
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "clinic_instruments_clinic_id_fkey"
-            columns: ["clinic_id"]
-            isOneToOne: false
-            referencedRelation: "clinics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "clinic_instruments_updated_by_fkey"
-            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -6727,6 +6920,7 @@ export type Database = {
         | { Args: never; Returns: string[] }
         | { Args: { "": string }; Returns: string[] }
       escalate_overdue_queue_items: { Args: never; Returns: number }
+      expire_stale_checkin_requests: { Args: never; Returns: undefined }
       fail:
         | { Args: never; Returns: string }
         | { Args: { "": string }; Returns: string }
@@ -6883,6 +7077,7 @@ export type Database = {
         Returns: boolean
       }
       pts_review_due_at: { Args: { p_patient_id: string }; Returns: string }
+      purge_checkin_request_pii: { Args: never; Returns: undefined }
       refresh_absence_alerts: { Args: never; Returns: number }
       refresh_authorization_renewal_requests: { Args: never; Returns: number }
       refresh_glosa_patterns: { Args: never; Returns: number }
@@ -6958,10 +7153,6 @@ export type Database = {
       skip:
         | { Args: { "": string }; Returns: string }
         | { Args: { how_many: number; why: string }; Returns: string }
-      submit_nps_response: {
-        Args: { p_feedback?: string; p_score: number; p_survey_id: string }
-        Returns: undefined
-      }
       system_user_manageable_roles: { Args: never; Returns: string[] }
       throws_ok: { Args: { "": string }; Returns: string }
       todo:

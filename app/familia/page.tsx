@@ -279,7 +279,7 @@ export default async function FamiliaPage({
   // Mostra no máximo a pesquisa pendente mais recente pra não empilhar
   // formulário em cima de formulário.
   const { data: pendingNpsSurvey } = guardianRow
-    ? await supabase
+    ? await (supabase as any)
         .from("nps_surveys")
         .select("id, trigger_type")
         .eq("patient_id", patientId)
@@ -381,42 +381,53 @@ export default async function FamiliaPage({
   // é seguro usar a ausência de lgpd_consent_at como gatilho do bloqueio.
   const showLgpdGate = !!guardianRow && !guardianRow.lgpd_consent_at;
 
+  const firstName = patient.full_name.split(" ")[0];
+  const hour = Number(
+    new Date().toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: CLINIC_TIMEZONE }),
+  );
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col" style={{ background: "var(--color-bg)" }}>
+    <main id="top" className="mx-auto flex w-full max-w-[480px] flex-1 flex-col" style={{ background: "var(--color-bg)" }}>
       {showLgpdGate && <LgpdConsentGate />}
       <header
         style={{
-          background: "var(--color-dark)",
-          color: "var(--color-paper)",
-          padding: "28px 20px 22px",
+          background: "linear-gradient(155deg, var(--color-pink) 0%, var(--color-accent-700) 65%, var(--color-dark) 100%)",
+          color: "var(--color-on-accent)",
+          padding: "28px 20px 24px",
           display: "flex",
           flexDirection: "column",
-          gap: 16,
+          gap: 18,
+          borderRadius: "0 0 var(--radius-lg) var(--radius-lg)",
+          boxShadow: "var(--shadow-pink)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {LOGO}
           <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 15 }}>
-            Faça Amigos <span style={{ color: "var(--color-accent-2)", fontStyle: "italic" }}>· Família</span>
+            Faça Amigos <span style={{ color: "var(--color-yellow)", fontStyle: "italic" }}>· Família</span>
           </span>
         </div>
         <div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>Criança</div>
-          <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 28 }}>
-            {patient.full_name}
+          <div style={{ fontSize: 13, color: "var(--color-on-accent-soft)" }}>
+            {greeting}! Como vai a semana de
+          </div>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 32, lineHeight: 1.15 }}>
+            {firstName}? 💛
           </div>
           {otherChildren.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
               {otherChildren.map((c) => (
                 <a
                   key={c.id}
                   href={`/familia?patient=${c.id}`}
                   style={{
                     fontSize: 12,
-                    padding: "4px 10px",
+                    fontWeight: 600,
+                    padding: "5px 12px",
                     borderRadius: 999,
-                    border: "1px solid rgba(246,244,239,0.35)",
-                    color: "var(--color-paper)",
+                    background: "rgba(255,255,255,0.16)",
+                    color: "var(--color-on-accent)",
                     textDecoration: "none",
                   }}
                 >
@@ -429,16 +440,18 @@ export default async function FamiliaPage({
 
         <div
           style={{
-            background: "rgba(246,244,239,0.08)",
-            borderRadius: 2,
-            padding: "14px 16px",
+            background: "var(--color-surface)",
+            color: "var(--color-text)",
+            borderRadius: "var(--radius-lg)",
+            padding: "16px 18px",
             display: "flex",
             flexDirection: "column",
             gap: 8,
+            boxShadow: "var(--shadow-md)",
           }}
         >
-          <span style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-accent-2)" }}>
-            Próxima sessão
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-accent)" }}>
+            🗓️ Próxima sessão
           </span>
           {nextAppt ? (
             <>
@@ -446,15 +459,15 @@ export default async function FamiliaPage({
                 <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 20 }}>
                   {fmtWhen(nextAppt.starts_at)}
                 </span>
-                <span style={{ fontSize: 13, opacity: 0.8 }}>
+                <span style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
                   {nextAppt.discipline}
                   {therapistName ? ` · ${therapistName}` : ""}
                 </span>
               </div>
               {nextAppt.status === "confirmada" ? (
-                <div style={{ color: "var(--color-teal-300)", fontSize: 13 }}>✓ Presença confirmada pela recepção.</div>
+                <div style={{ color: "var(--color-teal-700)", fontSize: 13, fontWeight: 600 }}>✓ Presença confirmada pela recepção.</div>
               ) : (
-                <div style={{ color: "var(--color-neutral-600)", fontSize: 13 }}>✓ Presença confirmada por padrão (opt-out).</div>
+                <div style={{ color: "var(--color-neutral-600)", fontSize: 13 }}>✓ Presença confirmada por padrão. Precisa faltar? Avise abaixo.</div>
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
                 <ReportAbsence
@@ -468,7 +481,9 @@ export default async function FamiliaPage({
               </div>
             </>
           ) : (
-            <span style={{ fontSize: 14, opacity: 0.85 }}>Nenhuma sessão agendada no momento.</span>
+            <span style={{ fontSize: 14, color: "var(--color-neutral-600)" }}>
+              Nada marcado por enquanto — combine o próximo horário com a recepção. 🙂
+            </span>
           )}
         </div>
 
@@ -479,16 +494,22 @@ export default async function FamiliaPage({
         {absenceAlert && (
           <div
             style={{
-              borderRadius: 12,
-              border: "1px solid var(--status-falta)",
-              background: "color-mix(in srgb, var(--status-falta) 12%, transparent)",
+              borderRadius: "var(--radius-lg)",
+              background: "color-mix(in srgb, var(--status-falta) 10%, var(--color-surface))",
               padding: "14px 16px",
               fontSize: 13,
               lineHeight: 1.5,
+              display: "flex",
+              gap: 10,
+              boxShadow: "var(--shadow-sm)",
             }}
           >
-            Notamos algumas faltas recentes. Se está difícil manter os horários, fala com a
-            recepção — a gente ajuda a reorganizar a agenda.
+            <span aria-hidden style={{ fontSize: 18 }}>🤗</span>
+            <span>
+              Notamos algumas faltas recentes — sem problema, acontece! Se está difícil manter os
+              horários, chama a recepção, a gente ajuda a reorganizar a agenda do jeitinho que
+              funciona pra vocês.
+            </span>
           </div>
         )}
 
@@ -500,14 +521,16 @@ export default async function FamiliaPage({
           <SurveyPrompt patientId={patientId} guardianId={guardianRow.id} />
         )}
 
-        {(upcomingAppts ?? []).length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">Agenda & Próximas Sessões</h6>
+        <section id="agenda">
+          <div className="flex items-center justify-between mb-2">
+            <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">Agenda & Próximas Sessões</h6>
+            {(upcomingAppts ?? []).length > 0 && (
               <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                 {(upcomingAppts ?? []).length} agendadas
               </span>
-            </div>
+            )}
+          </div>
+          {(upcomingAppts ?? []).length > 0 ? (
             <div className="flex flex-col gap-2.5 mt-2">
               {(upcomingAppts ?? []).map((appt) => {
                 const apptTherapist = Array.isArray(appt.therapist) ? appt.therapist[0] : appt.therapist;
@@ -548,8 +571,12 @@ export default async function FamiliaPage({
                 );
               })}
             </div>
-          </section>
-        )}
+          ) : (
+            <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
+              Nada agendado por aqui ainda — assim que a recepção marcar, aparece nesta lista. 🌤️
+            </p>
+          )}
+        </section>
 
         <section>
           <h6 style={{ color: "var(--color-accent-2-600)" }}>Esta semana</h6>
@@ -589,7 +616,7 @@ export default async function FamiliaPage({
         </section>
 
         <section>
-          <h6>Frequência · {monthLabel}</h6>
+          <h6>💪 Frequência · {monthLabel}</h6>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginTop: 10 }}>
             <span style={{ fontSize: 44, fontWeight: 600, fontFamily: "var(--font-heading)" }}>
               {monthDone}
@@ -617,7 +644,7 @@ export default async function FamiliaPage({
           )}
         </section>
 
-        <section>
+        <section id="progresso">
           <div className="flex items-center justify-between">
             <h6>O que estamos trabalhando (Progresso ABA)</h6>
             {(goalsRaw ?? []).length > 0 && (
@@ -665,7 +692,7 @@ export default async function FamiliaPage({
               })
             ) : (
               <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
-                Nenhuma meta em andamento no plano aprovado ainda.
+                Assim que o plano terapêutico for aprovado, as metas de {firstName} aparecem aqui. ✨
               </p>
             )}
           </div>
@@ -696,7 +723,7 @@ export default async function FamiliaPage({
         )}
 
         <section>
-          <h6>Mural</h6>
+          <h6>📣 Mural</h6>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 10 }}>
             {feedPosts.length > 0 ? (
               feedPosts.map((post) => (
@@ -731,7 +758,7 @@ export default async function FamiliaPage({
               ))
             ) : (
               <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
-                Nenhum recado da equipe ainda.
+                Nenhum recado da equipe ainda — as novidades e fotinhos de {firstName} aparecem aqui. 📸
               </p>
             )}
           </div>
@@ -739,7 +766,7 @@ export default async function FamiliaPage({
 
         <section>
           <div className="flex items-center justify-between">
-            <h6>Mensagens & Respostas da Coordenação</h6>
+            <h6>💬 Mensagens & Respostas da Coordenação</h6>
             {(familyMessages ?? []).some((m) => m.direction === "outbound") && (
               <span className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
                 ✓ Resposta Recebida
@@ -812,24 +839,24 @@ export default async function FamiliaPage({
           </div>
         </section>
 
-        <section>
-          <h6>Documentos liberados</h6>
-          <div style={{ display: "flex", flexDirection: "column", marginTop: 10 }}>
+        <section id="documentos">
+          <h6>📄 Documentos liberados</h6>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
             {(documents ?? []).length > 0 ? (
               (documents ?? []).map((doc) => (
                 <div
                   key={doc.id}
+                  className="card"
                   style={{
-                    display: "flex",
+                    flexDirection: "row",
                     justifyContent: "space-between",
                     alignItems: "center",
                     gap: 10,
-                    padding: "10px 0",
-                    borderBottom: "1px solid var(--color-divider)",
+                    padding: "12px 16px",
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>
                       {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--color-neutral-600)" }}>
@@ -843,7 +870,7 @@ export default async function FamiliaPage({
               ))
             ) : (
               <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
-                Nenhum documento liberado ainda.
+                Nenhum documento liberado ainda — quando a equipe compartilhar algo, ele aparece por aqui.
               </p>
             )}
           </div>
@@ -851,25 +878,25 @@ export default async function FamiliaPage({
 
         <section>
           <div className="flex items-center justify-between">
-            <h6>Meus envios</h6>
+            <h6>📤 Meus envios</h6>
             <UploadDocument patientId={patientId} />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", marginTop: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
             {(familyUploads ?? []).length > 0 ? (
               (familyUploads ?? []).map((doc) => (
                 <div
                   key={doc.id}
+                  className="card"
                   style={{
-                    display: "flex",
+                    flexDirection: "row",
                     justifyContent: "space-between",
                     alignItems: "center",
                     gap: 10,
-                    padding: "10px 0",
-                    borderBottom: "1px solid var(--color-divider)",
+                    padding: "12px 16px",
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{doc.note || "Documento enviado"}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>{doc.note || "Documento enviado"}</div>
                     <div style={{ fontSize: 12, color: "var(--color-neutral-600)" }}>
                       {new Date(doc.uploaded_at).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
                     </div>
@@ -887,7 +914,8 @@ export default async function FamiliaPage({
               ))
             ) : (
               <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
-                Nenhum documento enviado ainda. Use o botão acima para enviar carteirinha, pedido médico ou outro documento.
+                Nenhum documento enviado ainda. Use o botão acima pra mandar carteirinha, pedido médico
+                ou qualquer outro papel — a gente confere rapidinho.
               </p>
             )}
           </div>
@@ -908,16 +936,33 @@ export default async function FamiliaPage({
           background: "var(--color-surface)",
           display: "grid",
           gridTemplateColumns: "repeat(5, 1fr)",
-          padding: "10px 0 16px",
+          gap: 4,
+          padding: "10px 8px 16px",
           fontSize: 11,
-          borderTop: "1px solid var(--color-divider)",
+          fontWeight: 600,
+          boxShadow: "0 -4px 16px color-mix(in srgb, var(--color-text) 8%, transparent)",
         }}
       >
-        <span style={{ textAlign: "center", color: "var(--color-accent)", fontWeight: 600 }}>Início</span>
-        <span style={{ textAlign: "center", color: "var(--color-neutral-600)" }}>Agenda</span>
-        <span style={{ textAlign: "center", color: "var(--color-neutral-600)" }}>Progresso</span>
-        <span style={{ textAlign: "center", color: "var(--color-neutral-600)" }}>Documentos</span>
-        <Link href={`/familia/avalie?patient=${patientId}`} style={{ textAlign: "center", color: "var(--color-neutral-600)", textDecoration: "none" }}>
+        <a
+          href="#top"
+          style={{
+            textAlign: "center",
+            color: "var(--color-on-accent)",
+            background: "var(--color-accent)",
+            borderRadius: "var(--radius-full)",
+            padding: "6px 4px",
+            textDecoration: "none",
+          }}
+        >
+          Início
+        </a>
+        <a href="#agenda" style={{ textAlign: "center", color: "var(--color-neutral-600)", padding: "6px 4px", textDecoration: "none" }}>Agenda</a>
+        <a href="#progresso" style={{ textAlign: "center", color: "var(--color-neutral-600)", padding: "6px 4px", textDecoration: "none" }}>Progresso</a>
+        <a href="#documentos" style={{ textAlign: "center", color: "var(--color-neutral-600)", padding: "6px 4px", textDecoration: "none" }}>Documentos</a>
+        <Link
+          href={`/familia/avalie?patient=${patientId}`}
+          style={{ textAlign: "center", color: "var(--color-neutral-600)", padding: "6px 4px", textDecoration: "none" }}
+        >
           Avalie
         </Link>
       </nav>
@@ -927,7 +972,8 @@ export default async function FamiliaPage({
 
 function EmptyState({ title, message }: { title: string; message: string }) {
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+      <span aria-hidden style={{ fontSize: 40 }}>💛</span>
       <h4>{title}</h4>
       <p style={{ color: "var(--color-neutral-600)", fontSize: 14 }}>{message}</p>
     </main>

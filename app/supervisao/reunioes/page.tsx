@@ -28,7 +28,7 @@ export default async function ReunioesPage() {
     <main className="flex flex-1 flex-col gap-6 p-10">
       <div>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-          Módulo 3 MAAIS
+          Supervisão
         </h6>
         <h1 className="m-0">Reuniões registradas</h1>
       </div>

@@ -94,7 +94,7 @@ const FLOWS: Flow[] = [
     kicker: "Fluxo 1",
     icon: <CalendarDays className="h-5 w-5" />,
     summary:
-      "Do pedido de horário à sessão confirmada. Regra do PRD §9.2: conflito de sala/terapeuta bloqueia; guia inválida vira sessão provisória, não bloqueio.",
+      "Do pedido de horário à sessão confirmada. Regra: conflito de sala/terapeuta bloqueia; guia inválida vira sessão provisória, não bloqueio.",
     badges: (c) => [
       { label: `${c.sessionsInGrid} sessões na semana`, tone: "neutral" },
       { label: `${c.provisionalNoGuide} provisórias sem guia`, tone: c.provisionalNoGuide ? "negative" : "positive" },
@@ -142,7 +142,7 @@ const FLOWS: Flow[] = [
     kicker: "Fluxo 2",
     icon: <UserPlus className="h-5 w-5" />,
     summary:
-      "Primeiro contato até a avaliação agendada. Princípio do PRD §9.1: cadastro nunca bloqueia, pendência sim. Cadastro mínimo em 30 segundos.",
+      "Primeiro contato até a avaliação agendada. Princípio: cadastro nunca bloqueia, pendência sim. Cadastro mínimo em 30 segundos.",
     badges: (c) => [
       { label: `${c.interessados} interessados em aberto`, tone: c.interessados ? "pending" : "positive" },
       { label: `${c.stuckOnboarding} travados há 3+ dias`, tone: c.stuckOnboarding ? "negative" : "positive" },
@@ -245,7 +245,7 @@ const FLOWS: Flow[] = [
       "PTS construído com a família: metas SMART por disciplina e domínio, aprovação da coordenação, revisão datada e devolutiva.",
     badges: (c) => [
       { label: `${c.plansToApprove} planos na fila`, tone: c.plansToApprove ? "pending" : "positive" },
-      { label: `${c.pendingPlans} PTS atrasados (§2.3)`, tone: c.pendingPlans ? "negative" : "positive" },
+      { label: `${c.pendingPlans} PTS atrasados`, tone: c.pendingPlans ? "negative" : "positive" },
       { label: `${c.pendingReports} relatórios para validar`, tone: c.pendingReports ? "pending" : "positive" },
     ],
     tools: [

@@ -13,6 +13,7 @@ import {
   PhoneCall,
   Sparkles,
   UserX,
+  DoorOpen,
 } from "lucide-react";
 
 /**
@@ -21,6 +22,7 @@ import {
  */
 const NAV_ITEMS = [
   { key: "agenda", label: "Agenda do dia", href: "/recepcao", icon: CalendarDays, exact: true },
+  { key: "chegadas", label: "Chegadas", href: "/recepcao/chegadas", icon: DoorOpen, exact: false },
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users, exact: false },
   { key: "pendencias", label: "Pendências", href: "/recepcao/pacientes/pendencias", icon: AlertCircle, exact: false },
   { key: "atendimento", label: "Atendimento", href: "/recepcao/atendimento", icon: Inbox, exact: false },
@@ -35,6 +37,7 @@ type NavKey = (typeof NAV_ITEMS)[number]["key"];
 function activeKey(pathname: string | null): NavKey | null {
   if (!pathname) return null;
   if (pathname === "/recepcao" || pathname.startsWith("/recepcao/agenda")) return "agenda";
+  if (pathname.startsWith("/recepcao/chegadas")) return "chegadas";
   if (pathname.startsWith("/recepcao/pacientes/pendencias")) return "pendencias";
   if (pathname.startsWith("/recepcao/pacientes")) return "pacientes";
   if (pathname.startsWith("/recepcao/atendimento")) return "atendimento";
@@ -48,15 +51,19 @@ function activeKey(pathname: string | null): NavKey | null {
 export function RecepcaoNav({
   pendingCount,
   tomorrowUnconfirmedCount,
+  chegadasCount,
 }: {
   pendingCount: number;
   tomorrowUnconfirmedCount?: number;
+  /** Chegadas declaradas pelo QR ainda não confirmadas — ver app/recepcao/chegadas. */
+  chegadasCount?: number;
 }) {
   const pathname = usePathname();
   const current = activeKey(pathname);
 
   const badgeFor: Partial<Record<NavKey, number>> = {
     pendencias: pendingCount,
+    chegadas: chegadasCount ?? 0,
   };
 
   return (

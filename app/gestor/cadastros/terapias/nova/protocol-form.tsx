@@ -64,7 +64,7 @@ export function ProtocolForm() {
         <input type="checkbox" name="risk_accepted" className="mt-1" />
         <span>
           Confirmo que a clínica possui licença de uso deste protocolo e assumo o risco de digitização das aplicações
-          (PRD §9.4-A).
+          conforme a política jurídica da clínica.
         </span>
       </label>
       <div className="flex flex-col gap-2">

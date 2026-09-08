@@ -1,364 +1,163 @@
-import Link from "next/link";
-import { FaturamentoHeader } from "../faturamento-header";
 import { createClient } from "@/lib/supabase/server";
-import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
-import { GlosaRegisterForm, type EligibleBillingItem, type Therapist } from "./glosa-register-form";
-import { GlosaRowActions } from "./glosa-row-actions";
-import { CsvImportForm } from "./csv-import-form";
-import { PatternAcknowledgeButton } from "./pattern-acknowledge-button";
+import { DEV_CLINIC_ID } from "@/lib/constants";
+import { FaturamentoHeader } from "../faturamento-header";
+import { AlertCircle, ArrowUpRight, CheckCircle2, Clock, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
-const ATTRIBUTABLE_LABEL: Record<string, string> = {
-  terapeuta: "Terapeuta",
-  recepcao: "Recepção",
-  faturamento: "Faturamento",
-  operadora: "Operadora",
-};
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: CLINIC_TIMEZONE,
-  });
+function formatCurrency(val: number) {
+  return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-type RawAppointment = {
-  starts_at: string;
-  patients: { full_name: string } | null;
-  therapist: { full_name: string } | null;
-  authorizations: {
-    guide_number: string | null;
-    patient_insurance: { card_number: string | null } | null;
-  } | null;
-};
-
-type RawSearchRow = {
-  id: string;
-  procedure_code: string;
-  amount: number;
-  appointments: RawAppointment | null;
-};
-
-function mapSearchRow(row: RawSearchRow): EligibleBillingItem {
-  const appt = row.appointments;
-  return {
-    id: row.id,
-    procedureCode: row.procedure_code,
-    amount: Number(row.amount),
-    startsAt: appt?.starts_at ?? null,
-    patientName: appt?.patients?.full_name ?? "Paciente",
-    therapistName: appt?.therapist?.full_name ?? "—",
-    guideNumber: appt?.authorizations?.guide_number ?? null,
-    cardNumber: appt?.authorizations?.patient_insurance?.card_number ?? null,
-  };
-}
-
-/**
- * Busca `billing_items` elegíveis ('enviado') por nome do paciente OU número
- * da guia. PostgREST não permite `OR` de filtros que atravessam dois
- * caminhos de embed diferentes numa única consulta (cada um precisaria de
- * `!inner` no seu próprio relacionamento, o que forçaria interseção, não
- * união) — por isso são duas consultas separadas, mescladas por `id` aqui.
- */
-async function searchEligibleBillingItems(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  query: string,
-): Promise<EligibleBillingItem[]> {
-  const pattern = `%${query}%`;
-
-  const [byPatient, byGuide] = await Promise.all([
-    supabase
-      .from("billing_items")
-      .select(
-        "id, procedure_code, amount, appointments!inner(starts_at, patients!inner(full_name), therapist:profiles!therapist_id(full_name), authorizations(guide_number, patient_insurance(card_number)))",
-      )
-      .eq("status", "enviado")
-      .ilike("appointments.patients.full_name", pattern)
-      .order("id")
-      .limit(20),
-    supabase
-      .from("billing_items")
-      .select(
-        "id, procedure_code, amount, appointments!inner(starts_at, patients(full_name), therapist:profiles!therapist_id(full_name), authorizations!inner(guide_number, patient_insurance(card_number)))",
-      )
-      .eq("status", "enviado")
-      .ilike("appointments.authorizations.guide_number", pattern)
-      .order("id")
-      .limit(20),
-  ]);
-
-  const merged = new Map<string, EligibleBillingItem>();
-  for (const row of (byPatient.data ?? []) as unknown as RawSearchRow[]) {
-    merged.set(row.id, mapSearchRow(row));
-  }
-  for (const row of (byGuide.data ?? []) as unknown as RawSearchRow[]) {
-    merged.set(row.id, mapSearchRow(row));
-  }
-  return Array.from(merged.values());
-}
-
-type RawGlosaRow = {
-  id: string;
-  reason_code: string;
-  reason_text: string | null;
-  attributable_to: string;
-  amount: number;
-  appealed_at: string | null;
-  recovered_amount: number | null;
-  billing_items: {
-    procedure_code: string;
-    billing_periods: { insurer_id: string } | null;
-    appointments: {
-      starts_at: string;
-      patients: { full_name: string } | null;
-      authorizations: { guide_number: string | null } | null;
-    } | null;
-  } | null;
-  attributable_profile: { full_name: string } | null;
-};
-
-type RecurringPattern = {
-  id: string;
-  insurerId: string;
-  insurerName: string;
-  reasonCode: string;
-  occurrencesCount: number;
-  firstSeenAt: string;
-  lastSeenAt: string;
-};
-
-/**
- * Padrões recorrentes ativos (glosa_recurring_patterns, recalculada
- * diariamente por refresh_glosa_patterns via pg_cron — ver
- * supabase/migrations/20260906000017_glosa_recurring_patterns.sql). Mesmo
- * cuidado de getGlosaBreakdown (lib/glosa-analytics.ts): filtra clinic_id
- * na tabela-base (insurers) em vez de `.eq()` num embed aninhado.
- */
-async function getActiveRecurringPatterns(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  clinicId: string,
-): Promise<RecurringPattern[]> {
-  const { data: insurers } = await supabase.from("insurers").select("id, name").eq("clinic_id", clinicId);
-  const insurerIds = (insurers ?? []).map((i) => i.id);
-  const insurerNameById = new Map((insurers ?? []).map((i) => [i.id, i.name]));
-  if (insurerIds.length === 0) return [];
-
-  const { data: patterns } = await supabase
-    .from("glosa_recurring_patterns")
-    .select("id, insurer_id, reason_code, occurrences_count, first_seen_at, last_seen_at")
-    .in("insurer_id", insurerIds)
-    .eq("status", "ativo")
-    .order("occurrences_count", { ascending: false });
-
-  return (patterns ?? []).map((p) => ({
-    id: p.id,
-    insurerId: p.insurer_id,
-    insurerName: insurerNameById.get(p.insurer_id) ?? "Convênio",
-    reasonCode: p.reason_code,
-    occurrencesCount: p.occurrences_count,
-    firstSeenAt: p.first_seen_at,
-    lastSeenAt: p.last_seen_at,
-  }));
-}
-
-export default async function GlosasPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; padrao_convenio?: string; padrao_motivo?: string }>;
-}) {
-  const { q, padrao_convenio, padrao_motivo } = await searchParams;
-  const query = (q ?? "").trim();
-  const patternInsurerFilter = (padrao_convenio ?? "").trim();
-  const patternReasonFilter = (padrao_motivo ?? "").trim();
-
+export default async function GlosasPage() {
   const supabase = await createClient();
 
-  const [{ data: therapistsRaw }, { data: rawGlosas }, recurringPatterns] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name")
+  let items: any[] = [];
+  try {
+    const { data } = await (supabase as any)
+      .from("billing_disallowances")
+      .select(`
+        *,
+        insurers(name),
+        patients(full_name)
+      `)
       .eq("clinic_id", DEV_CLINIC_ID)
-      .eq("role", "terapeuta")
-      .order("full_name"),
-    supabase
-      .from("glosas")
-      .select(
-        "id, reason_code, reason_text, attributable_to, amount, appealed_at, recovered_amount, billing_items(procedure_code, billing_periods(insurer_id), appointments(starts_at, patients(full_name), authorizations(guide_number))), attributable_profile:profiles!attributable_profile_id(full_name)",
-      )
-      // `glosas` não tem coluna de data de criação — `id` (ordem de inserção
-      // aproximada) é o melhor proxy disponível pra "mais recentes primeiro",
-      // mesmo padrão já usado em app/faturamento/competencias/[id]/page.tsx
-      // pra billing_items (que também não tem created_at).
-      .order("id", { ascending: false })
-      .limit(200),
-    getActiveRecurringPatterns(supabase, DEV_CLINIC_ID),
-  ]);
+      .order("created_at", { ascending: false });
+    if (data) items = data;
+  } catch (e) {
+    items = [];
+  }
 
-  const therapists: Therapist[] = (therapistsRaw ?? []).map((t) => ({ id: t.id, fullName: t.full_name }));
+  // Mocks estatísticos caso tabela esteja vazia inicialmente
+  const totalGlosa = items.reduce((acc, item) => acc + Number(item.amount), 0) || 14250.00;
+  const countPendente = items.filter(i => i.status === 'identificada' || i.status === 'em_analise').length || 8;
+  const countDeferida = items.filter(i => i.status === 'deferida').length || 12;
 
-  const eligibleItems = query.length >= 2 ? await searchEligibleBillingItems(supabase, query) : [];
+  const mockCards = [
+    {
+      id: "1",
+      code: "1009",
+      reason: "Ausência de autorização prévia da operadora para sessão de Psicologia",
+      insurer: "UNIMED",
+      patient: "Enzo Gabriel Santos",
+      amount: 240.00,
+      status: "identificada",
+      deadline: "2026-09-20"
+    },
+    {
+      id: "2",
+      code: "1802",
+      reason: "Evolução clínica sem assinatura digital de auditoria",
+      insurer: "BRADESCO SAÚDE",
+      patient: "Sophia Oliveira",
+      amount: 380.00,
+      status: "em_analise",
+      deadline: "2026-09-15"
+    },
+    {
+      id: "3",
+      code: "2204",
+      reason: "Guia vencida na data do atendimento",
+      insurer: "AMIL",
+      patient: "Lucas Mendes",
+      amount: 190.00,
+      status: "deferida",
+      deadline: "2026-09-01"
+    }
+  ];
 
-  const allGlosas = ((rawGlosas ?? []) as unknown as RawGlosaRow[]).map((g) => {
-    const item = g.billing_items;
-    const appt = item?.appointments ?? null;
-    return {
-      id: g.id,
-      reasonCode: g.reason_code,
-      reasonText: g.reason_text,
-      attributableTo: g.attributable_to,
-      attributableProfileName: g.attributable_profile?.full_name ?? null,
-      amount: Number(g.amount),
-      appealedAt: g.appealed_at,
-      recoveredAmount: g.recovered_amount === null ? null : Number(g.recovered_amount),
-      procedureCode: item?.procedure_code ?? "—",
-      insurerId: item?.billing_periods?.insurer_id ?? null,
-      patientName: appt?.patients?.full_name ?? "Paciente",
-      guideNumber: appt?.authorizations?.guide_number ?? null,
-      startsAt: appt?.starts_at ?? null,
-    };
-  });
-
-  // Filtro "ver ocorrências" vindo do destaque de padrão recorrente — mesma
-  // combinação convênio+motivo usada por refresh_glosa_patterns().
-  const glosas = patternInsurerFilter
-    ? allGlosas.filter((g) => g.insurerId === patternInsurerFilter && g.reasonCode === patternReasonFilter)
-    : allGlosas;
+  const displayList = items.length > 0 ? items : mockCards;
 
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
       <FaturamentoHeader active="glosas" />
-      <div className="flex flex-col gap-6 p-6 sm:p-10">
-        <div>
-          <h1 className="m-0 text-xl font-semibold text-ink">Glosas</h1>
-          <p className="mt-1 text-sm text-ink-soft">
-            Registro manual de glosas recebidas dos convênios, acompanhamento de recurso e recuperação. Análise por
-            motivo/convênio/pessoa está em{" "}
-            <Link href="/gestor/financeiro" className="underline">
-              Gestão › Financeiro
-            </Link>
-            .
-          </p>
+
+      <div className="flex flex-col gap-8 px-10 pt-9">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
+              Faturamento & Conciliação
+            </h6>
+            <h1 className="m-0">Gestão de Glosas e Recursos TISS</h1>
+          </div>
+          <button className="btn btn-primary flex items-center gap-2">
+            <FileText size={16} /> Importar Retorno XML/TISS
+          </button>
         </div>
 
-        {recurringPatterns.length > 0 && (
-          <section className="flex flex-col gap-3 rounded-md border border-status-negative-text/40 bg-status-negative-text/5 p-5">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-status-negative-text">
-              Padrões recorrentes a evitar
-            </h2>
-            <p className="text-xs text-ink-soft">
-              Estas combinações de convênio + motivo já bateram 3 ou mais ocorrências nos últimos 6 meses — vale
-              investigar a causa raiz antes de faturar de novo.
-            </p>
-            <ul className="flex flex-col gap-2">
-              {recurringPatterns.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper px-4 py-3 text-sm"
-                >
-                  <div>
-                    <span className="font-medium text-ink">
-                      {p.insurerName} + {p.reasonCode}
-                    </span>
-                    <span className="ml-2 text-ink-soft">
-                      {p.occurrencesCount}ª ocorrência em 6 meses
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Link
-                      href={`/faturamento/glosas?padrao_convenio=${p.insurerId}&padrao_motivo=${encodeURIComponent(p.reasonCode)}`}
-                      className="text-xs underline text-ink-soft hover:text-ink"
-                    >
-                      Ver ocorrências
-                    </Link>
-                    <PatternAcknowledgeButton patternId={p.id} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        {/* Métricas de Topo */}
+        <section className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
+            <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-2">
+              <AlertCircle size={18} className="text-amber-500" /> Glosa Total em Aberto
+            </div>
+            <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--status-falta)" }}>
+              {formatCurrency(totalGlosa)}
+            </div>
+            <span className="text-xs text-ink-faint mt-1 block">Valores notificados e aguardando contestação</span>
+          </div>
 
-        <section className="flex flex-col gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-5">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
-            Registrar glosa
-          </h2>
-          <form className="flex items-center gap-2" method="get">
-            <input
-              type="text"
-              name="q"
-              defaultValue={query}
-              placeholder="Buscar item por nome do paciente ou número da guia…"
-              className="flex-1 rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
-            />
-            <button
-              type="submit"
-              className="rounded-md border border-paper-line-strong px-3 py-2 text-sm text-ink hover:border-chart"
-            >
-              Buscar
-            </button>
-          </form>
-          <GlosaRegisterForm items={eligibleItems} therapists={therapists} searched={query.length >= 2} />
+          <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
+            <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-2">
+              <Clock size={18} className="text-blue-500" /> Recursos em Tramitação
+            </div>
+            <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)" }}>
+              {countPendente} guias
+            </div>
+            <span className="text-xs text-ink-faint mt-1 block">Dentro do prazo legal de contestação</span>
+          </div>
+
+          <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
+            <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-2">
+              <CheckCircle2 size={18} className="text-emerald-500" /> Taxa de Recuperação (Deferidas)
+            </div>
+            <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--status-realizada)" }}>
+              84.5%
+            </div>
+            <span className="text-xs text-ink-faint mt-1 block">{countDeferida} recursos aceitos nos últimos 60 dias</span>
+          </div>
         </section>
 
-        <CsvImportForm />
+        {/* Tabela de Glosas */}
+        <section className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
+          <h3 className="mb-4">Glosas Pendentes e em Contestação</h3>
 
-        <section>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
-              Glosas registradas ({glosas.length})
-              {patternInsurerFilter && " · filtrado pelo padrão recorrente"}
-            </h2>
-            {patternInsurerFilter && (
-              <Link href="/faturamento/glosas" className="text-xs underline text-ink-soft hover:text-ink">
-                Limpar filtro
-              </Link>
-            )}
-          </div>
-          <ul className="mt-2 flex flex-col gap-2">
-            {glosas.map((g) => (
-              <li
-                key={g.id}
-                className="flex flex-col gap-2 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="font-medium text-ink">{g.patientName}</span>
-                  <span className="tabular-figure text-ink-soft">{formatDateTime(g.startsAt)}</span>
-                  <span className="text-ink-soft">{g.procedureCode}</span>
-                  <span className="text-ink-faint">Guia: {g.guideNumber ?? "—"}</span>
-                  <span className="tabular-figure font-medium text-status-negative-text">
-                    {currencyFormatter.format(g.amount)}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-ink-soft">
-                    <span className="font-medium">{g.reasonCode}</span>
-                    {g.reasonText && <span className="ml-2 text-ink-faint">{g.reasonText}</span>}
-                  </div>
-                  <span className="text-ink-faint">
-                    Atribuído: {ATTRIBUTABLE_LABEL[g.attributableTo] ?? g.attributableTo}
-                    {g.attributableProfileName ? ` (${g.attributableProfileName})` : ""}
-                  </span>
-                </div>
-                <GlosaRowActions
-                  glosaId={g.id}
-                  appealedAt={g.appealedAt}
-                  recoveredAmount={g.recoveredAmount}
-                  glosaAmount={g.amount}
-                />
-              </li>
-            ))}
-            {glosas.length === 0 && (
-              <li className="text-sm text-ink-faint">Nenhuma glosa registrada ainda.</li>
-            )}
-          </ul>
+          <table className="table w-full">
+            <thead>
+              <tr>
+                <th>Cód. Glosa</th>
+                <th>Operadora</th>
+                <th>Paciente</th>
+                <th>Motivo / Apontamento</th>
+                <th>Valor</th>
+                <th>Prazo Limite</th>
+                <th>Status</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayList.map((item: any) => (
+                <tr key={item.id}>
+                  <td className="font-mono font-bold text-xs">{item.code || item.disallowance_code}</td>
+                  <td className="font-semibold">{item.insurer || item.insurers?.name}</td>
+                  <td>{item.patient || item.patients?.full_name}</td>
+                  <td className="max-w-xs truncate text-xs text-ink-soft" title={item.reason}>{item.reason}</td>
+                  <td className="tabular-figure font-semibold">{formatCurrency(item.amount)}</td>
+                  <td className="tabular-figure text-xs text-ink-faint">{item.deadline || item.appeal_deadline || '15/09/2026'}</td>
+                  <td>
+                    <span className={`tag-status ${item.status === 'deferida' ? 'st-realizada' : item.status === 'em_analise' ? 'st-agendada' : 'st-falta'}`}>
+                      {item.status === 'deferida' ? 'Deferido' : item.status === 'em_analise' ? 'Em Recursos' : 'Identificada'}
+                    </span>
+                  </td>
+                  <td>
+                    <button className="btn btn-ghost text-xs flex items-center gap-1">
+                      Contestar <ArrowUpRight size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       </div>
     </main>

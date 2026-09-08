@@ -157,6 +157,7 @@ export function DocumentosManager({
   const [startTime, setStartTime] = useState<string>("14:00");
   const [endTime, setEndTime] = useState<string>("15:00");
   const [customPatientName, setCustomPatientName] = useState<string>(patients[0]?.fullName || "");
+  const [patientBirthDate, setPatientBirthDate] = useState<string>(patients[0]?.birthDate || "");
   const [customGuardianName, setCustomGuardianName] = useState<string>(patients[0]?.guardianName || "");
   const [guardianCpf, setGuardianCpf] = useState<string>(patients[0]?.guardianCpf || "");
   const [purpose, setPurpose] = useState<string>(activeTemplate.defaultPurpose);
@@ -173,12 +174,13 @@ export function DocumentosManager({
   const [referenceMonth, setReferenceMonth] = useState<string>("Setembro / 2026");
   const [observations, setObservations] = useState<string>("");
 
-  // When patient selection changes, auto-fill names
+  // When patient selection changes, auto-fill names and birthdate
   const handleSelectPatient = (id: string) => {
     setSelectedPatientId(id);
     const p = patients.find((pat) => pat.id === id);
     if (p) {
       setCustomPatientName(p.fullName);
+      setPatientBirthDate(p.birthDate || "");
       setCustomGuardianName(p.guardianName || "");
       setGuardianCpf(p.guardianCpf || "");
     }
@@ -190,6 +192,22 @@ export function DocumentosManager({
     setPurpose(template.defaultPurpose);
     setValidity(template.defaultValidity);
   };
+
+  // Funções de Cálculo de Idade e Menoridade
+  const calculateIsMinor = (bDateIso?: string | null) => {
+    if (!bDateIso) return true; // Por padrão em clínica infantil/neurodivergente considera menor se não informado
+    const birth = new Date(bDateIso + "T00:00:00");
+    if (isNaN(birth.getTime())) return true;
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age < 18;
+  };
+
+  const isMinor = calculateIsMinor(patientBirthDate || currentPatient?.birthDate);
 
   const patientNameDisplay =
     customPatientName.trim() || currentPatient?.fullName || "[Nome do Paciente]";
@@ -399,13 +417,31 @@ export function DocumentosManager({
                   />
                 </div>
 
-                {(selectedTemplateId === "acompanhamento_responsavel" ||
+                <div className="flex flex-col gap-1 sm:col-span-2">
+                  <label className="text-xs font-semibold text-gray-700 flex items-center justify-between">
+                    <span>Data de Nascimento do Paciente</span>
+                    {isMinor && (
+                      <span className="text-[10px] font-semibold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-md">
+                        Paciente Menor de Idade
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="date"
+                    value={patientBirthDate}
+                    onChange={(e) => setPatientBirthDate(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-pink-500 focus:outline-none"
+                  />
+                </div>
+
+                {(isMinor ||
+                  selectedTemplateId === "acompanhamento_responsavel" ||
                   selectedTemplateId === "autorizacao_retirada" ||
                   selectedTemplateId === "declaracao_fiscal") && (
                   <>
                     <div className="flex flex-col gap-1 sm:col-span-2">
                       <label className="text-xs font-semibold text-gray-700">
-                        Nome do Responsável Legal
+                        Nome do Responsável Legal {isMinor && <span className="text-pink-600 font-bold">*</span>}
                       </label>
                       <input
                         type="text"
@@ -415,9 +451,9 @@ export function DocumentosManager({
                         className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-pink-500 focus:outline-none"
                       />
                     </div>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 sm:col-span-2">
                       <label className="text-xs font-semibold text-gray-700">
-                        CPF / RG do Responsável
+                        CPF do Responsável {isMinor && <span className="text-pink-600 font-bold">*</span>}
                       </label>
                       <input
                         type="text"
@@ -650,11 +686,48 @@ export function DocumentosManager({
 
                 {/* Corpo do Documento - Texto Formal por Modelo */}
                 <div className="space-y-6 text-base text-gray-800 leading-loose text-justify font-normal px-2">
+                  {/* Bloco Qualificação do Paciente / Menor de Idade */}
+                  <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200/80 text-sm space-y-1 font-sans">
+                    <p>
+                      <strong className="font-bold text-gray-950">Paciente:</strong>{" "}
+                      {patientNameDisplay}
+                      {patientBirthDate && (
+                        <span>
+                          {" "}
+                          (nascido(a) em:{" "}
+                          <strong className="font-bold text-gray-950">
+                            {fmtDisplayDate(patientBirthDate)}
+                          </strong>
+                          )
+                        </span>
+                      )}
+                    </p>
+                    {isMinor && (
+                      <p>
+                        <strong className="font-bold text-gray-950">Responsável Legal:</strong>{" "}
+                        {guardianNameDisplay}{" "}
+                        <span className="text-gray-600">|</span>{" "}
+                        <strong className="font-bold text-gray-950">CPF do Responsável:</strong>{" "}
+                        {guardianCpf || "[CPF não informado]"}
+                      </p>
+                    )}
+                  </div>
+
                   {selectedTemplateId === "comparecimento_paciente" && (
                     <p>
                       Declaramos para os devidos fins de direito e comprovação que o(a) paciente{" "}
                       <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>
-                      compareceu a esta unidade de atendimento no dia{" "}
+                      {patientBirthDate && (
+                        <span> (nascido(a) em: {fmtDisplayDate(patientBirthDate)})</span>
+                      )}
+                      {isMinor && (
+                        <span>
+                          , representado(a)/acompanhado(a) por seu responsável legal{" "}
+                          <strong className="font-bold text-gray-950">{guardianNameDisplay}</strong>
+                          {guardianCpf && <span> (CPF: {guardianCpf})</span>}
+                        </span>
+                      )}
+                      , compareceu a esta unidade de atendimento no dia{" "}
                       <strong className="font-bold text-gray-950">{fmtDisplayDate(attendanceDate)}</strong>
                       , no período compreendido das{" "}
                       <strong className="font-bold text-gray-950">{startTime}</strong> às{" "}
@@ -668,7 +741,7 @@ export function DocumentosManager({
                       <strong className="font-bold text-gray-950">{guardianNameDisplay}</strong>
                       {guardianCpf && (
                         <span>
-                          , inscrito(a) no CPF/RG nº{" "}
+                          , inscrito(a) no CPF nº{" "}
                           <strong className="font-bold text-gray-950">{guardianCpf}</strong>
                         </span>
                       )}
@@ -677,15 +750,26 @@ export function DocumentosManager({
                       , no horário das{" "}
                       <strong className="font-bold text-gray-950">{startTime}</strong> às{" "}
                       <strong className="font-bold text-gray-950">{endTime}</strong>, acompanhando o(a) paciente menor sob sua responsabilidade,{" "}
-                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>, em consulta e plano de intervenção terapêutica.
+                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>
+                      {patientBirthDate && <span> (nascido(a) em: {fmtDisplayDate(patientBirthDate)})</span>}
+                      , em consulta e plano de intervenção terapêutica.
                     </p>
                   )}
 
                   {selectedTemplateId === "vinculo_terapeutico" && (
                     <p>
                       Atestamos e declaramos para os devidos fins de direito que o(a) paciente{" "}
-                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>{" "}
-                      mantém vínculo terapêutico ativo com a <strong className="font-bold text-gray-950">{clinicInfo.nomeFantasia}</strong>, encontrando-se regularmente em acompanhamento multidisciplinar especializado nas áreas de{" "}
+                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>
+                      {patientBirthDate && <span> (nascido(a) em: {fmtDisplayDate(patientBirthDate)})</span>}
+                      {isMinor && (
+                        <span>
+                          , sob responsabilidade legal de{" "}
+                          <strong className="font-bold text-gray-950">{guardianNameDisplay}</strong>
+                          {guardianCpf && <span> (CPF: {guardianCpf})</span>}
+                        </span>
+                      )}
+                      , mantém vínculo terapêutico ativo com a{" "}
+                      <strong className="font-bold text-gray-950">{clinicInfo.nomeFantasia}</strong>, encontrando-se regularly em acompanhamento multidisciplinar especializado nas áreas de{" "}
                       <strong className="font-bold text-gray-950">{disciplinesText}</strong>, em regime contínuo de intervenção.
                     </p>
                   )}
@@ -693,8 +777,16 @@ export function DocumentosManager({
                   {selectedTemplateId === "frequencia_mensal" && (
                     <p>
                       Declaramos que o(a) paciente{" "}
-                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>{" "}
-                      teve frequência regular e assiduidade confirmada referente ao mês de{" "}
+                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>
+                      {patientBirthDate && <span> (nascido(a) em: {fmtDisplayDate(patientBirthDate)})</span>}
+                      {isMinor && (
+                        <span>
+                          , sob responsabilidade legal de{" "}
+                          <strong className="font-bold text-gray-950">{guardianNameDisplay}</strong>
+                          {guardianCpf && <span> (CPF: {guardianCpf})</span>}
+                        </span>
+                      )}
+                      , teve frequência regular e assiduidade confirmada referente ao mês de{" "}
                       <strong className="font-bold text-gray-950">{referenceMonth}</strong>, cumprindo o total de{" "}
                       <strong className="font-bold text-gray-950">{monthlySessionsCount}</strong> pré-agendadas em seu plano terapêutico individualizado.
                     </p>
@@ -703,8 +795,16 @@ export function DocumentosManager({
                   {selectedTemplateId === "atestado_atendimento" && (
                     <p>
                       Atestamos para os devidos fins que o(a) paciente{" "}
-                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>{" "}
-                      esteve em atendimento especializado nesta clínica no dia{" "}
+                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>
+                      {patientBirthDate && <span> (nascido(a) em: {fmtDisplayDate(patientBirthDate)})</span>}
+                      {isMinor && (
+                        <span>
+                          , sob responsabilidade legal de{" "}
+                          <strong className="font-bold text-gray-950">{guardianNameDisplay}</strong>
+                          {guardianCpf && <span> (CPF: {guardianCpf})</span>}
+                        </span>
+                      )}
+                      , esteve em atendimento especializado nesta clínica no dia{" "}
                       <strong className="font-bold text-gray-950">{fmtDisplayDate(attendanceDate)}</strong>
                       , das <strong className="font-bold text-gray-950">{startTime}</strong> às{" "}
                       <strong className="font-bold text-gray-950">{endTime}</strong>, devendo ser dispensado(a) de suas atividades habituais durante o referido período.
@@ -715,7 +815,7 @@ export function DocumentosManager({
                     <p>
                       Por meio deste termo de autorização, o(a) responsável legal{" "}
                       <strong className="font-bold text-gray-950">{guardianNameDisplay}</strong>
-                      {guardianCpf && <span> (CPF/RG: {guardianCpf})</span>} autoriza expressamente o(a) Sr.(a){" "}
+                      {guardianCpf && <span> (CPF: {guardianCpf})</span>} autoriza expressamente o(a) Sr.(a){" "}
                       <strong className="font-bold text-gray-950">
                         {authorizedThirdPerson || "[Nome da Pessoa Autorizada]"}
                       </strong>
@@ -726,7 +826,8 @@ export function DocumentosManager({
                         </span>
                       )}
                       , a retirar o(a) paciente menor{" "}
-                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong> nas dependências desta clínica após o encerramento de suas sessões.
+                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>
+                      {patientBirthDate && <span> (nascido(a) em: {fmtDisplayDate(patientBirthDate)})</span>} nas dependências desta clínica após o encerramento de suas sessões.
                     </p>
                   )}
 
@@ -734,8 +835,9 @@ export function DocumentosManager({
                     <p>
                       Declaramos para fins de comprovação junto à Receita Federal (Imposto de Renda) que o(a) Sr.(a){" "}
                       <strong className="font-bold text-gray-950">{guardianNameDisplay}</strong>
-                      {guardianCpf && <span> (CPF: {guardianCpf})</span>} realizou o pagamento dos serviços de atendimento em saúde e terapia prestados ao paciente{" "}
-                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>, no âmbito deste estabelecimento de saúde.
+                      {guardianCpf && <span> (CPF: {guardianCpf})</span>} realizou o pagamento dos serviços de atendimento em saúde e terapia prestados ao paciente menor{" "}
+                      <strong className="font-bold text-gray-950">{patientNameDisplay}</strong>
+                      {patientBirthDate && <span> (nascido(a) em: {fmtDisplayDate(patientBirthDate)})</span>}, no âmbito deste estabelecimento de saúde.
                     </p>
                   )}
 
@@ -783,8 +885,19 @@ export function DocumentosManager({
                   </div>
                 </div>
 
+                {/* Nota Explicativa Legal / Aviso de Não-Validade de Atestado Médico */}
+                <div className="mt-8 p-3 rounded-lg border border-amber-200 bg-amber-50/60 text-[11px] text-amber-900 leading-relaxed font-sans">
+                  <p className="font-bold uppercase tracking-wider text-[10px] text-amber-950 mb-0.5 flex items-center gap-1">
+                    <span>⚠️ Nota Explicativa / Aviso Legal:</span>
+                  </p>
+                  <p>
+                    Este documento possui caráter exclusivamente administrativo e declaratório (comprovação de comparecimento, assiduidade ou vínculo terapêutico nas dependências desta clínica). 
+                    <strong className="font-semibold text-amber-950"> Não possui validade ou efeito de Atestado Médico de Afastamento ou Incapacidade Laboral/Escolar</strong> (nos termos da Resolução CFM nº 2.381/2024). O abono de faltas ou justificativa de ausência no trabalho/escola fica sujeito à aceitação e normas internas da instituição destinatária.
+                  </p>
+                </div>
+
                 {/* Rodapé de Validade e Autenticidade */}
-                <div className="mt-10 pt-4 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
+                <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
                   <span>Documento gerado pelo Sistema de Gestão Clínica Faça Amigos</span>
                   <span>Validade: {validity}</span>
                 </div>

@@ -76,7 +76,7 @@ export default async function AuditoriaPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink">Pendências escaladas</h1>
           <p className="text-sm text-ink-soft">
-            §9.1: item da fila de pendências da recepção (/recepcao/pacientes/pendencias) que
+            Item da fila de pendências da recepção (/recepcao/pacientes/pendencias) que
             passou do prazo sem ninguém resolver — a rotina `escalate_overdue_queue_items()`
             (pg_cron, hora em hora) marca aqui pra você cobrar quem está com o item.
           </p>
@@ -121,7 +121,7 @@ export default async function AuditoriaPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink">Log de Acesso a Prontuário</h1>
           <p className="text-sm text-ink-soft">
-            Exigência LGPD (§11 do PRD): toda leitura de prontuário de paciente fica registrada
+            Exigência LGPD: toda leitura de prontuário de paciente fica registrada
             aqui, separado do log de escrita (`audit_log`). Últimos 200 acessos.
           </p>
         </div>

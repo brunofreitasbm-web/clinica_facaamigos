@@ -133,7 +133,7 @@ export function AnamneseForm({ patientId }: { patientId: string }) {
             O que a família considera como prioridade para tratar
           </label>
           <p className="text-xs text-ink-faint">
-            Este texto fica disponível na hora de montar o PTS (Módulo 3 MAAIS, slide 22: &quot;a família relatou uma prioridade, mas ela não chegou ao PDI&quot;).
+            Este texto fica disponível na hora de montar o PTS — garante que uma prioridade relatada pela família não se perca até o PDI.
           </p>
           <textarea name="family_priorities" rows={2} className={inputClass} />
         </div>
@@ -144,7 +144,7 @@ export function AnamneseForm({ patientId }: { patientId: string }) {
         <legend className="text-xs font-medium uppercase tracking-wide text-ink-soft">O que foi apresentado à família</legend>
         <div className="mt-4 flex flex-col gap-2 text-sm text-ink">
           <label className="flex items-center gap-2">
-            <input type="checkbox" name="presented_pillars" /> Pilares do MAAIS e estrutura do serviço
+            <input type="checkbox" name="presented_pillars" /> Pilares do método e estrutura do serviço
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" name="presented_absence_policy" /> Prazos e política de faltas

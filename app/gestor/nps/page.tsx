@@ -16,14 +16,14 @@ export default async function NpsPage() {
 
   const [{ data: monthSurveys }, { data: monthlySurveys }, { count: pendingAlertsCount }, { data: monthFamilyFeedback }, { data: familyFeedbackRaw }] =
     await Promise.all([
-      supabase
+      (supabase as any)
         .from("nps_surveys")
         .select("score, responded_at")
         .in("trigger_type", ["evaluation", "devolutiva"])
         .gte("dispatched_at", startISO)
         .lt("dispatched_at", endISO)
         .not("responded_at", "is", null),
-      supabase
+      (supabase as any)
         .from("nps_surveys")
         .select("score, responded_at")
         .eq("trigger_type", "mensal")
@@ -46,18 +46,18 @@ export default async function NpsPage() {
         .limit(20),
     ]);
 
-  const scores = (monthSurveys ?? []).map((s) => s.score).filter((s): s is number => s != null);
-  const avgScore = scores.length > 0 ? Math.round((scores.reduce((sum, s) => sum + s, 0) / scores.length) * 10) / 10 : null;
+  const scores = ((monthSurveys as any[]) ?? []).map((s: any) => s.score).filter((s: any): s is number => s != null);
+  const avgScore = scores.length > 0 ? Math.round((scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length) * 10) / 10 : null;
 
   const distribution: ScoreDistribution[] = [1, 2, 3, 4, 5].map((score) => ({
     score,
-    count: scores.filter((s) => s === score).length,
+    count: scores.filter((s: number) => s === score).length,
   }));
 
-  const monthlyScores = (monthlySurveys ?? []).map((s) => s.score).filter((s): s is number => s != null);
+  const monthlyScores = ((monthlySurveys as any[]) ?? []).map((s: any) => s.score).filter((s: any): s is number => s != null);
   const monthlyAvgScore =
     monthlyScores.length > 0
-      ? Math.round((monthlyScores.reduce((sum, s) => sum + s, 0) / monthlyScores.length) * 10) / 10
+      ? Math.round((monthlyScores.reduce((sum: number, s: number) => sum + s, 0) / monthlyScores.length) * 10) / 10
       : null;
 
   const normalizedFamily = (monthFamilyFeedback ?? [])

@@ -11,7 +11,7 @@ export default function NovoProtocoloPage() {
           ← Terapias
         </Link>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mt-3 mb-1">
-          Módulo 3 MAAIS · Avaliação inicial
+          Avaliação inicial
         </h6>
         <h1 className="m-0">Cadastrar protocolo licenciado</h1>
       </div>

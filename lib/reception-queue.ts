@@ -18,7 +18,8 @@ export type PendingQueueCategory =
   | "remarcacao_solicitada"
   | "documento_familia_novo"
   | "renovacao_solicitada"
-  | "cadastro_assistido_ia";
+  | "cadastro_assistido_ia"
+  | "chegada_nao_confirmada";
 
 export type PendingQueueItem = {
   id: string;
@@ -71,8 +72,14 @@ export type PendingQueueItem = {
  *    renovacao_solicitada: prazos administrativos que dependem de terceiros
  *    (convênio, família trazendo documento) — 3 dias de folga antes de
  *    escalar pro supervisor.
+ *  - chegada_nao_confirmada: a família já está fisicamente na clínica (ver
+ *    checkin_requests, 20260908040000) — mais urgente até que interessado
+ *    sem retorno, porque tem gente esperando no balcão agora, não só um
+ *    contato frio. 15min de prazo casa com o degrau de escalonamento do
+ *    painel de chegadas (app/recepcao/chegadas).
  */
 const DUE_MINUTES_BY_CATEGORY: Record<PendingQueueCategory, number> = {
+  chegada_nao_confirmada: 15,
   interessado_sem_retorno: 60,
   falta_sem_motivo: 24 * 60,
   cadastro_incompleto: 24 * 60,
@@ -98,6 +105,7 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   documento_familia_novo: "Documento enviado pela família",
   renovacao_solicitada: "Renovação de guia solicitada",
   cadastro_assistido_ia: "Documentos para conferir (IA)",
+  chegada_nao_confirmada: "Chegada aguardando confirmação",
 };
 
 export type ExpiringAuthorization = {
@@ -421,6 +429,47 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   });
 }
 
+export type UnconfirmedCheckin = {
+  id: string;
+  patientId: string | null;
+  patientName: string;
+  ticketLabel: string;
+  createdAt: string;
+  minutesWaiting: number;
+};
+
+/**
+ * Chegadas declaradas pelo QR da entrada (checkin_requests, 20260908040000)
+ * ainda não confirmadas pela recepção, com mais de MIN_MINUTES_WAITING de
+ * espera — abaixo disso a recepção ainda tem tempo de reagir ao som/badge do
+ * painel de chegadas sem precisar entrar na fila unificada de pendências.
+ * Escopada por `clinic_id` diretamente (e não via patients, como as demais
+ * categorias): a linha de "visitante sem agendamento" não tem patient_id.
+ */
+async function getUnconfirmedCheckins(supabase: Supa, clinicId: string, minMinutesWaiting = 10): Promise<UnconfirmedCheckin[]> {
+  const cutoff = new Date(Date.now() - minMinutesWaiting * 60_000).toISOString();
+
+  const { data } = await supabase
+    .from("checkin_requests")
+    .select("id, ticket_label, created_at, patient_id, declared_first_name, patients(full_name)")
+    .eq("clinic_id", clinicId)
+    .eq("status", "aguardando")
+    .lte("created_at", cutoff)
+    .order("created_at", { ascending: true });
+
+  return (data ?? []).map((r) => {
+    const patient = Array.isArray(r.patients) ? r.patients[0] : r.patients;
+    return {
+      id: r.id,
+      patientId: r.patient_id,
+      patientName: patient?.full_name ?? r.declared_first_name,
+      ticketLabel: r.ticket_label,
+      createdAt: r.created_at,
+      minutesWaiting: Math.floor((Date.now() - new Date(r.created_at).getTime()) / 60_000),
+    };
+  });
+}
+
 /**
  * Dá dono + prazo a cada item da fila (pending_queue_assignments, §9.1):
  * qualquer item sem assignment ganha um agora (assigned_to = plantonista
@@ -529,6 +578,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     pendingFamilyDocuments,
     renewalRequests,
     pendingRegistrationDrafts,
+    unconfirmedCheckins,
   ] = await Promise.all([
     getExpiringAuthorizations(supabase, clinicId),
     getPendingPatients(supabase, 3),
@@ -540,6 +590,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     getPendingFamilyDocuments(supabase, clinicId),
     getAuthorizationRenewalRequests(supabase, clinicId),
     getPendingRegistrationDrafts(supabase, clinicId),
+    getUnconfirmedCheckins(supabase, clinicId),
   ]);
 
   const items: PendingQueueItem[] = [];
@@ -691,6 +742,19 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       urgencyLabel: new Date(d.createdAt).toLocaleDateString("pt-BR"),
       href: `/recepcao/pre-cadastros/${d.id}`,
       draftId: d.id,
+    });
+  }
+
+  for (const c of unconfirmedCheckins.sort((a, b) => b.minutesWaiting - a.minutesWaiting)) {
+    items.push({
+      id: `chegada-${c.id}`,
+      category: "chegada_nao_confirmada",
+      categoryLabel: CATEGORY_LABEL.chegada_nao_confirmada,
+      patientId: c.patientId,
+      patientName: c.patientName,
+      detail: `Senha ${c.ticketLabel} · aguardando na recepção`,
+      urgencyLabel: `${c.minutesWaiting}min`,
+      href: `/recepcao/chegadas`,
     });
   }
 

@@ -35,14 +35,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ dispatched });
     }
 
-    const { data: alreadyDispatched } = await admin
+    const { data: alreadyDispatched } = await (admin as any)
       .from("nps_surveys")
       .select("patient_id")
       .eq("trigger_type", "mensal")
       .eq("period", period)
       .in("patient_id", patientIds);
 
-    const alreadyDispatchedIds = new Set((alreadyDispatched ?? []).map((r) => r.patient_id));
+    const alreadyDispatchedIds = new Set((alreadyDispatched ?? []).map((r: any) => r.patient_id));
     const eligiblePatientIds = patientIds.filter((id) => !alreadyDispatchedIds.has(id));
 
     for (const patientId of eligiblePatientIds) {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
       if (!guardian) continue;
 
-      const { error: insertError } = await admin.from("nps_surveys").insert({
+      const { error: insertError } = await (admin as any).from("nps_surveys").insert({
         patient_id: patientId,
         guardian_id: guardian.id,
         phone_number: guardian.phone,

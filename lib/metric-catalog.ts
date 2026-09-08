@@ -50,7 +50,7 @@ export const METRIC_CATALOG: Partial<Record<Role, MetricDef[]>> = {
     // 1ª avaliação (anamnese). Ver countOverduePlans/listOverduePlans em lib/pts-pending.ts
     // e close_monthly_metric_snapshots em
     // supabase/migrations/20260906000008_pdi_50d_deadline.sql.
-    { key: "pts_50d_rate", label: "PTS aprovados em até 50 dias (§2.3)", direction: "min", unit: "pct", computed: true },
+    { key: "pts_50d_rate", label: "PTS aprovados em até 50 dias", direction: "min", unit: "pct", computed: true },
   ],
   terapeuta: [
     { key: "note_24h_rate", label: "Evolução em até 24h", direction: "min", unit: "pct", computed: true },

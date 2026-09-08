@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
       if (!guardian) continue;
 
-      const { error: insertError } = await admin.from("nps_surveys").insert({
+      const { error: insertError } = await (admin as any).from("nps_surveys").insert({
         appointment_id: item.appointmentId ?? null,
         meeting_id: item.meetingId ?? null,
         trigger_type: item.triggerType,

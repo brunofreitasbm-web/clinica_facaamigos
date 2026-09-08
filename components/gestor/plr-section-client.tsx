@@ -41,7 +41,7 @@ export function PLRSectionClient({ bonusRows }: PLRSectionClientProps) {
     return {
       role: row.role,
       metricLabel: row.metricLabel,
-      targetLabel: "Conforme PRD §10",
+      targetLabel: "Meta do cargo",
       actualLabel: row.actualLabel,
       weight,
       progressPct: row.progressPct,

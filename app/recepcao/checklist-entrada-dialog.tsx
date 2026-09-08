@@ -48,7 +48,7 @@ export function ChecklistEntradaDialog({ patientName }: { patientName?: string }
                   Checklist de Entrada {patientName ? `· ${patientName}` : ""}
                 </h3>
                 <p className="text-xs text-neutral-500">
-                  Documentos obrigatórios do fluxo de admissão (§9.1)
+                  Documentos obrigatórios do fluxo de admissão
                 </p>
               </div>
               <button
