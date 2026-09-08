@@ -71,15 +71,15 @@ export function Sidebar({
               aria-current={active ? "page" : undefined}
               className={`group flex items-center justify-between rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all duration-150 ${
                 active
-                  ? "active-link border-l-4 border-[#E91E63] bg-[#FCE4EC] font-semibold text-[#E91E63] shadow-xs"
+                  ? "active-link border-l-4 border-[#1967D2] bg-[#E8F0FE] font-semibold text-[#1967D2] shadow-xs"
                   : "border-l-4 border-transparent text-ink-soft hover:bg-paper hover:text-ink"
               }`}
               style={
                 active
                   ? {
-                      backgroundColor: "#FCE4EC",
-                      borderLeft: "4px solid #E91E63",
-                      color: "#E91E63",
+                      backgroundColor: "#E8F0FE",
+                      borderLeft: "4px solid #1967D2",
+                      color: "#1967D2",
                     }
                   : undefined
               }
@@ -88,7 +88,7 @@ export function Sidebar({
                 {Icon && (
                   <Icon
                     className={`h-4 w-4 shrink-0 transition-colors ${
-                      active ? "text-[#E91E63]" : "text-ink-faint group-hover:text-ink"
+                      active ? "text-[#1967D2]" : "text-ink-faint group-hover:text-ink"
                     }`}
                   />
                 )}

@@ -16,7 +16,7 @@ import {
   Calendar,
   User,
 } from "lucide-react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { FixedSizeList, ListChildComponentProps } from "react-window";
 import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
 import { formatDateBR } from "@/lib/format";
 import { inactivatePatient } from "./actions";
@@ -125,7 +125,7 @@ function InactivateConfirmModal({
 /**
  * Item individual de paciente (linha de tabela)
  */
-const PatientListItem = React.memo(function PatientListItem({
+export const PatientListItem = React.memo(function PatientListItem({
   patient,
   onInactivate,
 }: {
@@ -218,6 +218,22 @@ const PatientListItem = React.memo(function PatientListItem({
   );
 });
 
+interface VirtualizedItemData {
+  items: PatientRow[];
+  onInactivate: (p: PatientRow) => void;
+}
+
+const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildComponentProps<VirtualizedItemData>) => {
+  const patient = data.items[index];
+  if (!patient) return null;
+  return (
+    <div style={{ ...style, paddingBottom: "8px" }}>
+      <PatientListItem patient={patient} onInactivate={data.onInactivate} />
+    </div>
+  );
+});
+VirtualizedPatientRow.displayName = "VirtualizedPatientRow";
+
 export function PatientListClient({ rows }: PatientListClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -303,13 +319,14 @@ export function PatientListClient({ rows }: PatientListClientProps) {
 
   const totalPages = pageSize > 0 ? Math.ceil(filteredRows.length / pageSize) : 1;
 
-  // Virtualização para renderização performática da página atual
-  const rowVirtualizer = useVirtualizer({
-    count: paginatedRows.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 72,
-    overscan: 5,
-  });
+  // Repasse otimizado de dados via itemData para react-window
+  const itemData = useMemo<VirtualizedItemData>(
+    () => ({
+      items: paginatedRows,
+      onInactivate: (p: PatientRow) => setTargetPatient(p),
+    }),
+    [paginatedRows]
+  );
 
   const handleConfirmInactivate = () => {
     if (!targetPatient) return;
@@ -426,41 +443,16 @@ export function PatientListClient({ rows }: PatientListClientProps) {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <div
-            ref={parentRef}
-            className="max-h-[calc(100vh-320px)] min-h-[350px] overflow-auto pr-1"
-          >
-            <div
-              style={{
-                height: `${rowVirtualizer.getTotalSize()}px`,
-                width: "100%",
-                position: "relative",
-              }}
+          <div className="w-full rounded-lg border border-paper-line-strong bg-paper/30 p-1">
+            <FixedSizeList
+              height={600}
+              itemCount={paginatedRows.length}
+              itemSize={72}
+              width="100%"
+              itemData={itemData}
             >
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const patient = paginatedRows[virtualRow.index];
-                if (!patient) return null;
-                return (
-                  <div
-                    key={patient.id}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      height: `${virtualRow.size}px`,
-                      transform: `translateY(${virtualRow.start}px)`,
-                      paddingBottom: "8px",
-                    }}
-                  >
-                    <PatientListItem
-                      patient={patient}
-                      onInactivate={(p) => setTargetPatient(p)}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+              {VirtualizedPatientRow}
+            </FixedSizeList>
           </div>
 
           {/* Rodapé da Tabela: Paginação e Contador de Registros */}

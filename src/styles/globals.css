@@ -5,12 +5,14 @@
   --color-text-secondary: #595959;
 }
 
+/* Diretriz global de acessibilidade para navegação via teclado (WCAG 2.1 AA) */
+:focus-visible,
 *:focus-visible,
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid #E91E63;
+  outline: 2px solid #1967D2;
   outline-offset: 2px;
 }

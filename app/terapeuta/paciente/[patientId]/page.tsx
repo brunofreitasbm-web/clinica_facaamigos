@@ -227,28 +227,56 @@ export default async function TerapeutaFichaPacientePage({
       <PageHeader axisLabel="Terapeuta" title={patient.full_name} description="Ficha do paciente" />
       <PatientIdentityBar patientName={patient.full_name} insurance={insurance} emergencyContact={emergencyContact} />
 
-      <div className="flex flex-wrap gap-2 px-10 pt-6">
+      <div className="px-5 pt-6 sm:px-10">
+        <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+          Instrumentos de Avaliação
+        </h2>
+        <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap">
+          {canDoFirstAssessment && (
+            <Link
+              href={`/terapeuta/paciente/${patient.id}/anamnese`}
+              className="flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center no-underline transition hover:shadow-sm sm:w-28"
+              style={{ borderColor: "var(--color-divider)" }}
+            >
+              <span className="text-2xl">🧾</span>
+              <span className="text-xs font-semibold leading-tight text-ink">1ª Avaliação</span>
+            </Link>
+          )}
+          <Link
+            href={`/terapeuta/paciente/${patient.id}/avaliacao`}
+            className="flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center no-underline transition hover:shadow-sm sm:w-28"
+            style={{ borderColor: "var(--color-divider)" }}
+          >
+            <span className="text-2xl">📋</span>
+            <span className="text-xs font-semibold leading-tight text-ink">Protocolo</span>
+          </Link>
+          {showFono && (
+            <Link
+              href={`/terapeuta/paciente/${patient.id}/fono`}
+              className="flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center no-underline transition hover:shadow-sm sm:w-28"
+              style={{ borderColor: "var(--color-divider)" }}
+            >
+              <span className="text-2xl">🗣️</span>
+              <span className="text-xs font-semibold leading-tight text-ink">Fono</span>
+            </Link>
+          )}
+          {showSociallySavvy && (
+            <Link
+              href={`/terapeuta/paciente/${patient.id}/socially-savvy`}
+              className="flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center no-underline transition hover:shadow-sm sm:w-28"
+              style={{ borderColor: "var(--color-divider)" }}
+            >
+              <span className="text-2xl">🤝</span>
+              <span className="text-xs font-semibold leading-tight text-ink">Socially Savvy</span>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 px-5 pt-4 sm:px-10">
         <Link href={`/terapeuta/paciente/${patient.id}/metricas`} className="btn btn-secondary">
           Evolução/ABA
         </Link>
-        {canDoFirstAssessment && (
-          <Link href={`/terapeuta/paciente/${patient.id}/anamnese`} className="btn btn-secondary">
-            1ª Avaliação (anamnese)
-          </Link>
-        )}
-        <Link href={`/terapeuta/paciente/${patient.id}/avaliacao`} className="btn btn-secondary">
-          Avaliação de protocolo
-        </Link>
-        {showFono && (
-          <Link href={`/terapeuta/paciente/${patient.id}/fono`} className="btn btn-secondary">
-            Fono (ADL/ADL-2/PROC)
-          </Link>
-        )}
-        {showSociallySavvy && (
-          <Link href={`/terapeuta/paciente/${patient.id}/socially-savvy`} className="btn btn-secondary">
-            Socially Savvy
-          </Link>
-        )}
         <Link href={`/terapeuta/paciente/${patient.id}/relatorio`} className="btn btn-secondary">
           Relatório família
         </Link>

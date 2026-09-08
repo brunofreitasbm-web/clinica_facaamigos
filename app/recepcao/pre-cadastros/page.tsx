@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 
+import { PreCadastrosExportButton } from "@/src/components/Recepcao/PreCadastros";
+
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -93,6 +95,12 @@ export default async function PreCadastrosPage() {
         description="Documentos enviados pela família pelo WhatsApp ou pelo portal, já extraídos pela IA. Confira os dados antes de salvar — nada vira cadastro sem essa validação."
       />
       <div className="flex flex-col gap-8 p-6 sm:p-10">
+        <div className="flex items-center justify-between gap-4 border-b border-paper-line-strong pb-4">
+          <div>
+            <p className="text-sm text-ink-soft">Gerenciamento de rascunhos de atendimento e documentos extraídos.</p>
+          </div>
+          <PreCadastrosExportButton label="Exportar Relatório em Lote" loadingLabel="Gerando relatório..." />
+        </div>
         <section>
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-soft">
             Pré-cadastros — número novo ({preCadastros.length})
