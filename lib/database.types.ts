@@ -5298,6 +5298,73 @@ export type Database = {
           },
         ]
       }
+      socially_savvy_assessments: {
+        Row: {
+          assessed_by: string
+          assessment_date: string
+          clinic_id: string
+          created_at: string
+          id: string
+          observations: string | null
+          patient_id: string
+          responses: Json
+          results: Json
+          round: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assessed_by: string
+          assessment_date: string
+          clinic_id: string
+          created_at?: string
+          id?: string
+          observations?: string | null
+          patient_id: string
+          responses?: Json
+          results?: Json
+          round: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assessed_by?: string
+          assessment_date?: string
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          observations?: string | null
+          patient_id?: string
+          responses?: Json
+          results?: Json
+          round?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "socially_savvy_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "socially_savvy_assessments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "socially_savvy_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       specialties: {
         Row: {
           active: boolean
