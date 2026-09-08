@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { User, PenLine, CalendarClock, X, Clock, CheckCircle2, UserCheck, XCircle, MessageCircle, AlertCircle } from "lucide-react";
+import { User, PenLine, CalendarClock, X, Clock, CheckCircle2, UserCheck, XCircle, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert } from "lucide-react";
+import { GuiaQuickActionModal } from "./guia-quick-action-modal";
+
 import {
   confirmAppointment,
   setAguardando,
@@ -19,6 +21,7 @@ import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reasons";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { civilTimeInTimeZone } from "@/lib/timezone";
+import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
 
 export type TodaySession = {
   id: string;
@@ -114,7 +117,11 @@ export function TodayAgendaList({
   const [groupMode, setGroupMode] = useState<GroupMode>("lista");
   const [selectedRoomSessionId, setSelectedRoomSessionId] = useState<string | null>(null);
 
+  const [showGuiaModal, setShowGuiaModal] = useState(false);
+  const [modalPatient, setModalPatient] = useState<{ id: string; name: string; appointmentId?: string } | null>(null);
+
   const [selectedTherapistIds, setSelectedTherapistIds] = useState<Set<string>>(new Set());
+
   const [selectedTypeIds, setSelectedTypeIds] = useState<Set<string>>(new Set());
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
@@ -258,7 +265,13 @@ export function TodayAgendaList({
 
         {groupMode === "lista" &&
           filtered.map((session) => (
-            <SessionRow key={session.id} session={session} guardians={guardiansByPatient[session.patientId] ?? []} />
+            <SessionRow
+              key={session.id}
+              session={session}
+              guardians={guardiansByPatient[session.patientId] ?? []}
+              setModalPatient={setModalPatient}
+              setShowGuiaModal={setShowGuiaModal}
+            />
           ))}
 
         {groupMode === "profissional" &&
@@ -276,7 +289,13 @@ export function TodayAgendaList({
                 </span>
               </div>
               {group.sessions.map((session) => (
-                <SessionRow key={session.id} session={session} guardians={guardiansByPatient[session.patientId] ?? []} />
+                <SessionRow
+                  key={session.id}
+                  session={session}
+                  guardians={guardiansByPatient[session.patientId] ?? []}
+                  setModalPatient={setModalPatient}
+                  setShowGuiaModal={setShowGuiaModal}
+                />
               ))}
             </div>
           ))}
@@ -284,6 +303,21 @@ export function TodayAgendaList({
         {groupMode === "sala" && (
           <RoomGrid rooms={rooms} sessions={filtered} onSelect={setSelectedRoomSessionId} />
         )}
+
+        {/* Modal de Ação Rápida de Guias */}
+        {modalPatient && (
+          <GuiaQuickActionModal
+            isOpen={showGuiaModal}
+            onClose={() => {
+              setShowGuiaModal(false);
+              setModalPatient(null);
+            }}
+            patientId={modalPatient.id}
+            patientName={modalPatient.name}
+            appointmentId={modalPatient.appointmentId}
+          />
+        )}
+
       </div>
 
       <aside className="w-full shrink-0 lg:w-64">
@@ -372,7 +406,10 @@ export function TodayAgendaList({
               <SessionRow
                 session={selectedRoomSession}
                 guardians={guardiansByPatient[selectedRoomSession.patientId] ?? []}
+                setModalPatient={setModalPatient}
+                setShowGuiaModal={setShowGuiaModal}
               />
+
             </div>
           </div>
         </div>
@@ -427,11 +464,18 @@ function RoomGrid({
                             key={s.id}
                             type="button"
                             onClick={() => onSelect(s.id)}
-                            className="mb-1 w-full rounded bg-chart-soft px-1.5 py-1 text-left text-[11px] last:mb-0 hover:brightness-95"
+                            className="mb-1.5 w-full rounded-md border border-paper-line/80 bg-paper/90 p-1.5 text-left text-[11px] last:mb-0 hover:border-chart hover:shadow-xs transition-all"
                           >
-                            <p className="truncate font-medium text-ink">{s.patientName}</p>
-                            <p className="truncate text-ink-soft">{s.therapistName}</p>
-                            <span className={`tag-status ${display.tagClass}`}>{display.label}</span>
+                            <PatientFormattedDisplay
+                              name={s.patientName}
+                              isEvaluation={s.isEvaluation}
+                              subtitle={s.therapistName}
+                              showAvatar={false}
+                              size="sm"
+                            />
+                            <div className="mt-1">
+                              <PatientStatusBadge status={uiStateOf(s) !== "aguardando" ? uiStateOf(s) : s.status} customLabel={display.label} size="sm" />
+                            </div>
                           </button>
                         );
                       })}
@@ -447,7 +491,18 @@ function RoomGrid({
   );
 }
 
-function SessionRow({ session, guardians }: { session: TodaySession; guardians: GuardianContact[] }) {
+function SessionRow({
+  session,
+  guardians,
+  setModalPatient,
+  setShowGuiaModal,
+}: {
+  session: TodaySession;
+  guardians: GuardianContact[];
+  setModalPatient: (p: { id: string; name: string; appointmentId?: string }) => void;
+  setShowGuiaModal: (v: boolean) => void;
+}) {
+
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -502,15 +557,55 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
       </div>
 
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-ink">{session.patientName}</p>
-        <p className="truncate text-xs text-ink-soft">
-          {session.discipline} · {session.therapistName}
-        </p>
-        <p className="truncate text-xs text-ink-faint">{session.roomName}</p>
+        <PatientFormattedDisplay
+          name={session.patientName}
+          isEvaluation={session.isEvaluation}
+          size="md"
+          subtitle={
+            <div className="truncate text-xs text-ink-soft">
+              <span>{session.discipline}</span> · <span>{session.therapistName}</span> ·{" "}
+              <span className="text-ink-faint">{session.roomName}</span>
+            </div>
+          }
+        />
       </div>
 
       <div className="text-xs flex flex-col items-start gap-1">
-        <span className={`tag-status ${display.tagClass}`}>{display.label}</span>
+        <PatientStatusBadge
+          status={uiState !== "aguardando" ? uiState : session.status}
+          customLabel={display.label}
+          size="md"
+        />
+
+        {/* Guia status & Quick action */}
+        {session.authorizationId ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+            <FileText className="h-3 w-3" /> Guia Vinculada
+          </span>
+        ) : session.isProvisional ? (
+          <button
+            type="button"
+            onClick={() => {
+              setModalPatient({ id: session.patientId, name: session.patientName, appointmentId: session.id });
+              setShowGuiaModal(true);
+            }}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 transition-colors"
+          >
+            <ShieldAlert className="h-3 w-3 text-amber-500" /> Provisória (+ Guia)
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setModalPatient({ id: session.patientId, name: session.patientName, appointmentId: session.id });
+              setShowGuiaModal(true);
+            }}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-chart hover:underline bg-paper-line-strong/40 px-2 py-0.5 rounded"
+          >
+            <Plus className="h-3 w-3" /> + Guia
+          </button>
+        )}
+
 
         {canUndoAutoFalta && (
           <button

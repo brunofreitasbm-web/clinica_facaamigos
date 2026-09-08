@@ -125,9 +125,9 @@ const FLOWS: Flow[] = [
         tools: [{ label: "Nova sessão", href: "/recepcao#nova-sessao", icon: icon(<CalendarPlus />), primary: true }],
       },
       {
-        title: "Confirmar com a família (D-1)",
-        detail: "Envie a confirmação pela fila de WhatsApp. Faltas e cancelamentos exigem motivo padronizado e autor.",
-        tools: [{ label: "Fila WhatsApp", href: "/recepcao/whatsapp", icon: icon(<MessageCircle />) }],
+        title: "Confirmar com a família",
+        detail: "Alinhe presenças e alterações diretamente na agenda da recepção. Faltas e cancelamentos exigem motivo padronizado e autor.",
+        tools: [{ label: "Agenda da Recepção", href: "/recepcao", icon: icon(<CalendarDays />) }],
       },
       {
         title: "Acompanhar realização e evolução em 24h",
@@ -176,9 +176,9 @@ const FLOWS: Flow[] = [
         tools: [{ label: "Agendar avaliação", hrefFor: (id) => `/recepcao/pacientes/${id}#proximo-passo`, icon: icon(<CalendarPlus />), needsPatient: true, primary: true }],
       },
       {
-        title: "Confirmar D-1 e preparar a 1ª avaliação (anamnese)",
-        detail: "Confirme por WhatsApp e peça que a família traga relatórios escolares e exames anteriores.",
-        tools: [{ label: "Fila WhatsApp", href: "/recepcao/whatsapp", icon: icon(<MessageCircle />) }],
+        title: "Confirmar e preparar a 1ª avaliação (anamnese)",
+        detail: "Alinhe a presença e peça que a família traga relatórios escolares e exames anteriores.",
+        tools: [{ label: "Agenda da Recepção", href: "/recepcao", icon: icon(<CalendarDays />) }],
       },
     ],
   },

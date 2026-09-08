@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
+import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
 
 const STAGE_LABEL: Record<number, string> = {
   1: "Paciente sem avaliação agendada",
@@ -78,13 +79,14 @@ export default async function PacientesPage() {
             <Link
               key={p.id}
               href={`/recepcao/pacientes/${p.id}`}
-              className="flex items-center justify-between rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm hover:border-chart"
+              className="flex items-center justify-between rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm hover:border-chart transition-all"
             >
-              <div>
-                <p className="font-medium text-ink">{p.full_name}</p>
-                <p className="text-ink-faint">{STAGE_LABEL[p.stage] ?? "Estágio desconhecido"}</p>
-              </div>
-              <span className="text-ink-faint">{p.status}</span>
+              <PatientFormattedDisplay
+                name={p.full_name}
+                size="md"
+                subtitle={<span className="text-ink-faint text-xs">{STAGE_LABEL[p.stage] ?? "Estágio desconhecido"}</span>}
+              />
+              <PatientStatusBadge status={p.status || "ativo"} size="md" />
             </Link>
           ))}
         </div>

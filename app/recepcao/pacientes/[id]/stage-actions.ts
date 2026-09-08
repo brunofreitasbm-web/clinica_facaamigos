@@ -10,6 +10,13 @@ import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
+export async function getInsurersList(): Promise<{ id: string; name: string }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("insurers").select("id, name").order("name");
+  return data ?? [];
+}
+
+
 export async function scheduleEvaluation(
   patientId: string,
   formData: FormData,

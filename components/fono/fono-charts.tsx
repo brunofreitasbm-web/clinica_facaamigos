@@ -26,14 +26,10 @@ export function GroupedBarChart({
         return (
           <g key={bar.label}>
             <rect x={groupX - barWidth - 2} y={height - padding - ha} width={barWidth} height={ha} fill="var(--color-chart)">
-              <title>
-                {bar.label}: {bar.a}
-              </title>
+              <title>{`${bar.label}: ${bar.a}`}</title>
             </rect>
             <rect x={groupX + 2} y={height - padding - hb} width={barWidth} height={hb} fill="var(--color-accent-2)">
-              <title>
-                {bar.label}: {bar.b}
-              </title>
+              <title>{`${bar.label}: ${bar.b}`}</title>
             </rect>
           </g>
         );
@@ -61,14 +57,10 @@ export function MaxAchievedBarChart({ bars }: { bars: { label: string; max: numb
         return (
           <g key={bar.label}>
             <rect x={x} y={height - padding - hMax} width={barWidth} height={hMax} fill="var(--color-paper-line-strong)">
-              <title>
-                {bar.label} — máximo {bar.max}
-              </title>
+              <title>{`${bar.label} — máximo ${bar.max}`}</title>
             </rect>
             <rect x={x} y={height - padding - hAchieved} width={barWidth} height={hAchieved} fill="var(--color-accent)">
-              <title>
-                {bar.label} — alcançado {bar.achieved}
-              </title>
+              <title>{`${bar.label} — alcançado ${bar.achieved}`}</title>
             </rect>
           </g>
         );

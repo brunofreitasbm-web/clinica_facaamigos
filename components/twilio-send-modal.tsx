@@ -191,13 +191,6 @@ export function TwilioSendModal({
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                onClick={() => applyTemplate("reminder")}
-                className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                Lembrete D-1
-              </button>
-              <button
-                type="button"
                 onClick={() => applyTemplate("absence")}
                 className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               >

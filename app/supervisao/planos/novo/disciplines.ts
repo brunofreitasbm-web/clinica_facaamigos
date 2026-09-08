@@ -6,11 +6,13 @@
  */
 export const DISCIPLINES = [
   { value: "aba", label: "ABA" },
+  { value: "terapia", label: "Terapia / Psicologia" },
   { value: "fonoaudiologia", label: "Fonoaudiologia" },
+  { value: "fisioterapia", label: "Fisioterapia" },
+  { value: "musicoterapia", label: "Musicoterapia" },
   { value: "terapia_ocupacional", label: "Terapia ocupacional" },
   { value: "psicologia", label: "Psicologia" },
   { value: "psicopedagogia", label: "Psicopedagogia" },
-  { value: "fisioterapia", label: "Fisioterapia" },
   { value: "denver_esdm", label: "Denver/ESDM" },
   { value: "outra", label: "Outra" },
 ] as const;

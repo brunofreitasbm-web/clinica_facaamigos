@@ -24,7 +24,6 @@ const NAV_ITEMS = [
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users, exact: false },
   { key: "pendencias", label: "Pendências", href: "/recepcao/pacientes/pendencias", icon: AlertCircle, exact: false },
   { key: "atendimento", label: "Atendimento", href: "/recepcao/atendimento", icon: Inbox, exact: false },
-  { key: "whatsapp", label: "Confirmar amanhã", href: "/recepcao/whatsapp", icon: MessageCircle, exact: false },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText, exact: false },
   { key: "precadastros", label: "Cadastro IA", href: "/recepcao/pre-cadastros", icon: Sparkles, exact: false },
   { key: "recursos", label: "Salas e recursos", href: "/recepcao/recursos", icon: Boxes, exact: false },
@@ -39,7 +38,6 @@ function activeKey(pathname: string | null): NavKey | null {
   if (pathname.startsWith("/recepcao/pacientes/pendencias")) return "pendencias";
   if (pathname.startsWith("/recepcao/pacientes")) return "pacientes";
   if (pathname.startsWith("/recepcao/atendimento")) return "atendimento";
-  if (pathname.startsWith("/recepcao/whatsapp")) return "whatsapp";
   if (pathname.startsWith("/recepcao/documentos")) return "documentos";
   if (pathname.startsWith("/recepcao/pre-cadastros")) return "precadastros";
   if (pathname.startsWith("/recepcao/recursos")) return "recursos";
@@ -52,14 +50,13 @@ export function RecepcaoNav({
   tomorrowUnconfirmedCount,
 }: {
   pendingCount: number;
-  tomorrowUnconfirmedCount: number;
+  tomorrowUnconfirmedCount?: number;
 }) {
   const pathname = usePathname();
   const current = activeKey(pathname);
 
   const badgeFor: Partial<Record<NavKey, number>> = {
     pendencias: pendingCount,
-    whatsapp: tomorrowUnconfirmedCount,
   };
 
   return (

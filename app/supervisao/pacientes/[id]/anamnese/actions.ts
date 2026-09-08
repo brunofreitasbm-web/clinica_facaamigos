@@ -6,17 +6,40 @@ import { revalidatePath } from "next/cache";
 type ActionResult = { success: true } | { success: false; error: string };
 
 export async function saveAnamnese(patientId: string, formData: FormData): Promise<ActionResult> {
-  const freeText = String(formData.get("free_text") ?? "").trim();
+  // Seção: Queixa e História Atual
+  const chiefComplaint = String(formData.get("chief_complaint") ?? "").trim();
+  const complaintHistory = String(formData.get("complaint_history") ?? "").trim();
+
+  // Seção: Histórico do Desenvolvimento
+  const gestationalHistory = String(formData.get("gestational_history") ?? "").trim();
+  const motorDevelopment = String(formData.get("motor_development") ?? "").trim();
+  const languageDevelopment = String(formData.get("language_development") ?? "").trim();
+  const cognitiveDevelopment = String(formData.get("cognitive_development") ?? "").trim();
+
+  // Seção: Histórico Médico e Saúde
+  const allergies = String(formData.get("allergies") ?? "").trim();
+  const medications = String(formData.get("medications") ?? "").trim();
+  const medicalHistory = String(formData.get("medical_history") ?? "").trim();
+
+  // Seção: Histórico de Tratamentos Anteriores
+  const previousTreatments = String(formData.get("previous_treatments") ?? "").trim();
+  const treatmentOutcomes = String(formData.get("treatment_outcomes") ?? "").trim();
+
+  // Seção: Contexto Familiar e Escolar
+  const familyComposition = String(formData.get("family_composition") ?? "").trim();
   const routine = String(formData.get("routine") ?? "").trim();
   const school = String(formData.get("school") ?? "").trim();
-  const medications = String(formData.get("medications") ?? "").trim();
+
+  // Seção: Prioridades da Família
   const familyPriorities = String(formData.get("family_priorities") ?? "").trim();
+
+  // Checkboxes
   const presentedPillars = formData.get("presented_pillars") === "on";
   const presentedAbsencePolicy = formData.get("presented_absence_policy") === "on";
   const presentedProtocols = formData.get("presented_protocols") === "on";
 
-  if (!freeText && !routine && !familyPriorities) {
-    return { success: false, error: "Preencha ao menos o histórico/queixa ou as prioridades da família." };
+  if (!chiefComplaint && !routine && !familyPriorities) {
+    return { success: false, error: "Preencha ao menos a queixa principal ou as prioridades da família." };
   }
 
   const supabase = await createClient();
@@ -42,12 +65,29 @@ export async function saveAnamnese(patientId: string, formData: FormData): Promi
     patient_id: patientId,
     conducted_by: user.id,
     structured: {
+      // Queixa e História Atual
+      chief_complaint: chiefComplaint || null,
+      complaint_history: complaintHistory || null,
+      // Histórico do Desenvolvimento
+      gestational_history: gestationalHistory || null,
+      motor_development: motorDevelopment || null,
+      language_development: languageDevelopment || null,
+      cognitive_development: cognitiveDevelopment || null,
+      // Histórico Médico e Saúde
+      allergies: allergies || null,
+      medications: medications || null,
+      medical_history: medicalHistory || null,
+      // Histórico de Tratamentos Anteriores
+      previous_treatments: previousTreatments || null,
+      treatment_outcomes: treatmentOutcomes || null,
+      // Contexto Familiar e Escolar
+      family_composition: familyComposition || null,
       routine: routine || null,
       school: school || null,
-      medications: medications || null,
+      // Prioridades da Família
       family_priorities: familyPriorities || null,
     },
-    free_text: freeText || null,
+    free_text: null,
     presented_pillars: presentedPillars,
     presented_absence_policy: presentedAbsencePolicy,
     presented_protocols: presentedProtocols,

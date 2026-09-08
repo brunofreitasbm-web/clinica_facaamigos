@@ -1,14 +1,36 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import React, { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createTreatmentPlan } from "./actions";
 import { DISCIPLINES } from "./disciplines";
 import type { SuggestedGoal, TeamSuggestion } from "@/lib/plan-suggestions";
+import { PTSCalendarView } from "./pts-calendar-view";
+import { PTSPrintableCalendar, type CalendarSessionEvent } from "./pts-printable-calendar";
 
 type Patient = { id: string; full_name: string };
 
 type ProgramTargetType = "tentativa" | "duracao" | "frequencia" | "tarefa";
+
+export type DayOfWeek = "SEG" | "TER" | "QUA" | "QUI" | "SEX" | "SAB";
+
+export type PTSGridRow = {
+  id: string;
+  discipline: string;
+  sessionsPerWeek: number;
+  daysOfWeek: DayOfWeek[];
+  shift: "MANHA" | "TARDE";
+  therapistName: string;
+};
+
+const DAY_LABELS: Record<DayOfWeek, string> = {
+  SEG: "Seg",
+  TER: "Ter",
+  QUA: "Qua",
+  QUI: "Qui",
+  SEX: "Sex",
+  SAB: "Sáb",
+};
 
 const TARGET_TYPE_LABEL: Record<ProgramTargetType, string> = {
   tentativa: "Tentativa (trial)",
@@ -103,6 +125,184 @@ export function PlanForm({
   const [addedSuggestionKeys, setAddedSuggestionKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Grade semanal dinâmica de atendimento
+  const [gridRows, setGridRows] = useState<PTSGridRow[]>([
+    {
+      id: crypto.randomUUID(),
+      discipline: "terapia",
+      sessionsPerWeek: 2,
+      daysOfWeek: ["SEG", "QUA"],
+      shift: "MANHA",
+      therapistName: "",
+    },
+  ]);
+
+  // Calendário Conciliado de 6 Meses
+  const [generatedSessions, setGeneratedSessions] = useState<CalendarSessionEvent[]>([]);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [startDateStr, setStartDateStr] = useState<string>(
+    new Date().toISOString().substring(0, 10)
+  );
+
+  // Calcula validade de 6 meses
+  const validUntilStr = React.useMemo(() => {
+    const d = new Date(startDateStr + "T00:00:00");
+    d.setMonth(d.getMonth() + 6);
+    return d.toISOString().substring(0, 10);
+  }, [startDateStr]);
+
+  function addGridRow() {
+    setGridRows((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        discipline: "fonoaudiologia",
+        sessionsPerWeek: 1,
+        daysOfWeek: ["TER"],
+        shift: "TARDE",
+        therapistName: "",
+      },
+    ]);
+  }
+
+  function removeGridRow(id: string) {
+    setGridRows((prev) => (prev.length === 1 ? prev : prev.filter((r) => r.id !== id)));
+  }
+
+  function updateGridRow<K extends keyof PTSGridRow>(id: string, field: K, value: PTSGridRow[K]) {
+    setGridRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+  }
+
+  function toggleDayOfWeek(rowId: string, day: DayOfWeek) {
+    setGridRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== rowId) return r;
+        const exists = r.daysOfWeek.includes(day);
+        const newDays = exists ? r.daysOfWeek.filter((d) => d !== day) : [...r.daysOfWeek, day];
+        return { ...r, daysOfWeek: newDays };
+      })
+    );
+  }
+
+  // Atualização manual de sessão pelo supervisor
+  function handleUpdateSession(updatedSession: CalendarSessionEvent) {
+    setGeneratedSessions((prev) =>
+      prev.map((s) => (s.id === updatedSession.id ? updatedSession : s))
+    );
+  }
+
+  // Algoritmo Inteligente de Conciliação e Resolução de Conflitos em 4 Etapas
+  function handleGenerateCalendar() {
+    const selectedPatient = patients.find((p) => p.id === patientId);
+    if (!selectedPatient) {
+      setError("Selecione um paciente antes de gerar o calendário de sessões.");
+      return;
+    }
+
+    setError(null);
+    const sessionsList: CalendarSessionEvent[] = [];
+    const startDate = new Date(startDateStr + "T00:00:00");
+    const endDate = new Date(validUntilStr + "T00:00:00");
+
+    const dayMap: Record<DayOfWeek, number> = {
+      SEG: 1,
+      TER: 2,
+      QUA: 3,
+      QUI: 4,
+      SEX: 5,
+      SAB: 6,
+    };
+
+    // Slots padrão de horários continuados por turno
+    const slotsManha = ["08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00"];
+    const slotsTarde = ["13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00"];
+
+    // Registro de slots ocupados por data e sala/terapeuta
+    const occupiedSlotsMap = new Map<string, Set<string>>();
+
+    let curr = new Date(startDate);
+    let sessionCounter = 1;
+
+    while (curr <= endDate) {
+      const currentJsDay = curr.getDay(); // 0 = Dom, 1 = Seg, ..., 6 = Sáb
+      const dateIso = curr.toISOString().substring(0, 10);
+
+      gridRows.forEach((row) => {
+        const matchingDays = row.daysOfWeek.map((d) => dayMap[d]);
+        if (matchingDays.includes(currentJsDay)) {
+          const discLabel = DISCIPLINES.find((d) => d.value === row.discipline)?.label || row.discipline;
+          const dayName = curr.toLocaleDateString("pt-BR", { weekday: "short" }).toUpperCase();
+          const therapist = row.therapistName.trim() || `Dr(a). Especialista em ${discLabel}`;
+          const room = `Sala ${row.discipline.toUpperCase().substring(0, 3)}-0${(sessionCounter % 3) + 1}`;
+
+          const slots = row.shift === "MANHA" ? slotsManha : slotsTarde;
+          let assignedTimeSlot = "";
+          let conflictStatus: CalendarSessionEvent["conflictStatus"] = "OK";
+          let conflictNote = "";
+
+          const dayOccupiedSet = occupiedSlotsMap.get(dateIso) || new Set<string>();
+
+          // Etapa 1: Tentar alocar no 1º slot disponível do mesmo dia (Horário Continuado)
+          for (let i = 0; i < slots.length; i++) {
+            const slotCandidate = slots[i];
+            const slotKey = `${therapist}_${slotCandidate}`;
+            if (!dayOccupiedSet.has(slotKey)) {
+              assignedTimeSlot = slotCandidate;
+              dayOccupiedSet.add(slotKey);
+              if (i > 0) {
+                conflictStatus = "HORARIO_ALTERADO";
+                conflictNote = `Sessão continuada alocada no horário ${slotCandidate} da mesma data.`;
+              }
+              break;
+            }
+          }
+
+          // Etapa 2 & 3: Se o dia/turno estiver ocupado, simular reajuste de dia ou turno
+          if (!assignedTimeSlot) {
+            // Tenta slot alternativo do turno oposto
+            const alternativeSlots = row.shift === "MANHA" ? slotsTarde : slotsManha;
+            for (const altSlot of alternativeSlots) {
+              const slotKey = `${therapist}_${altSlot}`;
+              if (!dayOccupiedSet.has(slotKey)) {
+                assignedTimeSlot = altSlot;
+                dayOccupiedSet.add(slotKey);
+                conflictStatus = "TURNO_ALTERADO";
+                conflictNote = `Turno reajustado para ${row.shift === "MANHA" ? "Tarde" : "Manhã"} (${altSlot}).`;
+                break;
+              }
+            }
+          }
+
+          // Etapa 4: Se persistir lotação total no dia/turno
+          if (!assignedTimeSlot) {
+            assignedTimeSlot = slots[0];
+            conflictStatus = "MANUAL_REQUIRED";
+            conflictNote = "Horários do turno e data ocupados. Requer ajuste manual pelo supervisor.";
+          }
+
+          occupiedSlotsMap.set(dateIso, dayOccupiedSet);
+
+          sessionsList.push({
+            id: `sess-${sessionCounter++}-${dateIso}`,
+            date: dateIso,
+            dayOfWeek: dayName,
+            disciplineLabel: discLabel,
+            therapistName: therapist,
+            roomName: room,
+            shift: row.shift,
+            timeSlot: assignedTimeSlot,
+            conflictStatus,
+            conflictNote,
+          });
+        }
+      });
+
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    setGeneratedSessions(sessionsList);
+  }
 
   function addSuggestedGoal(s: SuggestedGoal) {
     setAddedSuggestionKeys((prev) => [...prev, s.key]);
@@ -200,15 +400,15 @@ export function PlanForm({
       return;
     }
 
-    const disciplineEntries = Object.entries(selectedDisciplines);
-    if (disciplineEntries.length === 0) {
-      setError("Selecione ao menos uma disciplina do plano.");
+    if (gridRows.length === 0) {
+      setError("Adicione ao menos uma sessão na grade semanal.");
       return;
     }
-    for (const [, raw] of disciplineEntries) {
-      const n = Number(raw);
-      if (!Number.isInteger(n) || n < 1) {
-        setError("Sessões/semana precisa ser um número inteiro de pelo menos 1 para cada disciplina marcada.");
+
+    for (const row of gridRows) {
+      if (row.daysOfWeek.length === 0) {
+        const discLabel = DISCIPLINES.find((d) => d.value === row.discipline)?.label || row.discipline;
+        setError(`Selecione ao menos um dia da semana para a sessão de ${discLabel}.`);
         return;
       }
     }
@@ -224,14 +424,25 @@ export function PlanForm({
       return;
     }
 
-    const disciplineMix = Object.fromEntries(
-      disciplineEntries.map(([value, raw]) => [value, { sessoesSemana: Number(raw) }]),
-    );
+    // Gerar mix de disciplinas a partir da grade
+    const disciplineMix: Record<string, { sessoesSemana: number; dias: DayOfWeek[]; turno: string; terapeuta?: string }> = {};
+    gridRows.forEach((r) => {
+      disciplineMix[r.discipline] = {
+        sessoesSemana: r.sessionsPerWeek,
+        dias: r.daysOfWeek,
+        turno: r.shift,
+        terapeuta: r.therapistName,
+      };
+    });
 
     const formData = new FormData();
     formData.set("review_due_at", reviewDueAt);
     formData.set("general_objective", generalObjective);
     formData.set("family_priorities", familyPriorities);
+    formData.set("pts_grid_rows", JSON.stringify(gridRows));
+    formData.set("pts_generated_sessions", JSON.stringify(generatedSessions));
+    formData.set("pts_start_date", startDateStr);
+    formData.set("pts_valid_until", validUntilStr);
     formData.set("discipline_mix", JSON.stringify(disciplineMix));
     formData.set(
       "goals",
@@ -373,37 +584,186 @@ export function PlanForm({
         </div>
       )}
 
-      <div>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">Disciplinas do plano</h2>
-        <div className="mt-2 flex flex-col gap-2">
-          {DISCIPLINES.map((d) => {
-            const checked = d.value in selectedDisciplines;
-            return (
-              <div key={d.value} className="flex items-center gap-3">
-                <input
-                  id={`${formId}-disc-${d.value}`}
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(e) => toggleDiscipline(d.value, e.target.checked)}
-                />
-                <label htmlFor={`${formId}-disc-${d.value}`} className="w-44 text-sm text-ink">
-                  {d.label}
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  disabled={!checked}
-                  value={selectedDisciplines[d.value] ?? ""}
-                  onChange={(e) => updateSessoes(d.value, e.target.value)}
-                  placeholder="Sessões/semana"
-                  className="w-36 rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-sm text-ink disabled:opacity-50"
-                />
+      {/* GRADE SEMANAL DE ATENDIMENTO E CONCILIAÇÃO DE CALENDÁRIO DO PTS */}
+      <div className="rounded-xl border border-indigo-500/30 bg-slate-900/40 p-5 backdrop-blur-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-2">
+              <span>📋</span> Grade de Sessões Semanais do PTS
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Configure a especialidade, quantidade de sessões, dias disponíveis (Seg-Sáb), turno e terapeuta direcionado.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={addGridRow}
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg border border-indigo-500/30 transition-colors"
+          >
+            <span>+</span> Adicionar Mais uma Sessão
+          </button>
+        </div>
+
+        {/* Lista de Linhas da Grade (Cada Linha uma Sessão/Especialidade) */}
+        <div className="space-y-3">
+          {gridRows.map((row, index) => (
+            <div
+              key={row.id}
+              className="p-3.5 rounded-lg bg-slate-950/70 border border-slate-800 space-y-3 relative group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Sessão / Especialidade #{index + 1}
+                </span>
+                {gridRows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeGridRow(row.id)}
+                    className="text-xs text-rose-400 hover:text-rose-300 font-medium"
+                  >
+                    Remover Linha
+                  </button>
+                )}
               </div>
-            );
-          })}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* 1. Especialidade / Terapia */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                    Especialidade / Terapia
+                  </label>
+                  <select
+                    value={row.discipline}
+                    onChange={(e) => updateGridRow(row.id, "discipline", e.target.value)}
+                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                  >
+                    {DISCIPLINES.map((d) => (
+                      <option key={d.value} value={d.value}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Número de Sessões Semanal */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                    Sessões / Semana
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={6}
+                    value={row.sessionsPerWeek}
+                    onChange={(e) => updateGridRow(row.id, "sessionsPerWeek", Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* 3. Turno */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                    Turno Disponível
+                  </label>
+                  <select
+                    value={row.shift}
+                    onChange={(e) => updateGridRow(row.id, "shift", e.target.value as "MANHA" | "TARDE")}
+                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                  >
+                    <option value="MANHA">Manhã (08:00 - 12:00)</option>
+                    <option value="TARDE">Tarde (13:00 - 18:00)</option>
+                  </select>
+                </div>
+
+                {/* 4. Terapeuta Direcionado (Opcional) */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                    Terapeuta Direcionado (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nome do profissional…"
+                    value={row.therapistName}
+                    onChange={(e) => updateGridRow(row.id, "therapistName", e.target.value)}
+                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* 5. Dias da Semana (Segunda a Sábado) */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">
+                  Disponibilidade de Dias da Semana (Segunda a Sábado)
+                </label>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(Object.keys(DAY_LABELS) as DayOfWeek[]).map((day) => {
+                    const selected = row.daysOfWeek.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => toggleDayOfWeek(row.id, day)}
+                        className={`px-3 py-1 rounded-md text-xs font-semibold transition-all border ${
+                          selected
+                            ? "bg-indigo-600 text-white border-indigo-500 shadow-sm shadow-indigo-500/30"
+                            : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200"
+                        }`}
+                      >
+                        {DAY_LABELS[day]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Data de Início e Ação de Gerar Calendário de 6 Meses */}
+        <div className="pt-3 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-medium text-slate-300 whitespace-nowrap">
+              Início do Atendimento:
+            </label>
+            <input
+              type="date"
+              value={startDateStr}
+              onChange={(e) => setStartDateStr(e.target.value)}
+              className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGenerateCalendar}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-lg shadow-emerald-600/30 transition-all"
+          >
+            <span className="text-sm">🗓️</span> Criar Calendário de Sessões (Mensal - 6 Meses)
+          </button>
         </div>
       </div>
+
+      {/* VISUALIZAÇÃO DO CALENDÁRIO CONCILIADO DOS 6 MESES INSERIDO NO PTS */}
+      {generatedSessions.length > 0 && (
+        <PTSCalendarView
+          sessions={generatedSessions}
+          startDate={startDateStr}
+          validUntil={validUntilStr}
+          onOpenPrintModal={() => setShowPrintModal(true)}
+          onUpdateSession={handleUpdateSession}
+        />
+      )}
+
+      {/* MODAL DE IMPRESSÃO TIMBRADA */}
+      {showPrintModal && (
+        <PTSPrintableCalendar
+          patientName={patients.find((p) => p.id === patientId)?.full_name || "Paciente Selecionado"}
+          startDate={startDateStr}
+          validUntil={validUntilStr}
+          sessions={generatedSessions}
+          onClose={() => setShowPrintModal(false)}
+        />
+      )}
 
       <div>
         <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor={`${formId}-review`}>

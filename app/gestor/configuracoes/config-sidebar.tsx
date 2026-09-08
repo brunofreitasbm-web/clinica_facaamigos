@@ -9,6 +9,7 @@ import Link from "next/link";
 const SIDEBAR_ITEMS = [
   { key: "atendimentos", label: "Atendimentos & Salas", href: "/gestor/configuracoes/atendimentos", enabled: true },
   { key: "profissionais", label: "Terapeutas", href: "/gestor/configuracoes/profissionais", enabled: true },
+  { key: "especialidades", label: "Especialidades", href: "/gestor/configuracoes/especialidades", enabled: true },
   { key: "comportamentos", label: "Comportamentos-alvo", href: "/gestor/configuracoes/comportamentos", enabled: true },
   { key: "intervencoes", label: "Intervenções", href: "/gestor/configuracoes/intervencoes", enabled: true },
   { key: "notificacoes", label: "Notificações", href: "/gestor/configuracoes/notificacoes", enabled: true },

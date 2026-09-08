@@ -3342,11 +3342,9 @@ export type Database = {
           id: string
           meeting_id: string | null
           patient_id: string
-          period: string | null
           phone_number: string
           responded_at: string | null
           score: number | null
-          trigger_type: string
         }
         Insert: {
           alert_status?: string
@@ -3360,11 +3358,9 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id: string
-          period?: string | null
           phone_number: string
           responded_at?: string | null
           score?: number | null
-          trigger_type?: string
         }
         Update: {
           alert_status?: string
@@ -3378,11 +3374,9 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id?: string
-          period?: string | null
           phone_number?: string
           responded_at?: string | null
           score?: number | null
-          trigger_type?: string
         }
         Relationships: [
           {
@@ -5234,6 +5228,47 @@ export type Database = {
             columns: ["therapist_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialties: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialties_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
         ]
