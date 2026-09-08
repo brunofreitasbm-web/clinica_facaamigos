@@ -111,7 +111,11 @@ export async function generateDevolutionDraft(
 
   let draftText: string;
   try {
-    const response = await anthropic.messages.create({
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("TIMEOUT_EXCEEDED")), 25000)
+    );
+
+    const apiCallPromise = anthropic.messages.create({
       model: DEVOLUTION_REPORT_MODEL,
       max_tokens: 1024,
       temperature: 0.2,
@@ -129,10 +133,19 @@ export async function generateDevolutionDraft(
         },
       ],
     });
+
+    const response = await Promise.race([apiCallPromise, timeoutPromise]);
     const textBlock = response.content.find((block) => block.type === "text");
     draftText = textBlock && "text" in textBlock ? textBlock.text : "";
     if (!draftText) throw new Error("resposta vazia");
-  } catch {
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "";
+    if (errorMsg === "TIMEOUT_EXCEEDED") {
+      return {
+        success: false,
+        error: "O servidor está demorando mais que o esperado. Tente novamente ou selecione um período menor.",
+      };
+    }
     return { success: false, error: "Não foi possível gerar o rascunho agora. Tente de novo." };
   }
 

@@ -78,7 +78,11 @@ export async function generateInsurerReport(
 
   let pdfBuffer: Buffer;
   try {
-    pdfBuffer = await renderToBuffer(
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("TIMEOUT_EXCEEDED")), 25000)
+    );
+
+    const pdfRenderPromise = renderToBuffer(
       InsurerReportDocument({
         clinicName: clinic?.name ?? "Clínica",
         patientName: patient.full_name,
@@ -91,9 +95,18 @@ export async function generateInsurerReport(
         goals: goalsRaw ?? [],
         generatedByName: generator?.full_name ?? "—",
         generatedAt: new Date().toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE }),
-      }),
+      })
     );
-  } catch {
+
+    pdfBuffer = await Promise.race([pdfRenderPromise, timeoutPromise]);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "";
+    if (errorMsg === "TIMEOUT_EXCEEDED") {
+      return {
+        success: false,
+        error: "O servidor está demorando mais que o esperado para gerar o PDF. Tente novamente ou filtre um período menor.",
+      };
+    }
     return { success: false, error: "Não foi possível gerar o PDF. Tente de novo." };
   }
 

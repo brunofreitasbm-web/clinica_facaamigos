@@ -15,12 +15,19 @@ export function TerapeutaBottomNav({ active }: { active: "hoje" | "pacientes" | 
     <nav
       className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-3 border-t bg-white py-2.5 text-[11px] sm:hidden"
       style={{ borderColor: "var(--color-divider)" }}
+      aria-label="Navegação do terapeuta"
     >
-      <a href="/terapeuta" className="flex flex-col items-center gap-1 no-underline" style={itemStyle("hoje")}>
+      <a
+        href="/terapeuta"
+        aria-current={active === "hoje" ? "page" : undefined}
+        className="flex flex-col items-center gap-1 no-underline"
+        style={itemStyle("hoje")}
+      >
         📅 Hoje
       </a>
       <a
         href="/terapeuta/pacientes"
+        aria-current={active === "pacientes" ? "page" : undefined}
         className="flex flex-col items-center gap-1 no-underline"
         style={itemStyle("pacientes")}
       >
@@ -28,6 +35,7 @@ export function TerapeutaBottomNav({ active }: { active: "hoje" | "pacientes" | 
       </a>
       <a
         href="/terapeuta#pendencias"
+        aria-current={active === "pendencias" ? "page" : undefined}
         className="flex flex-col items-center gap-1 no-underline"
         style={itemStyle("pendencias")}
       >

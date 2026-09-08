@@ -563,7 +563,9 @@ label:has(> input.sr-only:focus-visible) { outline: 2px solid var(--color-accent
 
 /* Diretriz global de acessibilidade para navegação via teclado (WCAG 2.1 AA) */
 :focus-visible {
-  outline: 2px solid #1967D2;
+  outline: 2px solid var(--color-pink, #f0196b);
   outline-offset: 2px;
+  border-radius: 4px;
 }
+
 
