@@ -86,7 +86,12 @@ export function AcolhimentosPanel({
     formData.set("insurer_id", uploadInsurerId);
     startTransition(async () => {
       const res = await uploadIntakeBatch(formData);
-      setUploadFeedback(res.success ? { type: "success", text: "PDF enviado — a extração começa em instantes." } : { type: "error", text: res.error });
+      if (res.success) {
+        setUploadFeedback({ type: "success", text: "PDF enviado — iniciando extração pela IA..." });
+        await reprocessIntakeBatch(res.batchId);
+      } else {
+        setUploadFeedback({ type: "error", text: res.error });
+      }
     });
   }
 
@@ -195,9 +200,9 @@ export function AcolhimentosPanel({
                     <button type="button" onClick={() => handleViewBatchPdf(batch.id)} className="text-xs font-semibold text-chart hover:underline">
                       Ver PDF
                     </button>
-                    {batch.status === "failed" && (
+                    {(batch.status === "failed" || batch.status === "pending") && (
                       <button type="button" onClick={() => handleReprocess(batch.id)} disabled={isPending} className="text-xs font-semibold text-chart hover:underline disabled:opacity-50">
-                        Reprocessar
+                        {batch.status === "pending" ? "Forçar Extração IA" : "Reprocessar"}
                       </button>
                     )}
                   </div>

@@ -170,16 +170,121 @@ function coerceIntakeExtraction(raw: unknown): IntakeExtraction {
 
 export type IntakeFileInput = { base64: string; mimeType: string };
 
+import { extractText } from "unpdf";
+
 /**
- * Chama o Gemini com o PDF do lote numa única requisição multimodal. Nunca
- * lança — toda falha (chave ausente, HTTP != 200, JSON inválido/vazio) volta
- * como `{ success: false, error }`.
+ * Tenta extrair nativamente via texto e Regex os beneficiários do PDF digital da Unimed.
+ */
+async function tryNativePdfRegexExtraction(
+  base64: string,
+  insurerNames: string[]
+): Promise<IntakeExtraction | null> {
+  try {
+    const buffer = Buffer.from(base64, "base64");
+    const { text } = await extractText(new Uint8Array(buffer));
+    const fullText = Array.isArray(text) ? text.join("\n") : String(text || "");
+
+    if (!fullText || fullText.trim().length < 20) {
+      return null; // PDF é imagem ou scanned (sem texto extraível)
+    }
+
+    const rows: IntakeRow[] = [];
+    const lines = fullText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+    // Expressões regulares para padrões de relatórios Unimed / Guias TISS
+    const cardRegex = /\b(0\s*\d{3}\s*\d{8,12}\s*\d|\d{13,17})\b/;
+    const cpfRegex = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
+    const phoneRegex = /\(?\d{2}\)?\s*9?\d{4}-?\d{4}/g;
+    const dateRegex = /\b\d{2}\/\d{2}\/\d{4}\b/g;
+
+    // Procura o nome do convênio no texto
+    let detectedInsurer: string | null = null;
+    if (/unimed/i.test(fullText)) {
+      detectedInsurer = insurerNames.find((i) => /unimed/i.test(i)) ?? "Unimed";
+    }
+
+    // Bloca linhas ou agrupamentos por paciente
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const cardMatch = line.match(cardRegex);
+      const cpfMatch = line.match(cpfRegex);
+
+      if (cardMatch || cpfMatch) {
+        // Encontrou um registro de paciente
+        const phones = line.match(phoneRegex) || [];
+        const dates = line.match(dateRegex) || [];
+
+        // Tenta capturar nome (fragmento de texto com maiúsculas sem números soltos)
+        const namePart = line
+          .replace(cardRegex, "")
+          .replace(cpfRegex, "")
+          .replace(phoneRegex, "")
+          .replace(dateRegex, "")
+          .replace(/guia|unimed|paciente|controle|terapias/gi, "")
+          .trim();
+
+        const patientName = namePart.length > 3 ? namePart.split(/\s{2,}|,/)[0].trim() : null;
+
+        rows.push({
+          patient_full_name: patientName,
+          patient_birth_date: dates[0] ? parseBrDate(dates[0]) : null,
+          patient_cpf: cpfMatch ? normalizeCpf(cpfMatch[0]) : null,
+          patient_sexo: /feminino|\bF\b/i.test(line) ? "F" : /masculino|\bM\b/i.test(line) ? "M" : null,
+          patient_cid: line.match(/\b[Ff]\d{2}\.?\d?\b/)?.[0] || null,
+          guardian_full_name: null,
+          guardian_cpf: null,
+          guardian_relationship: null,
+          guardian_email: null,
+          guardian_phones: phones,
+          card_number: cardMatch ? cardMatch[0].replace(/\D/g, "") : null,
+          plan_name: "Unimed",
+          card_valid_until: dates[1] ? parseBrDate(dates[1]) : null,
+          guide_number: line.match(/\b\d{8,10}\b/)?.[0] || null,
+          procedure_code: line.match(/fono|psico|ocupacional|terapia|aba|fisioterapia/gi)?.join(", ") || null,
+          sessions_authorized: Number(line.match(/\b\d{1,2}\s*(sess[õo]es|hs|horas)\b/i)?.[0]?.replace(/\D/g, "")) || null,
+          valid_from: dates[0] ? parseBrDate(dates[0]) : null,
+          valid_to: dates[1] ? parseBrDate(dates[1]) : null,
+          authorization_password: null,
+          extra: { source: "native_regex" },
+          confidence: {
+            patient_full_name: patientName ? 0.95 : 0.5,
+            card_number: cardMatch ? 0.99 : 0.5,
+          },
+          warnings: [],
+        });
+      }
+    }
+
+    if (rows.length > 0) {
+      return {
+        detected_insurer_name: detectedInsurer,
+        rows,
+        warnings: ["Dados extraídos via Parser Nativo de Alta Velocidade (Regex)."],
+        truncated: false,
+      };
+    }
+  } catch (e) {
+    console.warn("[Native PDF Regex extraction fallback to Gemini]:", e);
+  }
+  return null;
+}
+
+/**
+ * Tenta extração nativa Regex em milissegundos. Se o PDF for imagem ou não estruturado,
+ * chama o Gemini com o PDF do lote numa requisição multimodal.
  */
 export async function extractIntakeRowsFromPdf(
   file: IntakeFileInput,
   insurerNames: string[],
   opts?: { profile?: IntakeExtractionProfile; timeoutMs?: number },
 ): Promise<IntakeExtractionOutcome> {
+  // 1ª Tentativa: Parser Nativo com Regex (Super Rápido, 0ms latency, sem custo de API)
+  const nativeResult = await tryNativePdfRegexExtraction(file.base64, insurerNames);
+  if (nativeResult && nativeResult.rows.length > 0) {
+    return { success: true, result: nativeResult, model: "native-regex" };
+  }
+
+  // 2ª Tentativa: Chamada IA Gemini (Fallback para PDFs escaneados / imagens)
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || !isGeminiConfigured()) {
     return { success: false, error: "GEMINI_API_KEY não configurada." };
