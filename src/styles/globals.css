@@ -1,0 +1,16 @@
+@import "../../app/globals.css";
+
+:root {
+  --text-secondary: #595959;
+  --color-text-secondary: #595959;
+}
+
+*:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #E91E63;
+  outline-offset: 2px;
+}

@@ -16,11 +16,13 @@
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.115.0",
     "@tanstack/react-virtual": "^3.14.11",
+    "@types/react-window": "^1.8.8",
     "lucide-react": "^1.41.0",
     "next": "16.3.4",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-window": "^1.8.10",
     "twilio": "^6.1.0",
     "undici": "^8.10.1",
     "unpdf": "^1.8.1"

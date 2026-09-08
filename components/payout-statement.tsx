@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useToast } from "@/components/toast-provider";
 
 export interface PayoutItemRow {
   id: string;
@@ -48,22 +49,44 @@ const DEFAULT_PAYOUT: PayoutStatementData = {
 
 export function PayoutStatementModal({
   data = DEFAULT_PAYOUT,
+  hasContract = true,
 }: {
   data?: PayoutStatementData;
+  hasContract?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { toast } = useToast();
+
+  const handleOpen = () => {
+    if (isDownloading) return;
+    if (!hasContract) {
+      toast("Necessário possuir contrato vigente para emitir extrato.", "error");
+      return;
+    }
+    setIsOpen(true);
+  };
 
   const handlePrint = () => {
-    window.print();
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      window.print();
+    } catch {
+      toast("Não foi possível gerar o PDF. Tente novamente.", "error");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
     <>
       <button
-        onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 rounded-md border border-paper-line-strong bg-paper px-3.5 py-1.5 text-xs font-semibold text-ink hover:bg-paper-subtle transition-colors"
+        onClick={handleOpen}
+        disabled={isDownloading}
+        className="inline-flex items-center gap-2 rounded-md border border-paper-line-strong bg-paper px-3.5 py-1.5 text-xs font-semibold text-ink hover:bg-paper-subtle transition-colors disabled:cursor-not-allowed disabled:opacity-60"
       >
-        📄 Extrato de Repasse PDF
+        {isDownloading ? "Gerando PDF..." : "📄 Extrato de Repasse PDF"}
       </button>
 
       {isOpen && (
@@ -82,9 +105,10 @@ export function PayoutStatementModal({
               <div className="flex items-center gap-3">
                 <button
                   onClick={handlePrint}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+                  disabled={isDownloading}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  🖨 Baixar / Imprimir PDF
+                  {isDownloading ? "Gerando PDF..." : "🖨 Baixar / Imprimir PDF"}
                 </button>
                 <button
                   onClick={() => setIsOpen(false)}

@@ -2,7 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PayoutStatementModal } from "@/components/payout-statement";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getMyContract, getMyPayoutHistory, getMyPayoutStatement } from "./data";
+
+const SUPPORT_EMAIL = "contato@clinicafacaamigos.com.br";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +81,7 @@ export default async function TerapeutaRepassePage() {
                 <span className="font-semibold text-ink">{contract ? currency.format(contract.hourlyRate) : "—"}</span>
               </p>
             </div>
-            {currentStatement && <PayoutStatementModal data={currentStatement} />}
+            {currentStatement && <PayoutStatementModal data={currentStatement} hasContract={!!contract} />}
           </div>
 
           {current ? (
@@ -106,7 +109,18 @@ export default async function TerapeutaRepassePage() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-ink-faint">Nenhum dado de repasse encontrado.</p>
+            <EmptyState
+              title="Nenhum dado de repasse encontrado"
+              description="Isso costuma acontecer quando ainda não há contrato vigente ou nenhuma sessão realizada neste mês."
+              action={{
+                label: "Falar com o suporte",
+                href: `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Dúvida sobre extrato de repasse")}`,
+              }}
+              secondaryAction={{
+                label: "Ver termos de contratação",
+                href: `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Termos de contratação")}`,
+              }}
+            />
           )}
         </div>
 
@@ -126,11 +140,22 @@ export default async function TerapeutaRepassePage() {
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE[row.statusLabel]}`}>
                     {row.statusLabel}
                   </span>
-                  <PayoutStatementModal data={pastStatements[i]} />
+                  <PayoutStatementModal data={pastStatements[i]} hasContract={!!contract} />
                 </div>
               </div>
             ))}
-            {past.length === 0 && <p className="py-3.5 text-sm text-ink-faint">Nenhuma competência fechada ainda.</p>}
+            {past.length === 0 && (
+              <div className="py-3.5">
+                <EmptyState
+                  title="Nenhuma competência fechada ainda"
+                  description="Assim que o mês atual for fechado pela coordenação financeira, o histórico de repasses aparecerá aqui."
+                  action={{
+                    label: "Falar com o suporte",
+                    href: `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Dúvida sobre competências de repasse")}`,
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -35,6 +35,8 @@
   --color-bg: #f7f5f2;
   --color-surface: #ffffff;
   --color-text: var(--color-dark);
+  --text-secondary: #595959;
+  --color-text-secondary: #595959;
   --color-accent: var(--color-pink);
   --color-accent-2: var(--color-amber);
   --color-divider: color-mix(in srgb, var(--color-text) 14%, transparent);
@@ -42,11 +44,11 @@
   --color-neutral-100: #f5f6f7;
   --color-neutral-200: #e8eaec;
   --color-neutral-300: #cdd1d6;
-  --color-neutral-400: #a0a8b2;
-  --color-neutral-500: #7a8490;
-  --color-neutral-600: #5a636e;
-  --color-neutral-700: #3a4149;
-  --color-neutral-800: #262c32;
+  --color-neutral-400: #8c95a0;
+  --color-neutral-500: #595959; /* WCAG AA: #595959 para texto secundário com contraste > 4.5:1 */
+  --color-neutral-600: #3f4955; /* WCAG AA: > 4.5:1 contraste sobre fundo claro */
+  --color-neutral-700: #2c333b;
+  --color-neutral-800: #1e2328;
   --color-neutral-900: #141719;
 
   /* rampa rosa — accent primário (interação/chrome) */
@@ -144,12 +146,12 @@
      *-text, text-milestone) — ver comentário acima. */
 :root {
   --color-paper: var(--color-bg);
-  --color-paper-line: color-mix(in srgb, var(--color-text) 8%, transparent);
-  --color-paper-line-strong: var(--color-divider);
+  --color-paper-line: color-mix(in srgb, var(--color-text) 12%, transparent);
+  --color-paper-line-strong: color-mix(in srgb, var(--color-text) 24%, transparent);
 
   --color-ink: var(--color-text);
-  --color-ink-soft: var(--color-neutral-700);
-  --color-ink-faint: var(--color-neutral-600);
+  --color-ink-soft: #383838; /* WCAG AA: ~9:1 contraste */
+  --color-ink-faint: var(--color-neutral-600); /* WCAG AA: > 4.5:1 contraste */
 
   /* "chart" era o único acento (azul); agora é o accent primário da marca (rosa) */
   --color-chart: var(--color-accent);
@@ -244,6 +246,17 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+*:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #E91E63;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--color-surface, #ffffff), 0 0 0 4px #E91E63;
 }
 
 /* fluidez das mudanças de estado (hover/focus/checked) sem animar layout —
@@ -397,6 +410,8 @@ textarea.input { min-height: 96px; resize: vertical; line-height: 1.5; }
 .seg-btn[aria-pressed="true"] { background: var(--color-accent); color: #fff; }
 .seg-btn[aria-pressed="false"]:hover { background: var(--color-neutral-100); }
 .seg-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+
+label:has(> input.sr-only:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 .card {
   display: flex; flex-direction: column; gap: var(--space-3);

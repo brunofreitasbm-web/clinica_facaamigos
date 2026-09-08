@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { recordIntervention, type InterventionLog } from "@/lib/intervention-actions";
 import { interventionLabel, type InterventionCatalogItem } from "@/lib/intervention-catalog";
 
@@ -14,9 +14,10 @@ interface InterventionLoggerProps {
   appointmentId: string;
   catalog: InterventionCatalogItem[];
   initialLogs?: InterventionLog[];
+  onLogsChange?: (count: number) => void;
 }
 
-export function InterventionLogger({ appointmentId, catalog, initialLogs = [] }: InterventionLoggerProps) {
+export function InterventionLogger({ appointmentId, catalog, initialLogs = [], onLogsChange }: InterventionLoggerProps) {
   const [logs, setLogs] = useState<InterventionLog[]>(initialLogs);
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
   const [description, setDescription] = useState("");
@@ -24,6 +25,10 @@ export function InterventionLogger({ appointmentId, catalog, initialLogs = [] }:
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    onLogsChange?.(logs.length);
+  }, [logs, onLogsChange]);
 
   function handleSubmit(e?: React.SyntheticEvent) {
     if (e) e.preventDefault();
@@ -58,7 +63,7 @@ export function InterventionLogger({ appointmentId, catalog, initialLogs = [] }:
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 transition"
+          className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 transition-all duration-200 shadow-sm"
         >
           <span>{isOpen ? "✕" : "＋"}</span>
           {isOpen ? "Fechar" : "Registrar intervenção"}

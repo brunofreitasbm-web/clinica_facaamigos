@@ -6,6 +6,9 @@ import { importGlosasCsv } from "./actions";
 
 type Skipped = { line: number; guide: string; reason: string };
 
+const IMPORT_TIMEOUT_MS = 25_000;
+const TIMEOUT_MESSAGE = "O servidor demorou para responder. Verifique sua conexão e tente novamente.";
+
 export function CsvImportForm() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +44,17 @@ export function CsvImportForm() {
           setError(null);
           setResult(null);
           startTransition(async () => {
-            const res = await importGlosasCsv(formData);
+            // Server actions não expõem um AbortSignal pro cliente cancelar a
+            // requisição em voo — esta corrida só desbloqueia a UI depois de
+            // 25s, não cancela o processamento no servidor.
+            let timeoutId: ReturnType<typeof setTimeout>;
+            const timeout = new Promise<{ success: false; error: string }>((resolve) => {
+              timeoutId = setTimeout(() => resolve({ success: false, error: TIMEOUT_MESSAGE }), IMPORT_TIMEOUT_MS);
+            });
+
+            const res = await Promise.race([importGlosasCsv(formData), timeout]);
+            clearTimeout(timeoutId!);
+
             if (!res.success) {
               setError(res.error);
               return;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useOffline } from "next/offline";
 import { createSessionNote, setSignaturePin } from "../actions";
 import {
@@ -29,8 +29,13 @@ const PRESENCE_SCALE = [1, 2, 3, 4, 5] as const;
 // mídia e o texto livre gravado em `session_notes.structured`/anexos.
 
 function formatElapsed(totalSeconds: number): string {
-  const m = Math.floor(totalSeconds / 60);
+  if (!totalSeconds || isNaN(totalSeconds) || totalSeconds < 0) return "00:00";
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
+  if (h > 0) {
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
@@ -94,6 +99,7 @@ export function EvolutionForm({
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [signed, setSigned] = useState(false);
+  const [interventionsCount, setInterventionsCount] = useState<number>(0);
   const [presence, setPresence] = useState<number | null>(editing?.initialPresence ?? null);
   const [selectedBehaviors, setSelectedBehaviors] = useState<Record<string, boolean>>(
     editing?.initialBehaviors ?? {},
@@ -118,9 +124,19 @@ export function EvolutionForm({
   const [isPending, startTransition] = useTransition();
   const [elapsedSec, setElapsedSec] = useState(0);
   const [draftSaved, setDraftSaved] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiElapsedSeconds, setAiElapsedSeconds] = useState(0);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [showPin, setShowPin] = useState(false);
+  const [capsLockActive, setCapsLockActive] = useState(false);
   const isOffline = useOffline();
+  const signaturePinInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFreeTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setFreeText(e.target.value);
+  }, []);
 
   // Instante em que o formulário abriu (PRD §9.4 — "medir o tempo entre
   // abrir e assinar"). Fixado uma única vez no mount: restaurar um rascunho
@@ -141,9 +157,7 @@ export function EvolutionForm({
   const [signaturePin, setSignaturePinInput] = useState("");
   // Lazy initializer em vez de efeito: ler localStorage síncrono no mount
   // não precisa de "sincronizar com sistema externo" — só precisa rodar uma
-  // vez antes da primeira renderização (setState dentro de efeito sem
-  // dependência de dado assíncrono é o antipadrão que o eslint-plugin-
-  // react-hooks (set-state-in-effect) sinaliza).
+  // vez antes da primeira renderização.
   const [resumingPendingSignature] = useState(() => {
     if (editing) return false;
     try {
@@ -169,7 +183,12 @@ export function EvolutionForm({
 
   async function handleGenerateAIText() {
     setIsGeneratingAI(true);
+    setAiElapsedSeconds(0);
     setAiError(null);
+    const interval = setInterval(() => {
+      setAiElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
     try {
       const res = await generateAIEvolutionText(appointmentId);
       if (res.success && res.generatedText) {
@@ -180,6 +199,7 @@ export function EvolutionForm({
     } catch {
       setAiError("Falha na chamada da IA.");
     } finally {
+      clearInterval(interval);
       setIsGeneratingAI(false);
     }
   }
@@ -245,6 +265,7 @@ export function EvolutionForm({
       } catch {}
       return;
     }
+    setIsSavingDraft(true);
     const timer = setTimeout(() => {
       saveDraft<DraftShape>(`evolution_${appointmentId}`, {
         presence,
@@ -254,8 +275,12 @@ export function EvolutionForm({
         selectedOrientations,
         metas,
         openedAt: draftOpenedAtRef.current,
-      }).then(() => setDraftSaved(true));
-    }, 500);
+      }).then(() => {
+        setIsSavingDraft(false);
+        setDraftSaved(true);
+        setDraftSavedAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      });
+    }, 300);
     return () => clearTimeout(timer);
   }, [presence, freeText, selectedBehaviors, intensities, selectedOrientations, metas, appointmentId, signed, editing]);
 
@@ -361,9 +386,17 @@ export function EvolutionForm({
     }
   }
 
+  const hasActiveGoals = activeGoals.length > 0;
+
   function goToStep3() {
     if (presence === null) {
       setStepError("Selecione a presença/engajamento (1 a 5).");
+      return;
+    }
+    if (!hasActiveGoals) {
+      setStepError(
+        "Este paciente não tem plano terapêutico aprovado com metas ativas. Cadastre/aprove um plano antes de continuar.",
+      );
       return;
     }
     const goalsMissingResult = Object.entries(metas).filter(([, resultado]) => !resultado);
@@ -390,17 +423,28 @@ export function EvolutionForm({
         className="flex flex-col gap-2.5 px-5 pb-4 pt-7 sm:px-10"
       >
         <div className="flex items-center justify-between text-[13px]">
-          <Link href="/terapeuta" className="no-underline opacity-80" style={{ color: "inherit" }}>
-            ← Hoje
+          <Link href={`/terapeuta/paciente/${patientId}`} className="no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
+            ← Prontuário de {patientName.split(" ")[0]}
           </Link>
           {!signed && (
-            <div className="flex items-center gap-3 text-xs opacity-90">
-              {draftSaved && (
-                <span className="inline-flex items-center gap-1 text-emerald-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  Rascunho salvo localmente
-                </span>
-              )}
+            <div className="flex items-center gap-3 text-xs opacity-90" role="status" aria-live="polite">
+              <span className={`inline-flex items-center gap-1.5 ${isOffline ? "text-amber-300" : "text-emerald-300"}`}>
+                {isSavingDraft ? (
+                  <>
+                    <span className="h-2 w-2 rounded-full border-2 border-white/60 border-t-white animate-spin" />
+                    <span>Salvando rascunho...</span>
+                  </>
+                ) : draftSaved ? (
+                  <>
+                    <span className={`h-1.5 w-1.5 rounded-full ${isOffline ? "bg-amber-400" : "bg-emerald-400"}`} />
+                    <span>
+                      {isOffline
+                        ? `Salvo apenas no dispositivo ${draftSavedAt ? `(${draftSavedAt})` : ""}`
+                        : `Rascunho salvo localmente ${draftSavedAt ? `(${draftSavedAt})` : ""}`}
+                    </span>
+                  </>
+                ) : null}
+              </span>
               <span className="flex items-center gap-2 tabular-nums opacity-90">
                 <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--color-accent-2)" }} />
                 {attendanceStartedAt ? formatElapsed(elapsedSec) : "—:—"}
@@ -408,21 +452,29 @@ export function EvolutionForm({
             </div>
           )}
         </div>
-        <div>
-          <div className="text-xs opacity-70">
-            Evolução · {patientName} · {discipline} · {sessionTime}
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs font-bold text-white uppercase tracking-wider">
+              {discipline}
+            </span>
+            <span className="rounded-md bg-white/15 px-2 py-0.5 text-xs font-medium text-white/90">
+              {sessionTime}
+            </span>
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-normal text-white/80">
+              {signed
+                ? editing
+                  ? `v${editing.previousVersion + 1}`
+                  : "Assinada"
+                : editing
+                  ? `v${editing.previousVersion + 1}`
+                  : "Versão 1"}
+            </span>
           </div>
           <h1
             style={{ fontFamily: "var(--font-heading)" }}
-            className="m-0 text-2xl font-semibold leading-tight text-inherit"
+            className="m-0 text-2xl font-bold leading-tight text-white drop-shadow-sm mt-0.5"
           >
-            {signed
-              ? editing
-                ? `Versão ${editing.previousVersion + 1} salva`
-                : "Evolução assinada"
-              : editing
-                ? `Editando — nova versão ${editing.previousVersion + 1}`
-                : "Versão 1"}
+            {patientName}
           </h1>
         </div>
         {!signed && (
@@ -481,6 +533,7 @@ export function EvolutionForm({
             }
             if (!/^\d{4,6}$/.test(signaturePin)) {
               setError("Informe o PIN de assinatura (4 a 6 dígitos).");
+              signaturePinInputRef.current?.focus();
               return;
             }
             formData.set("signature_pin", signaturePin);
@@ -499,7 +552,11 @@ export function EvolutionForm({
                 try {
                   localStorage.removeItem(`pending_sign_${appointmentId}`);
                 } catch {}
-                setError(result.error);
+                setError(result.error || "Não foi possível salvar a evolução. Verifique os campos obrigatórios e tente novamente.");
+                if (result.error?.toLowerCase().includes("pin")) {
+                  setSignaturePinInput("");
+                  signaturePinInputRef.current?.focus();
+                }
                 return;
               }
               setSigned(true);
@@ -525,7 +582,7 @@ export function EvolutionForm({
               evolução", linha do tempo da sessão que alimenta a síntese de
               texto por IA no passo 3 (generateAIEvolutionText). */}
           <div className={step === 1 ? "flex flex-col gap-6" : "hidden"}>
-            <InterventionLogger appointmentId={appointmentId} catalog={interventionCatalog} />
+            <InterventionLogger appointmentId={appointmentId} catalog={interventionCatalog} onLogsChange={setInterventionsCount} />
           </div>
 
           {/* Passo 2 — presença/engajamento, metas trabalhadas e
@@ -572,9 +629,25 @@ export function EvolutionForm({
                 Metas trabalhadas na sessão
               </p>
               {activeGoals.length === 0 ? (
-                <p className="mt-2 text-xs text-ink-faint">
-                  Sem plano terapêutico aprovado com metas ativas para este paciente.
-                </p>
+                <div
+                  className="mt-2 rounded-md border p-2.5 text-xs"
+                  style={{ borderColor: "var(--status-agendada)", background: "var(--status-agendada-bg)" }}
+                >
+                  <p className="text-ink-faint">
+                    Sem plano terapêutico aprovado com metas ativas para este paciente. Não é possível continuar
+                    sem uma diretriz terapêutica.
+                  </p>
+                  <Link
+                    href={`/terapeuta/paciente/${patientId}`}
+                    className="mt-1 inline-block font-semibold underline"
+                    style={{ color: "var(--color-accent)" }}
+                  >
+                    Cadastrar/aprovar plano terapêutico →
+                  </Link>
+                  <p className="mt-1 text-[11px] text-ink-faint">
+                    Seu rascunho desta evolução é salvo automaticamente e continuará aqui quando você voltar.
+                  </p>
+                </div>
               ) : (
                 <div className="mt-2 flex flex-col gap-2.5">
                   {activeGoals.map((goal) => {
@@ -761,19 +834,42 @@ export function EvolutionForm({
                   type="button"
                   onClick={handleGenerateAIText}
                   disabled={isGeneratingAI}
-                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 >
-                  {isGeneratingAI ? "Sintetizando Dados da Sessão..." : "✨ Gerar Texto com IA (1-Clique)"}
+                  {isGeneratingAI ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                      Sintetizando ({aiElapsedSeconds}s)...
+                    </span>
+                  ) : (
+                    "✨ Gerar Texto com IA (1-Clique)"
+                  )}
                 </button>
               </div>
+
+              {isGeneratingAI && (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/30 p-3 animate-fade-in space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                    <span>Processando tentativas, metas e comportamentos da sessão...</span>
+                    <span>{aiElapsedSeconds}s</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-emerald-200 dark:bg-emerald-900 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-600 transition-all duration-500"
+                      style={{ width: `${Math.min(aiElapsedSeconds * 10, 95)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <textarea
                 id="free_text"
                 name="free_text"
                 rows={6}
                 value={freeText}
-                onChange={(e) => setFreeText(e.target.value)}
+                onChange={handleFreeTextChange}
                 placeholder="Preencha observações clínicas ou clique no botão acima para sintetizar as tentativas e registros da sessão com Inteligência Artificial..."
-                className="input mt-2"
+                className="input mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
               {aiError && <p className="text-xs font-semibold text-rose-600 mt-1">{aiError}</p>}
             </div>
@@ -800,18 +896,36 @@ export function EvolutionForm({
                 <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="signature_pin_input">
                   PIN de assinatura
                 </label>
-                <input
-                  id="signature_pin_input"
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  maxLength={6}
-                  value={signaturePin}
-                  onChange={(e) => setSignaturePinInput(e.target.value.replace(/\D/g, ""))}
-                  placeholder="••••"
-                  className="input mt-2"
-                  style={{ maxWidth: 160, letterSpacing: "0.3em" }}
-                />
+                <div className="relative flex items-center max-w-[200px]">
+                  <input
+                    ref={signaturePinInputRef}
+                    id="signature_pin_input"
+                    type={showPin ? "text" : "password"}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={6}
+                    value={signaturePin}
+                    onChange={(e) => setSignaturePinInput(e.target.value.replace(/\D/g, ""))}
+                    onKeyDown={(e) => setCapsLockActive(e.getModifierState("CapsLock"))}
+                    placeholder="••••"
+                    className="input w-full pr-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    style={{ letterSpacing: "0.3em" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin((v) => !v)}
+                    className="absolute right-2 p-1.5 text-xs text-ink-soft hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                    aria-label={showPin ? "Ocultar PIN" : "Mostrar PIN"}
+                    title={showPin ? "Ocultar PIN" : "Mostrar PIN"}
+                  >
+                    {showPin ? "👁️" : "🙈"}
+                  </button>
+                </div>
+                {capsLockActive && (
+                  <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
+                    <span>⚠️</span> Caps Lock está ativado
+                  </p>
+                )}
               </div>
             ) : (
               <div className="card flex flex-col gap-2.5">
@@ -875,7 +989,23 @@ export function EvolutionForm({
               </div>
             </div>
 
-            {error && <p className="text-xs text-status-negative-text">{error}</p>}
+            {error && (
+              <div
+                className="rounded-md border p-3 text-xs flex items-start gap-2 shadow-sm animate-fade-in"
+                style={{
+                  borderColor: "var(--status-falta)",
+                  background: "var(--status-falta-bg)",
+                  color: "var(--color-status-negative-text)"
+                }}
+                role="alert"
+              >
+                <span className="font-bold text-sm">⚠️</span>
+                <div>
+                  <p className="font-bold">Não foi possível salvar a evolução.</p>
+                  <p className="mt-0.5">{error}</p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div
@@ -885,7 +1015,7 @@ export function EvolutionForm({
             {step !== 1 && (
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 style={{ minHeight: 48 }}
                 onClick={() => setStep(step === 3 ? 2 : 1)}
               >
@@ -895,8 +1025,15 @@ export function EvolutionForm({
             {step === 1 && (
               <button
                 type="button"
-                className="btn btn-primary flex-1"
-                style={{ minHeight: 48, fontSize: 15 }}
+                className="btn btn-primary flex-1 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
+                style={{
+                  minHeight: 48,
+                  fontSize: 15,
+                  opacity: interventionsCount === 0 ? 0.5 : 1,
+                  cursor: interventionsCount === 0 ? "not-allowed" : "pointer",
+                }}
+                disabled={interventionsCount === 0}
+                title={interventionsCount === 0 ? "Registre ao menos 1 intervenção para continuar" : undefined}
                 onClick={() => setStep(2)}
               >
                 Continuar
@@ -905,8 +1042,19 @@ export function EvolutionForm({
             {step === 2 && (
               <button
                 type="button"
-                className="btn btn-primary flex-1"
-                style={{ minHeight: 48, fontSize: 15 }}
+                className="btn btn-primary flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
+                style={{
+                  minHeight: 48,
+                  fontSize: 15,
+                  opacity: hasActiveGoals ? 1 : 0.5,
+                  cursor: hasActiveGoals ? "pointer" : "not-allowed",
+                }}
+                disabled={!hasActiveGoals}
+                title={
+                  hasActiveGoals
+                    ? undefined
+                    : "Cadastre/aprove um plano terapêutico com metas ativas para este paciente antes de continuar"
+                }
                 onClick={goToStep3}
               >
                 Continuar
@@ -915,19 +1063,24 @@ export function EvolutionForm({
             {step === 3 && (
               <button
                 type="submit"
-                className="btn btn-gold flex-1"
+                className="btn btn-gold flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
                 style={{ minHeight: 48, fontSize: 15 }}
                 disabled={isPending || !pinIsConfigured}
               >
-                {isPending
-                  ? isOffline
-                    ? "Sem conexão — enviando quando a internet voltar…"
-                    : editing
-                      ? "Salvando nova versão…"
-                      : "Assinando…"
-                  : editing
-                    ? "Salvar nova versão"
-                    : "Assinar evolução"}
+                {isPending ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-3.5 w-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                    {isOffline
+                      ? "Sem conexão — enviando quando a internet voltar…"
+                      : editing
+                        ? "Salvando nova versão…"
+                        : "Salvando evolução…"}
+                  </span>
+                ) : editing ? (
+                  "Salvar nova versão"
+                ) : (
+                  "Assinar evolução"
+                )}
               </button>
             )}
           </div>

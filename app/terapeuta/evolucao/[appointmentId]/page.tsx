@@ -195,20 +195,29 @@ export default async function EvolucaoPage({
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
         className="flex flex-col gap-2.5 px-5 pb-4 pt-7 sm:px-10"
       >
-        <Link href="/terapeuta" className="text-[13px] no-underline opacity-80" style={{ color: "inherit" }}>
-          ← Hoje
+        <Link href={`/terapeuta/paciente/${appointment.patient_id}`} className="text-[13px] no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
+          ← Prontuário de {patientName.split(" ")[0]}
         </Link>
-        <div>
-          <div className="text-xs opacity-70">
-            Evolução · {appointment.discipline} · {sessionTime}
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs font-bold text-white uppercase tracking-wider">
+              {appointment.discipline}
+            </span>
+            <span className="rounded-md bg-white/15 px-2 py-0.5 text-xs font-medium text-white/90">
+              {sessionTime}
+            </span>
+            {therapistName && (
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-normal text-white/80">
+                {therapistName}
+              </span>
+            )}
           </div>
           <h1
             style={{ fontFamily: "var(--font-heading)" }}
-            className="m-0 text-2xl font-semibold leading-tight text-inherit"
+            className="m-0 text-2xl font-bold leading-tight text-white drop-shadow-sm mt-0.5"
           >
             {patientName}
           </h1>
-          <div className="text-xs opacity-70">{therapistName}</div>
         </div>
       </header>
       <PatientIdentityBar patientName={patientName} insurance={insurance} emergencyContact={emergencyContact} />

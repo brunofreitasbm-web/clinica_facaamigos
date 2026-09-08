@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
   { key: "competencia", label: "Competência", href: "/faturamento" },
@@ -12,11 +15,13 @@ type NavKey = (typeof NAV_ITEMS)[number]["key"];
 /**
  * Cabeçalho navy da área de faturamento — layout Broadsheet/Instituto Faça Amigos
  */
-export function FaturamentoHeader({ active = "competencia" }: { active?: NavKey }) {
+export function FaturamentoHeader({ active }: { active?: NavKey }) {
+  const pathname = usePathname();
+
   return (
     <header
       style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
-      className="flex h-16 items-center gap-8 px-10"
+      className="flex h-16 items-center gap-8 px-10 shadow-sm"
     >
       <Link href="/faturamento" className="mr-auto flex items-center gap-3 no-underline">
         <svg width="30" height="30" viewBox="0 0 100 100" fill="none">
@@ -35,20 +40,32 @@ export function FaturamentoHeader({ active = "competencia" }: { active?: NavKey 
         </span>
       </Link>
       <nav className="flex items-center gap-6 text-[15px] font-semibold">
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.key}
-            href={item.href}
-            className="py-5 no-underline transition-opacity hover:opacity-100"
-            style={
-              item.key === active
-                ? { color: "var(--color-on-accent)", borderBottom: "2px solid var(--color-on-accent)", opacity: 1 }
-                : { color: "var(--color-on-accent-soft)", opacity: 1 }
-            }
-          >
-            {item.label}
-          </Link>
-        ))}
+        {NAV_ITEMS.map((item) => {
+          const isCurrent = active
+            ? active === item.key
+            : pathname === item.href || (item.href !== "/faturamento" && pathname?.startsWith(item.href));
+
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-current={isCurrent ? "page" : undefined}
+              className="relative py-5 no-underline transition-all duration-150 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              style={
+                isCurrent
+                  ? {
+                      color: "var(--color-on-accent)",
+                      borderBottom: "3px solid var(--color-on-accent)",
+                      fontWeight: 600,
+                      opacity: 1,
+                    }
+                  : { color: "var(--color-on-accent-soft)", opacity: 0.85 }
+              }
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
     </header>
   );

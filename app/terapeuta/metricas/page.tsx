@@ -1,9 +1,24 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Clock, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getMyTherapistMetrics } from "@/lib/therapist-metrics";
+import { getMyTherapistMetrics, type TherapistMetricRow } from "@/lib/therapist-metrics";
+import { BackToTodayShortcut } from "./back-shortcut";
 
 export const dynamic = "force-dynamic";
+
+function metricEmptyState(m: TherapistMetricRow) {
+  if (!m.computed) {
+    return {
+      Icon: Info,
+      text: "Ainda não calculado nesta versão do sistema",
+    };
+  }
+  return {
+    Icon: Clock,
+    text: "Aguardando fechamento do período — cálculo sai no dia 1",
+  };
+}
 
 export default async function TerapeutaMetricasPage() {
   const supabase = await createClient();
@@ -31,13 +46,21 @@ export default async function TerapeutaMetricasPage() {
 
   return (
     <main className="flex flex-1 flex-col">
+      <BackToTodayShortcut />
       <header
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
         className="flex flex-col gap-2.5 px-5 pb-4 pt-7 sm:px-10"
       >
-        <Link href="/terapeuta" className="text-[13px] no-underline opacity-80" style={{ color: "inherit" }}>
+        <Link
+          href="/terapeuta"
+          className="w-fit rounded text-[13px] no-underline opacity-80 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          style={{ color: "inherit" }}
+        >
           ← Hoje
         </Link>
+        <p className="m-0 text-[11px] uppercase tracking-wide opacity-70" aria-hidden="true">
+          Terapeuta / Minhas métricas
+        </p>
         <h1
           style={{ fontFamily: "var(--font-heading)" }}
           className="m-0 text-2xl font-semibold leading-tight text-inherit"
@@ -48,22 +71,41 @@ export default async function TerapeutaMetricasPage() {
       </header>
 
       <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 p-5 sm:p-10">
-        {metrics.map((m) => (
-          <div key={m.key} className="card flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-ink">{m.label}</div>
-              <div className="text-xs text-ink-soft">
-                {m.periodLabel ? `Referente a ${m.periodLabel}` : "Ainda sem cálculo para este indicador"}
+        {metrics.map((m) => {
+          const empty = m.valueLabel ? null : metricEmptyState(m);
+          return (
+            <div
+              key={m.key}
+              role="region"
+              aria-label={`Indicador: ${m.label}`}
+              className="card flex items-center justify-between gap-3 border border-[var(--color-neutral-200)]"
+            >
+              <div className="flex flex-col gap-1">
+                <div className="text-sm font-semibold text-ink">{m.label}</div>
+                {m.periodLabel ? (
+                  <div className="text-xs text-ink-soft">Referente a {m.periodLabel}</div>
+                ) : (
+                  empty && (
+                    <div className="flex items-center gap-1.5 text-xs text-ink-faint">
+                      <empty.Icon size={13} aria-hidden="true" />
+                      <span>{empty.text}</span>
+                    </div>
+                  )
+                )}
+              </div>
+              <div
+                className="text-lg font-semibold"
+                style={{
+                  fontFamily: "var(--font-heading)",
+                  color: m.valueLabel ? "var(--color-accent)" : "var(--color-ink-faint)",
+                }}
+                aria-label={m.valueLabel ? undefined : "Sem valor calculado"}
+              >
+                {m.valueLabel ?? "—"}
               </div>
             </div>
-            <div
-              className="text-lg font-semibold"
-              style={{ fontFamily: "var(--font-heading)", color: m.valueLabel ? "var(--color-accent)" : "var(--color-ink-faint)" }}
-            >
-              {m.valueLabel ?? "—"}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </main>
   );
