@@ -44,11 +44,25 @@ export function NovaSessaoDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [patientId, setPatientId] = useState("");
+  const [patientQuery, setPatientQuery] = useState("");
+  const [showPatientOptions, setShowPatientOptions] = useState(false);
   const [isProvisional, setIsProvisional] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const guide = useMemo(() => guidesByPatient[patientId] ?? null, [guidesByPatient, patientId]);
+
+  const patientMatches = useMemo(() => {
+    const q = patientQuery.trim().toLowerCase();
+    if (!q) return patients;
+    return patients.filter((p) => p.full_name.toLowerCase().includes(q));
+  }, [patients, patientQuery]);
+
+  function selectPatient(p: { id: string; full_name: string }) {
+    setPatientId(p.id);
+    setPatientQuery(p.full_name);
+    setShowPatientOptions(false);
+  }
 
   // Deep link `/recepcao#nova-sessao` (atalho da aba Fluxos da supervisão) ou
   // `/recepcao#nova-sessao:<patientId>` (botão "Nova sessão" da ficha do
@@ -62,7 +76,10 @@ export function NovaSessaoDialog({
     if (hash !== "#nova-sessao" && !hash.startsWith("#nova-sessao:")) return;
     const preselectId = hash.startsWith("#nova-sessao:") ? hash.slice("#nova-sessao:".length) : "";
     setOpen(true);
-    if (preselectId) setPatientId(preselectId);
+    if (preselectId) {
+      setPatientId(preselectId);
+      setPatientQuery(patients.find((p) => p.id === preselectId)?.full_name ?? "");
+    }
     history.replaceState(null, "", window.location.pathname + window.location.search);
   }
   useEffect(() => {
@@ -72,11 +89,14 @@ export function NovaSessaoDialog({
       window.clearTimeout(initial);
       window.removeEventListener("hashchange", openFromHash);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patients]);
 
   function close() {
     setOpen(false);
     setPatientId("");
+    setPatientQuery("");
+    setShowPatientOptions(false);
     setIsProvisional(false);
     setError(null);
   }
@@ -113,23 +133,48 @@ export function NovaSessaoDialog({
               }}
             >
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                <div className="field sm:col-span-2">
+                <div className="field sm:col-span-2" style={{ position: "relative" }}>
                   <label>Paciente</label>
-                  <select
-                    name="patient_id"
-                    required
+                  <input type="hidden" name="patient_id" value={patientId} required />
+                  <input
+                    type="text"
                     className="input"
-                    value={patientId}
-                    onChange={(e) => setPatientId(e.target.value)}
-                  >
-                    <option value="">Selecione…</option>
-                    {patients.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.full_name}
-                        {guidesByPatient[p.id] ? ` · guia ${guidesByPatient[p.id].insurerName} ativa` : " · sem guia ativa"}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Digite o nome do paciente…"
+                    value={patientQuery}
+                    onChange={(e) => {
+                      setPatientQuery(e.target.value);
+                      setPatientId("");
+                      setShowPatientOptions(true);
+                    }}
+                    onFocus={() => setShowPatientOptions(true)}
+                    onBlur={() => window.setTimeout(() => setShowPatientOptions(false), 150)}
+                    autoComplete="off"
+                  />
+                  {showPatientOptions && (
+                    <ul
+                      className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-paper-line-strong bg-paper shadow-lg"
+                      style={{ listStyle: "none", padding: 0, margin: 0 }}
+                    >
+                      {patientMatches.length === 0 && (
+                        <li className="px-3 py-2 text-xs text-ink-faint">Nenhum paciente encontrado.</li>
+                      )}
+                      {patientMatches.map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            className="block w-full px-3 py-2 text-left text-sm hover:bg-chart-soft"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => selectPatient(p)}
+                          >
+                            {p.full_name}
+                            <span className="ml-1 text-xs text-ink-faint">
+                              {guidesByPatient[p.id] ? `· guia ${guidesByPatient[p.id].insurerName} ativa` : "· sem guia ativa"}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <div className="field">
                   <label>Tipo de atendimento</label>

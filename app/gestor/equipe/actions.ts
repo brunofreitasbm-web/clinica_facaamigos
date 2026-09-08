@@ -32,6 +32,7 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
   const password = String(formData.get("password") ?? "");
   const role = String(formData.get("role") ?? "") as Role;
   const councilType = String(formData.get("council_type") ?? "").trim() || null;
+  const isEvaluator = formData.get("is_evaluator") === "on";
 
   if (!fullName || !email || !password || !ROLES.includes(role)) {
     return { success: false, error: "Preencha nome, e-mail, senha e papel." };
@@ -79,6 +80,7 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
     role,
     full_name: fullName,
     council_type: councilType,
+    is_evaluator: isEvaluator,
   });
 
   if (profileError) {
@@ -95,7 +97,7 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
 
 export async function updateStaffProfile(
   profileId: string,
-  data: { fullName: string; role: Role; councilType?: string | null },
+  data: { fullName: string; role: Role; councilType?: string | null; isEvaluator?: boolean },
 ): Promise<ActionResult> {
   if (!data.fullName.trim() || !ROLES.includes(data.role)) {
     return { success: false, error: "Preencha nome e papel." };
@@ -111,6 +113,7 @@ export async function updateStaffProfile(
       full_name: data.fullName.trim(),
       role: data.role,
       council_type: data.councilType?.trim() || null,
+      is_evaluator: data.isEvaluator ?? false,
     })
     .eq("id", profileId)
     .eq("clinic_id", caller.clinicId);

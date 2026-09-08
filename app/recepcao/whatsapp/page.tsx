@@ -1,8 +1,7 @@
-import { getWhatsappQueue, getWhatsappHistory } from "./actions";
-import { SendQueueItem } from "./send-queue-item";
+import { getWhatsappHistory } from "./actions";
 
 export default async function WhatsappDashboardPage() {
-  const [queue, history] = await Promise.all([getWhatsappQueue(), getWhatsappHistory()]);
+  const history = await getWhatsappHistory();
 
   const confirmedCount = history.filter((m) => m.status === "confirmado").length;
   const rescheduleCount = history.filter((m) => m.status === "reagendar_solicitado").length;
@@ -21,13 +20,7 @@ export default async function WhatsappDashboardPage() {
         </div>
 
         {/* Métricas Principais */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-paper-line bg-paper p-4 shadow-sm">
-            <p className="text-xs font-medium text-ink-soft uppercase tracking-wide">
-              Faltam enviar (amanhã)
-            </p>
-            <p className="mt-2 text-3xl font-bold text-ink">{queue.length}</p>
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="rounded-lg border border-status-positive/30 bg-status-positive-soft/40 p-4 shadow-sm">
             <p className="text-xs font-medium text-status-positive-text uppercase tracking-wide">
               Confirmados hoje
@@ -40,22 +33,6 @@ export default async function WhatsappDashboardPage() {
             </p>
             <p className="mt-2 text-3xl font-bold text-status-pending-text">{rescheduleCount}</p>
           </div>
-        </div>
-
-        {/* Fila de envio */}
-        <div className="rounded-lg border border-paper-line bg-paper p-5 shadow-sm space-y-4">
-          <h2 className="text-lg font-semibold text-ink">Fila de amanhã ({queue.length})</h2>
-          {queue.length === 0 ? (
-            <p className="text-sm text-ink-soft">
-              Nenhuma sessão de amanhã pendente de lembrete — ou já foi tudo enviado.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {queue.map((item) => (
-                <SendQueueItem key={item.appointmentId} item={item} />
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Histórico de hoje */}

@@ -20,6 +20,7 @@ export function StaffDialog({ isOpen, onClose, staffToEdit }: StaffDialogProps) 
   const [fullName, setFullName] = useState(staffToEdit?.fullName ?? "");
   const [role, setRole] = useState<Role>(staffToEdit?.role ?? "terapeuta");
   const [councilType, setCouncilType] = useState(staffToEdit?.councilType ?? "");
+  const [isEvaluator, setIsEvaluator] = useState(staffToEdit?.isEvaluator ?? false);
 
   if (!isOpen) return null;
 
@@ -27,7 +28,7 @@ export function StaffDialog({ isOpen, onClose, staffToEdit }: StaffDialogProps) 
     setError(null);
     startTransition(async () => {
       const result = staffToEdit
-        ? await updateStaffProfile(staffToEdit.id, { fullName, role, councilType })
+        ? await updateStaffProfile(staffToEdit.id, { fullName, role, councilType, isEvaluator })
         : await createStaff(formData);
 
       if (!result.success) {
@@ -110,6 +111,18 @@ export function StaffDialog({ isOpen, onClose, staffToEdit }: StaffDialogProps) 
               />
             </div>
           </div>
+
+          {role === "terapeuta" && (
+            <label className="flex items-center gap-2 text-sm text-ink-strong">
+              <input
+                type="checkbox"
+                name="is_evaluator"
+                checked={isEvaluator}
+                onChange={(e) => setIsEvaluator(e.target.checked)}
+              />
+              É avaliador — aparece no agendamento de 1ª avaliação
+            </label>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-paper-line mt-2">
             <button type="button" onClick={onClose} className="button button-outline" disabled={isPending}>

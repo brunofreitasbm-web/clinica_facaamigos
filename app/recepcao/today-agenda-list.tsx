@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { User, PenLine, CalendarClock, X } from "lucide-react";
+import { User, PenLine, CalendarClock, X, Clock, CheckCircle2, UserCheck, XCircle, MessageCircle, AlertCircle } from "lucide-react";
 import {
   confirmAppointment,
   setAguardando,
@@ -627,52 +627,60 @@ function SessionRow({ session, guardians }: { session: TodaySession; guardians: 
           type="button"
           disabled={isPending || isAguardando}
           onClick={() => runAction(() => setAguardando(session.id))}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all transform active:scale-95 ${
             isAguardando
               ? "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700 font-semibold shadow-xs"
-              : "bg-paper/40 text-ink-soft border border-paper-line-strong hover:bg-amber-50 hover:text-amber-800 hover:border-amber-300 dark:hover:bg-amber-950/30"
+              : "bg-paper/60 text-ink-soft border border-paper-line-strong hover:bg-amber-50 hover:text-amber-800 hover:border-amber-300 dark:hover:bg-amber-950/30 hover:shadow-xs"
           }`}
+          title="Marcar paciente aguardando na recepção"
         >
-          Aguardando
+          <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+          <span>Aguardando</span>
         </button>
 
         <button
           type="button"
           disabled={isPending || isConfirmado}
           onClick={() => runAction(() => confirmAppointment(session.id))}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all transform active:scale-95 ${
             isConfirmado
               ? "bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700 font-semibold shadow-xs"
-              : "bg-paper/40 text-ink-soft border border-paper-line-strong hover:bg-sky-50 hover:text-sky-800 hover:border-sky-300 dark:hover:bg-sky-950/30"
+              : "bg-paper/60 text-ink-soft border border-paper-line-strong hover:bg-sky-50 hover:text-sky-800 hover:border-sky-300 dark:hover:bg-sky-950/30 hover:shadow-xs"
           }`}
+          title="Confirmar presença agendada"
         >
-          Confirmado
+          <CheckCircle2 className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+          <span>Confirmado</span>
         </button>
 
         <button
           type="button"
           disabled={isPending || isCheckedIn}
           onClick={() => runAction(() => checkIn(session.id))}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all transform active:scale-95 ${
             isCheckedIn
               ? "bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700 font-semibold shadow-xs"
-              : "bg-paper/40 text-ink-soft border border-paper-line-strong hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 dark:hover:bg-emerald-950/30"
+              : "bg-paper/60 text-ink-soft border border-paper-line-strong hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 dark:hover:bg-emerald-950/30 hover:shadow-xs"
           }`}
+          title="Realizar check-in de entrada"
         >
-          Check-in
+          <UserCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span>Check-in</span>
         </button>
 
         <button
           type="button"
           disabled={isPending}
           onClick={() => setShowFaltaForm((v) => !v)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all transform active:scale-95 ${
             isFaltaOrCancelled || showFaltaForm
               ? "bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700 font-semibold shadow-xs"
-              : "bg-paper/40 text-ink-soft border border-paper-line-strong hover:bg-rose-50 hover:text-rose-800 hover:border-rose-300 dark:hover:bg-rose-950/30"
+              : "bg-paper/60 text-ink-soft border border-paper-line-strong hover:bg-rose-50 hover:text-rose-800 hover:border-rose-300 dark:hover:bg-rose-950/30 hover:shadow-xs"
           }`}
+          title="Registrar falta ou cancelamento da sessão"
         >
-          Falta / Cancelar
+          <XCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+          <span>Falta / Cancelar</span>
         </button>
       </div>
     </div>

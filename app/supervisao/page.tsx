@@ -66,7 +66,7 @@ export default async function SupervisaoPage() {
     supabase.from("reassessment_alerts").select("id", { count: "exact", head: true }).eq("status", "notificado"),
     supabase
       .from("profiles")
-      .select("id, full_name")
+      .select("id, full_name, is_evaluator")
       .eq("clinic_id", DEV_CLINIC_ID)
       .eq("role", "terapeuta")
       .order("full_name"),
@@ -437,7 +437,7 @@ export default async function SupervisaoPage() {
       agenda1aTab={
         <AgendaAvaliacoesPanel
           pool={evaluationPool}
-          therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
+          therapists={(therapists ?? []).filter((t) => t.is_evaluator).map((t) => ({ id: t.id, name: t.full_name }))}
           rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
           triagensPanel={<AnamnesisValidationPanel />}
         />

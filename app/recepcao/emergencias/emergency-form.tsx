@@ -169,7 +169,7 @@ export function EmergencyForm({ therapists }: { therapists: { id: string; name: 
             className="btn btn-primary"
             onClick={() => setShowConfirm(true)}
           >
-            Disparar Chamadas de Emergência por Voz
+            Enviar Avisos em Massa aos Responsáveis
           </button>
         </section>
       )}
@@ -183,7 +183,7 @@ export function EmergencyForm({ therapists }: { therapists: { id: string; name: 
       {broadcastId && (
         <section>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3">
-            Acompanhamento em tempo real
+            Acompanhamento em tempo real dos envios
           </h6>
           <StatusMonitorTable broadcastId={broadcastId} />
         </section>
@@ -192,11 +192,11 @@ export function EmergencyForm({ therapists }: { therapists: { id: string; name: 
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="m-0 text-lg font-semibold text-ink">Confirmar disparo de emergência</h3>
+            <h3 className="m-0 text-lg font-semibold text-ink">Confirmar envio de aviso em massa</h3>
             <p className="mt-2 text-sm text-ink-soft">
-              Serão disparadas {selectedIds.size} chamada(s) de voz para responsáveis de pacientes de{" "}
-              <strong>{therapistName}</strong>, informando que as sessões precisarão ser reagendadas. Deseja
-              continuar?
+              Serão disparados {selectedIds.size} aviso(s) para os responsáveis dos pacientes de{" "}
+              <strong>{therapistName}</strong>, informando a falta do profissional e a necessidade de reagendamento.
+              Deseja continuar?
             </p>
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" className="btn btn-secondary text-xs" onClick={() => setShowConfirm(false)}>

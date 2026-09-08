@@ -25,9 +25,10 @@ export async function getEvaluationCalendarWeekAction(
   try {
     const supabase = await createClient();
     const weekStartIso = zonedDateTimeToUtc(weekStartDateStr, "00:00", CLINIC_TIMEZONE).toISOString();
-    const weekEndDateStr = nextCalendarDay(
-      nextCalendarDay(nextCalendarDay(nextCalendarDay(nextCalendarDay(weekStartDateStr)))),
-    );
+    // Semana de agendamento vai de Segunda a Sábado (horário comercial inclui
+    // sábado de manhã) — fim exclusivo é o Domingo, Segunda + 6 dias.
+    let weekEndDateStr = weekStartDateStr;
+    for (let i = 0; i < 6; i++) weekEndDateStr = nextCalendarDay(weekEndDateStr);
     const weekEndIso = zonedDateTimeToUtc(weekEndDateStr, "00:00", CLINIC_TIMEZONE).toISOString();
     const appointments = await getEvaluationCalendarAppointments(supabase, weekStartIso, weekEndIso);
     return { success: true, appointments };

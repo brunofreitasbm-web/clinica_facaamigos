@@ -13,7 +13,7 @@ export default async function EquipePage() {
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, role, council_type, active, created_at")
+    .select("id, full_name, role, council_type, active, is_evaluator, created_at")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("full_name");
 
@@ -23,6 +23,7 @@ export default async function EquipePage() {
     role: p.role as Role,
     councilType: p.council_type,
     active: p.active ?? true,
+    isEvaluator: p.is_evaluator ?? false,
     createdAtLabel: p.created_at ? new Date(p.created_at).toLocaleDateString("pt-BR") : "—",
   }));
 

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
-import { currentWeek, weekBounds, dayIndexInWeek, timeLabel, WEEKDAY_LABEL } from "./grade-data";
+import { dayIndexInWeek, timeLabel, type WeekInfo } from "./grade-data";
 import {
   getEvaluationCalendarWeekAction,
   getEvaluationPoolAction,
@@ -18,6 +18,10 @@ import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationP
  * card da fila lateral pra uma célula agenda a avaliação; arrastar um card já
  * agendado pra outra célula reagenda. Sem lib de calendário/DnD — grid CSS +
  * Drag and Drop nativo do HTML5 bastam pro escopo.
+ *
+ * Semana própria (Seg–Sáb), não reaproveita currentWeek/weekBounds de
+ * grade-data.ts (que são fixos a Seg–Sex, pro grid de terapia recorrente) —
+ * horário de funcionamento da clínica inclui sábado de manhã.
  */
 
 const ORIGIN_LABEL: Record<EvaluationAgendaOrigin, string> = {
@@ -32,18 +36,44 @@ const ORIGIN_TAG: Record<EvaluationAgendaOrigin, string> = {
   presencial: "st-realizada",
 };
 
+const WEEKDAY_LABEL = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
+/** Hora de fechamento por dia da semana (índice 0=Seg..5=Sáb) — Seg–Sex 19h, Sáb 12h. */
+const CLOSING_HOUR_BY_DAY = [19, 19, 19, 19, 19, 12];
 const DAY_START_HOUR = 8;
-const DAY_END_HOUR = 19;
-const TOTAL_MINUTES = (DAY_END_HOUR - DAY_START_HOUR) * 60;
+const GRID_END_HOUR = 19; // maior horário de fechamento da semana (Seg–Sex) — usado só pra desenhar a grade
+const TOTAL_MINUTES = (GRID_END_HOUR - DAY_START_HOUR) * 60;
 const ROW_MINUTES = 30;
 const ROW_HEIGHT_PX = 28;
 const COLUMN_HEIGHT_PX = (TOTAL_MINUTES / ROW_MINUTES) * ROW_HEIGHT_PX;
-const HOUR_MARKS = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR + 1 }, (_, i) => DAY_START_HOUR + i);
+const HOUR_MARKS = Array.from({ length: GRID_END_HOUR - DAY_START_HOUR + 1 }, (_, i) => DAY_START_HOUR + i);
+const EVALUATION_DURATION_MINUTES = 50;
 
-/** `YYYY-MM-DD` + `n` dias corridos — mesma aritmética pura de grade-data.ts (não exportada de lá). */
+/** `YYYY-MM-DD` + `n` dias corridos, aritmética de calendário pura (sem fuso). */
 function addDaysStr(dateStr: string, n: number): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + n)).toISOString().slice(0, 10);
+}
+
+/** Segunda-feira (`YYYY-MM-DD`) da semana civil que contém `dateStr`. */
+function mondayOfStr(dateStr: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay(); // 0=dom..6=sáb
+  const diffToMonday = dow === 0 ? -6 : 1 - dow;
+  return addDaysStr(dateStr, diffToMonday);
+}
+
+function shortDateStr(dateStr: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short", timeZone: "UTC" }).format(
+    new Date(Date.UTC(year, month - 1, day)),
+  );
+}
+
+/** Semana civil (Seg–Sáb) que contém `anchorDateStr` — horário comercial inclui sábado de manhã. */
+function evaluationWeek(anchorDateStr: string): WeekInfo & { rangeLabel: string } {
+  const monday = mondayOfStr(anchorDateStr);
+  const days = Array.from({ length: 6 }, (_, i) => addDaysStr(monday, i));
+  return { days, weekNumber: 0, rangeLabel: `${shortDateStr(days[0])} – ${shortDateStr(days[5])}` };
 }
 
 function parseTimeToMinutes(hhmm: string): number {
@@ -73,8 +103,8 @@ export function EvaluationCalendar({
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
 
-  const week = useMemo(() => currentWeek(weekAnchor), [weekAnchor]);
-  const bounds = useMemo(() => weekBounds(week), [week]);
+  const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
+  const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
 
   async function fetchWeek() {
     setLoading(true);
@@ -109,7 +139,22 @@ export function EvaluationCalendar({
   async function handleDrop(dayIndex: number, offsetY: number, payload: DragPayload) {
     const date = week.days[dayIndex];
     const time = computeTimeFromOffsetY(offsetY);
+    const durationMinutes = payload.kind === "reschedule" ? payload.durationMinutes : EVALUATION_DURATION_MINUTES;
+    const endMinutes = parseTimeToMinutes(time) + durationMinutes;
+    const closingHour = CLOSING_HOUR_BY_DAY[dayIndex];
+
     setFeedback(null);
+
+    if (endMinutes > closingHour * 60) {
+      setFeedback({
+        type: "error",
+        text:
+          dayIndex === 5
+            ? "Sábado o atendimento vai só até 12h — escolha um horário que termine até lá."
+            : `Fora do horário de atendimento — encerra às ${closingHour}h.`,
+      });
+      return;
+    }
 
     if (payload.kind === "pool") {
       const item = pool.find((p) => p.id === payload.poolItemId);
@@ -145,9 +190,7 @@ export function EvaluationCalendar({
           >
             ‹
           </button>
-          <span className="text-sm font-bold text-ink">
-            Semana {week.weekNumber} · {week.rangeLabel}
-          </span>
+          <span className="text-sm font-bold text-ink">{week.rangeLabel}</span>
           <button
             type="button"
             onClick={() => setWeekAnchor((d) => addDaysStr(d, 7))}
@@ -158,8 +201,9 @@ export function EvaluationCalendar({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Terapeuta</label>
+          <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Terapeuta avaliador</label>
           <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
+            {therapists.length === 0 && <option value="">Nenhum terapeuta avaliador cadastrado</option>}
             {therapists.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -217,7 +261,7 @@ export function EvaluationCalendar({
           {loading ? (
             <p className="p-4 text-sm text-ink-faint">Carregando semana…</p>
           ) : (
-            <div className="flex" style={{ minWidth: 640 }}>
+            <div className="flex" style={{ minWidth: 760 }}>
               <div className="w-14 shrink-0 pt-6">
                 {HOUR_MARKS.map((h) => (
                   <div key={h} style={{ height: ROW_HEIGHT_PX * (60 / ROW_MINUTES) }} className="text-right text-[11px] text-ink-faint">
@@ -227,6 +271,10 @@ export function EvaluationCalendar({
               </div>
               {week.days.map((day, dayIndex) => {
                 const dayAppointments = appointments.filter((a) => dayIndexInWeek(a.startsAt, week, CLINIC_TIMEZONE) === dayIndex);
+                const closingHour = CLOSING_HOUR_BY_DAY[dayIndex];
+                const closedFromMinutes = (closingHour - DAY_START_HOUR) * 60;
+                const closedTop = (closedFromMinutes / ROW_MINUTES) * ROW_HEIGHT_PX;
+                const closedHeight = COLUMN_HEIGHT_PX - closedTop;
                 return (
                   <div key={day} className="flex-1 border-l border-paper-line pl-1">
                     <div className="pb-1 text-center text-xs font-bold text-ink">{WEEKDAY_LABEL[dayIndex]}</div>
@@ -254,6 +302,19 @@ export function EvaluationCalendar({
                       {Array.from({ length: TOTAL_MINUTES / 60 }, (_, i) => (
                         <div key={i} className="border-t border-paper-line" style={{ height: ROW_HEIGHT_PX * (60 / ROW_MINUTES) }} />
                       ))}
+                      {closedHeight > 0 && (
+                        <div
+                          className="pointer-events-none absolute left-0 right-0 flex items-start justify-center rounded-b-md pt-1 text-[10px] font-semibold text-ink-faint"
+                          style={{
+                            top: closedTop,
+                            height: closedHeight,
+                            background:
+                              "repeating-linear-gradient(45deg, var(--color-neutral-200), var(--color-neutral-200) 6px, transparent 6px, transparent 12px)",
+                          }}
+                        >
+                          Fechado
+                        </div>
+                      )}
                       {dayAppointments.map((a) => {
                         const startMinutes = parseTimeToMinutes(timeLabel(a.startsAt, CLINIC_TIMEZONE)) - DAY_START_HOUR * 60;
                         const durationMinutes = Math.max(30, (new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime()) / 60_000);

@@ -4276,6 +4276,7 @@ export type Database = {
           esdm_certified: boolean
           full_name: string
           id: string
+          is_evaluator: boolean
           is_rt: boolean
           phone: string | null
           role: string
@@ -4294,6 +4295,7 @@ export type Database = {
           esdm_certified?: boolean
           full_name: string
           id: string
+          is_evaluator?: boolean
           is_rt?: boolean
           phone?: string | null
           role: string
@@ -4312,6 +4314,7 @@ export type Database = {
           esdm_certified?: boolean
           full_name?: string
           id?: string
+          is_evaluator?: boolean
           is_rt?: boolean
           phone?: string | null
           role?: string

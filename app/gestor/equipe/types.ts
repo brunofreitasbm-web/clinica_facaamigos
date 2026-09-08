@@ -6,5 +6,6 @@ export type StaffRow = {
   role: Role;
   councilType: string | null;
   active: boolean;
+  isEvaluator: boolean;
   createdAtLabel: string;
 };

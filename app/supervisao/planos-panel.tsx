@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { Check, RotateCcw, CheckCircle2, MessageSquare, Loader2 } from "lucide-react";
 import { PLAN_GOAL_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { approvePlan, returnAllPendingGoals, returnGoal, validateGoal } from "./plan-actions";
 import { RelatorioReavaliacaoDialog, type ReportPatientData } from "./relatorio-dialog";
@@ -180,20 +181,22 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                 <RelatorioReavaliacaoDialog data={reportData} />
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary inline-flex items-center gap-1.5 transition-transform active:scale-95"
                   disabled={isPending}
                   onClick={() => runPlanAction(() => returnAllPendingGoals(selected.id, bulkNotes))}
                   title="Devolve em lote todas as metas ainda pendentes deste plano, com a observação abaixo."
                 >
-                  Devolver com notas
+                  <RotateCcw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Devolver com notas</span>
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary inline-flex items-center gap-1.5 transition-transform active:scale-95"
                   disabled={isPending || pendingCount > 0}
                   onClick={() => runPlanAction(() => approvePlan(selected.id))}
                 >
-                  {pendingCount > 0 ? `Aprovar · ${pendingCount} metas pendentes` : "Aprovar plano"}
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>{pendingCount > 0 ? `Aprovar · ${pendingCount} metas pendentes` : "Aprovar plano"}</span>
                 </button>
               </div>
             </div>
@@ -256,22 +259,24 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                       <div className="mt-2.5 flex gap-2">
                         <button
                           type="button"
-                          className="btn btn-secondary"
+                          className="btn btn-secondary inline-flex items-center gap-1.5 transition-transform active:scale-95"
                           disabled={isPending}
                           onClick={() => {
                             const notes = window.prompt("Observação para o terapeuta (opcional):") ?? undefined;
                             runGoalAction(goal.id, () => returnGoal(selected.id, goal.id, notes));
                           }}
                         >
-                          {busy ? "…" : "Devolver"}
+                          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5 text-amber-600" />}
+                          <span>{busy ? "…" : "Devolver"}</span>
                         </button>
                         <button
                           type="button"
-                          className="btn btn-primary"
+                          className="btn btn-primary inline-flex items-center gap-1.5 transition-transform active:scale-95"
                           disabled={isPending}
                           onClick={() => runGoalAction(goal.id, () => validateGoal(selected.id, goal.id))}
                         >
-                          {busy ? "…" : "Validar"}
+                          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                          <span>{busy ? "…" : "Validar"}</span>
                         </button>
                       </div>
                     )}

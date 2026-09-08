@@ -20,10 +20,10 @@ export default async function EmergenciasPage() {
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
           Recepção
         </h6>
-        <h1 className="m-0">Central de Chamadas de Emergência por Voz</h1>
+        <h1 className="m-0">Aviso em Massa — Ausência de Terapeuta</h1>
         <p className="mt-1 text-[13px] text-ink-soft">
-          Falta de última hora de terapeuta: dispare ligações automáticas avisando os responsáveis dos pacientes
-          afetados.
+          Ocorreu uma falta de última hora de terapeuta? Dispare avisos automáticos por ligação de voz ou mensagem para
+          os responsáveis dos pacientes afetados.
         </p>
       </div>
 

@@ -34,8 +34,19 @@ export type ComputeAvailableSlotsOptions = {
 };
 
 /**
- * Vagas livres reais pra sala+terapeuta informados, em horário comercial
- * (08h–19h, passo de 30min), respeitando `limit`/`maxPerDay`.
+ * Horário de funcionamento da clínica: Seg–Sex 08h–19h, Sábado 08h–12h,
+ * Domingo fechado. `dow` é 0=Domingo..6=Sábado (getUTCDay de uma data civil).
+ */
+function closingHourForWeekday(dow: number): number | null {
+  if (dow === 0) return null;
+  if (dow === 6) return 12;
+  return 19;
+}
+
+/**
+ * Vagas livres reais pra sala+terapeuta informados, dentro do horário de
+ * funcionamento da clínica (Seg–Sex 08h–19h, Sáb 08h–12h, Dom fechado),
+ * passo de 30min, respeitando `limit`/`maxPerDay`.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function computeAvailableSlots(supabase: SupabaseClient<any>, opts: ComputeAvailableSlotsOptions): Promise<AvailableSlot[]> {
@@ -73,8 +84,15 @@ export async function computeAvailableSlots(supabase: SupabaseClient<any>, opts:
   const slots: AvailableSlot[] = [];
 
   for (const day of days) {
+    const [dayYear, dayMonth, dayNum0] = day.split("-").map(Number);
+    const dow = new Date(Date.UTC(dayYear, dayMonth - 1, dayNum0)).getUTCDay();
+    const closingHour = closingHourForWeekday(dow);
+    if (closingHour === null) continue; // domingo fechado
+
+    const closingInstant = zonedDateTimeToUtc(day, `${String(closingHour).padStart(2, "0")}:00`, CLINIC_TIMEZONE);
+
     let countThisDay = 0;
-    for (let hour = 8; hour < 19 && slots.length < limit; hour++) {
+    for (let hour = 8; hour < closingHour && slots.length < limit; hour++) {
       for (const minute of [0, 30]) {
         if (slots.length >= limit) break;
         if (maxPerDay && countThisDay >= maxPerDay) break;
@@ -82,6 +100,7 @@ export async function computeAvailableSlots(supabase: SupabaseClient<any>, opts:
         const startsAt = zonedDateTimeToUtc(day, timeStr, CLINIC_TIMEZONE);
         if (startsAt.getTime() <= now) continue;
         const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+        if (endsAt.getTime() > closingInstant.getTime()) continue;
         const overlaps = busyRanges.some((r) => startsAt.getTime() < r.end && endsAt.getTime() > r.start);
         if (overlaps) continue;
 

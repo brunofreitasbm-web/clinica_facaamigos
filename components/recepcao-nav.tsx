@@ -12,6 +12,7 @@ import {
   Boxes,
   PhoneCall,
   Sparkles,
+  UserX,
 } from "lucide-react";
 
 /**
@@ -27,7 +28,7 @@ const NAV_ITEMS = [
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText, exact: false },
   { key: "precadastros", label: "Cadastro IA", href: "/recepcao/pre-cadastros", icon: Sparkles, exact: false },
   { key: "recursos", label: "Salas e recursos", href: "/recepcao/recursos", icon: Boxes, exact: false },
-  { key: "emergencias", label: "Emergências", href: "/recepcao/emergencias", icon: PhoneCall, exact: false },
+  { key: "emergencias", label: "Aviso Falta Terapeuta", href: "/recepcao/emergencias", icon: UserX, exact: false },
 ] as const;
 
 type NavKey = (typeof NAV_ITEMS)[number]["key"];
