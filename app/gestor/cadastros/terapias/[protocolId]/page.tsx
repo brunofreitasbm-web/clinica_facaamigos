@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PROTOCOL_LABEL } from "@/app/gestor/cadastros/data";
+import { getProtocolScale } from "@/lib/protocol-assessments";
 import { ProtocolItemForm } from "./protocol-item-form";
+import { ProtocolImportForm } from "./protocol-import-form";
 import { deleteProtocolItem } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +19,7 @@ export default async function ProtocoloItensPage({
 
   const { data: protocol, error: protocolError } = await supabase
     .from("protocols")
-    .select("id, name, version")
+    .select("id, name, version, is_generic, scale")
     .eq("id", protocolId)
     .maybeSingle();
 
@@ -27,12 +29,14 @@ export default async function ProtocoloItensPage({
     .from("protocol_items")
     .select("id, domain, level, item_code, description")
     .eq("protocol_id", protocolId)
+    .order("sort_order")
     .order("domain")
     .order("level")
     .order("item_code");
 
   const items = itemsRaw ?? [];
   const domains = [...new Set(items.map((i) => i.domain))];
+  const scale = getProtocolScale(protocol.scale);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -44,10 +48,17 @@ export default async function ProtocoloItensPage({
           {PROTOCOL_LABEL[protocol.name] ?? protocol.name}
           {protocol.version ? ` — v${protocol.version}` : ""}
         </h1>
+        <p className="text-sm text-ink-faint">
+          {protocol.is_generic ? "Estrutura genérica (sem licença)" : "Protocolo licenciado"} · Escala 0–{scale.max} (
+          {Object.values(scale.labels).join(" / ")})
+        </p>
       </div>
 
       <div className="flex flex-col gap-8 px-10 pb-16 pt-8">
-        <ProtocolItemForm protocolId={protocol.id} />
+        <div className="flex flex-wrap items-start gap-4">
+          <ProtocolItemForm protocolId={protocol.id} />
+        </div>
+        <ProtocolImportForm protocolId={protocol.id} />
 
         {domains.length === 0 && (
           <p className="text-sm text-ink-faint">Nenhum item cadastrado ainda para este protocolo.</p>

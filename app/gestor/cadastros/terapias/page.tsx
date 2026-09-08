@@ -19,7 +19,7 @@ export default async function TerapiasPage() {
         <PageHeader
           axisLabel="Cadastros"
           title="Terapias"
-          description="Protocolos licenciados — cadastrar é uma decisão jurídica do gestor: quem cadastra assume o risco de digitização."
+          description="Protocolos de avaliação — licenciados (você digita os itens da licença) ou de estrutura genérica (semeados de um template configurável, sem licença)."
         />
 
         <div className="flex justify-end px-6 sm:px-10">
@@ -34,6 +34,7 @@ export default async function TerapiasPage() {
               <tr>
                 <th>Protocolo</th>
                 <th>Área</th>
+                <th>Origem</th>
                 <th>Versão</th>
                 <th>Licença comprada em</th>
                 <th>Risco de digitização aceito por</th>
@@ -46,6 +47,7 @@ export default async function TerapiasPage() {
                 <tr key={p.id}>
                   <td className="font-semibold">{p.name}</td>
                   <td>{p.area ?? "—"}</td>
+                  <td>{p.isGeneric ? "Genérico" : "Licenciado"}</td>
                   <td>{p.version ?? "—"}</td>
                   <td>{p.licensePurchasedAtLabel}</td>
                   <td>{p.riskAcceptedLabel}</td>
@@ -61,8 +63,8 @@ export default async function TerapiasPage() {
               ))}
               {protocols.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-ink-faint">
-                    Nenhum protocolo licenciado cadastrado ainda.
+                  <td colSpan={8} className="text-ink-faint">
+                    Nenhum protocolo cadastrado ainda.
                   </td>
                 </tr>
               )}

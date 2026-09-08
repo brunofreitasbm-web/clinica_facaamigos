@@ -6,6 +6,7 @@ import { getPatientProtocolTabs } from "@/lib/protocol-assessments";
 import { ProtocolAssessmentPanel } from "@/components/protocol-assessment-panel";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { findProtocolCatalogEntry, PROTOCOL_LABEL } from "@/lib/protocol-catalog";
+import { hasProtocolTemplate } from "@/lib/protocol-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,7 @@ export default async function PatientAssessmentPage({
       <PageHeader
         axisLabel="Terapeuta"
         title={`Avaliação de protocolo — ${patient.full_name}`}
-        description="Checklist de marcos do protocolo licenciado (VB-MAPP/ABLLS-R/ESDM), pontuado a cada aplicação, com evolução por domínio."
+        description="Checklist de marcos do protocolo cadastrado (licenciado ou de estrutura genérica), pontuado a cada aplicação, com evolução por domínio."
       />
       <div className="px-6 sm:px-10">
         <Link href={`/terapeuta/paciente/${patient.id}/fono`} className="btn btn-secondary w-fit">
@@ -69,6 +70,11 @@ export default async function PatientAssessmentPage({
               </Link>
               .
             </p>
+            {requestedEntry && hasProtocolTemplate(requestedEntry.name) && (
+              <p className="text-sm text-ink-faint">
+                Este protocolo tem uma estrutura genérica configurável disponível — o gestor pode cadastrá-la em poucos cliques, sem precisar digitar os itens um a um.
+              </p>
+            )}
           </div>
         ) : (
           <ProtocolAssessmentPanel patientId={patient.id} protocols={protocols} initialProtocolId={protocolo} />

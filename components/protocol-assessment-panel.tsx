@@ -2,11 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { submitProtocolAssessment } from "@/lib/protocol-assessment-actions";
-import { ASSESSMENT_SCORE_LABEL, type DomainTrend, type ProtocolTabData } from "@/lib/protocol-assessments";
+import type { DomainTrend, ProtocolScale, ProtocolTabData } from "@/lib/protocol-assessments";
 
-const SCORE_VALUES = Object.keys(ASSESSMENT_SCORE_LABEL)
-  .map(Number)
-  .sort((a, b) => a - b);
+function scoreValues(scale: ProtocolScale): number[] {
+  return Object.keys(scale.labels)
+    .map(Number)
+    .sort((a, b) => a - b);
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR");
@@ -65,6 +67,7 @@ function AssessmentForm({ patientId, protocol }: { patientId: string; protocol: 
   const [isPending, startTransition] = useTransition();
 
   const domains = useMemo(() => [...new Set(protocol.items.map((i) => i.domain))], [protocol.items]);
+  const values = useMemo(() => scoreValues(protocol.scale), [protocol.scale]);
 
   function handleSubmit() {
     setError(null);
@@ -104,7 +107,7 @@ function AssessmentForm({ patientId, protocol }: { patientId: string; protocol: 
                       <p className="m-0 text-[13px] text-ink-soft">{item.description}</p>
                     </div>
                     <div className="seg">
-                      {SCORE_VALUES.map((value) => (
+                      {values.map((value) => (
                         <label key={value} className="seg-opt">
                           <input
                             type="radio"
@@ -112,7 +115,7 @@ function AssessmentForm({ patientId, protocol }: { patientId: string; protocol: 
                             checked={scores[item.id] === value}
                             onChange={() => setScores((prev) => ({ ...prev, [item.id]: value }))}
                           />
-                          {ASSESSMENT_SCORE_LABEL[value]}
+                          {protocol.scale.labels[value]}
                         </label>
                       ))}
                     </div>
@@ -182,7 +185,7 @@ export function ProtocolAssessmentPanel({
     return (
       <div className="card">
         <p className="text-sm text-ink-soft">
-          Nenhum protocolo licenciado com marcos cadastrados e visíveis para você ainda. Peça ao gestor pra cadastrar
+          Nenhum protocolo com marcos cadastrados e visíveis para você ainda. Peça ao gestor pra cadastrar
           os itens em Cadastros → Terapias.
         </p>
       </div>

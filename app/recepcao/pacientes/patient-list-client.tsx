@@ -139,43 +139,49 @@ export const PatientListItem = React.memo(function PatientListItem({
 
   return (
     <div className="group flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-paper-line-strong bg-paper/70 px-4 py-3 text-sm transition-all duration-150 hover:bg-[#841B4D]/5 hover:border-[#841B4D]/40 hover:shadow-xs gap-3">
-      {/* Coluna 1: Nome e Informações do Paciente */}
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <PatientFormattedDisplay
-          name={patient.full_name}
-          size="md"
-          subtitle={
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-faint">
-              <span className="group-hover:text-ink transition-colors font-medium">
-                {STAGE_LABEL[patient.stage] ?? "Estágio desconhecido"}
-              </span>
-              {patient.guardian_name && (
-                <>
-                  <span>•</span>
-                  <span>Resp: {patient.guardian_name}</span>
-                </>
-              )}
-              {patient.cpf && (
-                <>
-                  <span>•</span>
-                  <span>CPF: {patient.cpf}</span>
-                </>
-              )}
-            </div>
-          }
-        />
-      </div>
+      {/* Link direto para a Ficha do Paciente ao clicar no corpo da linha */}
+      <Link
+        href={`/recepcao/pacientes/${patient.id}`}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0 flex-1 no-underline text-inherit group/link"
+      >
+        {/* Coluna 1: Nome e Informações do Paciente */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <PatientFormattedDisplay
+            name={patient.full_name}
+            size="md"
+            subtitle={
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-faint">
+                <span className="group-hover/link:text-[#841B4D] transition-colors font-medium">
+                  {STAGE_LABEL[patient.stage] ?? "Estágio desconhecido"}
+                </span>
+                {patient.guardian_name && (
+                  <>
+                    <span>•</span>
+                    <span>Resp: {patient.guardian_name}</span>
+                  </>
+                )}
+                {patient.cpf && (
+                  <>
+                    <span>•</span>
+                    <span>CPF: {patient.cpf}</span>
+                  </>
+                )}
+              </div>
+            }
+          />
+        </div>
 
-      {/* Coluna 2: Data de Nascimento (Formato dd/MM/yyyy) */}
-      <div className="flex items-center gap-1.5 text-xs text-ink-soft font-mono shrink-0 sm:px-3">
-        <Calendar className="h-3.5 w-3.5 text-ink-faint shrink-0" />
-        <span>Nasc: {displayDate}</span>
-      </div>
+        {/* Coluna 2: Data de Nascimento (Formato dd/MM/yyyy) */}
+        <div className="flex items-center gap-1.5 text-xs text-ink-soft font-mono shrink-0 sm:px-3">
+          <Calendar className="h-3.5 w-3.5 text-ink-faint shrink-0" />
+          <span>Nasc: {displayDate}</span>
+        </div>
 
-      {/* Coluna 3: Status Badge (Alto contraste WCAG AA) */}
-      <div className="shrink-0 flex items-center">
-        <PatientStatusBadge status={patient.status || "ativo"} size="md" />
-      </div>
+        {/* Coluna 3: Status Badge (Alto contraste WCAG AA) */}
+        <div className="shrink-0 flex items-center">
+          <PatientStatusBadge status={patient.status || "ativo"} size="md" />
+        </div>
+      </Link>
 
       {/* Coluna 4: Célula de Ações com Tooltips */}
       <div className="flex items-center gap-1 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-paper-line-strong/50">

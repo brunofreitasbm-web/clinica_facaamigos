@@ -9,6 +9,7 @@ export type ProtocolRow = {
   name: string;
   area: string | null;
   version: string | null;
+  isGeneric: boolean;
   licensePurchasedAtLabel: string;
   riskAcceptedLabel: string;
   itemCount: number;
@@ -23,7 +24,7 @@ export const PROTOCOL_LABEL = CATALOG_PROTOCOL_LABEL;
 export async function getProtocolRows(supabase: Supa, clinicId: string): Promise<ProtocolRow[]> {
   const { data: protocols } = await supabase
     .from("protocols")
-    .select("id, name, area, version, license_purchased_at, digitization_risk_accepted_at, digitization_risk_accepted_by")
+    .select("id, name, area, version, is_generic, license_purchased_at, digitization_risk_accepted_at, digitization_risk_accepted_by")
     .eq("clinic_id", clinicId)
     .order("name");
   const list = protocols ?? [];
@@ -43,6 +44,7 @@ export async function getProtocolRows(supabase: Supa, clinicId: string): Promise
     name: PROTOCOL_LABEL[p.name] ?? p.name,
     area: p.area ? (AREA_LABEL[p.area] ?? p.area) : null,
     version: p.version,
+    isGeneric: p.is_generic ?? false,
     licensePurchasedAtLabel: p.license_purchased_at ? new Date(`${p.license_purchased_at}T00:00:00`).toLocaleDateString("pt-BR") : "—",
     riskAcceptedLabel: `${nameById.get(p.digitization_risk_accepted_by) ?? "—"} · ${new Date(p.digitization_risk_accepted_at).toLocaleDateString("pt-BR")}`,
     itemCount: itemCountByProtocol.get(p.id) ?? 0,

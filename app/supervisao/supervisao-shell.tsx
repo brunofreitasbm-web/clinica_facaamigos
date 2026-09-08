@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, UserX, ListOrdered } from "lucide-react";
+import { ShieldCheck, UserX, ListOrdered, Users } from "lucide-react";
 
 const TABS = [
   { key: "grade", label: "Grade" },
@@ -114,6 +114,19 @@ export function SupervisaoShell({
               </button>
             );
           })}
+          <Link
+            href="/recepcao/pacientes"
+            className="flex h-full items-center gap-1.5 transition-all"
+            aria-current={pathname.startsWith("/recepcao/pacientes") ? "page" : undefined}
+            style={{
+              color: pathname.startsWith("/recepcao/pacientes") ? "#FFFFFF" : "var(--color-on-accent-soft)",
+              borderBottom: pathname.startsWith("/recepcao/pacientes") ? "3px solid #FFFFFF" : "3px solid transparent",
+              fontWeight: pathname.startsWith("/recepcao/pacientes") ? 700 : 500,
+            }}
+          >
+            <Users size={15} />
+            Pacientes
+          </Link>
           <Link
             href="/supervisao/lista-espera"
             className="flex h-full items-center gap-1.5 transition-all"

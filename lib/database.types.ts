@@ -5370,25 +5370,34 @@ export type Database = {
           description: string
           domain: string
           id: string
+          inverted: boolean
           item_code: string
           level: string | null
           protocol_id: string
+          sort_order: number
+          weight: number
         }
         Insert: {
           description: string
           domain: string
           id?: string
+          inverted?: boolean
           item_code: string
           level?: string | null
           protocol_id: string
+          sort_order?: number
+          weight?: number
         }
         Update: {
           description?: string
           domain?: string
           id?: string
+          inverted?: boolean
           item_code?: string
           level?: string | null
           protocol_id?: string
+          sort_order?: number
+          weight?: number
         }
         Relationships: [
           {
@@ -5408,10 +5417,13 @@ export type Database = {
           digitization_risk_accepted_by: string
           display_name: string | null
           id: string
+          is_generic: boolean
           is_validated: boolean
           license_note: string | null
           license_purchased_at: string | null
           name: string
+          scale: Json | null
+          template_version: string | null
           version: string | null
         }
         Insert: {
@@ -5421,10 +5433,13 @@ export type Database = {
           digitization_risk_accepted_by: string
           display_name?: string | null
           id?: string
+          is_generic?: boolean
           is_validated?: boolean
           license_note?: string | null
           license_purchased_at?: string | null
           name: string
+          scale?: Json | null
+          template_version?: string | null
           version?: string | null
         }
         Update: {
@@ -5434,10 +5449,13 @@ export type Database = {
           digitization_risk_accepted_by?: string
           display_name?: string | null
           id?: string
+          is_generic?: boolean
           is_validated?: boolean
           license_note?: string | null
           license_purchased_at?: string | null
           name?: string
+          scale?: Json | null
+          template_version?: string | null
           version?: string | null
         }
         Relationships: [

@@ -68,13 +68,17 @@ export async function getSuggestedGoals(
     const protocolLabel = catalogEntry?.displayName ?? tab.name;
     const discipline = catalogEntry?.discipline ?? "outra";
 
+    const scaleMax = tab.scale.max;
     const domains = [...new Set(tab.items.map((i) => i.domain))];
     for (const domain of domains) {
       const domainItems = tab.items.filter((i) => i.domain === domain);
-      const pending = domainItems.filter((i) => (latest.scores[i.id] ?? 0) < 2);
+      const pending = domainItems.filter((i) => (latest.scores[i.id] ?? 0) < scaleMax);
       if (pending.length === 0) continue;
 
-      const emergentCount = pending.filter((i) => latest.scores[i.id] === 1).length;
+      const emergentCount = pending.filter((i) => {
+        const score = latest.scores[i.id] ?? 0;
+        return score > 0 && score < scaleMax;
+      }).length;
       const notObservedCount = pending.length - emergentCount;
       const sample = pending
         .slice(0, 3)

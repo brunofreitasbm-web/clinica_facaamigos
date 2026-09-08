@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getProtocolScale } from "@/lib/protocol-assessments";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -31,6 +32,14 @@ export async function submitProtocolAssessment(
 
   if (Object.keys(scores).length === 0) {
     return { success: false, error: "Pontue pelo menos um item antes de salvar." };
+  }
+
+  const { data: protocol } = await supabase.from("protocols").select("scale").eq("id", protocolId).maybeSingle();
+  const scale = getProtocolScale(protocol?.scale);
+  for (const value of Object.values(scores)) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < scale.min || value > scale.max) {
+      return { success: false, error: `Pontuação inválida — os valores devem estar entre ${scale.min} e ${scale.max}.` };
+    }
   }
 
   const { error } = await supabase.from("protocol_assessments").insert({
