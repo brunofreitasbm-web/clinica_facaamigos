@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function ConfiguracoesPage() {
-  redirect("/gestor/configuracoes/atendimentos");
+  redirect("/gestor/configuracoes/prioridades-avaliacao");
 }

@@ -20,7 +20,7 @@ const DEFAULT_ALERTS: AlertItem[] = [
     title: "3 Autorizações de Convênio prestes a esgotar",
     description: "Os pacientes Gabriel M., Lucas T. e Sofia R. estão com menos de 3 sessões restantes no pacote de ABA 20h. Risco de interrupção do tratamento.",
     actionLabel: "Renovar Autorização",
-    actionHref: "/gestor/convenios",
+    actionHref: "/gestor/cadastros/convenios",
     category: "Autorizações",
   },
   {
@@ -29,7 +29,7 @@ const DEFAULT_ALERTS: AlertItem[] = [
     title: "5 Evoluções Terapêuticas pendentes há mais de 24h",
     description: "Sessões de ontem no bloco da tarde ainda não foram assinadas pelos terapeutas. Trava de faturamento ativada.",
     actionLabel: "Cobrar Prontuários",
-    actionHref: "/gestor/atendimentos",
+    actionHref: "/gestor/cadastros/tipos-atendimento",
     category: "Prontuários",
   },
   {
@@ -38,7 +38,7 @@ const DEFAULT_ALERTS: AlertItem[] = [
     title: "2 Pacientes com risco de descontinuidade (2 faltas consecutivas)",
     description: "Segundo as diretrizes de convênio, 3 faltas geram descredenciamento automático. Ação de recepção recomendada.",
     actionLabel: "Ver Faltas",
-    actionHref: "/gestor/atendimentos?tab=faltas",
+    actionHref: "/gestor/cadastros/tipos-atendimento?tab=faltas",
     category: "Agenda",
   },
 ];
@@ -82,7 +82,7 @@ export function GestorCockpit() {
         {/* BOTOES DE FLUXO EXPLICATIVO */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Link
-            href="/gestor/cadastros?action=novo"
+            href="/gestor/cadastros/pacientes"
             className="group flex flex-col justify-between rounded-lg border bg-surface p-4 no-underline transition-all hover:border-blue-500 hover:shadow-md"
             style={{ borderColor: "var(--color-divider)" }}
           >
@@ -104,7 +104,7 @@ export function GestorCockpit() {
           </Link>
 
           <Link
-            href="/gestor/convenios"
+            href="/gestor/cadastros/convenios"
             className="group flex flex-col justify-between rounded-lg border bg-surface p-4 no-underline transition-all hover:border-amber-500 hover:shadow-md"
             style={{ borderColor: "var(--color-divider)" }}
           >
@@ -126,7 +126,7 @@ export function GestorCockpit() {
           </Link>
 
           <Link
-            href="/gestor/atendimentos"
+            href="/gestor/cadastros/salas"
             className="group flex flex-col justify-between rounded-lg border bg-surface p-4 no-underline transition-all hover:border-emerald-500 hover:shadow-md"
             style={{ borderColor: "var(--color-divider)" }}
           >

@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendTwilioWhatsApp } from "@/lib/twilio";
 import { currentMonthlyNpsPeriod } from "@/lib/survey-period";
 
-const NPS_MENSAL_MESSAGE =
-  "Olá! Numa escala de 0 a 10, o quanto você recomendaria a Clínica Faça Amigos para outra família? Responda só com o número.";
-
 /**
- * Disparo mensal de NPS (0-10) via WhatsApp para todo paciente ativo,
- * chamado uma vez por mês pelo pg_cron configurado em
+ * Libera a pesquisa mensal de NPS (0-10) no portal da família para todo
+ * paciente ativo, chamado uma vez por mês pelo pg_cron configurado em
  * supabase/migrations/20260907000000_nps_mensal.sql. Reaproveita
  * nps_surveys (trigger_type='mensal'), diferente dos disparos por evento
  * de app/api/twilio/nps/trigger — dedup por (patient_id, period) garante
  * no máximo um disparo por paciente por mês mesmo que a rota seja chamada
  * mais de uma vez no mesmo período.
+ *
+ * NPS Externo não é mais enviado via Twilio/WhatsApp: esta rota só cria o
+ * registro pendente em nps_surveys, respondido pelo responsável no portal
+ * da família (app/familia) via submit_nps_response
+ * (supabase/migrations/20260908030000_nps_externo_portal_only.sql).
  */
 export async function POST(req: NextRequest) {
   const cronSecret = req.headers.get("x-cron-secret");
@@ -53,8 +54,6 @@ export async function POST(req: NextRequest) {
       const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
       if (!guardian) continue;
 
-      const sendResult = await sendTwilioWhatsApp({ to: guardian.phone, message: NPS_MENSAL_MESSAGE });
-
       const { error: insertError } = await admin.from("nps_surveys").insert({
         patient_id: patientId,
         guardian_id: guardian.id,
@@ -63,7 +62,7 @@ export async function POST(req: NextRequest) {
         period,
       });
 
-      if (!insertError && sendResult.success) dispatched += 1;
+      if (!insertError) dispatched += 1;
     }
   } catch (error) {
     console.error("[NPS Mensal Trigger Error]:", error);

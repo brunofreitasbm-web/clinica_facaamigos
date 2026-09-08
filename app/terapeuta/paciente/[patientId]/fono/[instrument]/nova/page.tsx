@@ -5,6 +5,7 @@ import { logRecordAccess } from "@/lib/record-access-log";
 import { AdlAssessmentForm } from "@/components/fono/adl-assessment-form";
 import { ProcAssessmentForm } from "@/components/fono/proc-assessment-form";
 import { FONO_INSTRUMENT_LABEL, getFonoBands, getFonoScaleLabels, isFonoInstrument } from "@/lib/fono-instruments";
+import { isInstrumentEnabled } from "@/lib/clinic-instruments";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,13 @@ export default async function NovaFonoAssessmentPage({
   const { data: profile } = await supabase.from("profiles").select("id, role").eq("id", user.id).maybeSingle();
   if (!profile || !["terapeuta", "supervisor", "gestor"].includes(profile.role)) redirect("/");
 
-  const { data: patient } = await supabase.from("patients").select("id, full_name").eq("id", patientId).maybeSingle();
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("id, full_name, clinic_id")
+    .eq("id", patientId)
+    .maybeSingle();
   if (!patient) notFound();
+  if (!(await isInstrumentEnabled(supabase, patient.clinic_id, instrument))) notFound();
 
   await logRecordAccess(supabase, patientId, "avaliacao_fono");
 

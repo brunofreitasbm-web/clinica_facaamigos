@@ -3,7 +3,7 @@
 // supabase/migrations/20260907170006_insurance_intake.sql) — cada plano de
 // saúde manda a relação de encaminhados num PDF com layout próprio; este
 // shape guarda as dicas que o supervisor configura uma vez (em
-// /gestor/convenios ou pela aba "Acolhimentos") pra ajudar o Gemini a ler
+// /gestor/cadastros/convenios ou pela aba "Acolhimentos") pra ajudar o Gemini a ler
 // aquele layout específico. Tudo opcional: sem perfil configurado, a
 // extração ainda funciona (o prompt genérico dá conta da maioria dos
 // layouts), só com menos precisão.

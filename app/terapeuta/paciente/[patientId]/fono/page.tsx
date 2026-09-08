@@ -7,6 +7,7 @@ import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { listPatientFonoAssessments } from "@/lib/fono-assessments";
 import { FONO_INSTRUMENT_LABEL, FONO_INSTRUMENTS, type FonoInstrument } from "@/lib/fono-instruments";
+import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
 
 export const dynamic = "force-dynamic";
 
@@ -28,18 +29,28 @@ export default async function PatientFonoHubPage({ params }: { params: Promise<{
     redirect("/");
   }
 
-  const { data: patient } = await supabase.from("patients").select("id, full_name").eq("id", patientId).maybeSingle();
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("id, full_name, clinic_id")
+    .eq("id", patientId)
+    .maybeSingle();
   if (!patient) notFound();
 
   await logRecordAccess(supabase, patientId, "avaliacao_fono");
 
-  const [{ insurance, emergencyContact }, assessments] = await Promise.all([
+  const [{ insurance, emergencyContact }, assessments, enabledInstruments] = await Promise.all([
     getPatientIdentitySummary(supabase, patientId),
     listPatientFonoAssessments(supabase, patientId),
+    getEnabledInstrumentKeys(supabase, patient.clinic_id),
   ]);
 
+  // Instrumento desativado (/gestor/cadastros/instrumentos): some do hub,
+  // mas o histórico já registrado não é apagado — só a porta de aplicação
+  // fecha (bloqueada de novo nas próprias telas de nova/[assessmentId]).
+  const visibleInstruments = FONO_INSTRUMENTS.filter((instrument) => enabledInstruments.has(instrument));
+
   const byInstrument = new Map<FonoInstrument, typeof assessments>();
-  for (const instrument of FONO_INSTRUMENTS) byInstrument.set(instrument, []);
+  for (const instrument of visibleInstruments) byInstrument.set(instrument, []);
   for (const a of assessments) byInstrument.get(a.instrument)?.push(a);
 
   return (
@@ -52,7 +63,7 @@ export default async function PatientFonoHubPage({ params }: { params: Promise<{
       <PatientIdentityBar patientName={patient.full_name} insurance={insurance} emergencyContact={emergencyContact} />
 
       <div className="grid grid-cols-1 gap-6 px-5 pt-6 sm:px-10 lg:grid-cols-3">
-        {FONO_INSTRUMENTS.map((instrument) => {
+        {visibleInstruments.map((instrument) => {
           const history = byInstrument.get(instrument) ?? [];
           return (
             <section key={instrument} className="card flex flex-col gap-3">

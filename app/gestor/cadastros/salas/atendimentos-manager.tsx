@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
-import { ConfigSidebar } from "../config-sidebar";
+import { CadastrosSidebar } from "../cadastros-sidebar";
 import { NewResourceForm } from "./new-resource-form";
 import { NewRoomForm } from "./new-room-form";
 import { RoomRowItem } from "./room-row";
@@ -17,11 +17,11 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
 
   return (
     <>
-      <ConfigSidebar active="atendimentos" />
+      <CadastrosSidebar active="salas" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
-          axisLabel="Configurações"
-          title="Atendimentos & Agenda"
+          axisLabel="Cadastros"
+          title="Salas & Recursos"
           description="Gestão de salas físicas, motivos de falta/cancelamento por origem e regras de reagendamento."
         />
 

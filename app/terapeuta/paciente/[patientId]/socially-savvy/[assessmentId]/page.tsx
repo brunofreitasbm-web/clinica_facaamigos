@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { getSociallySavvyAssessment } from "@/lib/socially-savvy-assessments";
+import { isInstrumentEnabled } from "@/lib/clinic-instruments";
 import { SociallySavvyAssessmentForm } from "@/components/socially-savvy/assessment-form";
 import { SociallySavvyAssessmentResults } from "@/components/socially-savvy/assessment-results";
 import { SOCIALLY_SAVVY_LABEL } from "@/lib/socially-savvy";
@@ -25,8 +26,13 @@ export default async function SociallySavvyAssessmentDetailPage({
   const { data: profile } = await supabase.from("profiles").select("id, role").eq("id", user.id).maybeSingle();
   if (!profile || !["terapeuta", "supervisor", "gestor"].includes(profile.role)) redirect("/");
 
-  const { data: patient } = await supabase.from("patients").select("id, full_name").eq("id", patientId).maybeSingle();
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("id, full_name, clinic_id")
+    .eq("id", patientId)
+    .maybeSingle();
   if (!patient) notFound();
+  if (!(await isInstrumentEnabled(supabase, patient.clinic_id, "socially_savvy"))) notFound();
 
   // RLS (socially_savvy_assessments_read) já garante o acesso; null vira 404,
   // nunca revelamos se o id existe para quem não pode vê-lo.

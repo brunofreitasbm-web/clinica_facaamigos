@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { SociallySavvyAssessmentForm } from "@/components/socially-savvy/assessment-form";
 import { listPatientSociallySavvyAssessments } from "@/lib/socially-savvy-assessments";
+import { isInstrumentEnabled } from "@/lib/clinic-instruments";
 import { SOCIALLY_SAVVY_LABEL, SOCIALLY_SAVVY_MAX_ROUNDS } from "@/lib/socially-savvy";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +28,13 @@ export default async function NovaSociallySavvyAssessmentPage({
   const { data: profile } = await supabase.from("profiles").select("id, role").eq("id", user.id).maybeSingle();
   if (!profile || !["terapeuta", "supervisor", "gestor"].includes(profile.role)) redirect("/");
 
-  const { data: patient } = await supabase.from("patients").select("id, full_name").eq("id", patientId).maybeSingle();
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("id, full_name, clinic_id")
+    .eq("id", patientId)
+    .maybeSingle();
   if (!patient) notFound();
+  if (!(await isInstrumentEnabled(supabase, patient.clinic_id, "socially_savvy"))) notFound();
 
   const existing = await listPatientSociallySavvyAssessments(supabase, patientId);
   const taken = new Set(existing.map((a) => a.round));

@@ -27,6 +27,17 @@ export const AREA_LABEL: Record<string, string> = Object.fromEntries(
  * (mesma lista de app/supervisao/planos/novo/disciplines.ts) — usado só para
  * pré-preencher a sugestão de meta ao "Montar PTS" a partir de uma avaliação
  * já aplicada; o supervisor pode trocar livremente no formulário.
+ *
+ * Instrumentos que já têm implementação própria NÃO entram nesta lista: ADL-2
+ * e PROC (lib/fono-instruments/) e Socially Savvy (lib/socially-savvy/) têm
+ * catálogo fixo, escala e cálculo próprios. O checklist genérico daqui só
+ * aceita 0/1/2 (ASSESSMENT_SCORE_LABEL em lib/protocol-assessments.ts), então
+ * cadastrá-los aqui abriria uma segunda porta com a escala errada, onde a
+ * terapeuta preencheria uma avaliação que não conversa com a de verdade.
+ * Nenhum protocolo havia sido cadastrado quando os três foram removidos.
+ * `findProtocolCatalogEntry` devolve undefined para nomes fora da lista e
+ * quem consome já cai no `?? protocol.name`, então uma linha antiga no banco
+ * continuaria legível.
  */
 export const PROTOCOL_CATALOG = [
   { name: "vbmapp", displayName: "VB-MAPP", area: "comportamental", discipline: "aba" },
@@ -34,17 +45,14 @@ export const PROTOCOL_CATALOG = [
   { name: "esdm", displayName: "Denver / ESDM", area: "comportamental", discipline: "denver_esdm" },
   { name: "afls", displayName: "AFLS", area: "funcional", discipline: "terapia_ocupacional" },
   { name: "abla_r", displayName: "ABLA-R", area: "comportamental", discipline: "aba" },
-  { name: "socially_savvy", displayName: "Socially Savvy", area: "comportamental", discipline: "aba" },
   { name: "ipo", displayName: "IPO", area: "cognitiva", discipline: "psicologia" },
   { name: "pep_r", displayName: "PEP-R", area: "cognitiva", discipline: "psicologia" },
   { name: "iar", displayName: "IAR", area: "cognitiva", discipline: "psicologia" },
   { name: "pcl", displayName: "PCL", area: "cognitiva", discipline: "psicologia" },
   { name: "tgmd2", displayName: "TGMD-2", area: "psicomotora", discipline: "fisioterapia" },
   { name: "avaliacao_neuromuscular", displayName: "Avaliação neuromuscular", area: "psicomotora", discipline: "fisioterapia" },
-  { name: "adl2", displayName: "ADL2", area: "linguistica", discipline: "fonoaudiologia" },
   { name: "abfw", displayName: "ABFW", area: "linguistica", discipline: "fonoaudiologia" },
   { name: "matriz_comunicacao", displayName: "Matriz de Comunicação", area: "linguistica", discipline: "fonoaudiologia" },
-  { name: "proc", displayName: "PROC", area: "linguistica", discipline: "fonoaudiologia" },
   { name: "copm", displayName: "COPM", area: "funcional", discipline: "terapia_ocupacional" },
   { name: "spm", displayName: "SPM / SPM-P", area: "funcional", discipline: "terapia_ocupacional" },
   { name: "escala_labirinto", displayName: "Escala Labirinto", area: "nutricional", discipline: "outra" },

@@ -5298,6 +5298,57 @@ export type Database = {
           },
         ]
       }
+      clinic_instruments: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          instrument: string
+          license_note: string | null
+          license_purchased_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          instrument: string
+          license_note?: string | null
+          license_purchased_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          instrument?: string
+          license_note?: string | null
+          license_purchased_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_instruments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_instruments_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       socially_savvy_assessments: {
         Row: {
           assessed_by: string
@@ -6907,6 +6958,10 @@ export type Database = {
       skip:
         | { Args: { "": string }; Returns: string }
         | { Args: { how_many: number; why: string }; Returns: string }
+      submit_nps_response: {
+        Args: { p_feedback?: string; p_score: number; p_survey_id: string }
+        Returns: undefined
+      }
       system_user_manageable_roles: { Args: never; Returns: string[] }
       throws_ok: { Args: { "": string }; Returns: string }
       todo:

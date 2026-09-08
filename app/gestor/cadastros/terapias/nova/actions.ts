@@ -50,6 +50,6 @@ export async function createProtocol(formData: FormData): Promise<ActionResult> 
     return { success: false, error: "Não foi possível cadastrar o protocolo." };
   }
 
-  revalidatePath("/gestor/cadastros");
+  revalidatePath("/gestor/cadastros/terapias");
   return { success: true };
 }

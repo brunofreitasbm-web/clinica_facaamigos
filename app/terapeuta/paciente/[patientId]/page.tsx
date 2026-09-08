@@ -14,6 +14,8 @@ import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { logRecordAccess } from "@/lib/record-access-log";
+import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
+import type { NativeInstrumentKey } from "@/lib/native-instruments";
 
 const fmtDate = (iso: string | null | undefined) => fmtDateShared(iso, CLINIC_TIMEZONE);
 
@@ -58,19 +60,26 @@ export default async function TerapeutaFichaPacientePage({
   // revelamos se o paciente existe pra quem não tem acesso a ele.
   const { data: patient } = await supabase
     .from("patients")
-    .select("id, full_name, birth_date")
+    .select("id, full_name, birth_date, clinic_id")
     .eq("id", patientId)
     .maybeSingle();
   if (!patient) notFound();
 
   await logRecordAccess(supabase, patientId, "prontuario_terapeuta");
 
-  const [dossier, { insurance, emergencyContact }, behaviorCatalog, contacts] = await Promise.all([
+  const [dossier, { insurance, emergencyContact }, behaviorCatalog, contacts, enabledInstruments] = await Promise.all([
     getPatientDossier(supabase, patientId, { includeBilling: false }),
     getPatientIdentitySummary(supabase, patientId),
     getBehaviorCatalog(supabase, { activeOnly: false }),
     supabase.rpc("patient_contact_summary", { p_patient_id: patientId }),
+    getEnabledInstrumentKeys(supabase, patient.clinic_id),
   ]);
+
+  // Atalhos de instrumento só aparecem se a clínica os mantém ativos
+  // (/gestor/cadastros/instrumentos). O hub de fono cobre ADL, ADL-2 e
+  // PROC, então basta um deles estar ativo para o botão fazer sentido.
+  const showFono = ["adl", "adl2", "proc"].some((key) => enabledInstruments.has(key as NativeInstrumentKey));
+  const showSociallySavvy = enabledInstruments.has("socially_savvy");
 
   const allMetaGoalIds = Array.from(
     new Set(dossier.notes.flatMap((n) => getMetasTrabalhadas(n.structured as SessionNoteStructured | null).map((m) => m.plan_goal_id))),
@@ -219,12 +228,16 @@ export default async function TerapeutaFichaPacientePage({
         <Link href={`/terapeuta/paciente/${patient.id}/avaliacao`} className="btn btn-secondary">
           Avaliação de protocolo
         </Link>
-        <Link href={`/terapeuta/paciente/${patient.id}/fono`} className="btn btn-secondary">
-          Fono (ADL/ADL-2/PROC)
-        </Link>
-        <Link href={`/terapeuta/paciente/${patient.id}/socially-savvy`} className="btn btn-secondary">
-          Socially Savvy
-        </Link>
+        {showFono && (
+          <Link href={`/terapeuta/paciente/${patient.id}/fono`} className="btn btn-secondary">
+            Fono (ADL/ADL-2/PROC)
+          </Link>
+        )}
+        {showSociallySavvy && (
+          <Link href={`/terapeuta/paciente/${patient.id}/socially-savvy`} className="btn btn-secondary">
+            Socially Savvy
+          </Link>
+        )}
         <Link href={`/terapeuta/paciente/${patient.id}/relatorio`} className="btn btn-secondary">
           Relatório família
         </Link>

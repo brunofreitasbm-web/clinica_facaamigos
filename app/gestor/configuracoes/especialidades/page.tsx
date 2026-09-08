@@ -1,24 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
-import { DEV_CLINIC_ID } from "@/lib/constants";
-import { EspecialidadesManager, type SpecialtyRow } from "./especialidades-manager";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function EspecialidadesConfigPage() {
-  const supabase = await createClient();
-
-  const { data: rows } = await supabase
-    .from("specialties")
-    .select("id, value, label, active")
-    .eq("clinic_id", DEV_CLINIC_ID)
-    .order("sort_order", { ascending: true });
-
-  const specialties: SpecialtyRow[] = (rows ?? []).map((r) => ({
-    id: r.id,
-    value: r.value,
-    label: r.label,
-    active: r.active,
-  }));
-
-  return <EspecialidadesManager specialties={specialties} />;
+// Movido para Cadastros — especialidades são um cadastro da clínica, não um
+// parâmetro de sistema (ver app/gestor/cadastros/especialidades).
+export default function EspecialidadesRedirect() {
+  redirect("/gestor/cadastros/especialidades");
 }

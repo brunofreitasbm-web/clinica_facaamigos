@@ -57,8 +57,7 @@ export async function createAppointmentType(formData: FormData): Promise<ActionR
     };
   }
 
-  revalidatePath("/gestor/atendimentos");
-  revalidatePath("/gestor/cadastros");
+  revalidatePath("/gestor/cadastros/tipos-atendimento");
   return { success: true };
 }
 
@@ -86,8 +85,7 @@ export async function updateAppointmentType(id: string, formData: FormData): Pro
     };
   }
 
-  revalidatePath("/gestor/atendimentos");
-  revalidatePath("/gestor/cadastros");
+  revalidatePath("/gestor/cadastros/tipos-atendimento");
   return { success: true };
 }
 
@@ -99,7 +97,6 @@ export async function deleteAppointmentType(id: string): Promise<ActionResult> {
     return { success: false, error: "Não foi possível excluir o tipo de atendimento. Tente de novo." };
   }
 
-  revalidatePath("/gestor/atendimentos");
-  revalidatePath("/gestor/cadastros");
+  revalidatePath("/gestor/cadastros/tipos-atendimento");
   return { success: true };
 }

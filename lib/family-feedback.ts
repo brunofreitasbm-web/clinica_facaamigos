@@ -23,10 +23,10 @@ export const FEEDBACK_RATING_SCORE: Record<FeedbackRatingValue, number> = {
 
 // No máximo 4 categorias (PRD "Avalie").
 export const FEEDBACK_CATEGORIES = [
-  { key: "recepcao", label: "Recepção" },
-  { key: "terapeuta", label: "Terapeuta" },
-  { key: "agendamento", label: "Agendamento" },
-  { key: "comunicacao", label: "Comunicação com a clínica" },
+  { key: "recepcao", label: "Atendimento da Recepção" },
+  { key: "terapeuta", label: "Evolução Terapêutica & Equipe" },
+  { key: "pontualidade", label: "Pontualidade & Agendamento" },
+  { key: "instalacoes", label: "Instalações & Conforto" },
 ] as const;
 export type FeedbackCategoryKey = (typeof FEEDBACK_CATEGORIES)[number]["key"];
 

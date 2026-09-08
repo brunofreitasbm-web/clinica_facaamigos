@@ -277,6 +277,6 @@ export async function setPatientArchived(patientId: string, archived: boolean): 
   }
 
   revalidatePatient(patientId);
-  revalidatePath("/gestor/cadastros");
+  revalidatePath("/gestor/cadastros/pacientes");
   return { success: true };
 }

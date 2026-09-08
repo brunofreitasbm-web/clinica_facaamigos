@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendTwilioWhatsApp } from "@/lib/twilio";
-
-const NPS_MESSAGE =
-  "Olá! Como foi seu atendimento hoje na Clínica Faça Amigos com a equipe de supervisão? Responda com uma nota de 1 a 5 (onde 1 é Insatisfeito e 5 é Excelente).";
 
 /**
- * Disparo automático de pesquisa NPS 1h após reavaliação (appointments) ou
- * reunião de devolutiva (meetings), chamado a cada ~10min pelo pg_cron
- * configurado em supabase/migrations/20260906000011_nps_surveys.sql. Janela
- * de 1h-2h atrás tolera o intervalo do cron sem perder nem duplicar disparo
- * (a unicidade de nps_surveys.appointment_id/meeting_id evita duplicidade
- * mesmo que a mesma linha seja avaliada em duas execuções).
+ * Libera a pesquisa NPS (1-5) no portal da família 1h após reavaliação
+ * (appointments) ou reunião de devolutiva (meetings), chamado a cada ~10min
+ * pelo pg_cron configurado em supabase/migrations/20260906000011_nps_surveys.sql.
+ * Janela de 1h-2h atrás tolera o intervalo do cron sem perder nem duplicar
+ * disparo (a unicidade de nps_surveys.appointment_id/meeting_id evita
+ * duplicidade mesmo que a mesma linha seja avaliada em duas execuções).
+ *
+ * NPS Externo não é mais enviado via Twilio/WhatsApp: esta rota só cria o
+ * registro pendente em nps_surveys, que passa a aparecer para o responsável
+ * no portal da família (app/familia), onde ele responde via
+ * submit_nps_response (supabase/migrations/20260908030000_nps_externo_portal_only.sql).
  */
 export async function POST(req: NextRequest) {
   const cronSecret = req.headers.get("x-cron-secret");
@@ -75,8 +76,6 @@ export async function POST(req: NextRequest) {
       const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
       if (!guardian) continue;
 
-      const sendResult = await sendTwilioWhatsApp({ to: guardian.phone, message: NPS_MESSAGE });
-
       const { error: insertError } = await admin.from("nps_surveys").insert({
         appointment_id: item.appointmentId ?? null,
         meeting_id: item.meetingId ?? null,
@@ -86,7 +85,7 @@ export async function POST(req: NextRequest) {
         phone_number: guardian.phone,
       });
 
-      if (!insertError && sendResult.success) dispatched += 1;
+      if (!insertError) dispatched += 1;
     }
   } catch (error) {
     console.error("[NPS Trigger Error]:", error);

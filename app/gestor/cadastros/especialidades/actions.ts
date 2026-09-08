@@ -48,7 +48,7 @@ export async function createSpecialty(formData: FormData): Promise<ActionResult>
     return { success: false, error: "Você não tem permissão para cadastrar especialidades." };
   }
 
-  revalidatePath("/gestor/configuracoes/especialidades");
+  revalidatePath("/gestor/cadastros/especialidades");
   return { success: true };
 }
 
@@ -63,7 +63,7 @@ export async function renameSpecialtyLabel(specialtyId: string, formData: FormDa
     return { success: false, error: "Não foi possível renomear esta especialidade." };
   }
 
-  revalidatePath("/gestor/configuracoes/especialidades");
+  revalidatePath("/gestor/cadastros/especialidades");
   return { success: true };
 }
 
@@ -75,6 +75,6 @@ export async function toggleSpecialtyActive(specialtyId: string, active: boolean
     return { success: false, error: "Não foi possível atualizar esta especialidade." };
   }
 
-  revalidatePath("/gestor/configuracoes/especialidades");
+  revalidatePath("/gestor/cadastros/especialidades");
   return { success: true };
 }

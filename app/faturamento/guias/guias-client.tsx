@@ -175,7 +175,7 @@ function GuiaPeriodCard({ group }: { group: GuiaPeriodGroup }) {
             {group.ansCode ? ` · ANS ${group.ansCode}` : ""}
             {!group.providerCode && (
               <span className="ml-2 text-status-negative-text">
-                código do prestador não cadastrado — cadastre em /gestor/convenios antes de enviar
+                código do prestador não cadastrado — cadastre em /gestor/cadastros/convenios antes de enviar
               </span>
             )}
           </p>

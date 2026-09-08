@@ -3,9 +3,10 @@ import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { currentMonthRange } from "../data";
-import { NpsMetricsCards, type ScoreDistribution } from "./nps-metrics-cards";
-import { FamilyFeedbackPanel, type FamilyFeedbackRow } from "./family-feedback-panel";
+import { type ScoreDistribution } from "./nps-metrics-cards";
+import { type FamilyFeedbackRow } from "./family-feedback-panel";
 import { normalizeFeedbackToNps10, normalizeTwilioScoreToNps10 } from "@/lib/family-feedback";
+import { NpsTabbedView } from "./nps-tabbed-view";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,6 @@ export default async function NpsPage() {
 
   const [{ data: monthSurveys }, { data: monthlySurveys }, { count: pendingAlertsCount }, { data: monthFamilyFeedback }, { data: familyFeedbackRaw }] =
     await Promise.all([
-      // Disparos por evento (avaliação/devolutiva), escala 1-5.
       supabase
         .from("nps_surveys")
         .select("score, responded_at")
@@ -23,8 +23,6 @@ export default async function NpsPage() {
         .gte("dispatched_at", startISO)
         .lt("dispatched_at", endISO)
         .not("responded_at", "is", null),
-      // Disparo mensal (todo paciente ativo), escala 0-10 — já comparável
-      // direto com o combinado, sem normalização.
       supabase
         .from("nps_surveys")
         .select("score, responded_at")
@@ -32,14 +30,10 @@ export default async function NpsPage() {
         .gte("dispatched_at", startISO)
         .lt("dispatched_at", endISO)
         .not("responded_at", "is", null),
-      // A triagem de detrator (contatar/resolver) é atendimento à família —
-      // fica na caixa de entrada da Supervisão. Aqui só o contador.
       supabase
         .from("nps_surveys")
         .select("id", { count: "exact", head: true })
         .in("alert_status", ["pending_contact", "em_atendimento"]),
-      // Portal "Avalie" (family_feedback) — sem periodicidade, entram na
-      // média combinada do mês igual às respostas do Twilio.
       supabase
         .from("family_feedback")
         .select("category_ratings, created_at")
@@ -66,9 +60,6 @@ export default async function NpsPage() {
       ? Math.round((monthlyScores.reduce((sum, s) => sum + s, 0) / monthlyScores.length) * 10) / 10
       : null;
 
-  // Concilia as três fontes numa escala comum 0-10 pra um painel único
-  // (nps_surveys por evento é 1-5, disparo mensal já é 0-10, family_feedback
-  // é 4 categorias ruim..ótimo).
   const normalizedFamily = (monthFamilyFeedback ?? [])
     .map((f) => normalizeFeedbackToNps10(f.category_ratings as Record<string, string>))
     .filter((n): n is number => n != null);
@@ -94,18 +85,17 @@ export default async function NpsPage() {
     <main className="flex min-h-screen flex-1 flex-col">
       <GestorNav active="nps" pendingNpsAlerts={pendingAlertsCount ?? 0} />
 
-      <div className="flex flex-col gap-8 px-10 py-9">
+      <div className="flex flex-col gap-6 px-10 py-9">
         <div>
           <h1 style={{ fontFamily: "var(--font-heading)" }} className="text-2xl font-bold text-ink">
-            NPS · Pesquisa de Satisfação
+            NPS · Pesquisas de Satisfação
           </h1>
           <p className="text-sm text-ink-soft">
-            Pesquisas disparadas 1h após reavaliações e reuniões de devolutiva com a supervisão, o disparo mensal
-            (0-10) para todo paciente ativo, e as avaliações enviadas pela família no portal (&quot;Avalie&quot;).
+            Gestão centralizada de pesquisas de satisfação: acompanhe o NPS Externo (Pacientes & Famílias) e o NPS Interno (Equipe Multidisciplinar).
           </p>
         </div>
 
-        <NpsMetricsCards
+        <NpsTabbedView
           avgScore={avgScore}
           responseCount={scores.length}
           distribution={distribution}
@@ -113,21 +103,9 @@ export default async function NpsPage() {
           combinedResponseCount={combinedAll.length}
           monthlyAvgScore={monthlyAvgScore}
           monthlyResponseCount={monthlyScores.length}
+          pendingAlertsCount={pendingAlertsCount ?? 0}
+          familyFeedback={familyFeedback}
         />
-
-        {(pendingAlertsCount ?? 0) > 0 && (
-          <Link
-            href="/supervisao"
-            className="flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm no-underline"
-          >
-            <span className="font-semibold text-red-800">
-              {pendingAlertsCount} alerta(s) de insatisfação aguardando contato
-            </span>
-            <span className="text-xs font-medium text-red-700">Triagem e resolução ficam na Supervisão →</span>
-          </Link>
-        )}
-
-        <FamilyFeedbackPanel items={familyFeedback} />
       </div>
     </main>
   );

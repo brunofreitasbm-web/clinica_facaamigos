@@ -166,6 +166,39 @@ export async function submitSurvey(
 }
 
 /**
+ * NPS Externo (evento/mensal) — disparado por /api/twilio/nps/trigger e
+ * /api/twilio/nps-mensal/trigger, mas nunca mais enviado nem respondido via
+ * WhatsApp: só aparece pendente no portal (app/familia/page.tsx) e é
+ * respondido aqui, delegando pra `submit_nps_response` (security definer,
+ * 20260908030000_nps_externo_portal_only.sql), que valida posse, faixa de
+ * nota por trigger_type e impede responder duas vezes — mesmo padrão de
+ * confirmAttendance acima.
+ */
+export async function submitNpsResponse(surveyId: string, score: number, feedback: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  const { error } = await supabase.rpc("submit_nps_response", {
+    p_survey_id: surveyId,
+    p_score: score,
+    p_feedback: feedback.trim() || undefined,
+  });
+
+  if (error) {
+    return { success: false, error: error.message || "Não foi possível enviar sua resposta." };
+  }
+
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
  * "Avalie" (app/familia/avalie) — diferente da pesquisa trimestral acima
  * (survey_responses, 1 resposta/trimestre): página sempre disponível, sem
  * limite de periodicidade, gravada em `family_feedback`. Até 4 categorias

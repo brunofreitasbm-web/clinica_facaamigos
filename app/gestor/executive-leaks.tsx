@@ -28,7 +28,7 @@ export function ExecutiveLeaks({ leaks, bonusPanel }: { leaks: LeakCard[]; bonus
         value: `${item.count} un`,
         tag: item.count > 3 ? "Atenção" : "Normal",
         tagType: item.count > 3 ? "danger" : "warning",
-        detailUrl: "/gestor/atendimentos",
+        detailUrl: "/gestor/cadastros/tipos-atendimento",
       })),
     });
     setDrawerOpen(true);

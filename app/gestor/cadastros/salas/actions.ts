@@ -34,7 +34,7 @@ export async function createResource(formData: FormData): Promise<ActionResult> 
     return { success: false, error: "Você não tem permissão para cadastrar recursos." };
   }
 
-  revalidatePath("/gestor/configuracoes/atendimentos");
+  revalidatePath("/gestor/cadastros/salas");
   revalidatePath("/recepcao/recursos");
   return { success: true };
 }
@@ -61,7 +61,7 @@ export async function createRoom(formData: FormData): Promise<ActionResult> {
     return { success: false, error: "Você não tem permissão para cadastrar salas." };
   }
 
-  revalidatePath("/gestor/configuracoes/atendimentos");
+  revalidatePath("/gestor/cadastros/salas");
   return { success: true };
 }
 
@@ -81,7 +81,7 @@ export async function updateRoom(roomId: string, formData: FormData): Promise<Ac
     return { success: false, error: "Não foi possível atualizar esta sala." };
   }
 
-  revalidatePath("/gestor/configuracoes/atendimentos");
+  revalidatePath("/gestor/cadastros/salas");
   return { success: true };
 }
 
@@ -98,6 +98,6 @@ export async function deleteRoom(roomId: string): Promise<ActionResult> {
     };
   }
 
-  revalidatePath("/gestor/configuracoes/atendimentos");
+  revalidatePath("/gestor/cadastros/salas");
   return { success: true };
 }

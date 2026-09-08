@@ -329,7 +329,7 @@ export function PlanForm({
               name: item.description,
               targetType: "tentativa" as const,
               masteryCriterion: "80% de acertos em 3 sessões consecutivas",
-              protocolItemId: item.id,
+              protocolItemId: item.protocolItemId,
               itemCode: item.itemCode,
             }))
           : [],

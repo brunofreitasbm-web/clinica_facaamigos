@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { ConfigSidebar } from "../config-sidebar";
+import { CadastrosSidebar } from "../cadastros-sidebar";
 import { createIntervention, renameInterventionLabel, toggleInterventionActive } from "./actions";
 
 export type InterventionRow = {
@@ -97,7 +97,7 @@ export function IntervencoesManager({ interventions }: { interventions: Interven
 
   return (
     <div className="flex flex-1">
-      <ConfigSidebar active="intervencoes" />
+      <CadastrosSidebar active="intervencoes" />
       <div className="flex-1 p-8">
         <h1 className="mb-1">Intervenções do terapeuta</h1>
         <p className="mb-6 text-sm text-ink-soft">

@@ -1,20 +1,19 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { ConfigSidebar } from "../config-sidebar";
-import { createBehavior, renameBehaviorLabel, toggleBehaviorActive } from "./actions";
+import { CadastrosSidebar } from "../cadastros-sidebar";
+import { createSpecialty, renameSpecialtyLabel, toggleSpecialtyActive } from "./actions";
 
-export type BehaviorRow = {
+export type SpecialtyRow = {
   id: string;
   value: string;
   label: string;
-  discipline: string | null;
   active: boolean;
 };
 
-function BehaviorRowView({ behavior }: { behavior: BehaviorRow }) {
+function SpecialtyRowView({ specialty }: { specialty: SpecialtyRow }) {
   const [editing, setEditing] = useState(false);
-  const [label, setLabel] = useState(behavior.label);
+  const [label, setLabel] = useState(specialty.label);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -29,13 +28,12 @@ function BehaviorRowView({ behavior }: { behavior: BehaviorRow }) {
             onChange={(e) => setLabel(e.target.value)}
           />
         ) : (
-          <span className={behavior.active ? "" : "text-ink-faint line-through"}>{behavior.label}</span>
+          <span className={specialty.active ? "" : "text-ink-faint line-through"}>{specialty.label}</span>
         )}
       </td>
       <td className="text-ink-faint">
-        <code className="text-xs">{behavior.value}</code>
+        <code className="text-xs">{specialty.value}</code>
       </td>
-      <td>{behavior.discipline ?? <span className="text-ink-faint">todas</span>}</td>
       <td className="text-right">
         <div className="flex justify-end gap-2">
           {editing ? (
@@ -49,7 +47,7 @@ function BehaviorRowView({ behavior }: { behavior: BehaviorRow }) {
                   startTransition(async () => {
                     const fd = new FormData();
                     fd.set("label", label);
-                    const result = await renameBehaviorLabel(behavior.id, fd);
+                    const result = await renameSpecialtyLabel(specialty.id, fd);
                     if (!result.success) {
                       setError(result.error);
                       return;
@@ -75,11 +73,11 @@ function BehaviorRowView({ behavior }: { behavior: BehaviorRow }) {
                 disabled={isPending}
                 onClick={() =>
                   startTransition(() => {
-                    void toggleBehaviorActive(behavior.id, !behavior.active);
+                    void toggleSpecialtyActive(specialty.id, !specialty.active);
                   })
                 }
               >
-                {behavior.active ? "Desativar" : "Reativar"}
+                {specialty.active ? "Desativar" : "Reativar"}
               </button>
             </>
           )}
@@ -90,20 +88,21 @@ function BehaviorRowView({ behavior }: { behavior: BehaviorRow }) {
   );
 }
 
-export function ComportamentosManager({ behaviors }: { behaviors: BehaviorRow[] }) {
+export function EspecialidadesManager({ specialties }: { specialties: SpecialtyRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
     <div className="flex flex-1">
-      <ConfigSidebar active="comportamentos" />
+      <CadastrosSidebar active="especialidades" />
       <div className="flex-1 p-8">
-        <h1 className="mb-1">Comportamentos-alvo</h1>
+        <h1 className="mb-1">Especialidades</h1>
         <p className="mb-6 text-sm text-ink-soft">
-          Lista de comportamentos-alvo que aparece no formulário de evolução do terapeuta (PRD §9.4). Um
-          comportamento já usado em alguma evolução assinada não pode ser apagado — desative-o em vez disso; o
-          nome (rótulo) pode ser corrigido a qualquer momento.
+          Lista de especialidades profissionais (musicoterapia, fisioterapia, psicologia ABA, fonoaudiologia,
+          entre outras) usada nos cadastros de terapeutas e equipe. Uma especialidade já vinculada a algum
+          registro não pode ser apagada — desative-a em vez disso; o nome (rótulo) pode ser corrigido a
+          qualquer momento.
         </p>
 
         <table className="table mb-6">
@@ -111,18 +110,17 @@ export function ComportamentosManager({ behaviors }: { behaviors: BehaviorRow[] 
             <tr>
               <th>Nome</th>
               <th>Chave</th>
-              <th>Disciplina</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {behaviors.map((b) => (
-              <BehaviorRowView key={b.id} behavior={b} />
+            {specialties.map((s) => (
+              <SpecialtyRowView key={s.id} specialty={s} />
             ))}
-            {behaviors.length === 0 && (
+            {specialties.length === 0 && (
               <tr>
-                <td colSpan={4} className="text-ink-faint">
-                  Nenhum comportamento cadastrado ainda.
+                <td colSpan={3} className="text-ink-faint">
+                  Nenhuma especialidade cadastrada ainda.
                 </td>
               </tr>
             )}
@@ -131,11 +129,11 @@ export function ComportamentosManager({ behaviors }: { behaviors: BehaviorRow[] 
 
         <form
           ref={formRef}
-          className="grid max-w-[520px] grid-cols-1 gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-5 sm:grid-cols-2"
+          className="grid max-w-[520px] grid-cols-1 gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-5"
           action={(formData) => {
             setError(null);
             startTransition(async () => {
-              const result = await createBehavior(formData);
+              const result = await createSpecialty(formData);
               if (!result.success) {
                 setError(result.error);
                 return;
@@ -144,16 +142,11 @@ export function ComportamentosManager({ behaviors }: { behaviors: BehaviorRow[] 
             });
           }}
         >
-          <input name="label" required placeholder="Nome do comportamento" className="input sm:col-span-2" />
-          <input
-            name="discipline"
-            placeholder="Disciplina (opcional — vazio = todas)"
-            className="input sm:col-span-2"
-          />
-          <button type="submit" disabled={isPending} className="btn btn-primary sm:col-span-2 w-fit">
-            {isPending ? "Adicionando…" : "+ Adicionar comportamento"}
+          <input name="label" required placeholder="Nome da especialidade" className="input" />
+          <button type="submit" disabled={isPending} className="btn btn-primary w-fit">
+            {isPending ? "Adicionando…" : "+ Adicionar especialidade"}
           </button>
-          {error && <p className="text-xs text-status-negative-text sm:col-span-2">{error}</p>}
+          {error && <p className="text-xs text-status-negative-text">{error}</p>}
         </form>
       </div>
     </div>

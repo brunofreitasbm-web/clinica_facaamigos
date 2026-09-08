@@ -31,8 +31,8 @@ export async function createAppointment(
 
   const supabase = await createClient();
 
-  // Duração da sessão vem do catálogo cadastrado em /gestor/atendimentos
-  // (app/gestor/atendimentos), não mais de um valor fixo de 50min — permite
+  // Duração da sessão vem do catálogo cadastrado em /gestor/cadastros/tipos-atendimento
+  // (app/gestor/cadastros/tipos-atendimento), não mais de um valor fixo de 50min — permite
   // que cada tipo de atendimento (fono, aba, avaliação…) tenha sua própria
   // duração padrão.
   const { data: appointmentType } = await supabase

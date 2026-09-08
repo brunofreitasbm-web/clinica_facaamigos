@@ -23,7 +23,7 @@ export function ProtocolForm() {
         setError(result.error);
         return;
       }
-      router.push("/gestor/cadastros");
+      router.push("/gestor/cadastros/terapias");
     });
   }
 

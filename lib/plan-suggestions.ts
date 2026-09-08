@@ -29,12 +29,19 @@ export type SuggestedGoal = {
   baseline: string;
   protocolLabel: string;
   /**
-   * Itens do protocolo por trás desta sugestão (score < 2 na última
-   * avaliação) — cada um vira candidato a virar um `programs` (coleta de
-   * dados por tentativa) quando a meta for de disciplina 'aba'. Ver
+   * Itens por trás desta sugestão (ainda não adquiridos na última avaliação)
+   * — cada um vira candidato a virar um `programs` (coleta de dados por
+   * tentativa) quando a meta for de disciplina 'aba'. Ver
    * app/supervisao/planos/novo/plan-form.tsx e actions.ts::createTreatmentPlan.
+   *
+   * `protocolItemId` só é preenchido quando o item vem mesmo de
+   * `protocol_items` (protocolo licenciado cadastrado pelo gestor) — é uma FK
+   * e um id inventado quebraria o insert. Instrumentos com catálogo fixo em
+   * código (fono, Socially Savvy) mandam `null`, e aí o servidor grava o
+   * programa contra o `domain_taxonomy` da dupla disciplina+domínio,
+   * criando-o se ainda não existir (actions.ts::resolveDomainTaxonomyId).
    */
-  pendingItems: { id: string; itemCode: string; description: string }[];
+  pendingItems: { protocolItemId: string | null; itemCode: string; description: string }[];
 };
 
 export type TeamSuggestion = { discipline: string; roleLabel: string; profileName: string };
@@ -81,7 +88,11 @@ export async function getSuggestedGoals(
         description: `${sample}${pending.length > 3 ? "…" : ""}`,
         baseline: `${pending.length} de ${domainItems.length} itens não adquiridos (${emergentCount} emergentes, ${notObservedCount} não observados) — ${protocolLabel}`,
         protocolLabel,
-        pendingItems: pending.map((i) => ({ id: i.id, itemCode: i.itemCode, description: i.description })),
+        pendingItems: pending.map((i) => ({
+          protocolItemId: i.id,
+          itemCode: i.itemCode,
+          description: i.description,
+        })),
       });
     }
   }
@@ -142,7 +153,7 @@ async function getFonoSuggestedGoals(supabase: Supa, patientId: string): Promise
         description: `${sample}${items.length > 3 ? "…" : ""}`,
         baseline: `${scoreSummary} — ${protocolLabel}`,
         protocolLabel,
-        pendingItems: items.map((i) => ({ id: i.key, itemCode: String(i.num), description: i.text })),
+        pendingItems: items.map((i) => ({ protocolItemId: null, itemCode: String(i.num), description: i.text })),
       });
     }
   }
@@ -178,10 +189,12 @@ async function getFonoSuggestedGoals(supabase: Supa, patientId: string): Promise
  * por área com objetivos prioritários (habilidades pontuadas com 2 —
  * emergentes), a partir da última aplicação concluída.
  *
- * `pendingItems` vai vazio de propósito: os códigos do catálogo (JA01, SP01…)
- * não são `protocol_items.id`, e é isso que plan-form.tsx grava em
- * `programs.protocol_item_id` quando `discipline === "aba"`. O supervisor
- * cadastra os programas de coleta manualmente a partir da meta sugerida.
+ * Cada habilidade prioritária vira um `pendingItem` com `protocolItemId: null`
+ * — os códigos do catálogo (JA01, SP01…) não são `protocol_items.id`. Como a
+ * disciplina é 'aba', plan-form.tsx já transforma cada um num programa de
+ * coleta por tentativa, e o servidor o grava contra o `domain_taxonomy` da
+ * área. Sem isso o PEI viraria só texto de meta, sem nada para a terapeuta
+ * registrar sessão a sessão.
  */
 async function getSociallySavvySuggestedGoals(supabase: Supa, patientId: string): Promise<SuggestedGoal[]> {
   const assessment = await getLatestConcludedSociallySavvy(supabase, patientId);
@@ -208,7 +221,11 @@ async function getSociallySavvySuggestedGoals(supabase: Supa, patientId: string)
         description: `${sample}${priorities.length > 3 ? "…" : ""}`,
         baseline: `${area.achieved}/${area.expected} pontos (${(area.percent * 100).toFixed(1).replace(".", ",")}%) · ${priorities.length} objetivos prioritários e ${others} demais objetivos — ${protocolLabel}`,
         protocolLabel,
-        pendingItems: [],
+        pendingItems: priorities.map((o) => ({
+          protocolItemId: null,
+          itemCode: o.code,
+          description: o.text,
+        })),
       },
     ];
   });

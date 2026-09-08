@@ -19,7 +19,7 @@ function slugify(label: string): string {
 /**
  * Catálogo de intervenções do terapeuta — intervention_catalog, RLS
  * restrita a supervisor/gestor (intervention_catalog_manage_ins/upd). Mesmo
- * desenho de app/gestor/configuracoes/comportamentos/actions.ts:
+ * desenho de app/gestor/cadastros/comportamentos/actions.ts:
  * `value` vira a chave gravada em session_intervention_logs.intervention_value,
  * então não existe delete aqui, só toggleInterventionActive.
  */
@@ -49,7 +49,7 @@ export async function createIntervention(formData: FormData): Promise<ActionResu
     return { success: false, error: "Você não tem permissão para cadastrar intervenções." };
   }
 
-  revalidatePath("/gestor/configuracoes/intervencoes");
+  revalidatePath("/gestor/cadastros/intervencoes");
   return { success: true };
 }
 
@@ -67,7 +67,7 @@ export async function renameInterventionLabel(interventionId: string, formData: 
     return { success: false, error: "Não foi possível renomear esta intervenção." };
   }
 
-  revalidatePath("/gestor/configuracoes/intervencoes");
+  revalidatePath("/gestor/cadastros/intervencoes");
   return { success: true };
 }
 
@@ -79,6 +79,6 @@ export async function toggleInterventionActive(interventionId: string, active: b
     return { success: false, error: "Não foi possível atualizar esta intervenção." };
   }
 
-  revalidatePath("/gestor/configuracoes/intervencoes");
+  revalidatePath("/gestor/cadastros/intervencoes");
   return { success: true };
 }

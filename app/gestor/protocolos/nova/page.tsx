@@ -1,21 +1,6 @@
-import Link from "next/link";
-import { ProtocolForm } from "./protocol-form";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default function NovoProtocoloPage() {
-  return (
-    <main className="flex flex-1 flex-col gap-6 p-10">
-      <div>
-        <Link href="/gestor/cadastros" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
-          ← Cadastros
-        </Link>
-        <h6 style={{ color: "var(--color-accent-2-600)" }} className="mt-3 mb-1">
-          Módulo 3 MAAIS · Avaliação inicial
-        </h6>
-        <h1 className="m-0">Cadastrar protocolo licenciado</h1>
-      </div>
-      <ProtocolForm />
-    </main>
-  );
+// Movido para Cadastros (ver app/gestor/cadastros/terapias/nova).
+export default function ProtocolosNovaRedirect() {
+  redirect("/gestor/cadastros/terapias/nova");
 }

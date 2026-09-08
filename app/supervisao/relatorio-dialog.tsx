@@ -61,7 +61,7 @@ export function RelatorioReavaliacaoDialog({
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+        className="btn btn-primary inline-flex items-center gap-2 text-xs"
       >
         <svg
           aria-hidden

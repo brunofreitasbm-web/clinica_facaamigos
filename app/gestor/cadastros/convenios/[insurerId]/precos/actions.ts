@@ -44,6 +44,6 @@ export async function createPriceTableEntry(
     return { success: false, error: "Não foi possível salvar o preço. Tente de novo." };
   }
 
-  revalidatePath(`/gestor/convenios/${insurerId}/precos`);
+  revalidatePath(`/gestor/cadastros/convenios/${insurerId}/precos`);
   return { success: true };
 }

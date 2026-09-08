@@ -28,7 +28,7 @@ export async function createInsurer(
     return { success: false, error: "Não foi possível salvar o convênio. Tente de novo." };
   }
 
-  revalidatePath("/gestor/convenios");
+  revalidatePath("/gestor/cadastros/convenios");
   return { success: true };
 }
 
@@ -53,7 +53,7 @@ export async function updateInsurerProviderCode(
     return { success: false, error: "Não foi possível salvar o código do prestador." };
   }
 
-  revalidatePath("/gestor/convenios");
+  revalidatePath("/gestor/cadastros/convenios");
   revalidatePath("/faturamento/guias");
   return { success: true };
 }
@@ -83,7 +83,7 @@ export async function setInsurerIntakeProfile(
     return { success: false, error: "Não foi possível salvar o perfil de extração deste convênio." };
   }
 
-  revalidatePath("/gestor/convenios");
+  revalidatePath("/gestor/cadastros/convenios");
   revalidatePath("/supervisao");
   return { success: true };
 }

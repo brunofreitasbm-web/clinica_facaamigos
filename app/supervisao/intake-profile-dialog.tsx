@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { setInsurerIntakeProfile } from "@/app/gestor/convenios/actions";
+import { setInsurerIntakeProfile } from "@/app/gestor/cadastros/convenios/actions";
 import { INTAKE_FIELD_LABEL, type IntakeExtractionProfile, type IntakeFieldKey } from "@/lib/insurance-intake-profile";
 
 const FIELD_OPTIONS = Object.entries(INTAKE_FIELD_LABEL) as [IntakeFieldKey, string][];

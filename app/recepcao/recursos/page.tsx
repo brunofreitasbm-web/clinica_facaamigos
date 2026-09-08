@@ -55,8 +55,8 @@ export default async function RecursosPage() {
         <div className="card max-w-[900px]">
           <div className="flex items-center justify-between gap-3">
             <div className="card-kicker">Recursos cadastrados</div>
-            <Link href="/gestor/configuracoes/atendimentos" className="text-xs text-ink-faint no-underline hover:underline">
-              Cadastrar novo recurso (Configurações) →
+            <Link href="/gestor/cadastros/salas" className="text-xs text-ink-faint no-underline hover:underline">
+              Cadastrar novo recurso (Cadastros) →
             </Link>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">

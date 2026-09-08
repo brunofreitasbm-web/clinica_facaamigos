@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { listPatientSociallySavvyAssessments } from "@/lib/socially-savvy-assessments";
+import { isInstrumentEnabled } from "@/lib/clinic-instruments";
 import {
   SOCIALLY_SAVVY_CATALOG,
   SOCIALLY_SAVVY_LABEL,
@@ -35,8 +36,16 @@ export default async function PatientSociallySavvyHubPage({
   const { data: profile } = await supabase.from("profiles").select("id, role").eq("id", user.id).maybeSingle();
   if (!profile || !["terapeuta", "supervisor", "gestor"].includes(profile.role)) redirect("/");
 
-  const { data: patient } = await supabase.from("patients").select("id, full_name").eq("id", patientId).maybeSingle();
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("id, full_name, clinic_id")
+    .eq("id", patientId)
+    .maybeSingle();
   if (!patient) notFound();
+
+  // Instrumento desativado pelo gestor (/gestor/cadastros/instrumentos):
+  // esconder o atalho no prontuário não basta, a URL continua digitável.
+  if (!(await isInstrumentEnabled(supabase, patient.clinic_id, "socially_savvy"))) notFound();
 
   await logRecordAccess(supabase, patientId, "avaliacao_socially_savvy");
 

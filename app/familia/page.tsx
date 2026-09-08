@@ -10,8 +10,8 @@ import { getFeedPosts } from "@/lib/feed-posts";
 import { ContactCoordination } from "./contact-coordination";
 import { DocumentOpenButton } from "./document-open-button";
 import { ReportAbsence } from "./report-absence";
-import { ConfirmAttendance } from "./confirm-attendance";
 import { SurveyPrompt } from "./survey-prompt";
+import { NpsSurveyPrompt } from "./nps-survey-prompt";
 import { RequestReschedule } from "./request-reschedule";
 import { UploadDocument } from "./upload-document";
 import { LgpdConsentGate } from "./lgpd-consent-gate";
@@ -273,6 +273,23 @@ export default async function FamiliaPage({
     : { data: null };
   const showSurveyPrompt = !!guardianRow && !existingSurvey;
 
+  // NPS Externo (evento/mensal) — disparado por /api/twilio/nps/trigger e
+  // /api/twilio/nps-mensal/trigger, mas respondido só aqui no portal (nunca
+  // mais via WhatsApp, ver 20260908030000_nps_externo_portal_only.sql).
+  // Mostra no máximo a pesquisa pendente mais recente pra não empilhar
+  // formulário em cima de formulário.
+  const { data: pendingNpsSurvey } = guardianRow
+    ? await supabase
+        .from("nps_surveys")
+        .select("id, trigger_type")
+        .eq("patient_id", patientId)
+        .eq("guardian_id", guardianRow.id)
+        .is("responded_at", null)
+        .order("dispatched_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+
   // Aviso de faltas (MAAIS §13 / "risco de evasão") — refresh_absence_alerts
   // (20260906000015) abre a linha quando o paciente cruza 3 faltas
   // consecutivas ou >=50% em 3 meses; aqui só mostramos o alerta ainda não
@@ -434,20 +451,21 @@ export default async function FamiliaPage({
                   {therapistName ? ` · ${therapistName}` : ""}
                 </span>
               </div>
-              {confirmed && <div style={{ color: "var(--color-teal-300)", fontSize: 13 }}>✓ Presença confirmada pela recepção.</div>}
-              {notConfirmed && <ConfirmAttendance appointmentId={nextAppt.id} />}
-              {(notConfirmed || confirmed) && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <ReportAbsence
-                    appointmentId={nextAppt.id}
-                    sessionLabel={`${fmtWhen(nextAppt.starts_at)} · ${nextAppt.discipline}${therapistName ? ` (${therapistName})` : ""}`}
-                  />
-                  <RequestReschedule
-                    appointmentId={nextAppt.id}
-                    sessionLabel={`${fmtWhen(nextAppt.starts_at)} · ${nextAppt.discipline}${therapistName ? ` (${therapistName})` : ""}`}
-                  />
-                </div>
+              {nextAppt.status === "confirmada" ? (
+                <div style={{ color: "var(--color-teal-300)", fontSize: 13 }}>✓ Presença confirmada pela recepção.</div>
+              ) : (
+                <div style={{ color: "var(--color-neutral-600)", fontSize: 13 }}>✓ Presença confirmada por padrão (opt-out).</div>
               )}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                <ReportAbsence
+                  appointmentId={nextAppt.id}
+                  sessionLabel={`${fmtWhen(nextAppt.starts_at)} · ${nextAppt.discipline}${therapistName ? ` (${therapistName})` : ""}`}
+                />
+                <RequestReschedule
+                  appointmentId={nextAppt.id}
+                  sessionLabel={`${fmtWhen(nextAppt.starts_at)} · ${nextAppt.discipline}${therapistName ? ` (${therapistName})` : ""}`}
+                />
+              </div>
             </>
           ) : (
             <span style={{ fontSize: 14, opacity: 0.85 }}>Nenhuma sessão agendada no momento.</span>
@@ -472,6 +490,10 @@ export default async function FamiliaPage({
             Notamos algumas faltas recentes. Se está difícil manter os horários, fala com a
             recepção — a gente ajuda a reorganizar a agenda.
           </div>
+        )}
+
+        {pendingNpsSurvey && (
+          <NpsSurveyPrompt surveyId={pendingNpsSurvey.id} triggerType={pendingNpsSurvey.trigger_type ?? "evaluation"} />
         )}
 
         {showSurveyPrompt && guardianRow && (

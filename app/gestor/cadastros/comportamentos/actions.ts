@@ -49,7 +49,7 @@ export async function createBehavior(formData: FormData): Promise<ActionResult> 
     return { success: false, error: "Você não tem permissão para cadastrar comportamentos." };
   }
 
-  revalidatePath("/gestor/configuracoes/comportamentos");
+  revalidatePath("/gestor/cadastros/comportamentos");
   return { success: true };
 }
 
@@ -66,7 +66,7 @@ export async function renameBehaviorLabel(behaviorId: string, formData: FormData
     return { success: false, error: "Não foi possível renomear este comportamento." };
   }
 
-  revalidatePath("/gestor/configuracoes/comportamentos");
+  revalidatePath("/gestor/cadastros/comportamentos");
   return { success: true };
 }
 
@@ -78,6 +78,6 @@ export async function toggleBehaviorActive(behaviorId: string, active: boolean):
     return { success: false, error: "Não foi possível atualizar este comportamento." };
   }
 
-  revalidatePath("/gestor/configuracoes/comportamentos");
+  revalidatePath("/gestor/cadastros/comportamentos");
   return { success: true };
 }

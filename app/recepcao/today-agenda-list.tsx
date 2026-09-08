@@ -121,9 +121,9 @@ export function TodayAgendaList({
   const [modalPatient, setModalPatient] = useState<{ id: string; name: string; appointmentId?: string } | null>(null);
 
   const [selectedTherapistIds, setSelectedTherapistIds] = useState<Set<string>>(new Set());
-
-  const [selectedTypeIds, setSelectedTypeIds] = useState<Set<string>>(new Set());
-  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [selectedDisciplines, setSelectedDisciplines] = useState<Set<string>>(new Set());
+  const [selectedGuiaStatus, setSelectedGuiaStatus] = useState<Set<string>>(new Set());
+  const [selectedTurnos, setSelectedTurnos] = useState<Set<string>>(new Set());
 
   const therapistOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -133,14 +133,22 @@ export function TodayAgendaList({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [sessions]);
 
-  const tagOptions = useMemo(() => {
-    const patientIds = new Set(sessions.map((s) => s.patientId));
-    const tags = new Set<string>();
-    for (const pid of patientIds) {
-      for (const tag of tagsByPatient[pid] ?? []) tags.add(tag);
-    }
-    return Array.from(tags).sort((a, b) => a.localeCompare(b));
-  }, [sessions, tagsByPatient]);
+  const disciplineOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of sessions) if (s.discipline) set.add(s.discipline);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [sessions]);
+
+  const guiaStatusOptions = [
+    { id: "com_guia", label: "Com Guia / Autorização" },
+    { id: "sem_guia", label: "Pendente de Guia" },
+  ];
+
+  const turnoOptions = [
+    { id: "manha", label: "Manhã (até 12h)" },
+    { id: "tarde", label: "Tarde (12h às 18h)" },
+    { id: "noite", label: "Noite (após 18h)" },
+  ];
 
   const counts = useMemo(() => {
     let aConfirmar = 0;
@@ -177,14 +185,22 @@ export function TodayAgendaList({
         }
       }
       if (selectedTherapistIds.size && !selectedTherapistIds.has(s.therapistId)) return false;
-      if (selectedTypeIds.size && (!s.appointmentTypeId || !selectedTypeIds.has(s.appointmentTypeId))) return false;
-      if (selectedTags.size) {
-        const patientTags = tagsByPatient[s.patientId] ?? [];
-        if (!patientTags.some((t) => selectedTags.has(t))) return false;
+      if (selectedDisciplines.size && !selectedDisciplines.has(s.discipline)) return false;
+      if (selectedGuiaStatus.size) {
+        const hasGuia = Boolean(s.authorizationId);
+        if (selectedGuiaStatus.has("com_guia") && !selectedGuiaStatus.has("sem_guia") && !hasGuia) return false;
+        if (selectedGuiaStatus.has("sem_guia") && !selectedGuiaStatus.has("com_guia") && hasGuia) return false;
+      }
+      if (selectedTurnos.size) {
+        const hour = new Date(s.startsAt).getHours();
+        let turno = "tarde";
+        if (hour < 12) turno = "manha";
+        else if (hour >= 18) turno = "noite";
+        if (!selectedTurnos.has(turno)) return false;
       }
       return true;
     });
-  }, [sessions, filter, search, selectedTherapistIds, selectedTypeIds, selectedTags, tagsByPatient]);
+  }, [sessions, filter, search, selectedTherapistIds, selectedDisciplines, selectedGuiaStatus, selectedTurnos, guardiansByPatient]);
 
   const grouped = useMemo(() => {
     if (groupMode !== "profissional") return null;
@@ -204,60 +220,167 @@ export function TodayAgendaList({
     { key: "faltas", label: "Faltas", count: counts.faltas },
   ];
 
-  const activeFilterCount = selectedTherapistIds.size + selectedTypeIds.size + selectedTags.size;
+  const activeFilterCount =
+    selectedTherapistIds.size +
+    selectedDisciplines.size +
+    selectedGuiaStatus.size +
+    selectedTurnos.size;
   const selectedRoomSession = selectedRoomSessionId
     ? (filtered.find((s) => s.id === selectedRoomSessionId) ?? null)
     : null;
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="flex flex-1 flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            {filters.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setFilter(f.key)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  filter === f.key
-                    ? "border-chart bg-chart text-paper"
-                    : "border-paper-line-strong text-ink-soft hover:border-chart"
-                }`}
-              >
-                {f.label} ({f.count})
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por paciente…"
-              className="input w-48 text-xs"
-            />
-            <div className="seg">
-              <label className="seg-opt">
-                <input type="radio" name="group-mode" checked={groupMode === "lista"} onChange={() => setGroupMode("lista")} />
-                Lista
-              </label>
-              <label className="seg-opt">
-                <input
-                  type="radio"
-                  name="group-mode"
-                  checked={groupMode === "profissional"}
-                  onChange={() => setGroupMode("profissional")}
-                />
-                Por terapeuta
-              </label>
-              <label className="seg-opt">
-                <input type="radio" name="group-mode" checked={groupMode === "sala"} onChange={() => setGroupMode("sala")} />
-                Por sala
-              </label>
-            </div>
+    <div className="flex flex-col gap-4">
+      {/* Filtros da grade e controles de visualização */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                filter === f.key
+                  ? "border-chart bg-chart text-paper"
+                  : "border-paper-line-strong text-ink-soft hover:border-chart"
+              }`}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por paciente…"
+            className="input w-48 text-xs"
+          />
+          <div className="seg">
+            <label className="seg-opt">
+              <input type="radio" name="group-mode" checked={groupMode === "lista"} onChange={() => setGroupMode("lista")} />
+              Lista
+            </label>
+            <label className="seg-opt">
+              <input
+                type="radio"
+                name="group-mode"
+                checked={groupMode === "profissional"}
+                onChange={() => setGroupMode("profissional")}
+              />
+              Por terapeuta
+            </label>
+            <label className="seg-opt">
+              <input type="radio" name="group-mode" checked={groupMode === "sala"} onChange={() => setGroupMode("sala")} />
+              Por sala
+            </label>
           </div>
         </div>
+      </div>
+
+      {/* Painel Horizontal de Filtros Avançados */}
+      <details className="rounded-md border border-paper-line-strong bg-paper/60" open>
+        <summary className="cursor-pointer px-3 py-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+          Filtros {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}
+        </summary>
+        <div className="flex flex-wrap items-start gap-6 border-t border-paper-line-strong p-3">
+          {/* Terapeutas */}
+          <details className="min-w-[170px]" open>
+            <summary className="cursor-pointer text-xs font-medium text-ink">
+              Terapeutas {selectedTherapistIds.size > 0 ? `(${selectedTherapistIds.size})` : ""}
+            </summary>
+            <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
+              {therapistOptions.length === 0 && <p className="text-xs text-ink-faint">Nenhum hoje.</p>}
+              {therapistOptions.map((t) => (
+                <label key={t.id} className="flex items-center gap-1.5 text-xs text-ink cursor-pointer hover:text-chart">
+                  <input
+                    type="checkbox"
+                    checked={selectedTherapistIds.has(t.id)}
+                    onChange={() => setSelectedTherapistIds((prev) => toggleInSet(prev, t.id))}
+                  />
+                  {t.name}
+                </label>
+              ))}
+            </div>
+          </details>
+
+          {/* Disciplinas */}
+          <details className="min-w-[170px]" open>
+            <summary className="cursor-pointer text-xs font-medium text-ink">
+              Especialidades {selectedDisciplines.size > 0 ? `(${selectedDisciplines.size})` : ""}
+            </summary>
+            <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
+              {disciplineOptions.length === 0 && <p className="text-xs text-ink-faint">Nenhuma hoje.</p>}
+              {disciplineOptions.map((disc) => (
+                <label key={disc} className="flex items-center gap-1.5 text-xs text-ink cursor-pointer hover:text-chart">
+                  <input
+                    type="checkbox"
+                    checked={selectedDisciplines.has(disc)}
+                    onChange={() => setSelectedDisciplines((prev) => toggleInSet(prev, disc))}
+                  />
+                  {disc}
+                </label>
+              ))}
+            </div>
+          </details>
+
+          {/* Validação de Guias */}
+          <details className="min-w-[170px]" open>
+            <summary className="cursor-pointer text-xs font-medium text-ink">
+              Status da Guia {selectedGuiaStatus.size > 0 ? `(${selectedGuiaStatus.size})` : ""}
+            </summary>
+            <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
+              {guiaStatusOptions.map((g) => (
+                <label key={g.id} className="flex items-center gap-1.5 text-xs text-ink cursor-pointer hover:text-chart">
+                  <input
+                    type="checkbox"
+                    checked={selectedGuiaStatus.has(g.id)}
+                    onChange={() => setSelectedGuiaStatus((prev) => toggleInSet(prev, g.id))}
+                  />
+                  {g.label}
+                </label>
+              ))}
+            </div>
+          </details>
+
+          {/* Turno de Atendimento */}
+          <details className="min-w-[150px]" open>
+            <summary className="cursor-pointer text-xs font-medium text-ink">
+              Turno {selectedTurnos.size > 0 ? `(${selectedTurnos.size})` : ""}
+            </summary>
+            <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
+              {turnoOptions.map((t) => (
+                <label key={t.id} className="flex items-center gap-1.5 text-xs text-ink cursor-pointer hover:text-chart">
+                  <input
+                    type="checkbox"
+                    checked={selectedTurnos.has(t.id)}
+                    onChange={() => setSelectedTurnos((prev) => toggleInSet(prev, t.id))}
+                  />
+                  {t.label}
+                </label>
+              ))}
+            </div>
+          </details>
+
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedTherapistIds(new Set());
+                setSelectedDisciplines(new Set());
+                setSelectedGuiaStatus(new Set());
+                setSelectedTurnos(new Set());
+              }}
+              className="self-center text-xs text-chart underline ml-auto"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      </details>
+
+      <div className="flex flex-col gap-4">
 
         {filtered.length === 0 && (
           <p className="text-sm text-ink-faint">Nenhuma sessão encontrada para esse filtro.</p>
@@ -318,81 +441,6 @@ export function TodayAgendaList({
           />
         )}
 
-      </div>
-
-      <aside className="w-full shrink-0 lg:w-64">
-        <details className="rounded-md border border-paper-line-strong bg-paper/60" open>
-          <summary className="cursor-pointer px-3 py-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
-            Filtros {activeFilterCount > 0 && `(${activeFilterCount})`}
-          </summary>
-          <div className="flex flex-col gap-3 border-t border-paper-line-strong p-3">
-            <details open>
-              <summary className="cursor-pointer text-xs font-medium text-ink">Terapeutas</summary>
-              <div className="mt-1.5 flex flex-col gap-1">
-                {therapistOptions.length === 0 && <p className="text-xs text-ink-faint">Nenhum hoje.</p>}
-                {therapistOptions.map((t) => (
-                  <label key={t.id} className="flex items-center gap-1.5 text-xs text-ink">
-                    <input
-                      type="checkbox"
-                      checked={selectedTherapistIds.has(t.id)}
-                      onChange={() => setSelectedTherapistIds((prev) => toggleInSet(prev, t.id))}
-                    />
-                    {t.name}
-                  </label>
-                ))}
-              </div>
-            </details>
-
-            <details>
-              <summary className="cursor-pointer text-xs font-medium text-ink">Tipo de atendimento</summary>
-              <div className="mt-1.5 flex flex-col gap-1">
-                {appointmentTypes.map((t) => (
-                  <label key={t.id} className="flex items-center gap-1.5 text-xs text-ink">
-                    <input
-                      type="checkbox"
-                      checked={selectedTypeIds.has(t.id)}
-                      onChange={() => setSelectedTypeIds((prev) => toggleInSet(prev, t.id))}
-                    />
-                    {t.name}
-                  </label>
-                ))}
-              </div>
-            </details>
-
-            <details>
-              <summary className="cursor-pointer text-xs font-medium text-ink">Tags do paciente</summary>
-              <div className="mt-1.5 flex flex-col gap-1">
-                {tagOptions.length === 0 && <p className="text-xs text-ink-faint">Nenhuma tag hoje.</p>}
-                {tagOptions.map((tag) => (
-                  <label key={tag} className="flex items-center gap-1.5 text-xs text-ink">
-                    <input
-                      type="checkbox"
-                      checked={selectedTags.has(tag)}
-                      onChange={() => setSelectedTags((prev) => toggleInSet(prev, tag))}
-                    />
-                    {tag}
-                  </label>
-                ))}
-              </div>
-            </details>
-
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedTherapistIds(new Set());
-                  setSelectedTypeIds(new Set());
-                  setSelectedTags(new Set());
-                }}
-                className="self-start text-xs text-chart underline"
-              >
-                Limpar filtros
-              </button>
-            )}
-          </div>
-        </details>
-      </aside>
-
       {selectedRoomSession && (
         <div className="fixed inset-y-0 right-0 z-30 w-full max-w-md overflow-y-auto border-l border-paper-line-strong bg-paper p-4 shadow-xl">
           <div className="mb-3 flex items-center justify-between">
@@ -414,6 +462,7 @@ export function TodayAgendaList({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -37,8 +37,8 @@ export async function createProtocolItem(protocolId: string, formData: FormData)
     };
   }
 
-  revalidatePath(`/gestor/protocolos/${protocolId}`);
-  revalidatePath("/gestor/cadastros");
+  revalidatePath(`/gestor/cadastros/terapias/${protocolId}`);
+  revalidatePath("/gestor/cadastros/terapias");
   return { success: true };
 }
 
@@ -50,7 +50,7 @@ export async function deleteProtocolItem(protocolId: string, itemId: string): Pr
     return { success: false, error: "Não foi possível remover o item. Tente de novo." };
   }
 
-  revalidatePath(`/gestor/protocolos/${protocolId}`);
-  revalidatePath("/gestor/cadastros");
+  revalidatePath(`/gestor/cadastros/terapias/${protocolId}`);
+  revalidatePath("/gestor/cadastros/terapias");
   return { success: true };
 }

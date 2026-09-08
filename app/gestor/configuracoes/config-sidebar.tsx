@@ -1,57 +1,18 @@
-import Link from "next/link";
+import { SectionSidebar } from "@/components/section-sidebar";
 
-// gerais, cobrancas e modelos existiram aqui mas eram telas sem função
-// real: formulário local (useState) com "salvar" simulado por setTimeout,
-// sem nenhuma tabela no schema que sustentasse o conceito (razão social/
-// CNPJ estendido, config de cobrança, modelos de documento). Removidas em
-// vez de mantidas como enfeite. `profissionais` foi reconstruída como
-// cadastro real de therapist_contracts (valor-hora por terapeuta).
+// Só parâmetros de sistema ficam aqui — quem mexe é o gestor, mas o que se
+// configura não é uma entidade da clínica (isso é Cadastros, ver
+// app/gestor/cadastros/cadastros-sidebar.tsx): são regras, contas e
+// integrações do próprio sistema.
 const SIDEBAR_ITEMS = [
-  { key: "atendimentos", label: "Atendimentos & Salas", href: "/gestor/configuracoes/atendimentos", enabled: true },
-  { key: "profissionais", label: "Terapeutas", href: "/gestor/configuracoes/profissionais", enabled: true },
-  { key: "especialidades", label: "Especialidades", href: "/gestor/configuracoes/especialidades", enabled: true },
-  { key: "prioridades", label: "Prioridades de Avaliação", href: "/gestor/configuracoes/prioridades-avaliacao", enabled: true },
-  { key: "comportamentos", label: "Comportamentos-alvo", href: "/gestor/configuracoes/comportamentos", enabled: true },
-  { key: "intervencoes", label: "Intervenções", href: "/gestor/configuracoes/intervencoes", enabled: true },
-  { key: "notificacoes", label: "Notificações", href: "/gestor/configuracoes/notificacoes", enabled: true },
-  { key: "usuarios", label: "Usuários", href: "/gestor/configuracoes/usuarios", enabled: true },
+  { key: "prioridades", label: "Regras de Agendamento", href: "/gestor/configuracoes/prioridades-avaliacao" },
+  { key: "profissionais", label: "Contratos & Valor-hora", href: "/gestor/configuracoes/profissionais" },
+  { key: "usuarios", label: "Usuários & Permissões", href: "/gestor/configuracoes/usuarios" },
+  { key: "notificacoes", label: "WhatsApp Bot", href: "/gestor/configuracoes/notificacoes" },
 ] as const;
 
 export type ConfigSidebarKey = (typeof SIDEBAR_ITEMS)[number]["key"];
 
 export function ConfigSidebar({ active }: { active: ConfigSidebarKey }) {
-  return (
-    <aside className="w-[220px] shrink-0 border-r border-paper-line-strong px-4 py-8">
-      <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3 px-3">
-        Gerais
-      </h6>
-      <nav className="flex flex-col gap-1">
-        {SIDEBAR_ITEMS.map((item) =>
-          item.enabled ? (
-            <Link
-              key={item.key}
-              href={item.href}
-              aria-current={active === item.key ? "page" : undefined}
-              className="rounded-md px-3 py-2 text-[14px] no-underline"
-              style={{
-                color: active === item.key ? "var(--color-accent)" : "var(--color-text)",
-                background: active === item.key ? "var(--color-accent-100)" : "transparent",
-                fontWeight: active === item.key ? 600 : 400,
-              }}
-            >
-              {item.label}
-            </Link>
-          ) : (
-            <span
-              key={item.key}
-              className="cursor-not-allowed rounded-md px-3 py-2 text-[14px] text-ink-faint"
-              title="Em breve"
-            >
-              {item.label}
-            </span>
-          ),
-        )}
-      </nav>
-    </aside>
-  );
+  return <SectionSidebar title="Sistema" items={SIDEBAR_ITEMS} active={active} />;
 }

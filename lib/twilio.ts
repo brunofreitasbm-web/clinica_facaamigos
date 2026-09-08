@@ -393,64 +393,6 @@ async function isAwaitingAnamnesisPdf(phone: string): Promise<boolean> {
 }
 
 /**
- * Verifica se a mensagem recebida é uma resposta numérica a uma pesquisa
- * NPS disparada nas últimas 48h e, se for, registra a resposta. A faixa
- * aceita e o limiar de detrator dependem de trigger_type: disparos por
- * evento (evaluation/devolutiva) usam escala 1-5, o disparo mensal usa
- * escala 0-10 (nps_surveys.trigger_type, ver 20260907000000_nps_mensal.sql).
- */
-async function tryHandleNpsResponse(
-  phone: string,
-  body: string,
-): Promise<{ replyMessage: string; intent: string } | null> {
-  const trimmed = (body || "").trim();
-  const leadingNumber = trimmed.match(/^(\d{1,2})\s*([\s\S]*)$/);
-  if (!leadingNumber) return null;
-
-  const { createAdminClient } = await import("@/lib/supabase/admin");
-  const supabase = createAdminClient();
-
-  const cutoffISO = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-
-  const { data: survey } = await supabase
-    .from("nps_surveys")
-    .select("id, score, alert_status, trigger_type")
-    .eq("phone_number", phone)
-    .is("responded_at", null)
-    .gt("dispatched_at", cutoffISO)
-    .order("dispatched_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!survey) return null;
-
-  const isMensal = survey.trigger_type === "mensal";
-  const score = Number(leadingNumber[1]);
-  const minScore = isMensal ? 0 : 1;
-  const maxScore = isMensal ? 10 : 5;
-  if (score < minScore || score > maxScore) return null;
-
-  const feedbackText = leadingNumber[2]?.trim() || null;
-  const isDetractor = isMensal ? score <= 6 : score <= 3;
-
-  await supabase
-    .from("nps_surveys")
-    .update({
-      score,
-      responded_at: new Date().toISOString(),
-      feedback_text: feedbackText,
-      ...(isDetractor ? { alert_status: "pending_contact" } : {}),
-    })
-    .eq("id", survey.id);
-
-  const replyMessage = isDetractor
-    ? "Muito obrigado pelo seu feedback! 🙏\n\nSentimos muito que a experiência não tenha sido a melhor — nossa equipe vai entrar em contato com você em breve para entender melhor e te ajudar."
-    : "Muito obrigado pelo seu feedback! 🙏\n\nFicamos muito felizes em saber disso!";
-
-  return { replyMessage, intent: "nps_response" };
-}
-
-/**
  * Processa a mensagem recebida e retorna a resposta gerada pelo Chatbot.
  */
 export async function handleTwilioIncomingMessage(params: {
@@ -467,16 +409,13 @@ export async function handleTwilioIncomingMessage(params: {
   const { from, body, mediaUrl0, mediaContentType0, media } = params;
   const phone = formatE164Phone(from.replace("whatsapp:", ""));
 
-  // 0. Central Multicanal: resolve/cria a conversa, verifica resposta de NPS
-  // pendente e, se um humano já assumiu a conversa, não deixa o bot responder.
+  // 0. Central Multicanal: resolve/cria a conversa e, se um humano já assumiu
+  // a conversa, não deixa o bot responder. NPS Externo agora é só via portal
+  // da família (submit_nps_response), não há mais resposta de NPS por
+  // WhatsApp a interceptar aqui.
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
-
-    const npsResult = await tryHandleNpsResponse(phone, body);
-    if (npsResult) {
-      return npsResult;
-    }
 
     const resolved = await resolvePatientFromPhone(phone);
     if (resolved) {
