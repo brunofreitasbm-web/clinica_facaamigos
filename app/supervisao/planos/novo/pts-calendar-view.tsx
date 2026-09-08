@@ -2,9 +2,14 @@
 
 import React, { useState } from "react";
 import type { CalendarSessionEvent, ConflictStatus } from "./pts-printable-calendar";
+import { MonthlyTabs, type MonthlyTabItem } from "@/components/Tabs/MonthlyTabs";
+import { generate40MinSlotsForShift } from "@/lib/pts-slots";
+
+type Therapist = { id: string; full_name: string };
 
 export type PTSCalendarViewProps = {
   sessions: CalendarSessionEvent[];
+  therapists?: Therapist[];
   startDate: string;
   validUntil: string;
   onOpenPrintModal: () => void;
@@ -13,6 +18,7 @@ export type PTSCalendarViewProps = {
 
 export function PTSCalendarView({
   sessions,
+  therapists = [],
   startDate,
   validUntil,
   onOpenPrintModal,
@@ -148,48 +154,29 @@ export function PTSCalendarView({
       </div>
 
       {/* Navegação por Meses */}
-      <div className="flex items-center gap-2 overflow-x-auto py-2 border-b border-paper-line">
-        {monthKeys.map((mKey, idx) => {
+      <MonthlyTabs
+        tabs={monthKeys.map((mKey, idx) => {
           const [year, month] = mKey.split("-");
           const monthLabel = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString("pt-BR", {
             month: "short",
             year: "numeric",
           });
-          const isActive = mKey === activeMonthKey;
           const count = (monthlyGroups[mKey] || []).length;
           const hasManualRequired = (monthlyGroups[mKey] || []).some(
             (s) => s.conflictStatus === "MANUAL_REQUIRED"
           );
 
-          return (
-            <button
-              key={mKey}
-              onClick={() => setActiveMonthKey(mKey)}
-              type="button"
-              className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                isActive
-                  ? "bg-accent text-white font-bold shadow-xs"
-                  : "bg-paper text-ink-soft hover:bg-paper-line hover:text-ink border border-paper-line-strong"
-              }`}
-            >
-              <span>
-                Mês {idx + 1} ({monthLabel})
-              </span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                  hasManualRequired
-                    ? "bg-status-negative text-white font-bold animate-pulse"
-                    : isActive
-                    ? "bg-white/20 text-white"
-                    : "bg-paper-line-strong text-ink-faint"
-                }`}
-              >
-                {count}
-              </span>
-            </button>
-          );
+          return {
+            id: mKey,
+            label: `Mês ${idx + 1} (${monthLabel})`,
+            count,
+            hasAlert: hasManualRequired,
+          };
         })}
-      </div>
+        activeTabId={activeMonthKey}
+        onTabChange={setActiveMonthKey}
+      />
+
 
       {/* Tabela do Mês Selecionado */}
       <div className="mt-4 overflow-x-auto">
@@ -219,10 +206,12 @@ export function PTSCalendarView({
                     className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
                       session.shift === "MANHA"
                         ? "bg-amber-100 text-amber-900 border border-amber-300"
-                        : "bg-blue-100 text-blue-900 border border-blue-300"
+                        : session.shift === "TARDE"
+                        ? "bg-blue-100 text-blue-900 border border-blue-300"
+                        : "bg-purple-100 text-purple-900 border border-purple-300"
                     }`}
                   >
-                    {session.shift === "MANHA" ? "Manhã" : "Tarde"} ({session.timeSlot})
+                    {session.shift === "MANHA" ? "Manhã" : session.shift === "TARDE" ? "Tarde" : "Noite"} ({session.timeSlot})
                   </span>
                 </td>
                 <td className="py-2.5 px-3 text-ink-soft">{session.therapistName || "Terapeuta Direcionado"}</td>
@@ -290,40 +279,61 @@ export function PTSCalendarView({
                   <label className="block font-bold text-ink-soft mb-1">Turno</label>
                   <select
                     value={editingSession.shift}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const newShift = e.target.value as "MANHA" | "TARDE" | "NOITE";
+                      const slotsForShift = generate40MinSlotsForShift(newShift);
                       setEditingSession({
                         ...editingSession,
-                        shift: e.target.value as "MANHA" | "TARDE",
-                      })
-                    }
+                        shift: newShift,
+                        timeSlot: slotsForShift[0] || "",
+                      });
+                    }}
                     className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
                   >
                     <option value="MANHA">Manhã</option>
                     <option value="TARDE">Tarde</option>
+                    <option value="NOITE">Noite</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block font-bold text-ink-soft mb-1">Horário (Slot)</label>
-                  <input
-                    type="text"
+                  <select
                     value={editingSession.timeSlot}
                     onChange={(e) => setEditingSession({ ...editingSession, timeSlot: e.target.value })}
-                    placeholder="Ex: 09:00 - 10:00"
                     className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
-                  />
+                  >
+                    {!generate40MinSlotsForShift(editingSession.shift).includes(editingSession.timeSlot) &&
+                      editingSession.timeSlot && (
+                        <option value={editingSession.timeSlot}>{editingSession.timeSlot}</option>
+                      )}
+                    {generate40MinSlotsForShift(editingSession.shift).map((slotStr) => (
+                      <option key={slotStr} value={slotStr}>
+                        {slotStr}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               <div>
                 <label className="block font-bold text-ink-soft mb-1">Terapeuta Responsável</label>
-                <input
-                  type="text"
+                <select
                   value={editingSession.therapistName || ""}
                   onChange={(e) => setEditingSession({ ...editingSession, therapistName: e.target.value })}
-                  placeholder="Nome do terapeuta…"
                   className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
-                />
+                >
+                  <option value="">Sem direcionamento (alocação automática)</option>
+                  {!therapists.some((t) => t.full_name === editingSession.therapistName) &&
+                    editingSession.therapistName && (
+                      <option value={editingSession.therapistName}>{editingSession.therapistName}</option>
+                    )}
+                  {therapists.map((t) => (
+                    <option key={t.id} value={t.full_name}>
+                      {t.full_name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

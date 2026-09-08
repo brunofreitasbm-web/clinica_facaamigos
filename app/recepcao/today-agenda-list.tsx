@@ -1,8 +1,19 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { User, PenLine, CalendarClock, X, Clock, CheckCircle2, UserCheck, XCircle, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { User, PenLine, CalendarClock, X, Clock, CheckCircle2, UserCheck, XCircle, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert, Search } from "lucide-react";
 import { GuiaQuickActionModal } from "./guia-quick-action-modal";
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 import {
   confirmAppointment,
@@ -113,7 +124,8 @@ export function TodayAgendaList({
   tagsByPatient: Record<string, string[]>;
 }) {
   const [filter, setFilter] = useState<FilterKey>("todas");
-  const [search, setSearch] = useState("");
+  const [searchRaw, setSearchRaw] = useState("");
+  const search = useDebounce(searchRaw, 350);
   const [groupMode, setGroupMode] = useState<GroupMode>("lista");
   const [selectedRoomSessionId, setSelectedRoomSessionId] = useState<string | null>(null);
 
@@ -239,10 +251,10 @@ export function TodayAgendaList({
               key={f.key}
               type="button"
               onClick={() => setFilter(f.key)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2 ${
                 filter === f.key
-                  ? "border-chart bg-chart text-paper"
-                  : "border-paper-line-strong text-ink-soft hover:border-chart"
+                  ? "border-[#E81E61] bg-[#E81E61] text-white shadow-xs"
+                  : "border-neutral-300 bg-white text-[#4a4a4a] hover:border-[#E81E61] hover:text-[#E81E61]"
               }`}
             >
               {f.label} ({f.count})
@@ -250,13 +262,26 @@ export function TodayAgendaList({
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por paciente…"
-            className="input w-48 text-xs"
-          />
+          <div className="relative flex items-center">
+            <Search className="absolute left-2.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchRaw}
+              onChange={(e) => setSearchRaw(e.target.value)}
+              placeholder="Buscar por paciente…"
+              className="input pl-8 pr-8 w-52 text-xs focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-1"
+            />
+            {searchRaw.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearchRaw("")}
+                className="absolute right-2.5 text-neutral-400 hover:text-neutral-700 focus:outline-none"
+                aria-label="Limpar busca"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
           <div className="seg">
             <label className="seg-opt">
               <input type="radio" name="group-mode" checked={groupMode === "lista"} onChange={() => setGroupMode("lista")} />
@@ -281,25 +306,29 @@ export function TodayAgendaList({
 
       {/* Painel Horizontal de Filtros Avançados */}
       <details className="rounded-md border border-paper-line-strong bg-paper/60" open>
-        <summary className="cursor-pointer px-3 py-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#595959] hover:text-ink">
           Filtros {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}
         </summary>
         <div className="flex flex-wrap items-start gap-6 border-t border-paper-line-strong p-3">
           {/* Terapeutas */}
           <details className="min-w-[170px]" open>
-            <summary className="cursor-pointer text-xs font-medium text-ink">
+            <summary className="cursor-pointer text-xs font-semibold text-[#333333]">
               Terapeutas {selectedTherapistIds.size > 0 ? `(${selectedTherapistIds.size})` : ""}
             </summary>
             <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
-              {therapistOptions.length === 0 && <p className="text-xs text-ink-faint">Nenhum hoje.</p>}
+              {therapistOptions.length === 0 && <p className="text-xs text-[#595959]">Nenhum hoje.</p>}
               {therapistOptions.map((t) => (
-                <label key={t.id} className="flex items-center gap-1.5 text-xs text-ink cursor-pointer hover:text-chart">
+                <label
+                  key={t.id}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-[#333333] hover:bg-neutral-100/80 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-[#E81E61]"
+                >
                   <input
                     type="checkbox"
                     checked={selectedTherapistIds.has(t.id)}
                     onChange={() => setSelectedTherapistIds((prev) => toggleInSet(prev, t.id))}
+                    className="h-4 w-4 rounded border-neutral-300 text-[#E81E61] focus:ring-[#E81E61] cursor-pointer"
                   />
-                  {t.name}
+                  <span>{t.name}</span>
                 </label>
               ))}
             </div>
@@ -307,19 +336,23 @@ export function TodayAgendaList({
 
           {/* Disciplinas */}
           <details className="min-w-[170px]" open>
-            <summary className="cursor-pointer text-xs font-medium text-ink">
+            <summary className="cursor-pointer text-xs font-semibold text-[#333333]">
               Especialidades {selectedDisciplines.size > 0 ? `(${selectedDisciplines.size})` : ""}
             </summary>
             <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
-              {disciplineOptions.length === 0 && <p className="text-xs text-ink-faint">Nenhuma hoje.</p>}
+              {disciplineOptions.length === 0 && <p className="text-xs text-[#595959]">Nenhuma hoje.</p>}
               {disciplineOptions.map((disc) => (
-                <label key={disc} className="flex items-center gap-1.5 text-xs text-ink cursor-pointer hover:text-chart">
+                <label
+                  key={disc}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-[#333333] hover:bg-neutral-100/80 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-[#E81E61]"
+                >
                   <input
                     type="checkbox"
                     checked={selectedDisciplines.has(disc)}
                     onChange={() => setSelectedDisciplines((prev) => toggleInSet(prev, disc))}
+                    className="h-4 w-4 rounded border-neutral-300 text-[#E81E61] focus:ring-[#E81E61] cursor-pointer"
                   />
-                  {disc}
+                  <span>{disc}</span>
                 </label>
               ))}
             </div>
@@ -327,18 +360,22 @@ export function TodayAgendaList({
 
           {/* Validação de Guias */}
           <details className="min-w-[170px]" open>
-            <summary className="cursor-pointer text-xs font-medium text-ink">
+            <summary className="cursor-pointer text-xs font-semibold text-[#333333]">
               Status da Guia {selectedGuiaStatus.size > 0 ? `(${selectedGuiaStatus.size})` : ""}
             </summary>
             <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
               {guiaStatusOptions.map((g) => (
-                <label key={g.id} className="flex items-center gap-1.5 text-xs text-ink cursor-pointer hover:text-chart">
+                <label
+                  key={g.id}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-[#333333] hover:bg-neutral-100/80 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-[#E81E61]"
+                >
                   <input
                     type="checkbox"
                     checked={selectedGuiaStatus.has(g.id)}
                     onChange={() => setSelectedGuiaStatus((prev) => toggleInSet(prev, g.id))}
+                    className="h-4 w-4 rounded border-neutral-300 text-[#E81E61] focus:ring-[#E81E61] cursor-pointer"
                   />
-                  {g.label}
+                  <span>{g.label}</span>
                 </label>
               ))}
             </div>
@@ -346,18 +383,22 @@ export function TodayAgendaList({
 
           {/* Turno de Atendimento */}
           <details className="min-w-[150px]" open>
-            <summary className="cursor-pointer text-xs font-medium text-ink">
+            <summary className="cursor-pointer text-xs font-semibold text-[#333333]">
               Turno {selectedTurnos.size > 0 ? `(${selectedTurnos.size})` : ""}
             </summary>
             <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
               {turnoOptions.map((t) => (
-                <label key={t.id} className="flex items-center gap-1.5 text-xs text-ink cursor-pointer hover:text-chart">
+                <label
+                  key={t.id}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-[#333333] hover:bg-neutral-100/80 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-[#E81E61]"
+                >
                   <input
                     type="checkbox"
                     checked={selectedTurnos.has(t.id)}
                     onChange={() => setSelectedTurnos((prev) => toggleInSet(prev, t.id))}
+                    className="h-4 w-4 rounded border-neutral-300 text-[#E81E61] focus:ring-[#E81E61] cursor-pointer"
                   />
-                  {t.label}
+                  <span>{t.label}</span>
                 </label>
               ))}
             </div>
@@ -771,14 +812,14 @@ function SessionRow({
           type="button"
           disabled={isPending || isAguardando}
           onClick={() => runAction(() => setAguardando(session.id))}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all transform active:scale-95 ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2 ${
             isAguardando
-              ? "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700 font-semibold shadow-xs"
-              : "bg-paper/60 text-ink-soft border border-paper-line-strong hover:bg-amber-50 hover:text-amber-800 hover:border-amber-300 dark:hover:bg-amber-950/30 hover:shadow-xs"
+              ? "bg-amber-500 text-white font-bold border border-amber-600 shadow-sm"
+              : "bg-white text-[#4a4a4a] font-medium border border-neutral-300 hover:bg-amber-50 hover:text-amber-800 hover:border-amber-300"
           }`}
           title="Marcar paciente aguardando na recepção"
         >
-          <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+          <Clock className={`h-3.5 w-3.5 ${isAguardando ? "text-white" : "text-amber-600"}`} />
           <span>Aguardando</span>
         </button>
 
@@ -786,14 +827,14 @@ function SessionRow({
           type="button"
           disabled={isPending || isConfirmado}
           onClick={() => runAction(() => confirmAppointment(session.id))}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all transform active:scale-95 ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2 ${
             isConfirmado
-              ? "bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700 font-semibold shadow-xs"
-              : "bg-paper/60 text-ink-soft border border-paper-line-strong hover:bg-sky-50 hover:text-sky-800 hover:border-sky-300 dark:hover:bg-sky-950/30 hover:shadow-xs"
+              ? "bg-sky-600 text-white font-bold border border-sky-700 shadow-sm"
+              : "bg-white text-[#4a4a4a] font-medium border border-neutral-300 hover:bg-sky-50 hover:text-sky-800 hover:border-sky-300"
           }`}
           title="Confirmar presença agendada"
         >
-          <CheckCircle2 className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+          <CheckCircle2 className={`h-3.5 w-3.5 ${isConfirmado ? "text-white" : "text-sky-600"}`} />
           <span>Confirmado</span>
         </button>
 
@@ -801,14 +842,14 @@ function SessionRow({
           type="button"
           disabled={isPending || isCheckedIn}
           onClick={() => runAction(() => checkIn(session.id))}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all transform active:scale-95 ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2 ${
             isCheckedIn
-              ? "bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700 font-semibold shadow-xs"
-              : "bg-paper/60 text-ink-soft border border-paper-line-strong hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 dark:hover:bg-emerald-950/30 hover:shadow-xs"
+              ? "bg-emerald-600 text-white font-bold border border-emerald-700 shadow-sm"
+              : "bg-white text-[#4a4a4a] font-medium border border-neutral-300 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300"
           }`}
           title="Realizar check-in de entrada"
         >
-          <UserCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+          <UserCheck className={`h-3.5 w-3.5 ${isCheckedIn ? "text-white" : "text-emerald-600"}`} />
           <span>Check-in</span>
         </button>
 
@@ -816,14 +857,14 @@ function SessionRow({
           type="button"
           disabled={isPending}
           onClick={() => setShowFaltaForm((v) => !v)}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all transform active:scale-95 ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2 ${
             isFaltaOrCancelled || showFaltaForm
-              ? "bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700 font-semibold shadow-xs"
-              : "bg-paper/60 text-ink-soft border border-paper-line-strong hover:bg-rose-50 hover:text-rose-800 hover:border-rose-300 dark:hover:bg-rose-950/30 hover:shadow-xs"
+              ? "bg-rose-600 text-white font-bold border border-rose-700 shadow-sm"
+              : "bg-white text-[#4a4a4a] font-medium border border-neutral-300 hover:bg-rose-50 hover:text-rose-800 hover:border-rose-300"
           }`}
           title="Registrar falta ou cancelamento da sessão"
         >
-          <XCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+          <XCircle className={`h-3.5 w-3.5 ${isFaltaOrCancelled || showFaltaForm ? "text-white" : "text-rose-600"}`} />
           <span>Falta / Cancelar</span>
         </button>
       </div>

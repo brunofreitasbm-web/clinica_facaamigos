@@ -2,12 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveAnamnese } from "./actions";
+import { saveAnamnese } from "@/lib/anamnese-actions";
 
 const inputClass = "mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink";
 const sectionClass = "rounded-md border border-paper-line-strong bg-paper/60 p-4";
 
-export function AnamneseForm({ patientId }: { patientId: string }) {
+/**
+ * `returnHref` existe porque a mesma tela é aberta por dois papéis: a
+ * supervisão volta para a ficha do paciente na recepção, e o terapeuta
+ * avaliador (que o guard de papel não deixa entrar em `/recepcao`) volta
+ * para a ficha dele em `/terapeuta`.
+ */
+export function AnamneseForm({ patientId, returnHref }: { patientId: string; returnHref: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -20,7 +26,7 @@ export function AnamneseForm({ patientId }: { patientId: string }) {
         setError(result.error);
         return;
       }
-      router.push(`/recepcao/pacientes/${patientId}#checklist-entrada`);
+      router.push(returnHref);
     });
   }
 

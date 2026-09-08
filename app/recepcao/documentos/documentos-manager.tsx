@@ -209,6 +209,20 @@ export function DocumentosManager({
 
   const isMinor = calculateIsMinor(patientBirthDate || currentPatient?.birthDate);
 
+  // Modelos que citam o responsável no corpo do texto exigem nome e CPF
+  // preenchidos — sem isso o documento oficial sai com "[CPF não informado]".
+  const requiresGuardianCpf =
+    isMinor ||
+    selectedTemplateId === "acompanhamento_responsavel" ||
+    selectedTemplateId === "autorizacao_retirada" ||
+    selectedTemplateId === "declaracao_fiscal";
+
+  const guardianNameMissing = requiresGuardianCpf && !customGuardianName.trim();
+  const guardianCpfMissing = requiresGuardianCpf && !guardianCpf.trim();
+  const patientNameMissing = !customPatientName.trim();
+
+  const canGenerateDocument = !patientNameMissing && !guardianNameMissing && !guardianCpfMissing;
+
   const patientNameDisplay =
     customPatientName.trim() || currentPatient?.fullName || "[Nome do Paciente]";
 
@@ -233,10 +247,12 @@ export function DocumentosManager({
   };
 
   const handlePrint = () => {
+    if (!canGenerateDocument) return;
     window.print();
   };
 
   const handleCopyText = () => {
+    if (!canGenerateDocument) return;
     const docElement = document.getElementById("printable-document");
     if (docElement) {
       const text = docElement.innerText;
@@ -303,20 +319,34 @@ export function DocumentosManager({
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleCopyText}
-              className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              disabled={!canGenerateDocument}
+              className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
             >
               {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
               <span>{copied ? "Copiado!" : "Copiar Texto"}</span>
             </button>
             <button
               onClick={handlePrint}
-              className="px-5 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm shadow-pink-200 active:scale-95"
+              disabled={!canGenerateDocument}
+              className="px-5 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm shadow-pink-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:bg-pink-600"
             >
               <Printer className="h-4 w-4" />
               <span>Imprimir Documento (A4)</span>
             </button>
           </div>
         </div>
+
+        {!canGenerateDocument && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 print:hidden">
+            Preencha os campos obrigatórios (
+            {patientNameMissing && "Nome do Paciente"}
+            {patientNameMissing && (guardianNameMissing || guardianCpfMissing) && ", "}
+            {guardianNameMissing && "Nome do Responsável"}
+            {guardianNameMissing && guardianCpfMissing && ", "}
+            {guardianCpfMissing && "CPF do Responsável"}
+            ) antes de imprimir ou copiar este documento.
+          </div>
+        )}
 
         {/* Layout Grid: Seleção + Editor + Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start print:block">
@@ -453,15 +483,25 @@ export function DocumentosManager({
                     </div>
                     <div className="flex flex-col gap-1 sm:col-span-2">
                       <label className="text-xs font-semibold text-gray-700">
-                        CPF do Responsável {isMinor && <span className="text-pink-600 font-bold">*</span>}
+                        CPF do Responsável <span className="text-pink-600 font-bold">*</span>
                       </label>
                       <input
                         type="text"
                         value={guardianCpf}
                         onChange={(e) => setGuardianCpf(e.target.value)}
                         placeholder="Ex: 123.456.789-00"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-pink-500 focus:outline-none"
+                        aria-invalid={guardianCpfMissing}
+                        className={`w-full rounded-xl border px-3 py-2 text-sm text-gray-800 focus:outline-none ${
+                          guardianCpfMissing
+                            ? "border-red-300 focus:border-red-500"
+                            : "border-gray-200 focus:border-pink-500"
+                        }`}
                       />
+                      {guardianCpfMissing && (
+                        <p className="text-xs font-medium" style={{ color: "#D32F2F" }}>
+                          O CPF do responsável é obrigatório para este modelo de documento.
+                        </p>
+                      )}
                     </div>
                   </>
                 )}

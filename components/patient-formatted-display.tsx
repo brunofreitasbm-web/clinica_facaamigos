@@ -34,6 +34,51 @@ export function formatPatientName(name: string): string {
 }
 
 /**
+ * Valida se um nome de paciente contém padrões de dados brutos/timestamps do banco (ex: "Child_1788517902660", "P(Paciente Fictício")
+ */
+export function isIncompleteOrMockName(name: string): boolean {
+  if (!name) return true;
+  const trimmed = name.trim();
+  return (
+    /^Child_\d+/i.test(trimmed) ||
+    /^P\(.*?\)?$/i.test(trimmed) ||
+    /^(Child|Patient|Paciente|User|Test)_\d+/i.test(trimmed) ||
+    /^P\(/i.test(trimmed)
+  );
+}
+
+/**
+ * Converte strings brutas da API/Banco (ex: "avaliacao") para formato legível e acentuado ("Avaliação")
+ */
+export function formatStatus(status: string): string {
+  if (!status) return "Status Desconhecido";
+  const normalizedKey = status.toLowerCase().trim();
+
+  const statusMap: Record<string, string> = {
+    avaliacao: "Avaliação",
+    avaliacao_agendada: "Avaliação Agendada",
+    aguardando_vaga: "Aguardando Vaga",
+    em_triagem: "Em Triagem",
+    desistente: "Desistente",
+    cancelado: "Cancelado",
+    ativo: "Ativo",
+    inativo: "Inativo",
+    pendente: "Pendente",
+    interessado: "Interessado",
+  };
+
+  if (statusMap[normalizedKey]) {
+    return statusMap[normalizedKey];
+  }
+
+  return normalizedKey
+    .replace(/_/g, " ")
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+/**
  * Retorna as iniciais do nome para avatar visual de escaneabilidade
  */
 export function getPatientInitials(name: string): string {
@@ -164,6 +209,12 @@ const STATUS_CONFIG_MAP: Record<string, StatusConfig> = {
       "bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950 dark:text-indigo-200 dark:border-indigo-700 font-medium",
     icon: Sparkles,
   },
+  avaliacao: {
+    label: "Avaliação",
+    badgeClass:
+      "bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-700 font-medium",
+    icon: Sparkles,
+  },
 };
 
 /**
@@ -178,15 +229,15 @@ export function PatientStatusBadge({
   customLabel?: string;
   size?: "sm" | "md" | "lg";
 }) {
-  const normalizedKey = String(status).toLowerCase();
+  const normalizedKey = String(status).toLowerCase().trim();
   const config = STATUS_CONFIG_MAP[normalizedKey] || {
-    label: customLabel || status,
+    label: customLabel || formatStatus(status),
     badgeClass:
       "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700",
     icon: AlertCircle,
   };
 
-  const displayLabel = customLabel || config.label;
+  const displayLabel = customLabel || config.label || formatStatus(status);
   const Icon = config.icon;
 
   const sizeClasses = {
@@ -237,6 +288,7 @@ export function PatientFormattedDisplay({
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
+  const isIncomplete = isIncompleteOrMockName(name);
   const formattedName = formatPatientName(name);
   const initials = getPatientInitials(name);
 
@@ -271,6 +323,12 @@ export function PatientFormattedDisplay({
           <span className={`truncate text-ink hover:text-chart transition-colors ${titleSizes}`}>
             {formattedName}
           </span>
+          {isIncomplete && (
+            <span className="inline-flex items-center gap-1 rounded bg-amber-100 dark:bg-amber-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+              <AlertCircle className="h-2.5 w-2.5" />
+              Cadastro Incompleto
+            </span>
+          )}
           {isEvaluation && (
             <span className="inline-flex items-center gap-0.5 rounded bg-indigo-100 dark:bg-indigo-950 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
               <Sparkles className="h-2.5 w-2.5" />

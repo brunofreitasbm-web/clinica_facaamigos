@@ -1,14 +1,21 @@
 "use client";
 
-import React, { useId, useState, useTransition } from "react";
+import React, { useId, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createTreatmentPlan } from "./actions";
 import { DISCIPLINES } from "./disciplines";
 import type { SuggestedGoal, TeamSuggestion } from "@/lib/plan-suggestions";
 import { PTSCalendarView } from "./pts-calendar-view";
 import { PTSPrintableCalendar, type CalendarSessionEvent } from "./pts-printable-calendar";
+import { PtsTemplateModal } from "./pts-template-modal";
+import { extractAutocompleteSuggestions, type PtsTemplate } from "@/lib/pts-templates";
+import { fetchPtsTemplatesAction, saveGoalAsTemplateAction } from "@/app/supervisao/pts-template-actions";
+import { generate40MinSlotsForShift } from "@/lib/pts-slots";
+import { GoalForm } from "@/components/SmartGoals/GoalForm";
+
 
 type Patient = { id: string; full_name: string };
+type Therapist = { id: string; full_name: string };
 
 type ProgramTargetType = "tentativa" | "duracao" | "frequencia" | "tarefa";
 
@@ -19,9 +26,12 @@ export type PTSGridRow = {
   discipline: string;
   sessionsPerWeek: number;
   daysOfWeek: DayOfWeek[];
-  shift: "MANHA" | "TARDE";
+  shift: "MANHA" | "TARDE" | "NOITE";
+  preferredSlot?: string;
   therapistName: string;
 };
+
+export { generate40MinSlotsForShift };
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
   SEG: "Seg",
@@ -94,12 +104,14 @@ const inputClass =
 
 export function PlanForm({
   patients,
+  therapists = [],
   initialPatientId = "",
   initialFamilyPriorities = "",
   suggestedGoals = [],
   teamSuggestions = [],
 }: {
   patients: Patient[];
+  therapists?: Therapist[];
   initialPatientId?: string;
   initialFamilyPriorities?: string;
   suggestedGoals?: SuggestedGoal[];
@@ -125,6 +137,77 @@ export function PlanForm({
   const [addedSuggestionKeys, setAddedSuggestionKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Templates do PTS & Autocompletes
+  const [allTemplates, setAllTemplates] = useState<PtsTemplate[]>([]);
+  const [activeModalGoalKey, setActiveModalGoalKey] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchPtsTemplatesAction().then((data) => setAllTemplates(data));
+  }, []);
+
+  const autocompleteOptions = React.useMemo(() => {
+    return extractAutocompleteSuggestions(allTemplates);
+  }, [allTemplates]);
+
+  function applyTemplateToGoal(goalKey: string, template: PtsTemplate) {
+    setGoals((prev) =>
+      prev.map((g) => {
+        if (g.key !== goalKey) return g;
+        const programs: Program[] =
+          template.discipline === "aba" && template.programs_default?.length > 0
+            ? template.programs_default.map((p) => ({
+                key: crypto.randomUUID(),
+                name: p.name,
+                targetType: p.targetType || "tentativa",
+                masteryCriterion: p.masteryCriterion || "",
+                protocolItemId: null,
+              }))
+            : g.programs;
+
+        return {
+          ...g,
+          discipline: template.discipline,
+          domain: template.domain,
+          description: template.description,
+          baseline: template.baseline || g.baseline,
+          strategy: template.strategy || g.strategy,
+          criterion: template.criterion || g.criterion,
+          horizon: template.horizon || g.horizon,
+          methodology: template.methodology || g.methodology,
+          programs,
+        };
+      })
+    );
+    setToastMessage(`Template "${template.title}" aplicado na meta!`);
+    setTimeout(() => setToastMessage(null), 4000);
+  }
+
+  async function handleSaveGoalAsTemplate(goal: Goal) {
+    if (!goal.discipline || !goal.domain.trim() || !goal.description.trim()) {
+      setError("Para salvar como template, preencha Disciplina, Domínio e Meta (descrição).");
+      return;
+    }
+    const result = await saveGoalAsTemplateAction({
+      discipline: goal.discipline,
+      domain: goal.domain,
+      description: goal.description,
+      baseline: goal.baseline,
+      strategy: goal.strategy,
+      criterion: goal.criterion,
+      horizon: goal.horizon,
+      methodology: goal.methodology,
+      programs: goal.programs,
+    });
+    if (result.success) {
+      setToastMessage("⭐ Meta salva como template no banco da clínica!");
+      fetchPtsTemplatesAction().then((data) => setAllTemplates(data));
+      setTimeout(() => setToastMessage(null), 4000);
+    } else {
+      setError(result.error);
+    }
+  }
 
   // Grade semanal dinâmica de atendimento
   const [gridRows, setGridRows] = useState<PTSGridRow[]>([
@@ -214,9 +297,10 @@ export function PlanForm({
       SAB: 6,
     };
 
-    // Slots padrão de horários continuados por turno
-    const slotsManha = ["08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00"];
-    const slotsTarde = ["13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00"];
+    // Slots de 40 minutos por turno (Segunda a Sábado)
+    const slotsManha = generate40MinSlotsForShift("MANHA");
+    const slotsTarde = generate40MinSlotsForShift("TARDE");
+    const slotsNoite = generate40MinSlotsForShift("NOITE");
 
     // Registro de slots ocupados por data e sala/terapeuta
     const occupiedSlotsMap = new Map<string, Set<string>>();
@@ -236,14 +320,19 @@ export function PlanForm({
           const therapist = row.therapistName.trim() || `Dr(a). Especialista em ${discLabel}`;
           const room = `Sala ${row.discipline.toUpperCase().substring(0, 3)}-0${(sessionCounter % 3) + 1}`;
 
-          const slots = row.shift === "MANHA" ? slotsManha : slotsTarde;
+          const baseSlots = row.shift === "MANHA" ? slotsManha : row.shift === "TARDE" ? slotsTarde : slotsNoite;
+          let slots = [...baseSlots];
+          if (row.preferredSlot && slots.includes(row.preferredSlot)) {
+            slots = [row.preferredSlot, ...slots.filter((s) => s !== row.preferredSlot)];
+          }
+
           let assignedTimeSlot = "";
           let conflictStatus: CalendarSessionEvent["conflictStatus"] = "OK";
           let conflictNote = "";
 
           const dayOccupiedSet = occupiedSlotsMap.get(dateIso) || new Set<string>();
 
-          // Etapa 1: Tentar alocar no 1º slot disponível do mesmo dia (Horário Continuado)
+          // Etapa 1: Tentar alocar no slot de 40min preferencial/livre do mesmo dia
           for (let i = 0; i < slots.length; i++) {
             const slotCandidate = slots[i];
             const slotKey = `${therapist}_${slotCandidate}`;
@@ -252,33 +341,38 @@ export function PlanForm({
               dayOccupiedSet.add(slotKey);
               if (i > 0) {
                 conflictStatus = "HORARIO_ALTERADO";
-                conflictNote = `Sessão continuada alocada no horário ${slotCandidate} da mesma data.`;
+                conflictNote = `Sessão de 40min alocada no slot ${slotCandidate} da mesma data.`;
               }
               break;
             }
           }
 
-          // Etapa 2 & 3: Se o dia/turno estiver ocupado, simular reajuste de dia ou turno
+          // Etapa 2 & 3: Se o turno preferencial estiver totalmente ocupado, tentar slots de 40min em turnos alternativos
           if (!assignedTimeSlot) {
-            // Tenta slot alternativo do turno oposto
-            const alternativeSlots = row.shift === "MANHA" ? slotsTarde : slotsManha;
-            for (const altSlot of alternativeSlots) {
-              const slotKey = `${therapist}_${altSlot}`;
-              if (!dayOccupiedSet.has(slotKey)) {
-                assignedTimeSlot = altSlot;
-                dayOccupiedSet.add(slotKey);
-                conflictStatus = "TURNO_ALTERADO";
-                conflictNote = `Turno reajustado para ${row.shift === "MANHA" ? "Tarde" : "Manhã"} (${altSlot}).`;
-                break;
+            const altShifts: ("MANHA" | "TARDE" | "NOITE")[] =
+              row.shift === "MANHA" ? ["TARDE", "NOITE"] : row.shift === "TARDE" ? ["MANHA", "NOITE"] : ["MANHA", "TARDE"];
+
+            for (const altShift of altShifts) {
+              const altSlots = altShift === "MANHA" ? slotsManha : altShift === "TARDE" ? slotsTarde : slotsNoite;
+              for (const altSlot of altSlots) {
+                const slotKey = `${therapist}_${altSlot}`;
+                if (!dayOccupiedSet.has(slotKey)) {
+                  assignedTimeSlot = altSlot;
+                  dayOccupiedSet.add(slotKey);
+                  conflictStatus = "TURNO_ALTERADO";
+                  conflictNote = `Turno reajustado para ${altShift === "MANHA" ? "Manhã" : altShift === "TARDE" ? "Tarde" : "Noite"} (slot 40min: ${altSlot}).`;
+                  break;
+                }
               }
+              if (assignedTimeSlot) break;
             }
           }
 
           // Etapa 4: Se persistir lotação total no dia/turno
           if (!assignedTimeSlot) {
-            assignedTimeSlot = slots[0];
+            assignedTimeSlot = baseSlots[0];
             conflictStatus = "MANUAL_REQUIRED";
-            conflictNote = "Horários do turno e data ocupados. Requer ajuste manual pelo supervisor.";
+            conflictNote = "Todos os slots de 40min do dia ocupados. Requer ajuste manual pelo supervisor.";
           }
 
           occupiedSlotsMap.set(dateIso, dayOccupiedSet);
@@ -360,6 +454,11 @@ export function PlanForm({
   function updateGoal(key: string, field: keyof Omit<Goal, "key">, value: string) {
     setGoals((prev) => prev.map((g) => (g.key === key ? { ...g, [field]: value } : g)));
   }
+
+  function updateGoalFields(key: string, updates: Partial<Omit<Goal, "key">>) {
+    setGoals((prev) => prev.map((g) => (g.key === key ? { ...g, ...updates } : g)));
+  }
+
 
   function removeGoal(key: string) {
     setGoals((prev) => (prev.length === 1 ? prev : prev.filter((g) => g.key !== key)));
@@ -696,18 +795,19 @@ export function PlanForm({
                   />
                 </div>
 
-                {/* 3. Turno */}
+                {/* 3. Turno e Período de 40min */}
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-ink-soft mb-1">
                     Turno Disponível
                   </label>
                   <select
                     value={row.shift}
-                    onChange={(e) => updateGridRow(row.id, "shift", e.target.value as "MANHA" | "TARDE")}
+                    onChange={(e) => updateGridRow(row.id, "shift", e.target.value as "MANHA" | "TARDE" | "NOITE")}
                     className="w-full rounded-md border border-paper-line-strong bg-white px-2.5 py-1.5 text-xs text-ink focus:border-chart focus:outline-none"
                   >
-                    <option value="MANHA">Manhã (08:00 - 12:00)</option>
-                    <option value="TARDE">Tarde (13:00 - 18:00)</option>
+                    <option value="MANHA">Manhã (08:00 - 12:00 • 40min)</option>
+                    <option value="TARDE">Tarde (13:00 - 17:00 • 40min)</option>
+                    <option value="NOITE">Noite (17:00 - 21:00 • 40min)</option>
                   </select>
                 </div>
 
@@ -716,13 +816,18 @@ export function PlanForm({
                   <label className="block text-[10px] font-bold uppercase text-ink-soft mb-1">
                     Terapeuta Direcionado (Opcional)
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Nome do profissional…"
+                  <select
                     value={row.therapistName}
                     onChange={(e) => updateGridRow(row.id, "therapistName", e.target.value)}
-                    className="w-full rounded-md border border-paper-line-strong bg-white px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-chart focus:outline-none"
-                  />
+                    className="w-full rounded-md border border-paper-line-strong bg-white px-2.5 py-1.5 text-xs text-ink focus:border-chart focus:outline-none"
+                  >
+                    <option value="">Sem direcionamento (alocação automática)</option>
+                    {therapists.map((t) => (
+                      <option key={t.id} value={t.full_name}>
+                        {t.full_name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -748,6 +853,38 @@ export function PlanForm({
                       >
                         {selected && <span className="text-[10px] font-black leading-none">✓</span>}
                         {DAY_LABELS[day]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 6. Período Atinente à Duração de Sessão de 40 minutos */}
+              <div className="mt-2.5 pt-2.5 border-t border-paper-line">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-ink-soft flex items-center gap-1">
+                    <span>⏱️</span> Horários Fatiados em Sessões de 40 Minutos ({row.shift === "MANHA" ? "Manhã" : row.shift === "TARDE" ? "Tarde" : "Noite"})
+                  </span>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold">
+                    Duração da Sessão: 40 minutos
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {generate40MinSlotsForShift(row.shift).map((slotStr) => {
+                    const isSelected = row.preferredSlot === slotStr;
+                    return (
+                      <button
+                        key={slotStr}
+                        type="button"
+                        onClick={() => updateGridRow(row.id, "preferredSlot", isSelected ? undefined : slotStr)}
+                        className={`text-[11px] px-2.5 py-1 rounded-md font-medium border transition-all ${
+                          isSelected
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-sm font-bold ring-2 ring-indigo-600/30"
+                            : "bg-white text-ink-soft border-paper-line-strong hover:bg-paper hover:text-ink"
+                        }`}
+                        title={isSelected ? "Slot de 40min preferencial selecionado" : "Clique para fixar este slot de 40min como preferencial"}
+                      >
+                        {isSelected ? "★ " : ""}{slotStr}
                       </button>
                     );
                   })}
@@ -785,6 +922,7 @@ export function PlanForm({
       {generatedSessions.length > 0 && (
         <PTSCalendarView
           sessions={generatedSessions}
+          therapists={therapists}
           startDate={startDateStr}
           validUntil={validUntilStr}
           onOpenPrintModal={() => setShowPrintModal(true)}
@@ -802,6 +940,32 @@ export function PlanForm({
           onClose={() => setShowPrintModal(false)}
         />
       )}
+
+      {/* TOAST FEEDBACK PARA OPERAÇÕES DE TEMPLATE */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 rounded-lg border border-chart/30 bg-chart/90 text-white px-4 py-3 shadow-xl backdrop-blur-md text-xs font-semibold animate-in slide-in-from-top duration-300">
+          {toastMessage}
+        </div>
+      )}
+
+      {/* DATALISTS DE AUTOCOMPLETE (Domínio, Linha de Base, Estratégia) */}
+      <datalist id="pts-domains-list">
+        {autocompleteOptions.domains.map((d) => (
+          <option key={d} value={d} />
+        ))}
+      </datalist>
+
+      <datalist id="pts-baselines-list">
+        {autocompleteOptions.baselines.map((b) => (
+          <option key={b} value={b} />
+        ))}
+      </datalist>
+
+      <datalist id="pts-strategies-list">
+        {autocompleteOptions.strategies.map((s) => (
+          <option key={s} value={s} />
+        ))}
+      </datalist>
 
       {/* METAS SMART (Layout Grid Responsivo de 2 colunas no Desktop grande) */}
       <div className="space-y-4">
@@ -826,18 +990,38 @@ export function PlanForm({
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
           {goals.map((goal, index) => (
             <div key={goal.key} className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm space-y-4 relative">
-              <div className="flex items-center justify-between border-b border-paper-line pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-paper-line pb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-ink-soft">
                   Meta #{index + 1}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => removeGoal(goal.key)}
-                  disabled={goals.length === 1}
-                  className="text-xs text-status-negative-text hover:underline font-semibold disabled:opacity-40"
-                >
-                  Remover
-                </button>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setActiveModalGoalKey(goal.key)}
+                    className="inline-flex items-center gap-1 rounded-md border border-chart/30 bg-chart-soft/40 px-2.5 py-1 text-[11px] font-bold text-chart hover:bg-chart-soft transition-all"
+                  >
+                    <span>💡</span> Usar Template
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveGoalAsTemplate(goal)}
+                    className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition-all"
+                    title="Salvar esta meta no banco de templates da clínica"
+                  >
+                    <span>⭐</span> Salvar no Banco
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => removeGoal(goal.key)}
+                    disabled={goals.length === 1}
+                    className="text-xs text-status-negative-text hover:underline font-semibold disabled:opacity-40 ml-1"
+                  >
+                    Remover
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -856,32 +1040,23 @@ export function PlanForm({
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Domínio *</label>
-                  <input
-                    value={goal.domain}
-                    onChange={(e) => updateGoal(goal.key, "domain", e.target.value)}
-                    placeholder="Ex: comunicação, autonomia…"
-                    className={inputClass}
+                <div className="sm:col-span-2">
+                  <GoalForm
+                    goal={goal}
+                    onChange={(updatedFields) => updateGoalFields(goal.key, updatedFields)}
+                    inputClass={inputClass}
+                    allowCreate={true}
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Meta (descrição) *</label>
-                  <textarea
-                    value={goal.description}
-                    onChange={(e) => updateGoal(goal.key, "description", e.target.value)}
-                    rows={2}
-                    placeholder="Descreva o objetivo específico SMART…"
-                    className={inputClass}
-                  />
-                </div>
 
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Linha de base (opcional)</label>
                   <input
+                    list="pts-baselines-list"
                     value={goal.baseline}
                     onChange={(e) => updateGoal(goal.key, "baseline", e.target.value)}
+                    placeholder="Busque ou digite a linha de base…"
                     className={inputClass}
                   />
                 </div>
@@ -1029,6 +1204,16 @@ export function PlanForm({
           ))}
         </div>
       </div>
+
+      {/* MODAL SELETOR DE TEMPLATES */}
+      {activeModalGoalKey && (
+        <PtsTemplateModal
+          isOpen={!!activeModalGoalKey}
+          onClose={() => setActiveModalGoalKey(null)}
+          initialDiscipline={goals.find((g) => g.key === activeModalGoalKey)?.discipline || ""}
+          onSelectTemplate={(template) => applyTemplateToGoal(activeModalGoalKey, template)}
+        />
+      )}
 
       {/* BARRA DE AÇÃO FIXA / RODAPÉ DO FORMULÁRIO */}
       <div className="sticky bottom-4 z-20 rounded-xl border border-paper-line-strong bg-white/95 backdrop-blur-md p-4 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">

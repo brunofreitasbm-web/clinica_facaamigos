@@ -34,7 +34,7 @@ export function ChecklistEntradaDialog({ patientName }: { patientName?: string }
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
+        className="inline-flex items-center justify-center rounded-md border border-[#E81E61] bg-white px-3.5 py-2 text-xs font-semibold text-[#E81E61] shadow-xs transition-all hover:bg-[#E81E61]/10 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2"
       >
         📋 Checklist de Entrada
       </button>

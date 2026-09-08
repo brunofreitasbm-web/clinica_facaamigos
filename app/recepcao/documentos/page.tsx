@@ -20,20 +20,30 @@ export default async function DocumentosRecepcaoPage() {
   const { data: rawGuardians } = patientIds.length
     ? await supabase
         .from("guardians")
-        .select("patient_id, full_name, phone, is_financial, is_emergency_contact")
+        .select("patient_id, full_name, phone, cpf, is_financial, is_emergency_contact")
         .in("patient_id", patientIds)
-    : { data: [] as { patient_id: string; full_name: string; phone: string; is_financial: boolean; is_emergency_contact: boolean }[] };
+    : {
+        data: [] as {
+          patient_id: string;
+          full_name: string;
+          phone: string;
+          cpf: string | null;
+          is_financial: boolean;
+          is_emergency_contact: boolean;
+        }[],
+      };
 
   // Map primary guardian per patient
   const guardianByPatient = new Map<
     string,
-    { fullName: string; phone: string }
+    { fullName: string; phone: string; cpf: string | null }
   >();
   for (const g of rawGuardians ?? []) {
     if (!guardianByPatient.has(g.patient_id) || g.is_financial || g.is_emergency_contact) {
       guardianByPatient.set(g.patient_id, {
         fullName: g.full_name,
         phone: g.phone,
+        cpf: g.cpf,
       });
     }
   }
@@ -54,6 +64,7 @@ export default async function DocumentosRecepcaoPage() {
       status: p.status,
       guardianName: guardian?.fullName || null,
       guardianPhone: guardian?.phone || null,
+      guardianCpf: guardian?.cpf || null,
     };
   });
 

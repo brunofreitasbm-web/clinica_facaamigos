@@ -87,11 +87,7 @@ export function TrialDataPanel({
   }
 
   if (programs.length === 0) {
-    return (
-      <div className="rounded-md border border-paper-line-strong bg-paper/60 p-5 text-sm text-ink-faint">
-        Nenhum programa ABA cadastrado.
-      </div>
-    );
+    return null;
   }
 
   return (

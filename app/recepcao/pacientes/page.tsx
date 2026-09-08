@@ -1,17 +1,8 @@
-import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
-import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
-
-const STAGE_LABEL: Record<number, string> = {
-  1: "Paciente sem avaliação agendada",
-  2: "Avaliação agendada, aguardando",
-  3: "Avaliação feita, sem autorização",
-  4: "Autorizado, sem grade montada",
-  5: "Ativo — grade montada",
-};
+import { PatientListClient } from "./patient-list-client";
 
 export const dynamic = "force-dynamic";
 
@@ -64,33 +55,7 @@ export default async function PacientesPage() {
         title="Pacientes"
         description="Todos os pacientes da clínica, com estágio atual do cadastro contínuo."
       />
-      <div className="flex flex-col gap-4 p-6 sm:p-10">
-        <Link
-          href="/recepcao/pacientes/novo"
-          className="self-start rounded-md border border-paper-line-strong px-4 py-2 text-sm text-chart hover:border-chart"
-        >
-          Novo paciente (interessado)
-        </Link>
-        <div className="flex flex-col gap-2">
-          {rows.length === 0 && (
-            <p className="text-sm text-ink-faint">Nenhum paciente cadastrado ainda.</p>
-          )}
-          {rows.map((p) => (
-            <Link
-              key={p.id}
-              href={`/recepcao/pacientes/${p.id}`}
-              className="flex items-center justify-between rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm hover:border-chart transition-all"
-            >
-              <PatientFormattedDisplay
-                name={p.full_name}
-                size="md"
-                subtitle={<span className="text-ink-faint text-xs">{STAGE_LABEL[p.stage] ?? "Estágio desconhecido"}</span>}
-              />
-              <PatientStatusBadge status={p.status || "ativo"} size="md" />
-            </Link>
-          ))}
-        </div>
-      </div>
+      <PatientListClient rows={rows} />
     </main>
   );
 }

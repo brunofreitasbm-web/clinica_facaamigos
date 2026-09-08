@@ -15,6 +15,7 @@ const SIDEBAR_ITEMS = [
   { key: "instrumentos", label: "Instrumentos de Avaliação", href: "/gestor/cadastros/instrumentos" },
   { key: "comportamentos", label: "Comportamentos-alvo", href: "/gestor/cadastros/comportamentos" },
   { key: "intervencoes", label: "Intervenções", href: "/gestor/cadastros/intervencoes" },
+  { key: "pts-templates", label: "Templates do PTS", href: "/gestor/cadastros/pts-templates" },
   { key: "salas", label: "Salas & Recursos", href: "/gestor/cadastros/salas" },
   { key: "estoque", label: "Estoque & Almoxarifado", href: "/gestor/cadastros/estoque" },
 ] as const;

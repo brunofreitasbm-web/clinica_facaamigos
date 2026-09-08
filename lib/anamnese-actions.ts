@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { canConductFirstAssessment } from "@/lib/anamnese-access";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -47,6 +48,13 @@ export async function saveAnamnese(patientId: string, formData: FormData): Promi
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Sessão expirada — faça login de novo." };
+
+  // A RLS de `anamneses` libera 'terapeuta' inteiro; aqui estreitamos para
+  // quem de fato conduz 1ª avaliação (avaliador ou terapeuta escalado para
+  // a avaliação deste paciente) — ver lib/anamnese-access.ts.
+  if (!(await canConductFirstAssessment(supabase, user.id, patientId))) {
+    return { success: false, error: "Você não tem permissão para registrar a 1ª avaliação deste paciente." };
+  }
 
   // Uma anamnese por paciente (a mais recente é a válida) — o unique index
   // não existe no banco (permite reaplicar em reavaliações futuras), então
@@ -104,6 +112,8 @@ export async function saveAnamnese(patientId: string, formData: FormData): Promi
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
   revalidatePath(`/supervisao/pacientes/${patientId}/anamnese`);
+  revalidatePath(`/terapeuta/paciente/${patientId}/anamnese`);
+  revalidatePath(`/terapeuta/paciente/${patientId}`);
   revalidatePath("/supervisao");
   return { success: true };
 }

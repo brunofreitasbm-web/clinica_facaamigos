@@ -10,6 +10,13 @@ function capitalize(s: string): string {
   return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
+function capitalizeName(name: string): string {
+  return name
+    .split(" ")
+    .map((word) => (word.length > 0 ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word))
+    .join(" ");
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function TerapeutaPage({
@@ -71,7 +78,7 @@ export default async function TerapeutaPage({
     ? await supabase
         .from("appointments")
         .select(
-          "id, starts_at, ends_at, discipline, status, checkin_at, attendance_started_at, checkout_at, patients(full_name), rooms(name)",
+          "id, patient_id, starts_at, ends_at, discipline, status, checkin_at, attendance_started_at, checkout_at, is_evaluation, patients(full_name), rooms(name)",
         )
         .eq("therapist_id", therapistId)
         .gte("starts_at", dayStart)
@@ -145,8 +152,20 @@ export default async function TerapeutaPage({
               · Terapeuta
             </span>
           </span>
-          <span className="ml-auto flex items-center gap-1.5 text-xs opacity-75">
-            <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--color-success)" }} />
+          <span className="ml-auto flex items-center gap-1.5 text-xs" style={{ color: "var(--color-bg)" }}>
+            <svg width="12" height="12" viewBox="0 0 256 256" fill="none" aria-hidden>
+              <path
+                d="M226 76a58 58 0 0 0-108-24 46 46 0 0 0-62 44 42 42 0 0 0 4 84h164a48 48 0 0 0 2-96Z"
+                fill="var(--color-success)"
+              />
+              <path
+                d="M96 136l24 24 40-48"
+                stroke="var(--color-bg)"
+                strokeWidth="16"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
             sincronizado
           </span>
         </div>
@@ -180,9 +199,20 @@ export default async function TerapeutaPage({
         {pending.length > 0 && (
           <a
             href="#pendencias"
-            className="flex items-center gap-3 px-4 py-3.5 no-underline"
+            className="flex items-center gap-3 px-4 py-3.5 no-underline transition-colors hover:bg-[#f0e6cc] focus-visible:bg-[#f0e6cc]"
             style={{ background: "var(--status-agendada-bg)", borderRadius: "var(--radius-md)" }}
           >
+            <svg width="20" height="20" viewBox="0 0 256 256" fill="none" className="shrink-0" aria-hidden>
+              <path
+                d="M128 24 8 224h240Z"
+                fill="none"
+                stroke="var(--color-accent-2-700)"
+                strokeWidth="16"
+                strokeLinejoin="round"
+              />
+              <rect x="120" y="96" width="16" height="60" rx="4" fill="var(--color-accent-2-700)" />
+              <circle cx="128" cy="184" r="10" fill="var(--color-accent-2-700)" />
+            </svg>
             <span
               style={{ fontFamily: "var(--font-heading)", color: "var(--color-accent-2-700)" }}
               className="text-[26px] font-semibold leading-none"
@@ -236,6 +266,8 @@ export default async function TerapeutaPage({
           <TodaySessionsList
             sessions={(todaySessions ?? []).map((a) => ({
               id: a.id,
+              patientId: a.patient_id,
+              isEvaluation: a.is_evaluation,
               startsAt: a.starts_at,
               endsAt: a.ends_at,
               discipline: a.discipline,
@@ -263,7 +295,7 @@ export default async function TerapeutaPage({
                 style={{ borderColor: "var(--color-divider)" }}
               >
                 <span className="font-medium text-ink">
-                  {(a.patients as { full_name: string } | null)?.full_name ?? ""}
+                  {capitalizeName((a.patients as { full_name: string } | null)?.full_name ?? "")}
                 </span>
                 <span className="tag-status st-agendada">
                   {new Date(a.starts_at).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE })}
@@ -288,7 +320,7 @@ export default async function TerapeutaPage({
                 style={{ borderColor: "var(--color-divider)" }}
               >
                 <span className="font-medium text-ink">
-                  {(a.patients as { full_name: string } | null)?.full_name ?? ""}
+                  {capitalizeName((a.patients as { full_name: string } | null)?.full_name ?? "")}
                 </span>
                 <span className="tag-status st-agendada">
                   até {new Date(`${a.due_date}T00:00:00`).toLocaleDateString("pt-BR")}

@@ -14,6 +14,7 @@ import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { logRecordAccess } from "@/lib/record-access-log";
+import { canConductFirstAssessment } from "@/lib/anamnese-access";
 import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
 import type { NativeInstrumentKey } from "@/lib/native-instruments";
 
@@ -78,6 +79,11 @@ export default async function TerapeutaFichaPacientePage({
   // Atalhos de instrumento só aparecem se a clínica os mantém ativos
   // (/gestor/cadastros/instrumentos). O hub de fono cobre ADL, ADL-2 e
   // PROC, então basta um deles estar ativo para o botão fazer sentido.
+  // Atalho para a 1ª avaliação (anamnese ampliada) só para quem pode
+  // conduzi-la — avaliador ou terapeuta escalado na avaliação deste
+  // paciente (lib/anamnese-access.ts).
+  const canDoFirstAssessment = await canConductFirstAssessment(supabase, user.id, patientId);
+
   const showFono = ["adl", "adl2", "proc"].some((key) => enabledInstruments.has(key as NativeInstrumentKey));
   const showSociallySavvy = enabledInstruments.has("socially_savvy");
 
@@ -225,6 +231,11 @@ export default async function TerapeutaFichaPacientePage({
         <Link href={`/terapeuta/paciente/${patient.id}/metricas`} className="btn btn-secondary">
           Evolução/ABA
         </Link>
+        {canDoFirstAssessment && (
+          <Link href={`/terapeuta/paciente/${patient.id}/anamnese`} className="btn btn-secondary">
+            1ª Avaliação (anamnese)
+          </Link>
+        )}
         <Link href={`/terapeuta/paciente/${patient.id}/avaliacao`} className="btn btn-secondary">
           Avaliação de protocolo
         </Link>

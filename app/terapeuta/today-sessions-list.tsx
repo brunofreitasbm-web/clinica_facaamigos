@@ -12,6 +12,9 @@ import { startAttendance, checkOut } from "./session-actions";
 
 export type TodaySession = {
   id: string;
+  patientId: string;
+  /** Sessão de 1ª avaliação — abre a anamnese ampliada em vez da evolução. */
+  isEvaluation: boolean;
   startsAt: string;
   endsAt: string;
   discipline: string;
@@ -74,7 +77,12 @@ export function TodaySessionsList({
   const withState = sessions.map((s) => ({ ...s, ui: computeAppointmentUiState(s) }));
   const currentIdx = withState.findIndex((s) => s.ui === "em_atendimento" || s.ui === "na_recepcao");
   const current = currentIdx >= 0 ? withState[currentIdx] : (withState.find((s) => s.ui === "aguardando") ?? null);
-  const upcoming = withState.filter((s) => s.id !== current?.id);
+  // "Próximas" é estritamente o que ainda vai acontecer — sessões já
+  // realizadas ou canceladas/faltas não pertencem aqui (ficam nas
+  // "Evoluções pendentes" ou somem, mas nunca aparecem como se fossem futuras).
+  const upcoming = withState.filter(
+    (s) => s.id !== current?.id && s.ui !== "realizada" && s.ui !== "terminal_negativo",
+  );
 
   return (
     <div className="flex flex-col gap-7">
@@ -118,6 +126,15 @@ export function TodaySessionsList({
                 >
                   {isPending && pendingId === current.id ? "Iniciando…" : "Iniciar atendimento"}
                 </button>
+              )}
+              {current.isEvaluation && (
+                <Link
+                  href={`/terapeuta/paciente/${current.patientId}/anamnese`}
+                  className="btn btn-gold flex-1"
+                  style={{ minHeight: 48, fontSize: 15 }}
+                >
+                  Registrar 1ª avaliação
+                </Link>
               )}
               {current.ui === "em_atendimento" && (
                 <>
@@ -193,6 +210,11 @@ export function TodaySessionsList({
                     >
                       {isPending && pendingId === s.id ? "Iniciando…" : "Iniciar"}
                     </button>
+                  )}
+                  {s.isEvaluation && (
+                    <Link href={`/terapeuta/paciente/${s.patientId}/anamnese`} className="btn btn-ghost text-xs">
+                      1ª avaliação
+                    </Link>
                   )}
                   {s.ui === "realizada" && pendingSet.has(s.id) && (
                     <Link href={`/terapeuta/evolucao/${s.id}`} className="btn btn-ghost text-xs">

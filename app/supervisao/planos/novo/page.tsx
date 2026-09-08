@@ -21,6 +21,15 @@ export default async function NovoPlanoPage({
     .in("status", ["ativo", "avaliacao"])
     .order("full_name");
 
+  // Terapeutas da clínica — usado para seleção por clique (não texto livre)
+  // do terapeuta direcionado/responsável na grade e no ajuste manual do PTS.
+  const { data: therapists } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("role", "terapeuta")
+    .order("full_name");
+
   // Prioridades da família (Módulo 3 MAAIS, slide 22) — pré-preenche o campo
   // do plano com o que a 1ª avaliação (anamnese) já registrou, pra não
   // depender de alguém lembrar de reler a anamnese na hora de montar o PTS.
@@ -53,6 +62,7 @@ export default async function NovoPlanoPage({
       />
       <PlanForm
         patients={patients ?? []}
+        therapists={therapists ?? []}
         initialPatientId={paciente ?? ""}
         initialFamilyPriorities={familyPriorities ?? ""}
         suggestedGoals={suggestedGoals}
