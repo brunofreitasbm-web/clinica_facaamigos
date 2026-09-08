@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
+import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { StageChecklist } from "@/components/stage-checklist";
 import { IntakeChecklist } from "@/components/intake-checklist";
 import { getIntakeSteps } from "@/lib/intake-steps";
@@ -431,357 +432,369 @@ export default async function PacientePage({
     (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0] ?? null;
 
   return (
-    <main className="flex flex-1 flex-col">
-      {/* Cabeçalho + atalhos globais da recepção vêm do layout (RecepcaoNav). */}
-      <div className="px-10 pt-6">
-        <Link
-          href="/recepcao/pacientes"
-          className="text-[13px] font-semibold no-underline"
-          style={{ color: "var(--color-accent)" }}
-        >
-          ← Pacientes
-        </Link>
-      </div>
-
-      <div className="flex flex-wrap items-end justify-between gap-6 px-10 pt-9">
-        <div className="flex items-center gap-5">
-          <span
-            className="flex h-16 w-16 items-center justify-center rounded-full text-2xl font-semibold"
-            style={{
-              background: "var(--color-accent-100)",
-              color: "var(--color-accent-700)",
-              fontFamily: "var(--font-heading)",
-            }}
+    <main className="flex flex-1 flex-col pb-10">
+      <div className="mx-auto w-full max-w-[1720px] px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mb-2">
+          <Link
+            href="/recepcao/pacientes"
+            className="text-[13px] font-semibold no-underline text-accent hover:underline"
           >
-            {initials || "?"}
-          </span>
-          <div>
-            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-              {patient.birth_date ? `Nasc. ${fmtDate(`${patient.birth_date}T00:00:00`)} · ` : ""}
-              {activeInsurance?.insurerName ?? "Particular"}
-              {activeAuthorization?.guideNumber ? ` · guia ${activeAuthorization.guideNumber}` : ""}
-            </h6>
-            <h1 className="m-0">{patient.full_name}</h1>
-          </div>
+            ← Voltar para Pacientes
+          </Link>
         </div>
-        <div className="flex flex-wrap gap-2.5">
-          <EditRegistrationButton
-            patientId={patient.id}
-            fullName={patient.full_name}
-            birthDate={patient.birth_date}
-            phone={primaryGuardian?.phone ?? null}
-            guardianId={primaryGuardian?.id ?? null}
-            complaint={patient.complaint}
-            cid={patient.cid}
-            supportLevel={patient.support_level}
-            entrySource={patient.entry_source}
-          />
-          <a href={`/recepcao/pacientes/${patient.id}/gestao`} className="btn btn-secondary">
-            Convênios, cobranças e equipe
-          </a>
-          <a href={`/recepcao/pacientes/${patient.id}/rede-externa`} className="btn btn-secondary">
-            Rede externa (escola, médicos)
-          </a>
-          <a href={`/recepcao#nova-sessao:${patient.id}`} className="btn btn-primary">
-            Nova sessão
-          </a>
-        </div>
-      </div>
 
-      {(patient.complaint || patient.cid || patient.support_level || patient.entry_source) && (
-        <div className="px-10 pt-8">
-          <div className="card max-w-[900px]">
-            <div className="card-kicker">Dados clínicos</div>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">Queixa principal</div>
-                <div className="mt-0.5">{patient.complaint || "—"}</div>
-              </div>
-              <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">CID</div>
-                <div className="mt-0.5">{patient.cid || "—"}</div>
-              </div>
-              <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">Nível de suporte</div>
-                <div className="mt-0.5">{patient.support_level || "—"}</div>
-              </div>
-              <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">Origem</div>
-                <div className="mt-0.5">{patient.entry_source || "—"}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Coluna Lateral Sticky: Identidade & Resumo Clínico */}
+          <aside className="lg:col-span-4 xl:col-span-3">
+            <div className="space-y-4 lg:sticky lg:top-4">
+              <PatientIdentityBar
+                patientName={patient.full_name}
+                insurance={
+                  activeInsurance
+                    ? {
+                        insurerName: activeInsurance.insurerName,
+                        cardNumber: activeInsurance.cardNumber,
+                      }
+                    : null
+                }
+                emergencyContact={
+                  primaryGuardian
+                    ? { name: primaryGuardian.full_name, phone: primaryGuardian.phone }
+                    : null
+                }
+                variant="sidebar"
+              />
 
-      {stage < 5 && (
-        <div className="px-10 pt-8">
-          <div id="proximo-passo" className="card max-w-[720px] scroll-mt-6">
-            <div className="card-kicker">Próximo passo</div>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <StageChecklist stage={stage} />
-              <div>
-                {stage === 1 && (
-                  <StageActionForm action={scheduleEvaluation.bind(null, patient.id)} submitLabel="Agendar avaliação">
-                    <select name="therapist_id" required className="input">
-                      <option value="">Terapeuta</option>
-                      {(therapists ?? []).map((t) => (
-                        <option key={t.id} value={t.id}>{t.full_name}</option>
-                      ))}
-                    </select>
-                    <select name="room_id" required className="input">
-                      <option value="">Sala</option>
-                      {(rooms ?? []).map((r) => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
-                    </select>
-                    <input type="date" name="date" required className="input" />
-                    <input type="time" name="time" required className="input" />
-                  </StageActionForm>
-                )}
-                {stage === 2 && (
-                  <StageActionForm action={markEvaluationDone.bind(null, patient.id)} submitLabel="Marcar avaliação como realizada">
-                    <p className="text-sm text-ink-soft">Confirma que a avaliação já aconteceu?</p>
-                  </StageActionForm>
-                )}
-                {stage === 3 && (
-                  <StageActionForm action={registerAuthorization.bind(null, patient.id)} submitLabel="Registrar autorização">
-                    <AuthorizationFormFields insurers={insurers} />
-                  </StageActionForm>
-                )}
-                {stage === 4 && (
-                  <StageActionForm action={activatePatient.bind(null, patient.id)} submitLabel="Montar grade (1ª sessão)">
-                    <select name="therapist_id" required className="input">
-                      <option value="">Terapeuta</option>
-                      {(therapists ?? []).map((t) => (
-                        <option key={t.id} value={t.id}>{t.full_name}</option>
-                      ))}
-                    </select>
-                    <select name="room_id" required className="input">
-                      <option value="">Sala</option>
-                      {(rooms ?? []).map((r) => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
-                    </select>
-                    <input type="date" name="date" required className="input" />
-                    <input type="time" name="time" required className="input" />
-                    <input type="text" name="discipline" required placeholder="Disciplina" className="input" />
-                  </StageActionForm>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="px-10 pt-8">
-        <div id="checklist-entrada" className="scroll-mt-6 card max-w-[720px]">
-          <div className="card-kicker">Checklist operacional de entrada</div>
-          <IntakeChecklist
-            patientId={patient.id}
-            steps={intakeSteps}
-            manualSteps={{
-              primeiro_contato: "Registrar contato",
-              contrato_enviado: "Marcar contrato enviado",
-              pagamento_confirmado: "Confirmar pagamento",
-              grupo_whatsapp: "Incluído no grupo",
-            }}
-            links={{
-              anamnese_realizada: {
-                label: "Registrar 1ª avaliação (anamnese)",
-                href: `/supervisao/pacientes/${patient.id}/anamnese`,
-                navigable: canNavigateToSupervisao,
-              },
-              equipe_definida: { label: "Definir equipe", href: `/recepcao/pacientes/${patient.id}/gestao#equipe` },
-              reuniao_interdisciplinar: {
-                label: "Nova reunião",
-                href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=interdisciplinar`,
-                navigable: canNavigateToSupervisao,
-              },
-              pts_construido: {
-                label: "Montar PTS",
-                href: `/supervisao/planos/novo?paciente=${patient.id}`,
-                navigable: canNavigateToSupervisao,
-              },
-              pts_validado: { label: "Fila de aprovação", href: `/supervisao`, navigable: canNavigateToSupervisao },
-              devolutiva_familia: {
-                label: "Registrar devolutiva",
-                href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=devolutiva`,
-                navigable: canNavigateToSupervisao,
-              },
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="px-10 pt-8">
-        <div id="guias" className="scroll-mt-6 card max-w-[900px]">
-          <div className="mb-3.5 flex items-center justify-between gap-3">
-            <div className="card-kicker">Guias</div>
-            <NewAuthorizationToggle patientId={patient.id} insurers={insurers} />
-          </div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Convênio</th>
-                <th>Nº guia / senha</th>
-                <th>Procedimento</th>
-                <th>Sessões</th>
-                <th>Vigência</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {authorizationHistory.map((a) => {
-                const style = AUTHORIZATION_STATUS_STYLE[a.status] ?? AUTHORIZATION_STATUS_STYLE.pendente;
-                return (
-                  <tr key={a.id}>
-                    <td className="font-semibold">{a.insurerName}</td>
-                    <td>
-                      {a.guideNumber ?? "—"}
-                      {a.authorizationPassword && (
-                        <span className="text-ink-faint">
-                          {" "}
-                          · senha {a.authorizationPassword}
-                          {a.passwordValidUntil && ` (até ${fmtDate(`${a.passwordValidUntil}T00:00:00`)})`}
-                        </span>
-                      )}
-                    </td>
-                    <td>{a.procedureCode}</td>
-                    <td>
-                      {a.sessionsUsed} de {a.sessionsAuthorized}
-                    </td>
-                    <td>
-                      {fmtDate(`${a.validFrom}T00:00:00`)} – {fmtDate(`${a.validTo}T00:00:00`)}
-                    </td>
-                    <td>
-                      <span className={`tag-status ${style.tagClass}`}>{style.label}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-              {authorizationHistory.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-ink-faint">
-                    Nenhuma guia cadastrada ainda.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="px-10 pt-6">
-        <div className="flex flex-wrap items-center gap-2">
-          {(guardians ?? []).length > 1 &&
-            (guardians ?? [])
-              .filter((g) => !g.is_emergency_contact)
-              .map((g) => (
-                <form
-                  key={g.id}
-                  action={async () => {
-                    "use server";
-                    await setEmergencyContact(patient.id, g.id);
-                  }}
-                >
-                  <button type="submit" className="btn btn-ghost text-xs">
-                    Definir {g.full_name} como contato de emergência
-                  </button>
-                </form>
-              ))}
-        </div>
-      </div>
-
-      <PatientTabs
-        frequency={frequency}
-        goals={goalRows}
-        planStatusLabel={planStatusLabel}
-        guardianText={guardianText}
-        authorizationText={authorizationText}
-        teamText={teamText}
-        notes={notes}
-        documentsContent={documentsContent}
-        billing={billing}
-        abaPrograms={abaPrograms}
-        behaviorCatalog={behaviorCatalog}
-        goalDescriptionById={goalDescriptionById}
-      />
-
-      {(registrationDrafts ?? []).length > 0 && (
-        <div className="px-10 pt-6">
-          <div className="card max-w-[720px]">
-            <div className="card-kicker">Dados extraídos aguardando validação</div>
-            <ul className="flex flex-col gap-2">
-              {(registrationDrafts ?? []).map((d) => (
-                <li key={d.id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-ink-soft">
-                    {d.status === "extracted"
-                      ? "Documentos lidos pela IA — pronto para conferir"
-                      : d.status === "failed"
-                        ? "Extração falhou — reprocessar ou preencher manualmente"
-                        : "Lendo documentos…"}
-                  </span>
-                  <a href={`/recepcao/pre-cadastros/${d.id}`} className="btn btn-secondary text-xs">
-                    Conferir
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {pendingAbsenceReports.length > 0 && (
-        <div className="px-10 pt-6">
-          <div className="card max-w-[720px]">
-            <div className="card-kicker">Faltas informadas pela família</div>
-            <AbsenceReportsList patientId={patient.id} reports={pendingAbsenceReports} />
-          </div>
-        </div>
-      )}
-
-      <div className="px-10 py-6">
-        <div className="card max-w-[720px]">
-          <div className="card-kicker">Mural da família</div>
-          <ul className="flex flex-col gap-3">
-            {feedPosts.map((post) => (
-              <li key={post.id} className="rounded-md border border-paper-line-strong bg-paper px-4 py-3 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-ink">{post.authorName}</span>
-                  <span className="text-xs text-ink-faint">
-                    {fmtDateTime(post.createdAt, CLINIC_TIMEZONE)}
-                  </span>
+              {(patient.complaint || patient.cid || patient.support_level || patient.entry_source) && (
+                <div className="rounded-xl border border-paper-line-strong bg-paper p-4 shadow-2xs">
+                  <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-faint">
+                    Dados Clínicos & Diagnóstico
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-ink-faint">CID</span>
+                      <p className="font-semibold text-ink">{patient.cid || "—"}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-ink-faint">Suporte</span>
+                      <p className="font-semibold text-ink">{patient.support_level || "—"}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[10px] uppercase font-semibold text-ink-faint">Queixa Principal</span>
+                      <p className="font-medium text-ink">{patient.complaint || "—"}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[10px] uppercase font-semibold text-ink-faint">Origem do Contato</span>
+                      <p className="text-ink-soft">{patient.entry_source || "—"}</p>
+                    </div>
+                  </div>
                 </div>
-                {post.body && <p className="mt-1 text-ink-soft">{post.body}</p>}
-                {post.media.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {post.media.map((m) =>
-                      m.mimeType.startsWith("image/") ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          key={m.id}
-                          src={m.url}
-                          alt=""
-                          className="h-24 w-24 rounded-md object-cover"
-                        />
-                      ) : (
-                        <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost text-xs">
-                          Abrir anexo
-                        </a>
-                      ),
+              )}
+
+              {(guardians ?? []).length > 1 && (
+                <div className="rounded-xl border border-paper-line bg-paper p-3 shadow-2xs">
+                  <span className="text-[11px] font-semibold text-ink-faint">Outros Responsáveis:</span>
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    {(guardians ?? [])
+                      .filter((g) => !g.is_emergency_contact)
+                      .map((g) => (
+                        <form
+                          key={g.id}
+                          action={async () => {
+                            "use server";
+                            await setEmergencyContact(patient.id, g.id);
+                          }}
+                        >
+                          <button type="submit" className="btn btn-ghost text-xs w-full justify-start text-left">
+                            📍 Definir {g.full_name} como emergência
+                          </button>
+                        </form>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </aside>
+
+          {/* Painel Central Conteúdo Principal */}
+          <div className="space-y-6 lg:col-span-8 xl:col-span-9">
+            {/* Header & Ações */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-paper-line pb-4">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                  {patient.birth_date ? `Nasc. ${fmtDate(`${patient.birth_date}T00:00:00`)} · ` : ""}
+                  {activeInsurance?.insurerName ?? "Particular"}
+                  {activeAuthorization?.guideNumber ? ` · guia ${activeAuthorization.guideNumber}` : ""}
+                </span>
+                <h1 className="m-0 text-2xl font-bold text-ink">{patient.full_name}</h1>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <EditRegistrationButton
+                  patientId={patient.id}
+                  fullName={patient.full_name}
+                  birthDate={patient.birth_date}
+                  phone={primaryGuardian?.phone ?? null}
+                  guardianId={primaryGuardian?.id ?? null}
+                  complaint={patient.complaint}
+                  cid={patient.cid}
+                  supportLevel={patient.support_level}
+                  entrySource={patient.entry_source}
+                />
+                <a href={`/recepcao/pacientes/${patient.id}/gestao`} className="btn btn-secondary text-xs">
+                  Convênios & Cobranças
+                </a>
+                <a href={`/recepcao/pacientes/${patient.id}/rede-externa`} className="btn btn-secondary text-xs">
+                  Rede externa
+                </a>
+                <a href={`/recepcao#nova-sessao:${patient.id}`} className="btn btn-primary text-xs">
+                  + Nova sessão
+                </a>
+              </div>
+            </div>
+
+            {/* Próximo Passo Checklist se o paciente não for ativo ainda */}
+            {stage < 5 && (
+              <div id="proximo-passo" className="card scroll-mt-6">
+                <div className="card-kicker">Próximo passo</div>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <StageChecklist stage={stage} />
+                  <div>
+                    {stage === 1 && (
+                      <StageActionForm action={scheduleEvaluation.bind(null, patient.id)} submitLabel="Agendar avaliação">
+                        <select name="therapist_id" required className="input">
+                          <option value="">Terapeuta</option>
+                          {(therapists ?? []).map((t) => (
+                            <option key={t.id} value={t.id}>{t.full_name}</option>
+                          ))}
+                        </select>
+                        <select name="room_id" required className="input">
+                          <option value="">Sala</option>
+                          {(rooms ?? []).map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                        <input type="date" name="date" required className="input" />
+                        <input type="time" name="time" required className="input" />
+                      </StageActionForm>
+                    )}
+                    {stage === 2 && (
+                      <StageActionForm action={markEvaluationDone.bind(null, patient.id)} submitLabel="Marcar avaliação como realizada">
+                        <p className="text-sm text-ink-soft">Confirma que a avaliação já aconteceu?</p>
+                      </StageActionForm>
+                    )}
+                    {stage === 3 && (
+                      <StageActionForm action={registerAuthorization.bind(null, patient.id)} submitLabel="Registrar autorização">
+                        <AuthorizationFormFields insurers={insurers} />
+                      </StageActionForm>
+                    )}
+                    {stage === 4 && (
+                      <StageActionForm action={activatePatient.bind(null, patient.id)} submitLabel="Montar grade (1ª sessão)">
+                        <select name="therapist_id" required className="input">
+                          <option value="">Terapeuta</option>
+                          {(therapists ?? []).map((t) => (
+                            <option key={t.id} value={t.id}>{t.full_name}</option>
+                          ))}
+                        </select>
+                        <select name="room_id" required className="input">
+                          <option value="">Sala</option>
+                          {(rooms ?? []).map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                        <input type="date" name="date" required className="input" />
+                        <input type="time" name="time" required className="input" />
+                        <input type="text" name="discipline" required placeholder="Disciplina" className="input" />
+                      </StageActionForm>
                     )}
                   </div>
-                )}
-              </li>
-            ))}
-            {feedPosts.length === 0 && <li className="text-sm text-ink-faint">Nenhum recado publicado ainda.</li>}
-          </ul>
-          {canUploadDocuments && (
-            <div className="mt-4">
-              <FeedPostForm patientId={patient.id} />
+                </div>
+              </div>
+            )}
+
+            {/* Abas Principais do Prontuário */}
+            <PatientTabs
+              frequency={frequency}
+              goals={goalRows}
+              planStatusLabel={planStatusLabel}
+              guardianText={guardianText}
+              authorizationText={authorizationText}
+              teamText={teamText}
+              notes={notes}
+              documentsContent={documentsContent}
+              billing={billing}
+              abaPrograms={abaPrograms}
+              behaviorCatalog={behaviorCatalog}
+              goalDescriptionById={goalDescriptionById}
+              paddingClassName="px-0"
+            />
+
+            {/* Seções Adicionais Operacionais */}
+            {(registrationDrafts ?? []).length > 0 && (
+              <div className="card">
+                <div className="card-kicker">Dados extraídos aguardando validação</div>
+                <ul className="flex flex-col gap-2">
+                  {(registrationDrafts ?? []).map((d) => (
+                    <li key={d.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-ink-soft">
+                        {d.status === "extracted"
+                          ? "Documentos lidos pela IA — pronto para conferir"
+                          : d.status === "failed"
+                            ? "Extração falhou — reprocessar ou preencher manualmente"
+                            : "Lendo documentos…"}
+                      </span>
+                      <a href={`/recepcao/pre-cadastros/${d.id}`} className="btn btn-secondary text-xs">
+                        Conferir
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {pendingAbsenceReports.length > 0 && (
+              <div className="card">
+                <div className="card-kicker">Faltas informadas pela família</div>
+                <AbsenceReportsList patientId={patient.id} reports={pendingAbsenceReports} />
+              </div>
+            )}
+
+            <div id="checklist-entrada" className="scroll-mt-6 card">
+              <div className="card-kicker">Checklist operacional de entrada</div>
+              <IntakeChecklist
+                patientId={patient.id}
+                steps={intakeSteps}
+                manualSteps={{
+                  primeiro_contato: "Registrar contato",
+                  contrato_enviado: "Marcar contrato enviado",
+                  pagamento_confirmado: "Confirmar pagamento",
+                  grupo_whatsapp: "Incluído no grupo",
+                }}
+                links={{
+                  anamnese_realizada: {
+                    label: "Registrar 1ª avaliação (anamnese)",
+                    href: `/supervisao/pacientes/${patient.id}/anamnese`,
+                    navigable: canNavigateToSupervisao,
+                  },
+                  equipe_definida: { label: "Definir equipe", href: `/recepcao/pacientes/${patient.id}/gestao#equipe` },
+                  reuniao_interdisciplinar: {
+                    label: "Nova reunião",
+                    href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=interdisciplinar`,
+                    navigable: canNavigateToSupervisao,
+                  },
+                  pts_construido: {
+                    label: "Montar PTS",
+                    href: `/supervisao/planos/novo?paciente=${patient.id}`,
+                    navigable: canNavigateToSupervisao,
+                  },
+                  pts_validado: { label: "Fila de aprovação", href: `/supervisao`, navigable: canNavigateToSupervisao },
+                  devolutiva_familia: {
+                    label: "Registrar devolutiva",
+                    href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=devolutiva`,
+                    navigable: canNavigateToSupervisao,
+                  },
+                }}
+              />
             </div>
-          )}
+
+            <div id="guias" className="scroll-mt-6 card">
+              <div className="mb-3.5 flex items-center justify-between gap-3">
+                <div className="card-kicker">Guias</div>
+                <NewAuthorizationToggle patientId={patient.id} insurers={insurers} />
+              </div>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Convênio</th>
+                    <th>Nº guia / senha</th>
+                    <th>Procedimento</th>
+                    <th>Sessões</th>
+                    <th>Vigência</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {authorizationHistory.map((a) => {
+                    const style = AUTHORIZATION_STATUS_STYLE[a.status] ?? AUTHORIZATION_STATUS_STYLE.pendente;
+                    return (
+                      <tr key={a.id}>
+                        <td className="font-semibold">{a.insurerName}</td>
+                        <td>
+                          {a.guideNumber ?? "—"}
+                          {a.authorizationPassword && (
+                            <span className="text-ink-faint">
+                              {" "}
+                              · senha {a.authorizationPassword}
+                              {a.passwordValidUntil && ` (até ${fmtDate(`${a.passwordValidUntil}T00:00:00`)})`}
+                            </span>
+                          )}
+                        </td>
+                        <td>{a.procedureCode}</td>
+                        <td>
+                          {a.sessionsUsed} de {a.sessionsAuthorized}
+                        </td>
+                        <td>
+                          {fmtDate(`${a.validFrom}T00:00:00`)} – {fmtDate(`${a.validTo}T00:00:00`)}
+                        </td>
+                        <td>
+                          <span className={`tag-status ${style.tagClass}`}>{style.label}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {authorizationHistory.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="text-ink-faint">
+                        Nenhuma guia cadastrada ainda.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="card">
+              <div className="card-kicker">Mural da família</div>
+              <ul className="flex flex-col gap-3">
+                {feedPosts.map((post) => (
+                  <li key={post.id} className="rounded-md border border-paper-line-strong bg-paper px-4 py-3 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-ink">{post.authorName}</span>
+                      <span className="text-xs text-ink-faint">
+                        {fmtDateTime(post.createdAt, CLINIC_TIMEZONE)}
+                      </span>
+                    </div>
+                    {post.body && <p className="mt-1 text-ink-soft">{post.body}</p>}
+                    {post.media.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {post.media.map((m) =>
+                          m.mimeType.startsWith("image/") ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={m.id}
+                              src={m.url}
+                              alt=""
+                              className="h-24 w-24 rounded-md object-cover"
+                            />
+                          ) : (
+                            <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost text-xs">
+                              Abrir anexo
+                            </a>
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </li>
+                ))}
+                {feedPosts.length === 0 && <li className="text-sm text-ink-faint">Nenhum recado publicado ainda.</li>}
+              </ul>
+              {canUploadDocuments && (
+                <div className="mt-4">
+                  <FeedPostForm patientId={patient.id} />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </main>

@@ -95,11 +95,21 @@ export function PatientTabs({
     ...(billing ? [FINANCEIRO_TAB] : []),
   ];
   const [tab, setTab] = useState<TabKey>("visao");
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(notes[0]?.id ?? null);
+  const [noteSearch, setNoteSearch] = useState("");
+
+  const filteredNotes = notes.filter(
+    (n) =>
+      !noteSearch ||
+      n.date.toLowerCase().includes(noteSearch.toLowerCase()) ||
+      n.therapistName.toLowerCase().includes(noteSearch.toLowerCase())
+  );
+  const activeNote = notes.find((n) => n.id === selectedNoteId) ?? filteredNotes[0] ?? notes[0];
 
   return (
     <>
-      <div className={`${paddingClassName} pt-6`}>
-        <div className="seg w-fit">
+      <div className={`${paddingClassName} pt-4`}>
+        <div className="seg w-fit flex-wrap">
           {tabs.map((t) => (
             <label key={t.key} className="seg-opt">
               <input
@@ -114,9 +124,9 @@ export function PatientTabs({
         </div>
       </div>
 
-      <main className={`${paddingClassName} pb-16 pt-8`}>
+      <main className={`${paddingClassName} pb-16 pt-6`}>
         {tab === "visao" && (
-          <section className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_340px]">
+          <section className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_340px]">
             <div className="flex flex-col gap-8">
               <div>
                 <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3">
@@ -188,75 +198,140 @@ export function PatientTabs({
         )}
 
         {tab === "evolucao" && (
-          <section className="max-w-[800px]">
+          <section className="w-full">
             {pendingEvolutions && pendingEvolutions.length > 0 && (
               <div
-                className="mb-8 rounded-md border p-4"
+                className="mb-6 rounded-xl border p-4 shadow-xs"
                 style={{ borderColor: "var(--status-agendada)", background: "var(--status-agendada-bg)" }}
               >
-                <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-                  Sessões aguardando evolução
-                </h6>
+                <div className="flex items-center justify-between">
+                  <h6 style={{ color: "var(--color-accent-2-600)" }} className="font-semibold text-sm">
+                    ⚡ {pendingEvolutions.length} {pendingEvolutions.length === 1 ? "sessão aguardando" : "sessões aguardando"} evolução
+                  </h6>
+                </div>
                 <p className="mb-3 text-[13px] text-ink-soft">
-                  Grave um relato curto por voz (~30s) e a IA pré-preenche presença, comportamentos,
-                  orientações e o texto — você revisa e assina depois.
+                  Grave um relato curto por voz (~30s) e a IA pré-preenche presença, comportamentos e orientações.
                 </p>
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                   {pendingEvolutions.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span>
-                        {p.date} <span className="text-ink-faint">· {p.discipline}</span>
-                      </span>
-                      <Link href={`/terapeuta/evolucao/${p.id}`} className="btn btn-gold w-fit text-xs">
-                        🎤 Registrar evolução
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-paper-line bg-paper p-3 text-sm shadow-2xs"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-ink">{p.date}</p>
+                        <p className="truncate text-xs text-ink-faint">{p.discipline}</p>
+                      </div>
+                      <Link href={`/terapeuta/evolucao/${p.id}`} className="btn btn-gold shrink-0 px-3 py-1.5 text-xs">
+                        🎤 Registrar
                       </Link>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1.5">
-              Append-only · nunca editada por cima
-            </h6>
-            <p className="mb-6 text-[13px] text-ink-soft">
-              Cada linha é uma versão assinada em <code className="text-xs">session_notes</code>.
-            </p>
-            <div className="flex flex-col">
-              {notes.length > 0 ? (
-                notes.map((n) => (
-                  <div
-                    key={n.id}
-                    className="grid grid-cols-[120px_1fr] gap-5 border-b py-4.5"
-                    style={{ borderColor: "color-mix(in srgb, var(--color-text) 8%, transparent)" }}
-                  >
+
+            {notes.length > 0 ? (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                {/* Master Pane: Lista de Histórico */}
+                <div className="flex flex-col gap-3 lg:col-span-4 xl:col-span-4">
+                  <div className="flex items-center justify-between border-b border-paper-line pb-2">
                     <div>
-                      <div style={{ fontFamily: "var(--font-heading)" }} className="text-[15px] font-semibold">
-                        {n.date}
-                      </div>
-                      <div className="text-xs text-ink-faint">
-                        v{n.version} · {n.therapistName}
-                      </div>
+                      <h6 style={{ color: "var(--color-accent-2-600)" }} className="font-semibold text-sm">
+                        Histórico ({filteredNotes.length})
+                      </h6>
+                      <span className="text-[11px] text-ink-faint">Append-only · assinado</span>
                     </div>
-                    {behaviorCatalog ? (
-                      <SessionNoteStructuredView
-                        structured={n.structured ?? null}
-                        freeText={n.freeText}
-                        behaviorCatalog={behaviorCatalog}
-                        goalDescriptionById={goalDescriptionById}
-                        version={n.version}
-                        historyHref={n.historyHref}
-                      />
-                    ) : (
-                      <div className="text-sm italic text-ink-soft">
-                        {n.freeText ? `“${n.freeText}”` : "Sem texto livre nesta versão."}
-                      </div>
-                    )}
                   </div>
-                ))
-              ) : (
-                <p className="text-sm text-ink-faint">Nenhuma evolução registrada ainda.</p>
-              )}
-            </div>
+
+                  {notes.length > 3 && (
+                    <input
+                      type="text"
+                      placeholder="Filtrar por data ou terapeuta..."
+                      value={noteSearch}
+                      onChange={(e) => setNoteSearch(e.target.value)}
+                      className="w-full rounded-lg border border-paper-line-strong bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-accent-1 focus:outline-none"
+                    />
+                  )}
+
+                  <div className="flex max-h-[650px] flex-col gap-2 overflow-y-auto pr-1">
+                    {filteredNotes.map((n) => {
+                      const isSelected = activeNote?.id === n.id;
+                      return (
+                        <button
+                          type="button"
+                          key={n.id}
+                          onClick={() => setSelectedNoteId(n.id)}
+                          className={`flex flex-col gap-1 rounded-lg border p-3 text-left transition-all ${
+                            isSelected
+                              ? "border-accent-1 bg-accent-1/10 shadow-xs ring-1 ring-accent-1"
+                              : "border-paper-line bg-paper hover:border-paper-line-strong hover:bg-paper-surface"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-ink">{n.date}</span>
+                            <span className="rounded-full bg-paper-surface px-2 py-0.5 text-[10px] font-semibold text-ink-faint">
+                              v{n.version}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-ink-soft">
+                            <span className="truncate">{n.therapistName}</span>
+                            {isSelected && <span className="text-[11px] font-bold text-accent-1">Selecionado →</span>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Detail Pane: Visualização da Nota Estruturada Selecionada */}
+                <div className="lg:col-span-8 xl:col-span-8">
+                  {activeNote ? (
+                    <div className="sticky top-6 rounded-xl border border-paper-line-strong bg-paper p-6 shadow-xs">
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-paper-line pb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-lg font-bold text-ink">{activeNote.date}</h4>
+                            <span className="rounded-full bg-accent-1/20 px-2.5 py-0.5 text-xs font-semibold text-accent-1-text">
+                              v{activeNote.version}
+                            </span>
+                          </div>
+                          <p className="text-xs text-ink-soft">
+                            Profissional responsável: <span className="font-semibold text-ink">{activeNote.therapistName}</span>
+                          </p>
+                        </div>
+                        {activeNote.historyHref && (
+                          <Link href={activeNote.historyHref} className="text-xs text-chart hover:underline">
+                            Ver histórico completo
+                          </Link>
+                        )}
+                      </div>
+
+                      {behaviorCatalog ? (
+                        <SessionNoteStructuredView
+                          structured={activeNote.structured ?? null}
+                          freeText={activeNote.freeText}
+                          behaviorCatalog={behaviorCatalog}
+                          goalDescriptionById={goalDescriptionById}
+                          version={activeNote.version}
+                          historyHref={activeNote.historyHref}
+                        />
+                      ) : (
+                        <div className="rounded-lg bg-paper-surface p-4 text-sm italic text-ink-soft">
+                          {activeNote.freeText ? `“${activeNote.freeText}”` : "Sem texto livre nesta versão."}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-paper-line p-6 text-sm text-ink-faint">
+                      Selecione uma sessão no painel ao lado para visualizar.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="py-8 text-center text-sm text-ink-faint">Nenhuma evolução registrada ainda.</p>
+            )}
           </section>
         )}
 

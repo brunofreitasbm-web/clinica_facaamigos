@@ -225,95 +225,112 @@ export default async function TerapeutaFichaPacientePage({
   return (
     <main className="flex flex-1 flex-col pb-10">
       <PageHeader axisLabel="Terapeuta" title={patient.full_name} description="Ficha do paciente" />
-      <PatientIdentityBar patientName={patient.full_name} insurance={insurance} emergencyContact={emergencyContact} />
 
-      <div className="px-5 pt-6 sm:px-10">
-        <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-faint">
-          Instrumentos de Avaliação
-        </h2>
-        <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap">
-          {canDoFirstAssessment && (
-            <Link
-              href={`/terapeuta/paciente/${patient.id}/anamnese`}
-              className="flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center no-underline transition hover:shadow-sm sm:w-28"
-              style={{ borderColor: "var(--color-divider)" }}
-            >
-              <span className="text-2xl">🧾</span>
-              <span className="text-xs font-semibold leading-tight text-ink">1ª Avaliação</span>
-            </Link>
-          )}
-          <Link
-            href={`/terapeuta/paciente/${patient.id}/avaliacao`}
-            className="flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center no-underline transition hover:shadow-sm sm:w-28"
-            style={{ borderColor: "var(--color-divider)" }}
-          >
-            <span className="text-2xl">📋</span>
-            <span className="text-xs font-semibold leading-tight text-ink">Protocolo</span>
-          </Link>
-          {showFono && (
-            <Link
-              href={`/terapeuta/paciente/${patient.id}/fono`}
-              className="flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center no-underline transition hover:shadow-sm sm:w-28"
-              style={{ borderColor: "var(--color-divider)" }}
-            >
-              <span className="text-2xl">🗣️</span>
-              <span className="text-xs font-semibold leading-tight text-ink">Fono</span>
-            </Link>
-          )}
-          {showSociallySavvy && (
-            <Link
-              href={`/terapeuta/paciente/${patient.id}/socially-savvy`}
-              className="flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center no-underline transition hover:shadow-sm sm:w-28"
-              style={{ borderColor: "var(--color-divider)" }}
-            >
-              <span className="text-2xl">🤝</span>
-              <span className="text-xs font-semibold leading-tight text-ink">Socially Savvy</span>
-            </Link>
-          )}
+      <div className="mx-auto w-full max-w-[1720px] px-4 py-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Coluna Lateral Sticky: Identidade + Atalhos Rápidos */}
+          <aside className="lg:col-span-4 xl:col-span-3">
+            <div className="space-y-4 lg:sticky lg:top-4">
+              <PatientIdentityBar
+                patientName={patient.full_name}
+                insurance={insurance}
+                emergencyContact={emergencyContact}
+                variant="sidebar"
+              />
+
+              <div className="rounded-xl border border-paper-line-strong bg-paper p-4 shadow-2xs">
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-faint">
+                  Instrumentos de Avaliação
+                </h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {canDoFirstAssessment && (
+                    <Link
+                      href={`/terapeuta/paciente/${patient.id}/anamnese`}
+                      className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
+                    >
+                      <span className="text-xl">🧾</span>
+                      <span className="text-xs font-semibold leading-tight text-ink">1ª Avaliação</span>
+                    </Link>
+                  )}
+                  <Link
+                    href={`/terapeuta/paciente/${patient.id}/avaliacao`}
+                    className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
+                  >
+                    <span className="text-xl">📋</span>
+                    <span className="text-xs font-semibold leading-tight text-ink">Protocolo</span>
+                  </Link>
+                  {showFono && (
+                    <Link
+                      href={`/terapeuta/paciente/${patient.id}/fono`}
+                      className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
+                    >
+                      <span className="text-xl">🗣️</span>
+                      <span className="text-xs font-semibold leading-tight text-ink">Fono</span>
+                    </Link>
+                  )}
+                  {showSociallySavvy && (
+                    <Link
+                      href={`/terapeuta/paciente/${patient.id}/socially-savvy`}
+                      className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
+                    >
+                      <span className="text-xl">🤝</span>
+                      <span className="text-xs font-semibold leading-tight text-ink">Socially Savvy</span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* Painel Conteúdo Principal */}
+          <div className="lg:col-span-8 xl:col-span-9">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-paper-line pb-4">
+              <h2 className="text-base font-bold text-ink">Prontuário & Atividades</h2>
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/terapeuta/paciente/${patient.id}/metricas`} className="btn btn-secondary text-xs">
+                  📈 Evolução/ABA
+                </Link>
+                <Link href={`/terapeuta/paciente/${patient.id}/relatorio`} className="btn btn-secondary text-xs">
+                  👨‍👩‍👧 Relatório família
+                </Link>
+                <Link href={`/terapeuta/paciente/${patient.id}/relatorio-convenio`} className="btn btn-secondary text-xs">
+                  🏥 Relatório convênio
+                </Link>
+                <Link href={`/terapeuta/paciente/${patient.id}/vinculo`} className="btn btn-secondary text-xs">
+                  🔗 Vínculo
+                </Link>
+              </div>
+            </div>
+
+            <PatientTabs
+              frequency={dossier.frequency}
+              goals={dossier.goals}
+              planStatusLabel={dossier.planStatusLabel}
+              guardianText={guardianText}
+              authorizationText={authorizationText}
+              teamText={
+                dossier.teamText.length > 0 ? (
+                  <div className="flex flex-col gap-0.5">
+                    {dossier.teamText.map((t, i) => (
+                      <span key={i}>{t}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-ink-faint">Sem terapeuta vinculado ainda.</span>
+                )
+              }
+              notes={notesWithLinks}
+              pendingEvolutions={pendingEvolutions}
+              documentsContent={documentsContent}
+              abaPrograms={dossier.abaPrograms}
+              agendaContent={agendaContent}
+              behaviorCatalog={behaviorCatalog}
+              goalDescriptionById={goalDescriptionById}
+              paddingClassName="px-0"
+            />
+          </div>
         </div>
       </div>
-
-      <div className="flex flex-wrap gap-2 px-5 pt-4 sm:px-10">
-        <Link href={`/terapeuta/paciente/${patient.id}/metricas`} className="btn btn-secondary">
-          Evolução/ABA
-        </Link>
-        <Link href={`/terapeuta/paciente/${patient.id}/relatorio`} className="btn btn-secondary">
-          Relatório família
-        </Link>
-        <Link href={`/terapeuta/paciente/${patient.id}/relatorio-convenio`} className="btn btn-secondary">
-          Relatório convênio
-        </Link>
-        <Link href={`/terapeuta/paciente/${patient.id}/vinculo`} className="btn btn-secondary">
-          Vínculo
-        </Link>
-      </div>
-
-      <PatientTabs
-        frequency={dossier.frequency}
-        goals={dossier.goals}
-        planStatusLabel={dossier.planStatusLabel}
-        guardianText={guardianText}
-        authorizationText={authorizationText}
-        teamText={
-          dossier.teamText.length > 0 ? (
-            <div className="flex flex-col gap-0.5">
-              {dossier.teamText.map((t, i) => (
-                <span key={i}>{t}</span>
-              ))}
-            </div>
-          ) : (
-            <span className="text-ink-faint">Sem terapeuta vinculado ainda.</span>
-          )
-        }
-        notes={notesWithLinks}
-        pendingEvolutions={pendingEvolutions}
-        documentsContent={documentsContent}
-        abaPrograms={dossier.abaPrograms}
-        agendaContent={agendaContent}
-        behaviorCatalog={behaviorCatalog}
-        goalDescriptionById={goalDescriptionById}
-        paddingClassName="px-5 sm:px-10"
-      />
     </main>
   );
 }
