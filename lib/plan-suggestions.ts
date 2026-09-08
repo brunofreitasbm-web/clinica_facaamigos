@@ -16,6 +16,8 @@ import {
   type AdlResponses,
   type ProcResponses,
 } from "@/lib/fono-instruments";
+import { getLatestConcludedSociallySavvy } from "@/lib/socially-savvy-assessments";
+import { SOCIALLY_SAVVY_CATALOG, SOCIALLY_SAVVY_LABEL, computeSociallySavvyResults } from "@/lib/socially-savvy";
 
 type Supa = SupabaseClient<Database>;
 
@@ -168,6 +170,48 @@ async function getFonoSuggestedGoals(supabase: Supa, patientId: string): Promise
   }
 
   return suggestions;
+}
+
+/**
+ * Sugestões vindas do Socially Savvy (lib/socially-savvy/), que também não
+ * passa por `protocol_assessments`. Reproduz a aba "PEI" da planilha: uma meta
+ * por área com objetivos prioritários (habilidades pontuadas com 2 —
+ * emergentes), a partir da última aplicação concluída.
+ *
+ * `pendingItems` vai vazio de propósito: os códigos do catálogo (JA01, SP01…)
+ * não são `protocol_items.id`, e é isso que plan-form.tsx grava em
+ * `programs.protocol_item_id` quando `discipline === "aba"`. O supervisor
+ * cadastra os programas de coleta manualmente a partir da meta sugerida.
+ */
+async function getSociallySavvySuggestedGoals(supabase: Supa, patientId: string): Promise<SuggestedGoal[]> {
+  const assessment = await getLatestConcludedSociallySavvy(supabase, patientId);
+  if (!assessment) return [];
+
+  const results = computeSociallySavvyResults(SOCIALLY_SAVVY_CATALOG, assessment.responses);
+  const protocolLabel = `${SOCIALLY_SAVVY_LABEL} — aplicação ${assessment.round}, ${fmtDate(assessment.assessmentDate)}`;
+
+  return results.areas.flatMap((area) => {
+    const priorities = results.priorityObjectives.filter((o) => o.areaKey === area.key);
+    if (priorities.length === 0) return [];
+
+    const sample = priorities
+      .slice(0, 3)
+      .map((o) => o.text)
+      .join("; ");
+    const others = results.otherObjectives.filter((o) => o.areaKey === area.key).length;
+
+    return [
+      {
+        key: `socially-savvy-${assessment.id}-${area.key}`,
+        discipline: "aba",
+        domain: area.label,
+        description: `${sample}${priorities.length > 3 ? "…" : ""}`,
+        baseline: `${area.achieved}/${area.expected} pontos (${(area.percent * 100).toFixed(1).replace(".", ",")}%) · ${priorities.length} objetivos prioritários e ${others} demais objetivos — ${protocolLabel}`,
+        protocolLabel,
+        pendingItems: [],
+      },
+    ];
+  });
 }
 
 /** Equipe de avaliação já definida (Módulo 3 MAAIS, slide 23) — pré-marca as disciplinas do plano. */
