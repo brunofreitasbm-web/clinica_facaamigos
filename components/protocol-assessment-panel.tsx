@@ -171,10 +171,10 @@ export function ProtocolAssessmentPanel({
   protocols: ProtocolTabData[];
   initialProtocolId?: string;
 }) {
-  const initialId =
-    (initialProtocolId && protocols.some((p) => p.id === initialProtocolId) ? initialProtocolId : null) ??
-    protocols[0]?.id ??
-    null;
+  const requestedMatch = initialProtocolId
+    ? (protocols.find((p) => p.id === initialProtocolId || p.name === initialProtocolId) ?? null)
+    : null;
+  const initialId = requestedMatch?.id ?? protocols[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(initialId);
   const selected = protocols.find((p) => p.id === selectedId) ?? null;
 

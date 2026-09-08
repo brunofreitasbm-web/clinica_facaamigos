@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPatientProtocolTabs } from "@/lib/protocol-assessments";
 import { ProtocolAssessmentPanel } from "@/components/protocol-assessment-panel";
 import { logRecordAccess } from "@/lib/record-access-log";
+import { findProtocolCatalogEntry, PROTOCOL_LABEL } from "@/lib/protocol-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,15 @@ export default async function PatientAssessmentPage({
 
   const protocols = await getPatientProtocolTabs(supabase, patient.clinic_id, patientId);
 
+  // Botões de protocolo aparecem sempre (como os instrumentos nativos),
+  // mesmo antes do gestor cadastrar os itens do checklist em Cadastros →
+  // Terapias — ver `native-instruments.ts`. `protocolo` pode chegar como o
+  // id real (protocolo já configurado) ou a chave do catálogo (botão
+  // "genérico" que ainda não tem itens nesta clínica).
+  const requestedEntry = protocolo ? findProtocolCatalogEntry(protocolo) : undefined;
+  const requestedConfigured = protocols.some((p) => p.id === protocolo || p.name === protocolo);
+  const showNotConfigured = !!protocolo && !!requestedEntry && !requestedConfigured;
+
   return (
     <main className="flex flex-1 flex-col">
       <PageHeader
@@ -46,7 +56,23 @@ export default async function PatientAssessmentPage({
         </Link>
       </div>
       <div className="p-6 sm:p-10">
-        <ProtocolAssessmentPanel patientId={patient.id} protocols={protocols} initialProtocolId={protocolo} />
+        {showNotConfigured ? (
+          <div className="card">
+            <p className="text-sm text-ink-soft">
+              {PROTOCOL_LABEL[requestedEntry!.name] ?? requestedEntry!.name} ainda não tem os itens do checklist
+              cadastrados nesta clínica.
+            </p>
+            <p className="text-sm text-ink-faint">
+              Peça ao gestor para cadastrar os marcos em{" "}
+              <Link href="/gestor/cadastros/terapias" className="underline">
+                Cadastros → Terapias
+              </Link>
+              .
+            </p>
+          </div>
+        ) : (
+          <ProtocolAssessmentPanel patientId={patient.id} protocols={protocols} initialProtocolId={protocolo} />
+        )}
       </div>
     </main>
   );

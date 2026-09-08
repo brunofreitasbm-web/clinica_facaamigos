@@ -8,8 +8,11 @@ import { getProgramsForAppointment } from "@/lib/trial-data";
 import { getActiveGoalsForPatient, getPreviousSessionMetaIds } from "@/lib/session-note-goals";
 import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getInterventionCatalog } from "@/lib/intervention-catalog";
-import { getPatientProtocolOptions } from "@/lib/protocol-assessments";
-import { PROTOCOL_LABEL } from "@/lib/protocol-catalog";
+import { PROTOCOL_CATALOG, PROTOCOL_LABEL } from "@/lib/protocol-catalog";
+import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
+import type { NativeInstrumentKey } from "@/lib/native-instruments";
+
+const CONFIGURABLE_PROTOCOLS = PROTOCOL_CATALOG.filter((p) => p.name !== "outro");
 import { EvolutionForm, type EditingContext } from "./evolution-form";
 import { TrialDataPanel } from "./trial-data-panel";
 import { getMetasTrabalhadas, type GoalResultLevel, type SessionNoteStructured } from "@/lib/session-note-fields";
@@ -98,38 +101,51 @@ export default async function EvolucaoPage({
     // alimenta a barra de identidade acima, "nenhum guardian com
     // image_consent=false" (o trigger no INSERT em session_note_media
     // reforça a mesma regra, esta é só a UI condicional).
-    const [activeGoals, preCheckedGoalIds, behaviorCatalog, interventionCatalog, contacts, protocolOptions] =
+    const [activeGoals, preCheckedGoalIds, behaviorCatalog, interventionCatalog, contacts, enabledInstruments] =
       await Promise.all([
         getActiveGoalsForPatient(supabase, appointment.patient_id),
         getPreviousSessionMetaIds(supabase, appointment.patient_id, appointmentId),
         getBehaviorCatalog(supabase, { activeOnly: true }),
         getInterventionCatalog(supabase, { activeOnly: true }),
         supabase.rpc("patient_contact_summary", { p_patient_id: appointment.patient_id }),
-        patientRecord ? getPatientProtocolOptions(supabase, patientRecord.clinic_id) : Promise.resolve([]),
+        patientRecord ? getEnabledInstrumentKeys(supabase, patientRecord.clinic_id) : Promise.resolve(new Set<NativeInstrumentKey>()),
       ]);
     const imageConsent = (contacts.data ?? []).every((g) => g.image_consent !== false);
+    const showFono = ["adl", "adl2", "proc"].some((key) => enabledInstruments.has(key as NativeInstrumentKey));
+    const showSociallySavvy = enabledInstruments.has("socially_savvy");
 
     return (
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[640px] flex-col gap-6 p-5 sm:p-10">
-          {protocolOptions.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-2">
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Instrumentos de Avaliação
               </h3>
               <div className="flex flex-wrap gap-2">
-                {protocolOptions.map((protocol) => (
+                {CONFIGURABLE_PROTOCOLS.map((protocol) => (
                   <Link
-                    key={protocol.id}
-                    href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.id}`}
+                    key={protocol.name}
+                    href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.name}`}
                     className="btn btn-secondary w-fit text-xs"
                   >
-                    📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.name}
+                    📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
                   </Link>
                 ))}
+                {showFono && (
+                  <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit text-xs">
+                    🗣️ Fono (ADL/ADL-2/PROC)
+                  </Link>
+                )}
+                {showSociallySavvy && (
+                  <Link
+                    href={`/terapeuta/paciente/${appointment.patient_id}/socially-savvy`}
+                    className="btn btn-secondary w-fit text-xs"
+                  >
+                    🤝 Socially Savvy
+                  </Link>
+                )}
               </div>
-            </div>
-          )}
+          </div>
           <TrialDataPanel appointmentId={appointment.id} programs={programs} />
           <EvolutionForm
             appointmentId={appointment.id}
@@ -207,9 +223,6 @@ export default async function EvolucaoPage({
     );
   }
 
-  const protocolOptions =
-    existingNote && patientRecord ? await getPatientProtocolOptions(supabase, patientRecord.clinic_id) : [];
-
   return (
     <main className="flex flex-1 flex-col">
       <header
@@ -272,21 +285,15 @@ export default async function EvolucaoPage({
               <Link href={`/terapeuta/paciente/${appointment.patient_id}/metricas`} className="btn btn-secondary w-fit">
                 Evolução (gráficos)
               </Link>
-              {protocolOptions.length > 0 ? (
-                protocolOptions.map((protocol) => (
-                  <Link
-                    key={protocol.id}
-                    href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.id}`}
-                    className="btn btn-secondary w-fit"
-                  >
-                    📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.name}
-                  </Link>
-                ))
-              ) : (
-                <Link href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao`} className="btn btn-secondary w-fit">
-                  Avaliação de protocolo
+              {CONFIGURABLE_PROTOCOLS.map((protocol) => (
+                <Link
+                  key={protocol.name}
+                  href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.name}`}
+                  className="btn btn-secondary w-fit"
+                >
+                  📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
                 </Link>
-              )}
+              ))}
               <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit">
                 Fono (ADL/ADL-2/PROC)
               </Link>

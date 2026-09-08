@@ -17,8 +17,9 @@ import { logRecordAccess } from "@/lib/record-access-log";
 import { canConductFirstAssessment } from "@/lib/anamnese-access";
 import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
 import type { NativeInstrumentKey } from "@/lib/native-instruments";
-import { getPatientProtocolOptions } from "@/lib/protocol-assessments";
-import { PROTOCOL_LABEL } from "@/lib/protocol-catalog";
+import { PROTOCOL_CATALOG, PROTOCOL_LABEL } from "@/lib/protocol-catalog";
+
+const CONFIGURABLE_PROTOCOLS = PROTOCOL_CATALOG.filter((p) => p.name !== "outro");
 
 const fmtDate = (iso: string | null | undefined) => fmtDateShared(iso, CLINIC_TIMEZONE);
 
@@ -70,15 +71,13 @@ export default async function TerapeutaFichaPacientePage({
 
   await logRecordAccess(supabase, patientId, "prontuario_terapeuta");
 
-  const [dossier, { insurance, emergencyContact }, behaviorCatalog, contacts, enabledInstruments, protocolOptions] =
-    await Promise.all([
-      getPatientDossier(supabase, patientId, { includeBilling: false }),
-      getPatientIdentitySummary(supabase, patientId),
-      getBehaviorCatalog(supabase, { activeOnly: false }),
-      supabase.rpc("patient_contact_summary", { p_patient_id: patientId }),
-      getEnabledInstrumentKeys(supabase, patient.clinic_id),
-      getPatientProtocolOptions(supabase, patient.clinic_id),
-    ]);
+  const [dossier, { insurance, emergencyContact }, behaviorCatalog, contacts, enabledInstruments] = await Promise.all([
+    getPatientDossier(supabase, patientId, { includeBilling: false }),
+    getPatientIdentitySummary(supabase, patientId),
+    getBehaviorCatalog(supabase, { activeOnly: false }),
+    supabase.rpc("patient_contact_summary", { p_patient_id: patientId }),
+    getEnabledInstrumentKeys(supabase, patient.clinic_id),
+  ]);
 
   // Atalhos de instrumento só aparecem se a clínica os mantém ativos
   // (/gestor/cadastros/instrumentos). O hub de fono cobre ADL, ADL-2 e
@@ -256,28 +255,18 @@ export default async function TerapeutaFichaPacientePage({
                       <span className="text-xs font-semibold leading-tight text-ink">1ª Avaliação</span>
                     </Link>
                   )}
-                  {protocolOptions.length > 0 ? (
-                    protocolOptions.map((protocol) => (
-                      <Link
-                        key={protocol.id}
-                        href={`/terapeuta/paciente/${patient.id}/avaliacao?protocolo=${protocol.id}`}
-                        className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
-                      >
-                        <span className="text-xl">📋</span>
-                        <span className="text-xs font-semibold leading-tight text-ink">
-                          {PROTOCOL_LABEL[protocol.name] ?? protocol.name}
-                        </span>
-                      </Link>
-                    ))
-                  ) : (
+                  {CONFIGURABLE_PROTOCOLS.map((protocol) => (
                     <Link
-                      href={`/terapeuta/paciente/${patient.id}/avaliacao`}
+                      key={protocol.name}
+                      href={`/terapeuta/paciente/${patient.id}/avaliacao?protocolo=${protocol.name}`}
                       className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
                     >
                       <span className="text-xl">📋</span>
-                      <span className="text-xs font-semibold leading-tight text-ink">Protocolo</span>
+                      <span className="text-xs font-semibold leading-tight text-ink">
+                        {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
+                      </span>
                     </Link>
-                  )}
+                  ))}
                   {showFono && (
                     <Link
                       href={`/terapeuta/paciente/${patient.id}/fono`}
