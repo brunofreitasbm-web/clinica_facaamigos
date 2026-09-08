@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ShieldCheck, UserX, ListOrdered } from "lucide-react";
 
 const TABS = [
@@ -51,6 +52,7 @@ export function SupervisaoShell({
   inboxTab: ReactNode;
 }) {
   const [tab, setTab] = useState<SupervisaoTabKey>("grade");
+  const pathname = usePathname();
 
   const count: Partial<Record<SupervisaoTabKey, number>> = {
     agenda1a: nAgenda1a,
@@ -82,18 +84,22 @@ export function SupervisaoShell({
             </span>
           </span>
         </span>
-        <nav className="flex h-full items-center gap-6 text-[15px] font-semibold">
+        <nav role="tablist" aria-label="Seções da coordenação" className="flex h-full items-center gap-6 text-[15px]">
           {TABS.map((t) => {
             const n = count[t.key] ?? 0;
+            const isActive = tab === t.key;
             return (
               <button
                 key={t.key}
                 type="button"
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => setTab(t.key)}
-                className="flex h-full items-center gap-1.5 border-b-2"
+                className="flex h-full items-center gap-1.5 transition-all"
                 style={{
-                  color: tab === t.key ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
-                  borderColor: tab === t.key ? "var(--color-on-accent)" : "transparent",
+                  color: isActive ? "#FFFFFF" : "var(--color-on-accent-soft)",
+                  borderBottom: isActive ? "3px solid #FFFFFF" : "3px solid transparent",
+                  fontWeight: isActive ? 700 : 500,
                 }}
               >
                 {t.label}
@@ -110,24 +116,39 @@ export function SupervisaoShell({
           })}
           <Link
             href="/supervisao/lista-espera"
-            className="flex h-full items-center gap-1.5 border-b-2 border-transparent"
-            style={{ color: "var(--color-on-accent-soft)" }}
+            className="flex h-full items-center gap-1.5 transition-all"
+            aria-current={pathname === "/supervisao/lista-espera" ? "page" : undefined}
+            style={{
+              color: pathname === "/supervisao/lista-espera" ? "#FFFFFF" : "var(--color-on-accent-soft)",
+              borderBottom: pathname === "/supervisao/lista-espera" ? "3px solid #FFFFFF" : "3px solid transparent",
+              fontWeight: pathname === "/supervisao/lista-espera" ? 700 : 500,
+            }}
           >
             <ListOrdered size={15} />
             Lista de Espera
           </Link>
           <Link
             href="/supervisao/prontuario-unificado"
-            className="flex h-full items-center gap-1.5 border-b-2 border-transparent"
-            style={{ color: "var(--color-on-accent-soft)" }}
+            className="flex h-full items-center gap-1.5 transition-all"
+            aria-current={pathname === "/supervisao/prontuario-unificado" ? "page" : undefined}
+            style={{
+              color: pathname === "/supervisao/prontuario-unificado" ? "#FFFFFF" : "var(--color-on-accent-soft)",
+              borderBottom: pathname === "/supervisao/prontuario-unificado" ? "3px solid #FFFFFF" : "3px solid transparent",
+              fontWeight: pathname === "/supervisao/prontuario-unificado" ? 700 : 500,
+            }}
           >
             <ShieldCheck size={15} />
             Prontuário Unificado
           </Link>
           <Link
             href="/recepcao/emergencias"
-            className="flex h-full items-center gap-1.5 border-b-2 border-transparent"
-            style={{ color: "var(--color-on-accent-soft)" }}
+            className="flex h-full items-center gap-1.5 transition-all"
+            aria-current={pathname === "/recepcao/emergencias" ? "page" : undefined}
+            style={{
+              color: pathname === "/recepcao/emergencias" ? "#FFFFFF" : "var(--color-on-accent-soft)",
+              borderBottom: pathname === "/recepcao/emergencias" ? "3px solid #FFFFFF" : "3px solid transparent",
+              fontWeight: pathname === "/recepcao/emergencias" ? 700 : 500,
+            }}
           >
             <UserX size={15} />
             Aviso Falta Terapeuta

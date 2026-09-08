@@ -105,10 +105,20 @@ export default async function BonificacaoPage() {
                 {tierRows.map((row) => (
                   <tr key={row.id} className="hover:bg-paper-subtle/50 transition-colors">
                     <td className="p-3 font-semibold text-ink">{row.name}</td>
-                    <td className="p-3">{row.note24hRateLabel}</td>
-                    <td className="p-3 font-medium">{row.faltasRecuperadasLabel}</td>
+                    <td className="p-3">
+                      {row.hasSessions ? row.note24hRateLabel : <span className="text-ink-faint">—</span>}
+                    </td>
+                    <td className="p-3 font-medium">
+                      {row.hasFaltas ? row.faltasRecuperadasLabel : <span className="text-ink-faint">—</span>}
+                    </td>
                     <td className="p-3 text-ink-soft">
-                      {row.tier}
+                      {row.hasContract ? (
+                        row.tier
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                          Sem contrato
+                        </span>
+                      )}
                       {row.currentRate != null && ` (R$ ${row.currentRate.toFixed(2)})`}
                     </td>
                     <td className="p-3 text-right">

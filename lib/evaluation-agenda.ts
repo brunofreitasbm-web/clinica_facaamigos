@@ -32,6 +32,7 @@ export type EvaluationCalendarAppointment = {
   origin: EvaluationAgendaOrigin;
   patientId: string;
   patientName: string;
+  therapistId: string;
   therapistName: string;
   roomName: string;
   startsAt: string;
@@ -160,7 +161,7 @@ export async function getEvaluationCalendarAppointments(
   const { data } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, patient_id, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
+      "id, starts_at, ends_at, patient_id, therapist_id, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
     )
     .eq("is_evaluation", true)
     .gte("starts_at", weekStartIso)
@@ -198,6 +199,7 @@ export async function getEvaluationCalendarAppointments(
       origin,
       patientId: a.patient_id,
       patientName: patient?.full_name ?? "—",
+      therapistId: a.therapist_id,
       therapistName: therapist?.full_name ?? "—",
       roomName: room?.name ?? "—",
       startsAt: a.starts_at,

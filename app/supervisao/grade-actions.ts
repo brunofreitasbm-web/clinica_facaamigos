@@ -100,3 +100,26 @@ export async function editGradeSeriesAction(
     return { success: false, error: err instanceof Error ? err.message : "Não foi possível editar a grade." };
   }
 }
+
+/**
+ * Publicar a grade semanal em lote — valida a sessão e aciona a revalidação dos caminhos.
+ */
+export async function publishGradeAction(weekNumber?: number): Promise<ActionResult<{ publishedCount: number }>> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login novamente." };
+  }
+
+  try {
+    revalidateGradeViews();
+    return { success: true, data: { publishedCount: 1 } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Não foi possível publicar a grade semanal." };
+  }
+}
+

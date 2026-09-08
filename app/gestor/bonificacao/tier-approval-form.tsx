@@ -5,7 +5,7 @@ import { approveTherapistTierChange, rejectTherapistTierChange, type TierRow } f
 
 export function TierApprovalForm({ row }: { row: TierRow }) {
   const [mode, setMode] = useState<"none" | "promote" | "reject">("none");
-  const [tier, setTier] = useState(row.tier === "sem contrato vigente" ? "" : row.tier);
+  const [tier, setTier] = useState(row.hasContract ? row.tier : "");
   const [rate, setRate] = useState(row.currentRate ?? 0);
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<string | null>(null);

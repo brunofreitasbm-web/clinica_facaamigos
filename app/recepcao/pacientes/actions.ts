@@ -101,3 +101,26 @@ export async function registerFirstContact(
   revalidatePath(`/recepcao/pacientes/${patientId}`);
   return { success: true };
 }
+
+/**
+ * Inativa o cadastro do paciente mudando o status para 'inativo'.
+ */
+export async function inactivatePatient(
+  patientId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("patients")
+    .update({ status: "inativo" })
+    .eq("id", patientId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível inativar o paciente." };
+  }
+
+  revalidatePath("/recepcao/pacientes");
+  revalidatePath(`/recepcao/pacientes/${patientId}`);
+  return { success: true };
+}
+

@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
+import { useToast } from "@/components/toast-provider";
 
 export interface AlertItem {
   id: string;
@@ -45,9 +47,30 @@ const DEFAULT_ALERTS: AlertItem[] = [
 
 export function GestorCockpit() {
   const [alerts, setAlerts] = useState<AlertItem[]>(DEFAULT_ALERTS);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const handleDismiss = (id: string) => {
+  const handleAction = (alert: AlertItem) => {
+    if (loadingId) return;
+    setLoadingId(alert.id);
+  };
+
+  const handleDismiss = (alert: AlertItem) => {
+    const { id } = alert;
+    const index = alerts.findIndex((a) => a.id === id);
     setAlerts((prev) => prev.filter((a) => a.id !== id));
+    toast(
+      `Alerta "${alert.title}" ignorado.`,
+      "info",
+      () => {
+        setAlerts((prev) => {
+          const next = [...prev];
+          next.splice(Math.min(index, next.length), 0, alert);
+          return next;
+        });
+      },
+      5000
+    );
   };
 
   return (
@@ -224,23 +247,40 @@ export function GestorCockpit() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Link
-                      href={alert.actionHref}
-                      className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-md no-underline transition-all ${
-                        isCritical
-                          ? "bg-red-600 text-white hover:bg-red-700 shadow-sm"
-                          : "bg-amber-600 text-white hover:bg-amber-700 shadow-sm"
-                      }`}
-                    >
-                      {alert.actionLabel} →
-                    </Link>
                     <button
-                      onClick={() => handleDismiss(alert.id)}
-                      className="text-xs text-ink-faint hover:text-ink hover:underline border-0 bg-transparent cursor-pointer px-1"
-                      title="Dispensar alerta nesta sessão"
+                      onClick={() => handleDismiss(alert)}
+                      className="btn-ghost text-xs font-semibold rounded-md border-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      title="Ignorar alerta (pode ser desfeito por 5s)"
+                      disabled={loadingId === alert.id}
                     >
                       Ignorar
                     </button>
+                    <Link
+                      href={alert.actionHref}
+                      onClick={(e) => {
+                        if (loadingId === alert.id) {
+                          e.preventDefault();
+                          return;
+                        }
+                        handleAction(alert);
+                      }}
+                      aria-disabled={loadingId === alert.id}
+                      className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-md no-underline transition-all shadow-sm ${
+                        loadingId === alert.id
+                          ? "pointer-events-none opacity-70"
+                          : ""
+                      }`}
+                      style={{ background: "var(--color-accent)", color: "var(--color-on-accent)" }}
+                    >
+                      {loadingId === alert.id ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Processando…
+                        </>
+                      ) : (
+                        <>{alert.actionLabel} →</>
+                      )}
+                    </Link>
                   </div>
                 </div>
               );

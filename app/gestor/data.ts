@@ -494,10 +494,13 @@ export type TierRow = {
   id: string;
   name: string;
   tier: string;
+  hasContract: boolean;
   currentRate: number | null;
   sessions: number;
   note24hRateLabel: string;
+  hasSessions: boolean;
   faltasRecuperadasLabel: string;
+  hasFaltas: boolean;
   nextTierLabel: string;
   eligible: boolean;
 };
@@ -576,15 +579,23 @@ export async function getTierProgression(supabase: Supa, clinicId: string): Prom
 
     const eligible = note24hRate != null && note24hRate >= 0.98 && realized.length >= 10;
 
+    const hasContract = tierByTherapist.has(t.id);
+    const hasSessions = note24hRate != null;
+    const hasFaltas = faltas.length > 0;
+
     return {
       id: t.id,
       name: t.full_name,
-      tier: tierByTherapist.get(t.id) ?? "sem contrato vigente",
+      tier: hasContract ? (tierByTherapist.get(t.id) as string) : "Sem contrato",
+      hasContract,
       currentRate: rateByTherapist.get(t.id) ?? null,
       sessions: realized.length,
-      note24hRateLabel: note24hRate != null ? `${Math.round(note24hRate * 100)}%` : "sem sessões",
-      faltasRecuperadasLabel:
-        faltas.length > 0 ? `${recovered}/${faltas.length} (${Math.round((recoveryRate ?? 0) * 100)}%)` : "sem faltas",
+      note24hRateLabel: hasSessions ? `${Math.round((note24hRate as number) * 100)}%` : "",
+      hasSessions,
+      faltasRecuperadasLabel: hasFaltas
+        ? `${recovered}/${faltas.length} (${Math.round((recoveryRate ?? 0) * 100)}%)`
+        : "",
+      hasFaltas,
       nextTierLabel: eligible ? "Elegível — proposta ao gestor" : "Mantém faixa atual",
       eligible,
     };

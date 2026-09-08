@@ -212,7 +212,7 @@ const STATUS_CONFIG_MAP: Record<string, StatusConfig> = {
   avaliacao: {
     label: "Avaliação",
     badgeClass:
-      "bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-700 font-medium",
+      "bg-amber-100 text-amber-950 border-amber-300 dark:bg-amber-950/90 dark:text-amber-100 dark:border-amber-700 font-semibold",
     icon: Sparkles,
   },
 };

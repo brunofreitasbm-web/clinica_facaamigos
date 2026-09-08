@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -9,6 +9,7 @@ import {
   FileText,
   Inbox,
   LayoutGrid,
+  Loader2,
   MessageCircle,
   Search,
   Stethoscope,
@@ -351,10 +352,37 @@ const TONE_CLASS: Record<"pending" | "negative" | "neutral" | "positive", string
   positive: "st-confirmada",
 };
 
+/** Envolve um atalho desabilitado com uma dica visível no hover e no foco por teclado. */
+function DisabledHint({ id, message, children }: { id: string; message: string; children: ReactNode }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+      onFocus={() => setVisible(true)}
+      onBlur={() => setVisible(false)}
+    >
+      {children}
+      {visible && (
+        <span
+          id={id}
+          role="tooltip"
+          className="absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-[220px] -translate-x-1/2 rounded-[var(--radius-md)] px-3 py-2 text-xs font-semibold leading-snug"
+          style={{ background: "var(--color-ink)", color: "var(--color-bg)", boxShadow: "var(--shadow-md)" }}
+        >
+          {message}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function ToolButton({ tool, patientId, compact }: { tool: Tool; patientId: string | null; compact?: boolean }) {
   const { setTab } = useSupervisaoTab();
   const cls = `btn ${tool.primary ? "btn-primary" : "btn-secondary"} ${compact ? "text-xs" : "text-sm"}`;
   const style = compact ? { padding: "3px 10px" } : { padding: "6px 14px" };
+  const tooltipId = useId();
 
   if ("tab" in tool) {
     return (
@@ -367,15 +395,21 @@ function ToolButton({ tool, patientId, compact }: { tool: Tool; patientId: strin
 
   if (tool.needsPatient) {
     if (!patientId) {
+      const hint = "Busque e selecione um paciente na barra acima para habilitar este atalho";
       return (
-        <span
-          className={`${cls} cursor-not-allowed opacity-45`}
-          style={style}
-          title="Escolha um paciente no topo para habilitar este atalho"
-        >
-          {tool.icon}
-          {tool.label}
-        </span>
+        <DisabledHint id={tooltipId} message={hint}>
+          <button
+            type="button"
+            aria-disabled="true"
+            aria-describedby={tooltipId}
+            onClick={(e) => e.preventDefault()}
+            className={`${cls} cursor-not-allowed`}
+            style={{ ...style, color: "#9E9E9E", borderColor: "#9E9E9E", background: "transparent" }}
+          >
+            {tool.icon}
+            {tool.label}
+          </button>
+        </DisabledHint>
       );
     }
     return (
@@ -404,11 +438,20 @@ function PatientPicker({
   onSelect: (p: FlowPatient | null) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedQuery(query), 500);
+    return () => clearTimeout(timeout);
+  }, [query]);
+
+  const isSearching = query.trim() !== debouncedQuery.trim() && query.trim() !== "";
+
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (!q) return [];
     return patients.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 8);
-  }, [patients, query]);
+  }, [patients, debouncedQuery]);
 
   if (selected) {
     return (
@@ -431,12 +474,17 @@ function PatientPicker({
   return (
     <div className="relative">
       <label className="flex items-center gap-2">
-        <Search className="h-4 w-4 text-ink-faint" />
+        {isSearching ? (
+          <Loader2 className="h-4 w-4 animate-spin" style={{ color: "var(--color-accent)" }} aria-hidden="true" />
+        ) : (
+          <Search className="h-4 w-4 text-ink-faint" aria-hidden="true" />
+        )}
         <input
           className="input flex-1"
           placeholder="Buscar paciente para apontar os atalhos (ficha, protocolo, PTS, relatórios)…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-busy={isSearching}
         />
       </label>
       {matches.length > 0 && (
@@ -463,7 +511,7 @@ function PatientPicker({
           ))}
         </ul>
       )}
-      {query.trim() && matches.length === 0 && (
+      {!isSearching && debouncedQuery.trim() && matches.length === 0 && (
         <p className="mt-1 text-xs text-ink-faint">Nenhum paciente com esse nome.</p>
       )}
     </div>

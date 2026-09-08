@@ -11,7 +11,7 @@ export default async function PacientesPage() {
 
   const { data: patients } = await supabase
     .from("patients")
-    .select("id, full_name, status, created_at, evaluated_at, first_session_at")
+    .select("id, full_name, status, birth_date, cpf, created_at, evaluated_at, first_session_at, guardians(full_name, is_financial)")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("full_name");
 
@@ -43,10 +43,22 @@ export default async function PacientesPage() {
     }),
   );
 
-  const rows = (patients ?? []).map((p) => ({
-    ...p,
-    stage: computeStage(p, evaluationScheduledIds.has(p.id), activeAuthPatientIds.has(p.id)),
-  }));
+  const rows = (patients ?? []).map((p) => {
+    const guardiansList = Array.isArray(p.guardians) ? p.guardians : p.guardians ? [p.guardians] : [];
+    const mainGuardian = guardiansList.find((g: any) => g.is_financial) || guardiansList[0];
+    return {
+      id: p.id,
+      full_name: p.full_name,
+      status: p.status,
+      birth_date: p.birth_date,
+      cpf: p.cpf,
+      created_at: p.created_at,
+      evaluated_at: p.evaluated_at,
+      first_session_at: p.first_session_at,
+      guardian_name: mainGuardian?.full_name ?? null,
+      stage: computeStage(p, evaluationScheduledIds.has(p.id), activeAuthPatientIds.has(p.id)),
+    };
+  });
 
   return (
     <main className="flex flex-1 flex-col">

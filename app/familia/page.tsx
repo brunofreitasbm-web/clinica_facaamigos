@@ -68,6 +68,33 @@ function fmtWhen(iso: string) {
   }
 }
 
+/**
+ * Sanitiza o nome do paciente para exibição pública na UI da Família.
+ * Impede vazamento de IDs técnicos do banco/estado (ex: Child_1788517902660, UUIDs).
+ */
+function formatPatientDisplayName(rawName?: string | null): {
+  displayName: string;
+  firstName: string;
+  isFallback: boolean;
+} {
+  if (!rawName || typeof rawName !== "string") {
+    return { displayName: "seu filho(a)", firstName: "seu filho(a)", isFallback: true };
+  }
+  const trimmed = rawName.trim();
+  const isTechnicalId =
+    /^(Child_|User_|[0-9a-f-]{10,})/i.test(trimmed) ||
+    /^\w+_\d+$/i.test(trimmed) ||
+    !/[a-zA-ZáàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]/.test(trimmed);
+
+  if (isTechnicalId) {
+    return { displayName: "seu filho(a)", firstName: "seu filho(a)", isFallback: true };
+  }
+
+  const parts = trimmed.split(/\s+/);
+  const firstName = parts[0] || "seu filho(a)";
+  return { displayName: trimmed, firstName, isFallback: false };
+}
+
 export default async function FamiliaPage({
   searchParams,
 }: {
@@ -381,11 +408,14 @@ export default async function FamiliaPage({
   // é seguro usar a ausência de lgpd_consent_at como gatilho do bloqueio.
   const showLgpdGate = !!guardianRow && !guardianRow.lgpd_consent_at;
 
-  const firstName = patient.full_name.split(" ")[0];
+  const { firstName, isFallback: isPatientNameFallback } = formatPatientDisplayName(patient.full_name);
   const hour = Number(
     new Date().toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: CLINIC_TIMEZONE }),
   );
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const greetingTitle = isPatientNameFallback
+    ? `${greeting}! Como vai a semana do seu filho(a)? 💛`
+    : `${greeting}! Como vai a semana de ${firstName}? 💛`;
 
   return (
     <main id="top" className="mx-auto flex w-full max-w-[480px] flex-1 flex-col" style={{ background: "var(--color-bg)" }}>
@@ -409,31 +439,35 @@ export default async function FamiliaPage({
           </span>
         </div>
         <div>
-          <div style={{ fontSize: 13, color: "var(--color-on-accent-soft)" }}>
-            {greeting}! Como vai a semana de
-          </div>
-          <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 32, lineHeight: 1.15 }}>
-            {firstName}? 💛
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 28, lineHeight: 1.2 }}>
+            {greetingTitle}
           </div>
           {otherChildren.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-              {otherChildren.map((c) => (
-                <a
-                  key={c.id}
-                  href={`/familia?patient=${c.id}`}
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    padding: "5px 12px",
-                    borderRadius: 999,
-                    background: "rgba(255,255,255,0.16)",
-                    color: "var(--color-on-accent)",
-                    textDecoration: "none",
-                  }}
-                >
-                  Ver {c.full_name}
-                </a>
-              ))}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
+              {otherChildren.map((c) => {
+                const childInfo = formatPatientDisplayName(c.full_name);
+                const label = childInfo.isFallback ? "Ver outro perfil" : `Ver ${childInfo.firstName}`;
+                return (
+                  <a
+                    key={c.id}
+                    href={`/familia?patient=${c.id}`}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      padding: "5px 12px",
+                      borderRadius: 999,
+                      background: "rgba(255, 255, 255, 0.16)",
+                      border: "1px solid rgba(255, 255, 255, 0.25)",
+                      color: "var(--color-on-accent)",
+                      textDecoration: "none",
+                      backdropFilter: "blur(4px)",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    {label}
+                  </a>
+                );
+              })}
             </div>
           )}
         </div>
@@ -691,9 +725,11 @@ export default async function FamiliaPage({
                 );
               })
             ) : (
-              <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
-                Assim que o plano terapêutico for aprovado, as metas de {firstName} aparecem aqui. ✨
-              </p>
+              <SectionEmptyState
+                icon="🎯"
+                title="Plano Terapêutico em definição"
+                message={`Assim que o plano terapêutico for aprovado pela equipe clínica, as metas de ${firstName} vão aparecer aqui.`}
+              />
             )}
           </div>
         </section>
@@ -757,9 +793,11 @@ export default async function FamiliaPage({
                 </div>
               ))
             ) : (
-              <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
-                Nenhum recado da equipe ainda — as novidades e fotinhos de {firstName} aparecem aqui. 📸
-              </p>
+              <SectionEmptyState
+                icon="📸"
+                title="Nenhum recado no mural"
+                message={`As novidades e momentos de ${firstName} registrados pela equipe clínica aparecerão aqui.`}
+              />
             )}
           </div>
         </section>
@@ -832,9 +870,11 @@ export default async function FamiliaPage({
                 );
               })
             ) : (
-              <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
-                Nenhuma mensagem trocada com a coordenação ainda. Use &ldquo;Fale com a Coordenação&rdquo; acima se precisar de suporte.
-              </p>
+              <SectionEmptyState
+                icon="💬"
+                title="Nenhuma mensagem trocada"
+                message="Dúvidas sobre agenda ou atendimento? Clique em 'Fale com a Coordenação' acima para conversar com nossa equipe."
+              />
             )}
           </div>
         </section>
@@ -869,9 +909,11 @@ export default async function FamiliaPage({
                 </div>
               ))
             ) : (
-              <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
-                Nenhum documento liberado ainda — quando a equipe compartilhar algo, ele aparece por aqui.
-              </p>
+              <SectionEmptyState
+                icon="📄"
+                title="Nenhum documento liberado"
+                message="Quando a equipe compartilhar relatórios, laudos ou guias autorizadas, eles aparecerão nesta área."
+              />
             )}
           </div>
         </section>
@@ -913,10 +955,11 @@ export default async function FamiliaPage({
                 </div>
               ))
             ) : (
-              <p style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
-                Nenhum documento enviado ainda. Use o botão acima pra mandar carteirinha, pedido médico
-                ou qualquer outro papel — a gente confere rapidinho.
-              </p>
+              <SectionEmptyState
+                icon="📤"
+                title="Nenhum documento enviado"
+                message="Use o botão acima para enviar carteirinhas do plano, pedidos médicos ou laudos para a recepção."
+              />
             )}
           </div>
         </section>
@@ -977,5 +1020,41 @@ function EmptyState({ title, message }: { title: string; message: string }) {
       <h4>{title}</h4>
       <p style={{ color: "var(--color-neutral-600)", fontSize: 14 }}>{message}</p>
     </main>
+  );
+}
+
+function SectionEmptyState({
+  icon,
+  title,
+  message,
+}: {
+  icon: string;
+  title: string;
+  message: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px 16px",
+        textAlign: "center",
+        background: "var(--color-surface)",
+        borderRadius: "var(--radius-lg)",
+        border: "1px dashed var(--color-divider)",
+        gap: 6,
+        marginTop: 6,
+      }}
+    >
+      <span aria-hidden style={{ fontSize: 26, opacity: 0.85 }}>
+        {icon}
+      </span>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text)" }}>{title}</div>
+      <p style={{ fontSize: 12, color: "var(--color-neutral-600)", margin: 0, maxWidth: 320, lineHeight: 1.4 }}>
+        {message}
+      </p>
+    </div>
   );
 }

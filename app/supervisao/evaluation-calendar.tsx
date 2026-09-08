@@ -106,6 +106,23 @@ export function EvaluationCalendar({
   const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
   const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
 
+  // Une os terapeutas cadastrados como avaliadores com quem de fato aparece
+  // agendado na semana visível — sem isso o dropdown pode dizer "nenhum
+  // terapeuta avaliador cadastrado" enquanto o grid mostra agendamentos reais,
+  // já que o agendamento em si não exige a flag is_evaluator.
+  const availableTherapists = useMemo(() => {
+    const byId = new Map(therapists.map((t) => [t.id, t] as const));
+    for (const a of appointments) {
+      if (!byId.has(a.therapistId)) byId.set(a.therapistId, { id: a.therapistId, name: a.therapistName });
+    }
+    return Array.from(byId.values());
+  }, [therapists, appointments]);
+
+  useEffect(() => {
+    if (!therapistId && availableTherapists.length > 0) setTherapistId(availableTherapists[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableTherapists]);
+
   async function fetchWeek() {
     setLoading(true);
     const res = await getEvaluationCalendarWeekAction(bounds.start);
@@ -203,8 +220,8 @@ export function EvaluationCalendar({
         <div className="flex flex-wrap items-center gap-2">
           <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Terapeuta avaliador</label>
           <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
-            {therapists.length === 0 && <option value="">Nenhum terapeuta avaliador cadastrado</option>}
-            {therapists.map((t) => (
+            {availableTherapists.length === 0 && <option value="">Nenhum terapeuta avaliador cadastrado</option>}
+            {availableTherapists.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>

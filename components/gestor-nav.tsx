@@ -38,10 +38,14 @@ export function GestorNav({
 
   return (
     <header
-      style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
+      style={{ background: "var(--color-accent-600)", color: "var(--color-bg)" }}
       className="flex h-16 items-center gap-8 px-10 shadow-sm"
     >
-      <Link href="/gestor" prefetch={true} className="mr-auto flex items-center gap-3 no-underline transition-opacity hover:opacity-90">
+      <Link
+        href="/gestor"
+        prefetch={true}
+        className="mr-auto flex items-center gap-3 rounded no-underline transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      >
         <svg width="30" height="30" viewBox="0 0 100 100" fill="none">
           <path d="M22 18h34v10H33v18h20v10H33v26H22z" fill="var(--color-bg)" />
           <path
@@ -57,7 +61,7 @@ export function GestorNav({
           </span>
         </span>
       </Link>
-      <nav className="flex items-center gap-8">
+      <nav className="flex items-center gap-6">
         {NAV_ITEMS.map((item) => {
           const isCurrent = active ? active === item.key : pathname?.startsWith(item.href);
           const Icon = "icon" in item ? item.icon : null;
@@ -67,10 +71,11 @@ export function GestorNav({
               href={item.href}
               prefetch={true}
               aria-current={isCurrent ? "page" : undefined}
-              className="relative flex items-center gap-1.5 pb-1 text-[13px] no-underline font-semibold transition-all duration-150 active:scale-95 hover:opacity-100"
+              className="relative flex items-center gap-1.5 rounded-t px-1 pb-1.5 text-[13px] no-underline font-semibold transition-all duration-150 active:scale-95 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               style={{
                 color: isCurrent ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
-                borderBottom: isCurrent ? "2px solid var(--color-on-accent)" : "2px solid transparent",
+                background: isCurrent ? "color-mix(in srgb, var(--color-on-accent) 14%, transparent)" : "transparent",
+                borderBottom: isCurrent ? "3px solid var(--color-on-accent)" : "3px solid transparent",
               }}
             >
               {Icon && <Icon size={14} />}

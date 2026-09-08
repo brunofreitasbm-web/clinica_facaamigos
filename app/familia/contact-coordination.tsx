@@ -1,16 +1,43 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { sendCoordinationMessage } from "./actions";
 
 /**
- * "Fale com a Coordenação" (Familia.dc.html) — botão no header navy que
- * abre um bottom-sheet simples (aqui, um dialog centralizado reaproveitando
- * .dialog/.dialog-backdrop já definidos em globals.css) com um textarea.
- * Ao enviar, grava uma linha real em `messages` (channel='portal',
- * direction='inbound') — ver app/familia/actions.ts para o porquê desses
- * valores. Isso aparece na caixa de entrada da coordenação (tela que outro
- * agente está construindo em paralelo).
+ * Valida o texto da mensagem impedindo envios com lixo semântico,
+ * floods de caracteres repetidos e strings sem sentido.
+ */
+function getMessageValidationError(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return null; // Não exibe erro enquanto está em branco, apenas mantém botão desabilitado
+  }
+  if (trimmed.length < 3) {
+    return "A mensagem deve ter pelo menos 3 caracteres.";
+  }
+  if (trimmed.length > 2000) {
+    return "A mensagem é muito longa (máximo de 2000 caracteres).";
+  }
+
+  // Detecta repetição exagerada de uma mesma letra/caractere (ex: "yyyyyyyyy", "aaaaaaaaa", ".....")
+  const hasSingleCharFlood = /^(.)\1{4,}$/i.test(trimmed);
+  
+  // Detecta sequências curtas repetidas sem espaço contínuas (ex: "abcabcabcabcabc")
+  const hasPatternFlood = /^(.{1,4})\1{4,}$/i.test(trimmed);
+
+  // Detecta ausência total de letras/números válidos ou apenas pontuação/símbolos repetidos
+  const hasNoCoherentWords = !/[a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]/i.test(trimmed);
+
+  if (hasSingleCharFlood || hasPatternFlood || hasNoCoherentWords) {
+    return "A mensagem inserida parece inválida. Por favor, digite um texto legível.";
+  }
+
+  return null;
+}
+
+/**
+ * "Fale com a Coordenação" — formulário modal com validação rigorosa de input
+ * para impedir envio de "lixo" e caracteres repetidos.
  */
 export function ContactCoordination({
   patientId,
@@ -21,13 +48,19 @@ export function ContactCoordination({
 }) {
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const validationError = useMemo(() => getMessageValidationError(body), [body]);
+  const isValid = useMemo(() => {
+    const trimmed = body.trim();
+    return trimmed.length >= 3 && trimmed.length <= 2000 && validationError === null;
+  }, [body, validationError]);
+
   function close() {
     setOpen(false);
-    setError(null);
+    setServerError(null);
     setSent(false);
     setBody("");
   }
@@ -75,31 +108,48 @@ export function ContactCoordination({
                   Dúvidas sobre agenda, frequência ou documentos — a equipe
                   responde em horário comercial.
                 </p>
-                <textarea
-                  className="input"
-                  rows={4}
-                  placeholder="Escreva sua mensagem…"
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  disabled={isPending}
-                />
-                {error && (
-                  <p style={{ fontSize: 12, color: "var(--status-falta)" }}>{error}</p>
-                )}
-                <div className="dialog-actions">
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    placeholder="Escreva sua mensagem…"
+                    value={body}
+                    onChange={(e) => {
+                      setBody(e.target.value);
+                      setServerError(null);
+                    }}
+                    disabled={isPending}
+                    aria-invalid={!!validationError}
+                    style={{
+                      borderColor: validationError ? "var(--status-falta)" : undefined,
+                    }}
+                  />
+                  {validationError && (
+                    <p style={{ fontSize: 12, color: "var(--status-falta)", margin: 0, fontWeight: 500 }}>
+                      ⚠️ {validationError}
+                    </p>
+                  )}
+                  {serverError && (
+                    <p style={{ fontSize: 12, color: "var(--status-falta)", margin: 0, fontWeight: 500 }}>
+                      ❌ {serverError}
+                    </p>
+                  )}
+                </div>
+                <div className="dialog-actions" style={{ marginTop: 12 }}>
                   <button type="button" className="btn btn-secondary" onClick={close}>
                     Cancelar
                   </button>
                   <button
                     type="button"
                     className="btn btn-gold"
-                    disabled={isPending}
+                    disabled={!isValid || isPending}
                     onClick={() => {
-                      setError(null);
+                      if (!isValid) return;
+                      setServerError(null);
                       startTransition(async () => {
                         const result = await sendCoordinationMessage(patientId, guardianId, body);
                         if (!result.success) {
-                          setError(result.error);
+                          setServerError(result.error);
                           return;
                         }
                         setSent(true);
@@ -117,3 +167,4 @@ export function ContactCoordination({
     </>
   );
 }
+

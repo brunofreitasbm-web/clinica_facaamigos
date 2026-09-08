@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { GestorNav } from "@/components/gestor-nav";
 import { EquipeSubnav } from "@/components/equipe-subnav";
 import { createClient } from "@/lib/supabase/server";
@@ -38,7 +39,9 @@ export default async function EquipePage() {
             Cadastro, papel de acesso (RBAC) e status de credencial de todo terapeuta da clínica.
           </p>
         </div>
-        <StaffTable staff={staff} />
+        <Suspense fallback={null}>
+          <StaffTable staff={staff} />
+        </Suspense>
       </main>
     </div>
   );

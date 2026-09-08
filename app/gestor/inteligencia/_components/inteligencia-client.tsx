@@ -4,6 +4,11 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { InteligenciaMetrics } from "../data";
+import { EmptyState } from "@/components/ui/empty-state";
+
+function formatPlural(value: number, singular: string, plural: string) {
+  return `${value} ${value === 1 ? singular : plural}`;
+}
 
 interface InteligenciaClientProps {
   initialMetrics: InteligenciaMetrics;
@@ -32,6 +37,15 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
     setDateFilterOpen(false);
     router.push(`/gestor/inteligencia?period=${periodKey}`);
   };
+
+  const handleClearDateFilter = () => {
+    router.push("/gestor/inteligencia?period=month");
+  };
+
+  const emptyStateAction =
+    currentPeriodKey !== "month"
+      ? { label: "Limpar filtro de data", onClick: handleClearDateFilter }
+      : undefined;
 
   // Exportar dados do card em CSV
   const handleExportCardData = (cardTitle: string, dataObj: unknown) => {
@@ -155,11 +169,11 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {/* Card 1: Total de Atendimentos */}
               <div className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                   <span>📅 Total de Atendimentos</span>
                   <button
                     onClick={() => setActiveCardMenu(activeCardMenu === 1 ? null : 1)}
-                    className="text-slate-300 hover:text-slate-600"
+                    className="shrink-0 text-slate-400 hover:text-slate-600"
                   >
                     •••
                   </button>
@@ -180,21 +194,21 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
                     {metrics.totalAppointments.toLocaleString("pt-BR")}
                   </span>
-                  <p className="mt-1 text-xs text-slate-400">período selecionado</p>
+                  <p className="mt-1 text-xs text-slate-600">período selecionado</p>
                 </div>
                 <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
                   <span>↑ {metrics.growthPct}%</span>
-                  <span className="font-normal text-slate-400">vs. período anterior: {metrics.prevMonthAppointments}</span>
+                  <span className="font-normal text-slate-600">vs. período anterior: {metrics.prevMonthAppointments}</span>
                 </div>
               </div>
 
               {/* Card 2: Total de Cobranças */}
               <div className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                   <span>🟡 Total de Cobranças</span>
                   <button
                     onClick={() => setActiveCardMenu(activeCardMenu === 2 ? null : 2)}
-                    className="text-slate-300 hover:text-slate-600"
+                    className="shrink-0 text-slate-400 hover:text-slate-600"
                   >
                     •••
                   </button>
@@ -215,7 +229,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
                     {metrics.totalCobrancas}
                   </span>
-                  <p className="mt-1 text-xs text-slate-400">guias / faturas emitidas</p>
+                  <p className="mt-1 text-xs text-slate-600">guias / faturas emitidas</p>
                 </div>
                 <p className="mt-3 text-xs font-semibold text-slate-500">
                   {metrics.totalCobrancas > 0 ? "Cobranças ativas no período" : "Nenhuma alteração"}
@@ -224,11 +238,11 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
 
               {/* Card 3: Valor Total das Cobranças */}
               <div className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                   <span>🪙 Valor Total das Cobranças</span>
                   <button
                     onClick={() => setActiveCardMenu(activeCardMenu === 3 ? null : 3)}
-                    className="text-slate-300 hover:text-slate-600"
+                    className="shrink-0 text-slate-400 hover:text-slate-600"
                   >
                     •••
                   </button>
@@ -238,7 +252,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
                     R${metrics.valorTotalCobrancas.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
                   </span>
-                  <p className="mt-1 text-xs text-slate-400">faturamento consolidado</p>
+                  <p className="mt-1 text-xs text-slate-600">faturamento consolidado</p>
                 </div>
                 <p className="mt-3 text-xs font-semibold text-slate-500">
                   {metrics.valorTotalCobrancas > 0 ? "Consolidado do período" : "Nenhuma alteração"}
@@ -247,11 +261,11 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
 
               {/* Card 4: Valor Recebido */}
               <div className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-                  <span>🪙 Valor Recebido (cobrança...)</span>
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
+                  <span className="break-words">🪙 Valor Recebido (cobranças pagas)</span>
                   <button
                     onClick={() => setActiveCardMenu(activeCardMenu === 4 ? null : 4)}
-                    className="text-slate-300 hover:text-slate-600"
+                    className="shrink-0 text-slate-400 hover:text-slate-600"
                   >
                     •••
                   </button>
@@ -261,7 +275,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
                     R${metrics.valorRecebido.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
                   </span>
-                  <p className="mt-1 text-xs text-slate-400">liquidado em conta</p>
+                  <p className="mt-1 text-xs text-slate-600">liquidado em conta</p>
                 </div>
                 <p className="mt-3 text-xs font-semibold text-emerald-600">
                   {metrics.valorRecebido > 0 ? "Recebimentos confirmados" : "Nenhuma alteração"}
@@ -273,9 +287,9 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {/* Card 5: Atendimento por Status (SVG Donut Chart) */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                   <span>Atendimento por Status</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-4">
@@ -309,7 +323,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                       <span className="text-sm font-extrabold text-slate-900">
                         {totalDonut.toLocaleString("pt-BR")}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-medium">Total</span>
+                      <span className="text-[10px] text-slate-600 font-medium">Total</span>
                     </div>
                   </div>
                 </div>
@@ -317,9 +331,9 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
 
               {/* Card 6: Número de Cobranças por Status (CONECTADO) */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between min-h-[160px]">
-                <div className="w-full flex items-center justify-between text-xs font-medium text-slate-500 mb-2">
+                <div className="w-full flex items-start justify-between gap-2 text-xs font-medium text-slate-600 mb-2">
                   <span>Número de Cobranças por Status</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
                 {metrics.cobrancasPorStatus.some((c) => c.count > 0) ? (
                   <div className="space-y-2 py-2">
@@ -334,18 +348,19 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                     ))}
                   </div>
                 ) : (
-                  <div className="my-auto flex flex-col items-center text-center">
-                    <div className="text-3xl text-slate-300 mb-1">⛵</div>
-                    <p className="text-xs text-slate-400 font-medium">Nenhum resultado</p>
-                  </div>
+                  <EmptyState
+                    title="Nenhuma cobrança"
+                    description={`Não há registros de cobrança para o período de ${selectedPeriodLabel}.`}
+                    action={emptyStateAction}
+                  />
                 )}
               </div>
 
               {/* Card 7: Valor Cobranças por Status (CONECTADO) */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between min-h-[160px]">
-                <div className="w-full flex items-center justify-between text-xs font-medium text-slate-500 mb-2">
+                <div className="w-full flex items-start justify-between gap-2 text-xs font-medium text-slate-600 mb-2">
                   <span>Valor Cobranças por Status</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
                 {metrics.cobrancasPorStatus.some((c) => c.amount > 0) ? (
                   <div className="space-y-2 py-2">
@@ -362,18 +377,19 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                     ))}
                   </div>
                 ) : (
-                  <div className="my-auto flex flex-col items-center text-center">
-                    <div className="text-3xl text-slate-300 mb-1">⛵</div>
-                    <p className="text-xs text-slate-400 font-medium">Nenhum resultado</p>
-                  </div>
+                  <EmptyState
+                    title="Nenhuma cobrança"
+                    description={`Não há valores de cobrança para o período de ${selectedPeriodLabel}.`}
+                    action={emptyStateAction}
+                  />
                 )}
               </div>
 
               {/* Card 8: Valor a Receber Pendente */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                   <span>Valor a Receber Pendente</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
                 <div className="my-auto py-6">
                   <span className="text-4xl font-extrabold text-slate-800 tracking-tight">
@@ -387,9 +403,9 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {/* Card 9: Atendimento por Semana */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-                  <span>📅 Atendimento por Seman...</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
+                  <span className="break-words">📅 Atendimento por Semana</span>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
 
                 <div className="mt-6 flex items-end justify-between gap-2 h-32 px-2">
@@ -408,17 +424,20 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                     );
                   })}
                 </div>
-                <div className="mt-2 flex justify-between text-[10px] font-medium text-slate-400 px-1 border-t border-slate-100 pt-1">
-                  <span>Período Inicial</span>
-                  <span>Período Final</span>
+                <div className="mt-2 flex justify-between gap-1 text-[10px] font-medium text-slate-600 px-1 border-t border-slate-100 pt-1">
+                  {metrics.weeklyVolume.map((w, idx) => (
+                    <span key={idx} className="flex-1 truncate text-center" title={w.weekLabel}>
+                      {w.weekLabel}
+                    </span>
+                  ))}
                 </div>
               </div>
 
               {/* Card 10: Cobranças por Status por Semana (CONECTADO) */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between min-h-[160px]">
-                <div className="w-full flex items-center justify-between text-xs font-medium text-slate-500 mb-2">
-                  <span>Cobranças por Status por Se...</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                <div className="w-full flex items-start justify-between gap-2 text-xs font-medium text-slate-600 mb-2">
+                  <span className="break-words">Cobranças por Status por Semana</span>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
                 {metrics.weeklyBillingVolume.some((w) => w.paidCount > 0 || w.pendingCount > 0) ? (
                   <div className="mt-4 flex items-end justify-between gap-2 h-28 px-1">
@@ -432,18 +451,19 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                     ))}
                   </div>
                 ) : (
-                  <div className="my-auto flex flex-col items-center text-center">
-                    <div className="text-3xl text-slate-300 mb-1">⛵</div>
-                    <p className="text-xs text-slate-400 font-medium">Nenhum resultado</p>
-                  </div>
+                  <EmptyState
+                    title="Nenhuma cobrança por semana"
+                    description={`Não há cobranças registradas semana a semana para o período de ${selectedPeriodLabel}.`}
+                    action={emptyStateAction}
+                  />
                 )}
               </div>
 
               {/* Card 11: Valor das Cobranças por Status (CONECTADO) */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between min-h-[160px]">
-                <div className="w-full flex items-center justify-between text-xs font-medium text-slate-500 mb-2">
-                  <span>Valor das Cobranças por Sta...</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                <div className="w-full flex items-start justify-between gap-2 text-xs font-medium text-slate-600 mb-2">
+                  <span className="break-words">Valor das Cobranças por Status</span>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
                 {metrics.weeklyBillingVolume.some((w) => w.paidAmount > 0 || w.pendingAmount > 0) ? (
                   <div className="space-y-1.5 py-2 text-xs">
@@ -457,25 +477,26 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                     </div>
                   </div>
                 ) : (
-                  <div className="my-auto flex flex-col items-center text-center">
-                    <div className="text-3xl text-slate-300 mb-1">⛵</div>
-                    <p className="text-xs text-slate-400 font-medium">Nenhum resultado</p>
-                  </div>
+                  <EmptyState
+                    title="Nenhuma cobrança"
+                    description={`Não há valores de cobrança semana a semana para o período de ${selectedPeriodLabel}.`}
+                    action={emptyStateAction}
+                  />
                 )}
               </div>
 
               {/* Card 12: Valor a Receber por Status (CONECTADO) */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between min-h-[160px]">
-                <div className="w-full flex items-center justify-between text-xs font-medium text-slate-500 mb-2">
+                <div className="w-full flex items-start justify-between gap-2 text-xs font-medium text-slate-600 mb-2">
                   <span>Valor a Receber por Status</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
                 <div className="my-auto py-2">
                   <div className="text-center">
                     <span className="text-2xl font-bold text-slate-800">
                       R${metrics.valorPendente.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
                     </span>
-                    <p className="text-xs text-slate-400 mt-1">Total Pendente de Faturamento</p>
+                    <p className="text-xs text-slate-600 mt-1">Total Pendente de Faturamento</p>
                   </div>
                 </div>
               </div>
@@ -485,9 +506,9 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {/* Card 13: Pacientes Ativos */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                   <span>Pacientes Ativos</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
                 <div className="mt-4 text-center">
                   <span className="text-4xl font-extrabold text-slate-900 tabular-nums">
@@ -498,9 +519,9 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
 
               {/* Card 14: Número de Terapeutas */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                   <span>Número de Terapeutas</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
                 <div className="mt-4 text-center">
                   <span className="text-4xl font-extrabold text-slate-900 tabular-nums">
@@ -511,13 +532,13 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
 
               {/* Card 15: Economizadas no período */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+                <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                   <span>📊 Economizadas no período</span>
-                  <button className="text-slate-300 hover:text-slate-600">•••</button>
+                  <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
                 </div>
                 <div className="mt-4 text-center">
                   <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
-                    {metrics.horasEconomizadas} horas
+                    {formatPlural(metrics.horasEconomizadas, "hora", "horas")}
                   </span>
                 </div>
               </div>

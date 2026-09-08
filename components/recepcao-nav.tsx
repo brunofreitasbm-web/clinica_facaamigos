@@ -100,20 +100,22 @@ export function RecepcaoNav({
                 href={item.href}
                 prefetch={true}
                 aria-current={isCurrent ? "page" : undefined}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold no-underline transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold no-underline transition-all rounded-t-md"
                 style={{
-                  color: isCurrent ? "var(--color-accent)" : "var(--color-on-accent)",
-                  background: isCurrent ? "var(--color-bg)" : "transparent",
+                  color: "#FFFFFF",
+                  background: isCurrent ? "rgba(255, 255, 255, 0.2)" : "transparent",
+                  borderBottom: isCurrent ? "3px solid #FFFFFF" : "3px solid transparent",
+                  opacity: isCurrent ? 1 : 0.85,
                 }}
               >
                 <Icon size={15} aria-hidden />
                 {item.label}
                 {badge > 0 && (
                   <span
-                    className="rounded-full px-1.5 text-[11px] font-bold tabular-nums"
+                    className="ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums shadow-xs"
                     style={{
-                      background: isCurrent ? "var(--color-accent)" : "var(--color-accent-2)",
-                      color: "#fff",
+                      background: "#FFFFFF",
+                      color: "#0F172A",
                     }}
                   >
                     {badge}

@@ -83,12 +83,41 @@ export function classifyAppointmentKind(appointment: {
   return "recorrente";
 }
 
-export const KIND_STYLE: Record<AppointmentKind, { label: string; bg: string; swatch: string }> = {
-  recorrente: { label: "Terapia recorrente", bg: "var(--color-accent-100)", swatch: "🟦" },
-  avaliacao: { label: "Avaliação", bg: "var(--status-agendada-bg)", swatch: "🟨" },
-  provisoria: { label: "Provisória · sem guia", bg: "var(--status-falta-bg)", swatch: "🟥" },
-  supervisao: { label: "Supervisão", bg: "var(--color-neutral-200)", swatch: "⬜" },
+export const KIND_STYLE: Record<
+  AppointmentKind,
+  { label: string; bg: string; text: string; border: string; swatch: string; badge?: string }
+> = {
+  recorrente: {
+    label: "Terapia recorrente",
+    bg: "var(--color-accent-100)",
+    text: "var(--color-ink)",
+    border: "var(--color-divider)",
+    swatch: "🟦",
+  },
+  avaliacao: {
+    label: "Avaliação",
+    bg: "var(--status-agendada-bg)",
+    text: "var(--status-agendada)",
+    border: "var(--status-agendada-border, #fcd34d)",
+    swatch: "🟨",
+  },
+  provisoria: {
+    label: "Provisória · sem guia",
+    bg: "var(--status-falta-bg)",
+    text: "#b91c1c",
+    border: "#fca5a5",
+    swatch: "🟥",
+    badge: "Sem Guia",
+  },
+  supervisao: {
+    label: "Supervisão",
+    bg: "var(--color-neutral-200)",
+    text: "var(--color-ink)",
+    border: "var(--color-neutral-400, #cbd5e1)",
+    swatch: "⬜",
+  },
 };
+
 
 // Statuses que não entram na grade "planejada" — cancelamento/remarcação já
 // liberou o horário.

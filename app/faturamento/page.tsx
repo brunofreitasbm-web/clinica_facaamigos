@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { ArrowRight, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { FaturamentoHeader } from "./faturamento-header";
 import { getCurrentCompetenceOverview } from "./overview-data";
+import { NotifyTherapistButton } from "./notify-therapist-button";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,13 @@ function formatCurrency(amount: number): string {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE });
+}
+
+function evolutionPendingLabel(days: number): { text: string; color: string } {
+  if (days === 0) {
+    return { text: "Evolução pendente (hoje)", color: "var(--color-status-pending-text)" };
+  }
+  return { text: `${days} ${days === 1 ? "dia" : "dias"} sem evolução`, color: "var(--color-status-negative-text)" };
 }
 
 function formatDateTime(iso: string): string {
@@ -85,7 +94,7 @@ export default async function FaturamentoPage() {
             <h6 className="mb-2 text-ink-soft">Bloqueadas sem evolução</h6>
             <div
               className="tabular-figure text-[40px] font-semibold"
-              style={{ fontFamily: "var(--font-heading)", color: "var(--status-falta)" }}
+              style={{ fontFamily: "var(--font-heading)", color: "var(--color-status-negative-text)" }}
             >
               {blocked.length}
             </div>
@@ -94,7 +103,10 @@ export default async function FaturamentoPage() {
             <h6 className="mb-2 text-ink-soft">R$ previsto na competência</h6>
             <div
               className="tabular-figure text-[32px] font-semibold sm:text-[40px]"
-              style={{ fontFamily: "var(--font-heading)", color: "var(--color-accent-2-600)" }}
+              style={{
+                fontFamily: "var(--font-heading)",
+                color: overview.billableAmount > 0 ? "var(--color-status-realizada-text)" : "var(--color-ink)",
+              }}
             >
               {formatCurrency(overview.billableAmount)}
             </div>
@@ -122,31 +134,43 @@ export default async function FaturamentoPage() {
                   <th>Terapeuta</th>
                   <th>Convênio · guia</th>
                   <th>Valor</th>
-                  <th></th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {blocked.map((b) => (
-                  <tr key={b.appointmentId}>
-                    <td className="tabular-figure whitespace-nowrap">{formatDate(b.startsAt)}</td>
-                    <td>{b.patientName}</td>
-                    <td>
-                      {b.therapistName}
-                      <div className="text-xs" style={{ color: "var(--status-falta)" }}>
-                        {b.daysSinceSession} {b.daysSinceSession === 1 ? "dia" : "dias"} sem evolução
-                      </div>
-                    </td>
-                    <td>
-                      {b.insurerName} · {b.guideNumber ?? "sem guia"}
-                    </td>
-                    <td className="tabular-figure">{b.amount != null ? formatCurrency(b.amount) : "—"}</td>
-                    <td className="text-right">
-                      <Link href={`/recepcao/pacientes/${b.patientId}`} className="btn btn-ghost text-xs">
-                        Ver paciente
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {blocked.map((b) => {
+                  const evolutionStatus = evolutionPendingLabel(b.daysSinceSession);
+                  return (
+                    <tr key={b.appointmentId}>
+                      <td className="tabular-figure whitespace-nowrap">{formatDate(b.startsAt)}</td>
+                      <td>{b.patientName}</td>
+                      <td>
+                        {b.therapistName}
+                        <div className="text-xs" style={{ color: evolutionStatus.color }}>
+                          {evolutionStatus.text}
+                        </div>
+                      </td>
+                      <td>
+                        {b.insurerName} · {b.guideNumber ?? "sem guia"}
+                      </td>
+                      <td className="tabular-figure">{b.amount != null ? formatCurrency(b.amount) : "—"}</td>
+                      <td className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <NotifyTherapistButton
+                            therapistPhone={b.therapistPhone}
+                            therapistName={b.therapistName}
+                            patientName={b.patientName}
+                            startsAt={b.startsAt}
+                          />
+                          <Link href={`/recepcao/pacientes/${b.patientId}`} className="btn btn-ghost text-xs">
+                            Ver paciente
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {blocked.length === 0 && (
                   <tr>
                     <td colSpan={6} style={{ color: "var(--status-realizada)" }}>
@@ -220,7 +244,13 @@ export default async function FaturamentoPage() {
                   </div>
                 ))}
                 {trace.length === 0 && (
-                  <p className="text-ink-faint">Nenhum evento registrado nesta competência ainda.</p>
+                  <div className="flex flex-col items-center gap-2 py-6 text-center">
+                    <History className="h-6 w-6 text-ink-faint opacity-50" />
+                    <p className="text-ink-soft">Nenhum evento registrado nesta competência ainda.</p>
+                    <p className="text-xs text-ink-faint">
+                      As ações de faturamento, emissões e glosas aparecerão aqui.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>

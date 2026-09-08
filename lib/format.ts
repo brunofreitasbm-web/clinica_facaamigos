@@ -31,3 +31,28 @@ export function fmtCurrency(value: number | null | undefined): string {
   if (value == null || isNaN(value)) return "—";
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
+
+/**
+ * Formatador padronizado de data no formato dd/MM/yyyy com 4 dígitos no ano.
+ * Evita inconsitências visuais como 07/11/26 vs 07/11/2026.
+ */
+export function formatDateBR(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+
+  // Se já estiver no formato YYYY-MM-DD
+  const plainParts = dateStr.split("T")[0].split("-");
+  if (plainParts.length === 3 && plainParts[0].length === 4) {
+    const [year, month, day] = plainParts;
+    return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+  }
+
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "—";
+
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const year = d.getUTCFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { WEEKDAY_LABEL, KIND_STYLE, type AppointmentKind } from "./grade-data";
+import { publishGradeAction } from "./grade-actions";
 
 export type GradeAppointment = {
   id: string;
@@ -30,6 +31,27 @@ export type PendingPlan = {
   daysOverdue: number;
 };
 
+/**
+ * Sanitiza o nome do paciente para evitar o vazamento de chaves brutas de banco de dados
+ * (ex: Child_1788517902660, null, etc.) e garante fallback com ícone visual de alerta (⚠️).
+ */
+export function sanitizePatientName(name?: string | null): { displayName: string; isInvalid: boolean } {
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return { displayName: "Paciente Não Identificado", isInvalid: true };
+  }
+  const trimmed = name.trim();
+  if (
+    trimmed.toLowerCase() === "null" ||
+    trimmed.toLowerCase() === "undefined" ||
+    /^Child_\d+/i.test(trimmed) ||
+    /^(Child|Patient|Paciente|User|Test)_\d+/i.test(trimmed) ||
+    /^P\(/i.test(trimmed)
+  ) {
+    return { displayName: "Cadastro Incompleto", isInvalid: true };
+  }
+  return { displayName: trimmed, isInvalid: false };
+}
+
 function AppointmentChip({
   appt,
   onClick,
@@ -40,6 +62,8 @@ function AppointmentChip({
   hasConflict?: boolean;
 }) {
   const style = KIND_STYLE[appt.kind];
+  const { displayName, isInvalid } = sanitizePatientName(appt.patientName);
+
   return (
     <div
       onClick={onClick}
@@ -48,20 +72,30 @@ function AppointmentChip({
       }`}
       style={{
         background: style.bg,
+        color: style.text,
         borderRadius: "var(--radius-sm)",
-        border: hasConflict ? "2 border-red-500" : "1px solid var(--color-divider)",
+        border: hasConflict ? "2px solid #ef4444" : `1px solid ${style.border}`,
       }}
-      title={`${style.label} · ${appt.timeLabel} · Clique para detalhes`}
+      title={`${style.label} · ${appt.timeLabel} · ${displayName}${isInvalid ? " (Cadastro incompleto - atualize os dados)" : ""}`}
     >
-      <div className="flex items-center justify-between gap-1 font-semibold text-ink">
-        <span className="truncate">{appt.patientName}</span>
+      <div className="flex items-center justify-between gap-1 font-semibold">
+        <span className="truncate flex items-center gap-1">
+          {isInvalid && (
+            <span className="shrink-0 text-[11px]" title="Cadastro Incompleto - Atualize o cadastro na recepção">
+              ⚠️
+            </span>
+          )}
+          <span className={isInvalid ? "italic text-amber-800 dark:text-amber-300 font-normal" : ""}>
+            {displayName}
+          </span>
+        </span>
         {appt.kind === "provisoria" && (
-          <span className="shrink-0 rounded bg-red-100 px-1 py-0.5 text-[9px] font-bold text-red-700">
+          <span className="shrink-0 rounded bg-red-100 px-1 py-0.5 text-[9px] font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
             Sem Guia
           </span>
         )}
       </div>
-      <div className="mt-0.5 flex items-center justify-between text-[11px] text-ink-soft">
+      <div className="mt-0.5 flex items-center justify-between text-[11px] opacity-90">
         <span>{appt.timeLabel}</span>
         <span className="truncate opacity-80">{appt.discipline ?? appt.therapistName}</span>
       </div>
@@ -99,6 +133,8 @@ export function GradePanel({
   const [disciplineFilter, setDisciplineFilter] = useState<string>("todos");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [notification, setNotification] = useState<string | null>(null);
+  const [toastError, setToastError] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [selectedAppt, setSelectedAppt] = useState<GradeAppointment | null>(null);
 
   // Extrai lista única de disciplinas para filtro
@@ -133,10 +169,12 @@ export function GradePanel({
 
   const filteredAppointments = useMemo(() => {
     return appointments.filter((a) => {
+      const { displayName } = sanitizePatientName(a.patientName);
       const matchesDiscipline =
         disciplineFilter === "todos" || a.discipline?.toLowerCase() === disciplineFilter.toLowerCase();
       const matchesSearch =
         !searchTerm.trim() ||
+        displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.therapistName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.roomName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -159,6 +197,42 @@ export function GradePanel({
       ),
     }));
   }, [mode, therapists, rooms, filteredAppointments]);
+
+  // Tratamento contra múltiplos cliques e timeout de 15s com AbortController
+  async function handlePublishGrade() {
+    if (isPublishing) return;
+    setIsPublishing(true);
+    setToastError(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const result = await Promise.race([
+        publishGradeAction(weekNumber),
+        new Promise<never>((_, reject) => {
+          controller.signal.addEventListener("abort", () => {
+            reject(new Error("O servidor demorou a responder, tente novamente."));
+          });
+        }),
+      ]);
+
+      clearTimeout(timeoutId);
+
+      if (result.success) {
+        setNotification("Grade semanal publicada e sincronizada com sucesso!");
+        setTimeout(() => setNotification(null), 4000);
+      } else {
+        setToastError(`Falha ao publicar. ${result.error}`);
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      const message = err instanceof Error ? err.message : "Ocorreu um erro inesperado ao publicar.";
+      setToastError(`Falha ao publicar. ${message}`);
+    } finally {
+      setIsPublishing(false);
+    }
+  }
 
   return (
     <section>
@@ -225,13 +299,21 @@ export function GradePanel({
 
           <button
             type="button"
-            className="btn btn-primary"
-            onClick={() => {
-              setNotification("Grade semanal publicada e sincronizada com sucesso!");
-              setTimeout(() => setNotification(null), 4000);
-            }}
+            className="btn btn-primary flex items-center justify-center gap-2 min-w-[130px] disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={isPublishing}
+            onClick={handlePublishGrade}
           >
-            Publicar grade
+            {isPublishing ? (
+              <>
+                <svg className="animate-spin h-3.5 w-3.5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Publicando...</span>
+              </>
+            ) : (
+              "Publicar grade"
+            )}
           </button>
         </div>
       </div>
@@ -239,6 +321,15 @@ export function GradePanel({
       {notification && (
         <div className="mb-4 rounded-md bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
           ✓ {notification}
+        </div>
+      )}
+
+      {toastError && (
+        <div className="mb-4 flex items-center justify-between rounded-md bg-red-500/10 border border-red-500/30 p-3 text-xs font-semibold text-red-700 dark:text-red-300">
+          <span>⚠️ {toastError}</span>
+          <button type="button" onClick={() => setToastError(null)} className="ml-2 font-bold hover:opacity-80">
+            ✕
+          </button>
         </div>
       )}
 
@@ -290,12 +381,34 @@ export function GradePanel({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-5 text-xs text-ink-soft">
-        {(Object.keys(KIND_STYLE) as AppointmentKind[]).map((kind) => (
-          <span key={kind}>
-            {KIND_STYLE[kind].swatch} {KIND_STYLE[kind].label}
-          </span>
-        ))}
+      {/* Legenda com correspondência visual 1:1 com os cards no grid */}
+      <div className="mt-6 rounded-lg border border-divider/60 bg-paper/50 p-3.5 shadow-xs">
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-soft">
+          Legenda de Horários na Grade
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          {(Object.keys(KIND_STYLE) as AppointmentKind[]).map((kind) => {
+            const style = KIND_STYLE[kind];
+            return (
+              <div
+                key={kind}
+                className="inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-semibold shadow-2xs transition-transform hover:scale-[1.02]"
+                style={{
+                  background: style.bg,
+                  color: style.text,
+                  border: `1px solid ${style.border}`,
+                }}
+              >
+                <span>{style.label}</span>
+                {style.badge && (
+                  <span className="rounded bg-red-100 px-1 py-0.5 text-[9px] font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
+                    {style.badge}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Modal de Inspeção de Agendamento */}
@@ -307,7 +420,12 @@ export function GradePanel({
                 <span className="text-xs uppercase tracking-wide text-ink-soft font-semibold">
                   Detalhes da Sessão · {selectedAppt.timeLabel}
                 </span>
-                <h3 className="text-xl font-semibold m-0 text-ink">{selectedAppt.patientName}</h3>
+                <h3 className="text-xl font-semibold m-0 text-ink flex items-center gap-1.5">
+                  {sanitizePatientName(selectedAppt.patientName).isInvalid && (
+                    <span title="Cadastro Incompleto">⚠️</span>
+                  )}
+                  <span>{sanitizePatientName(selectedAppt.patientName).displayName}</span>
+                </h3>
               </div>
               <button
                 onClick={() => setSelectedAppt(null)}
@@ -356,7 +474,7 @@ export function GradePanel({
                 type="button"
                 className="btn btn-primary text-xs"
                 onClick={() => {
-                  setNotification(`Visualização de PTS acionada para ${selectedAppt.patientName}`);
+                  setNotification(`Visualização de PTS acionada para ${sanitizePatientName(selectedAppt.patientName).displayName}`);
                   setSelectedAppt(null);
                   setTimeout(() => setNotification(null), 4000);
                 }}
@@ -377,33 +495,36 @@ export function GradePanel({
             <p className="text-sm text-ink-faint">Nenhuma evolução atrasada — equipe em dia.</p>
           ) : (
             <div className="flex flex-col">
-              {pendingNotes.map((p) => (
-                <div
-                  key={p.appointmentId}
-                  className="flex items-center justify-between gap-3 border-b py-3 text-sm"
-                  style={{ borderColor: "var(--color-divider)" }}
-                >
-                  <div>
-                    <div className="font-medium">{p.therapistName}</div>
-                    <div className="text-ink-soft">{p.patientName}</div>
+              {pendingNotes.map((p) => {
+                const { displayName } = sanitizePatientName(p.patientName);
+                return (
+                  <div
+                    key={p.appointmentId}
+                    className="flex items-center justify-between gap-3 border-b py-3 text-sm"
+                    style={{ borderColor: "var(--color-divider)" }}
+                  >
+                    <div>
+                      <div className="font-medium">{p.therapistName}</div>
+                      <div className="text-ink-soft">{displayName}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="tabular-figure" style={{ color: "var(--status-falta)" }}>
+                        {p.hoursOverdue} h atrasada
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => {
+                          setNotification(`Lembrete de evolução pendente enviado para ${p.therapistName}`);
+                          setTimeout(() => setNotification(null), 4000);
+                        }}
+                      >
+                        Lembrar
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="tabular-figure" style={{ color: "var(--status-falta)" }}>
-                      {p.hoursOverdue} h atrasada
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => {
-                        setNotification(`Lembrete de evolução pendente enviado para ${p.therapistName}`);
-                        setTimeout(() => setNotification(null), 4000);
-                      }}
-                    >
-                      Lembrar
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -427,14 +548,35 @@ export function GradePanel({
               </div>
               <div className="text-xs text-ink-soft">Provisórias · sem guia</div>
             </div>
-            <div>
+            
+            {/* KPI Evolução em 24h com cores semânticas e tooltip educativo */}
+            <div className="relative group cursor-help">
               <div
-                className="tabular-figure text-3xl font-semibold"
-                style={{ fontFamily: "var(--font-heading)", color: "var(--color-accent-2)" }}
+                className="tabular-figure text-3xl font-semibold flex items-center gap-1 transition-colors"
+                style={{
+                  fontFamily: "var(--font-heading)",
+                  color:
+                    carteira.onTimePercent === null
+                      ? "var(--color-ink-soft)"
+                      : carteira.onTimePercent >= 90
+                      ? "#10b981" // Verde para excelente compliance (>= 90%)
+                      : carteira.onTimePercent >= 75
+                      ? "#f59e0b" // Amarelo/Laranja para atenção (75-89%)
+                      : "#ef4444", // Vermelho para alerta (< 75%)
+                }}
               >
-                {carteira.onTimePercent === null ? "—" : `${carteira.onTimePercent}%`}
+                <span>{carteira.onTimePercent === null ? "—" : `${carteira.onTimePercent}%`}</span>
+                <span className="text-xs text-ink-soft opacity-70">ℹ️</span>
               </div>
-              <div className="text-xs text-ink-soft">Evolução em 24h</div>
+              <div className="text-xs text-ink-soft flex items-center gap-1">
+                <span>Evolução em 24h</span>
+              </div>
+
+              {/* Tooltip educativo ao passar o mouse ou focar */}
+              <div className="absolute left-0 bottom-full mb-2 hidden w-64 rounded-md bg-slate-900 p-2.5 text-[11px] leading-relaxed text-white shadow-lg group-hover:block group-focus-within:block z-30 dark:bg-slate-800 border border-slate-700">
+                <div className="font-semibold text-amber-300 mb-0.5">ℹ️ Sobre o indicador</div>
+                Percentual de prontuários que foram evoluídos no prazo limite de 24 horas após o término da sessão. Meta ideal: <strong>100%</strong>.
+              </div>
             </div>
           </div>
         </div>
@@ -448,34 +590,38 @@ export function GradePanel({
           <p className="text-sm text-ink-faint">Nenhum PTS atrasado — prazo de 50 dias em dia.</p>
         ) : (
           <div className="flex flex-col">
-            {pendingPlans.map((p) => (
-              <div
-                key={p.patientId}
-                className="flex items-center justify-between gap-3 border-b py-3 text-sm"
-                style={{ borderColor: "var(--color-divider)" }}
-              >
-                <div className="font-medium">{p.patientName}</div>
-                <div className="flex items-center gap-3">
-                  <span className="tabular-figure" style={{ color: "var(--status-falta)" }}>
-                    {p.daysOverdue} dia(s) atrasado
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => {
-                      setNotification(`Lembrete de PTS pendente enviado para a equipe de ${p.patientName}`);
-                      setTimeout(() => setNotification(null), 4000);
-                    }}
-                  >
-                    Lembrar
-                  </button>
+            {pendingPlans.map((p) => {
+              const { displayName } = sanitizePatientName(p.patientName);
+              return (
+                <div
+                  key={p.patientId}
+                  className="flex items-center justify-between gap-3 border-b py-3 text-sm"
+                  style={{ borderColor: "var(--color-divider)" }}
+                >
+                  <div className="font-medium">{displayName}</div>
+                  <div className="flex items-center gap-3">
+                    <span className="tabular-figure" style={{ color: "var(--status-falta)" }}>
+                      {p.daysOverdue} dia(s) atrasado
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => {
+                        setNotification(`Lembrete de PTS pendente enviado para a equipe de ${displayName}`);
+                        setTimeout(() => setNotification(null), 4000);
+                      }}
+                    >
+                      Lembrar
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
     </section>
   );
 }
+
 

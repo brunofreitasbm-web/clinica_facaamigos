@@ -169,7 +169,7 @@ export default async function ProntuarioUnificadoPage({
             </h6>
             <h1 className="m-0">Prontuário Eletrônico Unificado & Trilha de Auditoria</h1>
           </div>
-          {selectedPatient && <PrintButton />}
+          {selectedPatient && <PrintButton hasRecords={timeline.length > 0} />}
         </div>
 
         <section className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">
@@ -182,18 +182,34 @@ export default async function ProntuarioUnificadoPage({
 
             <div className="flex flex-col gap-2">
               {patientList.length === 0 && <p className="text-xs text-ink-faint">Nenhum paciente encontrado.</p>}
-              {patientList.map((pt) => (
-                <Link
-                  key={pt.id}
-                  href={`/supervisao/prontuario-unificado?p=${pt.id}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-                  className={`block p-3 text-left rounded-lg border text-xs no-underline transition-all ${
-                    selectedPatient?.id === pt.id ? "border-amber-500 bg-amber-50/50 font-semibold" : "border-neutral-200 hover:bg-neutral-50"
-                  }`}
-                >
-                  <div>{pt.full_name}</div>
-                  <div className="text-[11px] text-ink-faint">CPF: {pt.cpf || "não informado"}</div>
-                </Link>
-              ))}
+              {patientList.map((pt) => {
+                const isActive = selectedPatient?.id === pt.id;
+                return (
+                  <Link
+                    key={pt.id}
+                    href={`/supervisao/prontuario-unificado?p=${pt.id}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+                    aria-selected={isActive}
+                    className={`block p-3 text-left rounded-lg border text-xs no-underline transition-all ${
+                      isActive ? "font-semibold" : "border-neutral-200 hover:bg-neutral-50"
+                    }`}
+                    style={
+                      isActive
+                        ? { borderColor: "var(--color-neutral-200)", borderLeft: "4px solid var(--color-accent)", background: "var(--color-accent-100)" }
+                        : undefined
+                    }
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{pt.full_name}</span>
+                      {!pt.cpf && (
+                        <span title="Cadastro incompleto: CPF não informado" className="text-amber-600">
+                          ⚠
+                        </span>
+                      )}
+                    </div>
+                    {pt.cpf && <div className="text-[11px] text-ink-faint">CPF: {pt.cpf}</div>}
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
@@ -238,7 +254,12 @@ export default async function ProntuarioUnificadoPage({
                   </h3>
 
                   {timeline.length === 0 ? (
-                    <p className="text-sm text-ink-faint">Nenhum registro clínico encontrado para este paciente ainda.</p>
+                    <div className="flex flex-col items-center gap-4 py-6 text-center">
+                      <p className="text-sm text-ink-faint">Nenhum registro clínico encontrado para este paciente ainda.</p>
+                      <Link href={`/terapeuta/paciente/${selectedPatient.id}`} className="btn btn-primary text-xs">
+                        Ir para a ficha do paciente
+                      </Link>
+                    </div>
                   ) : (
                     <div className="flex flex-col gap-6 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-neutral-200">
                       {timeline.map((item) => (

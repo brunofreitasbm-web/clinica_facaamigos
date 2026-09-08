@@ -8,7 +8,9 @@ export type BlockedSession = {
   appointmentId: string;
   patientId: string;
   patientName: string;
+  therapistId: string;
   therapistName: string;
+  therapistPhone: string | null;
   insurerId: string;
   insurerName: string;
   guideNumber: string | null;
@@ -109,7 +111,7 @@ export async function getCurrentCompetenceOverview(
   const { data: appointments } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, checkout_at, patient_id, authorization_id, patients(full_name), therapist:profiles!therapist_id(full_name)",
+      "id, starts_at, checkout_at, patient_id, authorization_id, patients(full_name), therapist:profiles!therapist_id(id, full_name, phone)",
     )
     .eq("status", "realizada")
     .gte("starts_at", monthStartUtc)
@@ -163,11 +165,15 @@ export async function getCurrentCompetenceOverview(
     const reference = a.checkout_at ?? a.starts_at;
     const daysSinceSession = Math.max(0, Math.floor((now - new Date(reference).getTime()) / 86_400_000));
 
+    const therapist = a.therapist as { id: string; full_name: string; phone: string | null } | null;
+
     return {
       appointmentId: a.id,
       patientId: a.patient_id,
       patientName: (a.patients as { full_name: string } | null)?.full_name ?? "Paciente",
-      therapistName: (a.therapist as { full_name: string } | null)?.full_name ?? "Terapeuta",
+      therapistId: therapist?.id ?? "",
+      therapistName: therapist?.full_name ?? "Terapeuta",
+      therapistPhone: therapist?.phone ?? null,
       insurerId,
       insurerName: insurerNameById.get(insurerId) ?? "Convênio",
       guideNumber: auth?.guide_number ?? null,

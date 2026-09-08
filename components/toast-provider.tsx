@@ -13,7 +13,7 @@ export interface ToastMessage {
 }
 
 interface ToastContextType {
-  toast: (text: string, type?: ToastType, undoAction?: () => void) => void;
+  toast: (text: string, type?: ToastType, undoAction?: () => void, durationMs?: number) => void;
 }
 
 const ToastContext = createContext<ToastContextType>({
@@ -27,14 +27,17 @@ export function useToast() {
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const toast = useCallback((text: string, type: ToastType = "success", undoAction?: () => void) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, text, type, undoAction }]);
+  const toast = useCallback(
+    (text: string, type: ToastType = "success", undoAction?: () => void, durationMs = 4000) => {
+      const id = Math.random().toString(36).substring(2, 9);
+      setToasts((prev) => [...prev, { id, text, type, undoAction }]);
 
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  }, []);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, durationMs);
+    },
+    []
+  );
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));

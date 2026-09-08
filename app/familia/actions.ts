@@ -44,11 +44,23 @@ export async function sendCoordinationMessage(
   body: string,
 ): Promise<ActionResult> {
   const trimmed = body.trim();
-  if (!trimmed) {
-    return { success: false, error: "Escreva uma mensagem antes de enviar." };
+  if (!trimmed || trimmed.length < 3) {
+    return { success: false, error: "Escreva uma mensagem válida de pelo menos 3 caracteres." };
   }
   if (trimmed.length > 2000) {
     return { success: false, error: "Mensagem muito longa." };
+  }
+
+  // Validação anti-flood server-side
+  const hasSingleCharFlood = /^(.)\1{4,}$/i.test(trimmed);
+  const hasPatternFlood = /^(.{1,4})\1{4,}$/i.test(trimmed);
+  const hasNoCoherentWords = !/[a-zA-Z0-9áàâãéèêíïóôõöúçñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]/i.test(trimmed);
+
+  if (hasSingleCharFlood || hasPatternFlood || hasNoCoherentWords) {
+    return {
+      success: false,
+      error: "A mensagem inserida parece inválida. Por favor, digite um texto legível.",
+    };
   }
 
   const supabase = await createClient();

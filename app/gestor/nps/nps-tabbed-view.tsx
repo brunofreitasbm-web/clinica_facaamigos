@@ -31,33 +31,37 @@ export function NpsTabbedView({
   return (
     <div className="flex flex-col gap-6">
       {/* Abas de Navegação */}
-      <div className="flex border-b border-divider">
+      <div className="flex border-b border-divider gap-2">
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === "externo"}
           onClick={() => setActiveTab("externo")}
-          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
+          className={`flex items-center gap-2 border-b-[4px] px-5 py-3 text-sm font-semibold transition-all ${
             activeTab === "externo"
-              ? "border-amber-600 text-amber-700 dark:text-amber-400"
-              : "border-transparent text-ink-soft hover:text-ink"
+              ? "border-rose-600 text-rose-800 dark:text-rose-300 bg-rose-50/40 dark:bg-rose-950/20"
+              : "border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
-          <span>NPS Externo</span>
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 font-medium">
+          <span>NPS & CSAT Externo</span>
+          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-800 font-medium dark:bg-rose-950 dark:text-rose-300">
             Pacientes & Famílias
           </span>
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === "interno"}
           onClick={() => setActiveTab("interno")}
-          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
+          className={`flex items-center gap-2 border-b-[4px] px-5 py-3 text-sm font-semibold transition-all ${
             activeTab === "interno"
-              ? "border-amber-600 text-amber-700 dark:text-amber-400"
-              : "border-transparent text-ink-soft hover:text-ink"
+              ? "border-rose-600 text-rose-800 dark:text-rose-300 bg-rose-50/40 dark:bg-rose-950/20"
+              : "border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           <span>NPS Interno</span>
-          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 font-medium">
+          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 font-medium dark:bg-blue-950 dark:text-blue-300">
             Equipe Multidisciplinar
           </span>
         </button>
@@ -66,43 +70,46 @@ export function NpsTabbedView({
       {/* Conteúdo Aba NPS EXTERNO */}
       {activeTab === "externo" && (
         <div className="flex flex-col gap-8">
-          {/* Card de Critérios de Avaliação Externa */}
-          <div className="rounded-xl border border-divider bg-surface p-5 shadow-xs">
-            <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-ink-soft">
-              Critérios de Avaliação Externa (Escala de 1 a 5)
-            </h3>
+          {/* Card Informativo de Critérios de Avaliação Externa */}
+          <div className="rounded-xl border border-divider bg-surface p-5 shadow-2xs">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-ink-soft">
+                Critérios Informativos de Avaliação Externa (Satisfação CSAT · 1 a 5 ★)
+              </h3>
+              <span className="text-[11px] font-medium text-ink-faint">Painel de Referência (Não Clicável)</span>
+            </div>
             <p className="mb-4 text-xs text-ink-faint">
-              Avaliação contínua disparada via WhatsApp/Portal para pacientes e responsáveis.
+              Critérios fixos avaliados continuamente via WhatsApp e Portal pelos pacientes e responsáveis.
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg border border-divider/60 bg-surface-subtle p-3.5">
+              <div className="rounded-lg border-l-4 border-l-rose-500 border border-divider/60 bg-slate-50 dark:bg-slate-900/40 p-3.5 select-none">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-sm font-semibold text-ink">Atendimento da Recepção</span>
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">1 a 5 ★</span>
+                  <span className="rounded bg-rose-100 dark:bg-rose-950 px-1.5 py-0.5 text-[11px] font-medium text-rose-800 dark:text-rose-300">CSAT 1-5 ★</span>
                 </div>
                 <p className="text-xs text-ink-soft">Cortesia, agilidade e suporte no atendimento</p>
               </div>
 
-              <div className="rounded-lg border border-divider/60 bg-surface-subtle p-3.5">
+              <div className="rounded-lg border-l-4 border-l-rose-500 border border-divider/60 bg-slate-50 dark:bg-slate-900/40 p-3.5 select-none">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-sm font-semibold text-ink">Evolução Terapêutica & Equipe</span>
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">1 a 5 ★</span>
+                  <span className="rounded bg-rose-100 dark:bg-rose-950 px-1.5 py-0.5 text-[11px] font-medium text-rose-800 dark:text-rose-300">CSAT 1-5 ★</span>
                 </div>
                 <p className="text-xs text-ink-soft">Progresso clínico e relacionamento com terapeutas</p>
               </div>
 
-              <div className="rounded-lg border border-divider/60 bg-surface-subtle p-3.5">
+              <div className="rounded-lg border-l-4 border-l-rose-500 border border-divider/60 bg-slate-50 dark:bg-slate-900/40 p-3.5 select-none">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-sm font-semibold text-ink">Pontualidade & Agendamento</span>
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">1 a 5 ★</span>
+                  <span className="rounded bg-rose-100 dark:bg-rose-950 px-1.5 py-0.5 text-[11px] font-medium text-rose-800 dark:text-rose-300">CSAT 1-5 ★</span>
                 </div>
                 <p className="text-xs text-ink-soft">Respeito aos horários e facilidade na marcação</p>
               </div>
 
-              <div className="rounded-lg border border-divider/60 bg-surface-subtle p-3.5">
+              <div className="rounded-lg border-l-4 border-l-rose-500 border border-divider/60 bg-slate-50 dark:bg-slate-900/40 p-3.5 select-none">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-sm font-semibold text-ink">Instalações & Conforto</span>
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">1 a 5 ★</span>
+                  <span className="rounded bg-rose-100 dark:bg-rose-950 px-1.5 py-0.5 text-[11px] font-medium text-rose-800 dark:text-rose-300">CSAT 1-5 ★</span>
                 </div>
                 <p className="text-xs text-ink-soft">Limpeza, acessibilidade e ambiente</p>
               </div>
@@ -163,42 +170,45 @@ export function NpsTabbedView({
           </div>
 
           {/* Card de Critérios de Avaliação Interna */}
-          <div className="rounded-xl border border-divider bg-surface p-5 shadow-xs">
-            <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-ink-soft">
-              Critérios de Avaliação Interna (Escala de 1 a 5)
-            </h3>
+          <div className="rounded-xl border border-divider bg-surface p-5 shadow-2xs">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-ink-soft">
+                Critérios Informativos de Avaliação Interna (Satisfação CSAT · 1 a 5 ★)
+              </h3>
+              <span className="text-[11px] font-medium text-ink-faint">Painel de Referência (Não Clicável)</span>
+            </div>
             <p className="mb-4 text-xs text-ink-faint">
               Avaliação do clima de trabalho, ferramentas e suporte fornecido pela gestão.
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg border border-divider/60 bg-surface-subtle p-3.5">
+              <div className="rounded-lg border-l-4 border-l-blue-500 border border-divider/60 bg-slate-50 dark:bg-slate-900/40 p-3.5 select-none">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-sm font-semibold text-ink">Clima Organizacional</span>
-                  <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-medium text-blue-800">1 a 5 ★</span>
+                  <span className="rounded bg-blue-100 dark:bg-blue-950 px-1.5 py-0.5 text-[11px] font-medium text-blue-800 dark:text-blue-300">CSAT 1-5 ★</span>
                 </div>
                 <p className="text-xs text-ink-soft">Ambiente de trabalho, cooperação e bem-estar da equipe</p>
               </div>
 
-              <div className="rounded-lg border border-divider/60 bg-surface-subtle p-3.5">
+              <div className="rounded-lg border-l-4 border-l-blue-500 border border-divider/60 bg-slate-50 dark:bg-slate-900/40 p-3.5 select-none">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-sm font-semibold text-ink">Estrutura & Recursos</span>
-                  <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-medium text-blue-800">1 a 5 ★</span>
+                  <span className="rounded bg-blue-100 dark:bg-blue-950 px-1.5 py-0.5 text-[11px] font-medium text-blue-800 dark:text-blue-300">CSAT 1-5 ★</span>
                 </div>
                 <p className="text-xs text-ink-soft">Disponibilidade de materiais, salas e equipamentos</p>
               </div>
 
-              <div className="rounded-lg border border-divider/60 bg-surface-subtle p-3.5">
+              <div className="rounded-lg border-l-4 border-l-blue-500 border border-divider/60 bg-slate-50 dark:bg-slate-900/40 p-3.5 select-none">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-sm font-semibold text-ink">Suporte da Gestão</span>
-                  <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-medium text-blue-800">1 a 5 ★</span>
+                  <span className="rounded bg-blue-100 dark:bg-blue-950 px-1.5 py-0.5 text-[11px] font-medium text-blue-800 dark:text-blue-300">CSAT 1-5 ★</span>
                 </div>
                 <p className="text-xs text-ink-soft">Escuta ativa, orientações técnicas e liderança</p>
               </div>
 
-              <div className="rounded-lg border border-divider/60 bg-surface-subtle p-3.5">
+              <div className="rounded-lg border-l-4 border-l-blue-500 border border-divider/60 bg-slate-50 dark:bg-slate-900/40 p-3.5 select-none">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-sm font-semibold text-ink">Processos & Sistemas</span>
-                  <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-medium text-blue-800">1 a 5 ★</span>
+                  <span className="rounded bg-blue-100 dark:bg-blue-950 px-1.5 py-0.5 text-[11px] font-medium text-blue-800 dark:text-blue-300">CSAT 1-5 ★</span>
                 </div>
                 <p className="text-xs text-ink-soft">Agilidade dos fluxos internos e uso da plataforma</p>
               </div>

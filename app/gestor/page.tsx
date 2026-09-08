@@ -178,11 +178,33 @@ export default async function GestorPage() {
             {tierRows.map((t) => (
               <tr key={t.id}>
                 <td className="font-semibold">{t.name}</td>
-                <td>{t.tier}</td>
-                <td className="tabular-figure">{t.sessions}</td>
-                <td className="tabular-figure">{t.note24hRateLabel}</td>
-                <td className="tabular-figure">{t.faltasRecuperadasLabel}</td>
-                <td>{t.nextTierLabel}</td>
+                <td>
+                  {t.hasContract ? (
+                    t.tier
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                      Sem contrato
+                    </span>
+                  )}
+                </td>
+                <td className="tabular-figure">
+                  {t.sessions > 0 ? t.sessions : <span className="text-ink-faint">—</span>}
+                </td>
+                <td className="tabular-figure">
+                  {t.hasSessions ? t.note24hRateLabel : <span className="text-ink-faint">—</span>}
+                </td>
+                <td className="tabular-figure">
+                  {t.hasFaltas ? t.faltasRecuperadasLabel : <span className="text-ink-faint">—</span>}
+                </td>
+                <td>
+                  {t.eligible ? (
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                      {t.nextTierLabel}
+                    </span>
+                  ) : (
+                    <span className="text-ink-faint">{t.nextTierLabel}</span>
+                  )}
+                </td>
               </tr>
             ))}
             {tierRows.length === 0 && (

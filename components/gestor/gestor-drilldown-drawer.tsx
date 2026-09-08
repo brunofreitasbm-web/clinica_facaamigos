@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+
+const PAGE_SIZE = 30;
 
 export interface DrilldownItem {
   id: string;
@@ -29,6 +31,11 @@ interface GestorDrilldownDrawerProps {
 
 export function GestorDrilldownDrawer({ isOpen, onClose, data }: GestorDrilldownDrawerProps) {
   const [filterQuery, setFilterQuery] = useState("");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filterQuery, data]);
 
   if (!isOpen || !data) return null;
 
@@ -37,6 +44,8 @@ export function GestorDrilldownDrawer({ isOpen, onClose, data }: GestorDrilldown
       item.title.toLowerCase().includes(filterQuery.toLowerCase()) ||
       (item.subtitle && item.subtitle.toLowerCase().includes(filterQuery.toLowerCase()))
   );
+  const visibleItems = filteredItems.slice(0, visibleCount);
+  const hasMore = filteredItems.length > visibleItems.length;
 
   const getBadgeClass = (type?: string) => {
     switch (type) {
@@ -99,7 +108,7 @@ export function GestorDrilldownDrawer({ isOpen, onClose, data }: GestorDrilldown
               <p className="text-sm text-ink-soft">Nenhum registro encontrado para este filtro.</p>
             </div>
           ) : (
-            filteredItems.map((item) => (
+            visibleItems.map((item) => (
               <div
                 key={item.id}
                 className="flex items-center justify-between rounded-lg border border-paper-line bg-paper p-4 hover:border-accent/50 transition-colors shadow-sm"
@@ -132,11 +141,21 @@ export function GestorDrilldownDrawer({ isOpen, onClose, data }: GestorDrilldown
               </div>
             ))
           )}
+          {hasMore && (
+            <button
+              onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              className="w-full rounded-lg border border-dashed border-paper-line py-2.5 text-xs font-semibold text-accent hover:bg-accent/10 transition-colors"
+            >
+              Carregar mais {Math.min(PAGE_SIZE, filteredItems.length - visibleItems.length)} de {filteredItems.length - visibleItems.length} restantes
+            </button>
+          )}
         </div>
 
         {/* Footer */}
         <div className="border-t border-paper-line px-6 py-4 flex items-center justify-between text-xs text-ink-faint bg-paper-subtle">
-          <span>{filteredItems.length} registros auditados</span>
+          <span>
+            {visibleItems.length} de {filteredItems.length} registros auditados
+          </span>
           <button
             onClick={onClose}
             className="rounded-md bg-paper border border-paper-line px-4 py-1.5 font-medium text-ink hover:bg-paper-subtle transition-colors"
