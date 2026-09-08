@@ -10,10 +10,13 @@ export const dynamic = "force-dynamic";
 
 export default async function PatientAssessmentPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ patientId: string }>;
+  searchParams: Promise<{ protocolo?: string }>;
 }) {
   const { patientId } = await params;
+  const { protocolo } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -43,7 +46,7 @@ export default async function PatientAssessmentPage({
         </Link>
       </div>
       <div className="p-6 sm:p-10">
-        <ProtocolAssessmentPanel patientId={patient.id} protocols={protocols} />
+        <ProtocolAssessmentPanel patientId={patient.id} protocols={protocols} initialProtocolId={protocolo} />
       </div>
     </main>
   );

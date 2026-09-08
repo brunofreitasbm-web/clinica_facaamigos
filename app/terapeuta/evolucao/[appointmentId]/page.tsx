@@ -8,6 +8,7 @@ import { getProgramsForAppointment } from "@/lib/trial-data";
 import { getActiveGoalsForPatient, getPreviousSessionMetaIds } from "@/lib/session-note-goals";
 import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getInterventionCatalog } from "@/lib/intervention-catalog";
+import { getPatientProtocolOptions } from "@/lib/protocol-assessments";
 import { EvolutionForm, type EditingContext } from "./evolution-form";
 import { TrialDataPanel } from "./trial-data-panel";
 import { getMetasTrabalhadas, type GoalResultLevel, type SessionNoteStructured } from "@/lib/session-note-fields";
@@ -43,7 +44,7 @@ export default async function EvolucaoPage({
   const { data: appointment } = await supabase
     .from("appointments")
     .select(
-      "id, patient_id, starts_at, ends_at, discipline, status, therapist_id, attendance_started_at, patients(full_name), profiles!therapist_id(full_name)",
+      "id, patient_id, starts_at, ends_at, discipline, status, therapist_id, attendance_started_at, patients(full_name, clinic_id), profiles!therapist_id(full_name)",
     )
     .eq("id", appointmentId)
     .maybeSingle();
@@ -63,7 +64,8 @@ export default async function EvolucaoPage({
     .limit(1)
     .maybeSingle();
 
-  const patientName = (appointment.patients as { full_name: string } | null)?.full_name ?? "";
+  const patientRecord = appointment.patients as { full_name: string; clinic_id: string } | null;
+  const patientName = patientRecord?.full_name ?? "";
   const therapistName =
     (appointment.profiles as { full_name: string } | null)?.full_name ?? "";
 
@@ -184,6 +186,9 @@ export default async function EvolucaoPage({
     );
   }
 
+  const protocolOptions =
+    existingNote && patientRecord ? await getPatientProtocolOptions(supabase, patientRecord.clinic_id) : [];
+
   return (
     <main className="flex flex-1 flex-col">
       <header
@@ -237,9 +242,21 @@ export default async function EvolucaoPage({
               <Link href={`/terapeuta/paciente/${appointment.patient_id}/metricas`} className="btn btn-secondary w-fit">
                 Evolução (gráficos)
               </Link>
-              <Link href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao`} className="btn btn-secondary w-fit">
-                Avaliação de protocolo
-              </Link>
+              {protocolOptions.length > 0 ? (
+                protocolOptions.map((protocol) => (
+                  <Link
+                    key={protocol.id}
+                    href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.id}`}
+                    className="btn btn-secondary w-fit"
+                  >
+                    Protocolo: {protocol.name}
+                  </Link>
+                ))
+              ) : (
+                <Link href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao`} className="btn btn-secondary w-fit">
+                  Avaliação de protocolo
+                </Link>
+              )}
               <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit">
                 Fono (ADL/ADL-2/PROC)
               </Link>
