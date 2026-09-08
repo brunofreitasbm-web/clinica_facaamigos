@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   UserPlus,
@@ -122,7 +123,7 @@ function InactivateConfirmModal({
 }
 
 /**
- * Item individual de paciente (linha de tabela)
+ * Item individual de paciente (linha de tabela clicável para abrir o prontuário)
  */
 export const PatientListItem = React.memo(function PatientListItem({
   patient,
@@ -131,20 +132,34 @@ export const PatientListItem = React.memo(function PatientListItem({
   patient: PatientRow;
   onInactivate: (p: PatientRow) => void;
 }) {
+  const router = useRouter();
+
   const displayDate = patient.birth_date
     ? formatDateBR(patient.birth_date)
     : patient.created_at
     ? formatDateBR(patient.created_at)
     : "—";
 
+  const handleCardClick = () => {
+    router.push(`/recepcao/pacientes/${patient.id}`);
+  };
+
   return (
-    <div className="group flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-paper-line-strong bg-paper/70 px-4 py-3 text-sm transition-all duration-150 hover:bg-[#841B4D]/5 hover:border-[#841B4D]/40 hover:shadow-xs gap-3">
-      {/* Link direto para a Ficha do Paciente ao clicar no corpo da linha */}
-      <Link
-        href={`/recepcao/pacientes/${patient.id}`}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0 flex-1 no-underline text-inherit group/link"
-      >
-        {/* Coluna 1: Nome e Informações do Paciente */}
+    <div
+      onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className="group flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-paper-line-strong bg-paper/70 px-4 py-3 text-sm transition-all duration-150 hover:bg-[#841B4D]/5 hover:border-[#841B4D]/40 hover:shadow-xs cursor-pointer gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#841B4D]"
+    >
+      {/* Coluna 1 a 3: Dados e status do Paciente */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0 flex-1 group/link">
+        {/* Coluna 1: Nome e Informações */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <PatientFormattedDisplay
             name={patient.full_name}
@@ -171,23 +186,27 @@ export const PatientListItem = React.memo(function PatientListItem({
           />
         </div>
 
-        {/* Coluna 2: Data de Nascimento (Formato dd/MM/yyyy) */}
+        {/* Coluna 2: Data de Nascimento */}
         <div className="flex items-center gap-1.5 text-xs text-ink-soft font-mono shrink-0 sm:px-3">
           <Calendar className="h-3.5 w-3.5 text-ink-faint shrink-0" />
           <span>Nasc: {displayDate}</span>
         </div>
 
-        {/* Coluna 3: Status Badge (Alto contraste WCAG AA) */}
+        {/* Coluna 3: Status Badge */}
         <div className="shrink-0 flex items-center">
           <PatientStatusBadge status={patient.status || "ativo"} size="md" />
         </div>
-      </Link>
+      </div>
 
-      {/* Coluna 4: Célula de Ações com Tooltips */}
-      <div className="flex items-center gap-1 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-paper-line-strong/50">
+      {/* Coluna 4: Célula de Ações com Tooltips (e.stopPropagation para isolar ações) */}
+      <div
+        className="flex items-center gap-1 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-paper-line-strong/50"
+        onClick={(e) => e.stopPropagation()}
+      >
         <ActionTooltip text="Visualizar Prontuário">
           <Link
             href={`/recepcao/pacientes/${patient.id}`}
+            onClick={(e) => e.stopPropagation()}
             className="p-1.5 rounded-md text-ink-faint hover:text-[#841B4D] hover:bg-[#841B4D]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#841B4D]"
             aria-label="Visualizar Prontuário"
           >
@@ -198,6 +217,7 @@ export const PatientListItem = React.memo(function PatientListItem({
         <ActionTooltip text="Editar Cadastro">
           <Link
             href={`/recepcao/pacientes/${patient.id}/gestao`}
+            onClick={(e) => e.stopPropagation()}
             className="p-1.5 rounded-md text-ink-faint hover:text-[#841B4D] hover:bg-[#841B4D]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#841B4D]"
             aria-label="Editar Cadastro"
           >
@@ -209,6 +229,7 @@ export const PatientListItem = React.memo(function PatientListItem({
           <button
             type="button"
             onClick={(e) => {
+              e.stopPropagation();
               e.preventDefault();
               onInactivate(patient);
             }}
