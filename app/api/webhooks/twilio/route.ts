@@ -121,6 +121,9 @@ export async function POST(req: NextRequest) {
           xForwardedHost: req.headers.get("x-forwarded-host"),
           xForwardedProto: req.headers.get("x-forwarded-proto"),
           hasSignature: !!req.headers.get("x-twilio-signature"),
+          contentType,
+          signatureParams,
+          receivedSignature: req.headers.get("x-twilio-signature"),
         }),
       );
       return NextResponse.json({ success: false, error: "Assinatura inválida." }, { status: 403 });
