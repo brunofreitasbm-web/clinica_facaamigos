@@ -180,7 +180,7 @@ export default async function TerapeutaPage({
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-7 px-5 pb-28 pt-6 sm:px-10 md:max-w-[900px] md:pb-10">
+      <div className="flex w-full flex-1 flex-col gap-7 px-5 pb-28 pt-6 sm:px-10 md:pb-10">
         {canChooseTherapist && (
           <form className="flex items-center gap-2" method="get">
             <select name="therapist" defaultValue={therapistId} className="input">

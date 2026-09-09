@@ -39,9 +39,11 @@ export async function sendManualMessage(conversationId: string, body: string) {
     return { success: false as const, error: insertError.message };
   }
 
+  // Um humano respondeu: a conversa sai da fila de escalação do bot
+  // (status 'pending', definido em lib/twilio-faq-bot.ts).
   await supabase
     .from("twilio_conversations")
-    .update({ last_message_at: new Date().toISOString() })
+    .update({ last_message_at: new Date().toISOString(), status: "open", escalation_reason: null })
     .eq("id", conversationId);
 
   revalidatePath("/recepcao/atendimento");
@@ -52,7 +54,11 @@ export async function toggleBotActive(conversationId: string, value: boolean) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("twilio_conversations")
-    .update({ is_bot_active: value })
+    .update(
+      value
+        ? { is_bot_active: true, status: "open", escalation_reason: null }
+        : { is_bot_active: false },
+    )
     .eq("id", conversationId);
 
   if (error) return { success: false as const, error: error.message };

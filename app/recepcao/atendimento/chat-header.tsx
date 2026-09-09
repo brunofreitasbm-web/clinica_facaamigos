@@ -12,16 +12,29 @@ export function ChatHeader({ conversation }: { conversation: ConversationRow }) 
   return (
     <div className="flex items-center justify-between gap-4 border-b border-paper-line-strong px-5 py-3">
       <div className="min-w-0">
-        <Link
-          href={`/recepcao/pacientes/${conversation.patientId}`}
-          className="truncate text-sm font-semibold text-ink hover:underline"
-        >
-          {conversation.patientName}
-        </Link>
+        {conversation.patientId ? (
+          <Link
+            href={`/recepcao/pacientes/${conversation.patientId}`}
+            className="truncate text-sm font-semibold text-ink hover:underline"
+          >
+            {conversation.displayName}
+          </Link>
+        ) : (
+          <span className="truncate text-sm font-semibold text-ink">{conversation.displayName}</span>
+        )}
         <p className="truncate text-xs text-ink-faint">
           {conversation.guardianName ?? conversation.phoneNumber}
         </p>
       </div>
+
+      {conversation.status === "pending" && (
+        <span
+          className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+          style={{ background: "var(--color-accent-2-100)", color: "var(--color-accent-2-700)" }}
+        >
+          Aguardando atendimento
+        </span>
+      )}
 
       <button
         type="button"

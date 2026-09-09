@@ -329,11 +329,11 @@ h6 {
   cursor: pointer; text-decoration: none;
   font-family: var(--font-body); font-weight: 700;
   letter-spacing: 0.01em;
-  font-size: 14px; line-height: 1.2; color: var(--color-text);
+  font-size: 15px; line-height: 1.2; color: var(--color-text);
   background: transparent; border: none;
-  padding: var(--space-2) calc(var(--space-3) * 1.4);
+  padding: calc(var(--space-3) * 0.8) calc(var(--space-4) * 1.2);
   border-radius: var(--radius-full);
-  min-height: 44px;
+  min-height: 48px;
   transform: scale(1);
 }
 .btn svg { display: block; }
@@ -343,7 +343,7 @@ h6 {
 .btn-primary { background: var(--color-accent); color: #fff; }
 .btn-primary:hover { background: var(--color-accent-600); box-shadow: var(--shadow-pink); }
 .btn-primary:active { background: var(--color-accent-700); }
-.btn-secondary { background: transparent; color: var(--color-accent); border: 2px solid var(--color-accent); padding: calc(var(--space-2) - 2px) calc(var(--space-3) * 1.4 - 2px); }
+.btn-secondary { background: transparent; color: var(--color-accent); border: 2px solid var(--color-accent); padding: calc(var(--space-3) * 0.8 - 2px) calc(var(--space-4) * 1.2 - 2px); }
 .btn-secondary:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
 .btn-secondary:active { background: color-mix(in srgb, var(--color-accent) 16%, transparent); }
 .btn-gold { background: var(--color-accent-2); color: #fff; }
@@ -352,7 +352,7 @@ h6 {
 .btn-ghost { color: var(--color-accent); padding-inline: var(--space-2); }
 .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
 .btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
-.btn-icon { width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: var(--radius-full); }
+.btn-icon { width: 48px; height: 48px; min-height: 48px; padding: 0; border-radius: var(--radius-full); }
 .btn-block { width: 100%; margin-top: var(--space-2); }
 
 .field > label {
@@ -395,8 +395,8 @@ textarea.input { min-height: 96px; resize: vertical; line-height: 1.5; }
 }
 .seg-opt {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
-  min-height: 44px;
+  padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+  min-height: 48px;
 }
 .seg-opt + .seg-opt { border-left: 1.5px solid var(--color-neutral-300); }
 .seg-opt:has(input:checked) { background: var(--color-accent); color: #fff; }
@@ -405,9 +405,9 @@ textarea.input { min-height: 96px; resize: vertical; line-height: 1.5; }
 
 .seg-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
   border: none; background: transparent; color: inherit; font-family: inherit;
-  min-height: 44px;
+  min-height: 48px;
 }
 .seg-btn + .seg-btn { border-left: 1.5px solid var(--color-neutral-300); }
 .seg-btn[aria-pressed="true"] { background: var(--color-accent); color: #fff; }

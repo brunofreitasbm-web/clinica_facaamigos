@@ -1,5 +1,7 @@
 import twilio from "twilio";
 
+import { DEV_CLINIC_ID } from "@/lib/constants";
+
 /**
  * Cliente Twilio configurado via variáveis de ambiente.
  * Suporta inicialização com Account SID + Auth Token ou API Key + API Secret.
@@ -223,59 +225,9 @@ export async function sendTwilioWhatsApp(options: SendMessageOptions): Promise<S
 }
 
 /**
- * Remove acentos e diacríticos de uma string para facilitar busca de palavras-chave.
- */
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-/**
- * Verifica se uma mensagem recebida é uma dúvida/pergunta sobre planos de saúde ou convênios.
- */
-export function isHealthPlanInquiry(message: string): boolean {
-  const norm = normalizeText(message || "");
-  if (!norm) return false;
-
-  const keywords = [
-    "plano",
-    "planos",
-    "convenio",
-    "convenios",
-    "aceita",
-    "aceitam",
-    "quais",
-    "atende",
-    "atendem",
-    "cobertura",
-    "seguro",
-    "unimed",
-    "bradesco",
-    "amil",
-    "sulamerica",
-    "casssi",
-    "geap",
-    "postalis",
-    "ipam",
-    "reembolso",
-  ];
-
-  // Se contiver palavras explícitas como "plano", "planos", "convenio", "convenios", ou frases como "aceita..."
-  const hasPlanWord = norm.includes("plano") || norm.includes("convenio") || norm.includes("cobertura");
-  const hasInquiryWord = norm.includes("quais") || norm.includes("aceita") || norm.includes("atende") || norm.includes("trabalha");
-
-  if (hasPlanWord) return true;
-  if (hasInquiryWord && keywords.some((kw) => norm.includes(kw))) return true;
-
-  return false;
-}
-
-/**
  * Consulta no banco os convênios cadastrados na clínica e formata a resposta para o WhatsApp/SMS.
  */
-export async function getAcceptedInsurersFormatted(clinicId = "c0000000-0000-0000-0000-000000000001"): Promise<string> {
+export async function getAcceptedInsurersFormatted(clinicId = DEV_CLINIC_ID): Promise<string> {
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
@@ -284,6 +236,7 @@ export async function getAcceptedInsurersFormatted(clinicId = "c0000000-0000-000
       .from("insurers")
       .select("id, name, ans_code")
       .eq("clinic_id", clinicId)
+      .eq("active", true)
       .order("name");
 
     if (error) {
@@ -320,7 +273,10 @@ export async function getAcceptedInsurersFormatted(clinicId = "c0000000-0000-000
 
 export interface FindOrCreateConversationParams {
   phoneNumber: string;
-  patientId: string;
+  /** Ausente quando o número ainda não casa com nenhum `guardians.phone` — a
+   * conversa nasce como `kind='lead'` para a recepção enxergar quem procurou a
+   * clínica (ver migration 20260909100000_twilio_lead_conversations). */
+  patientId?: string | null;
   guardianId?: string;
 }
 
@@ -342,14 +298,29 @@ export async function findOrCreateConversation(params: FindOrCreateConversationP
     .limit(1);
 
   const existing = existingRows?.[0];
-  if (existing) return existing;
+  // Lead que virou paciente: promove a thread existente em vez de abrir uma
+  // segunda conversa para o mesmo telefone.
+  if (existing) {
+    if (patientId && !existing.patient_id) {
+      const { data: promoted } = await supabase
+        .from("twilio_conversations")
+        .update({ patient_id: patientId, guardian_id: guardianId ?? null, kind: "patient" })
+        .eq("id", existing.id)
+        .select("*")
+        .single();
+      return promoted ?? existing;
+    }
+    return existing;
+  }
 
   const { data: created, error } = await supabase
     .from("twilio_conversations")
     .insert({
       phone_number: phoneNumber,
-      patient_id: patientId,
+      patient_id: patientId ?? null,
       guardian_id: guardianId ?? null,
+      clinic_id: DEV_CLINIC_ID,
+      kind: patientId ? "patient" : "lead",
     })
     .select("*")
     .single();
@@ -437,95 +408,72 @@ export async function handleTwilioIncomingMessage(params: {
   // a conversa, não deixa o bot responder. NPS Externo agora é só via portal
   // da família (submit_nps_response), não há mais resposta de NPS por
   // WhatsApp a interceptar aqui.
+  //
+  // Desde a migration 20260909100000 isto roda para TODO mundo, não só para
+  // quem já é paciente: número sem cadastro abre uma conversa `kind='lead'`,
+  // que é justamente quem pergunta sobre convênios e valores. Antes essas
+  // mensagens não eram persistidas e a recepção nunca via quem procurou a
+  // clínica.
+  let conversationId: string | null = null;
+
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
 
     const resolved = await resolvePatientFromPhone(phone);
-    if (resolved) {
-      const conversation = await findOrCreateConversation({
-        phoneNumber: phone,
-        patientId: resolved.patientId,
-        guardianId: resolved.guardianId,
-      });
+    const conversation = await findOrCreateConversation({
+      phoneNumber: phone,
+      patientId: resolved?.patientId ?? null,
+      guardianId: resolved?.guardianId,
+    });
+    conversationId = conversation.id;
 
-      await supabase
-        .from("twilio_conversations")
-        .update({
-          last_message_at: new Date().toISOString(),
-          unread_count: (conversation.unread_count ?? 0) + 1,
-        })
-        .eq("id", conversation.id);
+    await supabase
+      .from("twilio_conversations")
+      .update({
+        last_message_at: new Date().toISOString(),
+        unread_count: (conversation.unread_count ?? 0) + 1,
+      })
+      .eq("id", conversation.id);
 
-      await supabase.from("messages").insert({
-        patient_id: resolved.patientId,
-        guardian_id: resolved.guardianId ?? null,
-        conversation_id: conversation.id,
-        sender_type: "user",
-        channel: "whatsapp",
-        direction: "inbound",
-        body,
-        media_url: mediaUrl0 || null,
-        sent_at: new Date().toISOString(),
-      });
+    await supabase.from("messages").insert({
+      patient_id: resolved?.patientId ?? null,
+      guardian_id: resolved?.guardianId ?? null,
+      conversation_id: conversation.id,
+      sender_type: "user",
+      channel: "whatsapp",
+      direction: "inbound",
+      body,
+      media_url: mediaUrl0 || null,
+      sent_at: new Date().toISOString(),
+    });
 
-      // 0.6 Máquina de estados do bot de ACOLHIMENTO DE PLANO DE SAÚDE
-      // (lib/twilio-intake-bot.ts) — roda antes da ingestão genérica de
-      // "cadastro assistido por IA" porque os documentos que ele coleta
-      // (laudo/guia) têm um destino próprio (insurance_intake_lead_files,
-      // vinculados ao lead) e uma resposta guiada (perguntando o que falta,
-      // recebendo PRONTO). Roda mesmo com a conversa assumida por um
-      // humano, mesma justificativa da ingestão de rascunhos: o documento
-      // precisa entrar na fila de qualquer forma.
-      try {
-        const { processIntakeBotStep } = await import("./twilio-intake-bot");
-        const intakeResult = await processIntakeBotStep({ from, body, media });
-        if (intakeResult.handled) {
-          return { intent: "acolhimento_plano_saude", replyMessage: intakeResult.replyMessage };
-        }
-      } catch (err) {
-        console.error("[Twilio Intake Bot Error]:", err);
+    // 0.6 Máquina de estados do bot de ACOLHIMENTO DE PLANO DE SAÚDE
+    // (lib/twilio-intake-bot.ts) — roda antes da ingestão genérica de
+    // "cadastro assistido por IA" porque os documentos que ele coleta
+    // (laudo/guia) têm um destino próprio (insurance_intake_lead_files,
+    // vinculados ao lead) e uma resposta guiada (perguntando o que falta,
+    // recebendo PRONTO). Roda mesmo com a conversa assumida por um
+    // humano, mesma justificativa da ingestão de rascunhos: o documento
+    // precisa entrar na fila de qualquer forma.
+    try {
+      const { processIntakeBotStep } = await import("./twilio-intake-bot");
+      const intakeResult = await processIntakeBotStep({ from, body, media });
+      if (intakeResult.handled) {
+        return { intent: "acolhimento_plano_saude", replyMessage: intakeResult.replyMessage };
       }
+    } catch (err) {
+      console.error("[Twilio Intake Bot Error]:", err);
+    }
 
-      // 0.7 Ingestão de documentos do "cadastro assistido por IA" — roda
-      // mesmo que um humano já tenha assumido a conversa (a família pode
-      // mandar a carteirinha enquanto fala com a recepção; o item só entra
-      // na fila de validação, não substitui a conversa humana). Só desvia
-      // se o telefone NÃO estiver numa etapa do bot de anamnese que também
-      // consome anexo (awaiting_laudo_pdf/awaiting_guia_pdf/intake_*) —
-      // nesse caso o passo acima (ou o passo 1 abaixo) já tratou o anexo.
-      if (media && media.length > 0) {
-        const isAwaitingAnamnesisAttachment = await isAwaitingAnamnesisPdf(phone);
-        if (!isAwaitingAnamnesisAttachment) {
-          try {
-            const { ingestWhatsappMedia } = await import("./registration-drafts-ingest");
-            const ingestResult = await ingestWhatsappMedia({ from, media, body });
-            return { intent: "cadastro_documentos", replyMessage: ingestResult.replyMessage };
-          } catch (err) {
-            console.error("[Twilio Registration Draft Ingest Error]:", err);
-          }
-        }
-      }
-
-      if (!conversation.is_bot_active) {
-        return { replyMessage: "", intent: "human_handled" };
-      }
-    } else if (media && media.length > 0) {
-      // Número desconhecido (ainda sem guardians.phone) mandando documento
-      // direto: pode ser um lead de acolhimento (bot já registrou o
-      // telefone em chatbot_sessions mesmo sem twilio_conversations) ou um
-      // pré-cadastro novo — tenta o bot de acolhimento primeiro, senão cai
-      // na ingestão genérica.
-      try {
-        const { processIntakeBotStep } = await import("./twilio-intake-bot");
-        const intakeResult = await processIntakeBotStep({ from, body, media });
-        if (intakeResult.handled) {
-          return { intent: "acolhimento_plano_saude", replyMessage: intakeResult.replyMessage };
-        }
-      } catch (err) {
-        console.error("[Twilio Intake Bot Error]:", err);
-      }
-
+    // 0.7 Ingestão de documentos do "cadastro assistido por IA" — roda
+    // mesmo que um humano já tenha assumido a conversa (a família pode
+    // mandar a carteirinha enquanto fala com a recepção; o item só entra
+    // na fila de validação, não substitui a conversa humana). Só desvia
+    // se o telefone NÃO estiver numa etapa do bot de anamnese que também
+    // consome anexo (awaiting_laudo_pdf/awaiting_guia_pdf/intake_*) —
+    // nesse caso o passo acima (ou o passo 1 abaixo) já tratou o anexo.
+    if (media && media.length > 0) {
       const isAwaitingAnamnesisAttachment = await isAwaitingAnamnesisPdf(phone);
       if (!isAwaitingAnamnesisAttachment) {
         try {
@@ -536,6 +484,10 @@ export async function handleTwilioIncomingMessage(params: {
           console.error("[Twilio Registration Draft Ingest Error]:", err);
         }
       }
+    }
+
+    if (!conversation.is_bot_active) {
+      return { replyMessage: "", intent: "human_handled" };
     }
   } catch (err) {
     console.error("[Twilio Central Multicanal Error]:", err);
@@ -599,53 +551,26 @@ export async function handleTwilioIncomingMessage(params: {
     console.error("[Twilio Anamnesis Bot Error]:", err);
   }
 
-  // 2. Consulta de convênios/planos de saúde aceitos
-  if (isHealthPlanInquiry(body)) {
-    const replyMessage = await getAcceptedInsurersFormatted();
-    return {
-      intent: "planos_saude",
-      replyMessage,
-    };
-  }
-
-  // 3. Tentar gerar resposta inteligente com Google Gemini AI (se disponível)
+  // 2. Agente conversacional de FAQ (lib/twilio-faq-bot.ts): responde dúvidas
+  // recorrentes (convênios, terapias, valores, endereço) com base na tabela
+  // `clinic_faq` e no histórico da thread, e escala para a recepção quando a
+  // informação não está na base, o assunto é clínico ou pedem um humano.
+  //
+  // Substituiu um matcher de palavra-chave + prompt fixo que existiam aqui: o
+  // matcher era largo demais (bastava "quais" ou "atende" na frase) e o prompt
+  // não recebia histórico, então cada mensagem era tratada isoladamente.
   try {
-    const { isGeminiConfigured, generateGeminiChatResponse } = await import("./gemini");
-    if (isGeminiConfigured()) {
-      const insurersText = await getAcceptedInsurersFormatted();
-      const systemInstruction = `Você é a assistente virtual inteligente da Clínica de Desenvolvimento Infantil (especializada em TEA, Terapia ABA, Fonoaudiologia, Terapia Ocupacional e Psicopedagogia).
-Seu objetivo é atuar com acolhimento, empatia e clareza para pais e responsáveis de pacientes neurodivergentes.
-
-INFORMAÇÕES DA CLÍNICA:
-- Aceitamos diversos convênios e oferecemos suporte para Reembolso Médico.
-- Convênios cadastrados:
-${insurersText}
-
-REGRAS DE RESPOSTA:
-1. Seja sempre acolhedora, clara e sucinta (ideal para mensagens de WhatsApp).
-2. Se o usuário quiser agendar uma avaliação/anamnese, oriente-o a responder com a palavra *AGENDAR* ou enviar o nome do paciente.
-3. Se perguntar sobre convênios, liste os planos aceitos de forma amigável.
-4. Mantenha a resposta com formatação amigável do WhatsApp (use negritos *texto* e emojis pontuais).
-5. Nunca dê diagnósticos médicos definitivos.`;
-
-      const aiResponse = await generateGeminiChatResponse({
-        prompt: body,
-        systemInstruction,
-        temperature: 0.6,
-      });
-
-      if (aiResponse.success && aiResponse.text) {
-        return {
-          intent: "gemini_ai_response",
-          replyMessage: aiResponse.text,
-        };
-      }
+    const { processFaqBotStep } = await import("./twilio-faq-bot");
+    const faqResult = await processFaqBotStep({ phone, body, conversationId });
+    if (faqResult.handled) {
+      return { intent: faqResult.intent, replyMessage: faqResult.replyMessage };
     }
-  } catch (geminiErr) {
-    console.error("[Twilio Gemini Integration Error]:", geminiErr);
+  } catch (faqErr) {
+    console.error("[Twilio FAQ Bot Error]:", faqErr);
   }
 
-  // 4. Resposta padrão amigável (Fallback estático)
+  // 3. Resposta padrão amigável (fallback estático — Gemini indisponível,
+  // sem chave configurada ou teto diário de respostas atingido)
   return {
     intent: "atendimento_geral",
     replyMessage:

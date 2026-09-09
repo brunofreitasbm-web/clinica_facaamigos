@@ -6,14 +6,18 @@ import { markConversationRead } from "./actions";
 import type { ConversationRow } from "./atendimento-shell";
 
 function initialsOf(name: string): string {
-  return (
-    name
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("") || "?"
-  );
+  // Conversa de lead cai aqui com o telefone formatado como nome — nesse caso
+  // as "iniciais" seriam pontuação, então usa um marcador neutro.
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .filter((char) => char && /\p{L}/u.test(char))
+    .map((char) => char.toUpperCase())
+    .join("");
+
+  return initials || "?";
 }
 
 function relativeTime(iso: string | null): string {
@@ -66,12 +70,20 @@ export function ConversationList({
                 fontFamily: "var(--font-heading)",
               }}
             >
-              {initialsOf(c.patientName)}
+              {initialsOf(c.displayName)}
             </span>
 
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5">
-                <span className="truncate text-sm font-semibold text-ink">{c.patientName}</span>
+                <span className="truncate text-sm font-semibold text-ink">{c.displayName}</span>
+                {c.kind === "lead" && (
+                  <span
+                    className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                    style={{ background: "var(--color-accent-2-100)", color: "var(--color-accent-2-700)" }}
+                  >
+                    Lead
+                  </span>
+                )}
                 {c.isBotActive ? (
                   <Bot size={13} className="shrink-0 text-ink-faint" />
                 ) : (

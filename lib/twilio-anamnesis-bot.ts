@@ -143,7 +143,14 @@ export async function processAnamnesisChatbotStep(
 
   // 2. Detecção de Início do Fluxo de Agendamento/Anamnese se estiver em `idle`
   if (currentStep === "idle") {
-    const triggers = ["agendar", "anamnese", "avaliacao", "consulta", "primeira vez", "triagem", "plano", "laudo", "guia"];
+    // Só intenção EXPLÍCITA de agendar entra na máquina de estados. A lista
+    // antiga incluía "plano", "laudo", "guia", "consulta", "avaliacao" e
+    // "triagem" — como este passo roda antes do agente de FAQ, quem
+    // perguntava "vocês atendem planos?" era jogado no fluxo de agendamento e
+    // recebia "me informe seu Nome Completo". Essas dúvidas agora são do
+    // agente de FAQ (lib/twilio-faq-bot.ts), que orienta a responder AGENDAR
+    // quando a pessoa realmente quer marcar.
+    const triggers = ["agendar", "anamnese", "marcar avaliacao", "marcar avaliação", "marcar consulta"];
     const isAnamnesisIntent = triggers.some((t) => normBody.includes(t));
 
     if (isAnamnesisIntent) {

@@ -10,41 +10,18 @@ export async function dispatchAbsenceRescheduleOffer(params: {
   roomId: string;
   therapistId: string;
 }): Promise<void> {
-  const admin = createAdminClient();
   const phoneE164 = formatE164Phone(params.phone);
   if (!phoneE164) return;
 
-  const slots = await computeAvailableSlots(admin as any, {
-    roomId: params.roomId,
-    therapistId: params.therapistId,
-    durationMinutes: 50,
-    limit: 3,
-  });
+  const message = `Olá! Percebemos a ausência do paciente hoje. Esperamos que esteja tudo bem! Por favor, lembre-se de comparecer no próximo dia e horário agendados. Em caso de dúvidas, nossa recepção está à disposição. Um abraço!`;
 
-  if (slots.length === 0) {
-    console.log("[Absence Bot] Nenhum slot disponível para reagendamento.");
-    return;
-  }
-
-  const slotOptions = slots.map((s, idx) => `${idx + 1}. ${s.dateLabel} às ${s.timeLabel}`).join("\n");
-  const message = `Olá! Notamos a ausência do paciente hoje. Responda com 1, 2 ou 3 para reagendar nos seguintes horários livres:\n${slotOptions}`;
-
-  const contentSid = getTwilioContentSidForCategory("falta");
-  const send = await sendTwilioWhatsApp({
+  // We can skip the template contentSid here since we are just sending a simple welcome message, 
+  // or use a generic one if we had it, but plain text works if the window is open.
+  // Assuming 24h window is open or this is a free-form message.
+  await sendTwilioWhatsApp({
     to: phoneE164,
     message,
-    ...(contentSid ? { contentSid, contentVariables: { "1": "Responsável", "2": "Paciente", "3": "hoje", "4": "hoje", "5": slotOptions } } : {})
   });
-
-  if (send.success) {
-    await admin.from("chatbot_sessions").upsert({
-      phone_number: phoneE164,
-      current_step: "absence_awaiting_slot",
-      flow: "absence",
-      collected_data: { patient_id: params.patientId, slots, therapist_id: params.therapistId, room_id: params.roomId },
-      updated_at: new Date().toISOString()
-    }, { onConflict: "phone_number" });
-  }
 }
 
 export async function processAbsenceBotStep(

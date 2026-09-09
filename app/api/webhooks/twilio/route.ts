@@ -176,6 +176,7 @@ export async function POST(req: NextRequest) {
             sent_at: new Date().toISOString(),
             twilio_sid: sendResult?.messageId ?? null,
             delivery_status: sendResult?.success ? "sent" : "failed",
+            intent: result.intent,
           });
         }
       } catch (logErr) {

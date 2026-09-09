@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { AtendimentoShell, type ConversationRow } from "./atendimento-shell";
+import { formatConversationPhone } from "./format-phone";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export default async function AtendimentoPage() {
   const { data: conversationsRaw } = await supabase
     .from("twilio_conversations")
     .select(
-      "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, patients(full_name), guardians(full_name)",
+      "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, kind, contact_name, escalation_reason, patients(full_name), guardians(full_name)",
     )
     .order("last_message_at", { ascending: false, nullsFirst: false });
 
@@ -25,7 +26,11 @@ export default async function AtendimentoPage() {
       status: c.status,
       unreadCount: c.unread_count,
       lastMessageAt: c.last_message_at,
-      patientName: patient?.full_name ?? "Paciente",
+      kind: c.kind === "lead" ? "lead" : "patient",
+      escalationReason: c.escalation_reason,
+      // Conversa de lead não tem paciente: o nome vem do que a pessoa disse no
+      // WhatsApp e, na falta disso, do próprio telefone.
+      displayName: patient?.full_name ?? c.contact_name ?? formatConversationPhone(c.phone_number),
       guardianName: guardian?.full_name ?? null,
     };
   });

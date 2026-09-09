@@ -418,7 +418,7 @@ export default async function FamiliaPage({
     : `${greeting}! Como vai a semana de ${firstName}? 💛`;
 
   return (
-    <main id="top" className="mx-auto flex w-full max-w-[480px] flex-1 flex-col" style={{ background: "var(--color-bg)" }}>
+    <main id="top" className="flex w-full flex-1 flex-col" style={{ background: "var(--color-bg)" }}>
       {showLgpdGate && <LgpdConsentGate />}
       <header
         style={{
@@ -454,7 +454,11 @@ export default async function FamiliaPage({
                     style={{
                       fontSize: 12,
                       fontWeight: 600,
-                      padding: "5px 12px",
+                      padding: "10px 16px",
+                      minHeight: 44,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       borderRadius: 999,
                       background: "rgba(255, 255, 255, 0.16)",
                       border: "1px solid rgba(255, 255, 255, 0.25)",

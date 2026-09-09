@@ -1043,6 +1043,92 @@ export type Database = {
           },
         ]
       }
+      bonus_rule_set_items: {
+        Row: {
+          eliminatory: boolean
+          id: string
+          metric_key: string
+          rule_set_id: string
+          target_value: number
+          weight_pct: number
+        }
+        Insert: {
+          eliminatory?: boolean
+          id?: string
+          metric_key: string
+          rule_set_id: string
+          target_value: number
+          weight_pct: number
+        }
+        Update: {
+          eliminatory?: boolean
+          id?: string
+          metric_key?: string
+          rule_set_id?: string
+          target_value?: number
+          weight_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_rule_set_items_rule_set_id_fkey"
+            columns: ["rule_set_id"]
+            isOneToOne: false
+            referencedRelation: "bonus_rule_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bonus_rule_sets: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          module: string
+          note: string | null
+          role: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          module: string
+          note?: string | null
+          role: string
+          valid_from: string
+          valid_to?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          module?: string
+          note?: string | null
+          role?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_rule_sets_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonus_rule_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chatbot_sessions: {
         Row: {
           collected_data: Json
@@ -1234,6 +1320,63 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_faq: {
+        Row: {
+          active: boolean
+          answer: string
+          category: string | null
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          keywords: string[]
+          question: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          answer: string
+          category?: string | null
+          clinic_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          keywords?: string[]
+          question: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          answer?: string
+          category?: string | null
+          clinic_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          keywords?: string[]
+          question?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_faq_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_faq_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3584,6 +3727,7 @@ export type Database = {
       }
       insurers: {
         Row: {
+          active: boolean
           ans_code: string | null
           billing_rules: Json
           clinic_id: string
@@ -3593,6 +3737,7 @@ export type Database = {
           provider_code: string | null
         }
         Insert: {
+          active?: boolean
           ans_code?: string | null
           billing_rules?: Json
           clinic_id: string
@@ -3602,6 +3747,7 @@ export type Database = {
           provider_code?: string | null
         }
         Update: {
+          active?: boolean
           ans_code?: string | null
           billing_rules?: Json
           clinic_id?: string
@@ -4073,8 +4219,9 @@ export type Database = {
           direction: string
           guardian_id: string | null
           id: string
+          intent: string | null
           media_url: string | null
-          patient_id: string
+          patient_id: string | null
           read_at: string | null
           related_appointment_id: string | null
           sender_type: string
@@ -4091,8 +4238,9 @@ export type Database = {
           direction: string
           guardian_id?: string | null
           id?: string
+          intent?: string | null
           media_url?: string | null
-          patient_id: string
+          patient_id?: string | null
           read_at?: string | null
           related_appointment_id?: string | null
           sender_type?: string
@@ -4109,8 +4257,9 @@ export type Database = {
           direction?: string
           guardian_id?: string | null
           id?: string
+          intent?: string | null
           media_url?: string | null
-          patient_id?: string
+          patient_id?: string | null
           read_at?: string | null
           related_appointment_id?: string | null
           sender_type?: string
@@ -6410,92 +6559,6 @@ export type Database = {
         }
         Relationships: []
       }
-      bonus_rule_sets: {
-        Row: {
-          id: string
-          clinic_id: string
-          role: string
-          module: string
-          valid_from: string
-          valid_to: string | null
-          created_by: string | null
-          created_at: string
-          note: string | null
-        }
-        Insert: {
-          id?: string
-          clinic_id: string
-          role: string
-          module: string
-          valid_from: string
-          valid_to?: string | null
-          created_by?: string | null
-          created_at?: string
-          note?: string | null
-        }
-        Update: {
-          id?: string
-          clinic_id?: string
-          role?: string
-          module?: string
-          valid_from?: string
-          valid_to?: string | null
-          created_by?: string | null
-          created_at?: string
-          note?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bonus_rule_sets_clinic_id_fkey"
-            columns: ["clinic_id"]
-            isOneToOne: false
-            referencedRelation: "clinics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bonus_rule_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      bonus_rule_set_items: {
-        Row: {
-          id: string
-          rule_set_id: string
-          metric_key: string
-          weight_pct: number
-          target_value: number
-          eliminatory: boolean
-        }
-        Insert: {
-          id?: string
-          rule_set_id: string
-          metric_key: string
-          weight_pct: number
-          target_value: number
-          eliminatory?: boolean
-        }
-        Update: {
-          id?: string
-          rule_set_id?: string
-          metric_key?: string
-          weight_pct?: number
-          target_value?: number
-          eliminatory?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bonus_rule_set_items_rule_set_id_fkey"
-            columns: ["rule_set_id"]
-            isOneToOne: false
-            referencedRelation: "bonus_rule_sets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       targets: {
         Row: {
           clinic_id: string
@@ -6703,39 +6766,51 @@ export type Database = {
       twilio_conversations: {
         Row: {
           assigned_to: string | null
+          clinic_id: string
+          contact_name: string | null
           conversation_sid: string | null
           created_at: string
+          escalation_reason: string | null
           guardian_id: string | null
           id: string
           is_bot_active: boolean
+          kind: string
           last_message_at: string | null
-          patient_id: string
+          patient_id: string | null
           phone_number: string
           status: string
           unread_count: number
         }
         Insert: {
           assigned_to?: string | null
+          clinic_id: string
+          contact_name?: string | null
           conversation_sid?: string | null
           created_at?: string
+          escalation_reason?: string | null
           guardian_id?: string | null
           id?: string
           is_bot_active?: boolean
+          kind?: string
           last_message_at?: string | null
-          patient_id: string
+          patient_id?: string | null
           phone_number: string
           status?: string
           unread_count?: number
         }
         Update: {
           assigned_to?: string | null
+          clinic_id?: string
+          contact_name?: string | null
           conversation_sid?: string | null
           created_at?: string
+          escalation_reason?: string | null
           guardian_id?: string | null
           id?: string
           is_bot_active?: boolean
+          kind?: string
           last_message_at?: string | null
-          patient_id?: string
+          patient_id?: string | null
           phone_number?: string
           status?: string
           unread_count?: number
@@ -6746,6 +6821,13 @@ export type Database = {
             columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "twilio_conversations_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
           {
@@ -7462,14 +7544,6 @@ export type Database = {
         }
         Returns: Json
       }
-      confirm_intake_lead_appointment: {
-        Args: { p_confirmed_by: string; p_lead_id: string }
-        Returns: Json
-      }
-      reject_intake_lead_appointment: {
-        Args: { p_lead_id: string; p_rejected_by: string }
-        Returns: Json
-      }
       change_intern_password: {
         Args: { p_intern_id: string; p_new_password: string }
         Returns: undefined
@@ -7593,6 +7667,10 @@ export type Database = {
       confirm_attendance: {
         Args: { p_appointment_id: string }
         Returns: undefined
+      }
+      confirm_intake_lead_appointment: {
+        Args: { p_confirmed_by: string; p_lead_id: string }
+        Returns: Json
       }
       create_employee_self_registration: {
         Args: {
@@ -7729,6 +7807,8 @@ export type Database = {
         Returns: string
       }
       current_clinic_id: { Args: never; Returns: string }
+      current_esdm_certified: { Args: never; Returns: boolean }
+      current_profile_active: { Args: never; Returns: boolean }
       delete_intern_user: { Args: { p_intern_id: string }; Returns: undefined }
       delete_system_user: { Args: { p_user_id: string }; Returns: undefined }
       diag:
@@ -7942,6 +8022,10 @@ export type Database = {
           p_pin: string
           p_professional_id: string
         }
+        Returns: Json
+      }
+      reject_intake_lead_appointment: {
+        Args: { p_lead_id: string; p_rejected_by: string }
         Returns: Json
       }
       reset_intern_password: {

@@ -16,6 +16,11 @@ export interface GeminiChatOptions {
   systemInstruction?: string;
   conversationHistory?: Array<{ role: "user" | "model"; content: string }>;
   temperature?: number;
+  /** Pede `application/json` na resposta. Usado pelo agente de FAQ do WhatsApp
+   * (lib/twilio-faq-bot.ts), que precisa da resposta e da decisão de escalar
+   * no mesmo retorno — uma sentinela em texto (`[ESCALAR]`) vazaria para a
+   * família quando o modelo errasse o formato. */
+  jsonMode?: boolean;
 }
 
 export interface DocumentAnalysisResult {
@@ -110,6 +115,7 @@ export async function generateGeminiChatResponse(options: GeminiChatOptions): Pr
       generationConfig: {
         temperature: options.temperature ?? 0.7,
         maxOutputTokens: 800,
+        ...(options.jsonMode ? { responseMimeType: "application/json" } : {}),
       },
     };
 

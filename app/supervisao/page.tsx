@@ -256,7 +256,9 @@ export default async function SupervisaoPage() {
     const patient = Array.isArray(m.patients) ? m.patients[0] : m.patients;
     return {
       id: m.id,
-      patientId: m.patient_id,
+      // canal 'portal' (filtro da query acima) é sempre de um paciente com
+      // portal — patient_id só é nulo em mensagens de lead do WhatsApp.
+      patientId: m.patient_id!,
       guardianId: m.guardian_id,
       patientName: patient?.full_name ?? "—",
       body: m.body ?? "",

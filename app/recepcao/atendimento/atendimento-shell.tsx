@@ -5,17 +5,23 @@ import { createClient } from "@/lib/supabase/client";
 import { ConversationList } from "./conversation-list";
 import { ChatWindow } from "./chat-window";
 import { PatientContextPanel } from "./patient-context-panel";
+import { LeadContextPanel } from "./lead-context-panel";
+import { formatConversationPhone } from "./format-phone";
 
 export type ConversationRow = {
   id: string;
-  patientId: string;
+  /** Nulo em conversa de lead — número que ainda não casa com nenhum
+   * responsável cadastrado (ver migration 20260909100000). */
+  patientId: string | null;
   guardianId: string | null;
   phoneNumber: string;
   isBotActive: boolean;
   status: string;
   unreadCount: number;
   lastMessageAt: string | null;
-  patientName: string;
+  kind: "patient" | "lead";
+  escalationReason: string | null;
+  displayName: string;
   guardianName: string | null;
   lastMessagePreview?: string | null;
 };
@@ -35,13 +41,16 @@ export function AtendimentoShell({ initialConversations }: { initialConversation
           if (payload.eventType === "DELETE") return;
           const row = payload.new as {
             id: string;
-            patient_id: string;
+            patient_id: string | null;
             guardian_id: string | null;
             phone_number: string;
             is_bot_active: boolean;
             status: string;
             unread_count: number;
             last_message_at: string | null;
+            kind: string;
+            contact_name: string | null;
+            escalation_reason: string | null;
           };
           setConversations((prev) => {
             const existing = prev.find((c) => c.id === row.id);
@@ -52,6 +61,7 @@ export function AtendimentoShell({ initialConversations }: { initialConversation
                   status: row.status,
                   unreadCount: row.unread_count,
                   lastMessageAt: row.last_message_at,
+                  escalationReason: row.escalation_reason,
                 }
               : {
                   id: row.id,
@@ -62,7 +72,11 @@ export function AtendimentoShell({ initialConversations }: { initialConversation
                   status: row.status,
                   unreadCount: row.unread_count,
                   lastMessageAt: row.last_message_at,
-                  patientName: "Paciente",
+                  kind: row.kind === "lead" ? "lead" : "patient",
+                  escalationReason: row.escalation_reason,
+                  // O payload do Realtime não traz o join com `patients`;
+                  // sem recarregar, o telefone é o melhor rótulo disponível.
+                  displayName: row.contact_name ?? formatConversationPhone(row.phone_number),
                   guardianName: null,
                 };
             const rest = prev.filter((c) => c.id !== row.id);
@@ -108,7 +122,11 @@ export function AtendimentoShell({ initialConversations }: { initialConversation
 
       {selected && (
         <div className="w-full border-t border-paper-line-strong md:w-80 md:border-t-0 md:border-l">
-          <PatientContextPanel patientId={selected.patientId} />
+          {selected.patientId ? (
+            <PatientContextPanel patientId={selected.patientId} />
+          ) : (
+            <LeadContextPanel conversation={selected} />
+          )}
         </div>
       )}
     </div>
