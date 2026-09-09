@@ -8,8 +8,9 @@
  * conversa.
  *
  * Diferenças relevantes:
- * - o conhecimento vem de `clinic_faq` (editável em /gestor/cadastros/faq),
- *   somado aos convênios e tipos de atendimento reais do banco;
+ * - o conhecimento vem de `clinic_faq` (editável na aba Chatbot de
+ *   /recepcao/atendimento, restrita a supervisor/gestor), somado aos
+ *   convênios e tipos de atendimento reais do banco;
  * - as últimas mensagens da thread vão como `conversationHistory`, então a
  *   pessoa pode perguntar "e o Amazônia cobre fono?" logo depois de "quais
  *   planos vocês atendem?";
