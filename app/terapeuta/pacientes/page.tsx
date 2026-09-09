@@ -58,7 +58,7 @@ export default async function TerapeutaPacientesPage({
       <PageHeader axisLabel="Terapeuta" title="Meus pacientes" description="" />
       <div className="mx-auto grid w-full max-w-[640px] flex-1 grid-cols-1 gap-2 px-5 pt-4 sm:px-10 md:max-w-[900px] md:grid-cols-2 md:gap-3">
         {patients.length === 0 && (
-          <p className="text-sm text-ink-faint md:col-span-2">Nenhum paciente vinculado a você ainda.</p>
+          <p className="text-base text-ink-faint md:col-span-2">Nenhum paciente vinculado a você ainda.</p>
         )}
         {patients.map((p) => (
           <Link
@@ -70,7 +70,7 @@ export default async function TerapeutaPacientesPage({
             <span className="text-[15px] font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
               {p.full_name}
             </span>
-            <span className="text-xs text-ink-faint">Ver ficha →</span>
+            <span className="text-sm text-ink-faint">Ver ficha →</span>
           </Link>
         ))}
       </div>

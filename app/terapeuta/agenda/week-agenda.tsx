@@ -68,14 +68,14 @@ export function WeekAgenda({ week, appointments }: { week: WeekGrid; appointment
                 <h6 style={{ color: "var(--color-accent-2-600)" }}>
                   {WEEKDAY_LABEL[dayIndex]} · {day.split("-").reverse().slice(0, 2).join("/")}
                 </h6>
-                <span className="text-xs text-ink-faint">
+                <span className="text-sm text-ink-faint">
                   {dayAppointments.length === 0
                     ? "sem sessões"
                     : `${dayAppointments.length} sessão${dayAppointments.length === 1 ? "" : "ões"}`}
                 </span>
               </div>
               {dayAppointments.length === 0 ? (
-                <p className="text-xs text-ink-faint">—</p>
+                <p className="text-sm text-ink-faint">—</p>
               ) : (
                 <div className="flex flex-col">
                   {dayAppointments.map((a) => {
@@ -88,10 +88,10 @@ export function WeekAgenda({ week, appointments }: { week: WeekGrid; appointment
                         className="flex items-center justify-between gap-3 border-b py-2.5 no-underline"
                         style={{ borderColor: "var(--color-divider)" }}
                       >
-                        <span className="text-sm font-semibold text-ink">
+                        <span className="text-base font-semibold text-ink">
                           {civilTimeInTimeZone(a.startsAt, CLINIC_TIMEZONE)}
                         </span>
-                        <span className="flex-1 truncate px-2 text-sm">{a.patientName}</span>
+                        <span className="flex-1 truncate px-2 text-base">{a.patientName}</span>
                         <span
                           className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
                           style={{ background: style.bg, color: style.text }}
@@ -113,7 +113,7 @@ export function WeekAgenda({ week, appointments }: { week: WeekGrid; appointment
         <div className="flex" style={{ minWidth: 760 }}>
           <div className="w-14 shrink-0 pt-6">
             {HOUR_MARKS.map((h) => (
-              <div key={h} style={{ height: ROW_HEIGHT_PX * (60 / ROW_MINUTES) }} className="text-right text-[11px] text-ink-faint md:text-xs">
+              <div key={h} style={{ height: ROW_HEIGHT_PX * (60 / ROW_MINUTES) }} className="text-right text-[11px] text-ink-faint md:text-sm">
                 {String(h).padStart(2, "0")}:00
               </div>
             ))}
@@ -126,7 +126,7 @@ export function WeekAgenda({ week, appointments }: { week: WeekGrid; appointment
             const closedHeight = COLUMN_HEIGHT_PX - closedTop;
             return (
               <div key={day} className="flex-1 border-l pl-1" style={{ borderColor: "var(--color-divider)" }}>
-                <div className="pb-1 text-center text-xs font-bold text-ink md:text-sm">
+                <div className="pb-1 text-center text-sm font-bold text-ink md:text-base">
                   {WEEKDAY_LABEL[dayIndex]} {day.split("-")[2]}
                 </div>
                 <div
@@ -138,7 +138,7 @@ export function WeekAgenda({ week, appointments }: { week: WeekGrid; appointment
                   ))}
                   {closedHeight > 0 && (
                     <div
-                      className="pointer-events-none absolute left-0 right-0 flex items-start justify-center rounded-b-md pt-1 text-[10px] font-semibold text-ink-faint md:text-xs"
+                      className="pointer-events-none absolute left-0 right-0 flex items-start justify-center rounded-b-md pt-1 text-[10px] font-semibold text-ink-faint md:text-sm"
                       style={{
                         top: closedTop,
                         height: closedHeight,
@@ -161,7 +161,7 @@ export function WeekAgenda({ week, appointments }: { week: WeekGrid; appointment
                       <Link
                         key={a.id}
                         href={targetHref(a)}
-                        className="absolute left-0.5 right-0.5 overflow-hidden rounded-md border p-1 text-[11px] no-underline shadow-sm md:p-1.5 md:text-xs"
+                        className="absolute left-0.5 right-0.5 overflow-hidden rounded-md border p-1 text-[11px] no-underline shadow-sm md:p-1.5 md:text-sm"
                         style={{ top, height, background: style.bg, borderColor: style.border, color: style.text }}
                         title={`${a.patientName} · ${a.discipline}`}
                       >
@@ -178,7 +178,7 @@ export function WeekAgenda({ week, appointments }: { week: WeekGrid; appointment
       </div>
 
       {excluded.length > 0 && (
-        <p className="text-xs text-ink-faint">
+        <p className="text-sm text-ink-faint">
           {excluded.length} sessão{excluded.length === 1 ? "" : "ões"} cancelada{excluded.length === 1 ? "" : "s"}/remarcada{excluded.length === 1 ? "" : "s"} nesta semana.
         </p>
       )}

@@ -76,15 +76,15 @@ export default async function PatientFonoHubPage({ params }: { params: Promise<{
                 Nova aplicação
               </Link>
               {history.length === 0 ? (
-                <p className="text-sm text-ink-faint">Nenhuma aplicação registrada ainda.</p>
+                <p className="text-base text-ink-faint">Nenhuma aplicação registrada ainda.</p>
               ) : (
-                <ul className="m-0 flex flex-col gap-2 pl-0 text-sm" style={{ listStyle: "none" }}>
+                <ul className="m-0 flex flex-col gap-2 pl-0 text-base" style={{ listStyle: "none" }}>
                   {history.map((a) => (
                     <li key={a.id} className="border-b py-2" style={{ borderColor: "var(--color-divider)" }}>
                       <Link href={`/terapeuta/paciente/${patientId}/fono/${instrument}/${a.id}`} className="no-underline">
                         <span className="font-medium text-ink">{new Date(`${a.testDate}T00:00:00`).toLocaleDateString("pt-BR")}</span>
                         <span className="ml-2 tag-status st-agendada">{statusLabel(a.status)}</span>
-                        <p className="m-0 text-xs text-ink-faint">{a.assessedByName}</p>
+                        <p className="m-0 text-sm text-ink-faint">{a.assessedByName}</p>
                       </Link>
                     </li>
                   ))}

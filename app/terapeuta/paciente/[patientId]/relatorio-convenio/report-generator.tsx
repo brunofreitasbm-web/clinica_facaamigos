@@ -32,21 +32,21 @@ export function ReportGenerator({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">De</label>
+          <label className="text-sm font-medium uppercase tracking-wide text-ink-soft">De</label>
           <input
             type="date"
             value={periodStart}
             onChange={(e) => setPeriodStart(e.target.value)}
-            className="mt-1 block rounded-md border border-paper-line-strong bg-paper px-2 py-1.5 text-sm text-ink md:min-h-11"
+            className="mt-1 block rounded-md border border-paper-line-strong bg-paper px-2 py-1.5 text-base text-ink md:min-h-11"
           />
         </div>
         <div>
-          <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Até</label>
+          <label className="text-sm font-medium uppercase tracking-wide text-ink-soft">Até</label>
           <input
             type="date"
             value={periodEnd}
             onChange={(e) => setPeriodEnd(e.target.value)}
-            className="mt-1 block rounded-md border border-paper-line-strong bg-paper px-2 py-1.5 text-sm text-ink md:min-h-11"
+            className="mt-1 block rounded-md border border-paper-line-strong bg-paper px-2 py-1.5 text-base text-ink md:min-h-11"
           />
         </div>
         <button
@@ -66,25 +66,25 @@ export function ReportGenerator({
               ]);
             });
           }}
-          className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50 md:min-h-11"
+          className="rounded-md bg-chart px-4 py-2 text-base font-medium text-paper disabled:opacity-50 md:min-h-11"
         >
           {isPending ? "Gerando…" : "Gerar PDF"}
         </button>
       </div>
-      {error && <p className="text-xs text-status-negative-text">{error}</p>}
+      {error && <p className="text-sm text-status-negative-text">{error}</p>}
 
       <div>
-        <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+        <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-ink-soft">
           Relatórios gerados ({history.length})
         </h3>
         <div className="flex flex-col gap-2">
           {history.length === 0 && (
-            <p className="text-sm text-ink-faint">Nenhum relatório gerado ainda.</p>
+            <p className="text-base text-ink-faint">Nenhum relatório gerado ainda.</p>
           )}
           {history.map((h) => (
             <div
               key={h.id}
-              className="flex items-center justify-between rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
+              className="flex items-center justify-between rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-base"
             >
               <span className="text-ink-soft">
                 {h.uploadedAt} · {h.uploadedByName}
@@ -102,14 +102,14 @@ export function ReportGenerator({
                     window.open(result.url, "_blank", "noopener,noreferrer");
                   });
                 }}
-                className="rounded-md border border-paper-line-strong px-3 py-1.5 text-xs text-ink hover:border-chart md:min-h-11 md:px-4"
+                className="rounded-md border border-paper-line-strong px-3 py-1.5 text-sm text-ink hover:border-chart md:min-h-11 md:px-4"
               >
                 Ver PDF
               </button>
             </div>
           ))}
         </div>
-        {viewError && <p className="mt-2 text-xs text-status-negative-text">{viewError}</p>}
+        {viewError && <p className="mt-2 text-sm text-status-negative-text">{viewError}</p>}
       </div>
     </div>
   );

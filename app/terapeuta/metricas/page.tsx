@@ -63,11 +63,11 @@ export default async function TerapeutaMetricasPage() {
         </p>
         <h1
           style={{ fontFamily: "var(--font-heading)" }}
-          className="m-0 text-2xl font-semibold leading-tight text-inherit"
+          className="m-0 text-3xl font-semibold leading-tight text-inherit"
         >
           Minhas métricas
         </h1>
-        <p className="text-xs opacity-70">Último mês fechado, calculado no dia 1.</p>
+        <p className="text-sm opacity-70">Último mês fechado, calculado no dia 1.</p>
       </header>
 
       <div className="mx-auto grid w-full max-w-[640px] grid-cols-1 gap-3 p-5 sm:p-10 md:max-w-[900px] md:grid-cols-2 lg:grid-cols-3">
@@ -81,12 +81,12 @@ export default async function TerapeutaMetricasPage() {
               className="card flex items-center justify-between gap-3 border border-[var(--color-neutral-200)]"
             >
               <div className="flex flex-col gap-1">
-                <div className="text-sm font-semibold text-ink">{m.label}</div>
+                <div className="text-base font-semibold text-ink">{m.label}</div>
                 {m.periodLabel ? (
-                  <div className="text-xs text-ink-soft">Referente a {m.periodLabel}</div>
+                  <div className="text-sm text-ink-soft">Referente a {m.periodLabel}</div>
                 ) : (
                   empty && (
-                    <div className="flex items-center gap-1.5 text-xs text-ink-faint">
+                    <div className="flex items-center gap-1.5 text-sm text-ink-faint">
                       <empty.Icon size={13} aria-hidden="true" />
                       <span>{empty.text}</span>
                     </div>
@@ -94,7 +94,7 @@ export default async function TerapeutaMetricasPage() {
                 )}
               </div>
               <div
-                className="text-lg font-semibold"
+                className="text-xl font-semibold"
                 style={{
                   fontFamily: "var(--font-heading)",
                   color: m.valueLabel ? "var(--color-accent)" : "var(--color-ink-faint)",

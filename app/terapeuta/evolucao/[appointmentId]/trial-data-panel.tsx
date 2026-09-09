@@ -92,7 +92,7 @@ export function TrialDataPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+      <p className="text-sm font-medium uppercase tracking-wide text-ink-soft">
         Coleta de tentativas (ABA)
       </p>
       {programs.map((program) => {
@@ -104,21 +104,21 @@ export function TrialDataPanel({
             className="rounded-md border border-paper-line-strong bg-paper p-4"
           >
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-sm font-medium text-ink">{program.name}</p>
-              <p className="text-xs text-ink-faint">{program.domain}</p>
+              <p className="text-base font-medium text-ink">{program.name}</p>
+              <p className="text-sm text-ink-faint">{program.domain}</p>
             </div>
-            <p className="mt-1 text-xs text-ink-soft">{summaryText(ps.trials)}</p>
+            <p className="mt-1 text-sm text-ink-soft">{summaryText(ps.trials)}</p>
 
             <div className="mt-3 flex flex-wrap items-end gap-3">
               <div>
-                <p className="text-xs text-ink-soft">Resultado</p>
+                <p className="text-sm text-ink-soft">Resultado</p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {RESULT_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => updateProgram(program.id, { result: opt.value })}
-                      className={`min-h-[44px] rounded-md border px-3 py-1 text-xs font-medium ${
+                      className={`min-h-[44px] rounded-md border px-3 py-1 text-sm font-medium ${
                         ps.result === opt.value
                           ? "border-chart bg-chart text-paper"
                           : "border-paper-line-strong bg-paper text-ink"
@@ -131,7 +131,7 @@ export function TrialDataPanel({
               </div>
 
               <div>
-                <label className="text-xs text-ink-soft" htmlFor={`prompt-${program.id}`}>
+                <label className="text-sm text-ink-soft" htmlFor={`prompt-${program.id}`}>
                   Nível de ajuda (opcional)
                 </label>
                 <input
@@ -140,12 +140,12 @@ export function TrialDataPanel({
                   value={ps.promptLevel}
                   onChange={(e) => updateProgram(program.id, { promptLevel: e.target.value })}
                   placeholder="ex: verbal, gestual"
-                  className="mt-1 block w-36 rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-xs text-ink"
+                  className="mt-1 block w-36 rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-sm text-ink"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-ink-soft" htmlFor={`duration-${program.id}`}>
+                <label className="text-sm text-ink-soft" htmlFor={`duration-${program.id}`}>
                   Duração (s, opcional)
                 </label>
                 <input
@@ -155,7 +155,7 @@ export function TrialDataPanel({
                   step="any"
                   value={ps.durationS}
                   onChange={(e) => updateProgram(program.id, { durationS: e.target.value })}
-                  className="mt-1 block w-24 rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-xs text-ink"
+                  className="mt-1 block w-24 rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-sm text-ink"
                 />
               </div>
 
@@ -163,12 +163,12 @@ export function TrialDataPanel({
                 type="button"
                 disabled={isSaving}
                 onClick={() => handleSave(program)}
-                className="min-h-[44px] rounded-md bg-chart px-4 py-1.5 text-xs font-medium text-paper disabled:opacity-50"
+                className="min-h-[44px] rounded-md bg-chart px-4 py-1.5 text-sm font-medium text-paper disabled:opacity-50"
               >
                 {isSaving ? "Salvando…" : "Registrar tentativa"}
               </button>
             </div>
-            {ps.error && <p className="mt-2 text-xs text-status-negative-text">{ps.error}</p>}
+            {ps.error && <p className="mt-2 text-sm text-status-negative-text">{ps.error}</p>}
           </div>
         );
       })}

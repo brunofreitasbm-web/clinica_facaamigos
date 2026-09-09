@@ -66,7 +66,7 @@ export function MonthAgenda({
                 opacity: cell.inMonth ? 1 : 0.55,
               }}
             >
-              <span className="text-xs font-semibold text-ink">{cell.day}</span>
+              <span className="text-sm font-semibold text-ink">{cell.day}</span>
               <div className="flex flex-col gap-0.5">
                 {dayAppointments.slice(0, 2).map((a) => {
                   const kind = classifyAppointmentKind(a);

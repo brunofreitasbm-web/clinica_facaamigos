@@ -140,7 +140,7 @@ export default async function TerapeutaPage({
       >
         <div className="flex items-center gap-2.5">
           <BrandLockup module="Terapeuta" size="sm" />
-          <span className="ml-auto flex items-center gap-1.5 text-xs" style={{ color: "var(--color-bg)" }}>
+          <span className="ml-auto flex items-center gap-1.5 text-sm" style={{ color: "var(--color-bg)" }}>
             <svg width="12" height="12" viewBox="0 0 256 256" fill="none" aria-hidden>
               <path
                 d="M226 76a58 58 0 0 0-108-24 46 46 0 0 0-62 44 42 42 0 0 0 4 84h164a48 48 0 0 0 2-96Z"
@@ -158,7 +158,7 @@ export default async function TerapeutaPage({
           </span>
         </div>
         <div>
-          <div className="text-xs opacity-70">{todayLabel}</div>
+          <div className="text-sm opacity-70">{todayLabel}</div>
           <h1
             style={{ fontFamily: "var(--font-heading)" }}
             className="m-0 text-[28px] font-semibold leading-tight text-inherit"
@@ -207,7 +207,7 @@ export default async function TerapeutaPage({
             >
               {pending.length}
             </span>
-            <span className="text-sm leading-snug" style={{ color: "var(--color-accent-2-800)" }}>
+            <span className="text-base leading-snug" style={{ color: "var(--color-accent-2-800)" }}>
               <strong>{pending.length === 1 ? "evolução pendente" : "evoluções pendentes"}</strong>
               <br />
               sessões realizadas sem registro
@@ -239,25 +239,25 @@ export default async function TerapeutaPage({
             <div className="flex flex-wrap items-center gap-3">
               <a
                 href="/terapeuta/agenda"
-                className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+                className="text-sm font-semibold text-accent hover:underline flex items-center gap-1"
               >
                 🗓 Minha agenda
               </a>
               <a
                 href="/terapeuta/prontuario"
-                className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+                className="text-sm font-semibold text-accent hover:underline flex items-center gap-1"
               >
                 📋 Prontuário & Auditoria
               </a>
               <a
                 href="/terapeuta/metricas"
-                className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+                className="text-sm font-semibold text-accent hover:underline flex items-center gap-1"
               >
                 📊 Minhas Métricas
               </a>
               <a
                 href="/terapeuta/repasse"
-                className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+                className="text-sm font-semibold text-accent hover:underline flex items-center gap-1"
               >
                 📄 Meu Extrato de Repasse
               </a>
@@ -291,7 +291,7 @@ export default async function TerapeutaPage({
               <a
                 key={a.id}
                 href={`/terapeuta/evolucao/${a.id}`}
-                className="flex items-center justify-between gap-3 border-b py-3 text-sm no-underline"
+                className="flex items-center justify-between gap-3 border-b py-3 text-base no-underline"
                 style={{ borderColor: "var(--color-divider)" }}
               >
                 <span className="font-medium text-ink">
@@ -303,7 +303,7 @@ export default async function TerapeutaPage({
               </a>
             ))}
             {pending.length === 0 && (
-              <p className="text-sm text-ink-faint">Nenhuma evolução pendente.</p>
+              <p className="text-base text-ink-faint">Nenhuma evolução pendente.</p>
             )}
           </div>
         </section>
@@ -316,7 +316,7 @@ export default async function TerapeutaPage({
             {(reassessmentAlerts ?? []).map((a) => (
               <div
                 key={a.id}
-                className="flex items-center justify-between gap-3 border-b py-3 text-sm"
+                className="flex items-center justify-between gap-3 border-b py-3 text-base"
                 style={{ borderColor: "var(--color-divider)" }}
               >
                 <span className="font-medium text-ink">
@@ -328,7 +328,7 @@ export default async function TerapeutaPage({
               </div>
             ))}
             {(reassessmentAlerts ?? []).length === 0 && (
-              <p className="text-sm text-ink-faint">Nenhuma reavaliação a vencer.</p>
+              <p className="text-base text-ink-faint">Nenhuma reavaliação a vencer.</p>
             )}
           </div>
         </section>

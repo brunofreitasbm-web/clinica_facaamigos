@@ -27,28 +27,28 @@ export function AuditoriaPanel({
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border p-4 bg-white shadow-sm" style={{ borderColor: "var(--color-neutral-200)" }}>
-          <div className="flex items-center gap-2 text-xs font-semibold text-ink-faint mb-1">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-1">
             <ShieldCheck size={14} className="text-emerald-600" /> Assinatura
           </div>
-          <div className="text-base font-bold text-emerald-700">
+          <div className="text-lg font-bold text-emerald-700">
             {signedNotesCount} de {totalNotesCount}
           </div>
           <span className="text-[11px] text-ink-faint">evoluções assinadas</span>
         </div>
 
         <div className="rounded-xl border p-4 bg-white shadow-sm" style={{ borderColor: "var(--color-neutral-200)" }}>
-          <div className="flex items-center gap-2 text-xs font-semibold text-ink-faint mb-1">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-1">
             <FileCheck size={14} className="text-blue-600" /> Versionamento
           </div>
-          <div className="text-base font-bold text-blue-700">{versionedNotesCount} com histórico</div>
+          <div className="text-lg font-bold text-blue-700">{versionedNotesCount} com histórico</div>
           <span className="text-[11px] text-ink-faint">edição gera nova versão, nunca sobrescreve</span>
         </div>
 
         <div className="rounded-xl border p-4 bg-white shadow-sm" style={{ borderColor: "var(--color-neutral-200)" }}>
-          <div className="flex items-center gap-2 text-xs font-semibold text-ink-faint mb-1">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-1">
             <Lock size={14} className="text-purple-600" /> Trilha LGPD (30 dias)
           </div>
-          <div className="text-base font-bold text-purple-700">
+          <div className="text-lg font-bold text-purple-700">
             {accessTrail === null ? "—" : `${accessTrail.length} acesso${accessTrail.length === 1 ? "" : "s"}`}
           </div>
           <span className="text-[11px] text-ink-faint">quem abriu este prontuário</span>
@@ -62,7 +62,7 @@ export function AuditoriaPanel({
           </h6>
           <div className="flex flex-col gap-1.5">
             {accessTrail.slice(0, 10).map((a, i) => (
-              <div key={i} className="flex items-center justify-between gap-2 text-xs">
+              <div key={i} className="flex items-center justify-between gap-2 text-sm">
                 <span className="text-ink">
                   {a.accessor_name} <span className="text-ink-faint">· {a.accessor_role}</span>
                 </span>
@@ -79,7 +79,7 @@ export function AuditoriaPanel({
         </div>
       )}
 
-      <Link href={`/terapeuta/paciente/${patientId}`} className="text-xs font-semibold text-accent hover:underline">
+      <Link href={`/terapeuta/paciente/${patientId}`} className="text-sm font-semibold text-accent hover:underline">
         Ver ficha completa do paciente →
       </Link>
     </div>

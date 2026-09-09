@@ -78,12 +78,12 @@ export default async function EvolucaoHistoricoPage({
           ← Voltar
         </Link>
         <div>
-          <div className="text-xs opacity-70">
+          <div className="text-sm opacity-70">
             Histórico de evolução · {appointment.discipline} · {sessionDate}
           </div>
           <h1
             style={{ fontFamily: "var(--font-heading)" }}
-            className="m-0 text-2xl font-semibold leading-tight text-inherit"
+            className="m-0 text-3xl font-semibold leading-tight text-inherit"
           >
             {patientName}
           </h1>
@@ -93,7 +93,7 @@ export default async function EvolucaoHistoricoPage({
       <div className="mx-auto flex w-full max-w-[640px] md:max-w-[760px] flex-col gap-4 p-5 sm:p-10">
         {!versions || versions.length === 0 ? (
           <div className="card">
-            <p className="text-sm text-ink-soft">Nenhuma versão de evolução visível para este acesso.</p>
+            <p className="text-base text-ink-soft">Nenhuma versão de evolução visível para este acesso.</p>
           </div>
         ) : (
           versions.map((v) => {
@@ -104,9 +104,9 @@ export default async function EvolucaoHistoricoPage({
               <div key={v.id} className="card flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="tag-status st-realizada w-fit">Versão {v.version}</span>
-                  <span className="text-xs text-ink-soft">{therapistName}</span>
+                  <span className="text-sm text-ink-soft">{therapistName}</span>
                 </div>
-                <div className="text-xs text-ink-soft">
+                <div className="text-sm text-ink-soft">
                   Dispositivo:{" "}
                   {new Date(v.created_at_device).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })} · Servidor:{" "}
                   {new Date(v.created_at_server).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })}

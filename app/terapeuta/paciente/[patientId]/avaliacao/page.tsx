@@ -59,11 +59,11 @@ export default async function PatientAssessmentPage({
       <div className="p-6 sm:p-10">
         {showNotConfigured ? (
           <div className="card">
-            <p className="text-sm text-ink-soft">
+            <p className="text-base text-ink-soft">
               {PROTOCOL_LABEL[requestedEntry!.name] ?? requestedEntry!.name} ainda não tem os itens do checklist
               cadastrados nesta clínica.
             </p>
-            <p className="text-sm text-ink-faint">
+            <p className="text-base text-ink-faint">
               Peça ao gestor para cadastrar os marcos em{" "}
               <Link href="/gestor/cadastros/protocolos" className="underline">
                 Cadastros → Protocolos
@@ -71,7 +71,7 @@ export default async function PatientAssessmentPage({
               .
             </p>
             {requestedEntry && hasProtocolTemplate(requestedEntry.name) && (
-              <p className="text-sm text-ink-faint">
+              <p className="text-base text-ink-faint">
                 Este protocolo tem uma estrutura genérica configurável disponível — o gestor pode cadastrá-la em poucos cliques, sem precisar digitar os itens um a um.
               </p>
             )}

@@ -68,7 +68,7 @@ export function TerapeutaBottomNav({
             key={key}
             href={href}
             aria-current={active === key ? "page" : undefined}
-            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm no-underline"
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-base no-underline"
             style={{
               ...itemStyle(key),
               minHeight: 44,

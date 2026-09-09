@@ -228,10 +228,10 @@ export function VoiceEvolutionRecorder({
               </button>
             </div>
 
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h4 className="text-base font-bold text-slate-900 dark:text-white">
               Toque para ditar o relato da sessão
             </h4>
-            <p className="mt-1 max-w-md text-xs text-slate-600 dark:text-slate-300">
+            <p className="mt-1 max-w-md text-sm text-slate-600 dark:text-slate-300">
               Fale livremente como foi o atendimento. A inteligência artificial identificará o engajamento, comportamentos observados e organizará a narrativa automaticamente.
             </p>
           </div>
@@ -256,10 +256,10 @@ export function VoiceEvolutionRecorder({
             {/* Timer e Rótulo de Gravação */}
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-rose-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+              <span className="text-sm font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
                 Gravando áudio
               </span>
-              <span className="font-mono text-base font-extrabold text-slate-900 dark:text-white">
+              <span className="font-mono text-lg font-extrabold text-slate-900 dark:text-white">
                 {formatDuration(recordingSeconds)}
               </span>
             </div>
@@ -278,7 +278,7 @@ export function VoiceEvolutionRecorder({
             <button
               type="button"
               onClick={stopRecording}
-              className="mt-3 rounded-lg bg-rose-700 px-4 py-1.5 text-xs font-bold text-white shadow hover:bg-rose-800 transition"
+              className="mt-3 rounded-lg bg-rose-700 px-4 py-1.5 text-sm font-bold text-white shadow hover:bg-rose-800 transition"
             >
               ⏹ Concluir e Analisar com IA
             </button>
@@ -292,10 +292,10 @@ export function VoiceEvolutionRecorder({
               <Loader2 className="h-8 w-8 animate-spin text-purple-600 dark:text-purple-400" />
               <Sparkles className="absolute h-4 w-4 text-rose-500" />
             </div>
-            <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">
+            <h4 className="text-base font-bold text-purple-900 dark:text-purple-300">
               O Gemini está estruturando sua evolução...
             </h4>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Extraindo engajamento, comportamentos e gerando o relato textual.
             </p>
           </div>
@@ -303,7 +303,7 @@ export function VoiceEvolutionRecorder({
 
         {/* Notificação de Sucesso */}
         {applied && !error && status === "idle" && (
-          <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 p-2.5 text-xs font-medium text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300">
+          <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 p-2.5 text-sm font-medium text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>
@@ -322,7 +322,7 @@ export function VoiceEvolutionRecorder({
 
         {/* Erro */}
         {error && (
-          <div className="flex items-center justify-between rounded-lg border border-rose-300 bg-rose-50 p-2.5 text-xs font-medium text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300">
+          <div className="flex items-center justify-between rounded-lg border border-rose-300 bg-rose-50 p-2.5 text-sm font-medium text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
               <span>{error}</span>

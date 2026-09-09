@@ -71,7 +71,7 @@ export function TodaySessionsList({
   }
 
   if (sessions.length === 0) {
-    return <p className="text-sm text-ink-faint">Nenhuma sessão hoje.</p>;
+    return <p className="text-base text-ink-faint">Nenhuma sessão hoje.</p>;
   }
 
   const withState = sessions.map((s) => ({ ...s, ui: computeAppointmentUiState(s) }));
@@ -94,7 +94,7 @@ export function TodaySessionsList({
           <div className="card elev-sm" style={{ background: "#fff", padding: 18, gap: 14 }}>
             <div className="flex items-start justify-between">
               <div>
-                <div style={{ fontFamily: "var(--font-heading)" }} className="text-xl font-semibold">
+                <div style={{ fontFamily: "var(--font-heading)" }} className="text-2xl font-semibold">
                   {current.patientName}
                 </div>
                 <div className="text-[13px] text-ink-soft">
@@ -105,7 +105,7 @@ export function TodaySessionsList({
               </div>
                 <div className="flex items-center gap-2">
                   {current.modality === "grupo" && (
-                    <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                    <span className="rounded bg-purple-100 px-2 py-0.5 text-sm font-semibold text-purple-700">
                       Co-atendimento / Grupo
                     </span>
                   )}
@@ -166,11 +166,11 @@ export function TodaySessionsList({
                 </Link>
               )}
               {current.ui === "aguardando" && (
-                <p className="text-sm text-ink-faint">Aguardando check-in na recepção.</p>
+                <p className="text-base text-ink-faint">Aguardando check-in na recepção.</p>
               )}
             </div>
             {errors[current.id] && (
-              <p className="text-xs text-status-negative-text">{errors[current.id]}</p>
+              <p className="text-sm text-status-negative-text">{errors[current.id]}</p>
             )}
           </div>
         </div>
@@ -188,13 +188,13 @@ export function TodaySessionsList({
                 className="grid grid-cols-[52px_1fr_auto] items-center gap-3 border-b py-3.5 md:gap-4 md:py-4"
                 style={{ borderColor: "var(--color-divider)" }}
               >
-                <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold md:text-lg">
+                <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold md:text-xl">
                   {fmtTime(s.startsAt)}
                 </span>
                 <span>
-                  <span className="text-[15px] font-semibold md:text-base">{s.patientName}</span>
+                  <span className="text-[15px] font-semibold md:text-lg">{s.patientName}</span>
                   <br />
-                  <span className="text-xs text-ink-faint md:text-sm">
+                  <span className="text-sm text-ink-faint md:text-base">
                     {s.discipline}
                     {s.roomName ? ` · ${s.roomName}` : ""}
                   </span>
@@ -204,7 +204,7 @@ export function TodaySessionsList({
                   {s.ui === "na_recepcao" && (
                     <button
                       type="button"
-                      className="btn btn-ghost text-xs"
+                      className="btn btn-ghost text-sm"
                       disabled={isPending && pendingId === s.id}
                       onClick={() => runAction(s.id, startAttendance)}
                     >
@@ -212,18 +212,18 @@ export function TodaySessionsList({
                     </button>
                   )}
                   {s.isEvaluation && (
-                    <Link href={`/terapeuta/paciente/${s.patientId}/anamnese`} className="btn btn-ghost text-xs">
+                    <Link href={`/terapeuta/paciente/${s.patientId}/anamnese`} className="btn btn-ghost text-sm">
                       1ª avaliação
                     </Link>
                   )}
                   {s.ui === "realizada" && pendingSet.has(s.id) && (
-                    <Link href={`/terapeuta/evolucao/${s.id}`} className="btn btn-ghost text-xs">
+                    <Link href={`/terapeuta/evolucao/${s.id}`} className="btn btn-ghost text-sm">
                       Evoluir
                     </Link>
                   )}
                 </div>
                 {errors[s.id] && (
-                  <p className="col-span-3 text-xs text-status-negative-text">{errors[s.id]}</p>
+                  <p className="col-span-3 text-sm text-status-negative-text">{errors[s.id]}</p>
                 )}
               </div>
             ))}

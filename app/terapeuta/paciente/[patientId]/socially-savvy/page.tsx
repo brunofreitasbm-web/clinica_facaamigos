@@ -84,8 +84,8 @@ export default async function PatientSociallySavvyHubPage({
               if (!assessment) {
                 return (
                   <div key={round} className="flex flex-col gap-2 border p-3" style={{ borderColor: "var(--color-divider)" }}>
-                    <span className="text-sm font-medium">Aplicação {round}</span>
-                    <p className="m-0 text-xs text-ink-faint">Ainda não registrada.</p>
+                    <span className="text-base font-medium">Aplicação {round}</span>
+                    <p className="m-0 text-sm text-ink-faint">Ainda não registrada.</p>
                     <Link
                       href={`/terapeuta/paciente/${patientId}/socially-savvy/nova?aplicacao=${round}`}
                       className="btn btn-secondary w-fit"
@@ -102,11 +102,11 @@ export default async function PatientSociallySavvyHubPage({
                   className="flex flex-col gap-2 border p-3 no-underline"
                   style={{ borderColor: "var(--color-divider)" }}
                 >
-                  <span className="text-sm font-medium text-ink">Aplicação {round}</span>
+                  <span className="text-base font-medium text-ink">Aplicação {round}</span>
                   <span className="tag-status st-agendada w-fit">
                     {assessment.status === "concluida" ? "Concluída" : "Rascunho"}
                   </span>
-                  <p className="m-0 text-xs text-ink-faint">
+                  <p className="m-0 text-sm text-ink-faint">
                     {new Date(`${assessment.assessmentDate}T00:00:00`).toLocaleDateString("pt-BR")} ·{" "}
                     {assessment.assessedByName}
                   </p>
@@ -122,7 +122,7 @@ export default async function PatientSociallySavvyHubPage({
               Consolidado — % de acertos por área
             </h6>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-base">
                 <thead>
                   <tr>
                     <th className="text-left">Área</th>

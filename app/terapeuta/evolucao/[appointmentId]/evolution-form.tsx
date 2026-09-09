@@ -434,7 +434,7 @@ export function EvolutionForm({
             ← Prontuário de {patientName.split(" ")[0]}
           </Link>
           {!signed && (
-            <div className="flex items-center gap-3 text-xs opacity-90" role="status" aria-live="polite">
+            <div className="flex items-center gap-3 text-sm opacity-90" role="status" aria-live="polite">
               <span className={`inline-flex items-center gap-1.5 ${isOffline ? "text-amber-300" : "text-emerald-300"}`}>
                 {isSavingDraft ? (
                   <>
@@ -461,10 +461,10 @@ export function EvolutionForm({
         </div>
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs font-bold text-white uppercase tracking-wider">
+            <span className="rounded-md bg-white/20 px-2 py-0.5 text-sm font-bold text-white uppercase tracking-wider">
               {discipline}
             </span>
-            <span className="rounded-md bg-white/15 px-2 py-0.5 text-xs font-medium text-white/90">
+            <span className="rounded-md bg-white/15 px-2 py-0.5 text-sm font-medium text-white/90">
               {sessionTime}
             </span>
             <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-normal text-white/80">
@@ -479,7 +479,7 @@ export function EvolutionForm({
           </div>
           <h1
             style={{ fontFamily: "var(--font-heading)" }}
-            className="m-0 text-2xl font-bold leading-tight text-white drop-shadow-sm mt-0.5"
+            className="m-0 text-3xl font-bold leading-tight text-white drop-shadow-sm mt-0.5"
           >
             {patientName}
           </h1>
@@ -506,10 +506,10 @@ export function EvolutionForm({
           >
             ✓
           </span>
-          <p className="text-lg font-semibold text-ink">
+          <p className="text-xl font-semibold text-ink">
             {editing ? "Nova versão registrada" : "Evolução assinada"}
           </p>
-          <p className="text-sm text-ink-soft">
+          <p className="text-base text-ink-soft">
             {editing
               ? `Versão ${editing.previousVersion + 1} registrada para ${patientName}, mantendo a versão ${editing.previousVersion} no histórico. O registro é append-only — nenhuma versão anterior foi apagada.`
               : `Versão 1 registrada para ${patientName}. O registro é append-only — não pode ser editado por cima.`}
@@ -574,7 +574,7 @@ export function EvolutionForm({
           {topContent}
           {resumingPendingSignature && (
             <div
-              className="rounded-md border p-3 text-sm"
+              className="rounded-md border p-3 text-base"
               style={{ borderColor: "var(--status-agendada)", background: "var(--status-agendada-bg)" }}
             >
               <p className="font-semibold text-ink">Assinatura anterior não confirmada</p>
@@ -601,7 +601,7 @@ export function EvolutionForm({
             <VoiceEvolutionRecorder onSuggestion={applyVoiceSuggestion} />
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+              <p className="text-sm font-medium uppercase tracking-wide text-ink-soft">
                 Presença e engajamento
               </p>
               <div className="mt-2 flex gap-2">
@@ -634,12 +634,12 @@ export function EvolutionForm({
                 plano aprovado do paciente, pré-marcadas com as da sessão
                 anterior; cada uma marcada exige um resultado em 4 níveis. */}
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+              <p className="text-sm font-medium uppercase tracking-wide text-ink-soft">
                 Metas trabalhadas na sessão
               </p>
               {activeGoals.length === 0 ? (
                 <div
-                  className="mt-2 rounded-md border p-2.5 text-xs"
+                  className="mt-2 rounded-md border p-2.5 text-sm"
                   style={{ borderColor: "var(--status-agendada)", background: "var(--status-agendada-bg)" }}
                 >
                   <p className="text-ink-faint">
@@ -670,7 +670,7 @@ export function EvolutionForm({
                           background: isChecked ? "var(--color-accent-100)" : "transparent",
                         }}
                       >
-                        <label className="flex cursor-pointer items-start gap-2 text-sm">
+                        <label className="flex cursor-pointer items-start gap-2 text-base">
                           <input
                             type="checkbox"
                             checked={isChecked}
@@ -679,7 +679,7 @@ export function EvolutionForm({
                           />
                           <span>
                             <span className="font-semibold text-ink">{goal.description}</span>
-                            <span className="ml-1.5 text-xs text-ink-faint">
+                            <span className="ml-1.5 text-sm text-ink-faint">
                               {goal.domain} · {goal.discipline}
                             </span>
                           </span>
@@ -694,13 +694,13 @@ export function EvolutionForm({
                                   type="button"
                                   aria-pressed={selected}
                                   onClick={() => setGoalResult(goal.id, r.value)}
-                                  className={`inline-flex items-center gap-1 min-h-[44px] rounded-md px-3 py-1 text-xs font-bold transition-all border ${
+                                  className={`inline-flex items-center gap-1 min-h-[44px] rounded-md px-3 py-1 text-sm font-bold transition-all border ${
                                     selected
                                       ? "bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-600/30"
                                       : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 hover:border-slate-400 hover:text-slate-900"
                                   }`}
                                 >
-                                  {selected && <span className="text-xs font-black">✓</span>}
+                                  {selected && <span className="text-sm font-black">✓</span>}
                                   {r.label}
                                 </button>
                               );
@@ -715,14 +715,14 @@ export function EvolutionForm({
             </div>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+              <p className="text-sm font-medium uppercase tracking-wide text-ink-soft">
                 Comportamentos-alvo observados
               </p>
               <div className="mt-2 flex flex-col gap-2">
                 {behaviorTypes.map((b) => (
                   <div key={b.value} className="flex flex-wrap items-center gap-2.5">
                     <label
-                      className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm"
+                      className="flex cursor-pointer items-center gap-2 px-3 py-2 text-base"
                       style={{
                         borderRadius: "var(--radius-md)",
                         border: `1px solid ${selectedBehaviors[b.value] ? "var(--color-accent)" : "var(--color-divider)"}`,
@@ -761,14 +761,14 @@ export function EvolutionForm({
             </div>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+              <p className="text-sm font-medium uppercase tracking-wide text-ink-soft">
                 Orientação dada à família
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {FAMILY_GUIDANCE_OPTIONS.map((g) => (
                   <label
                     key={g.value}
-                    className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm min-h-[44px]"
+                    className="flex cursor-pointer items-center gap-2 px-3 py-2 text-base min-h-[44px]"
                     style={{
                       borderRadius: "var(--radius-md)",
                       border: `1px solid ${selectedOrientations[g.value] ? "var(--color-accent-2)" : "var(--color-divider)"}`,
@@ -792,7 +792,7 @@ export function EvolutionForm({
             {/* Registro Funcional ABC (Antecedente - Comportamento - Consequência) */}
             <ABCLogger appointmentId={appointmentId} />
 
-            {stepError && <p className="text-xs text-status-negative-text">{stepError}</p>}
+            {stepError && <p className="text-sm text-status-negative-text">{stepError}</p>}
           </div>
 
           {/* Passo 3 — mídia, texto livre + resumo antes de assinar. */}
@@ -801,7 +801,7 @@ export function EvolutionForm({
                 de imagem do responsável (guardians.image_consent) — o banco
                 também recusa via trigger caso a UI seja contornada. */}
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+              <p className="text-sm font-medium uppercase tracking-wide text-ink-soft">
                 Foto ou vídeo curto (opcional)
               </p>
               {imageConsent ? (
@@ -815,10 +815,10 @@ export function EvolutionForm({
                       handleMediaSelected(e.target.files);
                       e.target.value = "";
                     }}
-                    className="text-sm"
+                    className="text-base"
                   />
                   {mediaUploads.length > 0 && (
-                    <ul className="flex flex-col gap-1 text-xs">
+                    <ul className="flex flex-col gap-1 text-sm">
                       {mediaUploads.map((m) => (
                         <li key={m.id} className={m.status === "erro" ? "text-status-negative-text" : "text-ink-soft"}>
                           {m.name} — {m.status === "enviando" ? "enviando…" : m.status === "enviado" ? "enviado" : m.error}
@@ -828,7 +828,7 @@ export function EvolutionForm({
                   )}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-ink-faint">
+                <p className="mt-2 text-sm text-ink-faint">
                   A família não autorizou uso de imagem para este paciente — anexo de foto/vídeo desabilitado.
                 </p>
               )}
@@ -836,14 +836,14 @@ export function EvolutionForm({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="free_text">
+                <label className="text-sm font-medium uppercase tracking-wide text-ink-soft" htmlFor="free_text">
                   Texto livre de Evolução Clínica
                 </label>
                 <button
                   type="button"
                   onClick={handleGenerateAIText}
                   disabled={isGeneratingAI}
-                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white shadow transition hover:bg-emerald-700 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 >
                   {isGeneratingAI ? (
                     <span className="flex items-center gap-1.5">
@@ -858,7 +858,7 @@ export function EvolutionForm({
 
               {isGeneratingAI && (
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/30 p-3 animate-fade-in space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                  <div className="flex items-center justify-between text-sm font-medium text-emerald-800 dark:text-emerald-300">
                     <span>Processando tentativas, metas e comportamentos da sessão...</span>
                     <span>{aiElapsedSeconds}s</span>
                   </div>
@@ -880,12 +880,12 @@ export function EvolutionForm({
                 placeholder="Preencha observações clínicas ou clique no botão acima para sintetizar as tentativas e registros da sessão com Inteligência Artificial..."
                 className="input mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
-              {aiError && <p className="text-xs font-semibold text-rose-600 mt-1">{aiError}</p>}
+              {aiError && <p className="text-sm font-semibold text-rose-600 mt-1">{aiError}</p>}
             </div>
 
             {editing && (
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="edit_justification">
+                <label className="text-sm font-medium uppercase tracking-wide text-ink-soft" htmlFor="edit_justification">
                   Motivo da edição (obrigatório)
                 </label>
                 <textarea
@@ -902,7 +902,7 @@ export function EvolutionForm({
 
             {pinIsConfigured ? (
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="signature_pin_input">
+                <label className="text-sm font-medium uppercase tracking-wide text-ink-soft" htmlFor="signature_pin_input">
                   PIN de assinatura
                 </label>
                 <div className="relative flex items-center max-w-[200px]">
@@ -923,7 +923,7 @@ export function EvolutionForm({
                   <button
                     type="button"
                     onClick={() => setShowPin((v) => !v)}
-                    className="absolute right-2 p-2.5 text-xs text-ink-soft hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                    className="absolute right-2 p-2.5 text-sm text-ink-soft hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                     aria-label={showPin ? "Ocultar PIN" : "Mostrar PIN"}
                     title={showPin ? "Ocultar PIN" : "Mostrar PIN"}
                   >
@@ -939,7 +939,7 @@ export function EvolutionForm({
             ) : (
               <div className="card flex flex-col gap-2.5">
                 <div className="card-kicker">Configure seu PIN de assinatura</div>
-                <p className="text-xs text-ink-soft">
+                <p className="text-sm text-ink-soft">
                   Você ainda não tem um PIN cadastrado. Crie um PIN de 4 a 6 dígitos para confirmar sua identidade ao assinar evoluções.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -974,7 +974,7 @@ export function EvolutionForm({
                     {isSettingUpPin ? "Salvando…" : "Salvar PIN"}
                   </button>
                 </div>
-                {pinSetupError && <p className="text-xs text-status-negative-text">{pinSetupError}</p>}
+                {pinSetupError && <p className="text-sm text-status-negative-text">{pinSetupError}</p>}
               </div>
             )}
 
@@ -982,7 +982,7 @@ export function EvolutionForm({
               <div className="card-kicker">
                 {editing ? "Resumo antes de salvar a nova versão" : "Resumo antes de assinar"}
               </div>
-              <div className="flex flex-col gap-1 text-sm text-ink">
+              <div className="flex flex-col gap-1 text-base text-ink">
                 <span>Presença/engajamento: {presence ?? "—"}/5</span>
                 <span>
                   Metas trabalhadas: {goalsWorkedCount} de {activeGoals.length}
@@ -1000,7 +1000,7 @@ export function EvolutionForm({
 
             {error && (
               <div
-                className="rounded-md border p-3 text-xs flex items-start gap-2 shadow-sm animate-fade-in"
+                className="rounded-md border p-3 text-sm flex items-start gap-2 shadow-sm animate-fade-in"
                 style={{
                   borderColor: "var(--status-falta)",
                   background: "var(--status-falta-bg)",
@@ -1008,7 +1008,7 @@ export function EvolutionForm({
                 }}
                 role="alert"
               >
-                <span className="font-bold text-sm">⚠️</span>
+                <span className="font-bold text-base">⚠️</span>
                 <div>
                   <p className="font-bold">Não foi possível salvar a evolução.</p>
                   <p className="mt-0.5">{error}</p>

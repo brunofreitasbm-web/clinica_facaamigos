@@ -98,10 +98,10 @@ export default async function TerapeutaProntuarioPage({
               <h4 className="mb-3">Meus pacientes</h4>
               <form method="get" className="relative mb-3">
                 <Search className="absolute left-3 top-2.5 text-ink-faint" size={16} />
-                <input type="text" name="q" defaultValue={q ?? ""} placeholder="Buscar por nome..." className="input pl-9 text-xs" />
+                <input type="text" name="q" defaultValue={q ?? ""} placeholder="Buscar por nome..." className="input pl-9 text-sm" />
               </form>
               <div className="flex flex-col gap-2">
-                {patients.length === 0 && <p className="text-xs text-ink-faint">Nenhum paciente vinculado a você ainda.</p>}
+                {patients.length === 0 && <p className="text-sm text-ink-faint">Nenhum paciente vinculado a você ainda.</p>}
                 {patients.map((pt) => {
                   const isActive = selectedPatient?.id === pt.id;
                   return (
@@ -109,7 +109,7 @@ export default async function TerapeutaProntuarioPage({
                       key={pt.id}
                       href={`/terapeuta/prontuario?p=${pt.id}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
                       aria-selected={isActive}
-                      className={`block rounded-lg border p-3 text-left text-xs no-underline transition-all ${
+                      className={`block rounded-lg border p-3 text-left text-sm no-underline transition-all ${
                         isActive ? "font-semibold" : "border-neutral-200 hover:bg-neutral-50"
                       }`}
                       style={
@@ -128,14 +128,14 @@ export default async function TerapeutaProntuarioPage({
 
           <div className="flex flex-col gap-6">
             {!selectedPatient ? (
-              <div className="hidden rounded-xl border p-8 text-center text-sm text-ink-faint sm:block" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
+              <div className="hidden rounded-xl border p-8 text-center text-base text-ink-faint sm:block" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
                 Selecione um paciente à esquerda para ver o histórico unificado.
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between gap-2 sm:hidden">
-                  <span className="text-sm font-semibold text-ink">{selectedPatient.full_name}</span>
-                  <Link href="/terapeuta/prontuario" className="btn btn-ghost text-xs">
+                  <span className="text-base font-semibold text-ink">{selectedPatient.full_name}</span>
+                  <Link href="/terapeuta/prontuario" className="btn btn-ghost text-sm">
                     Trocar paciente
                   </Link>
                 </div>
@@ -154,17 +154,17 @@ export default async function TerapeutaProntuarioPage({
                   </h5>
 
                   {(timelineResult?.timeline.length ?? 0) === 0 ? (
-                    <p className="text-sm text-ink-faint">Nenhum registro clínico encontrado para este paciente ainda.</p>
+                    <p className="text-base text-ink-faint">Nenhum registro clínico encontrado para este paciente ainda.</p>
                   ) : (
                     <div className="flex flex-col gap-4">
                       {timelineResult!.timeline.map((item) => (
                         <div key={item.id} className="rounded-lg border p-3.5 bg-neutral-50/50" style={{ borderColor: "var(--color-neutral-200)" }}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-                            <span className="text-sm font-bold">{item.type}</span>
-                            <span className="tabular-figure text-xs text-ink-faint">{fmt(item.date)}</span>
+                            <span className="text-base font-bold">{item.type}</span>
+                            <span className="tabular-figure text-sm text-ink-faint">{fmt(item.date)}</span>
                           </div>
-                          <div className="mb-2 text-xs font-medium text-amber-800">{item.author}</div>
-                          <p className="mb-2 text-xs text-ink-soft">{item.summary}</p>
+                          <div className="mb-2 text-sm font-medium text-amber-800">{item.author}</div>
+                          <p className="mb-2 text-sm text-ink-soft">{item.summary}</p>
                           <div className="flex items-center justify-between border-t pt-2 text-[11px] text-ink-faint" style={{ borderColor: "var(--color-neutral-200)" }}>
                             <span>{item.detail}</span>
                             {item.appointmentId && (

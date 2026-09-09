@@ -38,7 +38,7 @@ export default async function VinculoPage({ params }: { params: Promise<{ patien
       {(reports ?? []).length > 0 && (
         <div className="card max-w-xl md:max-w-2xl">
           <div className="card-kicker">Histórico</div>
-          <ul className="flex flex-col gap-2 text-sm">
+          <ul className="flex flex-col gap-2 text-base">
             {(reports ?? []).map((r) => (
               <li key={r.id} className="border-b border-paper-line pb-2">
                 {fmtDate(`${r.period_start}T00:00:00`)} – {fmtDate(`${r.period_end}T00:00:00`)} · engajamento {r.engagement_score}/5

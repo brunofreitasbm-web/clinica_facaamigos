@@ -192,7 +192,7 @@ export default async function TerapeutaFichaPacientePage({
       {dossier.upcoming.map((a) => (
         <li
           key={a.id}
-          className="flex items-center justify-between border-b py-3 text-sm"
+          className="flex items-center justify-between border-b py-3 text-base"
           style={{ borderColor: "color-mix(in srgb, var(--color-text) 8%, transparent)" }}
         >
           <span>{fmtDateTime(a.startsAt, CLINIC_TIMEZONE)}</span>
@@ -201,7 +201,7 @@ export default async function TerapeutaFichaPacientePage({
           </span>
         </li>
       ))}
-      {dossier.upcoming.length === 0 && <p className="text-sm text-ink-faint">Nenhuma sessão futura agendada.</p>}
+      {dossier.upcoming.length === 0 && <p className="text-base text-ink-faint">Nenhuma sessão futura agendada.</p>}
     </ul>
   );
 
@@ -247,7 +247,7 @@ export default async function TerapeutaFichaPacientePage({
               />
 
               <div className="rounded-xl border border-paper-line-strong bg-paper p-4 shadow-2xs">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-faint">
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-ink-faint">
                   Instrumentos de Avaliação
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -256,8 +256,8 @@ export default async function TerapeutaFichaPacientePage({
                       href={`/terapeuta/paciente/${patient.id}/anamnese`}
                       className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
                     >
-                      <span className="text-xl">🧾</span>
-                      <span className="text-xs font-semibold leading-tight text-ink">1ª Avaliação</span>
+                      <span className="text-2xl">🧾</span>
+                      <span className="text-sm font-semibold leading-tight text-ink">1ª Avaliação</span>
                     </Link>
                   )}
                   {enabledProtocols.map((protocol) => (
@@ -266,8 +266,8 @@ export default async function TerapeutaFichaPacientePage({
                       href={`/terapeuta/paciente/${patient.id}/avaliacao?protocolo=${protocol.name}`}
                       className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
                     >
-                      <span className="text-xl">📋</span>
-                      <span className="text-xs font-semibold leading-tight text-ink">
+                      <span className="text-2xl">📋</span>
+                      <span className="text-sm font-semibold leading-tight text-ink">
                         {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
                       </span>
                     </Link>
@@ -277,8 +277,8 @@ export default async function TerapeutaFichaPacientePage({
                       href={`/terapeuta/paciente/${patient.id}/fono`}
                       className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
                     >
-                      <span className="text-xl">🗣️</span>
-                      <span className="text-xs font-semibold leading-tight text-ink">Fono</span>
+                      <span className="text-2xl">🗣️</span>
+                      <span className="text-sm font-semibold leading-tight text-ink">Fono</span>
                     </Link>
                   )}
                   {showSociallySavvy && (
@@ -286,8 +286,8 @@ export default async function TerapeutaFichaPacientePage({
                       href={`/terapeuta/paciente/${patient.id}/socially-savvy`}
                       className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
                     >
-                      <span className="text-xl">🤝</span>
-                      <span className="text-xs font-semibold leading-tight text-ink">Socially Savvy</span>
+                      <span className="text-2xl">🤝</span>
+                      <span className="text-sm font-semibold leading-tight text-ink">Socially Savvy</span>
                     </Link>
                   )}
                 </div>
@@ -298,21 +298,21 @@ export default async function TerapeutaFichaPacientePage({
           {/* Painel Conteúdo Principal */}
           <div className="md:col-span-8 xl:col-span-9">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-paper-line pb-4">
-              <h2 className="text-base font-bold text-ink">Prontuário & Atividades</h2>
+              <h2 className="text-lg font-bold text-ink">Prontuário & Atividades</h2>
               <div className="flex flex-wrap gap-2">
-                <Link href={`/terapeuta/paciente/${patient.id}/metricas`} className="btn btn-secondary text-xs">
+                <Link href={`/terapeuta/paciente/${patient.id}/metricas`} className="btn btn-secondary text-sm">
                   📈 Evolução/ABA
                 </Link>
-                <Link href={`/terapeuta/paciente/${patient.id}/relatorio`} className="btn btn-secondary text-xs">
+                <Link href={`/terapeuta/paciente/${patient.id}/relatorio`} className="btn btn-secondary text-sm">
                   👨‍👩‍👧 Relatório família
                 </Link>
-                <Link href={`/terapeuta/paciente/${patient.id}/relatorio-convenio`} className="btn btn-secondary text-xs">
+                <Link href={`/terapeuta/paciente/${patient.id}/relatorio-convenio`} className="btn btn-secondary text-sm">
                   🏥 Relatório convênio
                 </Link>
-                <Link href={`/terapeuta/paciente/${patient.id}/vinculo`} className="btn btn-secondary text-xs">
+                <Link href={`/terapeuta/paciente/${patient.id}/vinculo`} className="btn btn-secondary text-sm">
                   🔗 Vínculo
                 </Link>
-                <Link href={`/terapeuta/prontuario?p=${patient.id}`} className="btn btn-secondary text-xs">
+                <Link href={`/terapeuta/prontuario?p=${patient.id}`} className="btn btn-secondary text-sm">
                   📋 Prontuário & Auditoria
                 </Link>
               </div>

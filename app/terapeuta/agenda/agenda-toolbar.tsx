@@ -35,14 +35,14 @@ export function AgendaToolbar({
           <Link href={prevHref} className="btn btn-icon" aria-label="Período anterior">
             ‹
           </Link>
-          <Link href={todayHref} className="btn btn-secondary text-xs">
+          <Link href={todayHref} className="btn btn-secondary text-sm">
             Hoje
           </Link>
           <Link href={nextHref} className="btn btn-icon" aria-label="Próximo período">
             ›
           </Link>
         </div>
-        <span className="text-sm font-semibold text-ink md:text-base">{rangeLabel}</span>
+        <span className="text-base font-semibold text-ink md:text-lg">{rangeLabel}</span>
       </div>
 
       {/* .seg-opt espera um <input type=radio> aninhado (:has(input:checked)) —

@@ -29,7 +29,7 @@ function Sparkline({ weeks }: { weeks: { weekStart: string; pctCorrect: number |
   const padding = 4;
   const withValue = weeks.filter((w) => w.pctCorrect !== null);
   if (withValue.length === 0) {
-    return <p className="text-xs text-ink-faint">Sem dados suficientes.</p>;
+    return <p className="text-sm text-ink-faint">Sem dados suficientes.</p>;
   }
 
   const points = withValue.map((w, i) => {
@@ -102,21 +102,21 @@ export default async function PatientMetricsPage({
         </section>
 
         <section>
-          <h2 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
             Evolução semanal por programa
           </h2>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {trends.map((t) => (
               <div key={t.programId} className="rounded-md border border-paper-line-strong bg-paper/60 p-4">
-                <p className="text-sm font-medium text-ink">{t.programName}</p>
-                <p className="text-xs text-ink-faint">% de acertos por semana</p>
+                <p className="text-base font-medium text-ink">{t.programName}</p>
+                <p className="text-sm text-ink-faint">% de acertos por semana</p>
                 <div className="mt-2">
                   <Sparkline weeks={t.weeks} />
                 </div>
               </div>
             ))}
             {trends.length === 0 && (
-              <p className="text-sm text-ink-faint">
+              <p className="text-base text-ink-faint">
                 Nenhuma coleta de tentativas (ABA) registrada ainda para este paciente.
               </p>
             )}
@@ -124,12 +124,12 @@ export default async function PatientMetricsPage({
         </section>
 
         <section>
-          <h2 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
             Desempenho por domínio · últimos 60 dias
           </h2>
           <div className="mt-3 flex flex-col gap-2">
             {domainAverages.map((d) => (
-              <div key={d.domain} className="grid grid-cols-[120px_1fr_60px] items-center gap-3 text-sm">
+              <div key={d.domain} className="grid grid-cols-[120px_1fr_60px] items-center gap-3 text-base">
                 <span className="truncate">{domainLabel(d.domain)}</span>
                 <span
                   className="block"
@@ -150,19 +150,19 @@ export default async function PatientMetricsPage({
               </div>
             ))}
             {domainAverages.length === 0 && (
-              <p className="text-sm text-ink-faint">Sem tentativas registradas nos últimos 60 dias.</p>
+              <p className="text-base text-ink-faint">Sem tentativas registradas nos últimos 60 dias.</p>
             )}
           </div>
         </section>
 
         <section>
-          <h2 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
             Metas do plano aprovado, por domínio
           </h2>
           <div className="mt-3 flex flex-col gap-2">
             {goalCounts.map((d) => {
               return (
-                <div key={d.domain} className="grid grid-cols-[120px_1fr_140px] items-center gap-3 text-sm">
+                <div key={d.domain} className="grid grid-cols-[120px_1fr_140px] items-center gap-3 text-base">
                   <span className="truncate">{domainLabel(d.domain)}</span>
                   <span
                     className="flex overflow-hidden"
@@ -181,14 +181,14 @@ export default async function PatientMetricsPage({
                       style={{ width: `${(d.suspensa / maxGoalTotal) * 100}%`, background: "var(--status-cancelada)" }}
                     />
                   </span>
-                  <span className="text-xs text-ink-faint">
+                  <span className="text-sm text-ink-faint">
                     {d.atingida} atingidas · {d.ativa} ativas · {d.suspensa} suspensas
                   </span>
                 </div>
               );
             })}
             {goalCounts.length === 0 && (
-              <p className="text-sm text-ink-faint">Nenhum plano terapêutico com metas cadastradas ainda.</p>
+              <p className="text-base text-ink-faint">Nenhum plano terapêutico com metas cadastradas ainda.</p>
             )}
           </div>
         </section>

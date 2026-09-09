@@ -141,7 +141,7 @@ export default async function EvolucaoPage({
           topContent={
             <>
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Instrumentos de Avaliação
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -149,20 +149,20 @@ export default async function EvolucaoPage({
                     <Link
                       key={protocol.name}
                       href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.name}`}
-                      className="btn btn-secondary w-fit text-xs"
+                      className="btn btn-secondary w-fit text-sm"
                     >
                       📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
                     </Link>
                   ))}
                   {showFono && (
-                    <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit text-xs">
+                    <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit text-sm">
                       🗣️ Fono (ADL/ADL-2/PROC)
                     </Link>
                   )}
                   {showSociallySavvy && (
                     <Link
                       href={`/terapeuta/paciente/${appointment.patient_id}/socially-savvy`}
-                      className="btn btn-secondary w-fit text-xs"
+                      className="btn btn-secondary w-fit text-sm"
                     >
                       🤝 Socially Savvy
                     </Link>
@@ -248,10 +248,10 @@ export default async function EvolucaoPage({
         </Link>
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs font-bold text-white uppercase tracking-wider">
+            <span className="rounded-md bg-white/20 px-2 py-0.5 text-sm font-bold text-white uppercase tracking-wider">
               {appointment.discipline}
             </span>
-            <span className="rounded-md bg-white/15 px-2 py-0.5 text-xs font-medium text-white/90">
+            <span className="rounded-md bg-white/15 px-2 py-0.5 text-sm font-medium text-white/90">
               {sessionTime}
             </span>
             {therapistName && (
@@ -262,7 +262,7 @@ export default async function EvolucaoPage({
           </div>
           <h1
             style={{ fontFamily: "var(--font-heading)" }}
-            className="m-0 text-2xl font-bold leading-tight text-white drop-shadow-sm mt-0.5"
+            className="m-0 text-3xl font-bold leading-tight text-white drop-shadow-sm mt-0.5"
           >
             {patientName}
           </h1>
@@ -273,7 +273,7 @@ export default async function EvolucaoPage({
         {appointment.status !== "realizada" ? (
           <div className="card">
             <span className="tag-status st-cancelada w-fit">Não realizada</span>
-            <p className="text-sm text-ink-soft">
+            <p className="text-base text-ink-soft">
               Esta sessão ainda não foi realizada — não é possível registrar evolução.
             </p>
           </div>
@@ -282,7 +282,7 @@ export default async function EvolucaoPage({
             <span className="tag-status st-realizada w-fit">
               Evolução assinada{existingNote.version > 1 ? ` · versão ${existingNote.version}` : ""}
             </span>
-            <p className="text-sm text-ink-soft">
+            <p className="text-base text-ink-soft">
               Assinada em{" "}
               {existingNote.signed_at
                 ? new Date(existingNote.signed_at).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE })
@@ -311,24 +311,24 @@ export default async function EvolucaoPage({
               )}
             </div>
             <details className="mt-1">
-              <summary className="cursor-pointer text-xs font-semibold text-accent">Mais opções</summary>
+              <summary className="cursor-pointer text-sm font-semibold text-accent">Mais opções</summary>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Link href={`/terapeuta/paciente/${appointment.patient_id}/relatorio`} className="btn btn-secondary w-fit text-xs">
+                <Link href={`/terapeuta/paciente/${appointment.patient_id}/relatorio`} className="btn btn-secondary w-fit text-sm">
                   Relatório devolutivo (IA)
                 </Link>
-                <Link href={`/terapeuta/paciente/${appointment.patient_id}/metricas`} className="btn btn-secondary w-fit text-xs">
+                <Link href={`/terapeuta/paciente/${appointment.patient_id}/metricas`} className="btn btn-secondary w-fit text-sm">
                   Evolução (gráficos)
                 </Link>
                 {enabledProtocols.map((protocol) => (
                   <Link
                     key={protocol.name}
                     href={`/terapeuta/paciente/${appointment.patient_id}/avaliacao?protocolo=${protocol.name}`}
-                    className="btn btn-secondary w-fit text-xs"
+                    className="btn btn-secondary w-fit text-sm"
                   >
                     📋 {PROTOCOL_LABEL[protocol.name] ?? protocol.displayName}
                   </Link>
                 ))}
-                <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit text-xs">
+                <Link href={`/terapeuta/paciente/${appointment.patient_id}/fono`} className="btn btn-secondary w-fit text-sm">
                   Fono (ADL/ADL-2/PROC)
                 </Link>
               </div>
@@ -337,7 +337,7 @@ export default async function EvolucaoPage({
         ) : (
           <div className="card">
             <span className="tag-status st-agendada w-fit">Pendente</span>
-            <p className="text-sm text-ink-soft">
+            <p className="text-base text-ink-soft">
               Evolução pendente — só {therapistName || "o terapeuta responsável"} pode assiná-la.
             </p>
           </div>

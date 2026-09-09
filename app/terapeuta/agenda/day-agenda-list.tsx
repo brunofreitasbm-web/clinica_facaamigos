@@ -77,7 +77,7 @@ export function DayAgendaList({
   }
 
   if (sessions.length === 0) {
-    return <p className="text-sm text-ink-faint">Nenhuma sessão neste dia.</p>;
+    return <p className="text-base text-ink-faint">Nenhuma sessão neste dia.</p>;
   }
 
   const withState = sessions.map((s) => ({ ...s, ui: computeAppointmentUiState(s) }));
@@ -93,13 +93,13 @@ export function DayAgendaList({
             style={{ borderColor: "var(--color-divider)" }}
           >
             <div className="grid grid-cols-[52px_1fr_auto] items-center gap-3 md:gap-4">
-              <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold md:text-lg">
+              <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold md:text-xl">
                 {fmtTime(s.startsAt)}
               </span>
               <span>
-                <span className="text-[15px] font-semibold md:text-base">{s.patientName}</span>
+                <span className="text-[15px] font-semibold md:text-lg">{s.patientName}</span>
                 <br />
-                <span className="text-xs text-ink-faint md:text-sm">
+                <span className="text-sm text-ink-faint md:text-base">
                   {s.discipline}
                   {s.roomName ? ` · ${s.roomName}` : ""}
                 </span>
@@ -112,7 +112,7 @@ export function DayAgendaList({
                 {s.ui === "na_recepcao" && (
                   <button
                     type="button"
-                    className="btn btn-secondary text-xs"
+                    className="btn btn-secondary text-sm"
                     style={{ minHeight: 48 }}
                     disabled={isPending && pendingId === s.id}
                     onClick={() => runAction(s.id, startAttendance)}
@@ -123,7 +123,7 @@ export function DayAgendaList({
                 {s.isEvaluation && (s.ui === "na_recepcao" || s.ui === "em_atendimento") && (
                   <Link
                     href={`/terapeuta/paciente/${s.patientId}/anamnese`}
-                    className="btn btn-gold text-xs"
+                    className="btn btn-gold text-sm"
                     style={{ minHeight: 48 }}
                   >
                     Registrar 1ª avaliação
@@ -133,14 +133,14 @@ export function DayAgendaList({
                   <>
                     <Link
                       href={`/terapeuta/evolucao/${s.id}?voltar=agenda`}
-                      className="btn btn-gold text-xs"
+                      className="btn btn-gold text-sm"
                       style={{ minHeight: 48 }}
                     >
                       Registrar evolução
                     </Link>
                     <button
                       type="button"
-                      className="btn btn-secondary text-xs"
+                      className="btn btn-secondary text-sm"
                       style={{ minHeight: 48 }}
                       disabled={isPending && pendingId === s.id}
                       onClick={() => runAction(s.id, checkOut)}
@@ -152,7 +152,7 @@ export function DayAgendaList({
                 {isPendingNote && (
                   <Link
                     href={`/terapeuta/evolucao/${s.id}?voltar=agenda`}
-                    className="btn btn-gold text-xs"
+                    className="btn btn-gold text-sm"
                     style={{ minHeight: 48 }}
                   >
                     Registrar evolução
@@ -164,18 +164,18 @@ export function DayAgendaList({
                 {isPendingNote && (
                   <Link
                     href={`/terapeuta/evolucao/${s.id}?voltar=agenda`}
-                    className="btn btn-ghost text-xs"
+                    className="btn btn-ghost text-sm"
                   >
                     Registrar evolução
                   </Link>
                 )}
-                <Link href={`/terapeuta/paciente/${s.patientId}`} className="btn btn-ghost text-xs">
+                <Link href={`/terapeuta/paciente/${s.patientId}`} className="btn btn-ghost text-sm">
                   Ver ficha
                 </Link>
               </div>
             )}
 
-            {errors[s.id] && <p className="pl-[64px] text-xs text-status-negative-text">{errors[s.id]}</p>}
+            {errors[s.id] && <p className="pl-[64px] text-sm text-status-negative-text">{errors[s.id]}</p>}
           </div>
         );
       })}
