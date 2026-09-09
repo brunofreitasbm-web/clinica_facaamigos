@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DEV_CLINIC_ID } from "@/lib/constants";
+import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { normalizeCpf, parseBrDate, normalizePhone } from "@/lib/document-extraction";
 import { claimAndProcessIntakeBatches } from "@/lib/insurance-intake-process";
 import { parseIntakeProfile, type IntakeExtractionProfile } from "@/lib/insurance-intake-profile";
@@ -224,7 +224,7 @@ export async function approveIntakeLeadsAndStartContact(leadIds: string[]): Prom
       .select("id", { count: "exact", head: true })
       .eq("phone_e164", lead.phone_e164)
       .neq("id", leadId)
-      .in("status", ["awaiting_documents", "pending_supervisor", "awaiting_slot"]);
+      .in("status", ["awaiting_documents", "pending_supervisor", "awaiting_slot", "pending_confirmation"]);
     if ((activeCount ?? 0) > 0) {
       results.push({ leadId, success: false, error: "Já existe outro acolhimento em andamento para este telefone." });
       continue;
@@ -480,7 +480,7 @@ export async function approveIntakeLeadDocuments(leadId: string, therapistId: st
     therapistId,
     roomId,
     durationMinutes: 50,
-    limit: 5,
+    limit: 3,
     maxPerDay: 2,
   });
   if (rawSlots.length === 0) {
@@ -647,6 +647,142 @@ export async function resendIntakeSlots(leadId: string): Promise<SimpleResult> {
   );
   if (!result.success) return { success: false, error: "Não foi possível reenviar a mensagem agora." };
   return { success: true };
+}
+
+/**
+ * Supervisor confirma o horário que a família reservou (lead em
+ * 'pending_confirmation'): a RPC só troca o status pra 'scheduled' — o
+ * appointment já existe desde a reserva (book_intake_lead_slot_atomic) —
+ * e aqui disparamos a mensagem final de confirmação por WhatsApp.
+ */
+export async function confirmIntakeLeadAppointment(leadId: string): Promise<SimpleResult> {
+  const auth = await requireSupervisor();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const supabase = await createClient();
+  const admin = createAdminClient();
+  const { data: lead } = await supabase
+    .from("insurance_intake_leads")
+    .select("id, clinic_id, patient_full_name, appointment_id")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (!lead) return { success: false, error: "Acolhimento não encontrado." };
+
+  const { data: rpcResult, error: rpcErr } = await admin.rpc("confirm_intake_lead_appointment", {
+    p_lead_id: leadId,
+    p_confirmed_by: auth.userId,
+  });
+  const resObj = rpcResult as { success?: boolean; error?: string } | null;
+  if (rpcErr || !resObj?.success) {
+    return { success: false, error: resObj?.error ?? rpcErr?.message ?? "Erro ao confirmar agendamento." };
+  }
+
+  const { data: appt } = lead.appointment_id
+    ? await admin.from("appointments").select("starts_at").eq("id", lead.appointment_id).maybeSingle()
+    : { data: null };
+  const formattedDate = appt?.starts_at
+    ? new Date(appt.starts_at).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE, dateStyle: "full", timeStyle: "short" })
+    : null;
+
+  const messageText =
+    `✅ *AVALIAÇÃO CONFIRMADA!*\n\n` +
+    `👤 *Paciente:* ${lead.patient_full_name ?? "—"}\n` +
+    (formattedDate ? `📅 *Data e horário:* ${formattedDate}\n\n` : "\n") +
+    "Traga os documentos originais no dia. Qualquer dúvida, é só responder por aqui. Até breve!";
+  const pushResult = await pushIntakeUpdate(leadId, messageText);
+
+  await admin.from("audit_log").insert({
+    table_name: "insurance_intake_leads",
+    row_id: leadId,
+    action: "intake_appointment_confirmed",
+    actor_id: auth.userId,
+    clinic_id: lead.clinic_id,
+    after: {},
+  });
+
+  revalidatePath("/supervisao");
+  return pushResult.success ? { success: true } : { success: false, error: "Agendamento confirmado, mas não foi possível avisar por WhatsApp agora." };
+}
+
+/**
+ * Supervisor recusa o horário que a família reservou: cancela o
+ * appointment (RPC), recalcula até 3 novas opções pro mesmo
+ * terapeuta/sala e reenvia a lista — mesmo texto/formato da primeira
+ * oferta em approveIntakeLeadDocuments.
+ */
+export async function rejectIntakeLeadAppointment(leadId: string): Promise<SimpleResult> {
+  const auth = await requireSupervisor();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const supabase = await createClient();
+  const admin = createAdminClient();
+  const { data: lead } = await supabase
+    .from("insurance_intake_leads")
+    .select("id, clinic_id, patient_full_name, phone_e164, appointment_id")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (!lead) return { success: false, error: "Acolhimento não encontrado." };
+  if (!lead.appointment_id) return { success: false, error: "Este acolhimento não tem agendamento reservado." };
+
+  const { data: appt } = await admin.from("appointments").select("therapist_id, room_id").eq("id", lead.appointment_id).maybeSingle();
+  if (!appt) return { success: false, error: "Agendamento reservado não encontrado." };
+
+  const { data: rpcResult, error: rpcErr } = await admin.rpc("reject_intake_lead_appointment", {
+    p_lead_id: leadId,
+    p_rejected_by: auth.userId,
+  });
+  const resObj = rpcResult as { success?: boolean; error?: string } | null;
+  if (rpcErr || !resObj?.success) {
+    return { success: false, error: resObj?.error ?? rpcErr?.message ?? "Erro ao recusar agendamento." };
+  }
+
+  const rawSlots = await computeAvailableSlots(admin, {
+    therapistId: appt.therapist_id,
+    roomId: appt.room_id,
+    durationMinutes: 50,
+    limit: 3,
+    maxPerDay: 2,
+  });
+
+  await admin.from("audit_log").insert({
+    table_name: "insurance_intake_leads",
+    row_id: leadId,
+    action: "intake_appointment_rejected",
+    actor_id: auth.userId,
+    clinic_id: lead.clinic_id,
+    after: { new_slots_found: rawSlots.length },
+  });
+  revalidatePath("/supervisao");
+
+  if (rawSlots.length === 0) {
+    return {
+      success: false,
+      error: "Agendamento recusado, mas não há mais horários livres para esse terapeuta/sala — contate a família manualmente.",
+    };
+  }
+
+  const offeredSlots = rawSlots.map((s, index) => ({
+    index: index + 1,
+    label: `${s.dateLabel} às ${s.timeLabel}`,
+    starts_at: s.startsAtIso,
+    ends_at: s.endsAtIso,
+    therapist_id: appt.therapist_id,
+    room_id: appt.room_id,
+  }));
+
+  await setIntakeAwaitingSlot(leadId, lead.phone_e164!, offeredSlots);
+  await admin
+    .from("insurance_intake_leads")
+    .update({ offered_slots: offeredSlots, slots_sent_at: new Date().toISOString() })
+    .eq("id", leadId);
+
+  const slotListText = offeredSlots.map((s) => `*${s.index}* - ${s.label}`).join("\n");
+  const messageText =
+    `Precisamos reagendar o horário da avaliação de *${lead.patient_full_name ?? "seu(sua) filho(a)"}*. Seguem novas opções:\n\n${slotListText}\n\n` +
+    "Responda apenas com o número escolhido.";
+  const pushResult = await pushIntakeUpdate(leadId, messageText);
+
+  return pushResult.success ? { success: true } : { success: false, error: "Reagendamento processado, mas não foi possível enviar as novas opções por WhatsApp agora." };
 }
 
 export async function retryIntakeLead(leadId: string): Promise<SimpleResult> {

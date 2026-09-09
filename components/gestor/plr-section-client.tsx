@@ -21,32 +21,29 @@ interface PLRSectionClientProps {
     actualLabel: string;
     status: "atingida" | "perto" | "abaixo";
     progressPct: number;
+    weightPct: number;
+    isEliminatory: boolean;
   }[];
 }
 
 export function PLRSectionClient({ bonusRows }: PLRSectionClientProps) {
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Mapear bonusRows para formato completo do modal de PLR
+  // Mapear bonusRows para formato completo do modal de PLR — peso e
+  // eliminatória vêm da vigência ativa em bonus_rule_sets (ou do padrão
+  // §10.6 quando o cargo ainda não tem configuração publicada).
   const plrBonusRows: PLRBonusRow[] = bonusRows.map((row) => {
-    let weight = 25;
-    if (row.role.includes("Recepção")) weight = 20;
-    if (row.role.includes("Coordenação")) weight = 30;
-    if (row.role.includes("Terapeuta")) weight = 25;
-    if (row.role.includes("Faturamento")) weight = 25;
-
-    const isEliminatory = row.role.includes("Faturamento") || row.metricLabel.includes("sem guia");
-    const hasViolatedEliminatory = isEliminatory && row.status === "abaixo";
+    const hasViolatedEliminatory = row.isEliminatory && row.status === "abaixo";
 
     return {
       role: row.role,
       metricLabel: row.metricLabel,
       targetLabel: "Meta do cargo",
       actualLabel: row.actualLabel,
-      weight,
+      weight: row.weightPct,
       progressPct: row.progressPct,
       status: row.status,
-      isEliminatory,
+      isEliminatory: row.isEliminatory,
       hasViolatedEliminatory,
     };
   });

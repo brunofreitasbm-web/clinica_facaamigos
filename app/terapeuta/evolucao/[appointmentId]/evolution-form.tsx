@@ -520,7 +520,8 @@ export function EvolutionForm({
         </div>
       ) : (
         <form
-          className="mx-auto flex w-full max-w-[640px] md:max-w-[760px] flex-1 flex-col gap-6 px-5 pb-28 pt-6 sm:px-10 sm:pb-10"
+          className="mx-auto flex w-full max-w-[640px] md:max-w-[760px] flex-1 flex-col gap-6 px-5 pt-6 sm:px-10"
+          style={{ paddingBottom: "calc(8rem + env(safe-area-inset-bottom, 0px))" }}
           action={(formData) => {
             setError(null);
             formData.set("created_at_device", new Date().toISOString());
@@ -1017,8 +1018,11 @@ export function EvolutionForm({
           </div>
 
           <div
-            className="fixed inset-x-0 bottom-0 z-10 flex gap-2.5 bg-white px-5 pb-7 pt-3 sm:px-10"
-            style={{ borderTop: "1px solid var(--color-divider)" }}
+            className="fixed inset-x-0 bottom-0 z-10 flex gap-2.5 bg-white px-5 pt-3 sm:px-10"
+            style={{
+              borderTop: "1px solid var(--color-divider)",
+              paddingBottom: "calc(1.75rem + env(safe-area-inset-bottom, 0px))",
+            }}
           >
             {step !== 1 && (
               <button

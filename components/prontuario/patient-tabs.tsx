@@ -9,6 +9,7 @@ import type { BehaviorCatalogItem } from "@/lib/behavior-catalog";
 import { AbaLearningCurveChart, type ProgramTrialSummary } from "./aba-learning-curve-chart";
 import { ProtocolAssessmentDialog } from "./protocol-assessment-dialog";
 import { SessionNoteStructuredView } from "./session-note-structured";
+import { NotifyMissingPtsButton } from "./notify-missing-pts-button";
 
 const BASE_TABS = [
   { key: "visao", label: "Visão geral" },
@@ -70,6 +71,8 @@ export function PatientTabs({
   behaviorCatalog,
   goalDescriptionById,
   paddingClassName = "px-10",
+  patientId,
+  initialHasPendingPtsNotice = false,
 }: {
   frequency: FrequencyDay[];
   goals: GoalRow[];
@@ -88,6 +91,8 @@ export function PatientTabs({
   behaviorCatalog?: BehaviorCatalogItem[];
   goalDescriptionById?: Map<string, string>;
   paddingClassName?: string;
+  patientId?: string;
+  initialHasPendingPtsNotice?: boolean;
 }) {
   const tabs = [
     ...BASE_TABS,
@@ -169,7 +174,10 @@ export function PatientTabs({
                       );
                     })
                   ) : (
-                    <p className="text-sm text-ink-faint">Sem plano terapêutico aprovado ainda.</p>
+                    <div>
+                      <p className="text-sm text-ink-faint">Sem plano terapêutico aprovado ainda.</p>
+                      <NotifyMissingPtsButton patientId={patientId} initialHasNotice={initialHasPendingPtsNotice} />
+                    </div>
                   )}
                 </div>
               </div>
@@ -365,7 +373,10 @@ export function PatientTabs({
                   );
                 })
               ) : (
-                <p className="text-sm text-ink-faint">Sem plano terapêutico aprovado ainda.</p>
+                <div>
+                  <p className="text-sm text-ink-faint">Sem plano terapêutico aprovado ainda.</p>
+                  <NotifyMissingPtsButton patientId={patientId} initialHasNotice={initialHasPendingPtsNotice} />
+                </div>
               )}
             </div>
           </section>

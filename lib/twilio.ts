@@ -76,6 +76,30 @@ export interface SendMessageResult {
 }
 
 /**
+ * Mapeia a categoria do fluxo de comunicação para a variável de ambiente do Content SID correspondente na Twilio/Meta.
+ */
+export function getTwilioContentSidForCategory(category: string): string | undefined {
+  switch (category) {
+    case "otp":
+      return process.env.TWILIO_OTP_TEMPLATE_CONTENT_SID;
+    case "falta":
+      return process.env.TWILIO_ABSENCE_TEMPLATE_CONTENT_SID;
+    case "pre_anamnese":
+      return process.env.TWILIO_ANAMNESIS_TEMPLATE_CONTENT_SID;
+    case "triagem_convenio":
+      return process.env.TWILIO_INTAKE_TEMPLATE_CONTENT_SID;
+    case "nps":
+      return process.env.TWILIO_NPS_TEMPLATE_CONTENT_SID;
+    case "renovacao_guia":
+      return process.env.TWILIO_RENEWAL_TEMPLATE_CONTENT_SID;
+    case "cobranca":
+      return process.env.TWILIO_BILLING_TEMPLATE_CONTENT_SID;
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Envia mensagem SMS via Twilio
  */
 export async function sendTwilioSMS(options: SendMessageOptions): Promise<SendMessageResult> {
@@ -515,6 +539,24 @@ export async function handleTwilioIncomingMessage(params: {
     }
   } catch (err) {
     console.error("[Twilio Central Multicanal Error]:", err);
+  }
+
+  // 0.4 Tentar processar via Máquina de Estados de Faltas (Remarcação Automática)
+  try {
+    const { processAbsenceBotStep } = await import("./twilio-absence-bot");
+    const sessionRes = await (await import("@/lib/supabase/admin")).createAdminClient().from("chatbot_sessions").select("current_step, collected_data").eq("phone_number", phone).maybeSingle();
+    
+    if (sessionRes.data && sessionRes.data.current_step?.startsWith("absence_")) {
+      const absenceResult = await processAbsenceBotStep(phone, body, sessionRes.data);
+      if (absenceResult.handled) {
+        return {
+          intent: "remarcacao_falta",
+          replyMessage: absenceResult.replyMessage,
+        };
+      }
+    }
+  } catch (err) {
+    console.error("[Twilio Absence Bot Error]:", err);
   }
 
   // 0.5 Tentar processar via Máquina de Estados do PRÉ-preenchimento de

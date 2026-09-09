@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendTwilioWhatsApp, sendTwilioSMS, isTwilioConfigured } from "@/lib/twilio";
+import { sendTwilioSMS, isTwilioConfigured, getTwilioContentSidForCategory } from "@/lib/twilio";
 
 interface FamilyOtpRecord {
   id: string;
@@ -92,21 +92,23 @@ export async function requestFamilyOtp(
     return { success: false, error: "Falha ao gerar código OTP. Tente novamente." };
   }
 
-  // Envio real via WhatsApp (com fallback pra SMS) quando o Twilio está
-  // configurado — em dev/sem credenciais, isTwilioConfigured() é false e o
-  // console.log abaixo é o único "envio". Só loga o código em texto claro
-  // nesse caso (sem Twilio configurado não é produção); com Twilio ativo o
-  // código nunca vai pro log do servidor.
+  // Envio real via SMS quando o Twilio está configurado — em dev/sem
+  // credenciais, isTwilioConfigured() é false e o console.log abaixo é o
+  // único "envio". Só loga o código em texto claro nesse caso (sem Twilio
+  // configurado não é produção); com Twilio ativo o código nunca vai pro
+  // log do servidor.
   if (!isTwilioConfigured()) {
     console.log(`[OTP FAMÍLIA] Código gerado para o telefone ${digits}: ${code}`);
   }
 
   if (isTwilioConfigured()) {
     const messageText = `Seu código de acesso ao Portal da Família Faça Amigos é: ${code}\n\nEle expira em 5 minutos. Não compartilhe este código.`;
-    const whatsappResult = await sendTwilioWhatsApp({ to: digits, message: messageText });
-    if (!whatsappResult.success) {
-      await sendTwilioSMS({ to: digits, message: messageText });
-    }
+    const contentSid = getTwilioContentSidForCategory("otp");
+    await sendTwilioSMS({ 
+      to: digits, 
+      message: messageText,
+      ...(contentSid ? { contentSid, contentVariables: { "1": "Faça Amigos", "2": code } } : {})
+    });
   }
 
   return {

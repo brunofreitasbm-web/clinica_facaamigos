@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { countOverdueSessionNotes } from "@/lib/session-note-pending";
-import { formatMetricValue } from "@/lib/metric-catalog";
+import { findMetricDef, formatMetricValue } from "@/lib/metric-catalog";
+import { getActiveRuleSets } from "@/lib/bonus-rules";
+import { computeMetricActual } from "@/lib/metric-compute";
 
 type Supa = SupabaseClient<Database>;
 
@@ -355,6 +357,24 @@ export type BonusRow = {
   actualLabel: string;
   progressPct: number;
   status: "atingida" | "perto" | "abaixo";
+  weightPct: number;
+  isEliminatory: boolean;
+};
+
+// Rótulo de exibição por cargo (dashboard só mostra estes 3 — terapeuta tem
+// vitrine própria em app/terapeuta) e peso/eliminatória padrão usados
+// quando não há vigência ativa em bonus_rule_sets pro cargo (module 'plr')
+// — igual ao que já estava cravado em plr-section-client.tsx antes da tela
+// de configuração (app/gestor/bonificacao/config) existir.
+const PLR_ROLE_LABEL: Record<string, string> = {
+  recepcao: "Recepção",
+  supervisor: "Coordenação clínica",
+  faturamento: "Faturamento",
+};
+const PLR_DEFAULT_WEIGHT: Record<string, number> = {
+  recepcao: 20,
+  supervisor: 30,
+  faturamento: 25,
 };
 
 function evalTarget(actual: number | null, target: number, direction: "max" | "min") {
@@ -409,26 +429,68 @@ export async function getBonusRows(supabase: Supa, clinicId: string): Promise<Bo
   const occupancy = evalTarget(occupancyRate, 0.85, "min");
   const glosa = evalTarget(glosaRate, 0.04, "max");
 
-  return [
-    {
+  const defaultRows: Record<string, BonusRow> = {
+    recepcao: {
       role: "Recepção",
       metricLabel: "No-show ≤ 8%",
       actualLabel: noShowRate != null ? `${(noShowRate * 100).toFixed(1)}%` : "sem sessões no mês",
+      weightPct: PLR_DEFAULT_WEIGHT.recepcao,
+      isEliminatory: false,
       ...noShow,
     },
-    {
+    supervisor: {
       role: "Coordenação clínica",
       metricLabel: "Ocupação (horas agendadas) ≥ 85%",
       actualLabel: occupancyRate != null ? `${(occupancyRate * 100).toFixed(1)}%` : "sem sessões no mês",
+      weightPct: PLR_DEFAULT_WEIGHT.supervisor,
+      isEliminatory: false,
       ...occupancy,
     },
-    {
+    faturamento: {
       role: "Faturamento",
       metricLabel: "Glosa ≤ 4% do faturado",
       actualLabel: glosaRate != null ? `${(glosaRate * 100).toFixed(1)}%` : "sem competência aberta",
+      weightPct: PLR_DEFAULT_WEIGHT.faturamento,
+      isEliminatory: true,
       ...glosa,
     },
-  ];
+  };
+
+  // Vigência ativa (module 'plr') por cargo, cadastrada em
+  // app/gestor/bonificacao/config: substitui a linha padrão acima por uma
+  // linha por métrica configurada, com peso/meta reais. Sem vigência ativa
+  // pro cargo, mantém o cálculo padrão de sempre (nenhuma mudança visível
+  // até o gestor configurar).
+  const activeRuleSets = await getActiveRuleSets(supabase, clinicId);
+  const plrByRole = new Map(activeRuleSets.filter((s) => s.module === "plr").map((s) => [s.role, s]));
+
+  const rows: BonusRow[] = [];
+  for (const role of Object.keys(PLR_ROLE_LABEL)) {
+    const ruleSet = plrByRole.get(role);
+    if (!ruleSet || ruleSet.items.length === 0) {
+      rows.push(defaultRows[role]);
+      continue;
+    }
+
+    for (const item of ruleSet.items) {
+      const def = findMetricDef(role, item.metricKey);
+      const direction = def?.direction ?? "min";
+      const unit = def?.unit ?? "pct";
+      const label = def?.label ?? item.metricKey;
+      const { actual } = await computeMetricActual(supabase, clinicId, role, item.metricKey, startISO, endISO);
+      const targetFraction = unit === "pct" ? item.targetValue / 100 : item.targetValue;
+      rows.push({
+        role: PLR_ROLE_LABEL[role],
+        metricLabel: label,
+        actualLabel: actual != null ? formatMetricValue(actual, unit) : "sem dado no período",
+        weightPct: item.weightPct,
+        isEliminatory: item.eliminatory,
+        ...evalTarget(actual, targetFraction, direction),
+      });
+    }
+  }
+
+  return rows;
 }
 
 // ── Histórico mensal fechado (§10.6, close_monthly_metric_snapshots) ────

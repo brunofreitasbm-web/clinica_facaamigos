@@ -1,5 +1,5 @@
 import twilio from "twilio";
-import { formatE164Phone, sendTwilioWhatsApp, type SendMessageResult } from "./twilio";
+import { formatE164Phone, sendTwilioSMS, type SendMessageResult } from "./twilio";
 
 /**
  * Cliente Twilio configurado via variáveis de ambiente — mesma lógica de
@@ -40,6 +40,20 @@ export const EMERGENCY_MESSAGE_TEMPLATE =
  */
 export function buildEmergencyMessage(patientName: string, time: string): string {
   return EMERGENCY_MESSAGE_TEMPLATE.replace("{NOME_PACIENTE}", patientName).replace("{HORARIO}", time);
+}
+
+/**
+ * Template PT-BR do SMS de fallback — versão enxuta (cabe em 1 segmento de
+ * 160 caracteres) usada só quando as tentativas de ligação se esgotam.
+ */
+export const EMERGENCY_SMS_TEMPLATE =
+  "Faça Amigos: sessão de {NOME_PACIENTE} às {HORARIO} precisa ser remarcada. Fale com a recepção.";
+
+/**
+ * Monta o SMS curto de fallback, preenchendo o template acima.
+ */
+export function buildEmergencySmsMessage(patientName: string, time: string): string {
+  return EMERGENCY_SMS_TEMPLATE.replace("{NOME_PACIENTE}", patientName).replace("{HORARIO}", time);
 }
 
 export interface CreateEmergencyVoiceCallOptions {
@@ -137,15 +151,15 @@ export interface SendEmergencyFallbackOptions {
 }
 
 /**
- * Fallback quando as tentativas de ligação de voz se esgotam: envia a mesma
- * mensagem de emergência por WhatsApp.
+ * Fallback quando as tentativas de ligação de voz se esgotam: envia a
+ * mensagem curta de emergência por SMS.
  */
 export async function sendEmergencyFallback(
   options: SendEmergencyFallbackOptions,
 ): Promise<SendMessageResult> {
   const { to, patientName, time } = options;
-  return sendTwilioWhatsApp({
+  return sendTwilioSMS({
     to,
-    message: buildEmergencyMessage(patientName, time),
+    message: buildEmergencySmsMessage(patientName, time),
   });
 }

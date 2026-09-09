@@ -118,7 +118,7 @@ export function LoginForm() {
             mode === "otp" ? "bg-paper text-ink shadow-sm" : "text-ink-soft"
           }`}
         >
-          Família (WhatsApp / OTP)
+          Família (SMS / OTP)
         </button>
       </div>
 
@@ -182,7 +182,7 @@ export function LoginForm() {
             <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
               <div>
                 <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="phone">
-                  Telefone / WhatsApp do Responsável
+                  Telefone (SMS) do Responsável
                 </label>
                 <input
                   id="phone"

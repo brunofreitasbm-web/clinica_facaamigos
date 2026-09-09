@@ -3285,6 +3285,8 @@ export type Database = {
           card_valid_until: string | null
           clinic_id: string
           confidence: Json
+          confirmed_at: string | null
+          confirmed_by: string | null
           contact_sent_at: string | null
           conversation_id: string | null
           created_at: string
@@ -3339,6 +3341,8 @@ export type Database = {
           card_valid_until?: string | null
           clinic_id: string
           confidence?: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           contact_sent_at?: string | null
           conversation_id?: string | null
           created_at?: string
@@ -3393,6 +3397,8 @@ export type Database = {
           card_valid_until?: string | null
           clinic_id?: string
           confidence?: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           contact_sent_at?: string | null
           conversation_id?: string | null
           created_at?: string
@@ -3475,6 +3481,13 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_intake_leads_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -7447,6 +7460,14 @@ export type Database = {
           p_starts_at: string
           p_therapist_id: string
         }
+        Returns: Json
+      }
+      confirm_intake_lead_appointment: {
+        Args: { p_confirmed_by: string; p_lead_id: string }
+        Returns: Json
+      }
+      reject_intake_lead_appointment: {
+        Args: { p_lead_id: string; p_rejected_by: string }
         Returns: Json
       }
       change_intern_password: {

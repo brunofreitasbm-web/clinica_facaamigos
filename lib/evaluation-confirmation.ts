@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatE164Phone, sendTwilioWhatsApp, type SendMessageResult } from "@/lib/twilio";
+import { formatE164Phone, sendTwilioWhatsApp, getTwilioContentSidForCategory, type SendMessageResult } from "@/lib/twilio";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { EvaluationBookInput } from "@/lib/evaluation-agenda";
 
@@ -141,9 +141,23 @@ export async function sendEvaluationConfirmationNotification(
     });
 
     // 5. Disparar via Twilio WhatsApp
+    const contentSid = getTwilioContentSidForCategory("confirmacao_d1");
     const result = await sendTwilioWhatsApp({
       to: formattedPhone,
       message,
+      ...(contentSid
+        ? {
+            contentSid,
+            contentVariables: {
+              "1": "Responsável",
+              "2": patientName,
+              "3": formattedDate,
+              "4": params.time,
+              "5": therapistName || "Especialista",
+              "6": "Faça Amigos",
+            },
+          }
+        : {}),
     });
 
     return result;

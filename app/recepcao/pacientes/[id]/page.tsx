@@ -25,6 +25,7 @@ import { FeedPostForm } from "./feed-post-form";
 import { AbsenceReportsList, type PendingAbsenceReport } from "./absence-reports-list";
 import { AuthorizationFormFields } from "./authorization-form-fields";
 import { NewAuthorizationToggle } from "./new-authorization-toggle";
+import { checkHasPendingPtsNotice } from "@/components/prontuario/notify-pts-actions";
 import {
   scheduleEvaluation,
   markEvaluationDone,
@@ -219,6 +220,7 @@ export default async function PacientePage({
     { data: treatmentPlan },
     { data: teamAccess },
     { data: billingItems },
+    hasPendingPtsNotice,
   ] = await Promise.all([
     supabase
       .from("appointments")
@@ -242,9 +244,8 @@ export default async function PacientePage({
     supabase
       .from("billing_items")
       .select("id, amount, status, appointment_id, appointments!inner(patient_id, starts_at, discipline)")
-      .eq("appointments.patient_id", id)
-      .order("starts_at", { foreignTable: "appointments", ascending: false })
-      .limit(20),
+      .eq("appointments.patient_id", id),
+    checkHasPendingPtsNotice(id),
   ]);
 
   const { data: goals } = treatmentPlan
@@ -627,6 +628,8 @@ export default async function PacientePage({
               behaviorCatalog={behaviorCatalog}
               goalDescriptionById={goalDescriptionById}
               paddingClassName="px-0"
+              patientId={patient.id}
+              initialHasPendingPtsNotice={hasPendingPtsNotice}
             />
 
             {/* Seções Adicionais Operacionais */}

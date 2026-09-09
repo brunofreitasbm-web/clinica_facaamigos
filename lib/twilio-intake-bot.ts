@@ -397,10 +397,10 @@ export async function processIntakeBotStep(params: { from: string; body: string;
     return {
       handled: true,
       replyMessage:
-        `✅ *AVALIAÇÃO CONFIRMADA!*\n\n` +
+        `⏳ *Horário em aprovação!*\n\n` +
         `👤 *Paciente:* ${data.child_name ?? "—"}\n` +
-        `📅 *Data e horário:* ${formattedDate}\n\n` +
-        "Traga os documentos originais no dia. Qualquer dúvida, é só responder por aqui. Até breve!",
+        `📅 *Data e horário escolhido:* ${formattedDate}\n\n` +
+        "Nossa supervisão irá analisar os documentos e a data escolhida. Em breve você receberá a confirmação final por aqui junto com o link para o formulário de anamnese!",
     };
   }
 

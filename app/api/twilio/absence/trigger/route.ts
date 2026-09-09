@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendTwilioWhatsApp } from "@/lib/twilio";
+import { sendTwilioWhatsApp, getTwilioContentSidForCategory } from "@/lib/twilio";
 
 /**
  * Disparo diário do aviso de faltas (MAAIS §13 / PRD "risco de evasão",
@@ -53,7 +53,23 @@ export async function POST(req: NextRequest) {
         `Notamos ${alert.consecutive_faltas} falta(s) recente(s). ` +
         "Se está difícil manter os horários, responda esta mensagem — a gente ajuda a reorganizar a agenda.";
 
-      const result = await sendTwilioWhatsApp({ to: guardian.phone, message });
+      const contentSid = getTwilioContentSidForCategory("falta");
+      const result = await sendTwilioWhatsApp({
+        to: guardian.phone,
+        message,
+        ...(contentSid
+          ? {
+              contentSid,
+              contentVariables: {
+                "1": "Responsável",
+                "2": "Paciente",
+                "3": "hoje",
+                "4": "horário agendado",
+                "5": "Recepção",
+              },
+            }
+          : {}),
+      });
 
       await db.from("messages").insert({
         patient_id: alert.patient_id,

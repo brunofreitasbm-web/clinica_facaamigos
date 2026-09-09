@@ -85,7 +85,27 @@ export async function POST(req: NextRequest) {
         phone_number: guardian.phone,
       });
 
-      if (!insertError) dispatched += 1;
+      if (!insertError) {
+        const { getTwilioContentSidForCategory, sendTwilioWhatsApp } = await import("@/lib/twilio");
+        const contentSid = getTwilioContentSidForCategory("nps");
+        const clinicUrl = process.env.NEXT_PUBLIC_APP_URL || "https://facaamigos.com.br";
+        
+        await sendTwilioWhatsApp({
+          to: guardian.phone,
+          message: `Olá! Em uma escala de 0 a 10, como você avalia os serviços? Responda no portal.`,
+          ...(contentSid ? {
+            contentSid,
+            contentVariables: {
+              "1": "Responsável",
+              "2": "Paciente",
+              "3": "Faça Amigos",
+              "4": `${clinicUrl}/familia/pesquisa`
+            }
+          } : {})
+        });
+
+        dispatched += 1;
+      }
     }
   } catch (error) {
     console.error("[NPS Trigger Error]:", error);

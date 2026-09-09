@@ -20,6 +20,8 @@ import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
 import type { NativeInstrumentKey } from "@/lib/native-instruments";
 import { PROTOCOL_LABEL, getEnabledProtocolsForClinic } from "@/lib/protocol-catalog";
 
+import { checkHasPendingPtsNotice } from "@/components/prontuario/notify-pts-actions";
+
 const fmtDate = (iso: string | null | undefined) => fmtDateShared(iso, CLINIC_TIMEZONE);
 
 // Ficha do terapeuta expõe upload/visualização só destas categorias
@@ -70,13 +72,14 @@ export default async function TerapeutaFichaPacientePage({
 
   await logRecordAccess(supabase, patientId, "prontuario_terapeuta");
 
-  const [dossier, { insurance, emergencyContact }, behaviorCatalog, contacts, enabledInstruments, enabledProtocols] = await Promise.all([
+  const [dossier, { insurance, emergencyContact }, behaviorCatalog, contacts, enabledInstruments, enabledProtocols, hasPendingPtsNotice] = await Promise.all([
     getPatientDossier(supabase, patientId, { includeBilling: false }),
     getPatientIdentitySummary(supabase, patientId),
     getBehaviorCatalog(supabase, { activeOnly: false }),
     supabase.rpc("patient_contact_summary", { p_patient_id: patientId }),
     getEnabledInstrumentKeys(supabase, patient.clinic_id),
     getEnabledProtocolsForClinic(supabase, patient.clinic_id),
+    checkHasPendingPtsNotice(patientId),
   ]);
 
   // Atalhos de instrumento só aparecem se a clínica os mantém ativos
@@ -340,6 +343,8 @@ export default async function TerapeutaFichaPacientePage({
               behaviorCatalog={behaviorCatalog}
               goalDescriptionById={goalDescriptionById}
               paddingClassName="px-0"
+              patientId={patientId}
+              initialHasPendingPtsNotice={hasPendingPtsNotice}
             />
           </div>
         </div>

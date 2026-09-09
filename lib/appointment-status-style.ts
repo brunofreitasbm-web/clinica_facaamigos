@@ -13,6 +13,7 @@ export const APPOINTMENT_STATUS_STYLE: Record<
   cancelada_terapeuta: { label: "Cancelada", tagClass: "st-cancelada", colorVar: "var(--status-cancelada)" },
   cancelada_clinica: { label: "Cancelada", tagClass: "st-cancelada", colorVar: "var(--status-cancelada)" },
   remarcada: { label: "Remarcada", tagClass: "st-cancelada", colorVar: "var(--status-cancelada)" },
+  aguardando_aprovacao_supervisao: { label: "Aprovação pendente", tagClass: "st-agendada", colorVar: "var(--status-agendada)" },
 };
 
 export const PLAN_GOAL_STATUS_STYLE: Record<string, { label: string; tagClass: string }> = {

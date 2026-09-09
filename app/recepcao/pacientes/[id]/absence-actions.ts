@@ -58,6 +58,21 @@ export async function resolveAbsenceReport(
       })
       .eq("id", report.appointment_id)
       .in("status", ["agendada", "confirmada"]);
+
+    const { data: apt } = await supabase.from("appointments").select("room_id, therapist_id").eq("id", report.appointment_id).single();
+    const { data: guardian } = await supabase.from("guardians").select("id, phone").eq("patient_id", patientId).eq("is_financial", true).maybeSingle();
+    const phoneToUse = guardian?.phone ?? (await supabase.from("guardians").select("id, phone").eq("patient_id", patientId).limit(1).maybeSingle()).data?.phone;
+    
+    if (apt && phoneToUse) {
+      const { dispatchAbsenceRescheduleOffer } = await import("@/lib/twilio-absence-bot");
+      await dispatchAbsenceRescheduleOffer({
+        patientId,
+        guardianId: guardian?.id ?? "",
+        phone: phoneToUse,
+        roomId: apt.room_id,
+        therapistId: apt.therapist_id,
+      });
+    }
   }
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
