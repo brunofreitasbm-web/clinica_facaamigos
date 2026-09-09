@@ -82,6 +82,7 @@ export function AcolhimentosPanel({
   const allLeads = useMemo(() => Object.values(leadsByBatch).flat(), [leadsByBatch]);
   const openLead = allLeads.find((l) => l.id === openLeadId) ?? null;
   const reviewableLeads = allLeads.filter((l) => l.status === "extracted");
+  const staleLeads = useMemo(() => allLeads.filter((l) => l.staleWarning), [allLeads]);
 
   function handleUpload(formData: FormData) {
     setUploadFeedback(null);
@@ -160,6 +161,24 @@ export function AcolhimentosPanel({
         (paciente, responsável, carteirinha e guia) automaticamente. Confira aqui os documentos extraídos, aprove os
         que estiverem corretos e acompanhe o contato via WhatsApp até o agendamento da 1ª avaliação.
       </p>
+
+      {staleLeads.length > 0 && (
+        <section className="rounded-lg border border-status-negative-text/40 bg-status-negative-text/5 p-4">
+          <h2 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-status-negative-text">
+            ⚠️ {staleLeads.length} acolhimento(s) parado(s) — pode precisar de ação manual
+          </h2>
+          <ul className="space-y-1 text-xs text-ink">
+            {staleLeads.map((l) => (
+              <li key={l.id}>
+                <button type="button" onClick={() => setOpenLeadId(l.id)} className="font-semibold text-status-negative-text hover:underline">
+                  {l.patient_full_name || "Paciente sem nome"}
+                </button>
+                <span className="text-ink-soft"> — {l.staleWarning}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm">
         <h2 className="mb-3 text-sm font-bold text-ink">Nova remessa</h2>

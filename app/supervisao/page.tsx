@@ -5,6 +5,7 @@ import { listOverdueSessionNotes } from "@/lib/session-note-pending";
 import { listOverduePlans } from "@/lib/pts-pending";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { ABSENCE_REASON_LABEL } from "@/lib/absence-reasons";
+import { computeIntakeStaleWarning } from "@/lib/insurance-intake-stale";
 import {
   currentWeek,
   weekBounds,
@@ -140,7 +141,7 @@ export default async function SupervisaoPage() {
     supabase
       .from("insurance_intake_leads")
       .select(
-        "id, batch_id, status, status_reason, rejection_count, patient_full_name, patient_birth_date, patient_cpf, patient_sexo, patient_cid, guardian_full_name, guardian_cpf, guardian_relationship, guardian_email, phone_e164, card_number, plan_name, card_valid_until, guide_number, procedure_code, sessions_authorized, valid_from, valid_to, authorization_password, confidence, warnings, duplicate_patient_id, duplicate_reason, offered_slots, insurance_intake_lead_files(id, original_name, mime_type, kind, review_status)",
+        "id, batch_id, status, status_reason, rejection_count, patient_full_name, patient_birth_date, patient_cpf, patient_sexo, patient_cid, guardian_full_name, guardian_cpf, guardian_relationship, guardian_email, phone_e164, card_number, plan_name, card_valid_until, guide_number, procedure_code, sessions_authorized, valid_from, valid_to, authorization_password, confidence, warnings, duplicate_patient_id, duplicate_reason, offered_slots, contact_sent_at, last_file_at, slots_sent_at, scheduled_at, insurance_intake_lead_files(id, original_name, mime_type, kind, review_status)",
       )
       .neq("status", "scheduled")
       .neq("status", "cancelled")
@@ -423,6 +424,12 @@ export default async function SupervisaoPage() {
       duplicate_patient_id: l.duplicate_patient_id,
       duplicate_reason: l.duplicate_reason,
       offered_slots: l.offered_slots as LeadRow["offered_slots"],
+      staleWarning: computeIntakeStaleWarning(l.status, {
+        contact_sent_at: l.contact_sent_at,
+        last_file_at: l.last_file_at,
+        slots_sent_at: l.slots_sent_at,
+        scheduled_at: l.scheduled_at,
+      }),
       files,
     };
     (intakeLeadsByBatch[l.batch_id] ??= []).push(row);

@@ -63,6 +63,7 @@ export type LeadRow = {
   duplicate_patient_id: string | null;
   duplicate_reason: string | null;
   offered_slots: { index: number; label: string }[] | null;
+  staleWarning: string | null;
   files: LeadFileRow[];
 };
 
