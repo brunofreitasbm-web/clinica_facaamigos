@@ -104,7 +104,7 @@ export function TrialDataPanel({
             className="rounded-md border border-paper-line-strong bg-paper p-4"
           >
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-base font-medium text-ink">{program.name}</p>
+              <p className="text-lg font-medium leading-snug text-ink">{program.name}</p>
               <p className="text-sm text-ink-faint">{program.domain}</p>
             </div>
             <p className="mt-1 text-sm text-ink-soft">{summaryText(ps.trials)}</p>

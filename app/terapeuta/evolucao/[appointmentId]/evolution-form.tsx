@@ -675,10 +675,12 @@ export function EvolutionForm({
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => toggleGoal(goal.id)}
-                            className="mt-0.5"
+                            className="mt-1"
                           />
                           <span>
-                            <span className="font-semibold text-ink">{goal.description}</span>
+                            <span className="text-lg font-semibold leading-snug text-ink">
+                              {goal.description}
+                            </span>
                             <span className="ml-1.5 text-sm text-ink-faint">
                               {goal.domain} · {goal.discipline}
                             </span>
