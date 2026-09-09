@@ -17,6 +17,8 @@ export async function checkTwilioStatusAction() {
   };
 }
 
+import { createClient } from "@/lib/supabase/server";
+
 export async function sendTwilioNotificationAction(params: {
   to: string;
   message: string;
@@ -24,6 +26,19 @@ export async function sendTwilioNotificationAction(params: {
   patientId?: string;
   mediaUrl?: string[];
 }): Promise<SendMessageResult> {
+  const supabaseUserClient = await createClient();
+  const {
+    data: { user },
+  } = await supabaseUserClient.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false,
+      channel: params.channel,
+      error: "Não autorizado",
+    };
+  }
+
   const { to, message, channel, patientId, mediaUrl } = params;
 
   let result: SendMessageResult;

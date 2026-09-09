@@ -14,8 +14,9 @@ import { sendTwilioWhatsApp, getTwilioContentSidForCategory } from "@/lib/twilio
  * mandar via Twilio.
  */
 export async function POST(req: NextRequest) {
+  const envCronSecret = process.env.CRON_SECRET;
   const cronSecret = req.headers.get("x-cron-secret");
-  if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
+  if (!envCronSecret || !cronSecret || cronSecret !== envCronSecret) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

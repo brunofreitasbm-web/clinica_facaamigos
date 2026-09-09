@@ -6,13 +6,17 @@ import { isNextError } from "@/lib/next-utils";
 const LOGIN_PATH = "/login";
 const CHANGE_PASSWORD_PATH = "/trocar-senha";
 
-// Prefixos abertos: a tela pública do check-in por QR (app/checkin) e sua
-// API (app/api/checkin). Precisam ser prefixo, não igualdade exata, porque o
-// token do cartaz vai no path (/checkin/<token>). "/login" continua tratado
-// à parte por igualdade — é o único caminho que também expulsa quem já está
-// logado (ver o uso de LOGIN_PATH abaixo); um recepcionista logado precisa
-// conseguir abrir /checkin para testar o cartaz sem ser redirecionado.
-const PUBLIC_PREFIXES = ["/checkin", "/api/checkin"];
+// Prefixos abertos: a tela pública do check-in por QR (app/checkin), sua
+// API (app/api/checkin), a ficha que a família preenche por link
+// (app/ficha) e a landing page institucional (app/site), que é a porta de
+// entrada de quem ainda nem é paciente. Precisam ser prefixo, não igualdade
+// exata, porque o token vai no path (/checkin/<token>, /ficha/<token>).
+// "/login" continua tratado à parte por igualdade — é o único caminho que
+// também expulsa quem já está logado (ver o uso de LOGIN_PATH abaixo); um
+// recepcionista logado precisa conseguir abrir /checkin para testar o
+// cartaz sem ser redirecionado, /ficha para conferir o link antes de mandar
+// para a família, e /site para revisar a página antes de divulgar o link.
+const PUBLIC_PREFIXES = ["/checkin", "/api/checkin", "/ficha", "/site"];
 
 function isPublicRequestPath(pathname: string): boolean {
   return (

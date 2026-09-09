@@ -4761,6 +4761,60 @@ export type Database = {
           },
         ]
       }
+      patient_intake_form_tokens: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          patient_id: string
+          revoked_at: string | null
+          submitted_at: string | null
+          submitted_payload: Json | null
+          token: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          patient_id: string
+          revoked_at?: string | null
+          submitted_at?: string | null
+          submitted_payload?: Json | null
+          token?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          patient_id?: string
+          revoked_at?: string | null
+          submitted_at?: string | null
+          submitted_payload?: Json | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_intake_form_tokens_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_intake_form_tokens_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_tags: {
         Row: {
           created_at: string
@@ -6474,6 +6528,66 @@ export type Database = {
             columns: ["therapist_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_leads: {
+        Row: {
+          atendido_em: string | null
+          atendido_por: string | null
+          clinic_id: string
+          created_at: string
+          crianca_idade: string | null
+          id: string
+          mensagem: string | null
+          observacao_interna: string | null
+          origem: string
+          responsavel_nome: string
+          status: string
+          telefone: string
+        }
+        Insert: {
+          atendido_em?: string | null
+          atendido_por?: string | null
+          clinic_id?: string
+          created_at?: string
+          crianca_idade?: string | null
+          id?: string
+          mensagem?: string | null
+          observacao_interna?: string | null
+          origem?: string
+          responsavel_nome: string
+          status?: string
+          telefone: string
+        }
+        Update: {
+          atendido_em?: string | null
+          atendido_por?: string | null
+          clinic_id?: string
+          created_at?: string
+          crianca_idade?: string | null
+          id?: string
+          mensagem?: string | null
+          observacao_interna?: string | null
+          origem?: string
+          responsavel_nome?: string
+          status?: string
+          telefone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_leads_atendido_por_fkey"
+            columns: ["atendido_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_leads_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
         ]

@@ -280,3 +280,64 @@ export async function setPatientArchived(patientId: string, archived: boolean): 
   revalidatePath("/gestor/cadastros/pacientes");
   return { success: true };
 }
+
+/**
+ * Convite para a família preencher a ficha do paciente por link público
+ * (app/ficha/[token]). Escrita normal, autenticada: a RLS de
+ * `patient_intake_form_tokens` já limita a recepção/supervisão/gestão, então
+ * aqui não entra service-role — quem usa service-role é só a rota pública,
+ * que não tem sessão.
+ *
+ * Gerar um link novo revoga os anteriores ainda abertos: dois convites vivos
+ * para o mesmo paciente significam dois links circulando no WhatsApp da
+ * família, e o antigo é justamente o que costuma vazar.
+ */
+export async function createIntakeFormLink(
+  patientId: string,
+): Promise<{ success: true; path: string } | { success: false; error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  await supabase
+    .from("patient_intake_form_tokens")
+    .update({ active: false, revoked_at: new Date().toISOString() })
+    .eq("patient_id", patientId)
+    .is("submitted_at", null)
+    .eq("active", true);
+
+  const { data, error } = await supabase
+    .from("patient_intake_form_tokens")
+    .insert({ patient_id: patientId, created_by: user?.id ?? null })
+    .select("token")
+    .single();
+
+  if (error || !data) {
+    return { success: false, error: "Não foi possível gerar o link da ficha." };
+  }
+
+  // Devolve o caminho, não a URL absoluta: o projeto não tem env de host
+  // (nem helper de origin no servidor) e quem chama roda no navegador, onde
+  // `window.location.origin` já é a resposta certa — mesmo caminho que
+  // lib/print-coupon.ts usa para absolutizar o logo do cupom.
+  revalidatePatient(patientId);
+  return { success: true, path: `/ficha/${data.token}` };
+}
+
+export async function revokeIntakeFormLink(
+  patientId: string,
+  tokenId: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("patient_intake_form_tokens")
+    .update({ active: false, revoked_at: new Date().toISOString() })
+    .eq("id", tokenId)
+    .eq("patient_id", patientId);
+
+  if (error) return { success: false, error: "Não foi possível revogar o link." };
+
+  revalidatePatient(patientId);
+  return { success: true };
+}

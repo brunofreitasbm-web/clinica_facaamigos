@@ -5,6 +5,7 @@ import { PatientHeaderPanel } from "./patient-header-panel";
 import { ConveniosPanel, type ConvenioRow, type InsurerOption } from "./convenios-panel";
 import { ChargesPanel, type ChargeRow } from "./charges-panel";
 import type { PatientTagRow } from "./patient-tags";
+import { IntakeFormLink } from "./intake-form-link";
 
 export type ProfessionalRow = { id: string; name: string; disciplineLabel: string };
 export type AppointmentRow = { id: string; dateLabel: string; statusLabel: string; statusTagClass: string };
@@ -92,17 +93,23 @@ export function PatientManagementPanel({
       <div className="flex flex-col gap-8 px-10 pb-16 pt-6">
         {tab === "visao" && (
           <div className="flex flex-wrap gap-8">
-            <div className="card max-w-[420px]">
-              <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">
-                Dados Gerais
-              </h6>
-              <div className="text-sm">
-                <div className="font-semibold">Telefone</div>
-                <div className="text-ink-soft">{phone ?? "—"}</div>
+            <div className="flex flex-col gap-8">
+              <div className="card max-w-[420px]">
+                <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">
+                  Dados Gerais
+                </h6>
+                <div className="text-sm">
+                  <div className="font-semibold">Telefone</div>
+                  <div className="text-ink-soft">{phone ?? "—"}</div>
+                </div>
+                <div className="text-sm">
+                  <div className="font-semibold">Data de Nascimento</div>
+                  <div className="text-ink-soft">{birthDateLabel}</div>
+                </div>
               </div>
-              <div className="text-sm">
-                <div className="font-semibold">Data de Nascimento</div>
-                <div className="text-ink-soft">{birthDateLabel}</div>
+
+              <div className="card max-w-[420px]">
+                <IntakeFormLink patientId={patientId} patientName={fullName} />
               </div>
             </div>
 

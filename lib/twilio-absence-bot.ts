@@ -42,7 +42,7 @@ export async function processAbsenceBotStep(
     }
 
     // Cria agendamento com status aguardando aprovação
-    await admin.from("appointments").insert({
+    await (admin as any).from("appointments").insert({
       patient_id: data.patient_id,
       therapist_id: data.therapist_id,
       room_id: data.room_id,
