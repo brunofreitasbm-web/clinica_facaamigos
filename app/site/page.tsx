@@ -30,6 +30,8 @@ import { CLINIC_NAME } from "@/lib/clinic-identity";
 import { SiteHeader } from "./site-header";
 import { LeadForm } from "./lead-form";
 import { TrackedWhatsAppLink } from "./tracked-link";
+import { WaveDivider } from "./wave-divider";
+import { Blob } from "./blob";
 import {
   CONTEUDO_PENDENTE,
   CONTATO,
@@ -104,6 +106,18 @@ const ICONES_DIFERENCIAL = {
 } as const;
 
 const ICONES_SERVICO = [Brain, MessageSquareText, HandHelping, Activity, Music2, BookOpen, UtensilsCrossed];
+
+// Rotação de cor nos badges circulares de ícone (referência de estilo:
+// landing "Pallikoodam" pedida pelo usuário — círculos coloridos alternados
+// em vez de todos no mesmo tom). Só os 3 acentos da marca, nunca um quarto
+// tom: --color-pink/--color-teal/--color-accent-2 já são os únicos com
+// contraste aprovado (ver brand/README.md) quando usados como preenchimento
+// atrás de um ícone branco.
+const BADGE_CORES = [
+  { bg: "var(--color-pink)", fg: "#ffffff" },
+  { bg: "var(--color-teal)", fg: "#ffffff" },
+  { bg: "var(--color-accent-2)", fg: "#ffffff" },
+] as const;
 
 export default function SiteLandingPage() {
   const jsonLd = {
@@ -202,7 +216,20 @@ export default function SiteLandingPage() {
           </div>
 
           <div className="relative">
-            <div className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 rounded-[32px] border-2 border-dashed border-[var(--color-neutral-300)] bg-white p-8 text-center shadow-lg sm:aspect-[5/4] lg:aspect-[4/5]">
+            {/* Mancha orgânica atrás da foto — referência de estilo pedida:
+                landing com forma solta em vez de moldura reta. */}
+            {/* aspect-square, não h-[...%]: altura em % não resolve contra
+                um pai de altura automática (regra do CSS para elemento
+                absoluto cujo container não tem altura explícita) — a forma
+                ficava com altura zero e não aparecia. Maior que o cartão e
+                deslocada pra cima/direita de propósito: só assim a mancha
+                aparece por fora (o cartão é opaco e pinta por cima de tudo
+                que estiver embaixo dela). */}
+            <Blob
+              color="var(--color-accent-2)"
+              className="absolute -top-8 -right-8 hidden aspect-square w-[105%] opacity-90 sm:block"
+            />
+            <div className="relative flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 rounded-[32px] border-2 border-dashed border-[var(--color-neutral-300)] bg-white p-8 text-center shadow-lg sm:aspect-[5/4] lg:aspect-[4/5]">
               <Sparkles className="h-8 w-8 text-[var(--color-accent-2)]" aria-hidden />
               <p className="text-sm font-semibold text-[var(--color-neutral-500)]">[{HERO.imagem.slot}]</p>
               <p className="sr-only">{HERO.imagem.alt}</p>
@@ -210,20 +237,17 @@ export default function SiteLandingPage() {
             <div
               aria-hidden
               className="absolute -bottom-6 -left-6 hidden h-28 w-28 rounded-full sm:block"
-              style={{ background: "var(--color-teal)", opacity: 0.14 }}
-            />
-            <div
-              aria-hidden
-              className="absolute -top-8 -right-6 hidden h-24 w-24 rounded-full sm:block"
-              style={{ background: "var(--color-accent-2)", opacity: 0.16 }}
+              style={{ background: "var(--color-teal)", opacity: 0.16 }}
             />
           </div>
         </div>
       </section>
 
+      <WaveDivider from="var(--color-bg)" to="#ffffff" />
+
       {/* ── Prova social rápida ──────────────────────────────────────── */}
       {NUMEROS.length > 0 && (
-        <section className="border-y border-[var(--color-paper-line)] bg-white">
+        <section className="border-b border-[var(--color-paper-line)] bg-white">
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-5 py-10 sm:px-8 md:grid-cols-4">
             {NUMEROS.map((n) => (
               <div key={n.rotulo} className="flex flex-col items-center gap-1 text-center">
@@ -263,12 +287,16 @@ export default function SiteLandingPage() {
             </h2>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {DIFERENCIAIS.map((d) => {
+            {DIFERENCIAIS.map((d, i) => {
               const Icone = ICONES_DIFERENCIAL[d.icone];
+              const cor = BADGE_CORES[i % BADGE_CORES.length];
               return (
                 <div key={d.titulo} className="card gap-3 p-6">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-accent-100)]">
-                    <Icone className="h-5 w-5 text-[var(--color-pink)]" aria-hidden strokeWidth={1.75} />
+                  <span
+                    className="flex h-12 w-12 items-center justify-center rounded-full shadow-sm"
+                    style={{ background: cor.bg }}
+                  >
+                    <Icone className="h-5 w-5" style={{ color: cor.fg }} aria-hidden strokeWidth={1.75} />
                   </span>
                   <p className="card-title text-lg">{d.titulo}</p>
                   <p className="card-body text-[15px]">{d.texto}</p>
@@ -313,10 +341,14 @@ export default function SiteLandingPage() {
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {SERVICOS.map((s, i) => {
               const Icone = ICONES_SERVICO[i % ICONES_SERVICO.length];
+              const cor = BADGE_CORES[i % BADGE_CORES.length];
               return (
                 <div key={s.titulo} className="flex items-start gap-4 rounded-2xl border border-[var(--color-paper-line)] p-5">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-teal-100)]">
-                    <Icone className="h-5 w-5 text-[var(--color-teal-800)]" aria-hidden strokeWidth={1.75} />
+                  <span
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-sm"
+                    style={{ background: cor.bg }}
+                  >
+                    <Icone className="h-5 w-5" style={{ color: cor.fg }} aria-hidden strokeWidth={1.75} />
                   </span>
                   <div>
                     <p className="m-0 text-base font-bold text-[var(--color-dark)]">{s.titulo}</p>
@@ -328,6 +360,8 @@ export default function SiteLandingPage() {
           </div>
         </div>
       </section>
+
+      <WaveDivider from="#ffffff" to="var(--color-dark)" />
 
       {/* ── Ecossistema ──────────────────────────────────────────────── */}
       <section id="ecossistema" className="bg-[var(--color-dark)] text-white">
@@ -362,6 +396,8 @@ export default function SiteLandingPage() {
           </div>
         </div>
       </section>
+
+      <WaveDivider from="var(--color-dark)" to="var(--color-bg)" flip />
 
       {/* ── Depoimentos ──────────────────────────────────────────────── */}
       {DEPOIMENTOS.length > 0 && (

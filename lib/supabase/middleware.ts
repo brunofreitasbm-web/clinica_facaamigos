@@ -16,7 +16,12 @@ const CHANGE_PASSWORD_PATH = "/trocar-senha";
 // recepcionista logado precisa conseguir abrir /checkin para testar o
 // cartaz sem ser redirecionado, /ficha para conferir o link antes de mandar
 // para a família, e /site para revisar a página antes de divulgar o link.
-const PUBLIC_PREFIXES = ["/checkin", "/api/checkin", "/ficha", "/site"];
+//
+// /robots.txt e /sitemap.xml (app/robots.ts, app/sitemap.ts) também entram:
+// são pedidos por crawler, sem cookie de sessão — sem isso aqui, o
+// middleware redirecionava os dois para /login e nenhum buscador conseguia
+// ler nem um nem outro (achado real ao testar a indexação da landing).
+const PUBLIC_PREFIXES = ["/checkin", "/api/checkin", "/ficha", "/site", "/robots.txt", "/sitemap.xml"];
 
 function isPublicRequestPath(pathname: string): boolean {
   return (
