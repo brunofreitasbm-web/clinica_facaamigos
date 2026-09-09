@@ -4,6 +4,7 @@ import { Users, Clock, Send } from "lucide-react";
 import Link from "next/link";
 import { NewEntryDialog } from "./new-entry-dialog";
 import { EntryRowActions } from "./entry-row-actions";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 
 export const dynamic = "force-dynamic";
 
@@ -63,11 +64,7 @@ export default async function ListaEsperaPage() {
   return (
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
       <header style={{ background: "var(--color-accent)", color: "var(--color-bg)" }} className="flex h-16 items-center justify-between px-10">
-        <div className="flex items-center gap-3">
-          <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
-            FaçaAmigos <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">· Lista de Espera</span>
-          </span>
-        </div>
+        <BrandLockup module="Lista de Espera" href="/supervisao" />
         <Link href="/supervisao" className="btn btn-secondary text-xs">
           Voltar para Supervisão
         </Link>

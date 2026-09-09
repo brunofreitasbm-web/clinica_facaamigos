@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logo } from "@/components/brand/logo";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 
 const NAV_ITEMS = [
   { key: "competencia", label: "Competência", href: "/faturamento" },
@@ -24,15 +24,7 @@ export function FaturamentoHeader({ active }: { active?: NavKey }) {
       style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
       className="flex h-16 items-center gap-8 px-10 shadow-sm"
     >
-      <Link href="/faturamento" className="mr-auto flex items-center gap-3 no-underline">
-        <Logo variant="simbolo" tone="branco" height={30} decorative />
-        <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
-          FaçaAmigos{" "}
-          <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
-            · Faturamento
-          </span>
-        </span>
-      </Link>
+      <BrandLockup module="Faturamento" href="/faturamento" className="mr-auto" />
       <nav className="flex items-center gap-6 text-[15px] font-semibold">
         {NAV_ITEMS.map((item) => {
           const isCurrent = active

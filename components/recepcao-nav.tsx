@@ -15,7 +15,7 @@ import {
   UserX,
   DoorOpen,
 } from "lucide-react";
-import { Logo } from "@/components/brand/logo";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 
 /**
  * Cabeçalho do módulo Recepção, renderizado pelo app/recepcao/layout.tsx
@@ -73,15 +73,7 @@ export function RecepcaoNav({
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
         className="flex h-16 items-center gap-6 px-6 shadow-sm sm:px-10"
       >
-        <Link href="/recepcao" className="mr-auto flex items-center gap-3 no-underline">
-          <Logo variant="simbolo" tone="branco" height={30} decorative />
-          <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
-            FaçaAmigos{" "}
-            <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
-              · Recepção
-            </span>
-          </span>
-        </Link>
+        <BrandLockup module="Recepção" href="/recepcao" className="mr-auto" />
 
         <nav className="hidden items-center gap-1 lg:flex" aria-label="Seções da recepção">
           {NAV_ITEMS.map((item) => {

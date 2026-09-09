@@ -4,7 +4,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ShieldCheck, UserX, ListOrdered, Users } from "lucide-react";
-import { Logo } from "@/components/brand/logo";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 
 const TABS = [
   { key: "grade", label: "Grade" },
@@ -69,15 +69,7 @@ export function SupervisaoShell({
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
         className="flex h-16 items-center gap-8 px-10"
       >
-        <span className="mr-auto flex items-center gap-3">
-          <Logo variant="simbolo" tone="branco" height={30} decorative />
-          <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
-            FaçaAmigos{" "}
-            <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
-              · Coordenação
-            </span>
-          </span>
-        </span>
+        <BrandLockup module="Coordenação" className="mr-auto" />
         <nav role="tablist" aria-label="Seções da coordenação" className="flex h-full items-center gap-6 text-[15px]">
           {TABS.map((t) => {
             const n = count[t.key] ?? 0;

@@ -6,6 +6,7 @@ import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
 import { logProntuarioAccess } from "./actions";
 import { PrintButton } from "./print-button";
 import { ShareFamilyButton } from "./share-family-button";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 
 export const dynamic = "force-dynamic";
 
@@ -204,11 +205,7 @@ export default async function ProntuarioUnificadoPage({
   return (
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
       <header style={{ background: "var(--color-accent)", color: "var(--color-bg)" }} className="flex h-16 items-center justify-between px-10">
-        <div className="flex items-center gap-3">
-          <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
-            FaçaAmigos <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">· Prontuário Unificado & Auditoria</span>
-          </span>
-        </div>
+        <BrandLockup module="Prontuário Unificado & Auditoria" href="/supervisao" />
         <Link href="/supervisao" className="btn btn-secondary text-xs">
           Voltar para Supervisão
         </Link>

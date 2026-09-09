@@ -3,6 +3,12 @@
  * arte original — ver brand/README.md, que também traz área de respiro,
  * tamanhos mínimos e as regras de uso).
  *
+ * A marca é sempre o vetor, nunca uma reprodução em texto: o wordmark
+ * ("FaçaAmigos") e a assinatura ("Centro de Terapia Comportamental") já
+ * vivem dentro dos SVGs `horizontal` e `vertical`. Não redesenhe nenhum dos
+ * dois com <span>/<h1> — use a variante certa. `subBrand` existe só para
+ * linhas que NÃO fazem parte da marca (unidade, módulo do sistema).
+ *
  * Sempre passe `height`: a largura sai da proporção intrínseca de cada
  * variante, então o elemento já reserva o espaço certo e não há salto de
  * layout enquanto o SVG carrega.
@@ -22,8 +28,7 @@ export type LogoSubBrand =
   | "playground-parque"
   | "playground-bosque"
   | "circuito-parque"
-  | "selecao-modulo"
-  | "assinatura";
+  | "selecao-modulo";
 
 const VARIANTS: Record<LogoVariant, { file: string; ratio: number; label: string }> = {
   horizontal: { file: "facaamigos-horizontal", ratio: 6363 / 1093, label: "FaçaAmigos — Centro de Terapia Comportamental" },
@@ -39,10 +44,6 @@ const SUB_BRANDS: Record<LogoSubBrand, { text: string; color: string; letterSpac
   "playground-bosque": { text: "PLAYGROUND · BOSQUE GRÃO-PARÁ", color: "#C58B24", letterSpacing: "0.12em", fontSizeRatio: 0.18 },
   "circuito-parque": { text: "CIRCUITO · PARQUE SHOPPING", color: "#23B5A6", letterSpacing: "0.22em", fontSizeRatio: 0.20 },
   "selecao-modulo": { text: "Sistema Operacional — Seleção de Módulo", color: "#065264", letterSpacing: "normal", isTitleCase: true, fontSizeRatio: 0.25 },
-  // Assinatura oficial da marca ("Centro de Terapia Comportamental") como
-  // texto — mesma cor petróleo da versão vetorizada, mas fora do SVG pra
-  // valer em qualquer variante/tamanho sem precisar de outro arquivo.
-  assinatura: { text: "Centro de Terapia Comportamental", color: "#065264", letterSpacing: "0.04em", isTitleCase: true, fontSizeRatio: 0.2 },
 };
 
 const MIN_HEIGHT: Partial<Record<LogoVariant, number>> = {

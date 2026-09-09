@@ -258,7 +258,7 @@ export function PTSPrintableCalendar({
         {/* Timbre da Clínica */}
         <div className="border-b-2 border-indigo-600 pb-6 mb-6 flex justify-between items-start">
           <div>
-            <Logo variant="horizontal-compacto" height={32} className="mb-2" />
+            <Logo variant="horizontal" height={40} className="mb-2" />
             {clinic.razaoSocial && clinic.razaoSocial !== clinic.nomeFantasia && (
               <p className="text-xs text-slate-600 font-medium">{clinic.razaoSocial}</p>
             )}

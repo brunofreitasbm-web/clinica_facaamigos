@@ -1,4 +1,5 @@
 import { PrintButton } from "@/components/fono/print-button";
+import { PrintLetterhead } from "@/components/brand/print-letterhead";
 import { MaxAchievedBarChart } from "@/components/fono/fono-charts";
 import { computeProcResults, PROC_CATALOG, PROC_REFERENCE_VALUES, type ProcResponses } from "@/lib/fono-instruments";
 import type { FonoAssessmentRow } from "@/lib/fono-assessments";
@@ -16,6 +17,7 @@ export function ProcAssessmentResults({ assessment }: { assessment: FonoAssessme
 
   return (
     <div className="flex flex-col gap-6">
+      <PrintLetterhead title="PROC — Protocolo de Observação Comportamental" subtitle={`Aplicado em ${new Date(`${assessment.testDate}T00:00:00`).toLocaleDateString("pt-BR")} por ${assessment.assessedByName}`} />
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <p className="m-0 text-sm text-ink-soft">
           Aplicado em {new Date(`${assessment.testDate}T00:00:00`).toLocaleDateString("pt-BR")} por {assessment.assessedByName} · idade na avaliação: {assessment.ageYears} anos e{" "}

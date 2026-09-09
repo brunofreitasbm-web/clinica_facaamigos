@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessageCircle, Smile } from "lucide-react";
-import { Logo } from "@/components/brand/logo";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 
 /**
  * Cabeçalho navy do módulo Gestão — layout Broadsheet/FaçaAmigos.
@@ -42,19 +42,7 @@ export function GestorNav({
       style={{ background: "var(--color-accent-600)", color: "var(--color-bg)" }}
       className="flex h-16 items-center gap-8 px-10 shadow-sm"
     >
-      <Link
-        href="/gestor"
-        prefetch={true}
-        className="mr-auto flex items-center gap-3 rounded no-underline transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-      >
-        <Logo variant="simbolo" tone="branco" height={30} decorative />
-        <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
-          FaçaAmigos{" "}
-          <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
-            · Gestão
-          </span>
-        </span>
-      </Link>
+      <BrandLockup module="Gestão" href="/gestor" className="mr-auto" />
       <nav className="flex items-center gap-6">
         {NAV_ITEMS.map((item) => {
           const isCurrent = active ? active === item.key : pathname?.startsWith(item.href);

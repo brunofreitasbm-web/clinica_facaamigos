@@ -14,7 +14,7 @@ import {
   FileCheck,
   Sparkles,
 } from "lucide-react";
-import { CLINIC_BRAND, CLINIC_NAME, CLINIC_SUPPORT_EMAIL, CLINIC_TAGLINE } from "@/lib/clinic-identity";
+import { CLINIC_BRAND, CLINIC_NAME, CLINIC_SUPPORT_EMAIL } from "@/lib/clinic-identity";
 import { Logo } from "@/components/brand/logo";
 
 export interface PatientOption {
@@ -49,8 +49,8 @@ export interface ClinicInfo {
 // `clinicInfo` sempre vem de `getClinicIdentity`, então isto só entra em
 // jogo se o componente for usado sem esse prop.
 const DEFAULT_CLINIC: ClinicInfo = {
-  // Só a marca — a assinatura "Centro de Terapia Comportamental" já sai
-  // como linha separada logo abaixo (ver <CLINIC_TAGLINE/> no timbre).
+  // Só a marca. A assinatura "Centro de Terapia Comportamental" não entra
+  // aqui: quem a desenha é o SVG vetorizado do timbre (<Logo variant="horizontal">).
   nomeFantasia: CLINIC_BRAND,
   razaoSocial: "",
   cnpj: "",
@@ -705,14 +705,11 @@ export function DocumentosManager({
               <div>
                 <div className="border-b-2 border-pink-600 pb-6 flex items-start justify-between gap-6">
                   <div className="flex items-center gap-4">
-                    <Logo variant="simbolo" height={56} className="shrink-0" decorative />
+                    {/* Marca completa vetorizada: o SVG `horizontal` já traz o
+                        wordmark e a assinatura "Centro de Terapia Comportamental".
+                        Não repita nenhum dos dois como texto ao lado. */}
+                    <Logo variant="horizontal" height={48} className="shrink-0" />
                     <div>
-                      <h3 className="text-xl font-black text-gray-900 tracking-tight leading-tight">
-                        {clinicInfo.nomeFantasia}
-                      </h3>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-pink-700">
-                        {CLINIC_TAGLINE}
-                      </p>
                       {clinicInfo.razaoSocial && clinicInfo.razaoSocial !== clinicInfo.nomeFantasia && (
                         <p className="text-xs text-gray-500 mt-0.5">{clinicInfo.razaoSocial}</p>
                       )}

@@ -157,9 +157,10 @@ const CLINIC_TIMEZONE_FALLBACK = "America/Sao_Paulo";
 
 /**
  * Caminho (relativo a `public/`) da variante de logo usada no cupom —
- * `-sem-assinatura`, não a assinatura completa, porque em 80mm/203dpi a
- * assinatura "Gestão de Pessoas" fecha e vira borrão (ver
- * brand/README.md). Fica relativo de propósito: um documento aberto num
+ * `-sem-assinatura`. É a única exceção à regra de usar a marca completa: em
+ * 80mm/203dpi a assinatura "Centro de Terapia Comportamental" fica abaixo do
+ * tamanho mínimo do brand/README.md (160px / 45mm) e vira borrão — o próprio
+ * manual manda cair para a versão sem assinatura nesse caso. Fica relativo de propósito: um documento aberto num
  * iframe `srcdoc` tem base `about:srcdoc` e não resolve caminho relativo —
  * `lib/print-coupon.ts` (client) converte para URL absoluta antes de
  * imprimir. A prévia em `cupom-manager.tsx`, por estar na própria página,

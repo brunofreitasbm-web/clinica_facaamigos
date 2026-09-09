@@ -20,7 +20,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottom: "2 solid #065264",
   },
-  logo: { width: 140, height: 20 },
+  // 5,82:1 é a proporção da marca com assinatura (ver lib/brand-assets.ts).
+  // Distorcer a logo é proibido pelo brand/README.md.
+  logo: { width: 150, height: 26 },
   identity: { marginTop: 6, fontSize: 7, color: "#555", textAlign: "right", maxWidth: 260 },
   identityLine: { marginBottom: 1 },
   footer: {

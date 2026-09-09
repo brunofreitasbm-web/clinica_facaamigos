@@ -1,4 +1,5 @@
 import { PrintButton } from "@/components/fono/print-button";
+import { PrintLetterhead } from "@/components/brand/print-letterhead";
 import { SOCIALLY_SAVVY_CATALOG, computeSociallySavvyResults, type SociallySavvyObjective } from "@/lib/socially-savvy";
 import type { SociallySavvyAssessmentRow } from "@/lib/socially-savvy-assessments";
 
@@ -39,6 +40,7 @@ export function SociallySavvyAssessmentResults({ assessment }: { assessment: Soc
 
   return (
     <div className="flex flex-col gap-6">
+      <PrintLetterhead title="Socially Savvy — Avaliação de Habilidades Sociais" subtitle={`Aplicação ${assessment.round} · ${new Date(`${assessment.assessmentDate}T00:00:00`).toLocaleDateString("pt-BR")} por ${assessment.assessedByName}`} />
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <p className="m-0 text-sm text-ink-soft">
           Aplicação {assessment.round} · {new Date(`${assessment.assessmentDate}T00:00:00`).toLocaleDateString("pt-BR")}{" "}

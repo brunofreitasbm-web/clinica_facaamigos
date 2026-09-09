@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
 import { TodaySessionsList } from "./today-sessions-list";
-import { Logo } from "@/components/brand/logo";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 
 function capitalize(s: string): string {
   return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s;
@@ -139,13 +139,7 @@ export default async function TerapeutaPage({
         className="flex flex-col gap-3.5 px-5 pb-5 pt-7 sm:px-10"
       >
         <div className="flex items-center gap-2.5">
-          <Logo variant="simbolo" tone="branco" height={24} decorative />
-          <span style={{ fontFamily: "var(--font-heading)" }} className="text-[15px] font-semibold">
-            FaçaAmigos{" "}
-            <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
-              · Terapeuta
-            </span>
-          </span>
+          <BrandLockup module="Terapeuta" size="sm" />
           <span className="ml-auto flex items-center gap-1.5 text-xs" style={{ color: "var(--color-bg)" }}>
             <svg width="12" height="12" viewBox="0 0 256 256" fill="none" aria-hidden>
               <path

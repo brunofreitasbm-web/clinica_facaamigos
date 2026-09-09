@@ -17,13 +17,12 @@ import { UploadDocument } from "./upload-document";
 import { LgpdConsentGate } from "./lgpd-consent-gate";
 import { ImageConsentToggle } from "./image-consent-toggle";
 import { FAMILY_GUIDANCE_LABEL } from "@/lib/session-note-fields";
-import { Logo } from "@/components/brand/logo";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 
 export const dynamic = "force-dynamic";
 
 const WEEKDAY_ABBR = ["Seg", "Ter", "Qua", "Qui", "Sex"];
 
-const LOGO = <Logo variant="simbolo" tone="branco" height={24} decorative />;
 
 function fmtTime(iso: string) {
   if (!iso) return "—";
@@ -424,12 +423,7 @@ export default async function FamiliaPage({
           boxShadow: "var(--shadow-pink)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {LOGO}
-          <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 15 }}>
-            FaçaAmigos <span style={{ color: "var(--color-yellow)", fontStyle: "italic" }}>· Família</span>
-          </span>
-        </div>
+        <BrandLockup module="Família" size="sm" suffixColor="var(--color-yellow)" />
         <div>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 28, lineHeight: 1.2 }}>
             {greetingTitle}

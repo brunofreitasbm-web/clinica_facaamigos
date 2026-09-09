@@ -1,4 +1,5 @@
 import { PrintButton } from "@/components/fono/print-button";
+import { PrintLetterhead } from "@/components/brand/print-letterhead";
 import { GroupedBarChart } from "@/components/fono/fono-charts";
 import {
   computeAdlResults,
@@ -48,6 +49,7 @@ export function AdlAssessmentResults({
 
   return (
     <div className="flex flex-col gap-6">
+      <PrintLetterhead title="ADL — Avaliação do Desenvolvimento da Linguagem" subtitle={`Aplicado em ${new Date(`${assessment.testDate}T00:00:00`).toLocaleDateString("pt-BR")} por ${assessment.assessedByName}`} />
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <p className="m-0 text-sm text-ink-soft">
           Aplicado em {new Date(`${assessment.testDate}T00:00:00`).toLocaleDateString("pt-BR")} por {assessment.assessedByName}

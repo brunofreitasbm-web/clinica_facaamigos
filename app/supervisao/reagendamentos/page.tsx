@@ -1,7 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+
+// Sem date-fns: o projeto formata data/hora com Intl de propósito, para não
+// depender do fuso do processo Node (ver lib/timezone.ts e lib/age.ts).
+const DATA_HORA = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function formatDataHora(isoInstant: string): string {
+  const partes = DATA_HORA.formatToParts(new Date(isoInstant));
+  const p = (t: string) => partes.find((x) => x.type === t)?.value ?? "";
+  return `${p("day")}/${p("month")}/${p("year")} às ${p("hour")}:${p("minute")}`;
+}
 
 export default async function ReagendamentosPendentesPage() {
   const supabase = await createClient();
@@ -42,7 +57,7 @@ export default async function ReagendamentosPendentesPage() {
               <div>
                 <div className="font-medium text-lg">Paciente: {apt.patient?.name}</div>
                 <div className="text-sm text-gray-600">
-                  Data: {format(new Date(apt.starts_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} <br/>
+                  Data: {formatDataHora(apt.starts_at)} <br/>
                   Terapeuta: {apt.therapist?.full_name}
                 </div>
               </div>
