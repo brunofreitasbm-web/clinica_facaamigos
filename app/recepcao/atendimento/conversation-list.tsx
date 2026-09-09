@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Bot, User } from "lucide-react";
 import { markConversationRead } from "./actions";
 import type { ConversationRow } from "./atendimento-shell";
@@ -30,6 +30,19 @@ function relativeTime(iso: string | null): string {
   if (hours < 24) return `${hours} h`;
   const days = Math.round(hours / 24);
   return `${days} d`;
+}
+
+// Depende de Date.now(), então só pode ser calculado depois da montagem no
+// cliente — calcular durante o SSR causa mismatch de hidratação (o instante
+// do render no servidor difere do instante da hidratação no navegador).
+function RelativeTime({ iso }: { iso: string | null }) {
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    setText(relativeTime(iso));
+  }, [iso]);
+
+  return <>{text}</>;
 }
 
 export function ConversationList({
@@ -96,7 +109,9 @@ export function ConversationList({
             </span>
 
             <span className="flex shrink-0 flex-col items-end gap-1">
-              <span className="text-[11px] text-ink-faint">{relativeTime(c.lastMessageAt)}</span>
+              <span className="text-[11px] text-ink-faint">
+                <RelativeTime iso={c.lastMessageAt} />
+              </span>
               {c.unreadCount > 0 && (
                 <span
                   className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"

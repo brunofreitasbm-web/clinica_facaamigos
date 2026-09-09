@@ -49,6 +49,19 @@ function minutesAgo(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
 }
 
+// Depende de Date.now(), então só pode ser calculado depois da montagem no
+// cliente — calcular durante o SSR causa mismatch de hidratação (o instante
+// do render no servidor difere do instante da hidratação no navegador).
+function WaitMinutes({ iso }: { iso: string }) {
+  const [minutes, setMinutes] = useState<number | null>(null);
+
+  useEffect(() => {
+    setMinutes(minutesAgo(iso));
+  }, [iso]);
+
+  return <>{minutes ?? "—"}</>;
+}
+
 /** Beep curto via Web Audio API — sem depender de um arquivo de áudio novo.
  * Som é requisito, não enfeite: sem ele a recepção (atendendo telefone, com
  * família no balcão) não percebe a chegada — ver F2 do plano. */
@@ -81,7 +94,6 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
   );
   const [showDiscardForm, setShowDiscardForm] = useState(false);
 
-  const waitMinutes = minutesAgo(item.createdAt);
   const isAmbiguous = item.matchQuality === "ambiguo";
   const isNoMatch = item.kind === "sem_agendamento";
   const cancelledAppointment =
@@ -131,7 +143,9 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
             {item.declaredFirstName} · nasc. {new Date(`${item.declaredBirthDate}T00:00:00`).toLocaleDateString("pt-BR")}
           </p>
         </div>
-        <span className="text-xs text-ink-faint whitespace-nowrap">chegou há {waitMinutes} min</span>
+        <span className="text-xs text-ink-faint whitespace-nowrap">
+          chegou há <WaitMinutes iso={item.createdAt} /> min
+        </span>
       </div>
 
       {cancelledAppointment && (
