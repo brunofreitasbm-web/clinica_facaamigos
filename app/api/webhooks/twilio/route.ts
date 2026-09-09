@@ -124,6 +124,9 @@ export async function POST(req: NextRequest) {
           contentType,
           signatureParams,
           receivedSignature: req.headers.get("x-twilio-signature"),
+          authTokenFingerprint: process.env.TWILIO_AUTH_TOKEN
+            ? `${process.env.TWILIO_AUTH_TOKEN.slice(0, 4)}...${process.env.TWILIO_AUTH_TOKEN.slice(-4)} (len=${process.env.TWILIO_AUTH_TOKEN.length})`
+            : "MISSING",
         }),
       );
       return NextResponse.json({ success: false, error: "Assinatura inválida." }, { status: 403 });
