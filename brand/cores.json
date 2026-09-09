@@ -1,0 +1,24 @@
+{
+  "marca": "FaçaAmigos — Centro de Terapia Comportamental",
+  "cores": {
+    "amarelo":  { "hex": "#FDC51D", "rgb": [253, 197,  29], "cmyk_aprox": [0, 22, 89, 1],  "uso": "arco esquerdo do símbolo, destaques quentes" },
+    "turquesa": { "hex": "#07C5C8", "rgb": [  7, 197, 200], "cmyk_aprox": [97, 2, 21, 0],  "uso": "arco direito do símbolo, elementos de apoio" },
+    "rosa":     { "hex": "#FB3D6A", "rgb": [251,  61, 106], "cmyk_aprox": [0, 88, 42, 2],  "uso": "ponto do símbolo, palavra \"Amigos\", CTAs" },
+    "petroleo": { "hex": "#065264", "rgb": [  6,  82, 100], "cmyk_aprox": [94, 45, 30, 33], "uso": "palavra \"Faça\", assinatura, texto principal" }
+  },
+  "neutros": {
+    "branco":  "#FFFFFF",
+    "gelo":    "#F4FAFB",
+    "cinza":   "#7A8A90",
+    "preto":   "#0B1416"
+  },
+  "contraste_wcag": {
+    "amarelo_sobre_branco":  1.59,
+    "turquesa_sobre_branco": 2.14,
+    "rosa_sobre_branco":     3.51,
+    "petroleo_sobre_branco": 8.75,
+    "amarelo_sobre_petroleo":5.50,
+    "turquesa_sobre_petroleo":4.10,
+    "observacao": "Amarelo, turquesa e rosa NÃO atingem 4.5:1 sobre branco — usar apenas como preenchimento/gráfico, nunca como cor de texto corrido. Para texto, usar petróleo (#065264) sobre branco."
+  }
+}

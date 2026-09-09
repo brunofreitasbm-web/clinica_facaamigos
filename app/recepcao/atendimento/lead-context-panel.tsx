@@ -8,6 +8,7 @@ const ESCALATION_LABELS: Record<string, string> = {
   fora_da_base: "A dúvida não está na base de conhecimento do bot.",
   clinico: "Pergunta clínica sobre a criança — o bot não responde.",
   pediu_humano: "A pessoa pediu para falar com alguém da equipe.",
+  relatorio: "Pedido de relatório/documento — dados coletados na última mensagem do bot, veja a conversa.",
 };
 
 /**

@@ -38,7 +38,7 @@ const DAILY_REPLY_LIMIT = 20;
 
 const KNOWLEDGE_TTL_MS = 5 * 60 * 1000;
 
-export type FaqEscalationReason = "fora_da_base" | "clinico" | "pediu_humano";
+export type FaqEscalationReason = "fora_da_base" | "clinico" | "pediu_humano" | "relatorio";
 
 export interface FaqBotResult {
   handled: boolean;
@@ -119,17 +119,24 @@ REGRAS OBRIGATÓRIAS:
 6. Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
 7. Se a pessoa demonstrar interesse em agendar a avaliação, oriente a responder *AGENDAR*.
 
+SOLICITAÇÃO DE RELATÓRIO OU DOCUMENTO (laudo, declaração de comparecimento, relatório de evolução, atestado, etc.):
+Isso não é uma dúvida que você responde — é um pedido que a recepção vai atender, mas cabe a você reunir as informações antes de repassar, para a equipe não precisar perguntar tudo de novo.
+1. Ao identificar esse pedido, NÃO escale na primeira mensagem. Pergunte em UMA única mensagem organizada (não escale ainda) o que ainda não foi dito no histórico: nome completo da criança/paciente, convênio ou plano de saúde (ou "particular"), qual documento é necessário, e o nome do terapeuta responsável (se a pessoa souber).
+2. Se a resposta vier incompleta, pergunte só o que falta — no máximo mais uma vez; não insista além disso.
+3. Depois de reunir o que for possível (mesmo incompleto), ESCALE (escalar=true, motivo="relatorio") e no campo "resposta" faça um resumo curto do que foi coletado, para a equipe ler direto sem precisar rolar a conversa. Exemplo: "Perfeito, já anotei! 💛 Vou repassar pra equipe: *Criança:* Maria Silva · *Plano:* Unimed · *Documento:* declaração de comparecimento · *Terapeuta:* Dra. Ana. Só um momento que já te retornam por aqui."
+
 QUANDO ESCALAR (escalar = true):
 - "fora_da_base": a informação pedida não está acima (ou está como ⚠️ TODO).
 - "clinico": pergunta sobre sintoma, diagnóstico, evolução ou conduta da criança.
 - "pediu_humano": a pessoa pediu para falar com alguém, reclamou ou está claramente insatisfeita.
-Ao escalar, o campo "resposta" deve apenas acolher e avisar que a equipe foi chamada — sem tentar responder a dúvida.
+- "relatorio": pedido de relatório/documento, DEPOIS de reunir os dados acima — nunca na primeira mensagem do pedido.
+Ao escalar por "fora_da_base", "clinico" ou "pediu_humano", o campo "resposta" deve apenas acolher e avisar que a equipe foi chamada, sem tentar responder a dúvida. Ao escalar por "relatorio", o campo "resposta" traz o resumo coletado (regra 3 acima).
 
 Responda SEMPRE em JSON válido, exatamente neste formato:
 {"resposta": "texto para enviar no WhatsApp", "escalar": false, "motivo": null, "intent": "planos"}
 
-"motivo" é null quando escalar for false, senão um de: "fora_da_base", "clinico", "pediu_humano".
-"intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "outro".`;
+"motivo" é null quando escalar for false, senão um de: "fora_da_base", "clinico", "pediu_humano", "relatorio".
+"intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "relatorio", "outro".`;
 }
 
 /** O Gemini às vezes devolve o JSON embrulhado em cerca de código mesmo em
@@ -260,7 +267,9 @@ export async function processFaqBotStep(params: {
 
   const shouldEscalate = parsed.escalar === true;
   const reason: FaqEscalationReason =
-    parsed.motivo === "clinico" || parsed.motivo === "pediu_humano" ? parsed.motivo : "fora_da_base";
+    parsed.motivo === "clinico" || parsed.motivo === "pediu_humano" || parsed.motivo === "relatorio"
+      ? parsed.motivo
+      : "fora_da_base";
 
   if (shouldEscalate && conversationId) {
     await escalateConversation(conversationId, reason);
