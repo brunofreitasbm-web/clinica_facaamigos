@@ -196,6 +196,22 @@ async function tryNativePdfRegexExtraction(
     const cpfRegex = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
     const phoneRegex = /\(?\d{2}\)?\s*9?\d{4}-?\d{4}/g;
     const dateRegex = /\b\d{2}\/\d{2}\/\d{4}\b/g;
+    // Linha da Unimed vem como "<nº sequencial> <terapia> <nome do paciente> ...".
+    // O nº sequencial não é dado do paciente; a terapia vai para "procedure_code", não para o nome.
+    const leadingSeqRegex = /^\s*\d{1,4}\s*[-.)]?\s*/;
+    const therapyNames = [
+      "fonoaudiologia",
+      "terapia ocupacional",
+      "psicomotricidade",
+      "psicopedagogia",
+      "musicoterapia",
+      "fisioterapia",
+      "psicologia\\s*[-–]?\\s*aba",
+      "psicologia",
+      "nutrição",
+      "aba",
+    ];
+    const leadingTherapyRegex = new RegExp(`^\\s*(${therapyNames.join("|")})\\b\\s*[-.)]?\\s*`, "i");
 
     // Procura o nome do convênio no texto
     let detectedInsurer: string | null = null;
@@ -215,13 +231,23 @@ async function tryNativePdfRegexExtraction(
         const dates = line.match(dateRegex) || [];
 
         // Tenta capturar nome (fragmento de texto com maiúsculas sem números soltos)
-        const namePart = line
+        let namePart = line
           .replace(cardRegex, "")
           .replace(cpfRegex, "")
           .replace(phoneRegex, "")
           .replace(dateRegex, "")
           .replace(/guia|unimed|paciente|controle|terapias/gi, "")
           .trim();
+
+        // Remove o nº sequencial da linha ("1", "2"...) — não é dado do paciente.
+        namePart = namePart.replace(leadingSeqRegex, "").trim();
+
+        // Extrai a terapia no início da linha (ex.: "FONOAUDIOLOGIA NOME DO PACIENTE") para o campo de terapia.
+        const leadingTherapyMatch = namePart.match(leadingTherapyRegex);
+        const detectedTherapy = leadingTherapyMatch ? leadingTherapyMatch[1].trim() : null;
+        if (leadingTherapyMatch) {
+          namePart = namePart.replace(leadingTherapyRegex, "").trim();
+        }
 
         const patientName = namePart.length > 3 ? namePart.split(/\s{2,}|,/)[0].trim() : null;
 
@@ -240,7 +266,10 @@ async function tryNativePdfRegexExtraction(
           plan_name: "Unimed",
           card_valid_until: dates[1] ? parseBrDate(dates[1]) : null,
           guide_number: line.match(/\b\d{8,10}\b/)?.[0] || null,
-          procedure_code: line.match(/fono|psico|ocupacional|terapia|aba|fisioterapia/gi)?.join(", ") || null,
+          procedure_code:
+            detectedTherapy ??
+            line.match(/fono|psico|ocupacional|terapia|aba|fisioterapia/gi)?.join(", ") ??
+            null,
           sessions_authorized: Number(line.match(/\b\d{1,2}\s*(sess[õo]es|hs|horas)\b/i)?.[0]?.replace(/\D/g, "")) || null,
           valid_from: dates[0] ? parseBrDate(dates[0]) : null,
           valid_to: dates[1] ? parseBrDate(dates[1]) : null,

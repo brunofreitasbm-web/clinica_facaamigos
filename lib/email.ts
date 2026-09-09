@@ -1,25 +1,13 @@
-import { Resend } from "resend";
 import { CLINIC_BRAND, CLINIC_TAGLINE } from "@/lib/clinic-identity";
 
-/**
- * Instância lazy do cliente Resend.
- * Evita lançar exceção durante a inicialização do módulo se a chave ainda não estiver definida.
- */
-function getResendClient() {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn("[Resend] AVISO: RESEND_API_KEY não foi definida nas variáveis de ambiente.");
-    return null;
-  }
-  return new Resend(apiKey);
-}
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 /**
  * Endereço de remetente padrão oficial.
  * Domínio configurado no Registro.br: institutofacaamigos.com.br
  */
 export const DEFAULT_EMAIL_FROM =
-  process.env.RESEND_FROM_EMAIL ||
+  process.env.BREVO_FROM_EMAIL ||
   `Instituto Faça Amigos <instituto@institutofacaamigos.com.br>`;
 
 export type SendEmailOptions = {
@@ -36,7 +24,19 @@ export type SendEmailResult =
   | { success: false; error: string };
 
 /**
- * Envia um e-mail através da API do Resend.
+ * Extrai nome e e-mail de um endereço no formato "Nome <email@dominio>" ou "email@dominio".
+ */
+function parseAddress(address: string): { name?: string; email: string } {
+  const match = address.match(/^(.*)<(.+)>$/);
+  if (match) {
+    const name = match[1].trim().replace(/^"|"$/g, "");
+    return { name: name || undefined, email: match[2].trim() };
+  }
+  return { email: address.trim() };
+}
+
+/**
+ * Envia um e-mail através da API transacional do Brevo (ex-Sendinblue).
  */
 export async function sendEmail({
   to,
@@ -46,34 +46,48 @@ export async function sendEmail({
   from = DEFAULT_EMAIL_FROM,
   replyTo,
 }: SendEmailOptions): Promise<SendEmailResult> {
-  const resend = getResendClient();
+  const apiKey = process.env.BREVO_API_KEY;
 
-  if (!resend) {
+  if (!apiKey) {
+    console.warn("[Brevo] AVISO: BREVO_API_KEY não foi definida nas variáveis de ambiente.");
     return {
       success: false,
-      error: "RESEND_API_KEY não está configurada no servidor.",
+      error: "BREVO_API_KEY não está configurada no servidor.",
     };
   }
 
+  const toList = (Array.isArray(to) ? to : [to]).map(parseAddress);
+
   try {
-    const { data, error } = await resend.emails.send({
-      from,
-      to,
-      subject,
-      html,
-      text,
-      replyTo,
+    const response = await fetch(BREVO_API_URL, {
+      method: "POST",
+      headers: {
+        "api-key": apiKey,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: parseAddress(from),
+        to: toList,
+        subject,
+        htmlContent: html,
+        textContent: text,
+        ...(replyTo ? { replyTo: parseAddress(replyTo) } : {}),
+      }),
     });
 
-    if (error) {
-      console.error("[Resend] Erro ao enviar e-mail:", error);
-      return { success: false, error: error.message };
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const errorMessage = data?.message || `Erro HTTP ${response.status} ao enviar e-mail.`;
+      console.error("[Brevo] Erro ao enviar e-mail:", data);
+      return { success: false, error: errorMessage };
     }
 
-    return { success: true, id: data?.id || "" };
+    return { success: true, id: data?.messageId || "" };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Erro desconhecido ao enviar e-mail.";
-    console.error("[Resend] Exceção no disparo de e-mail:", err);
+    console.error("[Brevo] Exceção no disparo de e-mail:", err);
     return { success: false, error: errorMessage };
   }
 }

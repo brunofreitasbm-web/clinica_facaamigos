@@ -320,6 +320,11 @@ export function AcolhimentosPanel({
                               <td className={`p-3 font-semibold ${hasLowConfidence ? "text-status-negative-text" : "text-ink"}`}>
                                 {lead.patient_full_name || "—"}
                                 {lead.duplicate_patient_id && <span className="ml-1.5 tag-status st-agendada">Já cadastrado</span>}
+                                {lead.staleWarning && (
+                                  <span title={lead.staleWarning} className="ml-1.5 cursor-help text-status-negative-text">
+                                    ⚠️
+                                  </span>
+                                )}
                               </td>
                               <td className="p-3 text-ink-soft">{lead.patient_birth_date || "—"}</td>
                               <td className="p-3 text-ink-soft">{lead.guardian_full_name || "—"}</td>
