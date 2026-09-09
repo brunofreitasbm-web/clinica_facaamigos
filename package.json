@@ -23,6 +23,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-window": "^1.8.10",
+    "resend": "^6.26.0",
     "twilio": "^6.1.0",
     "undici": "^8.10.1",
     "unpdf": "^1.8.1"

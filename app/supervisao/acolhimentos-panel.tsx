@@ -138,6 +138,19 @@ export function AcolhimentosPanel({
     });
   }
 
+  function handleStartContactSingle(leadId: string, patientName: string | null) {
+    setBulkResult(null);
+    startTransition(async () => {
+      const { results } = await approveIntakeLeadsAndStartContact([leadId]);
+      const outcome = results[0];
+      setBulkResult(
+        outcome?.success
+          ? `Contato iniciado com ${patientName || "o paciente"}.`
+          : `Erro ao iniciar contato com ${patientName || "o paciente"}: ${outcome?.error ?? "falha desconhecida"}.`,
+      );
+    });
+  }
+
   const filteredBatches = batches.filter((b) => (leadsByBatch[b.id] ?? []).length > 0 || b.status !== "extracted");
 
   return (
@@ -300,9 +313,21 @@ export function AcolhimentosPanel({
                                 <span className={`tag-status ${LEAD_STATUS_TAG[lead.status] ?? "st-agendada"}`}>{LEAD_STATUS_LABEL[lead.status] ?? lead.status}</span>
                               </td>
                               <td className="p-3 text-right">
-                                <button type="button" onClick={() => setOpenLeadId(lead.id)} className="text-xs font-semibold text-chart hover:underline">
-                                  {lead.status === "pending_supervisor" ? "Validar documentos" : "Revisar"}
-                                </button>
+                                <div className="flex items-center justify-end gap-3">
+                                  {(lead.status === "extracted" || lead.status === "failed") && (
+                                    <button
+                                      type="button"
+                                      disabled={isPending}
+                                      onClick={() => handleStartContactSingle(lead.id, lead.patient_full_name)}
+                                      className="text-xs font-semibold text-chart hover:underline disabled:opacity-50"
+                                    >
+                                      Iniciar contato
+                                    </button>
+                                  )}
+                                  <button type="button" onClick={() => setOpenLeadId(lead.id)} className="text-xs font-semibold text-chart hover:underline">
+                                    {lead.status === "pending_supervisor" ? "Validar documentos" : "Revisar"}
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );

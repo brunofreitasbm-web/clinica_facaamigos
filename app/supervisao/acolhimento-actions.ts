@@ -345,11 +345,23 @@ export async function approveIntakeLeadsAndStartContact(leadIds: string[]): Prom
       patientId = created.id;
       // Idempotência: se o resto falhar, uma nova tentativa encontra o paciente já criado.
       await admin.from("insurance_intake_leads").update({ patient_id: patientId }).eq("id", leadId);
+    } else {
+      // Paciente já cadastrado (duplicata por CPF/telefone): completa só os
+      // campos que a ficha ainda não tem — nunca sobrescreve o que já foi
+      // preenchido manualmente.
+      const { data: existingPatient } = await supabase.from("patients").select("cpf, sexo, cid").eq("id", patientId).maybeSingle();
+      if (existingPatient) {
+        const patch: Record<string, unknown> = {};
+        if (!existingPatient.cpf && lead.patient_cpf) patch.cpf = lead.patient_cpf;
+        if (!existingPatient.sexo && lead.patient_sexo) patch.sexo = lead.patient_sexo;
+        if (!existingPatient.cid && lead.patient_cid) patch.cid = lead.patient_cid;
+        if (Object.keys(patch).length > 0) await supabase.from("patients").update(patch as never).eq("id", patientId);
+      }
     }
 
     const { data: existingGuardian } = await supabase
       .from("guardians")
-      .select("id")
+      .select("id, cpf, email, relationship")
       .eq("patient_id", patientId)
       .eq("phone", lead.phone_e164)
       .maybeSingle();
@@ -374,6 +386,12 @@ export async function approveIntakeLeadsAndStartContact(leadIds: string[]): Prom
         continue;
       }
       guardianId = createdGuardian.id;
+    } else if (existingGuardian) {
+      const patch: Record<string, unknown> = {};
+      if (!existingGuardian.cpf && lead.guardian_cpf) patch.cpf = lead.guardian_cpf;
+      if (!existingGuardian.email && lead.guardian_email) patch.email = lead.guardian_email;
+      if (!existingGuardian.relationship && lead.guardian_relationship) patch.relationship = lead.guardian_relationship;
+      if (Object.keys(patch).length > 0) await supabase.from("guardians").update(patch as never).eq("id", existingGuardian.id);
     }
 
     await admin.from("insurance_intake_leads").update({ patient_id: patientId, guardian_id: guardianId }).eq("id", leadId);
