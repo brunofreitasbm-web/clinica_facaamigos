@@ -1,6 +1,6 @@
 ---
 name: FaçaAmigos — Gestão Clínica
-description: Identidade oficial da marca FaçaAmigos (Playground Inclusivo) aplicada ao sistema interno de gestão da clínica
+description: Identidade oficial da marca FaçaAmigos (Centro de Terapia Comportamental) aplicada ao sistema interno de gestão da clínica
 colors:
   bg: "#f7f5f2"
   surface: "#ffffff"
@@ -62,7 +62,7 @@ components:
 <!-- REBRAND: em 2026-09-05, a pedido explícito do dono do produto, o sistema
 saiu do mundo "Broadsheet/Gráfico de Crescimento Pediátrico" (navy #14284b +
 dourado #b8933a, papel neutro, sem sombra, fio de 1px) para a identidade
-oficial da marca FaçaAmigos (Playground Inclusivo), fonte:
+oficial da marca FaçaAmigos (Gestão de Pessoas), fonte:
 `fa-aamigos-design-system` (pasta de branding do projeto-irmão). O pedido foi
 "aplicar em absolutamente tudo": recepção, agenda, prontuário, faturamento,
 financeiro, portal da família — não só telas de marketing/consumo. Isso
@@ -71,7 +71,7 @@ antigo. -->
 
 ## Overview
 
-**Creative North Star: "FaçaAmigos, o playground inclusivo, por trás do balcão"**
+**Creative North Star: "FaçaAmigos, a gestão de pessoas, por trás do balcão"**
 
 O sistema é a mesma marca que a família já reconhece no playground — rosa
 vibrante, cantos sempre arredondados, tipografia bem-humorada — só que
@@ -153,7 +153,7 @@ de peso único da marca.
 - **Título de página** (`h1`, Fredoka 600, 40px): um por rota.
 - **Subtítulo/section** (`h2`–`h4`, Nunito 800): título de card, diálogo.
 - **Kicker/tagline** (`h6`, Nunito 800, uppercase, tracking 0.14em, cor
-  âmbar): segue a regra "tagline" da marca (ver `PLAYGROUND INCLUSIVO` no
+  âmbar): segue a regra "tagline" da marca (ver `GESTÃO DE PESSOAS` no
   logo) — nunca aparece como eyebrow decorativo sem contexto.
 - **Corpo** (Nunito 400, 15px, 1.55): texto padrão de UI.
 - **Número medido** (`.tabular-figure`, Nunito 800, tabular-nums): contagem,

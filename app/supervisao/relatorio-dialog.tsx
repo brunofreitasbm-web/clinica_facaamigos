@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Logo } from "@/components/brand/logo";
 
 export interface ReportGoalItem {
   domain: string;
@@ -125,9 +126,7 @@ export function RelatorioReavaliacaoDialog({
                 {/* Timbre da Clínica */}
                 <div className="flex items-center justify-between border-b-2 border-accent pb-4">
                   <div>
-                    <h1 className="text-xl font-bold text-accent">
-                      CLÍNICA FAÇA AMIGOS
-                    </h1>
+                    <Logo variant="horizontal" height={36} className="print:grayscale mb-2" />
                     <p className="text-xs text-ink-soft">
                       Gestão Clínica & Intervenção Multidisciplinar em TEA/TDAH
                     </p>

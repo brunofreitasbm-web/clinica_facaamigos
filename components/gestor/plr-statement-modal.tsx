@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Logo } from "@/components/brand/logo";
 
 export interface PLRBonusRow {
   role: string;
@@ -60,6 +61,17 @@ export function PLRStatementModal({ isOpen, onClose, bonusRows, competenceMonth 
 
         {/* Content printable */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 print:p-0">
+          {/* Print Header */}
+          <div className="hidden print:flex items-center justify-between border-b-2 border-paper-line pb-4 mb-4">
+            <div>
+              <Logo variant="horizontal" height={36} className="print:grayscale mb-2" />
+              <h1 className="text-lg font-bold text-ink">Extrato Oficial de Apuração de PLR</h1>
+              <p className="text-xs text-ink-soft">
+                Competência: {competenceMonth || new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+              </p>
+            </div>
+          </div>
+
           {/* Legal Header Notice */}
           <div className="rounded-lg border border-paper-line bg-paper p-4 text-xs space-y-1">
             <div className="font-semibold text-ink">Regramento do Programa de Participação nos Lucros e Resultados (PLR)</div>

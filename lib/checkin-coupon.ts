@@ -158,7 +158,7 @@ const CLINIC_TIMEZONE_FALLBACK = "America/Sao_Paulo";
 /**
  * Caminho (relativo a `public/`) da variante de logo usada no cupom —
  * `-sem-assinatura`, não a assinatura completa, porque em 80mm/203dpi a
- * assinatura "Centro de Terapia Comportamental" fecha e vira borrão (ver
+ * assinatura "Gestão de Pessoas" fecha e vira borrão (ver
  * brand/README.md). Fica relativo de propósito: um documento aberto num
  * iframe `srcdoc` tem base `about:srcdoc` e não resolve caminho relativo —
  * `lib/print-coupon.ts` (client) converte para URL absoluta antes de

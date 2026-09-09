@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/components/toast-provider";
+import { Logo } from "@/components/brand/logo";
 
 export interface PayoutItemRow {
   id: string;
@@ -133,10 +134,8 @@ export function PayoutStatementModal({
                 {/* Cabeçalho */}
                 <div className="flex items-center justify-between border-b-2 border-accent pb-4">
                   <div>
-                    <h1 className="text-lg font-bold text-accent">
-                      CLÍNICA FAÇA AMIGOS
-                    </h1>
-                    <p className="text-xs text-ink-soft">
+                    <Logo variant="horizontal" height={36} className="print:grayscale mb-2" />
+                    <p className="text-xs text-ink-soft mt-1">
                       Demonstrativo Mensal de Prestação de Serviços (Repasse PJ)
                     </p>
                   </div>

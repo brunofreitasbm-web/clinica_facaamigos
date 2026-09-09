@@ -209,7 +209,7 @@ function buildAccessEmail(params: { name: string; login: string; variant: Access
   <div style="max-width:520px;margin:0 auto;padding:32px 24px">
     <h1 style="font-size:20px;margin:0 0 16px;color:#f0196b">FaçaAmigos - Centro de Terapia Comportamental</h1>
     <p style="margin:0 0 16px">${escapeHtml(greeting)}</p>
-    <p style="margin:0 0 16px">Seu cadastro chegou do sistema de gestão de pessoas do Grupo IB e sua conta no sistema da clínica já está pronta.</p>
+    <p style="margin:0 0 16px">Seu cadastro chegou do sistema de gestão do Grupo IB e sua conta no sistema da clínica já está pronta.</p>
     <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 16px">
       ${credentialsHtml}
     </div>
@@ -228,7 +228,7 @@ function buildAccessEmail(params: { name: string; login: string; variant: Access
 </body></html>`;
 
   const text = isNew
-    ? `${greeting}\n\nSeu cadastro chegou do sistema de gestão de pessoas do Grupo IB e sua conta no sistema da FaçaAmigos - Centro de Terapia Comportamental já está pronta.\n\nLogin: ${params.login}\nSenha inicial: ${
+    ? `${greeting}\n\nSeu cadastro chegou do sistema de gestão do Grupo IB e sua conta no sistema da FaçaAmigos - Centro de Terapia Comportamental já está pronta.\n\nLogin: ${params.login}\nSenha inicial: ${
       (params.variant as { password: string }).password
     }\n\nAcesse: ${APP_LOGIN_URL}\n\nPor segurança, o sistema vai pedir que você troque essa senha no primeiro login. Não compartilhe estas credenciais com ninguém.\n\nDúvidas? Fale com ${SUPPORT_CONTACT}. Mensagem automática — não responda.`
     : `${greeting}\n\nSeu acesso ao sistema da FaçaAmigos - Centro de Terapia Comportamental foi liberado.\n\nLogin: ${params.login}\nUse a mesma senha que você já utiliza com este e-mail. Se não lembrar, fale com ${SUPPORT_CONTACT}.\n\nAcesse: ${APP_LOGIN_URL}\n\nMensagem automática — não responda.`;
