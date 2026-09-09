@@ -7,7 +7,7 @@
 // 20260907170006) evita que duas execuções do cron processem o mesmo lote
 // ao mesmo tempo. Mesmo desenho de lib/registration-drafts-process.ts.
 import { createAdminClient } from "@/lib/supabase/admin";
-import { extractIntakeRowsFromPdf, normalizeIntakeRow, type IntakeRow } from "@/lib/insurance-intake-extraction";
+import { extractIntakeRowsFromPdf, normalizeIntakeRow, type IntakeExtraction, type IntakeRow } from "@/lib/insurance-intake-extraction";
 import { parseIntakeProfile } from "@/lib/insurance-intake-profile";
 import { formatE164Phone } from "@/lib/twilio";
 
@@ -65,33 +65,23 @@ async function downloadFileAsBase64(
   return { base64: buffer.toString("base64") };
 }
 
-async function runExtractionForBatch(
+/**
+ * Passo comum a qualquer origem de extração (Gemini/regex nativo sobre o PDF,
+ * ou linhas já estruturadas vindas de `ingestPreExtractedIntakeBatch`):
+ * normaliza cada linha, detecta duplicidade de paciente e grava os leads.
+ * Extraído de `runExtractionForBatch` para ser reaproveitado sem duplicar a
+ * lógica de normalização/duplicidade/gravação.
+ */
+async function persistIntakeExtractionResult(
   admin: ReturnType<typeof createAdminClient>,
-  batch: { id: string; clinic_id: string; insurer_id: string | null; storage_path: string; mime_type: string },
+  batch: { id: string; clinic_id: string; insurer_id: string | null },
+  outcome: { result: IntakeExtraction; model: string },
 ): Promise<ProcessBatchOutcome> {
-  const downloaded = await downloadFileAsBase64(admin, batch.storage_path);
-  if (!downloaded) {
-    const error = "Não foi possível baixar o PDF do lote.";
-    await admin.from("insurance_intake_batches").update({ status: "failed", error }).eq("id", batch.id);
-    return { batchId: batch.id, status: "failed", error };
-  }
-
   const { data: insurers } = await admin.from("insurers").select("id, name, intake_extraction_profile").eq("clinic_id", batch.clinic_id);
   const allInsurers = (insurers ?? []) as { id: string; name: string; intake_extraction_profile: unknown }[];
 
   const chosenInsurer = batch.insurer_id ? allInsurers.find((i) => i.id === batch.insurer_id) ?? null : null;
   const profile = chosenInsurer ? parseIntakeProfile(chosenInsurer.intake_extraction_profile) : undefined;
-
-  const outcome = await extractIntakeRowsFromPdf(
-    { base64: downloaded.base64, mimeType: batch.mime_type },
-    allInsurers.map((i) => i.name),
-    { profile },
-  );
-
-  if (!outcome.success) {
-    await admin.from("insurance_intake_batches").update({ status: "failed", error: outcome.error }).eq("id", batch.id);
-    return { batchId: batch.id, status: "failed", error: outcome.error };
-  }
 
   const warnings = [...outcome.result.warnings];
   if (outcome.result.truncated) {
@@ -180,10 +170,57 @@ async function runExtractionForBatch(
     row_id: batch.id,
     action: "intake_batch_extracted",
     clinic_id: batch.clinic_id,
-    after: { warnings: warnings.length, leads: leadsToInsert.length, truncated: outcome.result.truncated },
+    after: { warnings: warnings.length, leads: leadsToInsert.length, truncated: outcome.result.truncated, model: outcome.model },
   });
 
   return { batchId: batch.id, status: "extracted", leadsCount: leadsToInsert.length };
+}
+
+async function runExtractionForBatch(
+  admin: ReturnType<typeof createAdminClient>,
+  batch: { id: string; clinic_id: string; insurer_id: string | null; storage_path: string; mime_type: string },
+): Promise<ProcessBatchOutcome> {
+  const downloaded = await downloadFileAsBase64(admin, batch.storage_path);
+  if (!downloaded) {
+    const error = "Não foi possível baixar o PDF do lote.";
+    await admin.from("insurance_intake_batches").update({ status: "failed", error }).eq("id", batch.id);
+    return { batchId: batch.id, status: "failed", error };
+  }
+
+  const { data: insurers } = await admin.from("insurers").select("id, name, intake_extraction_profile").eq("clinic_id", batch.clinic_id);
+  const allInsurers = (insurers ?? []) as { id: string; name: string; intake_extraction_profile: unknown }[];
+
+  const chosenInsurer = batch.insurer_id ? allInsurers.find((i) => i.id === batch.insurer_id) ?? null : null;
+  const profile = chosenInsurer ? parseIntakeProfile(chosenInsurer.intake_extraction_profile) : undefined;
+
+  const outcome = await extractIntakeRowsFromPdf(
+    { base64: downloaded.base64, mimeType: batch.mime_type },
+    allInsurers.map((i) => i.name),
+    { profile },
+  );
+
+  if (!outcome.success) {
+    await admin.from("insurance_intake_batches").update({ status: "failed", error: outcome.error }).eq("id", batch.id);
+    return { batchId: batch.id, status: "failed", error: outcome.error };
+  }
+
+  return persistIntakeExtractionResult(admin, batch, outcome);
+}
+
+/**
+ * Caminho complementar ao de cima: quando um lote já chega com linhas
+ * estruturadas (ex.: JSON gerado offline por `scripts/extract_convenio_patients.py`
+ * a partir de tabelas de PDF que o parser em produção — Gemini/regex nativo —
+ * não precisa refazer), pula a extração e vai direto para a persistência
+ * comum (normalização, duplicidade, gravação dos leads).
+ */
+export async function ingestPreExtractedIntakeBatch(
+  batch: { id: string; clinic_id: string; insurer_id: string | null },
+  extraction: IntakeExtraction,
+  model: string,
+): Promise<ProcessBatchOutcome> {
+  const admin = createAdminClient();
+  return persistIntakeExtractionResult(admin, batch, { result: extraction, model });
 }
 
 /**

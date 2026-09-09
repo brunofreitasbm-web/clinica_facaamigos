@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { uploadIntakeBatch, reprocessIntakeBatch, approveIntakeLeadsAndStartContact, getIntakeBatchPdfUrl } from "./acolhimento-actions";
+import { uploadIntakeBatch, uploadIntakeExtractedBatch, reprocessIntakeBatch, approveIntakeLeadsAndStartContact, getIntakeBatchPdfUrl } from "./acolhimento-actions";
 import { AcolhimentoLeadDrawer, type LeadRow } from "./acolhimento-lead-drawer";
 import { IntakeProfileDialog } from "./intake-profile-dialog";
 import { parseIntakeProfile } from "@/lib/insurance-intake-profile";
@@ -97,6 +97,19 @@ export function AcolhimentosPanel({
     });
   }
 
+  function handleUploadExtractedJson(formData: FormData) {
+    setUploadFeedback(null);
+    formData.set("insurer_id", uploadInsurerId);
+    startTransition(async () => {
+      const res = await uploadIntakeExtractedBatch(formData);
+      setUploadFeedback(
+        res.success
+          ? { type: "success", text: "JSON importado — leads criados sem passar pela IA." }
+          : { type: "error", text: res.error },
+      );
+    });
+  }
+
   function handleReprocess(batchId: string) {
     startTransition(async () => {
       await reprocessIntakeBatch(batchId);
@@ -168,6 +181,23 @@ export function AcolhimentosPanel({
         {uploadFeedback && (
           <p className={`mt-3 text-xs ${uploadFeedback.type === "success" ? "text-status-positive-text" : "text-status-negative-text"}`}>{uploadFeedback.text}</p>
         )}
+
+        <div className="mt-4 border-t border-paper-line pt-4">
+          <p className="mb-2 text-xs text-ink-soft">
+            Alternativa para layouts conhecidos (ex.: relação NAU/Unimed "CONTROLE ... TERAPIAS"): rode{" "}
+            <code className="rounded bg-paper-soft px-1 py-0.5">scripts/extract_convenio_patients.py</code> localmente sobre o PDF e importe o
+            .json gerado — pula a IA e cria os leads direto, usando o convênio selecionado acima.
+          </p>
+          <form action={(fd) => handleUploadExtractedJson(fd)} className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">JSON extraído pelo script</label>
+              <input type="file" name="file" accept="application/json,.json" required className="input mt-1" />
+            </div>
+            <button type="submit" disabled={isPending} className="rounded-md border border-chart px-4 py-2.5 text-xs font-semibold text-chart hover:bg-chart/10 disabled:opacity-50">
+              Importar JSON
+            </button>
+          </form>
+        </div>
       </section>
 
       <section>

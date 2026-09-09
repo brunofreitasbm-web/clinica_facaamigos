@@ -8,8 +8,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { normalizeCpf, parseBrDate, normalizePhone } from "@/lib/document-extraction";
-import { claimAndProcessIntakeBatches } from "@/lib/insurance-intake-process";
+import { claimAndProcessIntakeBatches, ingestPreExtractedIntakeBatch } from "@/lib/insurance-intake-process";
 import { parseIntakeProfile, type IntakeExtractionProfile } from "@/lib/insurance-intake-profile";
+import { parsePythonIntakeRecords, mapPythonRecordsToIntakeExtraction } from "@/lib/insurance-intake-python-import";
 import { computeAvailableSlots } from "@/lib/available-slots";
 import { startIntakeConversation, pushIntakeUpdate, setIntakeAwaitingSlot } from "@/lib/twilio-intake-bot";
 
@@ -108,6 +109,95 @@ export async function uploadIntakeBatch(formData: FormData): Promise<{ success: 
   // aguardar (que pode ser encerrada no meio em ambientes serverless). Se
   // falhar aqui mesmo assim, o cron cobre no minuto seguinte.
   after(() => claimAndProcessIntakeBatches({ batchId }).catch((err) => console.error("[Intake] Falha ao processar lote na hora:", err)));
+
+  revalidatePath("/supervisao");
+  return { success: true, batchId };
+}
+
+/**
+ * Caminho complementar a `uploadIntakeBatch`: em vez do PDF bruto (extraído
+ * por Gemini/regex nativo), recebe o .json já estruturado que o supervisor
+ * gerou localmente com `scripts/extract_convenio_patients.py` — útil para
+ * layouts conhecidos (ex.: "CONTROLE PORTO TERAPIAS"/NAU Unimed) em que o
+ * parser em tabela do script é mais confiável que o texto linearizado do
+ * PDF. Não passa pela IA nem pelo cron: cria o lote e já grava os leads.
+ */
+export async function uploadIntakeExtractedBatch(formData: FormData): Promise<{ success: true; batchId: string } | { success: false; error: string }> {
+  const auth = await requireSupervisor();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const file = formData.get("file");
+  const insurerIdRaw = String(formData.get("insurer_id") ?? "").trim();
+  const insurerId = insurerIdRaw && insurerIdRaw !== "auto" ? insurerIdRaw : null;
+
+  if (!(file instanceof File) || file.size === 0) {
+    return { success: false, error: "Selecione o arquivo .json gerado pelo script de extração." };
+  }
+  if (!file.name.toLowerCase().endsWith(".json")) {
+    return { success: false, error: "Esta remessa aceita apenas o .json gerado por scripts/extract_convenio_patients.py." };
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    return { success: false, error: "Arquivo maior que 25MB — não é possível enviar." };
+  }
+
+  const fileText = await file.text();
+  let rawJson: unknown;
+  try {
+    rawJson = JSON.parse(fileText);
+  } catch {
+    return { success: false, error: "O arquivo não é um JSON válido." };
+  }
+
+  const records = parsePythonIntakeRecords(rawJson);
+  if (records.length === 0) {
+    return { success: false, error: "Nenhum paciente reconhecido no JSON enviado — confira se é a saída do script." };
+  }
+
+  const supabase = await createClient();
+  const batchId = randomUUID();
+  const storagePath = `intake/batches/${batchId}/${sanitizeFileName(file.name)}`;
+
+  const { error: insertError } = await supabase.from("insurance_intake_batches").insert({
+    id: batchId,
+    clinic_id: DEV_CLINIC_ID,
+    insurer_id: insurerId,
+    storage_path: storagePath,
+    original_name: file.name,
+    mime_type: "application/json",
+    size_bytes: file.size,
+    status: "pending",
+    uploaded_by: auth.userId,
+  });
+  if (insertError) {
+    return { success: false, error: "Você não tem permissão para enviar remessas de acolhimento." };
+  }
+
+  const admin = createAdminClient();
+  const { error: uploadError } = await admin.storage.from(DOCUMENTS_BUCKET).upload(storagePath, fileText, {
+    contentType: "application/json",
+    upsert: false,
+  });
+  if (uploadError) {
+    await admin.from("insurance_intake_batches").update({ status: "failed", error: "Falha ao subir o arquivo." }).eq("id", batchId);
+    return { success: false, error: "Não foi possível enviar o arquivo. Tente de novo." };
+  }
+
+  await admin.from("audit_log").insert({
+    table_name: "insurance_intake_batches",
+    row_id: batchId,
+    action: "intake_batch_uploaded",
+    actor_id: auth.userId,
+    clinic_id: DEV_CLINIC_ID,
+    after: { insurer_id: insurerId, original_name: file.name, source: "python_table_extraction" },
+  });
+
+  const insurerName = insurerId ? (await supabase.from("insurers").select("name").eq("id", insurerId).maybeSingle()).data?.name ?? null : null;
+  const extraction = mapPythonRecordsToIntakeExtraction(records, insurerName);
+  const outcome = await ingestPreExtractedIntakeBatch({ id: batchId, clinic_id: DEV_CLINIC_ID, insurer_id: insurerId }, extraction, "python-table");
+
+  if (outcome.status === "failed") {
+    return { success: false, error: outcome.error ?? "Falha ao processar o arquivo importado." };
+  }
 
   revalidatePath("/supervisao");
   return { success: true, batchId };

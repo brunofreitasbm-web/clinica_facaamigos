@@ -7,7 +7,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
  * Suporta inicialização com Account SID + Auth Token ou API Key + API Secret.
  */
 
-function getTwilioClient() {
+export function getTwilioClient() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const apiKey = process.env.TWILIO_API_KEY;

@@ -1,31 +1,4 @@
-import twilio from "twilio";
-import { formatE164Phone, sendTwilioSMS, type SendMessageResult } from "./twilio";
-
-/**
- * Cliente Twilio configurado via variáveis de ambiente — mesma lógica de
- * inicialização de lib/twilio.ts, replicada aqui pois getTwilioClient não é
- * exportado de lá.
- */
-function getTwilioClient() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const apiKey = process.env.TWILIO_API_KEY;
-  const apiSecret = process.env.TWILIO_API_SECRET;
-
-  if (!accountSid || (!authToken && !apiSecret)) {
-    return null;
-  }
-
-  try {
-    if (apiKey && apiSecret && accountSid) {
-      return twilio(apiKey, apiSecret, { accountSid });
-    }
-    return twilio(accountSid, authToken);
-  } catch (error) {
-    console.error("[Twilio Voice Init Error]:", error);
-    return null;
-  }
-}
+import { formatE164Phone, getTwilioClient, sendTwilioSMS, type SendMessageResult } from "./twilio";
 
 /**
  * Template PT-BR da mensagem de emergência, com placeholders — é o valor
