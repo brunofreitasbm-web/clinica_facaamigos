@@ -2,8 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { zonedDateTimeToUtc } from "@/lib/timezone";
+import { getActiveAuthorizationId } from "@/lib/active-authorization";
 
 type ActionResult = { success: true } | { success: false; error: string };
+
+type GeneratedSessionInput = {
+  date?: string;
+  timeSlot?: string;
+  disciplineLabel?: string;
+  therapistId?: string | null;
+  roomId?: string | null;
+  conflictStatus?: string;
+};
 
 type ProgramInput = {
   name?: string;
@@ -43,9 +55,11 @@ export async function createTreatmentPlan(
 
   let disciplineMix: DisciplineMixInput;
   let goalsInput: GoalInput[];
+  let generatedSessionsInput: GeneratedSessionInput[];
   try {
     disciplineMix = JSON.parse(String(formData.get("discipline_mix") ?? "{}"));
     goalsInput = JSON.parse(String(formData.get("goals") ?? "[]"));
+    generatedSessionsInput = JSON.parse(String(formData.get("pts_generated_sessions") ?? "[]"));
   } catch {
     return { success: false, error: "Dados do formulário inválidos. Recarregue a página e tente de novo." };
   }
@@ -243,13 +257,91 @@ export async function createTreatmentPlan(
     }
   }
 
+  // Persiste o "Calendário de Sessões Conciliado" como appointments reais.
+  // Até aqui `pts_generated_sessions` era serializado pelo client
+  // (plan-form.tsx) mas nunca lido aqui — o calendário gerado era só visual,
+  // nada virava sessão de verdade. Linhas sem terapeuta/sala reais
+  // (conflictStatus MANUAL_REQUIRED, ou therapistId/roomId nulos) ficam de
+  // fora — o supervisor ajusta manualmente na agenda depois.
+  //
+  // Insere uma sessão por vez (não em lote) pra capturar erro individual
+  // (sobreposição — 23P01 — ou terapeuta fora da janela de disponibilidade,
+  // ver appointments_availability_guard) sem abortar as demais sessões do
+  // calendário, mesmo racional do loop de plan_goals acima.
+  type ValidGeneratedSession = { date: string; timeSlot: string; therapistId: string; roomId: string; disciplineLabel?: string };
+  const validSessions: ValidGeneratedSession[] = generatedSessionsInput
+    .filter((s) => Boolean(s.date && s.timeSlot && s.therapistId && s.roomId && s.conflictStatus !== "MANUAL_REQUIRED"))
+    .map((s) => ({
+      date: s.date as string,
+      timeSlot: s.timeSlot as string,
+      therapistId: s.therapistId as string,
+      roomId: s.roomId as string,
+      disciplineLabel: s.disciplineLabel,
+    }));
+
+  const patientClinicId = patient.clinic_id;
+  const appointmentTypeCache = new Map<string, { id: string } | null>();
+  async function resolveAppointmentType(disciplineLabel: string) {
+    if (appointmentTypeCache.has(disciplineLabel)) return appointmentTypeCache.get(disciplineLabel) ?? null;
+    const { data } = await supabase
+      .from("appointment_types")
+      .select("id, name")
+      .eq("clinic_id", patientClinicId)
+      .ilike("name", disciplineLabel)
+      .maybeSingle();
+    appointmentTypeCache.set(disciplineLabel, data ?? null);
+    return data ?? null;
+  }
+
+  let sessionsSkipped = generatedSessionsInput.length - validSessions.length;
+  let sessionsFailed = 0;
+
+  for (const s of validSessions) {
+    const [startTime, endTime] = s.timeSlot.split(" - ").map((t) => t.trim());
+    if (!startTime || !endTime) {
+      sessionsSkipped++;
+      continue;
+    }
+
+    const disciplineLabel = s.disciplineLabel || "";
+    const appointmentType = disciplineLabel ? await resolveAppointmentType(disciplineLabel) : null;
+    const authorizationId = await getActiveAuthorizationId(supabase, patientId, disciplineLabel || null);
+
+    const startsAt = zonedDateTimeToUtc(s.date, startTime, CLINIC_TIMEZONE);
+    const endsAt = zonedDateTimeToUtc(s.date, endTime, CLINIC_TIMEZONE);
+
+    const { error: appointmentError } = await supabase.from("appointments").insert({
+      patient_id: patientId,
+      therapist_id: s.therapistId,
+      room_id: s.roomId,
+      discipline: disciplineLabel || "outra",
+      appointment_type_id: appointmentType?.id ?? null,
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+      status: "agendada",
+      authorization_id: authorizationId,
+      is_provisional: !authorizationId,
+    });
+
+    if (appointmentError) sessionsFailed++;
+  }
+
   revalidatePath("/supervisao");
+  revalidatePath("/recepcao/agenda");
 
   if (programsFailed) {
     return {
       success: false,
       error:
         "O plano e as metas foram salvos, mas houve erro ao salvar um ou mais programas ABA. Abra o plano depois para revisar a coleta de dados dessa meta.",
+    };
+  }
+
+  const sessionsNotScheduled = sessionsSkipped + sessionsFailed;
+  if (sessionsNotScheduled > 0) {
+    return {
+      success: false,
+      error: `Plano e metas salvos. ${sessionsNotScheduled} sessão(ões) do calendário conciliado não puderam ser agendadas automaticamente (terapeuta/sala pendente de ajuste manual, ou conflito de horário) — ajuste manualmente na agenda.`,
     };
   }
 

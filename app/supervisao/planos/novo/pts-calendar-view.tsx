@@ -6,10 +6,12 @@ import { MonthlyTabs, type MonthlyTabItem } from "@/components/Tabs/MonthlyTabs"
 import { generate40MinSlotsForShift } from "@/lib/pts-slots";
 
 type Therapist = { id: string; full_name: string };
+type Room = { id: string; name: string };
 
 export type PTSCalendarViewProps = {
   sessions: CalendarSessionEvent[];
   therapists?: Therapist[];
+  rooms?: Room[];
   startDate: string;
   validUntil: string;
   onOpenPrintModal: () => void;
@@ -19,6 +21,7 @@ export type PTSCalendarViewProps = {
 export function PTSCalendarView({
   sessions,
   therapists = [],
+  rooms = [],
   startDate,
   validUntil,
   onOpenPrintModal,
@@ -56,10 +59,13 @@ export function PTSCalendarView({
   const handleSaveManualEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingSession && onUpdateSession) {
+      const isComplete = Boolean(editingSession.therapistId && editingSession.roomId);
       onUpdateSession({
         ...editingSession,
-        conflictStatus: "OK",
-        conflictNote: "Ajustado manualmente pelo supervisor",
+        conflictStatus: isComplete ? "OK" : "MANUAL_REQUIRED",
+        conflictNote: isComplete
+          ? "Ajustado manualmente pelo supervisor"
+          : "Selecione terapeuta e sala reais para esta sessão poder ser salva.",
       });
       setEditingSession(null);
     }
@@ -319,17 +325,20 @@ export function PTSCalendarView({
               <div>
                 <label className="block font-bold text-ink-soft mb-1">Terapeuta Responsável</label>
                 <select
-                  value={editingSession.therapistName || ""}
-                  onChange={(e) => setEditingSession({ ...editingSession, therapistName: e.target.value })}
+                  value={editingSession.therapistId || ""}
+                  onChange={(e) => {
+                    const id = e.target.value || null;
+                    setEditingSession({
+                      ...editingSession,
+                      therapistId: id,
+                      therapistName: therapists.find((t) => t.id === id)?.full_name,
+                    });
+                  }}
                   className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
                 >
-                  <option value="">Sem direcionamento (alocação automática)</option>
-                  {!therapists.some((t) => t.full_name === editingSession.therapistName) &&
-                    editingSession.therapistName && (
-                      <option value={editingSession.therapistName}>{editingSession.therapistName}</option>
-                    )}
+                  <option value="">Sem direcionamento (não será salvo como sessão real)</option>
                   {therapists.map((t) => (
-                    <option key={t.id} value={t.full_name}>
+                    <option key={t.id} value={t.id}>
                       {t.full_name}
                     </option>
                   ))}
@@ -338,13 +347,25 @@ export function PTSCalendarView({
 
               <div>
                 <label className="block font-bold text-ink-soft mb-1">Sala de Atendimento</label>
-                <input
-                  type="text"
-                  value={editingSession.roomName || ""}
-                  onChange={(e) => setEditingSession({ ...editingSession, roomName: e.target.value })}
-                  placeholder="Ex: Sala 01 - Fono"
+                <select
+                  value={editingSession.roomId || ""}
+                  onChange={(e) => {
+                    const id = e.target.value || null;
+                    setEditingSession({
+                      ...editingSession,
+                      roomId: id,
+                      roomName: rooms.find((r) => r.id === id)?.name,
+                    });
+                  }}
                   className="w-full rounded bg-white border border-paper-line-strong px-3 py-1.5 text-ink"
-                />
+                >
+                  <option value="">Sem sala definida (não será salvo como sessão real)</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="pt-3 border-t border-paper-line flex justify-end gap-2">

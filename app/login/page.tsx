@@ -1,5 +1,7 @@
 import { LoginForm } from "./login-form";
 import { Logo } from "@/components/brand/logo";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function LoginPage() {
   return (
@@ -12,6 +14,15 @@ export default function LoginPage() {
         </p>
       </div>
       <LoginForm />
+      <div className="mt-4">
+        <Link
+          href="/site"
+          className="inline-flex items-center gap-1.5 text-xs text-ink-soft hover:text-ink transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Voltar ao site público</span>
+        </Link>
+      </div>
     </main>
   );
 }

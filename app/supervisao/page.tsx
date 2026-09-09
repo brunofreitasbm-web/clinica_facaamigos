@@ -70,7 +70,7 @@ export default async function SupervisaoPage() {
       .eq("clinic_id", DEV_CLINIC_ID)
       .eq("role", "terapeuta")
       .order("full_name"),
-    supabase.from("rooms").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
+    supabase.from("rooms").select("id, name, capacity").eq("clinic_id", DEV_CLINIC_ID).order("name"),
     supabase
       .from("appointments")
       .select(
@@ -463,7 +463,7 @@ export default async function SupervisaoPage() {
           activePatientsCount={activePatientsCount ?? 0}
           dueReassessments={dueReassessments ?? 0}
           therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
-          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
+          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name, capacity: r.capacity }))}
           appointments={gradeAppointments}
           pendingNotes={pendingNoteRows}
           pendingPlans={pendingPlanRows}

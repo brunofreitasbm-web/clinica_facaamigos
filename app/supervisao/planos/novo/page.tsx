@@ -50,6 +50,24 @@ export default async function NovoPlanoPage({
     .eq("role", "terapeuta")
     .order("full_name");
 
+  // Salas reais da clínica — usadas pelo "Calendário Conciliado" pra alocar
+  // sala de verdade em vez de um nome fictício (ver histórico do bug em
+  // handleGenerateCalendar).
+  const { data: rooms } = await supabase
+    .from("rooms")
+    .select("id, name")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .order("name");
+
+  // Disponibilidade real dos terapeutas (app/supervisao/disponibilidade) —
+  // o calendário do PTS só sugere/persiste sessão dentro dessa janela; o
+  // bloqueio definitivo é o trigger appointments_availability_guard.
+  const { data: availability } = await supabase
+    .from("professional_availability")
+    .select("profile_id, day_of_week, start_time, end_time")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("active", true);
+
   // Prioridades da família (Módulo 3 MAAIS, slide 22) — pré-preenche o campo
   // do plano com o que a 1ª avaliação (anamnese) já registrou, pra não
   // depender de alguém lembrar de reler a anamnese na hora de montar o PTS.
@@ -83,6 +101,8 @@ export default async function NovoPlanoPage({
       <PlanForm
         patients={patients ?? []}
         therapists={therapists ?? []}
+        rooms={rooms ?? []}
+        availability={availability ?? []}
         initialPatientId={paciente ?? ""}
         initialFamilyPriorities={familyPriorities ?? ""}
         suggestedGoals={suggestedGoals}

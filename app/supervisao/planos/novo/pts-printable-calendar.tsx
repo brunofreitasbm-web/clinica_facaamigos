@@ -16,6 +16,12 @@ export type CalendarSessionEvent = {
   date: string; // YYYY-MM-DD
   dayOfWeek: string;
   disciplineLabel: string;
+  // Terapeuta/sala reais (profiles.id / rooms.id) — null enquanto a linha
+  // não tiver um terapeuta direcionado real ou nenhuma sala livre for
+  // encontrada; nesse caso conflictStatus é sempre "MANUAL_REQUIRED" e a
+  // sessão não é persistida como appointment (ver actions.ts).
+  therapistId: string | null;
+  roomId: string | null;
   therapistName?: string;
   roomName?: string;
   shift: "MANHA" | "TARDE" | "NOITE";

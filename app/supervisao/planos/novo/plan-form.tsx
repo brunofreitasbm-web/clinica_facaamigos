@@ -17,6 +17,8 @@ import { GoalForm } from "@/components/SmartGoals/GoalForm";
 
 type Patient = { id: string; full_name: string };
 type Therapist = { id: string; full_name: string };
+type Room = { id: string; name: string };
+type AvailabilityBlock = { profile_id: string; day_of_week: number; start_time: string; end_time: string };
 
 type ProgramTargetType = "tentativa" | "duracao" | "frequencia" | "tarefa";
 
@@ -29,7 +31,7 @@ export type PTSGridRow = {
   daysOfWeek: DayOfWeek[];
   shift: "MANHA" | "TARDE" | "NOITE";
   preferredSlot?: string;
-  therapistName: string;
+  therapistId: string;
 };
 
 export { generate40MinSlotsForShift };
@@ -106,6 +108,8 @@ const inputClass =
 export function PlanForm({
   patients,
   therapists = [],
+  rooms = [],
+  availability = [],
   initialPatientId = "",
   initialFamilyPriorities = "",
   suggestedGoals = [],
@@ -114,6 +118,8 @@ export function PlanForm({
 }: {
   patients: Patient[];
   therapists?: Therapist[];
+  rooms?: Room[];
+  availability?: AvailabilityBlock[];
   initialPatientId?: string;
   initialFamilyPriorities?: string;
   suggestedGoals?: SuggestedGoal[];
@@ -220,7 +226,7 @@ export function PlanForm({
       sessionsPerWeek: 2,
       daysOfWeek: ["SEG", "QUA"],
       shift: "MANHA",
-      therapistName: "",
+      therapistId: "",
     },
   ]);
 
@@ -247,7 +253,7 @@ export function PlanForm({
         sessionsPerWeek: 1,
         daysOfWeek: ["TER"],
         shift: "TARDE",
-        therapistName: "",
+        therapistId: "",
       },
     ]);
   }
@@ -278,7 +284,39 @@ export function PlanForm({
     );
   }
 
-  // Algoritmo Inteligente de Conciliação e Resolução de Conflitos em 4 Etapas
+  // Gera slots de 40min dentro de uma janela real de disponibilidade
+  // (HH:mm-HH:mm), no mesmo formato de generate40MinSlotsForShift.
+  function generate40MinSlotsInRange(startTime: string, endTime: string): string[] {
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    const slots: string[] = [];
+    let currentMin = sh * 60 + sm;
+    const endMin = eh * 60 + em;
+    while (currentMin + 40 <= endMin) {
+      const sH = String(Math.floor(currentMin / 60)).padStart(2, "0");
+      const sM = String(currentMin % 60).padStart(2, "0");
+      const eMin = currentMin + 40;
+      const eH = String(Math.floor(eMin / 60)).padStart(2, "0");
+      const eM = String(eMin % 60).padStart(2, "0");
+      slots.push(`${sH}:${sM} - ${eH}:${eM}`);
+      currentMin += 40;
+    }
+    return slots;
+  }
+
+  function shiftForHour(hour: number): "MANHA" | "TARDE" | "NOITE" {
+    if (hour < 12) return "MANHA";
+    if (hour < 17) return "TARDE";
+    return "NOITE";
+  }
+
+  // Algoritmo de Conciliação: aloca terapeuta/sala reais dentro da janela de
+  // disponibilidade real (professional_availability) e da ocupação já usada
+  // por esta mesma geração. O bloqueio definitivo contra sobreposição real
+  // (outros appointments já existentes, ou fora do expediente) acontece no
+  // banco no momento de salvar (actions.ts / trigger
+  // appointments_availability_guard) — aqui só evitamos gerar um calendário
+  // obviamente inviável.
   function handleGenerateCalendar() {
     const selectedPatient = patients.find((p) => p.id === patientId);
     if (!selectedPatient) {
@@ -300,13 +338,25 @@ export function PlanForm({
       SAB: 6,
     };
 
-    // Slots de 40 minutos por turno (Segunda a Sábado)
-    const slotsManha = generate40MinSlotsForShift("MANHA");
-    const slotsTarde = generate40MinSlotsForShift("TARDE");
-    const slotsNoite = generate40MinSlotsForShift("NOITE");
+    // Fallback: terapeuta sem NENHUMA disponibilidade cadastrada ainda
+    // (mesma semântica de "não configurado" do trigger no banco) usa os
+    // turnos fixos como antes, só pra dar uma sugestão inicial.
+    const fixedShiftSlots: Record<"MANHA" | "TARDE" | "NOITE", string[]> = {
+      MANHA: generate40MinSlotsForShift("MANHA"),
+      TARDE: generate40MinSlotsForShift("TARDE"),
+      NOITE: generate40MinSlotsForShift("NOITE"),
+    };
 
-    // Registro de slots ocupados por data e sala/terapeuta
-    const occupiedSlotsMap = new Map<string, Set<string>>();
+    const availabilityByTherapist = new Map<string, AvailabilityBlock[]>();
+    availability.forEach((b) => {
+      const list = availabilityByTherapist.get(b.profile_id) || [];
+      list.push(b);
+      availabilityByTherapist.set(b.profile_id, list);
+    });
+
+    // Ocupação (terapeuta e sala) já usada nesta geração, por data.
+    const occupiedTherapistSlots = new Map<string, Set<string>>();
+    const occupiedRoomSlots = new Map<string, Set<string>>();
 
     let curr = new Date(startDate);
     let sessionCounter = 1;
@@ -320,74 +370,98 @@ export function PlanForm({
         if (matchingDays.includes(currentJsDay)) {
           const discLabel = DISCIPLINES.find((d) => d.value === row.discipline)?.label || row.discipline;
           const dayName = curr.toLocaleDateString("pt-BR", { weekday: "short" }).toUpperCase();
-          const therapist = row.therapistName.trim() || `Dr(a). Especialista em ${discLabel}`;
-          const room = `Sala ${row.discipline.toUpperCase().substring(0, 3)}-0${(sessionCounter % 3) + 1}`;
+          const therapistId = row.therapistId || null;
+          const therapistName = therapists.find((t) => t.id === therapistId)?.full_name;
 
-          const baseSlots = row.shift === "MANHA" ? slotsManha : row.shift === "TARDE" ? slotsTarde : slotsNoite;
-          let slots = [...baseSlots];
-          if (row.preferredSlot && slots.includes(row.preferredSlot)) {
-            slots = [row.preferredSlot, ...slots.filter((s) => s !== row.preferredSlot)];
-          }
-
-          let assignedTimeSlot = "";
           let conflictStatus: CalendarSessionEvent["conflictStatus"] = "OK";
           let conflictNote = "";
+          let assignedTimeSlot = "";
+          let assignedShift = row.shift;
+          let roomId: string | null = null;
+          let roomName: string | undefined;
 
-          const dayOccupiedSet = occupiedSlotsMap.get(dateIso) || new Set<string>();
+          if (!therapistId) {
+            conflictStatus = "MANUAL_REQUIRED";
+            conflictNote = "Selecione um terapeuta direcionado para esta linha antes de salvar o plano.";
+            assignedTimeSlot = fixedShiftSlots[row.shift][0] || "";
+          } else {
+            const therapistBlocks = availabilityByTherapist.get(therapistId) || [];
+            const hasAnyAvailabilityConfigured = availability.some((b) => b.profile_id === therapistId);
+            const dayBlocks = therapistBlocks.filter((b) => b.day_of_week === currentJsDay);
 
-          // Etapa 1: Tentar alocar no slot de 40min preferencial/livre do mesmo dia
-          for (let i = 0; i < slots.length; i++) {
-            const slotCandidate = slots[i];
-            const slotKey = `${therapist}_${slotCandidate}`;
-            if (!dayOccupiedSet.has(slotKey)) {
-              assignedTimeSlot = slotCandidate;
-              dayOccupiedSet.add(slotKey);
-              if (i > 0) {
-                conflictStatus = "HORARIO_ALTERADO";
-                conflictNote = `Sessão de 40min alocada no slot ${slotCandidate} da mesma data.`;
-              }
-              break;
+            let candidateSlots: string[];
+            if (dayBlocks.length > 0) {
+              candidateSlots = dayBlocks.flatMap((b) => generate40MinSlotsInRange(b.start_time.slice(0, 5), b.end_time.slice(0, 5)));
+            } else if (!hasAnyAvailabilityConfigured) {
+              // Terapeuta ainda sem disponibilidade cadastrada — sugere pelo
+              // turno escolhido, mas sinaliza que precisa ser configurada.
+              candidateSlots = fixedShiftSlots[row.shift];
+            } else {
+              candidateSlots = [];
             }
-          }
 
-          // Etapa 2 & 3: Se o turno preferencial estiver totalmente ocupado, tentar slots de 40min em turnos alternativos
-          if (!assignedTimeSlot) {
-            const altShifts: ("MANHA" | "TARDE" | "NOITE")[] =
-              row.shift === "MANHA" ? ["TARDE", "NOITE"] : row.shift === "TARDE" ? ["MANHA", "NOITE"] : ["MANHA", "TARDE"];
+            if (row.preferredSlot && candidateSlots.includes(row.preferredSlot)) {
+              candidateSlots = [row.preferredSlot, ...candidateSlots.filter((s) => s !== row.preferredSlot)];
+            }
 
-            for (const altShift of altShifts) {
-              const altSlots = altShift === "MANHA" ? slotsManha : altShift === "TARDE" ? slotsTarde : slotsNoite;
-              for (const altSlot of altSlots) {
-                const slotKey = `${therapist}_${altSlot}`;
-                if (!dayOccupiedSet.has(slotKey)) {
-                  assignedTimeSlot = altSlot;
-                  dayOccupiedSet.add(slotKey);
-                  conflictStatus = "TURNO_ALTERADO";
-                  conflictNote = `Turno reajustado para ${altShift === "MANHA" ? "Manhã" : altShift === "TARDE" ? "Tarde" : "Noite"} (slot 40min: ${altSlot}).`;
+            const therapistOccupied = occupiedTherapistSlots.get(dateIso) || new Set<string>();
+
+            for (const slotCandidate of candidateSlots) {
+              const key = `${therapistId}_${slotCandidate}`;
+              if (!therapistOccupied.has(key)) {
+                assignedTimeSlot = slotCandidate;
+                assignedShift = shiftForHour(Number(slotCandidate.slice(0, 2)));
+                therapistOccupied.add(key);
+                break;
+              }
+            }
+            occupiedTherapistSlots.set(dateIso, therapistOccupied);
+
+            if (!assignedTimeSlot) {
+              conflictStatus = "MANUAL_REQUIRED";
+              conflictNote = dayBlocks.length === 0 && hasAnyAvailabilityConfigured
+                ? "Terapeuta sem disponibilidade cadastrada para este dia da semana."
+                : "Terapeuta sem horário livre nesta data — todos os slots já usados neste calendário.";
+              assignedTimeSlot = candidateSlots[0] || fixedShiftSlots[row.shift][0] || "";
+            } else if (!hasAnyAvailabilityConfigured) {
+              conflictNote = "Terapeuta ainda sem disponibilidade cadastrada em /supervisao/disponibilidade — horário sugerido, não garantido.";
+            }
+
+            // Aloca sala real por rotação simples entre as salas livres
+            // naquele slot.
+            if (assignedTimeSlot && rooms.length > 0) {
+              const roomOccupied = occupiedRoomSlots.get(dateIso) || new Set<string>();
+              for (let i = 0; i < rooms.length; i++) {
+                const candidateRoom = rooms[(sessionCounter + i) % rooms.length];
+                const key = `${candidateRoom.id}_${assignedTimeSlot}`;
+                if (!roomOccupied.has(key)) {
+                  roomId = candidateRoom.id;
+                  roomName = candidateRoom.name;
+                  roomOccupied.add(key);
                   break;
                 }
               }
-              if (assignedTimeSlot) break;
+              occupiedRoomSlots.set(dateIso, roomOccupied);
+              if (!roomId) {
+                conflictStatus = "MANUAL_REQUIRED";
+                conflictNote = conflictNote || "Nenhuma sala livre neste horário — ajuste manualmente.";
+              }
+            } else if (!rooms.length) {
+              conflictStatus = "MANUAL_REQUIRED";
+              conflictNote = conflictNote || "Nenhuma sala cadastrada na clínica.";
             }
           }
-
-          // Etapa 4: Se persistir lotação total no dia/turno
-          if (!assignedTimeSlot) {
-            assignedTimeSlot = baseSlots[0];
-            conflictStatus = "MANUAL_REQUIRED";
-            conflictNote = "Todos os slots de 40min do dia ocupados. Requer ajuste manual pelo supervisor.";
-          }
-
-          occupiedSlotsMap.set(dateIso, dayOccupiedSet);
 
           sessionsList.push({
             id: `sess-${sessionCounter++}-${dateIso}`,
             date: dateIso,
             dayOfWeek: dayName,
             disciplineLabel: discLabel,
-            therapistName: therapist,
-            roomName: room,
-            shift: row.shift,
+            therapistId,
+            roomId,
+            therapistName,
+            roomName,
+            shift: assignedShift,
             timeSlot: assignedTimeSlot,
             conflictStatus,
             conflictNote,
@@ -533,7 +607,7 @@ export function PlanForm({
         sessoesSemana: r.sessionsPerWeek,
         dias: r.daysOfWeek,
         turno: r.shift,
-        terapeuta: r.therapistName,
+        terapeuta: therapists.find((t) => t.id === r.therapistId)?.full_name,
       };
     });
 
@@ -820,13 +894,13 @@ export function PlanForm({
                     Terapeuta Direcionado (Opcional)
                   </label>
                   <select
-                    value={row.therapistName}
-                    onChange={(e) => updateGridRow(row.id, "therapistName", e.target.value)}
+                    value={row.therapistId}
+                    onChange={(e) => updateGridRow(row.id, "therapistId", e.target.value)}
                     className="w-full rounded-md border border-paper-line-strong bg-white px-2.5 py-1.5 text-xs text-ink focus:border-chart focus:outline-none"
                   >
-                    <option value="">Sem direcionamento (alocação automática)</option>
+                    <option value="">Sem direcionamento (requer ajuste manual depois)</option>
                     {therapists.map((t) => (
-                      <option key={t.id} value={t.full_name}>
+                      <option key={t.id} value={t.id}>
                         {t.full_name}
                       </option>
                     ))}
@@ -926,6 +1000,7 @@ export function PlanForm({
         <PTSCalendarView
           sessions={generatedSessions}
           therapists={therapists}
+          rooms={rooms}
           startDate={startDateStr}
           validUntil={validUntilStr}
           onOpenPrintModal={() => setShowPrintModal(true)}

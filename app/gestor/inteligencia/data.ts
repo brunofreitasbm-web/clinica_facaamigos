@@ -28,6 +28,18 @@ export type StatusValueBreakdown = {
   color: string;
 };
 
+export type RoomRankingItem = {
+  roomId: string;
+  roomName: string;
+  capacity: number;
+  totalRevenue: number;
+  paidRevenue: number;
+  pendingRevenue: number;
+  appointmentsCount: number;
+  bookedHours: number;
+  occupancyPct: number;
+};
+
 export type AniversarianteItem = {
   id: string;
   name: string;
@@ -69,6 +81,37 @@ export type InteligenciaMetrics = {
   
   // Aniversariantes
   aniversariantes: AniversarianteItem[];
+
+  // Ranking de Salas
+  roomRanking: RoomRankingItem[];
+  roomsTotalRevenue: number;
+  roomsAvgOccupancyPct: number;
+
+  // Capacidade Operacional da Clínica (indicador em destaque)
+  clinicCapacity: ClinicCapacityItem[];
+  roomCapacityAlerts: RoomCapacityAlert[];
+};
+
+export type ClinicCapacityPeriodKey = "manha" | "tarde" | "dia" | "semana" | "mes";
+
+export type ClinicCapacityItem = {
+  key: ClinicCapacityPeriodKey;
+  label: string;
+  bookedHours: number;
+  availableHours: number;
+  occupancyPct: number;
+  roomsConsidered: number;
+};
+
+export type RoomCapacityAlert = {
+  roomId: string;
+  roomName: string;
+  shift: "manha" | "tarde";
+  shiftLabel: string;
+  occupancyPct: number;
+  bookedHours: number;
+  availableHours: number;
+  description: string;
 };
 
 export async function getInteligenciaMetrics(
@@ -92,6 +135,21 @@ export async function getInteligenciaMetrics(
     endISO = prevMonthEnd.toISOString();
   }
 
+  // Janelas "ao vivo" (independentes do filtro de período acima) para o
+  // indicador de Capacidade Operacional — hoje / semana atual / mês atual.
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const weekDayIdx = (now.getDay() + 6) % 7; // 0 = segunda ... 6 = domingo
+  const weekStart = new Date(todayStart.getTime() - weekDayIdx * 24 * 60 * 60 * 1000);
+  const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  const capacityQueryStart = new Date(Math.min(weekStart.getTime(), monthStart.getTime()));
+  const capacityQueryEnd = new Date(Math.max(weekEnd.getTime(), monthEnd.getTime()));
+
   // Datas para o período anterior equivalente
   const currentStart = new Date(startISO);
   const currentEnd = new Date(endISO);
@@ -109,6 +167,10 @@ export async function getInteligenciaMetrics(
     { data: glosasList },
     { data: patientsList },
     { data: profilesList },
+    { data: roomsList },
+    { data: roomAppointments },
+    { data: roomBillingItems },
+    { data: clinicCapacityAppointments },
   ] = await Promise.all([
     // Atendimentos no período
     supabase
@@ -165,6 +227,39 @@ export async function getInteligenciaMetrics(
       .select("id, full_name, role, active")
       .eq("clinic_id", clinicId)
       .eq("active", true),
+
+    // Salas da clínica
+    supabase
+      .from("rooms")
+      .select("id, name, capacity")
+      .eq("clinic_id", clinicId),
+
+    // Atendimentos por Sala no período (para taxa de ocupação)
+    supabase
+      .from("appointments")
+      .select("id, room_id, starts_at, ends_at, status, patients!inner(clinic_id)")
+      .eq("patients.clinic_id", clinicId)
+      .neq("status", "cancelada")
+      .gte("starts_at", startISO)
+      .lt("starts_at", endISO),
+
+    // Cobranças por Sala no período (para faturamento por sala)
+    supabase
+      .from("billing_items")
+      .select("id, amount, status, paid_at, appointments!inner(room_id, starts_at, patients!inner(clinic_id))")
+      .eq("appointments.patients.clinic_id", clinicId)
+      .gte("appointments.starts_at", startISO)
+      .lt("appointments.starts_at", endISO),
+
+    // Atendimentos "ao vivo" (semana atual + mês atual) para o indicador de
+    // Capacidade Operacional da Clínica — independente do filtro de período acima
+    supabase
+      .from("appointments")
+      .select("id, room_id, starts_at, ends_at, status, patients!inner(clinic_id)")
+      .eq("patients.clinic_id", clinicId)
+      .neq("status", "cancelada")
+      .gte("starts_at", capacityQueryStart.toISOString())
+      .lt("starts_at", capacityQueryEnd.toISOString()),
   ]);
 
   const appointments = currentAppointments ?? [];
@@ -364,6 +459,192 @@ export async function getInteligenciaMetrics(
 
   aniversariantes.sort((a, b) => a.birthDay - b.birthDay);
 
+  // 6. Ranking de Salas (faturamento + taxa de ocupação)
+  const HOURS_PER_BUSINESS_DAY = 10; // estimativa de horário de funcionamento (08h-18h), usada só no denominador da ocupação
+  let businessDaysInPeriod = 0;
+  for (let d = new Date(currentStart); d < currentEnd; d.setDate(d.getDate() + 1)) {
+    const weekday = d.getDay();
+    if (weekday !== 0 && weekday !== 6) businessDaysInPeriod++;
+  }
+  const availableHoursPerRoom = Math.max(1, businessDaysInPeriod) * HOURS_PER_BUSINESS_DAY;
+
+  type RoomAcc = {
+    roomName: string;
+    capacity: number;
+    totalRevenue: number;
+    paidRevenue: number;
+    pendingRevenue: number;
+    appointmentsCount: number;
+    bookedHours: number;
+  };
+  const roomAcc = new Map<string, RoomAcc>();
+
+  // Sala de avaliação tem uso e capacidade próprios (1 criança por horário,
+  // reservada para avaliação inicial) — não compete com as salas de
+  // atendimento regular, então fica fora do ranking de faturamento/ocupação.
+  const isEvaluationRoom = (roomName: string) => /avalia/i.test(roomName);
+
+  for (const room of roomsList ?? []) {
+    if (isEvaluationRoom(room.name)) continue;
+    roomAcc.set(room.id, {
+      roomName: room.name,
+      capacity: room.capacity,
+      totalRevenue: 0,
+      paidRevenue: 0,
+      pendingRevenue: 0,
+      appointmentsCount: 0,
+      bookedHours: 0,
+    });
+  }
+
+  for (const app of roomAppointments ?? []) {
+    if (!app.room_id) continue;
+    const acc = roomAcc.get(app.room_id);
+    if (!acc) continue;
+    acc.appointmentsCount++;
+    const durationHours = (new Date(app.ends_at).getTime() - new Date(app.starts_at).getTime()) / (1000 * 60 * 60);
+    if (durationHours > 0) acc.bookedHours += durationHours;
+  }
+
+  for (const item of roomBillingItems ?? []) {
+    const roomId = (item.appointments as { room_id: string | null } | null)?.room_id;
+    if (!roomId) continue;
+    const acc = roomAcc.get(roomId);
+    if (!acc) continue;
+    const val = Number(item.amount || 0);
+    acc.totalRevenue += val;
+    if (item.status === "pago" || item.paid_at != null) {
+      acc.paidRevenue += val;
+    } else {
+      acc.pendingRevenue += val;
+    }
+  }
+
+  const roomRanking: RoomRankingItem[] = [...roomAcc.entries()]
+    .map(([roomId, acc]) => ({
+      roomId,
+      roomName: acc.roomName,
+      capacity: acc.capacity,
+      totalRevenue: acc.totalRevenue,
+      paidRevenue: acc.paidRevenue,
+      pendingRevenue: acc.pendingRevenue,
+      appointmentsCount: acc.appointmentsCount,
+      bookedHours: Math.round(acc.bookedHours * 10) / 10,
+      occupancyPct: Math.min(100, Math.round((acc.bookedHours / availableHoursPerRoom) * 1000) / 10),
+    }))
+    .sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+  const roomsTotalRevenue = roomRanking.reduce((sum, r) => sum + r.totalRevenue, 0);
+  const roomsAvgOccupancyPct =
+    roomRanking.length > 0
+      ? Math.round((roomRanking.reduce((sum, r) => sum + r.occupancyPct, 0) / roomRanking.length) * 10) / 10
+      : 0;
+
+  // 7. Capacidade Operacional da Clínica (indicador em destaque) — ocupação
+  // combinada de todas as salas (exceto Sala de Avaliação) "ao vivo": hoje
+  // (manhã/tarde), semana atual e mês atual.
+  function countBusinessDays(start: Date, end: Date): number {
+    let count = 0;
+    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+      const weekday = d.getDay();
+      if (weekday !== 0 && weekday !== 6) count++;
+    }
+    return count;
+  }
+
+  const roomsConsidered = roomAcc.size; // já exclui a Sala de Avaliação
+  const isTodayBusinessDay = countBusinessDays(todayStart, todayEnd) > 0;
+  const businessDaysThisWeek = countBusinessDays(weekStart, weekEnd);
+  const businessDaysThisMonth = countBusinessDays(monthStart, monthEnd);
+
+  const HOURS_MANHA = 4; // 08h-12h
+  const HOURS_TARDE = 5; // 13h-18h
+  const HOURS_DIA = 10; // 08h-18h
+
+  let manhaHours = 0;
+  let tardeHours = 0;
+  let diaHours = 0;
+  let semanaHours = 0;
+  let mesHours = 0;
+
+  type ShiftAcc = { manha: number; tarde: number };
+  const roomWeeklyShift = new Map<string, ShiftAcc>();
+
+  for (const app of clinicCapacityAppointments ?? []) {
+    if (!app.room_id || !roomAcc.has(app.room_id)) continue; // ignora Sala de Avaliação e salas desconhecidas
+    const appStart = new Date(app.starts_at);
+    const durationHours = (new Date(app.ends_at).getTime() - appStart.getTime()) / (1000 * 60 * 60);
+    if (durationHours <= 0) continue;
+
+    if (appStart >= monthStart && appStart < monthEnd) mesHours += durationHours;
+
+    const inCurrentWeek = appStart >= weekStart && appStart < weekEnd;
+    if (inCurrentWeek) {
+      semanaHours += durationHours;
+      const shiftAcc = roomWeeklyShift.get(app.room_id) ?? { manha: 0, tarde: 0 };
+      if (appStart.getHours() < 12) shiftAcc.manha += durationHours;
+      else shiftAcc.tarde += durationHours;
+      roomWeeklyShift.set(app.room_id, shiftAcc);
+    }
+
+    if (appStart >= todayStart && appStart < todayEnd) {
+      diaHours += durationHours;
+      if (appStart.getHours() < 12) manhaHours += durationHours;
+      else tardeHours += durationHours;
+    }
+  }
+
+  const capacityBuckets: { key: ClinicCapacityPeriodKey; label: string; bookedHours: number; availableHours: number }[] = [
+    { key: "manha", label: "Manhã (hoje)", bookedHours: manhaHours, availableHours: roomsConsidered * (isTodayBusinessDay ? HOURS_MANHA : 0) },
+    { key: "tarde", label: "Tarde (hoje)", bookedHours: tardeHours, availableHours: roomsConsidered * (isTodayBusinessDay ? HOURS_TARDE : 0) },
+    { key: "dia", label: "Hoje (dia todo)", bookedHours: diaHours, availableHours: roomsConsidered * (isTodayBusinessDay ? HOURS_DIA : 0) },
+    { key: "semana", label: "Semana atual", bookedHours: semanaHours, availableHours: roomsConsidered * businessDaysThisWeek * HOURS_DIA },
+    { key: "mes", label: "Mês atual", bookedHours: mesHours, availableHours: roomsConsidered * businessDaysThisMonth * HOURS_DIA },
+  ];
+
+  const clinicCapacity: ClinicCapacityItem[] = capacityBuckets.map((b) => ({
+    key: b.key,
+    label: b.label,
+    bookedHours: Math.round(b.bookedHours * 10) / 10,
+    availableHours: Math.round(b.availableHours * 10) / 10,
+    occupancyPct: b.availableHours > 0 ? Math.min(100, Math.round((b.bookedHours / b.availableHours) * 1000) / 10) : 0,
+    roomsConsidered,
+  }));
+
+  // Alerta ao gestor: sala específica atingindo >= 80% de ocupação na
+  // semana atual, no turno da manhã ou da tarde.
+  const CAPACITY_ALERT_THRESHOLD_PCT = 80;
+  const roomCapacityAlerts: RoomCapacityAlert[] = [];
+
+  for (const [roomId, acc] of roomAcc.entries()) {
+    const shiftAcc = roomWeeklyShift.get(roomId) ?? { manha: 0, tarde: 0 };
+
+    const shiftDefs: { shift: "manha" | "tarde"; shiftLabel: string; bookedHours: number; hoursPerDay: number }[] = [
+      { shift: "manha", shiftLabel: "Manhã", bookedHours: shiftAcc.manha, hoursPerDay: HOURS_MANHA },
+      { shift: "tarde", shiftLabel: "Tarde", bookedHours: shiftAcc.tarde, hoursPerDay: HOURS_TARDE },
+    ];
+
+    for (const def of shiftDefs) {
+      const availableHours = businessDaysThisWeek * def.hoursPerDay;
+      if (availableHours <= 0) continue;
+      const occupancyPct = Math.round((def.bookedHours / availableHours) * 1000) / 10;
+      if (occupancyPct >= CAPACITY_ALERT_THRESHOLD_PCT) {
+        roomCapacityAlerts.push({
+          roomId,
+          roomName: acc.roomName,
+          shift: def.shift,
+          shiftLabel: def.shiftLabel,
+          occupancyPct: Math.min(100, occupancyPct),
+          bookedHours: Math.round(def.bookedHours * 10) / 10,
+          availableHours,
+          description: `${acc.roomName} está a ${Math.min(100, occupancyPct)}% da capacidade no turno da ${def.shiftLabel.toLowerCase()} nesta semana — considere reorganizar a agenda ou avaliar abertura de novos horários.`,
+        });
+      }
+    }
+  }
+
+  roomCapacityAlerts.sort((a, b) => b.occupancyPct - a.occupancyPct);
+
   return {
     totalAppointments,
     prevMonthAppointments,
@@ -381,5 +662,10 @@ export async function getInteligenciaMetrics(
     equipeCount: (therapistsList ?? []).length,
     horasEconomizadas,
     aniversariantes,
+    roomRanking,
+    roomsTotalRevenue,
+    roomsAvgOccupancyPct,
+    clinicCapacity,
+    roomCapacityAlerts,
   };
 }

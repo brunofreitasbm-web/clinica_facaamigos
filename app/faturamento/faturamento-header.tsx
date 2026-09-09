@@ -6,7 +6,6 @@ import { BrandLockup } from "@/components/brand/brand-lockup";
 
 const NAV_ITEMS = [
   { key: "competencia", label: "Competência", href: "/faturamento" },
-  { key: "guias", label: "Guias TISS", href: "/faturamento/guias" },
   { key: "glosas", label: "Glosas", href: "/faturamento/glosas" },
   { key: "repasses", label: "Repasses", href: "/faturamento/repasses" },
 ] as const;

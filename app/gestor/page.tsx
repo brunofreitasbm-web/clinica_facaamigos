@@ -1,7 +1,7 @@
 import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { getLeakCards, getBonusRows, getTierProgression, currentMonthRange } from "./data";
+import { getLeakCards, getBonusRows, getTierProgression, getOperationalAlerts, currentMonthRange } from "./data";
 import { ExecutiveLeaks } from "./executive-leaks";
 import { GestorCockpit } from "@/components/gestor/gestor-cockpit";
 
@@ -55,10 +55,11 @@ export default async function GestorPage() {
   const hasConcentrationData = totalWithInsurer > 0;
   const concentrationPct = hasConcentrationData ? Math.round((topInsurerCount / totalWithInsurer) * 100) : null;
 
-  const [leaks, bonusRows, tierRows] = await Promise.all([
+  const [leaks, bonusRows, tierRows, operationalAlerts] = await Promise.all([
     getLeakCards(supabase, DEV_CLINIC_ID),
     getBonusRows(supabase, DEV_CLINIC_ID),
     getTierProgression(supabase, DEV_CLINIC_ID),
+    getOperationalAlerts(supabase, DEV_CLINIC_ID),
   ]);
 
   const { startISO, endISO } = currentMonthRange();
@@ -156,7 +157,7 @@ export default async function GestorPage() {
         </div>
       </div>
 
-      <GestorCockpit />
+      <GestorCockpit initialAlerts={operationalAlerts} />
 
       <ExecutiveLeaks leaks={leaks} bonusPanel={bonusPanel} />
 

@@ -5208,6 +5208,57 @@ export type Database = {
           },
         ]
       }
+      professional_availability: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          profile_id: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          profile_id: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          profile_id?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_availability_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_availability_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       professional_documents: {
         Row: {
           content: string
@@ -8362,6 +8413,7 @@ export type Database = {
         | { Args: { how_many: number; why: string }; Returns: string }
       system_user_manageable_roles: { Args: never; Returns: string[] }
       throws_ok: { Args: { "": string }; Returns: string }
+      timemultirange: { Args: never; Returns: unknown }
       todo:
         | { Args: { how_many: number }; Returns: boolean[] }
         | { Args: { how_many: number; why: string }; Returns: boolean[] }

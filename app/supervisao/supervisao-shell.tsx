@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, UserX, ListOrdered, Users } from "lucide-react";
+import { ShieldCheck, UserX, ListOrdered, Users, CalendarClock } from "lucide-react";
 import { BrandLockup } from "@/components/brand/brand-lockup";
 
 const TABS = [
@@ -138,6 +138,19 @@ export function SupervisaoShell({
           >
             <ShieldCheck size={15} />
             Prontuário Unificado
+          </Link>
+          <Link
+            href="/supervisao/disponibilidade"
+            className="flex h-full items-center gap-1.5 transition-all"
+            aria-current={pathname === "/supervisao/disponibilidade" ? "page" : undefined}
+            style={{
+              color: pathname === "/supervisao/disponibilidade" ? "#FFFFFF" : "var(--color-on-accent-soft)",
+              borderBottom: pathname === "/supervisao/disponibilidade" ? "3px solid #FFFFFF" : "3px solid transparent",
+              fontWeight: pathname === "/supervisao/disponibilidade" ? 700 : 500,
+            }}
+          >
+            <CalendarClock size={15} />
+            Disponibilidade
           </Link>
           <Link
             href="/recepcao/emergencias"

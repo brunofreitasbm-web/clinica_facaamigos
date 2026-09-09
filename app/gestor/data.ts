@@ -344,6 +344,108 @@ export async function getLeakCards(supabase: Supa, clinicId: string): Promise<Le
   return [faltas, semGuia, evolucao, evasao];
 }
 
+// ── Central de alertas operacionais (topo do painel executivo) ──────────
+// Substitui os cards fixos que existiam antes (nomes de paciente
+// inventados) por 3 checagens reais: autorizações perto de esgotar,
+// evoluções atrasadas >24h (mesma RPC de buildOverdueNotesLeak) e pacientes
+// com absence_alerts em aberto (20260906000015_absence_alerts.sql).
+export type AlertItem = {
+  id: string;
+  type: "critical" | "warning" | "success";
+  title: string;
+  description: string;
+  actionLabel: string;
+  actionHref: string;
+  category: "Autorizações" | "Prontuários" | "Agenda" | "Financeiro";
+};
+
+function joinWithOverflow(names: string[], max = 3): string {
+  const preview = names.slice(0, max).join(", ");
+  return names.length > max ? `${preview} e mais ${names.length - max}` : preview;
+}
+
+export async function getOperationalAlerts(supabase: Supa, clinicId: string): Promise<AlertItem[]> {
+  const alerts: AlertItem[] = [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: activePatients } = await supabase
+    .from("patients")
+    .select("id, full_name")
+    .eq("clinic_id", clinicId)
+    .eq("status", "ativo");
+  const patientList = activePatients ?? [];
+  const nameByPatient = new Map(patientList.map((p) => [p.id, p.full_name]));
+  const patientIds = patientList.map((p) => p.id);
+
+  if (patientIds.length > 0) {
+    const { data: insurances } = await supabase.from("patient_insurance").select("id, patient_id").in("patient_id", patientIds);
+    const insuranceIds = (insurances ?? []).map((i) => i.id);
+    const patientByInsurance = new Map((insurances ?? []).map((i) => [i.id, i.patient_id]));
+    if (insuranceIds.length > 0) {
+      const { data: auths } = await supabase
+        .from("authorizations")
+        .select("patient_insurance_id, sessions_authorized, sessions_used, valid_to")
+        .in("patient_insurance_id", insuranceIds)
+        .eq("status", "ativa")
+        .gte("valid_to", today);
+      const lowNames = new Set<string>();
+      for (const a of auths ?? []) {
+        if (a.sessions_authorized - a.sessions_used > 3) continue;
+        const patientId = patientByInsurance.get(a.patient_insurance_id);
+        const name = patientId ? nameByPatient.get(patientId) : undefined;
+        if (name) lowNames.add(name);
+      }
+      if (lowNames.size > 0) {
+        alerts.push({
+          id: "auth-low",
+          type: "critical",
+          title: `${lowNames.size} autorização(ões) de convênio prestes a esgotar`,
+          description: `${joinWithOverflow([...lowNames])} — menos de 3 sessões restantes no pacote autorizado. Risco de interrupção do tratamento.`,
+          actionLabel: "Renovar autorização",
+          actionHref: "/gestor/cadastros/convenios",
+          category: "Autorizações",
+        });
+      }
+    }
+  }
+
+  const overdueNotes = await countOverdueSessionNotes(supabase, 24);
+  if (overdueNotes > 0) {
+    alerts.push({
+      id: "notes-overdue",
+      type: "critical",
+      title: `${overdueNotes} evolução(ões) terapêutica(s) pendente(s) há mais de 24h`,
+      description: "Sessões realizadas ainda não têm evolução assinada pelos terapeutas. Trava de faturamento ativada.",
+      actionLabel: "Cobrar prontuários",
+      actionHref: "/supervisao",
+      category: "Prontuários",
+    });
+  }
+
+  const { data: absenceRows } = await supabase
+    .from("absence_alerts")
+    .select("patients!inner(clinic_id, full_name)")
+    .eq("patients.clinic_id", clinicId)
+    .in("status", ["pendente", "notificado"]);
+  const absenceList = absenceRows ?? [];
+  if (absenceList.length > 0) {
+    const names = absenceList
+      .map((r) => (Array.isArray(r.patients) ? r.patients[0]?.full_name : r.patients?.full_name))
+      .filter((n): n is string => !!n);
+    alerts.push({
+      id: "absence-risk",
+      type: "warning",
+      title: `${absenceList.length} paciente(s) com risco de descontinuidade`,
+      description: `${joinWithOverflow(names)} — faltas consecutivas ou alta taxa de faltas recentes. Ação de recepção recomendada.`,
+      actionLabel: "Ver faltas",
+      actionHref: "/recepcao/pacientes",
+      category: "Agenda",
+    });
+  }
+
+  return alerts;
+}
+
 // ── Bonificação por cargo (§10.1/10.2/10.4) ──────────────────────────────
 // Cálculo ao vivo, aproximado: `targets`/`metric_snapshots` (§10.6) ainda
 // não têm linha nenhuma nesta clínica (pg_cron de fechamento mensal é

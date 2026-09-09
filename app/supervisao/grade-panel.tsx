@@ -123,7 +123,7 @@ export function GradePanel({
   activePatientsCount: number;
   dueReassessments: number;
   therapists: { id: string; name: string }[];
-  rooms: { id: string; name: string }[];
+  rooms: { id: string; name: string; capacity?: number }[];
   appointments: GradeAppointment[];
   pendingNotes: PendingNote[];
   pendingPlans: PendingPlan[];
@@ -146,26 +146,63 @@ export function GradePanel({
     return Array.from(set);
   }, [appointments]);
 
-  // Identificação simples de conflitos (mesmo terapeuta/sala e mesmo horário/dia)
+  const roomCapacity = useMemo(() => new Map(rooms.map((r) => [r.id, r.capacity ?? 1])), [rooms]);
+
+  // Capacidade efetiva de um grupo de atendimentos no mesmo horário/sala:
+  // 1ª avaliação/anamnese/acolhimento (kind "avaliacao") é sempre 1 criança
+  // por avaliador/sala, mesmo que a sala cadastrada comporte mais — a
+  // capacidade da sala só vale para terapia recorrente/grupo.
+  function effectiveCapacity(list: GradeAppointment[], roomId: string): number {
+    if (list.some((a) => a.kind === "avaliacao")) return 1;
+    return roomCapacity.get(roomId) ?? 1;
+  }
+
+  // Um terapeuta pode atender várias crianças ao mesmo tempo — o fator
+  // limitante é a capacidade da sala, não o terapeuta. Por isso conflito de
+  // terapeuta só existe quando ele aparece em salas diferentes no mesmo
+  // horário (impossível fisicamente) ou quando a sala usada estoura a
+  // capacidade cadastrada. Conflito de sala é sempre por capacidade.
   const conflictIds = useMemo(() => {
-    const map = new Map<string, string[]>();
     const conflicts = new Set<string>();
 
-    appointments.forEach((a) => {
-      const key = `${a.dayIndex}-${a.timeLabel}-${mode === "terapeuta" ? a.therapistId : a.roomId}`;
-      const list = map.get(key) || [];
-      list.push(a.id);
-      map.set(key, list);
-    });
+    if (mode === "sala") {
+      const byRoomSlot = new Map<string, GradeAppointment[]>();
+      appointments.forEach((a) => {
+        const key = `${a.dayIndex}|${a.timeLabel}|${a.roomId}`;
+        const list = byRoomSlot.get(key) ?? [];
+        list.push(a);
+        byRoomSlot.set(key, list);
+      });
+      byRoomSlot.forEach((list, key) => {
+        const roomId = key.split("|")[2];
+        if (list.length > effectiveCapacity(list, roomId)) {
+          list.forEach((a) => conflicts.add(a.id));
+        }
+      });
+      return conflicts;
+    }
 
-    map.forEach((ids) => {
-      if (ids.length > 1) {
-        ids.forEach((id) => conflicts.add(id));
+    const byTherapistSlot = new Map<string, GradeAppointment[]>();
+    appointments.forEach((a) => {
+      const key = `${a.dayIndex}|${a.timeLabel}|${a.therapistId}`;
+      const list = byTherapistSlot.get(key) ?? [];
+      list.push(a);
+      byTherapistSlot.set(key, list);
+    });
+    byTherapistSlot.forEach((list) => {
+      const distinctRooms = new Set(list.map((a) => a.roomId));
+      if (distinctRooms.size > 1) {
+        // Terapeuta não pode estar em duas salas ao mesmo tempo.
+        list.forEach((a) => conflicts.add(a.id));
+        return;
+      }
+      if (list.length > effectiveCapacity(list, list[0].roomId)) {
+        list.forEach((a) => conflicts.add(a.id));
       }
     });
 
     return conflicts;
-  }, [appointments, mode]);
+  }, [appointments, mode, roomCapacity]);
 
   const filteredAppointments = useMemo(() => {
     return appointments.filter((a) => {

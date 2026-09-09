@@ -81,6 +81,12 @@ export async function createAppointment(
         error: "Paciente sem autorização ativa — registre uma guia antes de agendar.",
       };
     }
+    if (error.message?.includes("janela de disponibilidade")) {
+      return {
+        success: false,
+        error: "Terapeuta fora da janela de disponibilidade cadastrada nesse horário.",
+      };
+    }
     return { success: false, error: "Não foi possível agendar. Tente de novo." };
   }
 

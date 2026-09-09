@@ -19,9 +19,10 @@ interface InteligenciaClientProps {
 export function InteligenciaClient({ initialMetrics, currentPeriodKey }: InteligenciaClientProps) {
   const router = useRouter();
   const [metrics] = useState<InteligenciaMetrics>(initialMetrics);
-  const [activeTab, setActiveTab] = useState<"visao_geral" | "aniversariantes">("visao_geral");
+  const [activeTab, setActiveTab] = useState<"visao_geral" | "salas" | "aniversariantes">("visao_geral");
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const [activeCardMenu, setActiveCardMenu] = useState<number | null>(null);
+  const [capacityPeriod, setCapacityPeriod] = useState<"manha" | "tarde" | "dia" | "semana" | "mes">("semana");
 
   // Período selecionado
   const PERIOD_LABELS: Record<string, string> = {
@@ -144,6 +145,21 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             }`}
           >
             Visão Geral
+          </button>
+          <button
+            onClick={() => setActiveTab("salas")}
+            className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === "salas"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Salas
+            {metrics.roomRanking.length > 0 && (
+              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">
+                {metrics.roomRanking.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab("aniversariantes")}
@@ -542,6 +558,224 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ABA: SALAS */}
+        {activeTab === "salas" && (
+          <div className="space-y-6">
+            {/* Alerta de Capacidade — sala próxima do limite na semana */}
+            {metrics.roomCapacityAlerts.length > 0 && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⚠️</span>
+                  <h3 className="text-sm font-bold text-rose-800">
+                    Alerta de Capacidade — {metrics.roomCapacityAlerts.length}{" "}
+                    {metrics.roomCapacityAlerts.length === 1 ? "sala" : "salas"} próxima(s) do limite
+                  </h3>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {metrics.roomCapacityAlerts.map((alert) => (
+                    <div
+                      key={`${alert.roomId}-${alert.shift}`}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-white p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {alert.roomName} · {alert.shiftLabel}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-600">{alert.description}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-700">
+                        {alert.occupancyPct}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Indicador em Destaque: Capacidade Operacional da Clínica */}
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold tracking-wider text-indigo-500 uppercase">Indicador em Destaque</span>
+                  <h3 className="text-base font-bold text-slate-900">Capacidade Operacional da Clínica</h3>
+                  <p className="text-xs text-slate-600">Ocupação combinada de todas as salas (exceto Sala de Avaliação)</p>
+                </div>
+                <div className="flex rounded-full border border-indigo-200 bg-white p-1 text-xs font-semibold">
+                  {metrics.clinicCapacity.map((item) => (
+                    <button
+                      key={item.key}
+                      onClick={() => setCapacityPeriod(item.key)}
+                      className={`rounded-full px-3 py-1.5 transition-colors ${
+                        capacityPeriod === item.key
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-600 hover:bg-indigo-50"
+                      }`}
+                    >
+                      {item.key === "manha" && "Manhã"}
+                      {item.key === "tarde" && "Tarde"}
+                      {item.key === "dia" && "Dia"}
+                      {item.key === "semana" && "Semana"}
+                      {item.key === "mes" && "Mês"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(() => {
+                const selected = metrics.clinicCapacity.find((c) => c.key === capacityPeriod);
+                if (!selected) return null;
+                const barColor =
+                  selected.occupancyPct >= 80
+                    ? "bg-rose-500"
+                    : selected.occupancyPct >= 60
+                      ? "bg-amber-400"
+                      : "bg-emerald-500";
+                return (
+                  <div className="mt-5 flex flex-wrap items-end gap-6">
+                    <span className="text-5xl font-extrabold text-slate-900 tabular-nums">
+                      {selected.occupancyPct}%
+                    </span>
+                    <div className="flex-1 min-w-[200px]">
+                      <p className="text-xs text-slate-600">{selected.label}</p>
+                      <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-white">
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max(2, selected.occupancyPct)}%` }} />
+                      </div>
+                      <p className="mt-2 text-xs text-slate-600">
+                        {selected.bookedHours}h ocupadas de {selected.availableHours}h disponíveis · {selected.roomsConsidered}{" "}
+                        {selected.roomsConsidered === 1 ? "sala" : "salas"}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Cards resumo */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                <span className="text-xs font-medium text-slate-600">🏆 Sala mais lucrativa</span>
+                <div className="mt-3">
+                  <span className="text-xl font-extrabold text-slate-900">
+                    {metrics.roomRanking[0]?.roomName ?? "—"}
+                  </span>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {metrics.roomRanking[0]
+                      ? `R$${metrics.roomRanking[0].totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })} no período`
+                      : "Sem dados no período"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                <span className="text-xs font-medium text-slate-600">🪙 Faturamento total por salas</span>
+                <div className="mt-3">
+                  <span className="text-xl font-extrabold text-slate-900 tabular-nums">
+                    R${metrics.roomsTotalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                  </span>
+                  <p className="mt-1 text-xs text-slate-600">soma de cobranças por sala no período</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                <span className="text-xs font-medium text-slate-600">📊 Ocupação média das salas</span>
+                <div className="mt-3">
+                  <span className="text-xl font-extrabold text-slate-900 tabular-nums">
+                    {metrics.roomsAvgOccupancyPct}%
+                  </span>
+                  <p className="mt-1 text-xs text-slate-600">estimativa sobre horário comercial (08h–18h)</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabela de ranking */}
+            <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
+              <div className="flex items-center justify-between px-5 pt-5">
+                <h3 className="text-base font-bold text-slate-900">Ranking de Salas por Faturamento</h3>
+                <span className="text-xs text-slate-500">{selectedPeriodLabel}</span>
+              </div>
+
+              {metrics.roomRanking.length > 0 ? (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-t border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
+                        <th className="px-5 py-2">#</th>
+                        <th className="px-5 py-2">Sala</th>
+                        <th className="px-5 py-2 text-right">Faturamento (R$)</th>
+                        <th className="px-5 py-2 text-right">Recebido</th>
+                        <th className="px-5 py-2 text-right">Pendente</th>
+                        <th className="px-5 py-2 text-right">Atendimentos</th>
+                        <th className="px-5 py-2 text-right">Horas Ocupadas</th>
+                        <th className="px-5 py-2">Taxa de Ocupação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metrics.roomRanking.map((room, idx) => {
+                        const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null;
+                        const barColor =
+                          room.occupancyPct >= 70
+                            ? "bg-emerald-500"
+                            : room.occupancyPct >= 40
+                              ? "bg-amber-400"
+                              : "bg-rose-400";
+
+                        return (
+                          <tr key={room.roomId} className="border-t border-slate-100 hover:bg-slate-50">
+                            <td className="px-5 py-3 font-semibold text-slate-500">{medal ?? idx + 1}</td>
+                            <td className="px-5 py-3">
+                              <span className="font-semibold text-slate-900">{room.roomName}</span>
+                              <p className="text-xs text-slate-500">capacidade {room.capacity}</p>
+                            </td>
+                            <td className="px-5 py-3 text-right font-bold text-slate-900 tabular-nums">
+                              R${room.totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                            </td>
+                            <td className="px-5 py-3 text-right text-emerald-700 tabular-nums">
+                              R${room.paidRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                            </td>
+                            <td className="px-5 py-3 text-right text-amber-700 tabular-nums">
+                              R${room.pendingRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                            </td>
+                            <td className="px-5 py-3 text-right tabular-nums text-slate-700">
+                              {room.appointmentsCount}
+                            </td>
+                            <td className="px-5 py-3 text-right tabular-nums text-slate-700">
+                              {room.bookedHours}h
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className={`h-full rounded-full ${barColor}`}
+                                    style={{ width: `${Math.max(4, room.occupancyPct)}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                                  {room.occupancyPct}%
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="px-5 pb-5">
+                  <EmptyState
+                    title="Nenhuma sala cadastrada ou sem movimento"
+                    description={`Não há salas com atendimentos ou cobranças no período de ${selectedPeriodLabel}.`}
+                    action={emptyStateAction}
+                  />
+                </div>
+              )}
+              <p className="px-5 py-4 text-[11px] text-slate-400">
+                Faturamento considera cobranças (billing_items) vinculadas a atendimentos realizados em cada sala. A taxa de ocupação é estimada sobre um horário comercial de 08h–18h (10h/dia útil) e serve como referência, não como métrica contratual. A Sala de Avaliação não entra neste ranking — capacidade fixa de 1 criança por horário, com uso e finalidade diferentes das salas de atendimento regular.
+              </p>
             </div>
           </div>
         )}

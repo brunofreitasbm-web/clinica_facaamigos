@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X, MessageCircle, Phone, Mail, AtSign, ExternalLink } from "lucide-react";
+import { Menu, X, MessageCircle, Phone, Mail, AtSign, ExternalLink, User } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { MENU, CTA, CONTATO, linkWhatsApp } from "./content";
 import { trackContactClick } from "./analytics-client";
@@ -34,6 +34,10 @@ function TopBar() {
           </span>
         </div>
         <div className="flex items-center gap-4">
+          <a href="/login" className="flex items-center gap-1 text-white/90 no-underline hover:text-white mr-2">
+            <User className="h-3.5 w-3.5" aria-hidden />
+            <span>Área Restrita</span>
+          </a>
           {CONTATO.redes.map((r) => {
             const Icone = ICONE_REDE[r.nome as keyof typeof ICONE_REDE] ?? ExternalLink;
             return (
@@ -104,6 +108,10 @@ export function SiteHeader() {
             <span>{CTA.principal}</span>
             <span className="text-[10px] font-medium opacity-85">{CTA.principalApoio}</span>
           </a>
+          <a href="/login" className="btn btn-ghost !min-h-0 !py-2.5 text-sm gap-1.5 ml-1">
+            <User className="h-4 w-4" aria-hidden />
+            <span>Entrar</span>
+          </a>
         </div>
 
         {/*
@@ -141,6 +149,14 @@ export function SiteHeader() {
               {item.rotulo}
             </a>
           ))}
+          <a
+            href="/login"
+            onClick={() => setAberto(false)}
+            className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[15px] font-semibold text-[var(--color-dark)] no-underline hover:bg-[var(--color-neutral-100)]"
+          >
+            <User className="h-4 w-4" aria-hidden />
+            <span>Área Restrita (Login)</span>
+          </a>
           <div className="mt-2 flex flex-col gap-2">
             <a
               href={linkWhatsApp()}

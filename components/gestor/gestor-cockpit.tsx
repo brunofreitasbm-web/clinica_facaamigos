@@ -15,38 +15,8 @@ export interface AlertItem {
   category: "Autorizações" | "Prontuários" | "Agenda" | "Financeiro";
 }
 
-const DEFAULT_ALERTS: AlertItem[] = [
-  {
-    id: "alt-1",
-    type: "critical",
-    title: "3 Autorizações de Convênio prestes a esgotar",
-    description: "Os pacientes Gabriel M., Lucas T. e Sofia R. estão com menos de 3 sessões restantes no pacote de ABA 20h. Risco de interrupção do tratamento.",
-    actionLabel: "Renovar Autorização",
-    actionHref: "/gestor/cadastros/convenios",
-    category: "Autorizações",
-  },
-  {
-    id: "alt-2",
-    type: "critical",
-    title: "5 Evoluções Terapêuticas pendentes há mais de 24h",
-    description: "Sessões de ontem no bloco da tarde ainda não foram assinadas pelos terapeutas. Trava de faturamento ativada.",
-    actionLabel: "Cobrar Prontuários",
-    actionHref: "/gestor/cadastros/tipos-atendimento",
-    category: "Prontuários",
-  },
-  {
-    id: "alt-3",
-    type: "warning",
-    title: "2 Pacientes com risco de descontinuidade (2 faltas consecutivas)",
-    description: "Segundo as diretrizes de convênio, 3 faltas geram descredenciamento automático. Ação de recepção recomendada.",
-    actionLabel: "Ver Faltas",
-    actionHref: "/gestor/cadastros/tipos-atendimento?tab=faltas",
-    category: "Agenda",
-  },
-];
-
-export function GestorCockpit() {
-  const [alerts, setAlerts] = useState<AlertItem[]>(DEFAULT_ALERTS);
+export function GestorCockpit({ initialAlerts }: { initialAlerts: AlertItem[] }) {
+  const [alerts, setAlerts] = useState<AlertItem[]>(initialAlerts);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const { toast } = useToast();
 

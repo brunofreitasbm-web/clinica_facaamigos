@@ -10,7 +10,7 @@ export default async function Home() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) redirect("/login");
+    if (!user) redirect("/site");
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -23,6 +23,6 @@ export default async function Home() {
   } catch (error) {
     if (isNextError(error)) throw error;
     console.error("Erro na página inicial:", error);
-    redirect("/login");
+    redirect("/site");
   }
 }

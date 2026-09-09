@@ -4,7 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
-  FileText, 
   AlertCircle, 
   DollarSign, 
   Layers, 
@@ -21,7 +20,6 @@ export interface SidebarNavItem {
 
 const DEFAULT_FATURAMENTO_NAV: SidebarNavItem[] = [
   { key: "competencia", label: "Competência", href: "/faturamento", icon: Layers },
-  { key: "guias", label: "Guias TISS", href: "/faturamento/guias", icon: FileText },
   { key: "glosas", label: "Glosas", href: "/faturamento/glosas", icon: AlertCircle },
   { key: "repasses", label: "Repasses", href: "/faturamento/repasses", icon: DollarSign },
 ];
