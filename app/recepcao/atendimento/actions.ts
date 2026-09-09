@@ -39,6 +39,13 @@ export async function sendManualMessage(conversationId: string, body: string) {
     return { success: false as const, error: insertError.message };
   }
 
+  if (!sendResult.success) {
+    return {
+      success: false as const,
+      error: sendResult.error || "Falha ao enviar mensagem pelo Twilio WhatsApp.",
+    };
+  }
+
   // Um humano respondeu: a conversa sai da fila de escalação do bot
   // (status 'pending', definido em lib/twilio-faq-bot.ts).
   await supabase
