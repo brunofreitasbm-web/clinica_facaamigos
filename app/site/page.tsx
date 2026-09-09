@@ -29,6 +29,7 @@ import { Logo } from "@/components/brand/logo";
 import { CLINIC_NAME } from "@/lib/clinic-identity";
 import { SiteHeader } from "./site-header";
 import { LeadForm } from "./lead-form";
+import { TrackedWhatsAppLink } from "./tracked-link";
 import {
   CONTEUDO_PENDENTE,
   CONTATO,
@@ -48,17 +49,43 @@ import {
   linkWhatsApp,
 } from "./content";
 
+const DESCRICAO_SEO =
+  "Centro especializado em desenvolvimento infantil e autismo em Belém/PA. Equipe multidisciplinar, abordagem ABA e playground inclusivo. Agende uma avaliação.";
+
 export const metadata: Metadata = {
   title: "Centro de Terapia Comportamental para Crianças Autistas",
-  description:
-    "Centro especializado em desenvolvimento infantil e autismo em Belém/PA. Equipe multidisciplinar, abordagem ABA e playground inclusivo. Agende uma avaliação.",
+  description: DESCRICAO_SEO,
+  keywords: [
+    "terapia aba belém",
+    "centro de terapia comportamental",
+    "autismo belém",
+    "clínica tea belém",
+    "fonoaudiologia infantil belém",
+    "terapia ocupacional infantil",
+  ],
   alternates: { canonical: "/site" },
+  // Explícito para não depender de nenhum default herdado: esta é a única
+  // página do domínio que DEVE ser indexada (ver app/robots.ts).
+  robots: { index: true, follow: true },
   openGraph: {
-    title: `${CLINIC_NAME}`,
-    description:
-      "Centro especializado em desenvolvimento infantil e autismo em Belém/PA. Equipe multidisciplinar, abordagem ABA e playground inclusivo.",
+    title: CLINIC_NAME,
+    description: DESCRICAO_SEO,
+    url: "/site",
+    siteName: CLINIC_NAME,
     type: "website",
     locale: "pt_BR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: CLINIC_NAME,
+    description: DESCRICAO_SEO,
+  },
+  // Preenchidos só se a variável existir — sem o código de verificação a
+  // meta tag correspondente nem é gerada. Pegue o valor em cada ferramenta:
+  // Google Search Console (busca "verificação HTML"), Bing Webmaster Tools.
+  verification: {
+    ...(process.env.GOOGLE_SITE_VERIFICATION && { google: process.env.GOOGLE_SITE_VERIFICATION }),
+    ...(process.env.BING_SITE_VERIFICATION && { other: { "msvalidate.01": process.env.BING_SITE_VERIFICATION } }),
   },
 };
 
@@ -151,10 +178,16 @@ export default function SiteLandingPage() {
                 {CTA.principal}
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </a>
-              <a href={linkWhatsApp()} target="_blank" rel="noreferrer" className="btn btn-secondary justify-center text-base">
+              <TrackedWhatsAppLink
+                href={linkWhatsApp()}
+                target="_blank"
+                rel="noreferrer"
+                local="hero"
+                className="btn btn-secondary justify-center text-base"
+              >
                 <MessageCircle className="h-4 w-4" aria-hidden />
                 {CTA.secundario}
-              </a>
+              </TrackedWhatsAppLink>
             </div>
             <p className="-mt-1 text-sm font-medium text-[var(--color-teal-800)]">{CTA.principalApoio}</p>
 
@@ -416,10 +449,16 @@ export default function SiteLandingPage() {
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
               {FECHAMENTO.garantia}
             </p>
-            <a href={linkWhatsApp()} target="_blank" rel="noreferrer" className="btn btn-secondary w-fit">
+            <TrackedWhatsAppLink
+              href={linkWhatsApp()}
+              target="_blank"
+              rel="noreferrer"
+              local="cta-final"
+              className="btn btn-secondary w-fit"
+            >
               <MessageCircle className="h-4 w-4" aria-hidden />
               Prefiro falar no WhatsApp
-            </a>
+            </TrackedWhatsAppLink>
           </div>
           <LeadForm />
         </div>
@@ -442,10 +481,16 @@ export default function SiteLandingPage() {
 
           <div className="flex flex-col gap-2.5 text-sm text-[var(--color-dark)]">
             <p className="m-0 flex items-center gap-2 font-bold">Contato</p>
-            <a href={linkWhatsApp()} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[var(--text-secondary)] no-underline hover:text-[var(--color-pink)]">
+            <TrackedWhatsAppLink
+              href={linkWhatsApp()}
+              target="_blank"
+              rel="noreferrer"
+              local="rodape"
+              className="flex items-center gap-2 text-[var(--text-secondary)] no-underline hover:text-[var(--color-pink)]"
+            >
               <Phone className="h-4 w-4 shrink-0" aria-hidden />
               {CONTATO.whatsappVisivel}
-            </a>
+            </TrackedWhatsAppLink>
             <a href={`mailto:${CONTATO.email}`} className="flex items-center gap-2 text-[var(--text-secondary)] no-underline hover:text-[var(--color-pink)]">
               <Mail className="h-4 w-4 shrink-0" aria-hidden />
               {CONTATO.email}

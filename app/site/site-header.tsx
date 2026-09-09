@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Menu, X, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { MENU, CTA, linkWhatsApp } from "./content";
+import { trackContactClick } from "./analytics-client";
 
 /**
  * Header fixo da landing. Cliente só por causa do menu mobile (abrir/fechar);
@@ -32,7 +33,13 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <a href={linkWhatsApp()} target="_blank" rel="noreferrer" className="btn btn-secondary !min-h-0 !py-2.5 text-sm">
+          <a
+            href={linkWhatsApp()}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => trackContactClick("whatsapp", "header-desktop")}
+            className="btn btn-secondary !min-h-0 !py-2.5 text-sm"
+          >
             <MessageCircle className="h-4 w-4" aria-hidden />
             {CTA.secundario}
           </a>
@@ -78,7 +85,13 @@ export function SiteHeader() {
             </a>
           ))}
           <div className="mt-2 flex flex-col gap-2">
-            <a href={linkWhatsApp()} target="_blank" rel="noreferrer" className="btn btn-secondary justify-center">
+            <a
+              href={linkWhatsApp()}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => trackContactClick("whatsapp", "header-mobile")}
+              className="btn btn-secondary justify-center"
+            >
               <MessageCircle className="h-4 w-4" aria-hidden />
               {CTA.secundario}
             </a>

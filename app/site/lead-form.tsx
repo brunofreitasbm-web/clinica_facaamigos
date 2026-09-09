@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { CheckCircle2, Loader2, Send } from "lucide-react";
 import { submitLead } from "./actions";
+import { trackLeadSubmitted } from "./analytics-client";
 
 /**
  * Formulário de agendamento (seção "CTA final"). Fica pendurado no fim da
@@ -20,6 +21,7 @@ export function LeadForm({ origem = "cta-final" }: { origem?: string }) {
       const result = await submitLead(formData);
       if (result.success) {
         setEnviado(true);
+        trackLeadSubmitted(origem);
         formRef.current?.reset();
       } else {
         setErro(result.error);
