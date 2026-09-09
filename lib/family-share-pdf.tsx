@@ -1,4 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { LetterheadHeader } from "@/lib/letterhead-pdf";
+import type { ClinicIdentity } from "@/lib/clinic-identity";
 
 /**
  * PDF consolidado que a Supervisão compartilha com a família a partir do
@@ -16,9 +18,7 @@ import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1a1a1a" },
-  header: { marginBottom: 20, borderBottom: "2 solid #1a1a1a", paddingBottom: 10 },
-  clinicName: { fontSize: 16, fontWeight: 700, marginBottom: 2 },
-  title: { fontSize: 12, fontWeight: 700, marginTop: 8 },
+  title: { fontSize: 12, fontWeight: 700, marginTop: 8, marginBottom: 12 },
   row: { flexDirection: "row", marginBottom: 4 },
   label: { fontWeight: 700, width: 130 },
   value: { flex: 1 },
@@ -56,7 +56,7 @@ export type FamilyShareMeetingItem = {
 };
 
 export type FamilyShareReportProps = {
-  clinicName: string;
+  clinic: ClinicIdentity;
   patientName: string;
   generatedByName: string;
   generatedAt: string;
@@ -66,15 +66,13 @@ export type FamilyShareReportProps = {
 };
 
 export function FamilyShareDocument(props: FamilyShareReportProps) {
-  const { clinicName, patientName, generatedByName, generatedAt, documents, goals, meetings } = props;
+  const { clinic, patientName, generatedByName, generatedAt, documents, goals, meetings } = props;
 
   return (
     <Document title={`Compartilhamento com a família — ${patientName}`}>
       <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.clinicName}>{clinicName}</Text>
-          <Text style={styles.title}>Resumo do Acompanhamento — Compartilhado com a Família</Text>
-        </View>
+        <LetterheadHeader clinic={clinic} />
+        <Text style={styles.title}>Resumo do Acompanhamento — Compartilhado com a Família</Text>
 
         <View style={styles.row}>
           <Text style={styles.label}>Paciente</Text>

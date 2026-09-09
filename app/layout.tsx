@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { CLINIC_BRAND, CLINIC_NAME } from "@/lib/clinic-identity";
 import { Nunito, Fredoka } from "next/font/google";
 import { AuthStatus } from "@/components/auth-status";
 import { OfflineBanner } from "@/components/offline-banner";
@@ -18,8 +19,14 @@ const fredoka = Fredoka({
 });
 
 export const metadata: Metadata = {
-  title: "FaçaAmigos — Gestão Clínica",
-  description: "Sistema de gestão da clínica TEA/TDAH FaçaAmigos.",
+  // Aba do navegador mostra só a marca ("FaçaAmigos") — o nome oficial
+  // completo (com "Centro de Terapia Comportamental") fica na description,
+  // que é onde ele aparece como "subtítulo" (prévia de busca/compartilhamento).
+  title: {
+    default: CLINIC_BRAND,
+    template: `%s · ${CLINIC_BRAND}`,
+  },
+  description: `${CLINIC_NAME} — sistema de gestão clínica (TEA/TDAH).`,
 };
 
 export const viewport: Viewport = {

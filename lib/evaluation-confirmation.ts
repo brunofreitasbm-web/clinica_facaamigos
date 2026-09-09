@@ -154,7 +154,7 @@ export async function sendEvaluationConfirmationNotification(
               "3": formattedDate,
               "4": params.time,
               "5": therapistName || "Especialista",
-              "6": "Faça Amigos",
+              "6": "FaçaAmigos",
             },
           }
         : {}),

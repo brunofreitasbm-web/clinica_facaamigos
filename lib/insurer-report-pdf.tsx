@@ -1,4 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { LetterheadHeader, LetterheadFooter } from "@/lib/letterhead-pdf";
+import type { ClinicIdentity } from "@/lib/clinic-identity";
 
 /**
  * Relatório de evolução PARA O CONVÊNIO (§8 Fase 2 do PRD) — diferente do
@@ -16,9 +18,7 @@ import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1a1a1a" },
-  header: { marginBottom: 20, borderBottom: "2 solid #1a1a1a", paddingBottom: 10 },
-  clinicName: { fontSize: 16, fontWeight: 700, marginBottom: 2 },
-  title: { fontSize: 12, fontWeight: 700, marginTop: 8 },
+  title: { fontSize: 12, fontWeight: 700, marginTop: 8, marginBottom: 12 },
   row: { flexDirection: "row", marginBottom: 4 },
   label: { fontWeight: 700, width: 130 },
   value: { flex: 1 },
@@ -27,7 +27,6 @@ const styles = StyleSheet.create({
   goalRow: { marginBottom: 8, paddingBottom: 8, borderBottom: "1 solid #ddd" },
   goalTitle: { fontWeight: 700 },
   goalMeta: { color: "#555", marginTop: 2 },
-  footer: { position: "absolute", bottom: 30, left: 40, right: 40, fontSize: 8, color: "#777", borderTop: "1 solid #ddd", paddingTop: 8 },
 });
 
 const STATUS_LABEL: Record<string, string> = {
@@ -44,7 +43,7 @@ export type InsurerReportGoal = {
 };
 
 export type InsurerReportProps = {
-  clinicName: string;
+  clinic: ClinicIdentity;
   patientName: string;
   birthDate: string;
   cid: string | null;
@@ -59,7 +58,7 @@ export type InsurerReportProps = {
 
 export function InsurerReportDocument(props: InsurerReportProps) {
   const {
-    clinicName,
+    clinic,
     patientName,
     birthDate,
     cid,
@@ -75,10 +74,8 @@ export function InsurerReportDocument(props: InsurerReportProps) {
   return (
     <Document title={`Relatório de evolução — ${patientName}`}>
       <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.clinicName}>{clinicName}</Text>
-          <Text style={styles.title}>Relatório de Evolução Terapêutica</Text>
-        </View>
+        <LetterheadHeader clinic={clinic} />
+        <Text style={styles.title}>Relatório de Evolução Terapêutica</Text>
 
         <View style={styles.row}>
           <Text style={styles.label}>Paciente</Text>
@@ -128,12 +125,12 @@ export function InsurerReportDocument(props: InsurerReportProps) {
           ))}
         </View>
 
-        <View style={styles.footer}>
-          <Text>
-            Gerado por {generatedByName} em {generatedAt}. Documento técnico para fins de
-            justificativa de cobertura junto ao convênio.
-          </Text>
-        </View>
+        <Text style={{ marginTop: 16, fontSize: 8, color: "#777" }}>
+          Gerado por {generatedByName} em {generatedAt}. Documento técnico para fins de
+          justificativa de cobertura junto ao convênio.
+        </Text>
+
+        <LetterheadFooter clinic={clinic} />
       </Page>
     </Document>
   );

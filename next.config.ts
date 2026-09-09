@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
+  // Sem isso, o Turbopack sobe a árvore de pastas até achar um lockfile e
+  // encontra C:\Users\bruno\package-lock.json (alheio a este projeto),
+  // adota a pasta do usuário como raiz do workspace e passa a enxergar
+  // `pages`/`app` de outras pastas por baixo dela — quebra build/dev com
+  // "`pages` and `app` directories should be under the same folder".
+  turbopack: {
+    root: path.join(__dirname),
+  },
   experimental: {
     // Evolução clínica precisa sobreviver a queda de conexão em atendimento
     // (PRD §6/§9.4): com isso, Server Actions em andamento (ex.: assinar

@@ -1,5 +1,5 @@
 // Mapeamento único de appointments.status -> rótulo/cor do design system
-// (Broadsheet/Instituto Faça Amigos). Reaproveitado por qualquer tela que
+// (Broadsheet/FaçaAmigos). Reaproveitado por qualquer tela que
 // precise pintar sessões pelo status: ficha do paciente, agenda, faturamento.
 export const APPOINTMENT_STATUS_STYLE: Record<
   string,

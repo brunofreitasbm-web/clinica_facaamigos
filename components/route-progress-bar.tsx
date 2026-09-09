@@ -2,16 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { CenterLoader } from "@/components/center-loader";
 
 export function RouteProgressBar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
 
   useEffect(() => {
     // When path or query params change, hide progress bar
     queueMicrotask(() => setLoading(false));
+    setShowOverlay(false);
   }, [pathname, searchParams]);
+
+  useEffect(() => {
+    if (!loading) return;
+    // Só exibe o overlay central se a navegação demorar — evita "flash" em trocas instantâneas.
+    const timer = setTimeout(() => setShowOverlay(true), 220);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   useEffect(() => {
     const handleAnchorClick = (e: MouseEvent) => {
@@ -45,5 +55,10 @@ export function RouteProgressBar() {
 
   if (!loading) return null;
 
-  return <div className="route-progress-bar" aria-hidden="true" />;
+  return (
+    <>
+      <div className="route-progress-bar" aria-hidden="true" />
+      {showOverlay && <CenterLoader overlay label="Carregando página..." />}
+    </>
+  );
 }

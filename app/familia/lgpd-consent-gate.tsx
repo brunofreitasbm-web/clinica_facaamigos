@@ -33,7 +33,7 @@ export function LgpdConsentGate() {
         </h3>
         <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--color-neutral-700)" }}>
           <p>
-            A Faça Amigos trata os dados do seu filho(a) e seus dados de contato exclusivamente
+            A FaçaAmigos trata os dados do seu filho(a) e seus dados de contato exclusivamente
             para prestação do atendimento clínico, comunicação sobre sessões e emissão de
             documentos, conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018).
           </p>

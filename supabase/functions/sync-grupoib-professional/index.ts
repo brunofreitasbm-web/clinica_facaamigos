@@ -14,7 +14,7 @@ const WEBHOOK_SECRET = Deno.env.get("GRUPOIB_WEBHOOK_SECRET")!;
 // continua funcionando normalmente — so o e-mail e pulado (e registrado no
 // audit_log), pra um secret faltando nunca derrubar o sync.
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const RESEND_FROM = Deno.env.get("RESEND_FROM") ?? "Clinica FacaAmigos <nao-responda@facaamigos.com.br>";
+const RESEND_FROM = Deno.env.get("RESEND_FROM") ?? "FacaAmigos <nao-responda@facaamigos.com.br>";
 const APP_LOGIN_URL = Deno.env.get("APP_LOGIN_URL") ?? "https://app.facaamigos.com.br/login";
 const SUPPORT_CONTACT = Deno.env.get("SUPPORT_CONTACT") ?? "a recepcao da clinica";
 
@@ -191,8 +191,8 @@ function buildAccessEmail(params: { name: string; login: string; variant: Access
   const isNew = params.variant.kind === "new_account";
 
   const subject = isNew
-    ? "Seu acesso ao sistema da Clínica FaçaAmigos"
-    : "Seu acesso ao sistema da Clínica FaçaAmigos foi liberado";
+    ? "Seu acesso ao sistema da FaçaAmigos - Centro de Terapia Comportamental"
+    : "Seu acesso ao sistema da FaçaAmigos - Centro de Terapia Comportamental foi liberado";
 
   const credentialsHtml = isNew
     ? `<p style="margin:0 0 8px"><strong>Login:</strong> ${escapeHtml(params.login)}</p>
@@ -207,7 +207,7 @@ function buildAccessEmail(params: { name: string; login: string; variant: Access
   const html = `<!doctype html>
 <html lang="pt-BR"><body style="margin:0;background:#f7f5f2;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937">
   <div style="max-width:520px;margin:0 auto;padding:32px 24px">
-    <h1 style="font-size:20px;margin:0 0 16px;color:#f0196b">Clínica FaçaAmigos</h1>
+    <h1 style="font-size:20px;margin:0 0 16px;color:#f0196b">FaçaAmigos - Centro de Terapia Comportamental</h1>
     <p style="margin:0 0 16px">${escapeHtml(greeting)}</p>
     <p style="margin:0 0 16px">Seu cadastro chegou do sistema de gestão de pessoas do Grupo IB e sua conta no sistema da clínica já está pronta.</p>
     <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 16px">
@@ -228,10 +228,10 @@ function buildAccessEmail(params: { name: string; login: string; variant: Access
 </body></html>`;
 
   const text = isNew
-    ? `${greeting}\n\nSeu cadastro chegou do sistema de gestão de pessoas do Grupo IB e sua conta no sistema da Clínica FaçaAmigos já está pronta.\n\nLogin: ${params.login}\nSenha inicial: ${
+    ? `${greeting}\n\nSeu cadastro chegou do sistema de gestão de pessoas do Grupo IB e sua conta no sistema da FaçaAmigos - Centro de Terapia Comportamental já está pronta.\n\nLogin: ${params.login}\nSenha inicial: ${
       (params.variant as { password: string }).password
     }\n\nAcesse: ${APP_LOGIN_URL}\n\nPor segurança, o sistema vai pedir que você troque essa senha no primeiro login. Não compartilhe estas credenciais com ninguém.\n\nDúvidas? Fale com ${SUPPORT_CONTACT}. Mensagem automática — não responda.`
-    : `${greeting}\n\nSeu acesso ao sistema da Clínica FaçaAmigos foi liberado.\n\nLogin: ${params.login}\nUse a mesma senha que você já utiliza com este e-mail. Se não lembrar, fale com ${SUPPORT_CONTACT}.\n\nAcesse: ${APP_LOGIN_URL}\n\nMensagem automática — não responda.`;
+    : `${greeting}\n\nSeu acesso ao sistema da FaçaAmigos - Centro de Terapia Comportamental foi liberado.\n\nLogin: ${params.login}\nUse a mesma senha que você já utiliza com este e-mail. Se não lembrar, fale com ${SUPPORT_CONTACT}.\n\nAcesse: ${APP_LOGIN_URL}\n\nMensagem automática — não responda.`;
 
   return { subject, html, text };
 }

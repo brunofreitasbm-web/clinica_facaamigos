@@ -1,5 +1,5 @@
-import { ModuleSkeleton } from "@/components/module-skeleton";
+import { AnimatedLogoLoader } from "@/components/ui/animated-logo-loader";
 
 export default function Loading() {
-  return <ModuleSkeleton title="Carregando módulo..." subtitle="Aguarde enquanto os dados são carregados" />;
+  return <AnimatedLogoLoader />;
 }

@@ -4,8 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { PayoutStatementModal } from "@/components/payout-statement";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getMyContract, getMyPayoutHistory, getMyPayoutStatement } from "./data";
+import { CLINIC_SUPPORT_EMAIL } from "@/lib/clinic-identity";
 
-const SUPPORT_EMAIL = "contato@clinicafacaamigos.com.br";
+const SUPPORT_EMAIL = CLINIC_SUPPORT_EMAIL;
 
 export const dynamic = "force-dynamic";
 

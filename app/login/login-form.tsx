@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { Loader2 } from "lucide-react";
 import { signIn } from "./actions";
 import { requestFamilyOtp, verifyFamilyOtp } from "./otp-actions";
 
@@ -165,8 +166,9 @@ export function LoginForm() {
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50 transition-opacity"
+            className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
           >
+            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {isPending ? "Entrando…" : "Entrar com e-mail"}
           </button>
 
@@ -205,6 +207,7 @@ export function LoginForm() {
                 disabled={isPending || phone.replace(/\D/g, "").length < 10}
                 className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
               >
+                {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {isPending ? "Verificando cadastro…" : "Receber Código de Acesso"}
               </button>
 
@@ -276,6 +279,7 @@ export function LoginForm() {
                 disabled={isPending || otpCode.length !== 6 || (requiresCpf && cpf.replace(/\D/g, "").length !== 11)}
                 className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
               >
+                {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {isPending ? "Validando…" : "Confirmar e Entrar"}
               </button>
 

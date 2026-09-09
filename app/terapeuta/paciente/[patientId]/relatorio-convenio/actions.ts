@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { InsurerReportDocument } from "@/lib/insurer-report-pdf";
+import { getClinicIdentity } from "@/lib/clinic-identity";
 
 type GenerateResult = { success: true; documentId: string } | { success: false; error: string };
 
@@ -41,7 +42,7 @@ export async function generateInsurerReport(
     .maybeSingle();
   if (!patient) return { success: false, error: "Paciente não encontrado." };
 
-  const { data: clinic } = await supabase.from("clinics").select("name").eq("id", patient.clinic_id).maybeSingle();
+  const clinic = await getClinicIdentity(supabase, patient.clinic_id);
 
   const { data: generator } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
 
@@ -84,7 +85,7 @@ export async function generateInsurerReport(
 
     const pdfRenderPromise = renderToBuffer(
       InsurerReportDocument({
-        clinicName: clinic?.name ?? "Clínica",
+        clinic,
         patientName: patient.full_name,
         birthDate: fmtDate(patient.birth_date),
         cid: patient.cid,

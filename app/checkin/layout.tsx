@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { CLINIC_BRAND } from "@/lib/clinic-identity";
 
 /**
  * Layout isolado da tela pública de check-in: sem RecepcaoNav, sem nada que
@@ -7,7 +8,7 @@ import type { Metadata, Viewport } from "next";
  * (é um quiosque, não uma página de navegação livre).
  */
 export const metadata: Metadata = {
-  title: "Check-in — FaçaAmigos",
+  title: `Check-in · ${CLINIC_BRAND}`,
   description: "Registre sua chegada na clínica.",
 };
 

@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { Logo } from "@/components/brand/logo";
+import type { ClinicIdentity } from "@/lib/clinic-identity";
 
 export type ConflictStatus =
   | "OK"
@@ -107,9 +109,7 @@ export type PTSPrintableCalendarProps = {
   startDate: string;
   validUntil: string;
   sessions: CalendarSessionEvent[];
-  clinicName?: string;
-  clinicAddress?: string;
-  clinicCnpj?: string;
+  clinic: ClinicIdentity;
   onClose?: () => void;
 };
 
@@ -121,9 +121,7 @@ export function PTSPrintableCalendar({
   startDate,
   validUntil,
   sessions,
-  clinicName = "Clínica de Desenvolvimento Infantil",
-  clinicAddress = "Unidade Central - Atendimento Multidisciplinar",
-  clinicCnpj = "12.345.678/0001-90",
+  clinic,
   onClose,
 }: PTSPrintableCalendarProps) {
   const currentDate = React.useMemo(() => new Date(), []);
@@ -260,9 +258,12 @@ export function PTSPrintableCalendar({
         {/* Timbre da Clínica */}
         <div className="border-b-2 border-indigo-600 pb-6 mb-6 flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-indigo-950 uppercase tracking-wide">{clinicName}</h1>
-            <p className="text-xs text-slate-600 font-medium">{clinicAddress}</p>
-            <p className="text-xs text-slate-500">CNPJ: {clinicCnpj}</p>
+            <Logo variant="horizontal-compacto" height={32} className="mb-2" />
+            {clinic.razaoSocial && clinic.razaoSocial !== clinic.nomeFantasia && (
+              <p className="text-xs text-slate-600 font-medium">{clinic.razaoSocial}</p>
+            )}
+            {clinic.endereco && <p className="text-xs text-slate-600">{clinic.endereco}</p>}
+            {clinic.cnpj && <p className="text-xs text-slate-500">CNPJ: {clinic.cnpj}</p>}
           </div>
           <div className="text-right">
             <span className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-md border border-indigo-200 uppercase tracking-wider">

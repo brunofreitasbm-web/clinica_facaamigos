@@ -1,9 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import { AnamneseForm } from "./anamnese-form";
+import { CLINIC_BRAND } from "@/lib/clinic-identity";
 
 export const metadata = {
-  title: "Formulário de Anamnese | Faça Amigos",
+  title: `Formulário de Anamnese · ${CLINIC_BRAND}`,
 };
 
 export default async function AnamnesePage({ params }: { params: { patientId: string } }) {

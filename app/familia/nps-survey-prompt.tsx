@@ -34,7 +34,7 @@ export function NpsSurveyPrompt({ surveyId, triggerType }: { surveyId: string; t
         <h6 style={{ color: "var(--color-accent-2-600)" }}>Pesquisa de satisfação</h6>
         <p className="text-sm text-ink-soft">
           {isMensal
-            ? "Numa escala de 0 a 10, o quanto você recomendaria a Clínica Faça Amigos para outra família?"
+            ? "Numa escala de 0 a 10, o quanto você recomendaria a FaçaAmigos - Centro de Terapia Comportamental para outra família?"
             : "Como foi seu atendimento com a equipe de supervisão? Dê uma nota de 1 (Insatisfeito) a 5 (Excelente)."}
         </p>
       </div>

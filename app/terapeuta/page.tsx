@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
 import { TodaySessionsList } from "./today-sessions-list";
+import { Logo } from "@/components/brand/logo";
 
 function capitalize(s: string): string {
   return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s;
@@ -138,16 +139,9 @@ export default async function TerapeutaPage({
         className="flex flex-col gap-3.5 px-5 pb-5 pt-7 sm:px-10"
       >
         <div className="flex items-center gap-2.5">
-          <svg width="24" height="24" viewBox="0 0 100 100" fill="none" aria-hidden>
-            <path d="M22 18h34v10H33v18h20v10H33v26H22z" fill="var(--color-bg)" />
-            <path
-              d="M46 82 L64 26 h6 L88 82 h-9 l-4-13 H59 L55 82Z M61.5 61h11L67 42z"
-              fill="var(--color-accent-2)"
-            />
-            <circle cx="33" cy="52.5" r="4.2" fill="var(--color-accent-2)" />
-          </svg>
+          <Logo variant="simbolo" tone="branco" height={24} decorative />
           <span style={{ fontFamily: "var(--font-heading)" }} className="text-[15px] font-semibold">
-            Faça Amigos{" "}
+            FaçaAmigos{" "}
             <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">
               · Terapeuta
             </span>

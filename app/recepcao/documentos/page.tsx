@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, DEV_RECEPTION_PROFILE_ID } from "@/lib/constants";
-import { DocumentosManager, type PatientOption } from "./documentos-manager";
+import { getClinicIdentity } from "@/lib/clinic-identity";
+import { DocumentosManager, type ClinicInfo, type PatientOption } from "./documentos-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,19 @@ export default async function DocumentosRecepcaoPage() {
     .eq("id", DEV_RECEPTION_PROFILE_ID)
     .maybeSingle();
 
+  // Dados institucionais reais (app/gestor/configuracoes/dados-da-clinica) —
+  // documento impresso não pode sair com endereço/CNPJ inventado, então só
+  // preenche o que a clínica cadastrou; o resto fica em branco no timbre.
+  const clinic = await getClinicIdentity(supabase, DEV_CLINIC_ID);
+  const clinicInfo: ClinicInfo = {
+    nomeFantasia: clinic.nomeFantasia,
+    razaoSocial: clinic.razaoSocial ?? "",
+    cnpj: clinic.cnpj ?? "",
+    telefone: clinic.telefone ?? "",
+    email: clinic.email ?? "",
+    endereco: clinic.endereco ?? "",
+  };
+
   const patients: PatientOption[] = (rawPatients ?? []).map((p) => {
     const guardian = guardianByPatient.get(p.id);
     return {
@@ -80,6 +94,7 @@ export default async function DocumentosRecepcaoPage() {
             }
           : null
       }
+      clinicInfo={clinicInfo}
     />
   );
 }

@@ -102,12 +102,12 @@ export async function requestFamilyOtp(
   }
 
   if (isTwilioConfigured()) {
-    const messageText = `Seu código de acesso ao Portal da Família Faça Amigos é: ${code}\n\nEle expira em 5 minutos. Não compartilhe este código.`;
+    const messageText = `Seu código de acesso ao Portal da Família FaçaAmigos é: ${code}\n\nEle expira em 5 minutos. Não compartilhe este código.`;
     const contentSid = getTwilioContentSidForCategory("otp");
     await sendTwilioSMS({ 
       to: digits, 
       message: messageText,
-      ...(contentSid ? { contentSid, contentVariables: { "1": "Faça Amigos", "2": code } } : {})
+      ...(contentSid ? { contentSid, contentVariables: { "1": "FaçaAmigos", "2": code } } : {})
     });
   }
 

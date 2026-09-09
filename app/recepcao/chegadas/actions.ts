@@ -5,8 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
 import { checkIn, undoAutoFalta } from "@/app/recepcao/agenda/session-actions";
+import type { CouponModel } from "@/lib/checkin-coupon";
 
-type ActionResult = { success: true; warning?: string } | { success: false; error: string };
+type ActionResult =
+  | { success: true; warning?: string; coupon?: CouponModel | null }
+  | { success: false; error: string };
 
 const SESSION_EXPIRED_ERROR: ActionResult = {
   success: false,

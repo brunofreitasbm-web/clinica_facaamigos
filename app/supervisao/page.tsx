@@ -256,9 +256,11 @@ export default async function SupervisaoPage() {
     const patient = Array.isArray(m.patients) ? m.patients[0] : m.patients;
     return {
       id: m.id,
-      // canal 'portal' (filtro da query acima) é sempre de um paciente com
-      // portal — patient_id só é nulo em mensagens de lead do WhatsApp.
-      patientId: m.patient_id!,
+      // Normalmente canal 'portal' é sempre de paciente cadastrado — a
+      // exceção é o aviso de pedido de relatório vindo do bot de WhatsApp
+      // (template_key='relatorio_solicitado', lib/twilio-faq-bot.ts), que
+      // pode chegar de um lead sem cadastro ainda.
+      patientId: m.patient_id,
       guardianId: m.guardian_id,
       patientName: patient?.full_name ?? "—",
       body: m.body ?? "",

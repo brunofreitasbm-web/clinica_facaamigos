@@ -14,6 +14,8 @@ import {
   FileCheck,
   Sparkles,
 } from "lucide-react";
+import { CLINIC_BRAND, CLINIC_NAME, CLINIC_SUPPORT_EMAIL, CLINIC_TAGLINE } from "@/lib/clinic-identity";
+import { Logo } from "@/components/brand/logo";
 
 export interface PatientOption {
   id: string;
@@ -40,13 +42,21 @@ export interface ClinicInfo {
   endereco: string;
 }
 
+// Documento oficial impresso não pode sair com CNPJ/endereço inventado —
+// este fallback só cobre nome e e-mail (fixos, corretos independente de
+// cadastro); os campos institucionais ficam vazios até a clínica preencher
+// app/gestor/configuracoes/dados-da-clinica. Ver page.tsx: em produção
+// `clinicInfo` sempre vem de `getClinicIdentity`, então isto só entra em
+// jogo se o componente for usado sem esse prop.
 const DEFAULT_CLINIC: ClinicInfo = {
-  nomeFantasia: "Clínica Faça Amigos",
-  razaoSocial: "Clínica TEA & TDAH Integrada Ltda",
-  cnpj: "12.345.678/0001-90",
-  telefone: "(11) 98765-4321",
-  email: "contato@clinicafacaamigos.com.br",
-  endereco: "Av. Paulista, 1000, Cj. 501 - Bela Vista, São Paulo/SP",
+  // Só a marca — a assinatura "Centro de Terapia Comportamental" já sai
+  // como linha separada logo abaixo (ver <CLINIC_TAGLINE/> no timbre).
+  nomeFantasia: CLINIC_BRAND,
+  razaoSocial: "",
+  cnpj: "",
+  telefone: "",
+  email: CLINIC_SUPPORT_EMAIL,
+  endereco: "",
 };
 
 export type DocumentType =
@@ -163,7 +173,7 @@ export function DocumentosManager({
   const [purpose, setPurpose] = useState<string>(activeTemplate.defaultPurpose);
   const [validity, setValidity] = useState<string>(activeTemplate.defaultValidity);
   const [receptionistName, setReceptionistName] = useState<string>(
-    currentProfile?.fullName || "Recepção Faça Amigos",
+    currentProfile?.fullName || "Recepção FaçaAmigos",
   );
   const [disciplinesText, setDisciplinesText] = useState<string>(
     "Psicologia ABA, Terapia Ocupacional e Fonoaudiologia",
@@ -695,25 +705,28 @@ export function DocumentosManager({
               <div>
                 <div className="border-b-2 border-pink-600 pb-6 flex items-start justify-between gap-6">
                   <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 rounded-2xl bg-pink-600 text-white font-extrabold text-2xl flex items-center justify-center shrink-0 shadow-md shadow-pink-200">
-                      FA
-                    </div>
+                    <Logo variant="simbolo" height={56} className="shrink-0" decorative />
                     <div>
-                      <h3 className="text-xl font-black text-gray-900 tracking-tight">
+                      <h3 className="text-xl font-black text-gray-900 tracking-tight leading-tight">
                         {clinicInfo.nomeFantasia}
                       </h3>
-                      <p className="text-xs font-semibold text-pink-700">
-                        {clinicInfo.razaoSocial}
+                      <p className="text-xs font-semibold uppercase tracking-wide text-pink-700">
+                        {CLINIC_TAGLINE}
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        CNPJ: {clinicInfo.cnpj}
-                      </p>
+                      {clinicInfo.razaoSocial && clinicInfo.razaoSocial !== clinicInfo.nomeFantasia && (
+                        <p className="text-xs text-gray-500 mt-0.5">{clinicInfo.razaoSocial}</p>
+                      )}
+                      {clinicInfo.cnpj && (
+                        <p className="text-xs text-gray-500 mt-0.5">CNPJ: {clinicInfo.cnpj}</p>
+                      )}
                     </div>
                   </div>
                   <div className="text-right text-xs text-gray-600 leading-relaxed font-medium">
-                    <p className="font-semibold text-gray-800">{clinicInfo.endereco}</p>
-                    <p>Tel: {clinicInfo.telefone}</p>
-                    <p>E-mail: {clinicInfo.email}</p>
+                    {clinicInfo.endereco && (
+                      <p className="font-semibold text-gray-800">{clinicInfo.endereco}</p>
+                    )}
+                    {clinicInfo.telefone && <p>Tel: {clinicInfo.telefone}</p>}
+                    {clinicInfo.email && <p>E-mail: {clinicInfo.email}</p>}
                   </div>
                 </div>
 
@@ -938,7 +951,7 @@ export function DocumentosManager({
 
                 {/* Rodapé de Validade e Autenticidade */}
                 <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
-                  <span>Documento gerado pelo Sistema de Gestão Clínica Faça Amigos</span>
+                  <span>Documento gerado pelo Sistema de Gestão {CLINIC_NAME}</span>
                   <span>Validade: {validity}</span>
                 </div>
               </div>

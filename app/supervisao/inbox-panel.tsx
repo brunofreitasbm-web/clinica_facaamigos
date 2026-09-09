@@ -7,7 +7,9 @@ import { NpsAlertsPanel, type NpsAlertRow } from "./nps-alerts-panel";
 
 export type InboxMessageRow = {
   id: string;
-  patientId: string;
+  /** Nulo no aviso de pedido de relatório (lib/twilio-faq-bot.ts) quando o
+   * bot não conseguiu localizar o cadastro pelo nome informado no WhatsApp. */
+  patientId: string | null;
   guardianId: string | null;
   patientName: string;
   body: string;
@@ -223,10 +225,10 @@ export function InboxPanel({
   }
 
   function handleReply() {
-    if (!selected) return;
+    if (!selected || !selected.patientId) return;
     setError(null);
     startTransition(async () => {
-      const result = await sendReply(selected.id, selected.patientId, selected.guardianId, reply);
+      const result = await sendReply(selected.id, selected.patientId!, selected.guardianId, reply);
       if (!result.success) {
         setError(result.error);
         return;
@@ -333,19 +335,28 @@ export function InboxPanel({
               >
                 {selected.body}
               </div>
-              <div className="field mb-3">
-                <label>Responder</label>
-                <textarea
-                  className="input"
-                  placeholder="Escreva a resposta…"
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                  disabled={isPending}
-                />
-              </div>
-              <button type="button" className="btn btn-secondary" disabled={isPending || !reply.trim()} onClick={handleReply}>
-                Enviar resposta
-              </button>
+              {selected.patientId ? (
+                <>
+                  <div className="field mb-3">
+                    <label>Responder</label>
+                    <textarea
+                      className="input"
+                      placeholder="Escreva a resposta…"
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      disabled={isPending}
+                    />
+                  </div>
+                  <button type="button" className="btn btn-secondary" disabled={isPending || !reply.trim()} onClick={handleReply}>
+                    Enviar resposta
+                  </button>
+                </>
+              ) : (
+                <p className="text-xs text-ink-faint">
+                  Sem cadastro vinculado — a família falou pelo WhatsApp. Responda pela{" "}
+                  <a href="/recepcao/atendimento">Central de Atendimento</a>.
+                </p>
+              )}
             </>
           )}
         </div>

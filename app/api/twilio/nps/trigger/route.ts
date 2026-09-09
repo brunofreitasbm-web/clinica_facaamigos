@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
             contentVariables: {
               "1": "Responsável",
               "2": "Paciente",
-              "3": "Faça Amigos",
+              "3": "FaçaAmigos",
               "4": `${clinicUrl}/familia/pesquisa`
             }
           } : {})

@@ -17,21 +17,13 @@ import { UploadDocument } from "./upload-document";
 import { LgpdConsentGate } from "./lgpd-consent-gate";
 import { ImageConsentToggle } from "./image-consent-toggle";
 import { FAMILY_GUIDANCE_LABEL } from "@/lib/session-note-fields";
+import { Logo } from "@/components/brand/logo";
 
 export const dynamic = "force-dynamic";
 
 const WEEKDAY_ABBR = ["Seg", "Ter", "Qua", "Qui", "Sex"];
 
-const LOGO = (
-  <svg width="24" height="24" viewBox="0 0 100 100" aria-hidden>
-    <path d="M22 18h34v10H33v18h20v10H33v26H22z" fill="var(--color-paper)" />
-    <path
-      d="M46 82 L64 26 h6 L88 82 h-9 l-4-13 H59 L55 82Z M61.5 61h11L67 42z"
-      fill="var(--color-accent-2)"
-    />
-    <circle cx="33" cy="52.5" r="4.2" fill="var(--color-accent-2)" />
-  </svg>
-);
+const LOGO = <Logo variant="simbolo" tone="branco" height={24} decorative />;
 
 function fmtTime(iso: string) {
   if (!iso) return "—";
@@ -435,7 +427,7 @@ export default async function FamiliaPage({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {LOGO}
           <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 15 }}>
-            Faça Amigos <span style={{ color: "var(--color-yellow)", fontStyle: "italic" }}>· Família</span>
+            FaçaAmigos <span style={{ color: "var(--color-yellow)", fontStyle: "italic" }}>· Família</span>
           </span>
         </div>
         <div>
@@ -826,8 +818,8 @@ export default async function FamiliaPage({
                 const label = !isFromCoordination
                   ? "👤 Sua mensagem enviada"
                   : isBot
-                    ? "🤖 Assistente virtual Faça Amigos"
-                    : "💬 Resposta da Coordenação Faça Amigos";
+                    ? "🤖 Assistente virtual FaçaAmigos"
+                    : "💬 Resposta da Coordenação FaçaAmigos";
                 return (
                   <div
                     key={msg.id}

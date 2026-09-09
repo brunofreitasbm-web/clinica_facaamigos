@@ -415,15 +415,19 @@ export async function handleTwilioIncomingMessage(params: {
   // mensagens não eram persistidas e a recepção nunca via quem procurou a
   // clínica.
   let conversationId: string | null = null;
+  let patientId: string | null = null;
+  let guardianId: string | null = null;
 
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
 
     const resolved = await resolvePatientFromPhone(phone);
+    patientId = resolved?.patientId ?? null;
+    guardianId = resolved?.guardianId ?? null;
     const conversation = await findOrCreateConversation({
       phoneNumber: phone,
-      patientId: resolved?.patientId ?? null,
+      patientId,
       guardianId: resolved?.guardianId,
     });
     conversationId = conversation.id;
@@ -561,7 +565,7 @@ export async function handleTwilioIncomingMessage(params: {
   // não recebia histórico, então cada mensagem era tratada isoladamente.
   try {
     const { processFaqBotStep } = await import("./twilio-faq-bot");
-    const faqResult = await processFaqBotStep({ phone, body, conversationId });
+    const faqResult = await processFaqBotStep({ phone, body, conversationId, patientId, guardianId });
     if (faqResult.handled) {
       return { intent: faqResult.intent, replyMessage: faqResult.replyMessage };
     }

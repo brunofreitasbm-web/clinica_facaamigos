@@ -106,7 +106,7 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
 }
 
 function buildSystemInstruction(knowledge: string): string {
-  return `Você é a assistente virtual do Instituto Faça Amigos, uma clínica de desenvolvimento infantil multidisciplinar (TEA, fala, questões sensoriais e de aprendizagem). Você conversa por WhatsApp com pais e responsáveis.
+  return `Você é a assistente virtual do FaçaAmigos - Centro de Terapia Comportamental, uma clínica de desenvolvimento infantil multidisciplinar (TEA, fala, questões sensoriais e de aprendizagem). Você conversa por WhatsApp com pais e responsáveis.
 
 ${knowledge}
 
@@ -124,19 +124,21 @@ Isso não é uma dúvida que você responde — é um pedido que a recepção va
 1. Ao identificar esse pedido, NÃO escale na primeira mensagem. Pergunte em UMA única mensagem organizada (não escale ainda) o que ainda não foi dito no histórico: nome completo da criança/paciente, convênio ou plano de saúde (ou "particular"), qual documento é necessário, e o nome do terapeuta responsável (se a pessoa souber).
 2. Se a resposta vier incompleta, pergunte só o que falta — no máximo mais uma vez; não insista além disso.
 3. Depois de reunir o que for possível (mesmo incompleto), ESCALE (escalar=true, motivo="relatorio") e no campo "resposta" faça um resumo curto do que foi coletado, para a equipe ler direto sem precisar rolar a conversa. Exemplo: "Perfeito, já anotei! 💛 Vou repassar pra equipe: *Criança:* Maria Silva · *Plano:* Unimed · *Documento:* declaração de comparecimento · *Terapeuta:* Dra. Ana. Só um momento que já te retornam por aqui."
+4. Junto com o "escalar=true, motivo=relatorio", preencha TAMBÉM o campo "relatorio_dados" com o que foi coletado (use null no que não foi informado) — é esse campo, não o texto da "resposta", que vira o aviso de pendência para o Supervisor providenciar junto ao terapeuta correspondente.
 
 QUANDO ESCALAR (escalar = true):
 - "fora_da_base": a informação pedida não está acima (ou está como ⚠️ TODO).
 - "clinico": pergunta sobre sintoma, diagnóstico, evolução ou conduta da criança.
 - "pediu_humano": a pessoa pediu para falar com alguém, reclamou ou está claramente insatisfeita.
 - "relatorio": pedido de relatório/documento, DEPOIS de reunir os dados acima — nunca na primeira mensagem do pedido.
-Ao escalar por "fora_da_base", "clinico" ou "pediu_humano", o campo "resposta" deve apenas acolher e avisar que a equipe foi chamada, sem tentar responder a dúvida. Ao escalar por "relatorio", o campo "resposta" traz o resumo coletado (regra 3 acima).
+Ao escalar por "fora_da_base", "clinico" ou "pediu_humano", o campo "resposta" deve apenas acolher e avisar que a equipe foi chamada, sem tentar responder a dúvida. Ao escalar por "relatorio", o campo "resposta" traz o resumo coletado (regra 3 acima) e "relatorio_dados" traz os mesmos dados de forma estruturada.
 
 Responda SEMPRE em JSON válido, exatamente neste formato:
-{"resposta": "texto para enviar no WhatsApp", "escalar": false, "motivo": null, "intent": "planos"}
+{"resposta": "texto para enviar no WhatsApp", "escalar": false, "motivo": null, "intent": "planos", "relatorio_dados": null}
 
 "motivo" é null quando escalar for false, senão um de: "fora_da_base", "clinico", "pediu_humano", "relatorio".
-"intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "relatorio", "outro".`;
+"intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "relatorio", "outro".
+"relatorio_dados" é null exceto quando motivo="relatorio", caso em que é um objeto {"crianca": string ou null, "plano": string ou null, "documento": string ou null, "terapeuta": string ou null}.`;
 }
 
 /** O Gemini às vezes devolve o JSON embrulhado em cerca de código mesmo em
@@ -150,11 +152,19 @@ function stripCodeFence(raw: string): string {
     .trim();
 }
 
+type ReportRequestData = {
+  crianca?: string | null;
+  plano?: string | null;
+  documento?: string | null;
+  terapeuta?: string | null;
+};
+
 type FaqModelOutput = {
   resposta?: string;
   escalar?: boolean;
   motivo?: string | null;
   intent?: string;
+  relatorio_dados?: ReportRequestData | null;
 };
 
 async function loadHistory(conversationId: string): Promise<Array<{ role: "user" | "model"; content: string }>> {
@@ -213,6 +223,99 @@ async function reserveDailyQuota(phone: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * Tenta achar o paciente pelo nome que a família deu no WhatsApp. Best-effort:
+ * não existe (e não deveria existir) confirmação automática de identidade por
+ * nome livre — se der ambíguo ou não achar, a pendência segue sem
+ * `patient_id` e quem vê na Central de Atendimento confirma o nome com a
+ * família antes de prosseguir.
+ */
+async function tryResolvePatientByName(clinicId: string, childName: string): Promise<string | null> {
+  const name = childName.trim();
+  if (name.length < 3) return null;
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  const { data } = await supabase
+    .from("patients")
+    .select("id")
+    .eq("clinic_id", clinicId)
+    .ilike("full_name", `%${name}%`)
+    .limit(2);
+
+  // Mais de um resultado = nome comum demais pra resolver sem ambiguidade;
+  // melhor deixar em branco do que arriscar linkar no paciente errado.
+  if (!data || data.length !== 1) return null;
+  return data[0].id;
+}
+
+/**
+ * Captura o pedido de relatório/documento e emite o aviso de pendência para o
+ * Supervisor providenciar junto ao terapeuta correspondente — mesmo mecanismo
+ * já usado pelo botão de PTS em falta (components/prontuario/notify-pts-actions.ts):
+ * uma linha em `messages` com `channel='portal'`, que aparece na Caixa de
+ * entrada de /supervisao e é resolvida com "Marcar resolvido".
+ */
+async function notifySupervisorReportRequest(params: {
+  conversationId: string | null;
+  patientId: string | null;
+  guardianId: string | null;
+  dados: ReportRequestData;
+}): Promise<void> {
+  const { conversationId, guardianId, dados } = params;
+  let patientId = params.patientId;
+
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+
+    // Idempotência: se já existe um aviso não lido para esta mesma conversa,
+    // não duplica (a pessoa pode mandar mais de uma mensagem até o modelo
+    // decidir escalar).
+    if (conversationId) {
+      const { data: existing } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("conversation_id", conversationId)
+        .eq("template_key", "relatorio_solicitado")
+        .is("read_at", null)
+        .maybeSingle();
+      if (existing) return;
+    }
+
+    if (!patientId && dados.crianca) {
+      patientId = await tryResolvePatientByName(DEV_CLINIC_ID, dados.crianca);
+    }
+
+    const lines = [
+      "📋 [PEDIDO DE RELATÓRIO/DOCUMENTO — via WhatsApp]",
+      `Criança/paciente: ${dados.crianca ?? "não informado"}`,
+      `Convênio/plano: ${dados.plano ?? "não informado"}`,
+      `Documento solicitado: ${dados.documento ?? "não informado"}`,
+      `Terapeuta indicado pela família: ${dados.terapeuta ?? "não informado"}`,
+      "",
+      patientId
+        ? "Cadastro localizado automaticamente pelo nome informado — confira antes de prosseguir."
+        : "⚠️ Não foi possível localizar o cadastro automaticamente pelo nome informado — confirme com a família antes de providenciar.",
+      "Providencie junto ao terapeuta responsável e retorne a família pelo WhatsApp (Central de Atendimento).",
+    ];
+
+    await supabase.from("messages").insert({
+      patient_id: patientId,
+      guardian_id: guardianId,
+      conversation_id: conversationId,
+      channel: "portal",
+      direction: "inbound",
+      template_key: "relatorio_solicitado",
+      body: lines.join("\n"),
+      sent_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("[Twilio FAQ Bot] Falha ao notificar supervisor sobre pedido de relatório:", err);
+  }
+}
+
 async function escalateConversation(conversationId: string, reason: FaqEscalationReason) {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
@@ -231,8 +334,10 @@ export async function processFaqBotStep(params: {
   phone: string;
   body: string;
   conversationId: string | null;
+  patientId?: string | null;
+  guardianId?: string | null;
 }): Promise<FaqBotResult> {
-  const { phone, body, conversationId } = params;
+  const { phone, body, conversationId, patientId = null, guardianId = null } = params;
   const notHandled: FaqBotResult = { handled: false, replyMessage: "", intent: "", escalated: false };
 
   if (!body.trim()) return notHandled;
@@ -273,6 +378,15 @@ export async function processFaqBotStep(params: {
 
   if (shouldEscalate && conversationId) {
     await escalateConversation(conversationId, reason);
+  }
+
+  if (shouldEscalate && reason === "relatorio") {
+    await notifySupervisorReportRequest({
+      conversationId,
+      patientId,
+      guardianId,
+      dados: parsed.relatorio_dados ?? {},
+    });
   }
 
   return {

@@ -1162,6 +1162,93 @@ export type Database = {
         }
         Relationships: []
       }
+      checkin_coupon_settings: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          enabled: boolean
+          footer_text: string
+          header_text: string
+          id: string
+          paper_width_mm: number
+          show_checkin_time: boolean
+          show_clinic_name: boolean
+          show_discipline: boolean
+          show_logo: boolean
+          show_patient_name: boolean
+          show_printed_at: boolean
+          show_room: boolean
+          show_therapist: boolean
+          show_ticket_label: boolean
+          show_time_range: boolean
+          show_warnings: boolean
+          trigger_mode: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          enabled?: boolean
+          footer_text?: string
+          header_text?: string
+          id?: string
+          paper_width_mm?: number
+          show_checkin_time?: boolean
+          show_clinic_name?: boolean
+          show_discipline?: boolean
+          show_logo?: boolean
+          show_patient_name?: boolean
+          show_printed_at?: boolean
+          show_room?: boolean
+          show_therapist?: boolean
+          show_ticket_label?: boolean
+          show_time_range?: boolean
+          show_warnings?: boolean
+          trigger_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          enabled?: boolean
+          footer_text?: string
+          header_text?: string
+          id?: string
+          paper_width_mm?: number
+          show_checkin_time?: boolean
+          show_clinic_name?: boolean
+          show_discipline?: boolean
+          show_logo?: boolean
+          show_patient_name?: boolean
+          show_printed_at?: boolean
+          show_room?: boolean
+          show_therapist?: boolean
+          show_ticket_label?: boolean
+          show_time_range?: boolean
+          show_warnings?: boolean
+          trigger_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkin_coupon_settings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkin_coupon_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkin_requests: {
         Row: {
           appointment_id: string | null
@@ -1436,23 +1523,65 @@ export type Database = {
         Row: {
           cnpj: string | null
           created_at: string
+          email: string | null
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_cidade: string | null
+          endereco_complemento: string | null
+          endereco_logradouro: string | null
+          endereco_numero: string | null
+          endereco_uf: string | null
           id: string
           name: string
+          razao_social: string | null
           reassessment_cycle_months: number
+          responsavel_tecnico: string | null
+          responsavel_tecnico_conselho: string | null
+          site: string | null
+          telefone: string | null
+          whatsapp: string | null
         }
         Insert: {
           cnpj?: string | null
           created_at?: string
+          email?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
           id?: string
           name: string
+          razao_social?: string | null
           reassessment_cycle_months?: number
+          responsavel_tecnico?: string | null
+          responsavel_tecnico_conselho?: string | null
+          site?: string | null
+          telefone?: string | null
+          whatsapp?: string | null
         }
         Update: {
           cnpj?: string | null
           created_at?: string
+          email?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
           id?: string
           name?: string
+          razao_social?: string | null
           reassessment_cycle_months?: number
+          responsavel_tecnico?: string | null
+          responsavel_tecnico_conselho?: string | null
+          site?: string | null
+          telefone?: string | null
+          whatsapp?: string | null
         }
         Relationships: []
       }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { User, PenLine, CalendarClock, X, Clock, CheckCircle2, UserCheck, XCircle, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert, Search } from "lucide-react";
+import { User, PenLine, CalendarClock, X, Clock, CheckCircle2, UserCheck, XCircle, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert, Search, Printer } from "lucide-react";
 import { GuiaQuickActionModal } from "./guia-quick-action-modal";
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -27,6 +27,8 @@ import {
   type PatientAuthorizationOption,
 } from "./agenda/session-actions";
 import { ReagendamentoDialog } from "./agenda/reagendamento-dialog";
+import { getCheckinCoupon } from "./agenda/coupon-actions";
+import { printCoupon } from "@/lib/print-coupon";
 import { computeAppointmentUiState, UI_STATE_LABEL, type AppointmentUiState } from "@/lib/appointment-ui-state";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reasons";
@@ -629,6 +631,34 @@ function SessionRow({
     });
   }
 
+  // Não usa runAction: precisa do `coupon` que checkIn() devolve, um campo a
+  // mais do que o tipo estreito de runAction carrega.
+  function handleCheckIn() {
+    setError(null);
+    setWarning(null);
+    startTransition(async () => {
+      const result = await checkIn(session.id);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      if (result.warning) setWarning(result.warning);
+      if (result.coupon) printCoupon(result.coupon);
+    });
+  }
+
+  function handleReprintCoupon() {
+    setError(null);
+    startTransition(async () => {
+      const result = await getCheckinCoupon(session.patientId);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      printCoupon(result.coupon);
+    });
+  }
+
   function openLinkGuide() {
     setShowLinkGuide(true);
     if (!guideOptions) {
@@ -841,7 +871,7 @@ function SessionRow({
         <button
           type="button"
           disabled={isPending || isCheckedIn}
-          onClick={() => runAction(() => checkIn(session.id))}
+          onClick={handleCheckIn}
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2 ${
             isCheckedIn
               ? "bg-emerald-600 text-white font-bold border border-emerald-700 shadow-sm"
@@ -852,6 +882,19 @@ function SessionRow({
           <UserCheck className={`h-3.5 w-3.5 ${isCheckedIn ? "text-white" : "text-emerald-600"}`} />
           <span>Check-in</span>
         </button>
+
+        {isCheckedIn && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleReprintCoupon}
+            className="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#4a4a4a] transition-all duration-200 ease-in-out transform active:scale-95 hover:bg-neutral-50 hover:text-ink focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2"
+            title="Reimprimir cupom de check-in"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            <span>Reimprimir cupom</span>
+          </button>
+        )}
 
         <button
           type="button"

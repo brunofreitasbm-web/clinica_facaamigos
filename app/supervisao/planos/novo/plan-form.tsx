@@ -10,6 +10,7 @@ import { PTSPrintableCalendar, type CalendarSessionEvent } from "./pts-printable
 import { PtsTemplateModal } from "./pts-template-modal";
 import { extractAutocompleteSuggestions, type PtsTemplate } from "@/lib/pts-templates";
 import { fetchPtsTemplatesAction, saveGoalAsTemplateAction } from "@/app/supervisao/pts-template-actions";
+import type { ClinicIdentity } from "@/lib/clinic-identity";
 import { generate40MinSlotsForShift } from "@/lib/pts-slots";
 import { GoalForm } from "@/components/SmartGoals/GoalForm";
 
@@ -109,6 +110,7 @@ export function PlanForm({
   initialFamilyPriorities = "",
   suggestedGoals = [],
   teamSuggestions = [],
+  clinic,
 }: {
   patients: Patient[];
   therapists?: Therapist[];
@@ -116,6 +118,7 @@ export function PlanForm({
   initialFamilyPriorities?: string;
   suggestedGoals?: SuggestedGoal[];
   teamSuggestions?: TeamSuggestion[];
+  clinic: ClinicIdentity;
 }) {
   const formId = useId();
   const router = useRouter();
@@ -937,6 +940,7 @@ export function PlanForm({
           startDate={startDateStr}
           validUntil={validUntilStr}
           sessions={generatedSessions}
+          clinic={clinic}
           onClose={() => setShowPrintModal(false)}
         />
       )}

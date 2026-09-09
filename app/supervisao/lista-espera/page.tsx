@@ -65,7 +65,7 @@ export default async function ListaEsperaPage() {
       <header style={{ background: "var(--color-accent)", color: "var(--color-bg)" }} className="flex h-16 items-center justify-between px-10">
         <div className="flex items-center gap-3">
           <span style={{ fontFamily: "var(--font-heading)" }} className="text-[17px] font-semibold">
-            Faça Amigos <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">· Lista de Espera</span>
+            FaçaAmigos <span style={{ color: "var(--color-on-accent-soft)" }} className="font-normal italic">· Lista de Espera</span>
           </span>
         </div>
         <Link href="/supervisao" className="btn btn-secondary text-xs">

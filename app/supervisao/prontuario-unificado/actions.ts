@@ -9,6 +9,7 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
 import { sendTwilioWhatsApp } from "@/lib/twilio";
 import { FamilyShareDocument } from "@/lib/family-share-pdf";
+import { getClinicIdentity } from "@/lib/clinic-identity";
 
 /** Registra no LGPD access log (record_access_log) que este prontuário unificado foi aberto para o paciente — mesma trilha que alimenta /gestor/auditoria. */
 export async function logProntuarioAccess(patientId: string): Promise<void> {
@@ -63,7 +64,7 @@ export async function generateFamilyShare(patientId: string, selection: FamilySh
   const { data: patient } = await supabase.from("patients").select("id, full_name, clinic_id").eq("id", patientId).maybeSingle();
   if (!patient) return { success: false, error: "Paciente não encontrado." };
 
-  const { data: clinic } = await supabase.from("clinics").select("name").eq("id", patient.clinic_id).maybeSingle();
+  const clinic = await getClinicIdentity(supabase, patient.clinic_id);
 
   const [documentsRes, goalsRes, meetingsRes] = await Promise.all([
     selection.documentIds.length > 0
@@ -98,7 +99,7 @@ export async function generateFamilyShare(patientId: string, selection: FamilySh
 
     const pdfRenderPromise = renderToBuffer(
       FamilyShareDocument({
-        clinicName: clinic?.name ?? "Clínica",
+        clinic,
         patientName: patient.full_name,
         generatedByName: profile?.full_name ?? "—",
         generatedAt: new Date().toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE }),

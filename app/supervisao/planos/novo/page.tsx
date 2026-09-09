@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getSuggestedGoals, getTeamSuggestions } from "@/lib/plan-suggestions";
 import { PlanForm } from "./plan-form";
+import { getClinicIdentity } from "@/lib/clinic-identity";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,8 @@ export default async function NovoPlanoPage({
       redirect("/supervisao");
     }
   }
+
+  const clinic = await getClinicIdentity(supabase, DEV_CLINIC_ID);
 
   const { data: patients } = await supabase
     .from("patients")
@@ -84,6 +87,7 @@ export default async function NovoPlanoPage({
         initialFamilyPriorities={familyPriorities ?? ""}
         suggestedGoals={suggestedGoals}
         teamSuggestions={teamSuggestions}
+        clinic={clinic}
       />
     </main>
   );

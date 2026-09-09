@@ -8,6 +8,9 @@ import { todayInTimeZone } from "@/lib/timezone";
 import { computeAvailableSlots, type AvailableSlot } from "@/lib/available-slots";
 import { revalidatePath } from "next/cache";
 import { sendTwilioWhatsApp, formatE164Phone } from "@/lib/twilio";
+import { evaluateAuthorizationWarning } from "@/lib/authorization-warning";
+import { maybeBuildCheckinCoupon } from "./coupon-actions";
+import type { CouponModel } from "@/lib/checkin-coupon";
 
 // Status que tiram uma sessão da disputa por "primeira do dia" do terapeuta —
 // mesmo conjunto que markMissedOrCancelled/NEGATIVE_STATUSES cobre, mais
@@ -72,7 +75,9 @@ async function notifyTherapistOfFirstCheckIn(
   }
 }
 
-type ActionResult = { success: true; warning?: string } | { success: false; error: string };
+type ActionResult =
+  | { success: true; warning?: string; coupon?: CouponModel | null }
+  | { success: false; error: string };
 
 const SESSION_EXPIRED_ERROR: ActionResult = {
   success: false,
@@ -177,15 +182,9 @@ async function buildAuthorizationWarning(
     .eq("id", appointmentId)
     .maybeSingle();
 
-  if (!appointment || appointment.is_evaluation || appointment.is_provisional) {
-    return undefined;
-  }
+  if (!appointment) return undefined;
 
-  if (!appointment.authorization_id) {
-    return "Sessão sem guia de convênio vinculada.";
-  }
-
-  const authorization = appointment.authorizations as {
+  const authorizationRow = appointment.authorizations as {
     status: string;
     valid_from: string;
     valid_to: string;
@@ -194,26 +193,24 @@ async function buildAuthorizationWarning(
     password_valid_until: string | null;
   } | null;
 
-  if (!authorization) {
-    return "Guia vinculada não foi encontrada.";
-  }
-
-  const today = todayInTimeZone(CLINIC_TIMEZONE);
-
-  if (authorization.status !== "ativa") {
-    return "Guia vinculada não está mais ativa.";
-  }
-  if (today < authorization.valid_from || today > authorization.valid_to) {
-    return "Sessão fora da vigência da guia.";
-  }
-  if (authorization.sessions_used >= authorization.sessions_authorized) {
-    return "Guia sem sessões restantes.";
-  }
-  if (authorization.password_valid_until && authorization.password_valid_until < today) {
-    return "Senha de autorização da guia está vencida.";
-  }
-
-  return undefined;
+  return evaluateAuthorizationWarning(
+    {
+      authorizationId: appointment.authorization_id,
+      isProvisional: appointment.is_provisional,
+      isEvaluation: appointment.is_evaluation,
+      authorization: authorizationRow
+        ? {
+            status: authorizationRow.status,
+            validFrom: authorizationRow.valid_from,
+            validTo: authorizationRow.valid_to,
+            sessionsUsed: authorizationRow.sessions_used,
+            sessionsAuthorized: authorizationRow.sessions_authorized,
+            passwordValidUntil: authorizationRow.password_valid_until,
+          }
+        : null,
+    },
+    todayInTimeZone(CLINIC_TIMEZONE),
+  );
 }
 
 export async function checkIn(appointmentId: string): Promise<ActionResult> {
@@ -248,8 +245,13 @@ export async function checkIn(appointmentId: string): Promise<ActionResult> {
 
   void notifyTherapistOfFirstCheckIn(supabase, appointmentId);
 
+  // Cupom de check-in (80mm): não pode falhar o check-in em si — ver
+  // maybeBuildCheckinCoupon (app/recepcao/agenda/coupon-actions.ts), que já
+  // engole os próprios erros e devolve null nesse caso.
+  const coupon = await maybeBuildCheckinCoupon(supabase, appointmentId);
+
   revalidateAgendaViews();
-  return { success: true, warning };
+  return { success: true, warning, coupon };
 }
 
 export async function checkOut(appointmentId: string): Promise<ActionResult> {

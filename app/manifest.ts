@@ -1,10 +1,12 @@
 import type { MetadataRoute } from "next";
+import { CLINIC_BRAND, CLINIC_NAME_DISPLAY } from "@/lib/clinic-identity";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "FaçaAmigos — Gestão Clínica",
-    short_name: "FaçaAmigos",
-    description: "Sistema de gestão da clínica TEA/TDAH FaçaAmigos.",
+    name: CLINIC_NAME_DISPLAY,
+    short_name: CLINIC_BRAND,
+    description:
+      "Sistema de gestão da FaçaAmigos - Centro de Terapia Comportamental (TEA/TDAH).",
     start_url: "/terapeuta",
     display: "standalone",
     background_color: "#ffffff",

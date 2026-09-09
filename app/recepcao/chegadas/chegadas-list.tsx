@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/toast-provider";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { confirmCheckinRequest, discardCheckinRequest } from "./actions";
+import { printCoupon } from "@/lib/print-coupon";
 import { InteressadoRapidoDialog } from "../interessado-rapido-dialog";
 
 export type ChegadaAppointmentInfo = {
@@ -96,6 +97,7 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
         return;
       }
       if (result.warning) toast(result.warning, "info");
+      if (result.coupon) printCoupon(result.coupon);
       toast(`Check-in de ${item.declaredFirstName} confirmado.`, "success");
       router.refresh();
     });

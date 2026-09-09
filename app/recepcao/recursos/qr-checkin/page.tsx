@@ -4,6 +4,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { generateCheckinQrSvg } from "@/lib/qrcode";
 import { RotateTokenButton } from "./rotate-token-button";
 import { PrintButton } from "./print-button";
+import { Logo } from "@/components/brand/logo";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,8 @@ export default async function QrCheckinPage() {
 
       {checkinUrl && qrSvg && (
         <div className="card items-center gap-4 p-10 text-center print:shadow-none print:border-none">
-          <p style={{ fontFamily: "var(--font-heading)", fontSize: "1.75rem" }}>Bem-vindo(a) à Faça Amigos!</p>
+          <Logo variant="vertical-compacto" height={72} />
+          <p style={{ fontFamily: "var(--font-heading)", fontSize: "1.75rem" }}>Bem-vindo(a)!</p>
           <p className="card-body">Escaneie o código para fazer seu check-in</p>
           <div
             className="[&_svg]:h-64 [&_svg]:w-64"

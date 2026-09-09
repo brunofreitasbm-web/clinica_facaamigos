@@ -1,12 +1,12 @@
 -- =====================================================================
--- Seed de Dados e Usuários de Teste - Clínica FaçaAmigos
+-- Seed de Dados e Usuários de Teste - FaçaAmigos - Centro de Terapia Comportamental
 -- =====================================================================
 
 -- 1. Clínica Padrão de Teste
 insert into public.clinics (id, name, cnpj)
 values (
   '11111111-1111-1111-1111-111111111111',
-  'Clínica FaçaAmigos TEA',
+  'FaçaAmigos - Centro de Terapia Comportamental',
   '12.345.678/0001-90'
 )
 on conflict (id) do nothing;

@@ -32,7 +32,7 @@ function getTwilioClient() {
  * gravado em voice_emergency_broadcasts.message_template.
  */
 export const EMERGENCY_MESSAGE_TEMPLATE =
-  "Olá, aqui é da Clínica Faça Amigos. Informamos que a sessão do(a) paciente {NOME_PACIENTE} agendada para hoje às {HORARIO} precisará ser reagendada. Por favor, entre em contato com nossa recepção.";
+  "Olá, aqui é da equipe do FaçaAmigos - Centro de Terapia Comportamental. Informamos que a sessão do(a) paciente {NOME_PACIENTE} agendada para hoje às {HORARIO} precisará ser reagendada. Por favor, entre em contato com nossa recepção.";
 
 /**
  * Monta a mensagem PT-BR de emergência (usada tanto na fala do TwiML quanto
@@ -47,7 +47,7 @@ export function buildEmergencyMessage(patientName: string, time: string): string
  * 160 caracteres) usada só quando as tentativas de ligação se esgotam.
  */
 export const EMERGENCY_SMS_TEMPLATE =
-  "Faça Amigos: sessão de {NOME_PACIENTE} às {HORARIO} precisa ser remarcada. Fale com a recepção.";
+  "FaçaAmigos: sessão de {NOME_PACIENTE} às {HORARIO} precisa ser remarcada. Fale com a recepção.";
 
 /**
  * Monta o SMS curto de fallback, preenchendo o template acima.

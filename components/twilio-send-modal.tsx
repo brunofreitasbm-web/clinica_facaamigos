@@ -44,7 +44,7 @@ export function TwilioSendModal({
 
   const applyTemplate = (templateType: "reminder" | "absence" | "general") => {
     if (templateType === "reminder") {
-      setMessage(`Olá ${guardianName}! Confirmamos a sessão de ${patientName} agendada para amanhã. Por favor, responda 1 para CONFIRMAR ou 2 para REAGENDAR. Clínica Faça Amigos.`);
+      setMessage(`Olá ${guardianName}! Confirmamos a sessão de ${patientName} agendada para amanhã. Por favor, responda 1 para CONFIRMAR ou 2 para REAGENDAR. FaçaAmigos - Centro de Terapia Comportamental.`);
     } else if (templateType === "absence") {
       setMessage(`Olá ${guardianName}. Identificamos a ausência do paciente ${patientName} na sessão de hoje. Entre em contato com a recepção para justificativa ou reagendamento.`);
     } else {

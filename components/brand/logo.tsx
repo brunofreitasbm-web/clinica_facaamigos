@@ -16,8 +16,14 @@ export type LogoVariant =
   | "simbolo"
   | "wordmark";
 
-/** `cor` = versão policromática; `branco` = para fundo escuro/colorido. */
 export type LogoTone = "cor" | "branco";
+
+export type LogoSubBrand =
+  | "playground-parque"
+  | "playground-bosque"
+  | "circuito-parque"
+  | "selecao-modulo"
+  | "assinatura";
 
 const VARIANTS: Record<LogoVariant, { file: string; ratio: number; label: string }> = {
   horizontal: { file: "facaamigos-horizontal", ratio: 6363 / 1093, label: "FaçaAmigos — Centro de Terapia Comportamental" },
@@ -28,10 +34,17 @@ const VARIANTS: Record<LogoVariant, { file: string; ratio: number; label: string
   wordmark: { file: "facaamigos-wordmark", ratio: 4388 / 773, label: "FaçaAmigos" },
 };
 
-/**
- * Abaixo destes tamanhos a assinatura "Centro de Terapia Comportamental"
- * fecha e vira borrão — ver brand/README.md. Usado só para avisar em dev.
- */
+const SUB_BRANDS: Record<LogoSubBrand, { text: string; color: string; letterSpacing: string; isTitleCase?: boolean; fontSizeRatio: number }> = {
+  "playground-parque": { text: "PLAYGROUND · PARQUE SHOPPING", color: "#ED2162", letterSpacing: "0.18em", fontSizeRatio: 0.20 },
+  "playground-bosque": { text: "PLAYGROUND · BOSQUE GRÃO-PARÁ", color: "#C58B24", letterSpacing: "0.12em", fontSizeRatio: 0.18 },
+  "circuito-parque": { text: "CIRCUITO · PARQUE SHOPPING", color: "#23B5A6", letterSpacing: "0.22em", fontSizeRatio: 0.20 },
+  "selecao-modulo": { text: "Sistema Operacional — Seleção de Módulo", color: "#065264", letterSpacing: "normal", isTitleCase: true, fontSizeRatio: 0.25 },
+  // Assinatura oficial da marca ("Centro de Terapia Comportamental") como
+  // texto — mesma cor petróleo da versão vetorizada, mas fora do SVG pra
+  // valer em qualquer variante/tamanho sem precisar de outro arquivo.
+  assinatura: { text: "Centro de Terapia Comportamental", color: "#065264", letterSpacing: "0.04em", isTitleCase: true, fontSizeRatio: 0.2 },
+};
+
 const MIN_HEIGHT: Partial<Record<LogoVariant, number>> = {
   horizontal: 28,
   vertical: 94,
@@ -40,41 +53,86 @@ const MIN_HEIGHT: Partial<Record<LogoVariant, number>> = {
 export function Logo({
   variant = "horizontal",
   tone = "cor",
+  subBrand,
   height,
   className,
-  /** `true` quando a logo é puramente decorativa (já há texto com o nome ao lado). */
   decorative = false,
 }: {
   variant?: LogoVariant;
   tone?: LogoTone;
+  subBrand?: LogoSubBrand;
   height: number;
   className?: string;
   decorative?: boolean;
 }) {
-  const { file, ratio, label } = VARIANTS[variant];
+  // Se tiver um subBrand, forçamos a versão sem a assinatura padrão embutida no SVG
+  let activeVariant = variant;
+  if (subBrand) {
+    if (variant === "horizontal") activeVariant = "horizontal-compacto";
+    if (variant === "vertical") activeVariant = "vertical-compacto";
+  }
+
+  const { file, ratio, label } = VARIANTS[activeVariant];
   const src = `/brand/${file}${tone === "branco" ? "-mono-branco" : ""}.svg`;
   const width = Math.round(height * ratio);
 
   if (process.env.NODE_ENV !== "production") {
-    const min = MIN_HEIGHT[variant];
-    if (min && height < min) {
+    const min = MIN_HEIGHT[activeVariant];
+    if (min && height < min && !subBrand) {
       console.warn(
-        `[Logo] variante "${variant}" com height=${height}px fica abaixo do mínimo legível (${min}px). ` +
-          `Use "${variant === "horizontal" ? "horizontal-compacto" : "vertical-compacto"}".`,
+        `[Logo] variante "${activeVariant}" com height=${height}px fica abaixo do mínimo legível (${min}px). ` +
+          `Use "${activeVariant === "horizontal" ? "horizontal-compacto" : "vertical-compacto"}".`,
       );
     }
   }
 
-  return (
+  const img = (
     // eslint-disable-next-line @next/next/no-img-element -- SVG estático: next/image não otimiza e só adicionaria um hop.
     <img
       src={src}
       width={width}
       height={height}
-      alt={decorative ? "" : label}
-      aria-hidden={decorative || undefined}
-      className={className}
+      alt={decorative && !subBrand ? "" : label}
+      aria-hidden={(decorative && !subBrand) || undefined}
+      className={subBrand ? undefined : className}
       draggable={false}
     />
+  );
+
+  if (!subBrand) {
+    return img;
+  }
+
+  const sub = SUB_BRANDS[subBrand];
+  const fontSize = Math.max(Math.round(height * sub.fontSizeRatio), 10);
+  
+  // O offset da esquerda alinha o texto junto à letra "F" do Wordmark. No logo horizontal-compacto, 
+  // o símbolo "M" amarelo tem uma proporção da largura total.
+  // Proporção aproximada do símbolo + margem em relação à largura total do horizontal-compacto: ~40%
+  // Vamos usar flexbox colunas para alinhar, ou um div com padding left.
+  const isHorizontal = activeVariant.includes("horizontal");
+
+  return (
+    <div className={`flex flex-col ${isHorizontal ? "items-end" : "items-center"} gap-1.5 ${className || ""}`}>
+      {img}
+      <span
+        style={{
+          color: tone === "branco" ? "#FFFFFF" : sub.color,
+          fontSize: `${fontSize}px`,
+          letterSpacing: sub.letterSpacing,
+          fontWeight: 600,
+          fontFamily: "var(--font-sans, system-ui, sans-serif)",
+          textTransform: sub.isTitleCase ? "none" : "uppercase",
+          // Se for horizontal, tenta alinhar embaixo do "FaçaAmigos" visualmente.
+          // O símbolo representa cerca de 38% da largura no SVG "horizontal-compacto".
+          paddingLeft: isHorizontal ? `${width * 0.38}px` : "0",
+          textAlign: isHorizontal ? "left" : "center",
+          width: isHorizontal ? `${width}px` : "auto",
+          whiteSpace: "nowrap"
+        }}
+      >
+        {sub.text}
+      </span>
+    </div>
   );
 }
