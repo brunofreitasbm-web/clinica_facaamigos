@@ -31,12 +31,52 @@ import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
 /** Quantas mensagens da thread vão como contexto (~6 turnos). */
 const HISTORY_LIMIT = 12;
 
-/** Teto de respostas automáticas por conversa por dia. Um número desconhecido
- * agora dispara o Gemini a cada mensagem; sem isso, um loop ou um contato
- * abusivo viraria custo direto de API. */
-const DAILY_REPLY_LIMIT = 20;
+/** Teto de respostas automáticas por conversa por dia, usado se
+ * `chatbot_settings.daily_reply_limit` não estiver configurado. Um número
+ * desconhecido dispara o Gemini a cada mensagem; sem isso, um loop ou um
+ * contato abusivo viraria custo direto de API. */
+const DEFAULT_DAILY_REPLY_LIMIT = 20;
 
 const KNOWLEDGE_TTL_MS = 5 * 60 * 1000;
+const SETTINGS_TTL_MS = 5 * 60 * 1000;
+
+export type ChatbotSettings = {
+  botEnabled: boolean;
+  dailyReplyLimit: number;
+  greetingFallback: string | null;
+};
+
+type SettingsCacheEntry = { settings: ChatbotSettings; expiresAt: number };
+const settingsCache = new Map<string, SettingsCacheEntry>();
+
+/**
+ * Configurações editáveis em /recepcao/atendimento (aba Chatbot, só
+ * Supervisão/Gestão) — `chatbot_settings` tem uma linha por clínica, criada
+ * pela migration 20260909200000. Em cache (mesmo TTL do conhecimento de FAQ)
+ * porque é lida a cada mensagem recebida no webhook.
+ */
+export async function getChatbotSettings(clinicId: string): Promise<ChatbotSettings> {
+  const cached = settingsCache.get(clinicId);
+  if (cached && cached.expiresAt > Date.now()) return cached.settings;
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  const { data } = await supabase
+    .from("chatbot_settings")
+    .select("bot_enabled, daily_reply_limit, greeting_fallback")
+    .eq("clinic_id", clinicId)
+    .maybeSingle();
+
+  const settings: ChatbotSettings = {
+    botEnabled: data?.bot_enabled ?? true,
+    dailyReplyLimit: data?.daily_reply_limit ?? DEFAULT_DAILY_REPLY_LIMIT,
+    greetingFallback: data?.greeting_fallback ?? null,
+  };
+
+  settingsCache.set(clinicId, { settings, expiresAt: Date.now() + SETTINGS_TTL_MS });
+  return settings;
+}
 
 export type FaqEscalationReason = "fora_da_base" | "clinico" | "pediu_humano" | "relatorio";
 
@@ -106,18 +146,19 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
 }
 
 function buildSystemInstruction(knowledge: string): string {
-  return `Você é a assistente virtual do FaçaAmigos - Centro de Terapia Comportamental, uma clínica de desenvolvimento infantil multidisciplinar (TEA, fala, questões sensoriais e de aprendizagem). Você conversa por WhatsApp com pais e responsáveis.
+  return `Você é a assistente virtual acolhedora do FaçaAmigos - Centro de Terapia Comportamental, uma clínica multidisciplinar especializada no desenvolvimento de crianças e adolescentes. Você conversa pelo WhatsApp com pais, mães e responsáveis legais.
 
 ${knowledge}
 
 REGRAS OBRIGATÓRIAS:
-1. Responda APENAS com base nas informações acima. Se a resposta não estiver ali, ou estiver marcada com "⚠️ TODO", NUNCA invente: escale para a equipe humana.
-2. Jamais dê diagnóstico, opinião clínica, orientação de saúde ou conduta terapêutica. Qualquer pergunta clínica sobre a criança escala para a equipe.
-3. Nunca prometa valor, horário, vaga, cobertura de plano ou prazo que não esteja explícito acima.
-4. Seja acolhedora, calorosa e breve — mensagem de WhatsApp, não texto corrido. Use *negrito* do WhatsApp e no máximo um emoji por mensagem.
-5. Escreva em português do Brasil, tratando a pessoa por "você".
-6. Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
-7. Se a pessoa demonstrar interesse em agendar a avaliação, oriente a responder *AGENDAR*.
+1. MENSAGEM INICIAL DE BOAS-VINDAS: Na primeira interação de saudação, cite obrigatoriamente a marca completa: *FaçaAmigos - Centro de Terapia Comportamental*. Demonstre acolhimento e alegria em receber a família.
+2. ATENDIMENTO EMPÁTICO AOS PAIS E RESPONSÁVEIS: Fale diretamente com o pai, mãe ou responsável legal que busca apoio para a criança ou adolescente. Trate a família com profundo carinho, respeito, clareza e acolhimento.
+3. EMOJIS ACOLHEDORES: Use emojis integrativos e carinhosos (ex.: 💙, 🧩, 🎈, 🌱, 🤝, ✨) de forma harmoniosa nas mensagens.
+4. NUNCA INVENTE: Responda APENAS com base nas informações acima. Se a resposta não estiver ali ou estiver como "⚠️ TODO", NUNCA invente: escale para a equipe humana.
+5. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
+6. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
+7. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
+8. AGENDAMENTO: Se a pessoa demonstrar interesse em agendar a avaliação, oriente a responder *AGENDAR*.
 
 SOLICITAÇÃO DE RELATÓRIO OU DOCUMENTO (laudo, declaração de comparecimento, relatório de evolução, atestado, etc.):
 Isso não é uma dúvida que você responde — é um pedido que a recepção vai atender, mas cabe a você reunir as informações antes de repassar, para a equipe não precisar perguntar tudo de novo.
@@ -193,7 +234,7 @@ async function loadHistory(conversationId: string): Promise<Array<{ role: "user"
  * em `chatbot_sessions.collected_data` (chaveado por telefone, não exige
  * paciente) para não criar tabela só para isso.
  */
-async function reserveDailyQuota(phone: string): Promise<boolean> {
+async function reserveDailyQuota(phone: string, dailyReplyLimit: number): Promise<boolean> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
   const today = new Date().toISOString().slice(0, 10);
@@ -208,7 +249,7 @@ async function reserveDailyQuota(phone: string): Promise<boolean> {
   const sameDay = collected.faq_date === today;
   const used = sameDay && typeof collected.faq_count === "number" ? collected.faq_count : 0;
 
-  if (used >= DAILY_REPLY_LIMIT) return false;
+  if (used >= dailyReplyLimit) return false;
 
   await supabase.from("chatbot_sessions").upsert(
     {
@@ -343,7 +384,8 @@ export async function processFaqBotStep(params: {
   if (!body.trim()) return notHandled;
   if (!isGeminiConfigured()) return notHandled;
 
-  const withinQuota = await reserveDailyQuota(phone);
+  const settings = await getChatbotSettings(DEV_CLINIC_ID);
+  const withinQuota = await reserveDailyQuota(phone, settings.dailyReplyLimit);
   if (!withinQuota) return notHandled;
 
   const knowledge = await buildFaqKnowledge(DEV_CLINIC_ID);

@@ -17,7 +17,6 @@ const SIDEBAR_ITEMS = [
   { key: "pts-templates", label: "Templates do PTS", href: "/gestor/cadastros/pts-templates" },
   { key: "salas", label: "Salas & Recursos", href: "/gestor/cadastros/salas" },
   { key: "estoque", label: "Estoque & Almoxarifado", href: "/gestor/cadastros/estoque" },
-  { key: "faq", label: "FAQ do WhatsApp", href: "/gestor/cadastros/faq" },
 ] as const;
 
 export type CadastrosSidebarKey = (typeof SIDEBAR_ITEMS)[number]["key"];

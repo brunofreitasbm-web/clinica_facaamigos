@@ -44,11 +44,11 @@ export function TwilioSendModal({
 
   const applyTemplate = (templateType: "reminder" | "absence" | "general") => {
     if (templateType === "reminder") {
-      setMessage(`Olá ${guardianName}! Confirmamos a sessão de ${patientName} agendada para amanhã. Por favor, responda 1 para CONFIRMAR ou 2 para REAGENDAR. FaçaAmigos - Centro de Terapia Comportamental.`);
+      setMessage(`Olá ${guardianName}! 💙 Confirmamos a sessão de ${patientName} agendada para amanhã. Por favor, responda 1 para CONFIRMAR ou 2 para REAGENDAR. FaçaAmigos - Centro de Terapia Comportamental. 🧩✨`);
     } else if (templateType === "absence") {
-      setMessage(`Olá ${guardianName}. Identificamos a ausência do paciente ${patientName} na sessão de hoje. Entre em contato com a recepção para justificativa ou reagendamento.`);
+      setMessage(`Olá ${guardianName}! 💙 Sentimos falta de ${patientName} na sessão de hoje. Entre em contato com a nossa recepção para reagendamento ou justificativa. Estamos à disposição! FaçaAmigos - Centro de Terapia Comportamental. 🌱`);
     } else {
-      setMessage(`Olá ${guardianName}! Comunicamos um aviso importante referente ao acompanhamento de ${patientName}. Qualquer dúvida estamos à disposição.`);
+      setMessage(`Olá ${guardianName}! 💙 Comunicamos um aviso importante sobre o acompanhamento de ${patientName}. Qualquer dúvida, nossa equipe está aqui por vocês! FaçaAmigos - Centro de Terapia Comportamental. 🤝✨`);
     }
   };
 

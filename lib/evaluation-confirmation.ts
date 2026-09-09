@@ -22,16 +22,16 @@ export function buildEvaluationConfirmationMessage(params: {
   const roomInfo = params.roomName ? ` (${params.roomName})` : "";
 
   return (
-    `🗓️ *Confirmação de Agendamento - 1ª Avaliação*\n\n` +
-    `Olá! A 1ª Avaliação de *${params.patientName}* foi agendada e confirmada na nossa clínica!\n\n` +
+    `🗓️ *Confirmação de Agendamento - FaçaAmigos - Centro de Terapia Comportamental*\n\n` +
+    `Olá! 💙 A 1ª Avaliação de *${params.patientName}* foi agendada e confirmada com muito carinho para a sua família!\n\n` +
     `📅 *Data e Horário:* ${params.formattedDate}\n` +
     `👤 *Profissional / Sala:*${therapistInfo}${roomInfo}\n\n` +
-    `📌 *Orientações importantes para o dia:*\n` +
-    `• Chegue com 15 minutos de antecedência na recepção para recepção e conferência de cadastro.\n` +
-    `• Traga documento oficial com foto do responsável e da criança/paciente (RG ou Certidão de Nascimento).\n` +
-    `• Caso possua laudos anteriores, encaminhamentos médicos ou relatórios de escola/terapias, traga-os impressos.\n` +
-    `• Em caso de imprevisto ou dúvidas, entre em contato conosco com antecedência.\n\n` +
-    `Estamos prontos para acolher vocês! 💙`
+    `📌 *Orientações importantes para a família:*\n` +
+    `• Chegue com 15 minutos de antecedência para recepção e acolhimento da família.\n` +
+    `• Traga documento oficial com foto do responsável e da criança ou adolescente (RG ou Certidão de Nascimento).\n` +
+    `• Caso possua laudos anteriores, encaminhamentos médicos ou relatórios escolares/terapêuticos, traga-os impressos.\n` +
+    `• Em caso de dúvidas ou imprevistos, nossa equipe está sempre à disposição para ajudar.\n\n` +
+    `Estamos ansiosos para acolher vocês e fazer parte desta jornada de desenvolvimento! 🧩✨`
   );
 }
 

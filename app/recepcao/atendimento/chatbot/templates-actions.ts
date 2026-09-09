@@ -9,7 +9,7 @@ type ActionResult = { success: true } | { success: false; error: string };
 const CATEGORIES = ["confirmacao_d1", "falta", "cobranca", "aniversario", "renovacao_guia", "outro"] as const;
 const CHANNELS = ["whatsapp", "sms"] as const;
 
-/** Cadastro de modelo de mensagem. RLS (message_templates_manage) restringe a gestor. */
+/** Cadastro de modelo de mensagem. RLS (message_templates_manage) restringe a gestor/supervisor. */
 export async function createTemplate(formData: FormData): Promise<ActionResult> {
   const category = String(formData.get("category") ?? "");
   const name = String(formData.get("name") ?? "").trim();
@@ -40,10 +40,10 @@ export async function createTemplate(formData: FormData): Promise<ActionResult> 
   });
 
   if (error) {
-    return { success: false, error: "Não foi possível cadastrar o modelo — verifique se você tem permissão de gestor." };
+    return { success: false, error: "Não foi possível cadastrar o modelo — verifique se você tem permissão de supervisão/gestão." };
   }
 
-  revalidatePath("/gestor/configuracoes/notificacoes");
+  revalidatePath("/recepcao/atendimento");
   return { success: true };
 }
 
@@ -53,7 +53,7 @@ export async function toggleTemplateActive(templateId: string, active: boolean):
 
   if (error) return { success: false, error: "Não foi possível atualizar o modelo." };
 
-  revalidatePath("/gestor/configuracoes/notificacoes");
+  revalidatePath("/recepcao/atendimento");
   return { success: true };
 }
 
@@ -63,6 +63,6 @@ export async function toggleMetaApproved(templateId: string, metaApproved: boole
 
   if (error) return { success: false, error: "Não foi possível atualizar o modelo." };
 
-  revalidatePath("/gestor/configuracoes/notificacoes");
+  revalidatePath("/recepcao/atendimento");
   return { success: true };
 }

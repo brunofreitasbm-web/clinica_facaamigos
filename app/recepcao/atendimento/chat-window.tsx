@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { sendManualMessage } from "./actions";
 import { ChatHeader } from "./chat-header";
 import { QuickResponsesPopover } from "./quick-responses-popover";
+import { QuickResponseChips } from "./quick-response-chips";
 import type { ConversationRow } from "./atendimento-shell";
 
 type MessageRow = {
@@ -21,6 +22,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [draft, setDraft] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [showQuickResponses, setShowQuickResponses] = useState(false);
   const [isPending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -91,6 +93,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
     const body = textToSend.trim();
     if (!body || isPending) return;
     setErrorMessage(null);
+    setWarningMessage(null);
     if (!isRetry) {
       setDraft("");
     }
@@ -101,6 +104,8 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
         if (!isRetry) {
           setDraft(body); // Preserva o rascunho se o envio inicial falhou
         }
+      } else if (result.warning) {
+        setWarningMessage(result.warning);
       }
     });
   };
@@ -113,6 +118,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
         {messages.map((m) => {
           const isOutbound = m.direction === "outbound";
           const isFailed = m.deliveryStatus === "failed";
+          const isSimulated = m.deliveryStatus === "simulated_dev";
 
           return (
             <div key={m.id} className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
@@ -122,7 +128,9 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
                   background: isOutbound
                     ? isFailed
                       ? "#dc2626"
-                      : "var(--color-accent)"
+                      : isSimulated
+                        ? "#1d4ed8"
+                        : "var(--color-accent)"
                     : "var(--color-neutral-100)",
                   color: isOutbound ? "#fff" : "var(--color-ink)",
                 }}
@@ -135,7 +143,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
                   <span>
                     {m.sentAt ? new Date(m.sentAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""}
                     {isOutbound && m.deliveryStatus
-                      ? ` · ${isFailed ? "⚠️ Falhou no envio" : m.deliveryStatus}`
+                      ? ` · ${isFailed ? "⚠️ Falhou no envio" : isSimulated ? "ℹ️ Registrada (Modo Local)" : m.deliveryStatus}`
                       : ""}
                   </span>
                   {isOutbound && isFailed && m.body && (
@@ -158,6 +166,19 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
       </div>
 
       <div className="relative border-t border-paper-line-strong p-3">
+        {warningMessage && (
+          <div className="mb-2 flex items-center justify-between rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            <span>ℹ️ {warningMessage}</span>
+            <button
+              type="button"
+              onClick={() => setWarningMessage(null)}
+              className="ml-2 font-bold text-amber-700 hover:underline dark:text-amber-300"
+            >
+              Fechar
+            </button>
+          </div>
+        )}
+
         {errorMessage && (
           <div className="mb-2 flex items-center justify-between rounded-md bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-600 dark:text-red-400">
             <span>⚠️ {errorMessage}</span>
@@ -178,6 +199,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
             onClose={() => setShowQuickResponses(false)}
           />
         )}
+        <QuickResponseChips disabled={isPending} onSelect={(contentText) => handleSendText(contentText)} />
         <div className="flex items-center gap-2">
           <input
             className="input flex-1"

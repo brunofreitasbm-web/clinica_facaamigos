@@ -1162,6 +1162,48 @@ export type Database = {
         }
         Relationships: []
       }
+      chatbot_settings: {
+        Row: {
+          bot_enabled: boolean
+          clinic_id: string
+          daily_reply_limit: number
+          greeting_fallback: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bot_enabled?: boolean
+          clinic_id: string
+          daily_reply_limit?: number
+          greeting_fallback?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bot_enabled?: boolean
+          clinic_id?: string
+          daily_reply_limit?: number
+          greeting_fallback?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_settings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkin_coupon_settings: {
         Row: {
           clinic_id: string

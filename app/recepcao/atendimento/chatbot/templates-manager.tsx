@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
-import { createTemplate, toggleTemplateActive, toggleMetaApproved } from "./actions";
+import { createTemplate, toggleTemplateActive, toggleMetaApproved } from "./templates-actions";
 
 export type TemplateRow = {
   id: string;

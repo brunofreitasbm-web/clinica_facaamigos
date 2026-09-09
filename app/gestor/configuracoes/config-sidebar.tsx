@@ -9,7 +9,6 @@ const SIDEBAR_ITEMS = [
   { key: "prioridades", label: "Regras de Agendamento", href: "/gestor/configuracoes/prioridades-avaliacao" },
   { key: "profissionais", label: "Contratos & Valor-hora", href: "/gestor/configuracoes/profissionais" },
   { key: "usuarios", label: "Usuários & Permissões", href: "/gestor/configuracoes/usuarios" },
-  { key: "notificacoes", label: "Comunicação & WhatsApp", href: "/gestor/configuracoes/notificacoes" },
   { key: "cupom-checkin", label: "Cupom de Check-in", href: "/gestor/configuracoes/cupom-checkin" },
 ] as const;
 

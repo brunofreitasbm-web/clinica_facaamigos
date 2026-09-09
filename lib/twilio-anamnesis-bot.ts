@@ -167,8 +167,9 @@ export async function processAnamnesisChatbotStep(
       return {
         handled: true,
         replyMessage:
-          "Olá! 👋 Que bom te ver por aqui. Vou te ajudar a realizar o agendamento da *Avaliação / Anamnese* da criança pelo plano de saúde.\n\n" +
-          "Para começar, por favor, me informe o seu *Nome Completo* (Nome do Responsável):",
+          "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*! É uma alegria acolher você e sua família.\n\n" +
+          "Vou te ajudar no agendamento da *Avaliação / Anamnese* da sua criança ou adolescente pelo plano de saúde. 🧩✨\n\n" +
+          "Para começarmos, por favor me informe o seu *Nome Completo* (Nome do Responsável):",
       };
     }
 
@@ -222,16 +223,16 @@ export async function processAnamnesisChatbotStep(
 
     return {
       handled: true,
-      replyMessage: "Perfeito! Agora me informe o *Nome Completo da Criança* que fará a avaliação:",
+      replyMessage: "Perfeito! 🤝 Agora me informe o *Nome Completo da Criança ou Adolescente* que fará a avaliação:",
     };
   }
 
-  // 5. Etapa: Aguardando Nome da Criança
+  // 5. Etapa: Aguardando Nome da Criança/Adolescente
   if (currentStep === "awaiting_child_name") {
     if (rawBody.trim().length < 2) {
       return {
         handled: true,
-        replyMessage: "Por favor, me informe o nome completo da criança:",
+        replyMessage: "Por favor, me informe o nome completo da criança ou adolescente:",
       };
     }
 
@@ -247,11 +248,11 @@ export async function processAnamnesisChatbotStep(
 
     return {
       handled: true,
-      replyMessage: `Anotado! Agora me informe a *Data de Nascimento* de ${data.child_name} (formato DD/MM/AAAA):`,
+      replyMessage: `Anotado! 🎈 Agora me informe a *Data de Nascimento* de ${data.child_name} (formato DD/MM/AAAA):`,
     };
   }
 
-  // 5b. Etapa: Aguardando Data de Nascimento da Criança
+  // 5b. Etapa: Aguardando Data de Nascimento da Criança/Adolescente
   if (currentStep === "awaiting_child_birth_date") {
     const isoDate = parseBrazilianDate(rawBody);
     if (!isoDate) {
@@ -274,8 +275,8 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        `Perfeito! Atendimento para a criança *${data.child_name}*.\n\n` +
-        "Ela já possui *Laudo Médico* expedido pelo neuropediatra/psiquiatra?\n\n" +
+        `Perfeito! Atendimento para *${data.child_name}*. 🧩\n\n` +
+        "Ele(a) já possui *Laudo Médico* expedido pelo neuropediatra ou psiquiatra?\n\n" +
         "Responda *SIM* ou *NÃO*.",
     };
   }
@@ -296,8 +297,8 @@ export async function processAnamnesisChatbotStep(
       return {
         handled: true,
         replyMessage:
-          "Compreendemos! ℹ️ Para o agendamento de Avaliação/Anamnese coberto pelo plano de saúde, a apresentação do *Laudo Médico* é obrigatória.\n\n" +
-          "Orientamos que entre em contato com o seu médico especialista ou com a operadora do seu plano de saúde para a emissão do laudo. Assim que tiver o documento em mãos, basta nos enviar uma mensagem por aqui para darmos continuidade!",
+          "Compreendemos perfeitamente! 💙 Para o agendamento de Avaliação/Anamnese coberto pelo plano de saúde, a apresentação do *Laudo Médico* é essencial.\n\n" +
+          "Orientamos que entre em contato com o médico especialista ou com a operadora do plano de saúde. Assim que tiver o documento em mãos, basta nos enviar uma mensagem por aqui! Estaremos prontos para te acolher. 🌱✨",
       };
     }
 
@@ -448,9 +449,9 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        "Tudo certo! 🎉 Recebemos todas as suas informações e os documentos em PDF (Laudo e Guia).\n\n" +
-        "O supervisor da clínica irá analisar e validar os documentos. Assim que for aprovado, enviaremos os horários e datas vagos por aqui para você escolher seu agendamento.\n\n" +
-        "Agradecemos o seu contato!",
+        "Tudo certo! 🎉 Recebemos com carinho todas as suas informações e os documentos em PDF (Laudo e Guia).\n\n" +
+        "O supervisor da *FaçaAmigos - Centro de Terapia Comportamental* irá analisar e validar os documentos. Assim que for aprovado, enviaremos as datas e horários disponíveis por aqui para você escolher o melhor agendamento da sua criança/adolescente! 🧩💙\n\n" +
+        "Agradecemos o seu contato e a confiança em nossa equipe!",
     };
   }
 

@@ -22,6 +22,23 @@ export async function sendManualMessage(conversationId: string, body: string) {
 
   const sendResult = await sendTwilioWhatsApp({ to: conversation.phone_number, message: trimmed });
 
+  // Detecta se a falha é por conta/perfil KYC pendente na Twilio (ex: código 20003 ou erro de compliance/Trust Hub)
+  const isKycOrAccountPending =
+    !sendResult.success &&
+    Boolean(
+      sendResult.error &&
+        (sendResult.error.includes("20003") ||
+          sendResult.error.includes("compliance profile") ||
+          sendResult.error.includes("Trust Hub") ||
+          sendResult.error.includes("não está configurado")),
+    );
+
+  const deliveryStatus = sendResult.success
+    ? "sent"
+    : isKycOrAccountPending
+      ? "simulated_dev"
+      : "failed";
+
   const { error: insertError } = await supabase.from("messages").insert({
     patient_id: conversation.patient_id,
     guardian_id: conversation.guardian_id,
@@ -32,11 +49,25 @@ export async function sendManualMessage(conversationId: string, body: string) {
     body: trimmed,
     sent_at: new Date().toISOString(),
     twilio_sid: sendResult.messageId ?? null,
-    delivery_status: sendResult.success ? "sent" : "failed",
+    delivery_status: deliveryStatus,
   });
 
   if (insertError) {
     return { success: false as const, error: insertError.message };
+  }
+
+  if (isKycOrAccountPending) {
+    await supabase
+      .from("twilio_conversations")
+      .update({ last_message_at: new Date().toISOString(), status: "open", escalation_reason: null })
+      .eq("id", conversationId);
+
+    revalidatePath("/recepcao/atendimento");
+    return {
+      success: true as const,
+      warning:
+        "Mensagem registrada no histórico local (O envio externo requer a validação de perfil KYC no Console da Twilio).",
+    };
   }
 
   if (!sendResult.success) {

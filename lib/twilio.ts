@@ -18,10 +18,13 @@ function getTwilioClient() {
   }
 
   try {
+    if (authToken && accountSid) {
+      return twilio(accountSid, authToken);
+    }
     if (apiKey && apiSecret && accountSid) {
       return twilio(apiKey, apiSecret, { accountSid });
     }
-    return twilio(accountSid, authToken);
+    return null;
   } catch (error) {
     console.error("[Twilio Init Error]:", error);
     return null;
@@ -245,9 +248,9 @@ export async function getAcceptedInsurersFormatted(clinicId = DEV_CLINIC_ID): Pr
 
     if (!insurers || insurers.length === 0) {
       return (
-        "Olá! 👋 Agradecemos seu contato.\n\n" +
-        "Atualmente nossos atendimentos são realizados na modalidade *Particular* com emissão de nota fiscal para *Reembolso* junto ao seu plano de saúde.\n\n" +
-        "Caso precise de auxílio com a documentação para reembolso ou queira agendar uma avaliação, por favor nos responda por aqui!"
+        "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*!\n\n" +
+        "Atualmente nossos atendimentos multidisciplinares para crianças e adolescentes são realizados na modalidade *Particular* com emissão de nota fiscal para *Reembolso* junto ao seu plano de saúde.\n\n" +
+        "Caso precise de auxílio com a documentação para reembolso ou queira agendar uma avaliação, por favor nos responda por aqui! 🧩✨"
       );
     }
 
@@ -256,17 +259,18 @@ export async function getAcceptedInsurersFormatted(clinicId = DEV_CLINIC_ID): Pr
       .join("\n");
 
     return (
-      "Olá! 👋 Sou o assistente virtual da clínica.\n\n" +
-      "Atualmente, aceitamos e atendemos os seguintes planos e convênios:\n\n" +
+      "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*!\n\n" +
+      "Aceitamos e atendemos os seguintes planos e convênios para o acompanhamento da sua criança ou adolescente:\n\n" +
       `${planList}\n\n` +
       "Também emitimos relatórios e notas fiscais para *Reembolso* caso o seu plano não esteja na lista.\n\n" +
-      "Como podemos te ajudar com o seu agendamento?"
+      "Como podemos te ajudar hoje na jornada do seu pequeno(a) ou jovem? 🧩✨"
     );
   } catch (err) {
     console.error("[Twilio Chatbot Exception]:", err);
     return (
-      "Olá! 👋 Agradecemos sua mensagem. Nossos atendimentos contemplam convênios parceiros e modalidade particular com reembolso.\n\n" +
-      "Um de nossos atendentes responderá em instantes com as informações detalhadas sobre o seu plano!"
+      "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*!\n\n" +
+      "Nossos atendimentos contemplam convênios parceiros e modalidade particular com reembolso para crianças e adolescentes.\n\n" +
+      "Um de nossos atendentes responderá em instantes com as informações detalhadas para a sua família! 🤝✨"
     );
   }
 }
@@ -493,6 +497,18 @@ export async function handleTwilioIncomingMessage(params: {
     if (!conversation.is_bot_active) {
       return { replyMessage: "", intent: "human_handled" };
     }
+
+    // Chave-geral do bot (aba Chatbot > Configurações, restrita a
+    // Supervisão/Gestão) — pausa TODO o atendimento automático de uma vez,
+    // mesmo comportamento do toggle por conversa acima. Documentos e o
+    // acolhimento de plano de saúde já foram tratados nos passos 0.6/0.7
+    // antes deste ponto, então continuam funcionando mesmo com o bot
+    // pausado (mesma exceção que já valia para is_bot_active).
+    const { getChatbotSettings } = await import("./twilio-faq-bot");
+    const settings = await getChatbotSettings(DEV_CLINIC_ID);
+    if (!settings.botEnabled) {
+      return { replyMessage: "", intent: "human_handled" };
+    }
   } catch (err) {
     console.error("[Twilio Central Multicanal Error]:", err);
   }
@@ -574,14 +590,26 @@ export async function handleTwilioIncomingMessage(params: {
   }
 
   // 3. Resposta padrão amigável (fallback estático — Gemini indisponível,
-  // sem chave configurada ou teto diário de respostas atingido)
+  // sem chave configurada ou teto diário de respostas atingido). Editável
+  // na aba Chatbot > Configurações (chatbot_settings.greeting_fallback);
+  // em branco, usa o texto padrão abaixo.
+  try {
+    const { getChatbotSettings } = await import("./twilio-faq-bot");
+    const settings = await getChatbotSettings(DEV_CLINIC_ID);
+    if (settings.greetingFallback) {
+      return { intent: "atendimento_geral", replyMessage: settings.greetingFallback };
+    }
+  } catch (err) {
+    console.error("[Twilio Greeting Fallback Settings Error]:", err);
+  }
+
   return {
     intent: "atendimento_geral",
     replyMessage:
-      "Olá! 👋 Agradecemos seu contato com a nossa clínica.\n\n" +
-      "• Digite *AGENDAR* para agendar uma Avaliação / Anamnese autorizada pelo seu plano de saúde.\n" +
+      "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*! É uma alegria acolher você e sua família.\n\n" +
+      "• Digite *AGENDAR* para iniciar o agendamento da *Avaliação / Anamnese* da sua criança ou adolescente pelo plano de saúde.\n" +
       "• Pergunte sobre *PLANOS DE SAÚDE* para consultar a lista de convênios aceitos.\n\n" +
-      "Como podemos te ajudar hoje?",
+      "Como podemos te ajudar hoje no desenvolvimento do seu pequeno(a) ou jovem? 🧩✨",
   };
 }
 

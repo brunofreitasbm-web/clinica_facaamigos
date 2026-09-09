@@ -64,7 +64,7 @@ export async function createFaq(formData: FormData): Promise<ActionResult> {
     return { success: false, error: "Você não tem permissão para cadastrar perguntas." };
   }
 
-  revalidatePath("/gestor/cadastros/faq");
+  revalidatePath("/recepcao/atendimento");
   return { success: true };
 }
 
@@ -84,7 +84,7 @@ export async function updateFaq(faqId: string, formData: FormData): Promise<Acti
     return { success: false, error: "Não foi possível salvar esta pergunta." };
   }
 
-  revalidatePath("/gestor/cadastros/faq");
+  revalidatePath("/recepcao/atendimento");
   return { success: true };
 }
 
@@ -99,7 +99,7 @@ export async function toggleFaqActive(faqId: string, active: boolean): Promise<A
     return { success: false, error: "Não foi possível atualizar esta pergunta." };
   }
 
-  revalidatePath("/gestor/cadastros/faq");
+  revalidatePath("/recepcao/atendimento");
   return { success: true };
 }
 
@@ -111,6 +111,6 @@ export async function deleteFaq(faqId: string): Promise<ActionResult> {
     return { success: false, error: "Não foi possível excluir esta pergunta." };
   }
 
-  revalidatePath("/gestor/cadastros/faq");
+  revalidatePath("/recepcao/atendimento");
   return { success: true };
 }
