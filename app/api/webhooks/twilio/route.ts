@@ -113,7 +113,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (!isValidTwilioSignature(req, signatureParams)) {
-      console.error("[Twilio Webhook Signature Error]: assinatura inválida ou ausente — requisição rejeitada.");
+      console.error(
+        "[Twilio Webhook Signature Error]: assinatura inválida ou ausente — requisição rejeitada.",
+        JSON.stringify({
+          reqUrl: req.url,
+          host: req.headers.get("host"),
+          xForwardedHost: req.headers.get("x-forwarded-host"),
+          xForwardedProto: req.headers.get("x-forwarded-proto"),
+          hasSignature: !!req.headers.get("x-twilio-signature"),
+        }),
+      );
       return NextResponse.json({ success: false, error: "Assinatura inválida." }, { status: 403 });
     }
 
