@@ -41,7 +41,7 @@ export default async function RecepcaoLayout({ children }: { children: React.Rea
   const tomorrowUnconfirmedCount = (tomorrowAppointments ?? []).filter((a) => !a.confirmed_at).length;
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <RecepcaoNav
         pendingCount={queue.length}
         tomorrowUnconfirmedCount={tomorrowUnconfirmedCount}

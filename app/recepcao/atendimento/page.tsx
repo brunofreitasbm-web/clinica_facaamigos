@@ -36,7 +36,7 @@ export default async function AtendimentoPage() {
   });
 
   return (
-    <main className="flex min-h-screen flex-1 flex-col">
+    <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <AtendimentoShell initialConversations={conversations} />
     </main>
   );

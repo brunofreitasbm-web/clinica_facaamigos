@@ -46,7 +46,7 @@ export default function RootLayout({
       className={`${nunito.variable} ${fredoka.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+      <body className="h-full flex flex-col" suppressHydrationWarning>
         <ToastProvider>
           <Suspense fallback={null}>
             <RouteProgressBar />
