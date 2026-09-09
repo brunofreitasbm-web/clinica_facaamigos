@@ -21,7 +21,26 @@ const CHANGE_PASSWORD_PATH = "/trocar-senha";
 // são pedidos por crawler, sem cookie de sessão — sem isso aqui, o
 // middleware redirecionava os dois para /login e nenhum buscador conseguia
 // ler nem um nem outro (achado real ao testar a indexação da landing).
-const PUBLIC_PREFIXES = ["/checkin", "/api/checkin", "/ficha", "/site", "/robots.txt", "/sitemap.xml"];
+//
+// /api/webhooks e /api/twilio também precisam ser públicos: são chamados
+// pelo Twilio (webhook inbound, voice/twiml, voice/status) ou pelo Vercel
+// Cron (rotas */trigger), nenhum dos dois manda cookie de sessão do
+// Supabase. Sem isso o middleware redirecionava pra /login e o Twilio
+// recebia HTML em vez de TwiML (erro 12200 "document parse failure") —
+// mensagens de WhatsApp chegavam no Twilio mas nunca apareciam na Central
+// de Atendimento. Essas rotas já se autenticam por conta própria (assinatura
+// X-Twilio-Signature ou header CRON_SECRET), então ficam abertas com
+// segurança aqui.
+const PUBLIC_PREFIXES = [
+  "/checkin",
+  "/api/checkin",
+  "/ficha",
+  "/site",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/api/webhooks",
+  "/api/twilio",
+];
 
 function isPublicRequestPath(pathname: string): boolean {
   return (
