@@ -11,7 +11,7 @@
 | Pergunta | Resposta | Consequência no PRD |
 |---|---|---|
 | Fonte principal de receita | Planos de saúde | Autorização/guia é entidade central; glosa é métrica de faturamento; documentação é requisito de receita |
-| Vínculo dos terapeutas | PJ, pagos por sessão realizada | Repasse calculado por sessão; tabela de valor-hora em faixas; nada de "bônus por meta" no contrato |
+| Vínculo dos terapeutas | PJ, pagos por Módulo Assistencial entregue (cláusula 6ª contrato-quadro PJ–PJ, 2026-09-10) | Honorário calculado por módulo entregue (não por hora/sessão); tabela de honorário por módulo em faixas; indenização (não remuneração) por módulo esvaziado por falta com aviso <24h; nada de "bônus por meta" no contrato |
 | Negócio | Novo, do zero | Sem migração de dados; sistema define o processo desde o dia 1 |
 | Escala ano 1 | 15+ terapeutas, 100+ crianças | ~1.500–2.500 sessões/mês; agenda e prontuário precisam de performance e multiusuário desde o MVP |
 | Quem constrói | O próprio dono, com IA + Supabase/Vercel | PRD vai até nível de schema, RLS e telas; prioriza o que uma pessoa constrói em 12 semanas |
@@ -58,7 +58,7 @@
 
 | Papel | O que vê | O que faz | Não pode |
 |---|---|---|---|
-| **Dono/Gestor** | Tudo, painel executivo | Configura metas, faixas de valor-hora, convênios, aprova repasse | Editar evolução clínica |
+| **Dono/Gestor** | Tudo, painel executivo | Configura metas, faixas de honorário por módulo, convênios, aprova repasse | Editar evolução clínica |
 | **Coordenador clínico / Supervisor** | Todos os pacientes, todas as agendas, painel de supervisão | Monta grade, aprova plano terapêutico, valida metas atingidas, autoriza alta | Alterar valores financeiros |
 | **Terapeuta (PJ)** | Só seus pacientes e sua agenda | Registra evolução, coleta dados, propõe metas, anexa relatório | Ver agenda de outros, ver valores de convênio, editar evolução após 48h sem justificativa |
 | **Recepção** | Agenda geral, cadastro, fila de pendências, autorizações | Cadastra, agenda, confirma, registra falta, anexa documentos de entrada | Ver evolução clínica, ver repasse |
@@ -134,7 +134,10 @@ Decisões técnicas fixas:
 ```
 clinics(id, name, cnpj, ...)
 profiles(id→auth.users, clinic_id, role, full_name, council_type, council_number, phone, active)
-therapist_contracts(id, profile_id, tier, hourly_rate, valid_from, valid_to)        -- faixa de valor-hora
+therapist_contracts(id, profile_id, tier, hourly_rate, module_price, attendances_per_module, doc_deadline_days, noshow_compensation_pct, valid_from, valid_to)
+  -- honorário por Módulo Assistencial (cláusula 6ª contrato-quadro PJ–PJ, 2026-09-10). `hourly_rate` é legado
+  -- (modelo por hora, descontinuado — mantido só pra preservar contratos/payouts históricos já fechados);
+  -- `module_price` é o preço fechado por módulo, exclusivo entre os dois (constraint XOR).
 rooms(id, clinic_id, name, capacity)
 
 patients(id, clinic_id, full_name, birth_date, cid, support_level, status[lead|avaliacao|ativo|pausado|alta|evadido], entry_source, complaint, created_by, created_at, first_contact_at, evaluated_at, first_session_at)
@@ -488,7 +491,7 @@ Todas as métricas são views SQL sobre o schema do §7. Cada uma tem `metric_ke
 | `review_on_time` | reavaliações entregues ≤ `review_due_at` ÷ devidas | 100% | 10% |
 | `auth_first_pass` | autorizações aprovadas sem reenvio ÷ enviadas | ≥ 85% | 10% |
 
-### 10.3 Terapeutas PJ (progressão de faixa trimestral, não bônus)
+### 10.3 Terapeutas PJ (progressão de faixa de honorário por módulo, trimestral, não bônus)
 
 | metric_key | Definição | Critério para subir de faixa |
 |---|---|---|
@@ -501,9 +504,11 @@ Todas as métricas são views SQL sobre o schema do §7. Cada uma tem `metric_ke
 | `family_nps` | NPS da pergunta sobre o terapeuta no questionário trimestral | ≥ 70 |
 | `attributable_glosa` | glosas `attributable_to = terapeuta` ÷ guias do terapeuta | ≤ 1% |
 
+Nota: `note_24h_rate` (evolução registrada em 24h) é a mesma condição que já compõe a definição de "Módulo Assistencial entregue" (cláusula 6.1-iii — a entrega/protocolo da documentação técnica é derivada automaticamente de `session_notes`, sem tela de "protocolar" separada). Um terapeuta com módulos entregues consistentemente já está, por construção, cumprindo esse critério.
+
 Regra de produto: **nenhuma view usa sessões prescritas, horas indicadas ou tempo de permanência como numerador positivo para terapeuta.** Isso é teste automatizado.
 
-Regra jurídica: a progressão de faixa é revisão de preço de serviço prevista em contrato, proposta pelo sistema e aprovada pelo gestor; o sistema não paga "bônus". O contrato PJ, o texto da tabela de faixas e o fluxo de aprovação passam por advogado trabalhista antes do primeiro contrato (Tema 1389 STF pendente).
+Regra jurídica: a progressão de faixa é revisão de preço de serviço (honorário por Módulo Assistencial) prevista em contrato, proposta pelo sistema e aprovada pelo gestor; o sistema não paga "bônus". O contrato PJ, o texto da tabela de faixas e o fluxo de aprovação passam por advogado trabalhista antes do primeiro contrato (Tema 1389 STF pendente). Vocabulário obrigatório em telas/relatórios/CSV/comunicação interna: "Módulo Assistencial", "módulos entregues", "honorários" — nunca "turno", "plantão", "jornada", "escala", "carga horária", "ponto", "frequência", "salário", "gratificação".
 
 ### 10.4 Faturamento (CLT → PLR semestral)
 
@@ -524,7 +529,7 @@ Regra jurídica: a progressão de faixa é revisão de preço de serviço previs
 1. `pg_cron` roda no dia 1 de cada mês: calcula cada view para o período fechado e grava em `metric_snapshots`.
 2. Tela de atingimento: por pessoa, realizado × meta × peso → % atingido. Métricas eliminatórias zeram o período se falharem.
 3. PLR: soma semestral dos % mensais ponderados; memória de cálculo exportável (PDF) para o acordo de PLR.
-4. Faixa PJ: no fim do trimestre o sistema gera "proposta de faixa" por terapeuta com evidência; gestor aprova ou rejeita; nova `therapist_contracts` com `valid_from`.
+4. Faixa PJ: no fim do trimestre o sistema gera "proposta de faixa" (novo `module_price`) por terapeuta com evidência; gestor aprova ou rejeita; nova `therapist_contracts` com `valid_from`, herdando `attendances_per_module`/`doc_deadline_days`/`noshow_compensation_pct` do contrato atual.
 5. Toda métrica tem botão "ver sessões" que lista as linhas que a compuseram.
 
 ## 11. LGPD e segurança
@@ -588,9 +593,10 @@ Regra jurídica: a progressão de faixa é revisão de preço de serviço previs
 - **Glosa:** recusa de pagamento de uma guia enviada; tem motivo e pode ter recurso.
 - **TISS:** padrão ANS de troca de informação entre prestador e operadora.
 - **Competência:** mês de referência do faturamento.
-- **Repasse:** valor pago ao terapeuta PJ pelas sessões realizadas.
+- **Repasse / Honorários:** valor pago ao terapeuta PJ pelos Módulos Assistenciais entregues (mais indenização civil por módulo esvaziado por falta com aviso <24h — não é remuneração por disponibilidade).
+- **Módulo Assistencial:** unidade de serviço definida na cláusula 6ª do contrato-quadro PJ–PJ — atendimentos de um mesmo período (matutino/vespertino, corte 12h) de um mesmo dia, com prontuário de cada atendimento e documentação técnica entregue no prazo contratual; preço unitário fechado por módulo, sem proporcionalidade a horas ou nº de atendimentos ("tudo ou nada").
 - **PLR:** participação nos lucros ou resultados (Lei 10.101/2000), não integra salário.
-- **Faixa:** nível de valor-hora do terapeuta no contrato PJ.
+- **Faixa:** nível de honorário por Módulo Assistencial do terapeuta no contrato PJ.
 - **Evolução:** registro clínico da sessão, assinado pelo profissional.
 - **Reavaliação:** relatório periódico (3/6/12 meses) exigido para renovação de autorização.
 - **VB-MAPP / ABLLS-R / Denver (ESDM):** instrumentos comerciais de avaliação e currículo em ABA/intervenção precoce, de editoras distintas (AVB Press, WPS, Guilford/Routledge), com direito autoral e, no caso do Denver, exigência de certificação. A clínica compra os três; os itens são transcritos para `protocol_items` sob decisão de risco registrada (§9.4-A), com acesso restrito por RLS. `domain_taxonomy` continua em uso para as disciplinas sem protocolo licenciado.

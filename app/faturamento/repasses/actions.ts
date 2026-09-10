@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { hoursBetween } from "@/app/gestor/data";
 
 type CloseResult =
   | { success: true; closedCount: number; skipped: string[] }
@@ -19,40 +18,20 @@ function normalizeCompetenceMonth(input: string): string | null {
   return trimmed.length === 7 ? `${trimmed}-01` : trimmed;
 }
 
-type ContractWindow = { hourlyRate: number; validFrom: number; validTo: number | null };
-
-/** Taxa/hora vigente pra uma sessão específica — usa a data DA SESSÃO, não a de hoje, pois o fechamento pode ser de um mês passado com faixa já trocada depois. */
-function rateAt(windows: ContractWindow[], sessionStartsAt: string): number | null {
-  const at = new Date(sessionStartsAt).getTime();
-  for (const w of windows) {
-    if (w.validFrom <= at && (w.validTo == null || w.validTo >= at)) return w.hourlyRate;
-  }
-  return null;
-}
-
 /**
- * Fecha a competência de repasse do mês informado: para cada terapeuta
- * ativo da clínica com pelo menos 1 sessão `realizada` no mês, cria (ou
- * reprocessa, se já existir) a linha em `payouts` e as linhas de
- * `payout_items` correspondentes.
+ * Fecha a competência de repasse do mês informado, por Módulo Assistencial
+ * efetivamente entregue (cláusula 6ª do contrato-quadro PJ–PJ) — não é mais
+ * hora × valor-hora por sessão.
  *
- * Idempotente por design: reprocessar um payout ainda `aberto` apaga os
- * `payout_items` antigos e recria com o cálculo atual (útil se uma sessão
- * mudou de status ou um contrato foi corrigido depois do primeiro
- * fechamento). Um payout já `aprovado`/`pago` nunca é sobrescrito — o
- * terapeuta entra na lista `skipped` em vez disso.
- *
- * `rate_applied` em `payout_items` guarda o `hourly_rate` do contrato
- * vigente NA DATA da sessão (não o valor total pago por ela) — é o registro
- * de auditoria de "a que taxa essa sessão específica foi paga", consistente
- * com o nome da coluna. Como não há coluna de horas em `payout_items`, o
- * valor total (`payouts.gross_amount`) é calculado e armazenado à parte, em
- * vez de ser reconstituído por `sum(rate_applied)`.
- *
- * Sessões em grupo (`modality='grupo'`) podem se sobrepor no horário desde
- * a migration 20260904000024 — cada linha de `appointments` é uma sessão
- * paga independente, então a soma é sempre por linha, nunca deduplicando
- * por overlap de horário.
+ * Delega inteiramente pra `close_payouts_for_month_authenticated` (RPC SQL),
+ * que por sua vez chama `close_monthly_payouts_for_month` — a MESMA função
+ * usada pelo cron mensal (`close_monthly_payouts`, `20260906000018`
+ * reescrita em `20260910090300`). Isso elimina a duplicação de lógica
+ * SQL/TS que existia no modelo antigo por hora (a action manual reimplementava
+ * `close_monthly_payouts()` quase igual em TypeScript). A RPC já barra
+ * internamente quem não é gestor/faturamento e nunca sobrescreve um payout
+ * `aprovado`/`pago` — reprocessar um `aberto` apaga os `payout_items`
+ * antigos e recria com o cálculo atual.
  */
 export async function closePayouts(competenceMonthInput: string): Promise<CloseResult> {
   const competenceMonth = normalizeCompetenceMonth(competenceMonthInput);
@@ -61,10 +40,6 @@ export async function closePayouts(competenceMonthInput: string): Promise<CloseR
   }
 
   const supabase = await createClient();
-
-  const [year, month] = competenceMonth.split("-").map(Number);
-  const startISO = new Date(Date.UTC(year, month - 1, 1)).toISOString();
-  const endISO = new Date(Date.UTC(year, month, 1)).toISOString();
 
   const { data: therapists } = await supabase
     .from("profiles")
@@ -77,110 +52,29 @@ export async function closePayouts(competenceMonthInput: string): Promise<CloseR
   const ids = therapistList.map((t) => t.id);
   const nameById = new Map(therapistList.map((t) => [t.id, t.full_name]));
 
-  const [{ data: contracts }, { data: sessions }, { data: existingPayouts }] = await Promise.all([
-    supabase.from("therapist_contracts").select("profile_id, hourly_rate, valid_from, valid_to").in("profile_id", ids),
-    supabase
-      .from("appointments")
-      .select("id, therapist_id, starts_at, ends_at")
-      .in("therapist_id", ids)
-      .eq("status", "realizada")
-      .gte("starts_at", startISO)
-      .lt("starts_at", endISO),
-    supabase.from("payouts").select("id, therapist_id, status").in("therapist_id", ids).eq("competence_month", competenceMonth),
-  ]);
-
-  const windowsByTherapist = new Map<string, ContractWindow[]>();
-  for (const c of contracts ?? []) {
-    const arr = windowsByTherapist.get(c.profile_id) ?? [];
-    arr.push({
-      hourlyRate: Number(c.hourly_rate),
-      validFrom: new Date(c.valid_from).getTime(),
-      validTo: c.valid_to ? new Date(c.valid_to).getTime() : null,
-    });
-    windowsByTherapist.set(c.profile_id, arr);
+  const { error: rpcError } = await supabase.rpc("close_payouts_for_month_authenticated", {
+    p_month: competenceMonth,
+  });
+  if (rpcError) {
+    return {
+      success: false,
+      error: rpcError.message || "Não foi possível fechar a competência. Verifique sua permissão de gestor/faturamento.",
+    };
   }
 
-  const sessionsByTherapist = new Map<string, { id: string; starts_at: string; ends_at: string }[]>();
-  for (const s of sessions ?? []) {
-    const arr = sessionsByTherapist.get(s.therapist_id) ?? [];
-    arr.push(s);
-    sessionsByTherapist.set(s.therapist_id, arr);
-  }
+  const { data: payouts } = await supabase
+    .from("payouts")
+    .select("therapist_id, status")
+    .in("therapist_id", ids)
+    .eq("competence_month", competenceMonth);
 
-  const existingByTherapist = new Map((existingPayouts ?? []).map((p) => [p.therapist_id, p]));
-
-  let closedCount = 0;
-  const skipped: string[] = [];
-
-  for (const therapistId of ids) {
-    const mySessions = sessionsByTherapist.get(therapistId) ?? [];
-    if (mySessions.length === 0) continue;
-
-    const therapistName = nameById.get(therapistId) ?? "terapeuta";
-    const existing = existingByTherapist.get(therapistId);
-    if (existing && existing.status !== "aberto") {
-      skipped.push(therapistName);
-      continue;
-    }
-
-    const windows = windowsByTherapist.get(therapistId) ?? [];
-    const items: { appointment_id: string; rate_applied: number }[] = [];
-    let grossAmount = 0;
-    for (const s of mySessions) {
-      const rate = rateAt(windows, s.starts_at);
-      if (rate == null) continue; // sem contrato vigente na data da sessão — fica de fora do fechamento
-      grossAmount += hoursBetween(s.starts_at, s.ends_at) * rate;
-      items.push({ appointment_id: s.id, rate_applied: rate });
-    }
-    if (items.length === 0) {
-      skipped.push(therapistName);
-      continue;
-    }
-
-    let payoutId: string;
-    if (existing) {
-      const { data: updated, error } = await supabase
-        .from("payouts")
-        .update({ sessions_count: items.length, gross_amount: grossAmount })
-        .eq("id", existing.id)
-        .select("id")
-        .maybeSingle();
-      if (error || !updated) {
-        return { success: false, error: `Não foi possível atualizar o repasse de ${therapistName}. Tente de novo.` };
-      }
-      payoutId = updated.id;
-
-      const { error: deleteError } = await supabase.from("payout_items").delete().eq("payout_id", payoutId);
-      if (deleteError) {
-        return { success: false, error: `Não foi possível reprocessar os itens do repasse de ${therapistName}. Tente de novo.` };
-      }
-    } else {
-      const { data: created, error } = await supabase
-        .from("payouts")
-        .insert({
-          therapist_id: therapistId,
-          competence_month: competenceMonth,
-          sessions_count: items.length,
-          gross_amount: grossAmount,
-          status: "aberto",
-        })
-        .select("id")
-        .single();
-      if (error || !created) {
-        return { success: false, error: `Não foi possível criar o repasse de ${therapistName}. Tente de novo.` };
-      }
-      payoutId = created.id;
-    }
-
-    const { error: itemsError } = await supabase
-      .from("payout_items")
-      .insert(items.map((it) => ({ payout_id: payoutId, appointment_id: it.appointment_id, rate_applied: it.rate_applied })));
-    if (itemsError) {
-      return { success: false, error: `Repasse de ${therapistName} salvo, mas não foi possível gravar os itens. Tente de novo.` };
-    }
-
-    closedCount += 1;
-  }
+  // Payouts que sobraram 'aberto' são exatamente os que este fechamento
+  // (re)gravou agora; os com status != 'aberto' são os que já estavam
+  // aprovado/pago antes e a RPC preservou sem sobrescrever.
+  const closedCount = (payouts ?? []).filter((p) => p.status === "aberto").length;
+  const skipped = (payouts ?? [])
+    .filter((p) => p.status !== "aberto")
+    .map((p) => nameById.get(p.therapist_id) ?? "terapeuta");
 
   revalidatePath("/gestor/financeiro");
   revalidatePath("/faturamento/repasses");

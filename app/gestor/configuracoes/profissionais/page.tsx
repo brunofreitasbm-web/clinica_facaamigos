@@ -6,12 +6,16 @@ import type { TherapistRow, ContractRow } from "./types";
 export const dynamic = "force-dynamic";
 
 /**
- * Cadastro de valor-hora por terapeuta (`therapist_contracts`, tabela real
- * desde 20260904000001_core_identity.sql). Não existia tela nenhuma pra
+ * Cadastro de Honorário por Módulo Assistencial por terapeuta
+ * (`therapist_contracts`, tabela real desde 20260904000001_core_identity.sql,
+ * estendida em 20260910090000 pra pagamento por módulo em vez de hora —
+ * cláusula 6ª do contrato-quadro PJ–PJ). Não existia tela nenhuma pra
  * gerenciar isso — a única versão anterior desta página (removida) era um
  * formulário com tiers inventados, sem nenhuma tabela por trás. O repasse
- * mensal (app/faturamento/repasses, close_monthly_payouts) lê `hourly_rate`
- * daqui; sem contrato cadastrado, o terapeuta não recebe repasse nenhum.
+ * mensal (app/faturamento/repasses, close_monthly_payouts_for_month) lê
+ * `module_price`/`attendances_per_module`/`doc_deadline_days`/
+ * `noshow_compensation_pct` daqui; sem contrato cadastrado, o terapeuta não
+ * recebe repasse nenhum.
  */
 export default async function ProfissionaisConfigPage() {
   const supabase = await createClient();
@@ -29,8 +33,11 @@ export default async function ProfissionaisConfigPage() {
   const { data: contracts } = therapistIds.length
     ? await supabase
         .from("therapist_contracts")
-        .select("id, profile_id, tier, hourly_rate, valid_from, valid_to")
+        .select(
+          "id, profile_id, tier, module_price, attendances_per_module, doc_deadline_days, noshow_compensation_pct, valid_from, valid_to",
+        )
         .in("profile_id", therapistIds)
+        .not("module_price", "is", null)
         .order("valid_from", { ascending: false })
     : { data: [] };
 
@@ -43,7 +50,10 @@ export default async function ProfissionaisConfigPage() {
         (c): ContractRow => ({
           id: c.id,
           tier: c.tier,
-          hourlyRate: Number(c.hourly_rate),
+          modulePrice: Number(c.module_price),
+          attendancesPerModule: c.attendances_per_module,
+          docDeadlineDays: c.doc_deadline_days,
+          noshowCompensationPct: Number(c.noshow_compensation_pct),
           validFrom: c.valid_from,
           validTo: c.valid_to,
         }),

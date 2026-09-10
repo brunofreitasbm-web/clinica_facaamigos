@@ -75,6 +75,93 @@ export type Database = {
           },
         ]
       }
+      aba_training_classes: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          day_of_week: number
+          id: string
+          room_id: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          day_of_week: number
+          id?: string
+          room_id: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          room_id?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aba_training_classes_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aba_training_classes_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aba_training_consumptions: {
+        Row: {
+          appointment_id: string
+          authorization_id: string
+          created_at: string
+          id: string
+          units: number
+        }
+        Insert: {
+          appointment_id: string
+          authorization_id: string
+          created_at?: string
+          id?: string
+          units: number
+        }
+        Update: {
+          appointment_id?: string
+          authorization_id?: string
+          created_at?: string
+          id?: string
+          units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aba_training_consumptions_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aba_training_consumptions_authorization_id_fkey"
+            columns: ["authorization_id"]
+            isOneToOne: false
+            referencedRelation: "authorizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       absence_alerts: {
         Row: {
           consecutive_faltas: number
@@ -453,95 +540,9 @@ export type Database = {
           },
         ]
       }
-      aba_training_classes: {
-        Row: {
-          active: boolean
-          clinic_id: string
-          created_at: string
-          day_of_week: number
-          id: string
-          room_id: string
-          start_time: string
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          clinic_id: string
-          created_at?: string
-          day_of_week: number
-          id?: string
-          room_id: string
-          start_time: string
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          clinic_id?: string
-          created_at?: string
-          day_of_week?: number
-          id?: string
-          room_id?: string
-          start_time?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "aba_training_classes_clinic_id_fkey"
-            columns: ["clinic_id"]
-            isOneToOne: false
-            referencedRelation: "clinics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "aba_training_classes_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "rooms"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      aba_training_consumptions: {
-        Row: {
-          appointment_id: string
-          authorization_id: string
-          created_at: string
-          id: string
-          units: number
-        }
-        Insert: {
-          appointment_id: string
-          authorization_id: string
-          created_at?: string
-          id?: string
-          units: number
-        }
-        Update: {
-          appointment_id?: string
-          authorization_id?: string
-          created_at?: string
-          id?: string
-          units?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "aba_training_consumptions_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "aba_training_consumptions_authorization_id_fkey"
-            columns: ["authorization_id"]
-            isOneToOne: false
-            referencedRelation: "authorizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       appointment_types: {
         Row: {
+          aba_role: string | null
           active: boolean
           clinic_id: string
           created_at: string
@@ -550,7 +551,6 @@ export type Database = {
           id: string
           modality: string
           name: string
-          aba_role: string | null
           recurrence: string
           requires_intern_ratio: boolean
           sessions_consumed: number
@@ -4255,6 +4255,7 @@ export type Database = {
           face_descriptor: string | null
           id: string
           institution: string | null
+          internship_type: string | null
           is_first_login: boolean | null
           last_report_date: string | null
           name: string
@@ -4293,6 +4294,7 @@ export type Database = {
           face_descriptor?: string | null
           id?: string
           institution?: string | null
+          internship_type?: string | null
           is_first_login?: boolean | null
           last_report_date?: string | null
           name: string
@@ -4331,6 +4333,7 @@ export type Database = {
           face_descriptor?: string | null
           id?: string
           institution?: string | null
+          internship_type?: string | null
           is_first_login?: boolean | null
           last_report_date?: string | null
           name?: string
@@ -5250,22 +5253,37 @@ export type Database = {
       }
       payout_items: {
         Row: {
-          appointment_id: string
+          appointment_id: string | null
+          appointment_ids: string[] | null
           id: string
+          item_type: string
+          module_price_applied: number | null
           payout_id: string
+          period: string | null
           rate_applied: number
+          service_date: string | null
         }
         Insert: {
-          appointment_id: string
+          appointment_id?: string | null
+          appointment_ids?: string[] | null
           id?: string
+          item_type?: string
+          module_price_applied?: number | null
           payout_id: string
+          period?: string | null
           rate_applied: number
+          service_date?: string | null
         }
         Update: {
-          appointment_id?: string
+          appointment_id?: string | null
+          appointment_ids?: string[] | null
           id?: string
+          item_type?: string
+          module_price_applied?: number | null
           payout_id?: string
+          period?: string | null
           rate_applied?: number
+          service_date?: string | null
         }
         Relationships: [
           {
@@ -5290,6 +5308,9 @@ export type Database = {
           competence_month: string
           gross_amount: number
           id: string
+          indemnity_amount: number
+          modules_delivered_count: number
+          modules_emptied_noshow_count: number
           sessions_count: number
           status: string
           therapist_id: string
@@ -5299,6 +5320,9 @@ export type Database = {
           competence_month: string
           gross_amount?: number
           id?: string
+          indemnity_amount?: number
+          modules_delivered_count?: number
+          modules_emptied_noshow_count?: number
           sessions_count?: number
           status?: string
           therapist_id: string
@@ -5308,6 +5332,9 @@ export type Database = {
           competence_month?: string
           gross_amount?: number
           id?: string
+          indemnity_amount?: number
+          modules_delivered_count?: number
+          modules_emptied_noshow_count?: number
           sessions_count?: number
           status?: string
           therapist_id?: string
@@ -6702,17 +6729,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "rooms_specialty_id_fkey"
-            columns: ["specialty_id"]
-            isOneToOne: false
-            referencedRelation: "specialties"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "rooms_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rooms_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
             referencedColumns: ["id"]
           },
         ]
@@ -6959,17 +6986,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "site_leads_convenio_id_fkey"
-            columns: ["convenio_id"]
-            isOneToOne: false
-            referencedRelation: "insurers"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "site_leads_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_leads_convenio_id_fkey"
+            columns: ["convenio_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
             referencedColumns: ["id"]
           },
         ]
@@ -7048,8 +7075,8 @@ export type Database = {
           created_at: string
           id: string
           intern_count: number
-          pj_count: number
           label: string
+          pj_count: number
           sort_order: number
           updated_at: string
           value: string
@@ -7060,8 +7087,8 @@ export type Database = {
           created_at?: string
           id?: string
           intern_count?: number
-          pj_count?: number
           label: string
+          pj_count?: number
           sort_order?: number
           updated_at?: string
           value: string
@@ -7072,8 +7099,8 @@ export type Database = {
           created_at?: string
           id?: string
           intern_count?: number
-          pj_count?: number
           label?: string
+          pj_count?: number
           sort_order?: number
           updated_at?: string
           value?: string
@@ -7230,24 +7257,36 @@ export type Database = {
       }
       therapist_contracts: {
         Row: {
-          hourly_rate: number
+          attendances_per_module: number
+          doc_deadline_days: number
+          hourly_rate: number | null
           id: string
+          module_price: number | null
+          noshow_compensation_pct: number
           profile_id: string
           tier: string
           valid_from: string
           valid_to: string | null
         }
         Insert: {
-          hourly_rate: number
+          attendances_per_module?: number
+          doc_deadline_days?: number
+          hourly_rate?: number | null
           id?: string
+          module_price?: number | null
+          noshow_compensation_pct?: number
           profile_id: string
           tier: string
           valid_from: string
           valid_to?: string | null
         }
         Update: {
-          hourly_rate?: number
+          attendances_per_module?: number
+          doc_deadline_days?: number
+          hourly_rate?: number | null
           id?: string
+          module_price?: number | null
+          noshow_compensation_pct?: number
           profile_id?: string
           tier?: string
           valid_from?: string
@@ -8107,28 +8146,6 @@ export type Database = {
     }
     Functions: {
       _cleanup: { Args: never; Returns: boolean }
-      book_aba_training_slot_atomic: {
-        Args: {
-          p_class_id: string
-          p_lead_id: string
-          p_starts_at: string
-          p_therapist_id: string
-        }
-        Returns: Json
-      }
-      aba_training_balance: {
-        Args: { p_on_date?: string; p_patient_id: string }
-        Returns: { blocks_available: number; sessions_remaining: number }[]
-      }
-      aba_training_consume_pool: {
-        Args: {
-          p_appointment_id: string
-          p_on_date: string
-          p_patient_id: string
-          p_units: number
-        }
-        Returns: undefined
-      }
       _contract_on: { Args: { "": string }; Returns: unknown }
       _currtest: { Args: never; Returns: number }
       _db_privs: { Args: never; Returns: unknown[] }
@@ -8144,6 +8161,22 @@ export type Database = {
       _table_privs: { Args: never; Returns: unknown[] }
       _temptypes: { Args: { "": string }; Returns: string }
       _todo: { Args: never; Returns: string }
+      aba_training_balance: {
+        Args: { p_on_date?: string; p_patient_id: string }
+        Returns: {
+          blocks_available: number
+          sessions_remaining: number
+        }[]
+      }
+      aba_training_consume_pool: {
+        Args: {
+          p_appointment_id: string
+          p_on_date: string
+          p_patient_id: string
+          p_units: number
+        }
+        Returns: undefined
+      }
       accept_family_lgpd_consent: { Args: never; Returns: undefined }
       accept_professional_terms: {
         Args: { p_pin: string; p_professional_id: string; p_version: string }
@@ -8175,6 +8208,15 @@ export type Database = {
         Returns: Json
       }
       auto_resolve_appointments: { Args: never; Returns: undefined }
+      book_aba_training_slot_atomic: {
+        Args: {
+          p_class_id: string
+          p_lead_id: string
+          p_starts_at: string
+          p_therapist_id: string
+        }
+        Returns: Json
+      }
       book_anamnesis_slot_atomic: {
         Args: {
           p_discipline?: string
@@ -8281,6 +8323,14 @@ export type Database = {
       }
       close_monthly_metric_snapshots: { Args: never; Returns: undefined }
       close_monthly_payouts: { Args: never; Returns: undefined }
+      close_monthly_payouts_for_month: {
+        Args: { p_month: string }
+        Returns: undefined
+      }
+      close_payouts_for_month_authenticated: {
+        Args: { p_month: string }
+        Returns: undefined
+      }
       col_is_null:
         | {
             Args: {
@@ -8317,6 +8367,23 @@ export type Database = {
             }
             Returns: string
           }
+      compute_assistance_modules: {
+        Args: {
+          p_period_end: string
+          p_period_start: string
+          p_therapist_ids: string[]
+        }
+        Returns: {
+          appointment_ids: string[]
+          attendance_count: number
+          delivered: boolean
+          emptied_by_noshow: boolean
+          module_index: number
+          period: string
+          service_date: string
+          therapist_id: string
+        }[]
+      }
       confirm_attendance: {
         Args: { p_appointment_id: string }
         Returns: undefined
@@ -8653,6 +8720,7 @@ export type Database = {
       refresh_authorization_renewal_requests: { Args: never; Returns: number }
       refresh_glosa_patterns: { Args: never; Returns: number }
       refresh_reassessment_alerts: { Args: never; Returns: undefined }
+      refresh_specialty_workforce_counts: { Args: never; Returns: undefined }
       regenerate_active_grade_sessions: {
         Args: { p_weeks_ahead?: number }
         Returns: undefined
@@ -8728,6 +8796,11 @@ export type Database = {
       skip:
         | { Args: { "": string }; Returns: string }
         | { Args: { how_many: number; why: string }; Returns: string }
+      specialty_for_source_text: {
+        Args: { p_clinic_id: string; p_text: string }
+        Returns: string
+      }
+      specialty_source_norm: { Args: { p_text: string }; Returns: string }
       system_user_manageable_roles: { Args: never; Returns: string[] }
       throws_ok: { Args: { "": string }; Returns: string }
       timemultirange: { Args: never; Returns: unknown }

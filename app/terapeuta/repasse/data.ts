@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { currentMonthRange, hoursBetween } from "@/app/gestor/data";
+import { currentMonthRange } from "@/app/gestor/data";
 import type { PayoutStatementData, PayoutItemRow } from "@/components/payout-statement";
 
 type Supa = SupabaseClient<Database>;
@@ -11,40 +11,59 @@ function monthLabel(competenceMonth: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-export type MyContract = { tier: string; hourlyRate: number } | null;
+const PERIOD_LABEL: Record<string, string> = { matutino: "Matutino", vespertino: "Vespertino" };
 
-/** Faixa/valor-hora vigente hoje do terapeuta logado — mesma janela de vigência usada no fechamento de competência (§8). */
+export type MyContract = {
+  tier: string;
+  modulePrice: number;
+  attendancesPerModule: number;
+  docDeadlineDays: number;
+  noshowCompensationPct: number;
+} | null;
+
+/** Faixa/honorário por Módulo Assistencial vigente hoje do terapeuta logado — mesma janela de vigência usada no fechamento de competência (§8, cláusula 6ª do contrato-quadro PJ–PJ). */
 export async function getMyContract(supabase: Supa, therapistId: string): Promise<MyContract> {
   const { data } = await supabase
     .from("therapist_contracts")
-    .select("tier, hourly_rate, valid_from, valid_to")
-    .eq("profile_id", therapistId);
+    .select("tier, module_price, attendances_per_module, doc_deadline_days, noshow_compensation_pct, valid_from, valid_to")
+    .eq("profile_id", therapistId)
+    .not("module_price", "is", null);
   const now = Date.now();
   const current = (data ?? []).find((c) => {
     const from = new Date(c.valid_from).getTime();
     const to = c.valid_to ? new Date(c.valid_to).getTime() : null;
     return from <= now && (to == null || to >= now);
   });
-  return current ? { tier: current.tier, hourlyRate: Number(current.hourly_rate) } : null;
+  return current
+    ? {
+        tier: current.tier,
+        modulePrice: Number(current.module_price),
+        attendancesPerModule: current.attendances_per_module,
+        docDeadlineDays: current.doc_deadline_days,
+        noshowCompensationPct: Number(current.noshow_compensation_pct),
+      }
+    : null;
 }
 
 export type PayoutHistoryRow = {
   payoutId: string | null;
   competenceMonth: string;
   competenceLabel: string;
-  sessionsCount: number;
+  modulesDeliveredCount: number;
   grossAmount: number;
+  indemnityAmount: number;
   netAmount: number;
-  statusLabel: "Sem sessões" | "A pagar" | "Pago";
+  statusLabel: "Sem módulos" | "A pagar" | "Pago";
   isLive: boolean;
 };
 
 /**
- * Histórico de repasses do terapeuta logado: linhas já fechadas em `payouts`
- * (RLS já restringe a `therapist_id = auth.uid()`, ver migration
- * 20260904000010) mais o mês corrente calculado ao vivo quando ainda não foi
- * fechado — mesma regra de "repasse por sessão" usada em
- * `app/gestor/financeiro/data.ts`, só que do ponto de vista do próprio PJ.
+ * Histórico de repasses do terapeuta logado, por Módulo Assistencial
+ * entregue (cláusula 6ª): linhas já fechadas em `payouts` (RLS já restringe
+ * a `therapist_id = auth.uid()`, ver migration 20260904000010) mais o mês
+ * corrente calculado ao vivo via `compute_assistance_modules` quando ainda
+ * não foi fechado — mesma regra usada em `app/gestor/financeiro/data.ts`,
+ * só que do ponto de vista do próprio PJ.
  */
 export async function getMyPayoutHistory(
   supabase: Supa,
@@ -53,21 +72,23 @@ export async function getMyPayoutHistory(
 ): Promise<PayoutHistoryRow[]> {
   const { data: payouts } = await supabase
     .from("payouts")
-    .select("id, competence_month, sessions_count, gross_amount, adjustments, status")
+    .select("id, competence_month, modules_delivered_count, gross_amount, indemnity_amount, adjustments, status")
     .eq("therapist_id", therapistId)
     .order("competence_month", { ascending: false });
 
   const closedRows: PayoutHistoryRow[] = (payouts ?? []).map((p) => {
     const competenceMonth = p.competence_month.slice(0, 7);
     const gross = Number(p.gross_amount);
+    const indemnity = Number(p.indemnity_amount ?? 0);
     return {
       payoutId: p.id,
       competenceMonth,
       competenceLabel: monthLabel(competenceMonth),
-      sessionsCount: p.sessions_count,
+      modulesDeliveredCount: p.modules_delivered_count,
       grossAmount: gross,
-      netAmount: gross + Number(p.adjustments ?? 0),
-      statusLabel: p.sessions_count === 0 ? "Sem sessões" : p.status === "pago" ? "Pago" : "A pagar",
+      indemnityAmount: indemnity,
+      netAmount: gross + indemnity + Number(p.adjustments ?? 0),
+      statusLabel: p.modules_delivered_count === 0 && indemnity === 0 ? "Sem módulos" : p.status === "pago" ? "Pago" : "A pagar",
       isLive: false,
     };
   });
@@ -76,24 +97,25 @@ export async function getMyPayoutHistory(
   const hasCurrentClosed = closedRows.some((r) => r.competenceMonth === currentCompetence.slice(0, 7));
 
   if (!hasCurrentClosed) {
-    const { data: sessions } = await supabase
-      .from("appointments")
-      .select("id, starts_at, ends_at")
-      .eq("therapist_id", therapistId)
-      .eq("status", "realizada")
-      .gte("starts_at", startISO)
-      .lt("starts_at", endISO);
-    const mySessions = sessions ?? [];
-    const hours = mySessions.reduce((sum, s) => sum + hoursBetween(s.starts_at, s.ends_at), 0);
-    const grossAmount = contract ? hours * contract.hourlyRate : 0;
+    const { data: modules } = await supabase.rpc("compute_assistance_modules", {
+      p_therapist_ids: [therapistId],
+      p_period_start: startISO,
+      p_period_end: endISO,
+    });
+    const moduleList = modules ?? [];
+    const deliveredCount = moduleList.filter((m) => m.delivered).length;
+    const emptiedCount = moduleList.filter((m) => m.emptied_by_noshow).length;
+    const grossAmount = contract ? deliveredCount * contract.modulePrice : 0;
+    const indemnityAmount = contract ? emptiedCount * contract.modulePrice * (contract.noshowCompensationPct / 100) : 0;
     closedRows.unshift({
       payoutId: null,
       competenceMonth: currentCompetence.slice(0, 7),
       competenceLabel: monthLabel(currentCompetence.slice(0, 7)),
-      sessionsCount: mySessions.length,
+      modulesDeliveredCount: deliveredCount,
       grossAmount,
-      netAmount: grossAmount,
-      statusLabel: mySessions.length === 0 ? "Sem sessões" : "A pagar",
+      indemnityAmount,
+      netAmount: grossAmount + indemnityAmount,
+      statusLabel: deliveredCount === 0 && indemnityAmount === 0 ? "Sem módulos" : "A pagar",
       isLive: true,
     });
   }
@@ -104,8 +126,8 @@ export async function getMyPayoutHistory(
 /**
  * Monta os dados de impressão (`PayoutStatementModal`) para uma competência
  * específica do terapeuta logado: se `payoutId` existir, usa os
- * `payout_items` fechados (taxa aplicada na data da sessão); senão, monta a
- * partir das sessões `realizada` do mês ao vivo.
+ * `payout_items` fechados (preço aplicado na competência); senão, monta a
+ * partir de `compute_assistance_modules` ao vivo pro mês corrente.
  */
 export async function getMyPayoutStatement(
   supabase: Supa,
@@ -116,52 +138,62 @@ export async function getMyPayoutStatement(
   row: PayoutHistoryRow,
 ): Promise<PayoutStatementData> {
   let items: PayoutItemRow[] = [];
+  const modulePrice = row.modulesDeliveredCount > 0 ? row.grossAmount / row.modulesDeliveredCount : (contract?.modulePrice ?? 0);
 
   if (row.payoutId) {
     const { data: payoutItems } = await supabase
       .from("payout_items")
-      .select("id, rate_applied, appointments(id, starts_at, ends_at, discipline, patients(full_name))")
+      .select("id, item_type, service_date, period, module_price_applied, rate_applied, appointment_ids, appointments(id, starts_at, discipline, patients(full_name))")
       .eq("payout_id", row.payoutId);
     items = (payoutItems ?? []).map((it) => {
-      const appt = it.appointments as {
-        starts_at: string;
-        ends_at: string;
-        discipline: string;
-        patients: { full_name: string } | null;
-      } | null;
-      const rate = Number(it.rate_applied);
-      const hours = appt ? hoursBetween(appt.starts_at, appt.ends_at) : 0;
+      if (it.item_type === "sessao") {
+        const appt = it.appointments as { starts_at: string; discipline: string; patients: { full_name: string } | null } | null;
+        return {
+          id: it.id,
+          label: appt
+            ? `${new Date(appt.starts_at).toLocaleDateString("pt-BR")} · ${appt.patients?.full_name ?? "—"} · ${appt.discipline}`
+            : "—",
+          kind: "sessao" as const,
+          amount: Number(it.rate_applied ?? 0),
+        };
+      }
+      const attendanceCount = (it.appointment_ids ?? []).length;
+      const dateLabel = it.service_date ? new Date(`${it.service_date}T12:00:00`).toLocaleDateString("pt-BR") : "—";
+      const periodLabel = it.period ? (PERIOD_LABEL[it.period] ?? it.period) : "—";
       return {
         id: it.id,
-        date: appt ? new Date(appt.starts_at).toLocaleDateString("pt-BR") : "—",
-        patientName: appt?.patients?.full_name ?? "—",
-        discipline: appt?.discipline ?? "—",
-        hourlyRate: rate,
-        amount: hours * rate,
+        label:
+          it.item_type === "indenizacao_noshow"
+            ? `${dateLabel} · ${periodLabel} · esvaziado por falta (aviso <24h)`
+            : `${dateLabel} · ${periodLabel} · ${attendanceCount} atendimento(s)`,
+        kind: it.item_type as "modulo" | "indenizacao_noshow",
+        amount: Number(it.module_price_applied ?? 0),
       };
     });
   } else {
     const { startISO, endISO } = currentMonthRange();
-    const { data: sessions } = await supabase
-      .from("appointments")
-      .select("id, starts_at, ends_at, discipline, patients(full_name)")
-      .eq("therapist_id", therapistId)
-      .eq("status", "realizada")
-      .gte("starts_at", startISO)
-      .lt("starts_at", endISO)
-      .order("starts_at");
-    const rate = contract?.hourlyRate ?? 0;
-    items = (sessions ?? []).map((s) => {
-      const hours = hoursBetween(s.starts_at, s.ends_at);
-      return {
-        id: s.id,
-        date: new Date(s.starts_at).toLocaleDateString("pt-BR"),
-        patientName: (s.patients as { full_name: string } | null)?.full_name ?? "—",
-        discipline: s.discipline,
-        hourlyRate: rate,
-        amount: hours * rate,
-      };
+    const { data: modules } = await supabase.rpc("compute_assistance_modules", {
+      p_therapist_ids: [therapistId],
+      p_period_start: startISO,
+      p_period_end: endISO,
     });
+    const moduleList = modules ?? [];
+    const emptiedCount = moduleList.filter((m) => m.emptied_by_noshow).length;
+    const indemnityPerModule = emptiedCount > 0 ? row.indemnityAmount / emptiedCount : 0;
+    items = moduleList
+      .filter((m) => m.delivered || m.emptied_by_noshow)
+      .map((m, i) => {
+        const dateLabel = new Date(`${m.service_date}T12:00:00`).toLocaleDateString("pt-BR");
+        const periodLabel = PERIOD_LABEL[m.period ?? ""] ?? m.period ?? "—";
+        return {
+          id: `${therapistId}-${i}`,
+          label: m.delivered
+            ? `${dateLabel} · ${periodLabel} · ${(m.appointment_ids ?? []).length} atendimento(s)`
+            : `${dateLabel} · ${periodLabel} · esvaziado por falta (aviso <24h)`,
+          kind: m.delivered ? ("modulo" as const) : ("indenizacao_noshow" as const),
+          amount: m.delivered ? modulePrice : indemnityPerModule,
+        };
+      });
   }
 
   return {
@@ -169,10 +201,11 @@ export async function getMyPayoutStatement(
     councilNumber: councilNumber ?? "—",
     competenceMonth: row.competenceLabel,
     tierName: contract?.tier ?? "—",
-    hourlyRate: contract?.hourlyRate ?? 0,
-    totalSessions: row.sessionsCount,
+    modulePrice,
+    totalModulesDelivered: row.modulesDeliveredCount,
     grossAmount: row.grossAmount,
-    adjustments: row.netAmount - row.grossAmount,
+    indemnityAmount: row.indemnityAmount,
+    adjustments: row.netAmount - row.grossAmount - row.indemnityAmount,
     netAmount: row.netAmount,
     status: row.isLive ? "pendente" : row.statusLabel === "Pago" ? "pago" : "aprovado",
     items,

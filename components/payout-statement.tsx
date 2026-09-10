@@ -6,10 +6,9 @@ import { Logo } from "@/components/brand/logo";
 
 export interface PayoutItemRow {
   id: string;
-  date: string;
-  patientName: string;
-  discipline: string;
-  hourlyRate: number;
+  /** Ex.: "05/09/2026 · Matutino · 4 atendimentos" (módulo/indenização) ou "05/09/2026 · João Silva · TO" (linha legada por sessão, pré-2026-09-10). */
+  label: string;
+  kind: "modulo" | "indenizacao_noshow" | "sessao";
   amount: number;
 }
 
@@ -18,33 +17,39 @@ export interface PayoutStatementData {
   councilNumber: string;
   competenceMonth: string; // ex: "08/2026"
   tierName: string; // ex: "Faixa 2 - Sênior"
-  hourlyRate: number; // ex: R$ 85,00
-  totalSessions: number;
+  modulePrice: number; // honorário por Módulo Assistencial — ex: R$ 150,00
+  totalModulesDelivered: number;
   grossAmount: number;
+  indemnityAmount: number;
   adjustments: number;
   netAmount: number;
   status: "pendente" | "aprovado" | "pago";
   items: PayoutItemRow[];
 }
 
+const KIND_LABEL: Record<PayoutItemRow["kind"], string> = {
+  modulo: "Módulo entregue",
+  indenizacao_noshow: "Indenização por falta",
+  sessao: "Sessão (legado)",
+};
+
 const DEFAULT_PAYOUT: PayoutStatementData = {
   therapistName: "Dra. Luciana Garcia",
   councilNumber: "CREFITO-3 98765-F",
   competenceMonth: "Agosto / 2026",
   tierName: "Faixa 2 · Especialista Sênior",
-  hourlyRate: 90.0,
-  totalSessions: 42,
-  grossAmount: 3780.0,
+  modulePrice: 150.0,
+  totalModulesDelivered: 18,
+  grossAmount: 2700.0,
+  indemnityAmount: 75.0,
   adjustments: 0.0,
-  netAmount: 3780.0,
+  netAmount: 2775.0,
   status: "aprovado",
   items: [
-    { id: "item-1", date: "03/08/2026", patientName: "Gabriel Santos Silva", discipline: "Terapia Ocupacional", hourlyRate: 90, amount: 90 },
-    { id: "item-2", date: "04/08/2026", patientName: "Lucas Oliveira Souza", discipline: "Terapia Ocupacional", hourlyRate: 90, amount: 90 },
-    { id: "item-3", date: "05/08/2026", patientName: "Beatriz Lima Pereira", discipline: "Terapia Ocupacional", hourlyRate: 90, amount: 90 },
-    { id: "item-4", date: "07/08/2026", patientName: "Enzo Ferreira Costa", discipline: "Terapia Ocupacional", hourlyRate: 90, amount: 90 },
-    { id: "item-5", date: "10/08/2026", patientName: "Gabriel Santos Silva", discipline: "Terapia Ocupacional", hourlyRate: 90, amount: 90 },
-    { id: "item-6", date: "11/08/2026", patientName: "Sophia Almeida", discipline: "Terapia Ocupacional", hourlyRate: 90, amount: 90 },
+    { id: "item-1", label: "03/08/2026 · Matutino · 4 atendimentos", kind: "modulo", amount: 150 },
+    { id: "item-2", label: "03/08/2026 · Vespertino · 5 atendimentos", kind: "modulo", amount: 150 },
+    { id: "item-3", label: "04/08/2026 · Matutino · 3 atendimentos", kind: "modulo", amount: 150 },
+    { id: "item-4", label: "07/08/2026 · Vespertino · esvaziado por falta (aviso <24h)", kind: "indenizacao_noshow", amount: 75 },
   ],
 };
 
@@ -87,7 +92,7 @@ export function PayoutStatementModal({
         disabled={isDownloading}
         className="inline-flex items-center gap-2 rounded-md border border-paper-line-strong bg-paper px-3.5 py-1.5 text-xs font-semibold text-ink hover:bg-paper-subtle transition-colors disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isDownloading ? "Gerando PDF..." : "📄 Extrato de Repasse PDF"}
+        {isDownloading ? "Gerando PDF..." : "📄 Extrato de Honorários PDF"}
       </button>
 
       {isOpen && (
@@ -97,7 +102,7 @@ export function PayoutStatementModal({
             <div className="flex items-center justify-between border-b border-paper-line px-6 py-4 bg-paper-subtle print:hidden">
               <div>
                 <h2 className="text-base font-bold text-ink">
-                  Extrato Mensal de Repasse (PJ)
+                  Extrato Mensal de Honorários (PJ)
                 </h2>
                 <p className="text-xs text-ink-soft">
                   Competência: {data.competenceMonth} · {data.therapistName}
@@ -136,7 +141,7 @@ export function PayoutStatementModal({
                   <div>
                     <Logo variant="horizontal" height={36} className="print:grayscale mb-2" />
                     <p className="text-xs text-ink-soft mt-1">
-                      Demonstrativo Mensal de Prestação de Serviços (Repasse PJ)
+                      Demonstrativo Mensal de Prestação de Serviços (Honorários PJ)
                     </p>
                   </div>
                   <div className="text-right text-xs">
@@ -155,15 +160,15 @@ export function PayoutStatementModal({
                   <div>
                     <span className="text-ink-soft">Faixa Contratual Vigente:</span>
                     <p className="font-semibold text-ink">{data.tierName}</p>
-                    <p className="text-ink-faint">Valor por sessão: R$ {data.hourlyRate.toFixed(2)}</p>
+                    <p className="text-ink-faint">Honorário por Módulo Assistencial: R$ {data.modulePrice.toFixed(2)}</p>
                   </div>
                 </div>
 
                 {/* Resumo Financeiro */}
                 <div className="grid grid-cols-3 gap-4 text-xs">
                   <div className="rounded-lg border border-paper-line p-3 text-center">
-                    <span className="text-ink-soft">Sessões Realizadas</span>
-                    <p className="text-xl font-bold text-ink">{data.totalSessions}</p>
+                    <span className="text-ink-soft">Módulos Entregues</span>
+                    <p className="text-xl font-bold text-ink">{data.totalModulesDelivered}</p>
                   </div>
                   <div className="rounded-lg border border-paper-line p-3 text-center">
                     <span className="text-ink-soft">Valor Bruto Calculado</span>
@@ -179,26 +184,33 @@ export function PayoutStatementModal({
                   </div>
                 </div>
 
-                {/* Tabela de Atendimentos */}
+                {data.indemnityAmount > 0 && (
+                  <div className="rounded-lg border border-paper-line bg-paper-subtle/40 p-3 text-xs">
+                    <span className="text-ink-soft">Indenização por esvaziamento de módulo (falta com aviso &lt;24h):</span>{" "}
+                    <span className="font-semibold text-ink">
+                      R$ {data.indemnityAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+
+                {/* Tabela de Módulos/Indenizações */}
                 <div className="space-y-2">
                   <h3 className="text-xs font-semibold text-ink uppercase tracking-wider">
-                    Discriminação das Sessões do Período
+                    Discriminação dos Módulos Assistenciais do Período
                   </h3>
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-paper-subtle border-b border-paper-line font-semibold text-ink-soft">
-                        <th className="p-2">Data</th>
-                        <th className="p-2">Paciente</th>
-                        <th className="p-2">Disciplina</th>
-                        <th className="p-2 text-right">Valor Sessão</th>
+                        <th className="p-2">Descrição</th>
+                        <th className="p-2">Tipo</th>
+                        <th className="p-2 text-right">Valor</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-paper-line">
                       {data.items.map((item) => (
                         <tr key={item.id}>
-                          <td className="p-2 font-mono">{item.date}</td>
-                          <td className="p-2 font-medium">{item.patientName}</td>
-                          <td className="p-2">{item.discipline}</td>
+                          <td className="p-2 font-medium">{item.label}</td>
+                          <td className="p-2">{KIND_LABEL[item.kind]}</td>
                           <td className="p-2 text-right font-mono font-semibold">
                             R$ {item.amount.toFixed(2)}
                           </td>

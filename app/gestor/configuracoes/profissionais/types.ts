@@ -1,7 +1,10 @@
 export type ContractRow = {
   id: string;
   tier: string;
-  hourlyRate: number;
+  modulePrice: number;
+  attendancesPerModule: number;
+  docDeadlineDays: number;
+  noshowCompensationPct: number;
   validFrom: string;
   validTo: string | null;
 };

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { currentMonthRange, hoursBetween } from "../data";
+import { currentMonthRange } from "../data";
 
 type Supa = SupabaseClient<Database>;
 
@@ -8,23 +8,26 @@ export type RepasseRow = {
   id: string;
   name: string;
   tier: string;
-  sessionsCount: number;
+  /** Nº de Módulos Assistenciais entregues (cláusula 6ª) — não é mais nº de sessões/horas. */
+  modulesDeliveredCount: number;
   grossAmount: number;
+  /** Indenização por módulos esvaziados por falta com aviso <24h (cláusula 6.7) — discriminada, nunca somada dentro de grossAmount. */
+  indemnityAmount: number;
   repasseAmount: number;
-  statusLabel: "A pagar" | "Pago" | "Sem sessões";
+  statusLabel: "A pagar" | "Pago" | "Sem módulos";
   isLive: boolean;
   /** Id da linha em `payouts` já fechada — null quando `isLive` (nada pra marcar como pago ainda). */
   payoutId: string | null;
 };
 
 /**
- * Linhas de repasse do mês corrente. `payouts`/`payout_items` (Fase 1,
- * PRD §8/§13 semana 11-12) ainda não têm fechamento automatizado rodando —
- * quando existe uma linha em `payouts` pra (terapeuta, competência) usamos
- * ela (fechada/aprovada/paga); quando não existe, calculamos ao vivo:
- * horas de sessão `realizada` no mês × `hourly_rate` do contrato vigente do
- * terapeuta. Isso é a mesma regra de "repasse por sessão" do PRD, só que
- * calculada sob demanda em vez de por um job de fechamento de competência.
+ * Linhas de repasse do mês corrente, por Módulo Assistencial entregue
+ * (cláusula 6ª do contrato-quadro PJ–PJ) — não é mais hora × valor-hora por
+ * sessão. Quando existe uma linha em `payouts` pra (terapeuta, competência)
+ * usamos ela (fechada/aprovada/paga); quando não existe, calculamos ao
+ * vivo via `compute_assistance_modules` (mesma função usada pelo
+ * fechamento mensal, `close_monthly_payouts_for_month`) × `module_price`
+ * do contrato vigente do terapeuta.
  */
 export async function getRepasseRows(
   supabase: Supa,
@@ -43,31 +46,43 @@ export async function getRepasseRows(
   if (list.length === 0) return { rows: [], totalGross: 0, totalOpenPayout: 0 };
   const ids = list.map((t) => t.id);
 
-  const [{ data: contracts }, { data: sessions }, { data: existingPayouts }] = await Promise.all([
-    supabase.from("therapist_contracts").select("profile_id, tier, hourly_rate, valid_from, valid_to").in("profile_id", ids),
+  const [{ data: contracts }, { data: modules }, { data: existingPayouts }] = await Promise.all([
     supabase
-      .from("appointments")
-      .select("id, therapist_id, starts_at, ends_at")
+      .from("therapist_contracts")
+      .select("profile_id, tier, module_price, noshow_compensation_pct, valid_from, valid_to")
+      .in("profile_id", ids),
+    supabase.rpc("compute_assistance_modules", {
+      p_therapist_ids: ids,
+      p_period_start: startISO,
+      p_period_end: endISO,
+    }),
+    supabase
+      .from("payouts")
+      .select("id, therapist_id, gross_amount, indemnity_amount, adjustments, status, modules_delivered_count")
       .in("therapist_id", ids)
-      .eq("status", "realizada")
-      .gte("starts_at", startISO)
-      .lt("starts_at", endISO),
-    supabase.from("payouts").select("id, therapist_id, gross_amount, adjustments, status, sessions_count").in("therapist_id", ids).eq("competence_month", competenceMonth),
+      .eq("competence_month", competenceMonth),
   ]);
 
   const now = Date.now();
-  const currentContract = new Map<string, { tier: string; hourlyRate: number }>();
+  const currentContract = new Map<string, { tier: string; modulePrice: number; noshowPct: number }>();
   for (const c of contracts ?? []) {
     const from = new Date(c.valid_from).getTime();
     const to = c.valid_to ? new Date(c.valid_to).getTime() : null;
-    if (from <= now && (to == null || to >= now)) currentContract.set(c.profile_id, { tier: c.tier, hourlyRate: Number(c.hourly_rate) });
+    if (from <= now && (to == null || to >= now) && c.module_price != null) {
+      currentContract.set(c.profile_id, {
+        tier: c.tier,
+        modulePrice: Number(c.module_price),
+        noshowPct: Number(c.noshow_compensation_pct),
+      });
+    }
   }
 
-  const sessionsByTherapist = new Map<string, { id: string; starts_at: string; ends_at: string }[]>();
-  for (const s of sessions ?? []) {
-    const arr = sessionsByTherapist.get(s.therapist_id) ?? [];
-    arr.push(s);
-    sessionsByTherapist.set(s.therapist_id, arr);
+  const modulesByTherapist = new Map<string, { delivered: number; emptied: number }>();
+  for (const m of modules ?? []) {
+    const acc = modulesByTherapist.get(m.therapist_id) ?? { delivered: 0, emptied: 0 };
+    if (m.delivered) acc.delivered += 1;
+    if (m.emptied_by_noshow) acc.emptied += 1;
+    modulesByTherapist.set(m.therapist_id, acc);
   }
 
   const payoutByTherapist = new Map((existingPayouts ?? []).map((p) => [p.therapist_id, p]));
@@ -76,29 +91,31 @@ export async function getRepasseRows(
   let totalOpenPayout = 0;
   const rows: RepasseRow[] = list.map((t) => {
     const contract = currentContract.get(t.id);
-    const mySessions = sessionsByTherapist.get(t.id) ?? [];
+    const myModules = modulesByTherapist.get(t.id) ?? { delivered: 0, emptied: 0 };
     const existing = payoutByTherapist.get(t.id);
 
-    let sessionsCount: number;
+    let modulesDeliveredCount: number;
     let grossAmount: number;
+    let indemnityAmount: number;
     let repasseAmount: number;
     let statusLabel: RepasseRow["statusLabel"];
     let isLive: boolean;
     let payoutId: string | null;
 
     if (existing) {
-      sessionsCount = existing.sessions_count;
+      modulesDeliveredCount = existing.modules_delivered_count;
       grossAmount = Number(existing.gross_amount);
-      repasseAmount = grossAmount + Number(existing.adjustments ?? 0);
-      statusLabel = sessionsCount === 0 ? "Sem sessões" : existing.status === "pago" ? "Pago" : "A pagar";
+      indemnityAmount = Number(existing.indemnity_amount ?? 0);
+      repasseAmount = grossAmount + indemnityAmount + Number(existing.adjustments ?? 0);
+      statusLabel = modulesDeliveredCount === 0 && indemnityAmount === 0 ? "Sem módulos" : existing.status === "pago" ? "Pago" : "A pagar";
       isLive = false;
       payoutId = existing.id;
     } else {
-      sessionsCount = mySessions.length;
-      const hours = mySessions.reduce((sum, s) => sum + hoursBetween(s.starts_at, s.ends_at), 0);
-      grossAmount = contract ? hours * contract.hourlyRate : 0;
-      repasseAmount = grossAmount;
-      statusLabel = sessionsCount === 0 ? "Sem sessões" : "A pagar";
+      modulesDeliveredCount = myModules.delivered;
+      grossAmount = contract ? myModules.delivered * contract.modulePrice : 0;
+      indemnityAmount = contract ? myModules.emptied * contract.modulePrice * (contract.noshowPct / 100) : 0;
+      repasseAmount = grossAmount + indemnityAmount;
+      statusLabel = modulesDeliveredCount === 0 && indemnityAmount === 0 ? "Sem módulos" : "A pagar";
       isLive = true;
       payoutId = null;
     }
@@ -110,8 +127,9 @@ export async function getRepasseRows(
       id: t.id,
       name: t.full_name,
       tier: contract?.tier ?? "—",
-      sessionsCount,
+      modulesDeliveredCount,
       grossAmount,
+      indemnityAmount,
       repasseAmount,
       statusLabel,
       isLive,

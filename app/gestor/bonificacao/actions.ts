@@ -29,13 +29,23 @@ export async function approveTherapistTierChange(
 ): Promise<{ success: boolean; error?: string }> {
   const profileId = String(formData.get("profile_id") ?? "");
   const tier = String(formData.get("tier") ?? "").trim();
-  const newRate = Number(formData.get("proposed_rate") ?? 0);
+  const newModulePrice = Number(formData.get("proposed_module_price") ?? 0);
 
-  if (!profileId || !tier || !Number.isFinite(newRate) || newRate <= 0) {
-    return { success: false, error: "Informe faixa e valor-hora válidos." };
+  if (!profileId || !tier || !Number.isFinite(newModulePrice) || newModulePrice <= 0) {
+    return { success: false, error: "Informe faixa e honorário por módulo válidos." };
   }
 
   const supabase = await createClient();
+
+  // Herda os 3 parâmetros do módulo (atendimentos/módulo, prazo de
+  // documentação, % indenização) do contrato atual do terapeuta — a
+  // progressão de faixa muda o preço, não a estrutura do módulo.
+  const { data: currentContract } = await supabase
+    .from("therapist_contracts")
+    .select("attendances_per_module, doc_deadline_days, noshow_compensation_pct")
+    .eq("profile_id", profileId)
+    .is("valid_to", null)
+    .maybeSingle();
 
   const today = new Date().toISOString().split("T")[0];
   const { error: closeError } = await supabase
@@ -51,7 +61,11 @@ export async function approveTherapistTierChange(
   const { error: insertError } = await supabase.from("therapist_contracts").insert({
     profile_id: profileId,
     tier,
-    hourly_rate: newRate,
+    hourly_rate: null,
+    module_price: newModulePrice,
+    attendances_per_module: currentContract?.attendances_per_module ?? 6,
+    doc_deadline_days: currentContract?.doc_deadline_days ?? 3,
+    noshow_compensation_pct: currentContract?.noshow_compensation_pct ?? 50,
     valid_from: today,
   });
 
@@ -61,6 +75,8 @@ export async function approveTherapistTierChange(
 
   revalidatePath("/gestor/bonificacao");
   revalidatePath("/gestor");
+  revalidatePath("/gestor/financeiro");
+  revalidatePath("/terapeuta/repasse");
   return { success: true };
 }
 

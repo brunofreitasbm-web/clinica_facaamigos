@@ -76,7 +76,7 @@ Adicionar ao seed idempotente (`docs/superpowers/scratch/seed-dev-data.sql`, mes
 
 ```sql
 insert into auth.users (id, email) values
-  ('c1000000-0000-0000-0000-000000000004', 'recepcao@facaamigos.dev')
+  ('c1000000-0000-0000-0000-000000000004', 'recepcao@facaamigos.com.br')
 on conflict do nothing;
 
 insert into profiles (id, clinic_id, role, full_name, active) values

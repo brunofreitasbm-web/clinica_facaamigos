@@ -625,7 +625,7 @@ export type TierRow = {
   name: string;
   tier: string;
   hasContract: boolean;
-  currentRate: number | null;
+  currentModulePrice: number | null;
   sessions: number;
   note24hRateLabel: string;
   hasSessions: boolean;
@@ -647,7 +647,7 @@ export async function getTierProgression(supabase: Supa, clinicId: string): Prom
 
   const { data: contracts } = await supabase
     .from("therapist_contracts")
-    .select("profile_id, tier, hourly_rate, valid_from, valid_to")
+    .select("profile_id, tier, module_price, valid_from, valid_to")
     .in("profile_id", ids);
   const now = Date.now();
   const tierByTherapist = new Map<string, string>();
@@ -655,9 +655,11 @@ export async function getTierProgression(supabase: Supa, clinicId: string): Prom
   for (const c of contracts ?? []) {
     const from = new Date(c.valid_from).getTime();
     const to = c.valid_to ? new Date(c.valid_to).getTime() : null;
-    if (from <= now && (to == null || to >= now)) {
+    // Só entram contratos por Módulo Assistencial (module_price) — contratos
+    // legados por hora (module_price null) não propõem mais progressão aqui.
+    if (from <= now && (to == null || to >= now) && c.module_price != null) {
       tierByTherapist.set(c.profile_id, c.tier);
-      rateByTherapist.set(c.profile_id, Number(c.hourly_rate));
+      rateByTherapist.set(c.profile_id, Number(c.module_price));
     }
   }
 
@@ -705,7 +707,7 @@ export async function getTierProgression(supabase: Supa, clinicId: string): Prom
       name: t.full_name,
       tier: hasContract ? (tierByTherapist.get(t.id) as string) : "Sem contrato",
       hasContract,
-      currentRate: rateByTherapist.get(t.id) ?? null,
+      currentModulePrice: rateByTherapist.get(t.id) ?? null,
       sessions: realized.length,
       note24hRateLabel: hasSessions ? `${Math.round((note24hRate as number) * 100)}%` : "",
       hasSessions,

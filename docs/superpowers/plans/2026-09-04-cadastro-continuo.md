@@ -62,9 +62,9 @@ export function createAdminClient() {
 
 ```sql
 insert into auth.users (id, email) values
-  ('c1000000-0000-0000-0000-000000000001', 'gestor@facaamigos.dev'),
-  ('c1000000-0000-0000-0000-000000000002', 'terapeuta.ana@facaamigos.dev'),
-  ('c1000000-0000-0000-0000-000000000003', 'terapeuta.bruno@facaamigos.dev')
+  ('c1000000-0000-0000-0000-000000000001', 'gestor@facaamigos.com.br'),
+  ('c1000000-0000-0000-0000-000000000002', 'terapeuta.ana@facaamigos.com.br'),
+  ('c1000000-0000-0000-0000-000000000003', 'terapeuta.bruno@facaamigos.com.br')
 on conflict do nothing;
 
 insert into clinics (id, name) values

@@ -75,7 +75,7 @@ export default async function BonificacaoPage() {
               Revisão Trimestral Contratual PJ
             </span>
             <h2 className="text-lg font-bold text-ink">
-              Progressão de Faixa de Valor-Hora
+              Progressão de Faixa de Honorário por Módulo
             </h2>
             <p className="text-xs text-ink-soft mt-1">
               Critérios objetivos avaliados: evoluções registradas em 24h ≥ 98%, volume de sessões realizadas e acompanhamento dos PTS.
@@ -115,7 +115,7 @@ export default async function BonificacaoPage() {
                           Sem contrato
                         </span>
                       )}
-                      {row.currentRate != null && ` (R$ ${row.currentRate.toFixed(2)})`}
+                      {row.currentModulePrice != null && ` (R$ ${row.currentModulePrice.toFixed(2)}/módulo)`}
                     </td>
                     <td className="p-3 text-right">
                       {row.eligible ? (

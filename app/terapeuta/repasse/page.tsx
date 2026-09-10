@@ -15,7 +15,7 @@ const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "
 const STATUS_BADGE: Record<string, string> = {
   Pago: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
   "A pagar": "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  "Sem sessões": "bg-paper-subtle text-ink-faint",
+  "Sem módulos": "bg-paper-subtle text-ink-faint",
 };
 
 export default async function TerapeutaRepassePage() {
@@ -59,9 +59,9 @@ export default async function TerapeutaRepassePage() {
               <span>/</span>
               <span className="text-ink">Extrato de Repasse</span>
             </div>
-            <h1 className="mt-1 text-3xl font-bold text-ink">Extrato de Repasse Mensal (PJ)</h1>
+            <h1 className="mt-1 text-3xl font-bold text-ink">Extrato de Honorários Mensal (PJ)</h1>
             <p className="text-base text-ink-soft">
-              Consulte seus extratos de atendimentos realizados e faixa de valor-hora contratual.
+              Consulte seus extratos de Módulos Assistenciais entregues e faixa de honorário contratual.
             </p>
           </div>
           <Link
@@ -78,8 +78,8 @@ export default async function TerapeutaRepassePage() {
               <span className="text-sm font-semibold text-accent uppercase tracking-wider">Faixa Atual Contratada</span>
               <h2 className="text-2xl font-bold text-ink">{contract?.tier ?? "Sem contrato vigente"}</h2>
               <p className="text-sm text-ink-soft">
-                Valor-Hora por Sessão Realizada:{" "}
-                <span className="font-semibold text-ink">{contract ? currency.format(contract.hourlyRate) : "—"}</span>
+                Honorário por Módulo Assistencial:{" "}
+                <span className="font-semibold text-ink">{contract ? currency.format(contract.modulePrice) : "—"}</span>
               </p>
             </div>
             {currentStatement && <PayoutStatementModal data={currentStatement} hasContract={!!contract} />}
@@ -89,9 +89,9 @@ export default async function TerapeutaRepassePage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-lg border border-paper-line bg-paper-subtle p-4">
                 <span className="text-sm font-medium text-ink-soft uppercase">
-                  Sessões Realizadas ({current.competenceLabel})
+                  Módulos Entregues ({current.competenceLabel})
                 </span>
-                <p className="mt-2 text-3xl font-bold text-ink">{current.sessionsCount}</p>
+                <p className="mt-2 text-3xl font-bold text-ink">{current.modulesDeliveredCount}</p>
               </div>
 
               <div className="rounded-lg border border-paper-line bg-paper-subtle p-4">
@@ -107,7 +107,7 @@ export default async function TerapeutaRepassePage() {
               </div>
 
               <div className="rounded-lg border border-paper-line bg-paper-subtle p-4">
-                <span className="text-sm font-medium text-ink-soft uppercase">Repasse Total a Receber</span>
+                <span className="text-sm font-medium text-ink-soft uppercase">Honorário Total a Receber</span>
                 <p className="mt-2 text-3xl font-bold text-accent">{currency.format(current.netAmount)}</p>
               </div>
             </div>
@@ -136,7 +136,7 @@ export default async function TerapeutaRepassePage() {
                 <div>
                   <p className="font-semibold text-ink">{row.competenceLabel}</p>
                   <p className="text-sm text-ink-soft">
-                    {row.sessionsCount} sessões {contract ? `· ${currency.format(contract.hourlyRate)}/h` : ""}
+                    {row.modulesDeliveredCount} módulos {contract ? `· ${currency.format(contract.modulePrice)}/módulo` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

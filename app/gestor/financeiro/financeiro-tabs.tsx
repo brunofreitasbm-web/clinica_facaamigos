@@ -9,7 +9,7 @@ import type { GlosaBreakdown, GlosaBreakdownRow } from "@/lib/glosa-analytics";
 const REPASSE_STATUS_TAG: Record<RepasseRow["statusLabel"], string> = {
   "A pagar": "st-agendada",
   Pago: "st-realizada",
-  "Sem sessões": "st-cancelada",
+  "Sem módulos": "st-cancelada",
 };
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -113,9 +113,9 @@ export function FinanceiroTabs({
             <tr>
               <th>Terapeuta</th>
               <th>Faixa</th>
-              <th>Sessões faturadas</th>
+              <th>Módulos entregues</th>
               <th>Valor bruto</th>
-              <th>Repasse</th>
+              <th>Honorário</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -124,12 +124,12 @@ export function FinanceiroTabs({
               <tr key={r.id}>
                 <td className="font-semibold">{r.name}</td>
                 <td>{r.tier}</td>
-                <td className="tabular-figure">{r.sessionsCount}</td>
+                <td className="tabular-figure">{r.modulesDeliveredCount}</td>
                 <td className="tabular-figure">{currency.format(r.grossAmount)}</td>
                 <td className="tabular-figure">{currency.format(r.repasseAmount)}</td>
                 <td>
                   <span className={`tag-status ${REPASSE_STATUS_TAG[r.statusLabel]}`}>{r.statusLabel}</span>
-                  {r.isLive && r.statusLabel !== "Sem sessões" && (
+                  {r.isLive && r.statusLabel !== "Sem módulos" && (
                     <span className="ml-2 text-[11px] text-ink-faint">calculado ao vivo</span>
                   )}
                   {!r.isLive && r.payoutId && r.statusLabel === "A pagar" && <MarkPaidAction payoutId={r.payoutId} />}

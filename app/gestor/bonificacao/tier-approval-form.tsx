@@ -6,7 +6,7 @@ import { approveTherapistTierChange, rejectTherapistTierChange, type TierRow } f
 export function TierApprovalForm({ row }: { row: TierRow }) {
   const [mode, setMode] = useState<"none" | "promote" | "reject">("none");
   const [tier, setTier] = useState(row.hasContract ? row.tier : "");
-  const [rate, setRate] = useState(row.currentRate ?? 0);
+  const [rate, setRate] = useState(row.currentModulePrice ?? 0);
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState<string | null>(null);
@@ -92,7 +92,7 @@ export function TierApprovalForm({ row }: { row: TierRow }) {
         const formData = new FormData();
         formData.set("profile_id", row.id);
         formData.set("tier", tier);
-        formData.set("proposed_rate", String(rate));
+        formData.set("proposed_module_price", String(rate));
         startTransition(async () => {
           const result = await approveTherapistTierChange(formData);
           if (result.success) {
@@ -110,7 +110,7 @@ export function TierApprovalForm({ row }: { row: TierRow }) {
           placeholder="Nova faixa (ex.: Sênior)"
           className="w-36 rounded border border-paper-line-strong bg-paper px-2 py-1 text-xs text-ink"
         />
-        <span className="text-xs text-ink-soft">R$</span>
+        <span className="text-xs text-ink-soft">R$/módulo</span>
         <input
           type="number"
           step="0.01"

@@ -27,7 +27,10 @@ function TherapistContractRow({ therapist }: { therapist: TherapistRow }) {
         {therapist.current ? (
           <>
             <div className="text-sm">{therapist.current.tier}</div>
-            <div className="text-xs text-ink-faint">{fmtCurrency(therapist.current.hourlyRate)}/h · desde {fmtDate(therapist.current.validFrom)}</div>
+            <div className="text-xs text-ink-faint">
+              {fmtCurrency(therapist.current.modulePrice)}/módulo · até {therapist.current.attendancesPerModule} atend./módulo
+              · desde {fmtDate(therapist.current.validFrom)}
+            </div>
           </>
         ) : (
           <span className="text-xs text-status-negative-text">Sem faixa cadastrada — não recebe repasse</span>
@@ -38,7 +41,7 @@ function TherapistContractRow({ therapist }: { therapist: TherapistRow }) {
             <ul className="mt-1 flex flex-col gap-0.5 text-[11px] text-ink-faint">
               {therapist.history.map((c) => (
                 <li key={c.id}>
-                  {c.tier} · {fmtCurrency(c.hourlyRate)}/h · {fmtDate(c.validFrom)} a {c.validTo ? fmtDate(c.validTo) : "—"}
+                  {c.tier} · {fmtCurrency(c.modulePrice)}/módulo · {fmtDate(c.validFrom)} a {c.validTo ? fmtDate(c.validTo) : "—"}
                 </li>
               ))}
             </ul>
@@ -65,9 +68,48 @@ function TherapistContractRow({ therapist }: { therapist: TherapistRow }) {
               });
             }}
           >
-            <input type="text" name="tier" required placeholder="Tier (ex: Pleno)" className="input w-40" />
-            <input type="number" name="hourly_rate" required min={0.01} step="0.01" placeholder="Valor-hora (R$)" className="input w-40" />
-            <input type="date" name="valid_from" required defaultValue={today} className="input w-40" />
+            <input type="text" name="tier" required placeholder="Tier (ex: Pleno)" className="input w-56" />
+            <input
+              type="number"
+              name="module_price"
+              required
+              min={0.01}
+              step="0.01"
+              placeholder="Honorário por Módulo Assistencial (R$)"
+              className="input w-56"
+            />
+            <input
+              type="number"
+              name="attendances_per_module"
+              required
+              min={1}
+              step="1"
+              defaultValue={6}
+              placeholder="Atendimentos por módulo"
+              className="input w-56"
+            />
+            <input
+              type="number"
+              name="doc_deadline_days"
+              required
+              min={1}
+              step="1"
+              defaultValue={3}
+              placeholder="Prazo de documentação (dias)"
+              className="input w-56"
+            />
+            <input
+              type="number"
+              name="noshow_compensation_pct"
+              required
+              min={0}
+              max={100}
+              step="1"
+              defaultValue={50}
+              placeholder="% indenização por esvaziamento"
+              className="input w-56"
+            />
+            <input type="date" name="valid_from" required defaultValue={today} className="input w-56" />
             <div className="flex gap-2">
               <button type="submit" disabled={isPending} className="btn btn-primary">
                 {isPending ? "Salvando…" : "Salvar"}
@@ -76,7 +118,7 @@ function TherapistContractRow({ therapist }: { therapist: TherapistRow }) {
                 Cancelar
               </button>
             </div>
-            {error && <p className="w-40 text-right text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
+            {error && <p className="w-56 text-right text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
           </form>
         )}
       </td>
@@ -91,8 +133,8 @@ export function ProfissionaisManager({ therapists }: { therapists: TherapistRow[
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Configurações"
-          title="Contratos & Valor-hora"
-          description="Valor-hora por terapeuta (therapist_contracts) — usado pelo fechamento mensal de repasse."
+          title="Contratos & Honorários por Módulo"
+          description="Honorário por Módulo Assistencial por terapeuta (therapist_contracts, cláusula 6ª do contrato-quadro PJ–PJ) — usado pelo fechamento mensal de repasse."
         />
         <div className="flex flex-col gap-4 p-6 sm:p-10 max-w-3xl">
           <table className="table">
