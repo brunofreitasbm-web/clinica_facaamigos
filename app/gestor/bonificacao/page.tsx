@@ -3,6 +3,7 @@ import { EquipeSubnav } from "@/components/equipe-subnav";
 import { getBonificacaoData } from "./actions";
 import { TierApprovalForm } from "./tier-approval-form";
 import { PLRSectionClient } from "@/components/gestor/plr-section-client";
+import { PageContainer } from "@/components/page-container";
 
 export default async function BonificacaoPage() {
   const { bonusRows, tierRows, closedHistory } = await getBonificacaoData();
@@ -12,7 +13,7 @@ export default async function BonificacaoPage() {
       <GestorNav active="equipe" />
       <EquipeSubnav activeTab="bonificacao" />
 
-      <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
+      <PageContainer>
         <div>
           <h1 className="text-2xl font-bold text-ink">
             Metrificação, PLR e Progressão de Faixas (PJ)
@@ -132,7 +133,7 @@ export default async function BonificacaoPage() {
             </table>
           </div>
         </section>
-      </main>
+      </PageContainer>
     </div>
   );
 }

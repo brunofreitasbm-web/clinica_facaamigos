@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getSuggestedGoals, getTeamSuggestions } from "@/lib/plan-suggestions";
@@ -98,17 +99,19 @@ export default async function NovoPlanoPage({
         title="Novo plano terapêutico"
         description="Objetivo geral, disciplinas, metas SMART por domínio (com horizonte, estratégia e metodologia) e data de revisão. O plano entra em rascunho e segue para a fila de aprovação."
       />
-      <PlanForm
-        patients={patients ?? []}
-        therapists={therapists ?? []}
-        rooms={rooms ?? []}
-        availability={availability ?? []}
-        initialPatientId={paciente ?? ""}
-        initialFamilyPriorities={familyPriorities ?? ""}
-        suggestedGoals={suggestedGoals}
-        teamSuggestions={teamSuggestions}
-        clinic={clinic}
-      />
+      <PageContainer>
+        <PlanForm
+          patients={patients ?? []}
+          therapists={therapists ?? []}
+          rooms={rooms ?? []}
+          availability={availability ?? []}
+          initialPatientId={paciente ?? ""}
+          initialFamilyPriorities={familyPriorities ?? ""}
+          suggestedGoals={suggestedGoals}
+          teamSuggestions={teamSuggestions}
+          clinic={clinic}
+        />
+      </PageContainer>
     </main>
   );
 }

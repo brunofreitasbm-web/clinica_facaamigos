@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { PageContainer } from "@/components/page-container";
 import { FaturamentoHeader } from "../faturamento-header";
 import { CompetenceForm } from "./competence-form";
 
@@ -46,7 +47,7 @@ export default async function CompetenciasPage() {
   return (
     <main className="flex flex-1 flex-col">
       <FaturamentoHeader active="competencia" />
-      <div className="flex flex-col gap-10 px-10 py-10">
+      <PageContainer>
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
             Faturamento · convênio + mês
@@ -101,7 +102,7 @@ export default async function CompetenciasPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </PageContainer>
     </main>
   );
 }

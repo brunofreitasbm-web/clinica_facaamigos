@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { PageContainer } from "@/components/page-container";
 
 // Sem date-fns: o projeto formata data/hora com Intl de propósito, para não
 // depender do fuso do processo Node (ver lib/timezone.ts e lib/age.ts).
@@ -39,7 +40,7 @@ export default async function ReagendamentosPendentesPage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <PageContainer>
       <h1 className="text-2xl font-semibold">Fila de Reagendamentos Pendentes</h1>
       <p className="text-muted-foreground text-sm">
         Esta fila exibe reagendamentos e horários escolhidos pelas famílias via WhatsApp.
@@ -87,6 +88,6 @@ export default async function ReagendamentosPendentesPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

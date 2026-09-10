@@ -17,6 +17,7 @@ import type { ConvenioRow, InsurerOption } from "./convenios-panel";
 import type { ChargeRow } from "./charges-panel";
 import type { PatientTagRow } from "./patient-tags";
 import { TeamPanel, type TeamMemberRow, type ProfileOption } from "./team-panel";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -199,38 +200,38 @@ export default async function GestaoPacientePage({
 
   return (
     <main className="flex flex-1 flex-col">
-      <div className="px-10 pt-9">
-        <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-          <Link href={`/recepcao/pacientes/${patient.id}`}>← Ficha do paciente</Link>
-        </h6>
-        <h1 className="m-0">Cadastro e gestão · {patient.full_name}</h1>
-      </div>
+      <PageContainer>
+        <div>
+          <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
+            <Link href={`/recepcao/pacientes/${patient.id}`}>← Ficha do paciente</Link>
+          </h6>
+          <h1 className="m-0">Cadastro e gestão · {patient.full_name}</h1>
+        </div>
 
-      <PatientManagementPanel
-        patientId={patient.id}
-        fullName={patient.full_name}
-        birthDate={patient.birth_date}
-        birthDateLabel={patient.birth_date ? fmtDate(`${patient.birth_date}T00:00:00`) : "—"}
-        phone={primaryGuardian?.phone ?? null}
-        guardianId={primaryGuardian?.id ?? null}
-        complaint={patient.complaint}
-        cid={patient.cid}
-        supportLevel={patient.support_level}
-        entrySource={patient.entry_source}
-        isArchived={patient.status === "arquivado"}
-        whatsappHref={whatsappHref}
-        tags={tags}
-        convenios={convenios}
-        insurers={insurers}
-        professionals={professionals}
-        charges={charges}
-        appointments={appointments}
-        documentsContent={documentsContent}
-      />
+        <PatientManagementPanel
+          patientId={patient.id}
+          fullName={patient.full_name}
+          birthDate={patient.birth_date}
+          birthDateLabel={patient.birth_date ? fmtDate(`${patient.birth_date}T00:00:00`) : "—"}
+          phone={primaryGuardian?.phone ?? null}
+          guardianId={primaryGuardian?.id ?? null}
+          complaint={patient.complaint}
+          cid={patient.cid}
+          supportLevel={patient.support_level}
+          entrySource={patient.entry_source}
+          isArchived={patient.status === "arquivado"}
+          whatsappHref={whatsappHref}
+          tags={tags}
+          convenios={convenios}
+          insurers={insurers}
+          professionals={professionals}
+          charges={charges}
+          appointments={appointments}
+          documentsContent={documentsContent}
+        />
 
-      <div className="px-10 pb-10">
         <TeamPanel patientId={patient.id} members={teamMembers} candidates={candidates} />
-      </div>
+      </PageContainer>
     </main>
   );
 }

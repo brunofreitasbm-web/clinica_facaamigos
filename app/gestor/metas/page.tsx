@@ -3,6 +3,7 @@ import { EquipeSubnav } from "@/components/equipe-subnav";
 import { getTargetsData } from "./actions";
 import { TargetForm } from "./target-form";
 import { DeleteTargetButton } from "./delete-target-button";
+import { PageContainer } from "@/components/page-container";
 
 const ACHIEVEMENT_STYLE: Record<string, string> = {
   atingida: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
@@ -36,7 +37,7 @@ export default async function MetasPage() {
       <GestorNav active="equipe" />
       <EquipeSubnav activeTab="metas" />
 
-      <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
+      <PageContainer>
         <div>
           <h1 className="text-2xl font-bold text-ink">Metas por cargo</h1>
           <p className="text-sm text-ink-soft">
@@ -108,7 +109,7 @@ export default async function MetasPage() {
         {targets.length === 0 && (
           <p className="text-sm text-ink-soft">Nenhuma meta cadastrada ainda.</p>
         )}
-      </main>
+      </PageContainer>
     </div>
   );
 }

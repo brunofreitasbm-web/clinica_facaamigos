@@ -5,6 +5,7 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { NewContactDialog } from "./new-contact-dialog";
 import { LogContactDialog } from "./log-contact-dialog";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -45,8 +46,8 @@ export default async function RedeExternaPage({ params }: { params: Promise<{ id
   const contactList = contacts ?? [];
 
   return (
-    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
-      <div className="flex flex-col gap-8 px-10 pt-9">
+    <main className="flex flex-1 flex-col" style={{ background: "var(--color-bg)" }}>
+      <PageContainer className="gap-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
@@ -112,7 +113,7 @@ export default async function RedeExternaPage({ params }: { params: Promise<{ id
             })}
           </div>
         )}
-      </div>
+      </PageContainer>
     </main>
   );
 }

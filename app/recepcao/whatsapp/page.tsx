@@ -1,4 +1,5 @@
 import { getWhatsappHistory } from "./actions";
+import { PageContainer } from "@/components/page-container";
 
 export default async function WhatsappDashboardPage() {
   const history = await getWhatsappHistory();
@@ -7,10 +8,9 @@ export default async function WhatsappDashboardPage() {
   const rescheduleCount = history.filter((m) => m.status === "reagendar_solicitado").length;
 
   return (
-    <div className="min-h-screen bg-canvas p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
-        {/* Cabeçalho + atalhos globais da recepção vêm do layout (RecepcaoNav). */}
-        <div>
+    <PageContainer>
+      {/* Cabeçalho + atalhos globais da recepção vêm do layout (RecepcaoNav). */}
+      <div>
           <h1 className="mt-1 text-2xl font-bold text-ink">Confirmação D-1 por WhatsApp</h1>
           <p className="text-sm text-ink-soft">
             Envio manual: cada card abre o WhatsApp já logado no seu celular/computador com a
@@ -97,7 +97,6 @@ export default async function WhatsappDashboardPage() {
             </table>
           </div>
         </div>
-      </div>
-    </div>
+    </PageContainer>
   );
 }

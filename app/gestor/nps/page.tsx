@@ -7,6 +7,7 @@ import { type ScoreDistribution } from "./nps-metrics-cards";
 import { type FamilyFeedbackRow } from "./family-feedback-panel";
 import { normalizeFeedbackToNps10, normalizeTwilioScoreToNps10 } from "@/lib/family-feedback";
 import { NpsTabbedView } from "./nps-tabbed-view";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,7 @@ export default async function NpsPage() {
     <main className="flex min-h-screen flex-1 flex-col">
       <GestorNav active="nps" pendingNpsAlerts={pendingAlertsCount ?? 0} />
 
-      <div className="flex flex-col gap-6 px-10 py-9">
+      <PageContainer>
         <div>
           <h1 style={{ fontFamily: "var(--font-heading)" }} className="text-2xl font-bold text-ink">
             NPS · Pesquisas de Satisfação
@@ -106,7 +107,7 @@ export default async function NpsPage() {
           pendingAlertsCount={pendingAlertsCount ?? 0}
           familyFeedback={familyFeedback}
         />
-      </div>
+      </PageContainer>
     </main>
   );
 }

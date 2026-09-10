@@ -5,6 +5,7 @@ import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 
 import { PreCadastrosExportButton } from "@/src/components/Recepcao/PreCadastros";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +95,7 @@ export default async function PreCadastrosPage() {
         title="Cadastro assistido por IA"
         description="Documentos enviados pela família pelo WhatsApp ou pelo portal, já extraídos pela IA. Confira os dados antes de salvar — nada vira cadastro sem essa validação."
       />
-      <div className="flex flex-col gap-8 p-6 sm:p-10">
+      <PageContainer className="gap-8">
         <div className="flex items-center justify-between gap-4 border-b border-paper-line-strong pb-4">
           <div>
             <p className="text-sm text-ink-soft">Gerenciamento de rascunhos de atendimento e documentos extraídos.</p>
@@ -119,7 +120,7 @@ export default async function PreCadastrosPage() {
             {doPaciente.map(renderRow)}
           </div>
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

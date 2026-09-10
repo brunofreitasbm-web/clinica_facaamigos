@@ -5,6 +5,7 @@ import { FinanceiroSubnav } from "@/components/financeiro-subnav";
 import { Receipt, AlertTriangle, Clock } from "lucide-react";
 import { NewExpenseDialog } from "./new-expense-dialog";
 import { ExpenseRowActions } from "./expense-row-actions";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export default async function ContasAPagarPage() {
       <GestorNav active="financeiro" />
       <FinanceiroSubnav activeTab="contas-a-pagar" />
 
-      <div className="flex flex-col gap-8 px-10 pt-9">
+      <PageContainer>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
@@ -151,7 +152,7 @@ export default async function ContasAPagarPage() {
             </table>
           )}
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

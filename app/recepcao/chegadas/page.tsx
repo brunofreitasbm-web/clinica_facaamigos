@@ -4,6 +4,7 @@ import { todayInTimeZone } from "@/lib/timezone";
 import { evaluateAuthorizationWarning } from "@/lib/authorization-warning";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { ChegadasList, type ChegadaItem } from "./chegadas-list";
+import { PageContainer } from "@/components/page-container";
 
 const NON_ACTIVE_APPOINTMENT_STATUSES = [
   "cancelada_familia",
@@ -124,8 +125,8 @@ export default async function ChegadasPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-6">
-      <div className="mb-4">
+    <PageContainer>
+      <div>
         <h1 style={{ fontFamily: "var(--font-heading)" }} className="text-xl font-semibold text-ink">
           Chegadas
         </h1>
@@ -134,6 +135,6 @@ export default async function ChegadasPage() {
         </p>
       </div>
       <ChegadasList initialItems={items} clinicId={DEV_CLINIC_ID} />
-    </div>
+    </PageContainer>
   );
 }

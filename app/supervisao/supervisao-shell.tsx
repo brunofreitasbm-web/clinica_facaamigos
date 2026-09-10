@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ShieldCheck, UserX, ListOrdered, Users, CalendarClock } from "lucide-react";
 import { BrandLockup } from "@/components/brand/brand-lockup";
+import { PageContainer } from "@/components/page-container";
 
 const TABS = [
   { key: "grade", label: "Grade" },
@@ -168,13 +169,15 @@ export function SupervisaoShell({
         </nav>
       </header>
 
-      <main className="px-10 py-9">
-        {tab === "grade" ? <div key="tab-grade">{gradeTab}</div> : null}
-        {tab === "agenda1a" ? <div key="tab-agenda1a">{agenda1aTab}</div> : null}
-        {tab === "acolhimentos" ? <div key="tab-acolhimentos">{acolhimentosTab}</div> : null}
-        {tab === "fluxos" ? <div key="tab-fluxos">{fluxosTab}</div> : null}
-        {tab === "planos" ? <div key="tab-planos">{planosTab}</div> : null}
-        {tab === "inbox" ? <div key="tab-inbox">{inboxTab}</div> : null}
+      <main className="flex flex-1 flex-col">
+        <PageContainer>
+          {tab === "grade" ? <div key="tab-grade">{gradeTab}</div> : null}
+          {tab === "agenda1a" ? <div key="tab-agenda1a">{agenda1aTab}</div> : null}
+          {tab === "acolhimentos" ? <div key="tab-acolhimentos">{acolhimentosTab}</div> : null}
+          {tab === "fluxos" ? <div key="tab-fluxos">{fluxosTab}</div> : null}
+          {tab === "planos" ? <div key="tab-planos">{planosTab}</div> : null}
+          {tab === "inbox" ? <div key="tab-inbox">{inboxTab}</div> : null}
+        </PageContainer>
       </main>
     </SupervisaoTabContext.Provider>
   );

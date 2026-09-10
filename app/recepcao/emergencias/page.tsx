@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { EmergencyForm } from "./emergency-form";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function EmergenciasPage() {
     .order("full_name");
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-10">
+    <PageContainer>
       <div>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
           Recepção
@@ -28,6 +29,6 @@ export default async function EmergenciasPage() {
       </div>
 
       <EmergencyForm therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))} />
-    </main>
+    </PageContainer>
   );
 }

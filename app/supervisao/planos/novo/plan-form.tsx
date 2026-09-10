@@ -674,7 +674,7 @@ export function PlanForm({
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+    <div className="space-y-6">
       {/* SEÇÃO SUPERIOR: Grid 2 colunas equilibradas no Desktop (6 colunas / 6 colunas) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* COLUNA ESQUERDA (Informações Principais & Equipe) */}

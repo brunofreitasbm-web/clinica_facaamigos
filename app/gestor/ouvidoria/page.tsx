@@ -5,6 +5,7 @@ import { AuditoriaSubnav } from "@/components/auditoria-subnav";
 import { AlertTriangle, MessageSquareWarning, ShieldAlert } from "lucide-react";
 import { NewIncidentDialog } from "./new-incident-dialog";
 import { IncidentStatusForm } from "./incident-status-form";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export default async function OuvidoriaPage() {
       <GestorNav active="auditoria" />
       <AuditoriaSubnav activeTab="ouvidoria" />
 
-      <div className="flex flex-col gap-8 px-10 pt-9">
+      <PageContainer>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
@@ -158,7 +159,7 @@ export default async function OuvidoriaPage() {
             </table>
           )}
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

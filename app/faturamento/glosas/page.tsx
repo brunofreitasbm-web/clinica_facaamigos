@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageContainer } from "@/components/page-container";
 import { FaturamentoHeader } from "../faturamento-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
@@ -235,7 +236,7 @@ export default async function GlosasPage({
   return (
     <main className="flex flex-1 flex-col">
       <FaturamentoHeader active="glosas" />
-      <div className="flex flex-col gap-6 p-6 sm:p-10">
+      <PageContainer>
         <div>
           <h1 className="m-0 text-xl font-semibold text-ink">Glosas</h1>
           <p className="mt-1 text-sm text-ink-soft">
@@ -360,7 +361,7 @@ export default async function GlosasPage({
             )}
           </ul>
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

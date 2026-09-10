@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { computeCompetenceEligibility } from "@/lib/billing-eligibility";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { PageContainer } from "@/components/page-container";
 import { FaturamentoHeader } from "../../faturamento-header";
 import { ReprocessButton } from "./reprocess-button";
 import { CsvExportButton } from "../csv-export-button";
@@ -98,7 +99,7 @@ export default async function CompetenceDetailPage({
   return (
     <main className="flex flex-1 flex-col">
       <FaturamentoHeader active="competencia" />
-      <div className="flex flex-col gap-10 px-10 py-10">
+      <PageContainer>
         <section className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
@@ -200,7 +201,7 @@ export default async function CompetenceDetailPage({
             </tbody>
           </table>
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

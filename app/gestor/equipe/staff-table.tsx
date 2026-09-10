@@ -19,6 +19,7 @@ import { StaffDialog } from "./staff-dialog";
 import { useToast } from "@/components/toast-provider";
 import { formatBirthday, isBirthdayThisMonth, isBirthdayToday } from "./birthdays";
 import type { StaffRow, UnitOption } from "./types";
+import { PageContainer } from "@/components/page-container";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 const DEFAULT_PAGE_SIZE = 20;
@@ -138,7 +139,7 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 sm:p-10">
+    <PageContainer>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <input
@@ -505,6 +506,6 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

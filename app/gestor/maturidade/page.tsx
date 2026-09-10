@@ -1,6 +1,7 @@
 import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,7 @@ export default async function MaturidadePage() {
   return (
     <main className="flex flex-1 flex-col">
       <GestorNav />
-      <div className="px-10 pt-9 pb-10 flex flex-col gap-6">
+      <PageContainer>
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
             Maturidade da clínica
@@ -102,7 +103,7 @@ export default async function MaturidadePage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </PageContainer>
     </main>
   );
 }

@@ -2,6 +2,7 @@ import { GestorNav } from "@/components/gestor-nav";
 import { AuditoriaSubnav } from "@/components/auditoria-subnav";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,7 @@ export default async function AuditoriaPage() {
       <GestorNav active="auditoria" />
       <AuditoriaSubnav activeTab="lgpd" />
 
-      <main className="mx-auto max-w-7xl px-6 py-8 space-y-6">
+      <PageContainer>
         <div>
           <h1 className="text-2xl font-bold text-ink">Pendências escaladas</h1>
           <p className="text-sm text-ink-soft">
@@ -163,7 +164,7 @@ export default async function AuditoriaPage() {
             </table>
           </div>
         </div>
-      </main>
+      </PageContainer>
     </div>
   );
 }

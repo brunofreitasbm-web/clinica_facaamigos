@@ -11,6 +11,7 @@ import { ResolveRenewalRequestButton } from "./resolve-renewal-request-button";
 import { ReassignOwnerButton } from "./reassign-owner-button";
 import { resolveRescheduleRequest, reviewFamilyDocument } from "./actions";
 import { AutorizacaoWizard } from "./autorizacao-wizard";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function PendenciasPage() {
         title="Fila de pendências"
         description="Guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
       />
-      <div className="flex flex-col gap-8 p-6 sm:p-10">
+      <PageContainer className="gap-8">
         <AutorizacaoWizard />
         {queue.length === 0 && (
           <p className="text-sm text-ink-faint">Nenhuma pendência no momento. 🎉</p>
@@ -161,7 +162,7 @@ export default async function PendenciasPage() {
             </section>
           );
         })}
-      </div>
+      </PageContainer>
     </main>
   );
 }

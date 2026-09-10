@@ -7,6 +7,7 @@ import { getDreByMonth, getCashFlowProjection } from "./data";
 import { getRemittanceBatches } from "./remittance-data";
 import { RemittancePanel } from "./remittance-panel";
 import { ContasAPagarPanel, type MonthExpense } from "./contas-a-pagar-panel";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export default async function DrePage() {
       <GestorNav active="financeiro" />
       <FinanceiroSubnav activeTab="dre" />
 
-      <div className="flex flex-col gap-8 px-10 pt-9">
+      <PageContainer>
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
             Financeiro
@@ -179,7 +180,7 @@ export default async function DrePage() {
             </tbody>
           </table>
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

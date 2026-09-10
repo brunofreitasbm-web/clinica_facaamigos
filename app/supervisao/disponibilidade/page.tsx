@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { AvailabilityManager, type AvailabilityBlock, type TherapistOption } from "./availability-manager";
@@ -48,10 +49,12 @@ export default async function DisponibilidadePage() {
         title="Disponibilidade dos profissionais"
         description="Dias e horários em que cada terapeuta atende — cadastro exclusivo da supervisão e da gestão; o terapeuta apenas visualiza a própria janela. Um agendamento fora dela é bloqueado automaticamente na recepção, na grade recorrente e no calendário do PTS."
       />
-      <AvailabilityManager
-        therapists={(therapists ?? []) as TherapistOption[]}
-        blocks={(blocks ?? []) as AvailabilityBlock[]}
-      />
+      <PageContainer>
+        <AvailabilityManager
+          therapists={(therapists ?? []) as TherapistOption[]}
+          blocks={(blocks ?? []) as AvailabilityBlock[]}
+        />
+      </PageContainer>
     </main>
   );
 }

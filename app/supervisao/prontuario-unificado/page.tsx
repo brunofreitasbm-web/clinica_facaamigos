@@ -7,6 +7,7 @@ import { logProntuarioAccess } from "./actions";
 import { PrintButton } from "./print-button";
 import { ShareFamilyButton } from "./share-family-button";
 import { BrandLockup } from "@/components/brand/brand-lockup";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -211,7 +212,7 @@ export default async function ProntuarioUnificadoPage({
         </Link>
       </header>
 
-      <div className="flex flex-col gap-8 px-10 pt-9">
+      <PageContainer>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
@@ -349,7 +350,7 @@ export default async function ProntuarioUnificadoPage({
             )}
           </div>
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

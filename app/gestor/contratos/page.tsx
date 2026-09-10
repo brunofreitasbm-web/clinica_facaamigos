@@ -5,6 +5,7 @@ import { FinanceiroSubnav } from "@/components/financeiro-subnav";
 import { FileText, Clock, CreditCard } from "lucide-react";
 import { NewContractDialog } from "./new-contract-dialog";
 import { GenerateInvoiceButton, MarkInvoicePaidButton } from "./invoice-actions";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +87,7 @@ export default async function ContratosPage() {
       <GestorNav active="financeiro" />
       <FinanceiroSubnav activeTab="contratos" />
 
-      <div className="flex flex-col gap-8 px-10 pt-9">
+      <PageContainer>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
@@ -188,7 +189,7 @@ export default async function ContratosPage() {
             </table>
           )}
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

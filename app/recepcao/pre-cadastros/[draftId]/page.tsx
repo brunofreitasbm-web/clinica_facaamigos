@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logRecordAccess } from "@/lib/record-access-log";
 import type { DocumentExtraction } from "@/lib/document-extraction";
 import { DraftReviewForm } from "./draft-review-form";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,7 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
             : "Documentos enviados pelo portal da família. Confira os dados extraídos antes de confirmar."
         }
       />
-      <div className="flex flex-col gap-6 p-6 sm:p-10">
+      <PageContainer>
         <Link href="/recepcao/pre-cadastros" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
           ← Cadastro assistido por IA
         </Link>
@@ -84,7 +85,7 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
             duplicateCandidates={duplicateCandidates}
           />
         )}
-      </div>
+      </PageContainer>
     </main>
   );
 }

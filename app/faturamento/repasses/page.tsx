@@ -1,4 +1,5 @@
 import { FaturamentoHeader } from "../faturamento-header";
+import { PageContainer } from "@/components/page-container";
 import { PayoutStatementModal } from "@/components/payout-statement";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -126,7 +127,7 @@ export default async function RepassesPage() {
     <div className="min-h-screen bg-paper text-ink">
       <FaturamentoHeader active="repasses" />
 
-      <main className="mx-auto max-w-7xl px-8 py-8 space-y-6">
+      <PageContainer>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-paper-line pb-6">
           <div>
             <h1 className="text-2xl font-bold text-ink" style={{ fontFamily: "var(--font-heading)" }}>
@@ -222,7 +223,7 @@ export default async function RepassesPage() {
             </table>
           </div>
         </div>
-      </main>
+      </PageContainer>
     </div>
   );
 }

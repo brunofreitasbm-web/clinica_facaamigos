@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { CLINIC_BRAND, CLINIC_NAME, CLINIC_SUPPORT_EMAIL } from "@/lib/clinic-identity";
 import { Logo } from "@/components/brand/logo";
+import { PageContainer } from "@/components/page-container";
 
 export interface PatientOption {
   id: string;
@@ -310,7 +311,7 @@ export function DocumentosManager({
       {/* Cabeçalho + atalhos globais da recepção vêm do layout (RecepcaoNav). */}
 
       {/* Main Container */}
-      <main className="flex-1 px-4 sm:px-8 py-8 max-w-7xl mx-auto w-full flex flex-col gap-8 print:p-0">
+      <PageContainer className="print:p-0">
         {/* Banner de Apresentação / Instrução */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-white p-6 shadow-sm border border-black/5 print:hidden">
           <div className="flex items-center gap-4">

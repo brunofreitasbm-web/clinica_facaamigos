@@ -2,6 +2,7 @@ import { GestorNav } from "@/components/gestor-nav";
 import { EquipeSubnav } from "@/components/equipe-subnav";
 import { getBonusConfigData } from "./actions";
 import { BonusConfigClient } from "./bonus-config-client";
+import { PageContainer } from "@/components/page-container";
 
 export default async function BonusConfigPage() {
   const { roles, modules, catalog, active, history } = await getBonusConfigData();
@@ -11,7 +12,7 @@ export default async function BonusConfigPage() {
       <GestorNav active="equipe" />
       <EquipeSubnav activeTab="bonificacao-config" />
 
-      <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
+      <PageContainer>
         <div>
           <h1 className="text-2xl font-bold text-ink">Configurar & Simular PLR/Bonificação</h1>
           <p className="text-sm text-ink-soft">
@@ -23,7 +24,7 @@ export default async function BonusConfigPage() {
         </div>
 
         <BonusConfigClient roles={roles} modules={modules} catalog={catalog} active={active} history={history} />
-      </main>
+      </PageContainer>
     </div>
   );
 }
