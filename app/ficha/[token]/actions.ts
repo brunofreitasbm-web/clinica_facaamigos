@@ -46,6 +46,9 @@ export async function submitFicha(token: string, formData: FormData): Promise<Fi
   // página resolveu antes. É aqui que uso único e expiração são impostos.
   const resolved = await resolveIntakeToken(token);
   if (!resolved.ok) {
+    if (resolved.reason === "muitas_tentativas") {
+      return { success: false, error: "Muitas tentativas. Espere um pouco antes de tentar de novo." };
+    }
     return { success: false, error: "Este link não está mais válido. Fale com a recepção da clínica." };
   }
   const { tokenId, patientId } = resolved.target;
