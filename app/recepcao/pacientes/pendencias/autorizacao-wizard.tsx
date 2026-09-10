@@ -220,7 +220,7 @@ export function AutorizacaoWizard() {
           <div className="w-full max-w-xl rounded-xl border bg-surface p-6 shadow-xl" style={{ borderColor: "var(--color-divider)" }}>
             <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: "var(--color-divider)" }}>
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Wizard Anti-Erro · Passo {wizardStep} de 3</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Wizard de Guia · Passo {wizardStep} de 3</span>
                 <h3 className="m-0 text-base font-bold text-ink">Renovação de Autorização TISS</h3>
               </div>
               <button onClick={closeModal} className="border-0 bg-transparent text-gray-500 hover:text-gray-800 text-lg cursor-pointer">

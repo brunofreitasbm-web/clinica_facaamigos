@@ -86,7 +86,7 @@ export const RECEPTION_KB_DATA: KBArticle[] = [
     id: "rec-chegada-02",
     category: "chegada",
     categoryLabel: "Na Chegada (Check-in)",
-    title: "Recepção do Paciente e Check-in Anti-Erro",
+    title: "Recepção do Paciente e Check-in",
     summary: "Recepção acolhedora do paciente TEA/TDAH, leitura de QR Code, identificação e aviso imediato ao terapeuta.",
     purpose: "Reduzir o tempo de espera na recepção para < 3 minutos, prevenir entrada de acompanhantes não autorizados e emitir a senha de presença.",
     bpmn_flow: [

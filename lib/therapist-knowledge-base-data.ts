@@ -1,0 +1,292 @@
+/**
+ * Base de Conhecimento Estruturada para o Módulo Terapeuta / Evolução Clínica
+ * Clínica FaçaAmigos
+ */
+
+export interface ProcessStep {
+  step: number;
+  actor: string; // ex: "Terapeuta (PJ)", "Sistema", "Recepção", "Supervisor"
+  action: string;
+  validation: string; // Checagem de conformidade técnica/clínica
+}
+
+export interface ExceptionCase {
+  situation: string;
+  solution: string;
+}
+
+export interface TherapistKBArticle {
+  id: string;
+  category: "agenda" | "coleta" | "evolucao" | "assinatura" | "prontuario" | "metricas";
+  categoryLabel: string;
+  title: string;
+  summary: string;
+  purpose: string;
+  bpmn_flow: ProcessStep[];
+  anti_error_rules: string[];
+  exceptions: ExceptionCase[];
+  quick_buttons: { label: string; action_type: string; target_route?: string }[];
+}
+
+export const THERAPIST_KB_DATA: TherapistKBArticle[] = [
+  {
+    id: "ter-agenda-01",
+    category: "agenda",
+    categoryLabel: "Agenda & Início",
+    title: "Conferência da Agenda e Início da Sessão",
+    summary: "Como checar a fila diária de pacientes no celular, buscar a criança na recepção e acionar o cronômetro de atendimento.",
+    purpose: "Garantir pontualidade no início da sessão, confirmação presencial da criança na recepção e notificação automática de sala ocupada.",
+    bpmn_flow: [
+      {
+        step: 1,
+        actor: "Terapeuta (PJ)",
+        action: "Abrir a tela 'Minha Agenda' no celular ao iniciar o turno.",
+        validation: "Verificar se as sessões do dia estão listadas com a sala e horário corretos."
+      },
+      {
+        step: 2,
+        actor: "Sistema",
+        action: "Exibe o status do paciente na recepção ('Aguardando na Espera' com badge verde).",
+        validation: "Confirmar que a Recepção já realizou o check-in presencial do paciente."
+      },
+      {
+        step: 3,
+        actor: "Terapeuta (PJ)",
+        action: "Buscar a criança na sala de recepção e clicar em 'Iniciar Sessão' no aplicativo.",
+        validation: "Confirmar o início do cronômetro oficial de atendimento da sala."
+      }
+    ],
+    anti_error_rules: [
+      "NUNCA inicie o cronômetro da sessão no celular se o paciente ainda não estiver na sala de atendimento.",
+      "NUNCA busque um paciente na recepção sem conferir a identificação da criança e o nome do acompanhante autorizado.",
+      "NUNCA troque a sala designada no sistema sem avisar previamente a Recepção e a Supervisão Clínica."
+    ],
+    exceptions: [
+      {
+        situation: "O paciente não chegou na recepção no horário agendado.",
+        solution: "Aguarde 10 minutos na sala. Se o atraso persistir, notifique a Recepção para registrar o contato com os pais ou marcar Falta Não Justificada."
+      },
+      {
+        situation: "A criança recusa-se a entrar na sala de atendimento.",
+        solution: "Aplique o protocolo de regulação gradual no espaço infantil, acolha a criança acompanhado pelo responsável e acione a Supervisão se necessário."
+      }
+    ],
+    quick_buttons: [
+      { label: "Ver Minha Agenda", action_type: "navigate", target_route: "/terapeuta/agenda" },
+      { label: "Sessões de Hoje", action_type: "navigate", target_route: "/terapeuta" }
+    ]
+  },
+  {
+    id: "ter-coleta-02",
+    category: "coleta",
+    categoryLabel: "Coleta de Dados ABA",
+    title: "Registro de Tentativas e Comportamentos em Tempo Real",
+    summary: "Coleta ágil de dados durante a sessão no celular (Independente, Dica, Incorreto) e registro de comportamentos de interferência.",
+    purpose: "Assegurar coleta contínua e precisa de dados de aprendizagem sem comprometer o tempo de atenção direta à criança.",
+    bpmn_flow: [
+      {
+        step: 1,
+        actor: "Terapeuta (PJ)",
+        action: "Acessar a aba 'Folha de Registro ABA' no app durante a aplicação do programa de ensino.",
+        validation: "Confirmar que os programas ativos do PEI/PTS da criança estão carregados na tela."
+      },
+      {
+        step: 2,
+        actor: "Terapeuta (PJ)",
+        action: "Tocar nos botões rápidos de registro a cada tentativa aplicada (V: Independente, D: Com Dica, I: Incorreto).",
+        validation: "Garantir o registro imediato após o bloco de tentativas (evitando estimativas de memória pós-sessão)."
+      },
+      {
+        step: 3,
+        actor: "Terapeuta (PJ)",
+        action: "Caso ocorra comportamento de interferência/crise, acionar a aba 'Registro de Incidente/ABC'.",
+        validation: "Preencher Antecedente, Comportamento e Consequência de forma objetiva."
+      }
+    ],
+    anti_error_rules: [
+      "NUNCA invente ou estime dados de tentativas no final do dia. A coleta ABA deve ser feita em tempo real entre as atividades.",
+      "NUNCA utilize termos pejorativos ou julgamentos morais ao registrar comportamentos de crise (descreva a topografia do comportamento de forma neutra e funcional).",
+      "NUNCA altere os critérios de dica sem consultar o Supervisor Clínico responsável pelo programa."
+    ],
+    exceptions: [
+      {
+        situation: "Queda de conexão com a internet durante o atendimento.",
+        solution: "Continue registrando normalmente. O sistema salva os rascunhos de forma offline-first no dispositivo e sincroniza automaticamente assim que a conexão retornar."
+      }
+    ],
+    quick_buttons: [
+      { label: "Folha de Registro ABA", action_type: "navigate", target_route: "/terapeuta/evolucao" },
+      { label: "Ver Metas do PEI", action_type: "navigate", target_route: "/terapeuta/paciente" }
+    ]
+  },
+  {
+    id: "ter-evolucao-03",
+    category: "evolucao",
+    categoryLabel: "Evolução Clínica (≤ 2 min)",
+    title: "Preenchimento do Registro de Evolução Estruturado",
+    summary: "Como evoluir a sessão em menos de 2 minutos utilizando campos pré-estruturados, seleção de metas trabalhadas e resumo objetivo.",
+    purpose: "Garantir 100% de adesão do terapeuta no registro imediato pós-sessão, mantendo o prontuário em conformidade legal sem burocracia excessiva.",
+    bpmn_flow: [
+      {
+        step: 1,
+        actor: "Terapeuta (PJ)",
+        action: "Abrir o formulário de 'Nova Evolução Clínica' nos últimos 5 minutos da sessão ou no intervalo imediato.",
+        validation: "Verificar se os dados da sessão (Data, Horário, Sala, Paciente) foram preenchidos automaticamente."
+      },
+      {
+        step: 2,
+        actor: "Terapeuta (PJ)",
+        action: "Marcar as metas trabalhadas nos checklists objetivos e selecionar o nível de engajamento/participação do paciente.",
+        validation: "Confirmar que ao menos 1 meta do plano terapêutico foi assinalada."
+      },
+      {
+        step: 3,
+        actor: "Terapeuta (PJ)",
+        action: "Escrever o resumo funcional de 2 a 3 frases no campo de texto livre sobre destaques ou observações para a família.",
+        validation: "Garantir concisão e clareza técnica."
+      }
+    ],
+    anti_error_rules: [
+      "NUNCA encerre o turno de trabalho sem evoluir todas as sessões realizadas no dia.",
+      "NUNCA copie e cole o texto de evolução de uma sessão anterior sem atualizar as informações reais da sessão atual.",
+      "NUNCA inclua dados médicos sensíveis de terceiros ou familiares no campo de evolução pública da criança."
+    ],
+    exceptions: [
+      {
+        situation: "A sessão teve que ser interrompida por emergência médica da criança.",
+        solution: "Selecione o status 'Sessão Interrompida', descreva o motivo do encerramento precoce e notifique imediatamente a Recepção e a Supervisão."
+      }
+    ],
+    quick_buttons: [
+      { label: "Evoluir Sessão Agora", action_type: "navigate", target_route: "/terapeuta/evolucao" },
+      { label: "Ver Evoluções de Hoje", action_type: "navigate", target_route: "/terapeuta" }
+    ]
+  },
+  {
+    id: "ter-assinatura-04",
+    category: "assinatura",
+    categoryLabel: "Assinatura PIN & Append-Only",
+    title: "Assinatura Digital Imutável e Regra Append-Only",
+    summary: "Validação final da evolução por PIN de segurança e compreensão da imutabilidade legal do registro de saúde.",
+    purpose: "Cumprir a exigência legal de prontuário eletrônico de saúde (LGPD art. 11 e CFM), assegurando a autenticidade do profissional.",
+    bpmn_flow: [
+      {
+        step: 1,
+        actor: "Terapeuta (PJ)",
+        action: "Conferir o resumo final da evolução clínica preenchida.",
+        validation: "Verificar a exatidão das informações registradas."
+      },
+      {
+        step: 2,
+        actor: "Terapeuta (PJ)",
+        action: "Digitar seu PIN de Assinatura Individual de 4 dígitos ou autenticação biométrica.",
+        validation: "Garantir uso estritamente pessoal e intransferível do PIN."
+      },
+      {
+        step: 3,
+        actor: "Sistema",
+        action: "Grava a evolução no banco de dados com protocolo imutável (append-only) e insere carimbo de data/hora.",
+        validation: "O registro torna-se permanente. Alterações futuras só podem ser feitas via adição de Adendo/Nota de Correção."
+      }
+    ],
+    anti_error_rules: [
+      "NUNCA compartilhe seu PIN de assinatura profissional com outros colegas ou estagiários.",
+      "NUNCA tente apagar ou sobrescrever uma evolução já assinada. Se houver equívoco, utilize a opção 'Adicionar Adendo de Correção'.",
+      "NUNCA assine a evolução de uma sessão que foi conduzida por outro terapeuta sem a prévia autorização da Supervisão."
+    ],
+    exceptions: [
+      {
+        situation: "Terapeuta esqueceu seu PIN de assinatura.",
+        solution: "Utilize o link 'Redefinir PIN de Assinatura' na tela de perfil, que enviará um código de verificação por SMS/E-mail."
+      }
+    ],
+    quick_buttons: [
+      { label: "Minha Assinatura / PIN", action_type: "navigate", target_route: "/terapeuta/metricas" }
+    ]
+  },
+  {
+    id: "ter-prontuario-05",
+    category: "prontuario",
+    categoryLabel: "Consulta de Prontuário",
+    title: "Consulta ao PEI/PTS e Notas de Supervisão",
+    summary: "Como acessar o plano terapêutico do paciente, consultar orientações enviadas pelos supervisores e visualizar relatórios anteriores.",
+    purpose: "Manter o alinhamento técnico contínuo entre as sessões e aplicar fielmente as diretrizes traçadas pela coordenação clínica.",
+    bpmn_flow: [
+      {
+        step: 1,
+        actor: "Terapeuta (PJ)",
+        action: "Buscar a criança na lista de 'Meus Pacientes' no aplicativo.",
+        validation: "Conferir foto, idade e diagnósticos cadastrados."
+      },
+      {
+        step: 2,
+        actor: "Terapeuta (PJ)",
+        action: "Abrir a aba 'Plano Terapêutico (PEI/PTS) & Metas'.",
+        validation: "Revisar os estímulos, materiais e níveis de dica cadastrados pelo supervisor."
+      },
+      {
+        step: 3,
+        actor: "Terapeuta (PJ)",
+        action: "Checar a caixa de 'Notas da Supervisão' antes de iniciar a sessão.",
+        validation: "Verificar se há orientações recentes para o caso."
+      }
+    ],
+    anti_error_rules: [
+      "NUNCA aplique procedimentos ou programas de ensino que não estejam devidamente homologados no PEI/PTS do paciente.",
+      "NUNCA exponha a tela do aplicativo com dados de outros pacientes para familiares na recepção.",
+      "NUNCA ignore as notas de orientação clínica emitidas pela Supervisão."
+    ],
+    exceptions: [
+      {
+        situation: "Dúvida sobre a forma de aplicação de um novo programa de ensino.",
+        solution: "Deixe um comentário na aba 'Dúvida Técnica para Supervisão' no aplicativo e solicite uma sessão de observação ao vivo."
+      }
+    ],
+    quick_buttons: [
+      { label: "Meus Pacientes", action_type: "navigate", target_route: "/terapeuta/pacientes" },
+      { label: "Ver Histórico de Prontuário", action_type: "navigate", target_route: "/terapeuta/prontuario" }
+    ]
+  },
+  {
+    id: "ter-metricas-06",
+    category: "metricas",
+    categoryLabel: "Pontualidade & Repasse",
+    title: "Indicadores de Pontualidade, Bonificação e Repasse",
+    summary: "Acompanhamento de relatórios de presença, taxa de evoluções no prazo (meta 100% em 24h) e extrato de repasse financeiro.",
+    purpose: "Proporcionar transparência total sobre a produção do terapeuta, incentivando o cumprimento rigoroso dos prazos de documentação.",
+    bpmn_flow: [
+      {
+        step: 1,
+        actor: "Terapeuta (PJ)",
+        action: "Acessar a aba 'Minhas Métricas & Repasse' no menu inferior do aplicativo.",
+        validation: "Verificar a porcentagem de evoluções concluídas dentro do prazo de 24 horas."
+      },
+      {
+        step: 2,
+        actor: "Sistema",
+        action: "Exibe o painel de produção com contagem de sessões realizadas, faltas justificadas e indicador de pontualidade.",
+        validation: "Calcular a elegibilidade para a faixa de bonificação por desempenho documentacional."
+      },
+      {
+        step: 3,
+        actor: "Terapeuta (PJ)",
+        action: "Conferir a prévia do extrato de repasse da competência vigente.",
+        validation: "Verificar a exatidão das sessões faturáveis computadas."
+      }
+    ],
+    anti_error_rules: [
+      "NUNCA acumule evoluções pendentes para o final de semana. Evoluções atrasadas além de 24 horas impactam a bonificação do profissional e atrasam o faturamento da clínica.",
+      "NUNCA assine presenças de sessões em que houve falta sem o devido registro do código de falta correspondente."
+    ],
+    exceptions: [
+      {
+        situation: "Divergência entre o número de sessões realizadas e o extrato de repasse.",
+        solution: "Abra um chamado direto com o setor de Faturamento pela opção 'Contestar Lote de Sessões' no próprio painel de repasse."
+      }
+    ],
+    quick_buttons: [
+      { label: "Ver Minhas Métricas", action_type: "navigate", target_route: "/terapeuta/metricas" },
+      { label: "Extrato de Repasse", action_type: "navigate", target_route: "/terapeuta/repasse" }
+    ]
+  }
+];
