@@ -3175,6 +3175,24 @@ export type Database = {
           },
         ]
       }
+      ficha_token_attempts: {
+        Row: {
+          created_at: string
+          id: string
+          ip_hash: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_hash: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_hash?: string
+        }
+        Relationships: []
+      }
       fono_assessments: {
         Row: {
           age_months: number
