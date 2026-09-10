@@ -4,20 +4,19 @@ import { MessageCircle, Smile } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
- * Cabeçalho do módulo Gestão. A barra em si é o <ModuleHeader>
- * compartilhado (10/09/2026, ver components/module-header.tsx); aqui fica
- * só a lista Painel/Cadastros/Financeiro (Dashboard.dc.html,
- * Cadastros.dc.html, Financeiro.dc.html).
+ * Cabeçalho do módulo Gestão — o <ModuleHeader> compartilhado (ver
+ * components/module-header.tsx), como Recepção, Faturamento e Coordenação.
  *
- * "Painel executivo" (Gestor.dc.html) não é um item desta barra — é
- * alcançado por um link dedicado a partir do Painel (ver
- * app/gestor/dashboard/page.tsx), por isso /gestor e /gestor/maturidade
- * ficam de fora do `noActiveOn`: nenhum item marca ativo nessas rotas.
+ * Vive em app/gestor/layout.tsx (10/09/2026). Antes era renderizada por
+ * dentro de 20 page.tsx/loading.tsx, cada uma passando `active` na mão: a
+ * barra desmontava e remontava a cada navegação, e nos loadings vinha com
+ * `active={null}` — o sublinhado sumia no meio da transição e reaparecia em
+ * outro item. Era essa a "quebra" percebida ao trocar de módulo.
  *
- * Como várias telas moram fora do prefixo do próprio grupo (bonificação e
- * metas são abas de Equipe, contratos é aba de Financeiro, ouvidoria é aba
- * de Auditoria), o `match` de cada item é a fonte de verdade — um simples
- * `startsWith(href)` não bastava.
+ * O item ativo agora sai do pathname (dentro do ModuleHeader). Como várias
+ * telas moram fora do prefixo do próprio grupo (bonificação e metas são
+ * abas de Equipe, contratos é aba de Financeiro, ouvidoria é aba de
+ * Auditoria), o `match` de cada item é a fonte de verdade.
  */
 const NAV_ITEMS = [
   { key: "painel", label: "Painel", href: "/gestor/dashboard" },
@@ -27,9 +26,8 @@ const NAV_ITEMS = [
     label: "Central de Atendimento",
     href: "/recepcao/atendimento",
     icon: MessageCircle,
-    // Único item que sai do módulo Gestão (outro layout, outro cabeçalho).
-    // Não dá pra tornar a troca imperceptível — o que dá é torná-la
-    // esperada, com o ícone de saída.
+    // Único item que sai do módulo Gestão pra outro (outro layout, outro
+    // cabeçalho) — ganha o ícone de saída em vez de fingir que é interno.
     external: true,
   },
   { key: "nps", label: "NPS", href: "/gestor/nps", icon: Smile },
@@ -52,6 +50,8 @@ export function GestorNav({ npsBadge }: { npsBadge?: React.ReactNode }) {
       homeHref="/gestor"
       navLabel="Seções da gestão"
       items={items}
+      // Painel executivo (/gestor) e Maturidade não são itens desta barra —
+      // nenhum item fica sublinhado nessas duas telas.
       noActiveOn={["/gestor/maturidade"]}
     />
   );

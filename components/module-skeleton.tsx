@@ -29,10 +29,12 @@ export function ModuleSkeleton({
     >
       {/* Top Header Placeholder if needed */}
       <Inner className="flex-1 p-8 space-y-6 max-w-[1400px] w-full mx-auto animate-fade-in">
-        {/* Title Block */}
-        <div className="space-y-2">
-          <div className="h-8 w-64 rounded-lg skeleton-shimmer" />
-          <div className="h-4 w-96 rounded-md skeleton-shimmer" />
+        {/* Título real, não shimmer — é o único texto que o usuário lê
+            durante a navegação, e é ele que diz "isto ainda é Configurações"
+            em vez de deixar a tela em branco parecer um recomeço. */}
+        <div className="space-y-1" role="status" aria-live="polite">
+          <h1 className="text-2xl font-bold text-ink m-0">{title}</h1>
+          <p className="text-sm text-ink-soft m-0">{subtitle}</p>
         </div>
 
         {/* Stat Cards */}
