@@ -3,13 +3,13 @@ import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
 import { getReceptionQueue } from "@/lib/reception-queue";
 import { RecepcaoNav } from "@/components/recepcao-nav";
+import { KnowledgeBaseDrawer } from "@/components/knowledge-base-drawer";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Layout do módulo Recepção — monta o cabeçalho (RecepcaoNav) em toda tela
- * do módulo. Cada página (app/recepcao/**\/page.tsx) só entrega o conteúdo
- * daquela tela.
+ * do módulo. Cada página sob app/recepcao só entrega o conteúdo daquela tela.
  */
 export default async function RecepcaoLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -32,6 +32,8 @@ export default async function RecepcaoLayout({ children }: { children: React.Rea
     <div className="flex min-h-0 flex-1 flex-col">
       <RecepcaoNav pendingCount={queue.length} chegadasCount={chegadasCount ?? 0} />
       {children}
+      <KnowledgeBaseDrawer />
     </div>
   );
 }
+
