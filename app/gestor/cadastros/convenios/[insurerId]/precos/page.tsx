@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { PriceTableForm } from "./price-table-form";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export default async function TabelaDePrecosPage({
         title={`Tabela de preços — ${insurer.name}`}
         description="Preços por procedimento usados no fechamento de competência deste convênio."
       />
-      <div className="flex flex-col gap-6 p-6 sm:p-10">
+      <PageContainer>
         <PriceTableForm insurerId={insurer.id} />
         <ul className="flex flex-col gap-2">
           {(priceTables ?? []).map((entry) => (
@@ -74,7 +75,7 @@ export default async function TabelaDePrecosPage({
             <li className="text-sm text-ink-faint">Nenhum preço cadastrado ainda.</li>
           )}
         </ul>
-      </div>
+      </PageContainer>
     </main>
   );
 }

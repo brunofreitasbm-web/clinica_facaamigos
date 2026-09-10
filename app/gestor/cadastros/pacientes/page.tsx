@@ -5,6 +5,7 @@ import { QuickActionsBar } from "@/components/quick-actions-bar";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getPatientRows } from "../data";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function PacientesPage() {
           </Link>
         </div>
 
-        <main className="p-6 sm:p-10">
+        <PageContainer>
           <table className="table">
             <thead>
               <tr>
@@ -77,7 +78,7 @@ export default async function PacientesPage() {
               )}
             </tbody>
           </table>
-        </main>
+        </PageContainer>
       </div>
     </>
   );

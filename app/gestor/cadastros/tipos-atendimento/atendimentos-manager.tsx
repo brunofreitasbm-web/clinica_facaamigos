@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AppointmentTypeDialog } from "./appointment-type-dialog";
 import { DeleteAppointmentTypeButton } from "./delete-appointment-type-button";
 import { MODALITY_LABEL, RECURRENCE_LABEL, type AppointmentType } from "./types";
+import { PageContainer } from "@/components/page-container";
 
 export function AtendimentosManager({ appointmentTypes }: { appointmentTypes: AppointmentType[] }) {
   const [search, setSearch] = useState("");
@@ -15,7 +16,7 @@ export function AtendimentosManager({ appointmentTypes }: { appointmentTypes: Ap
   }, [appointmentTypes, search]);
 
   return (
-    <div className="flex flex-col gap-6 p-6 sm:p-10">
+    <PageContainer>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <input
           type="search"
@@ -71,6 +72,6 @@ export function AtendimentosManager({ appointmentTypes }: { appointmentTypes: Ap
       <p className="text-xs text-ink-faint">
         {filtered.length} de {appointmentTypes.length} tipos de atendimento
       </p>
-    </div>
+    </PageContainer>
   );
 }

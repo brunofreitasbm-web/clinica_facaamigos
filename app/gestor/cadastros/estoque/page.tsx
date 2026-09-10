@@ -4,6 +4,7 @@ import { CadastrosSidebar } from "../cadastros-sidebar";
 import { Package, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { NewItemDialog } from "./new-item-dialog";
 import { MovementDialog } from "./movement-dialog";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function EstoquePage() {
   return (
     <div className="flex flex-1">
       <CadastrosSidebar active="estoque" />
-      <div className="flex-1 p-8">
+      <PageContainer className="flex-1">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
@@ -125,7 +126,7 @@ export default async function EstoquePage() {
             </table>
           )}
         </section>
-      </div>
+      </PageContainer>
     </div>
   );
 }

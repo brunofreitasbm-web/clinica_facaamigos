@@ -3,6 +3,7 @@ import { ConfigSidebar } from "../config-sidebar";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { DadosClinicaForm, type ClinicRow } from "./dados-clinica-form";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -52,9 +53,9 @@ export default async function DadosDaClinicaPage() {
           title="Dados da Clínica"
           description="Nome, CNPJ, endereço e contato oficiais — usados no timbre dos PDFs exportados e nos documentos impressos da recepção."
         />
-        <div className="max-w-4xl p-6 sm:p-10">
+        <PageContainer>
           <DadosClinicaForm initial={initial} />
-        </div>
+        </PageContainer>
       </div>
     </>
   );

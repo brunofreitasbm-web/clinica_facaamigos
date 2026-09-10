@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { ProtocolForm } from "./protocol-form";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
 export default function NovoProtocoloPage() {
   return (
-    <main className="flex flex-1 flex-col gap-6 p-10">
+    <PageContainer>
       <div>
         <Link href="/gestor/cadastros/protocolos" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
           ← Protocolos
@@ -16,6 +17,6 @@ export default function NovoProtocoloPage() {
         <h1 className="m-0">Cadastrar protocolo licenciado</h1>
       </div>
       <ProtocolForm />
-    </main>
+    </PageContainer>
   );
 }

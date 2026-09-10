@@ -9,6 +9,7 @@ import { listClinicInstruments } from "@/lib/clinic-instruments";
 import { DISCIPLINES } from "@/app/supervisao/planos/novo/disciplines";
 import { InstrumentosManager, type InstrumentRow } from "../instrumentos/instrumentos-manager";
 import { ProtocolosTabs } from "./protocolos-tabs";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export default async function ProtocolosPage() {
         </Link>
       </div>
 
-      <main className="p-6 sm:p-10">
+      <PageContainer>
         <table className="table">
           <thead>
             <tr>
@@ -80,7 +81,7 @@ export default async function ProtocolosPage() {
             )}
           </tbody>
         </table>
-      </main>
+      </PageContainer>
     </>
   );
 

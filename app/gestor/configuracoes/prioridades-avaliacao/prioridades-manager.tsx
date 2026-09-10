@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { ConfigSidebar } from "../config-sidebar";
 import { createPriority, updatePriority, togglePriorityActive, deletePriority } from "./actions";
+import { PageContainer } from "@/components/page-container";
 
 export type PriorityRow = {
   id: string;
@@ -194,7 +195,7 @@ export function PrioridadesAvaliacaoManager({
   return (
     <div className="flex flex-1">
       <ConfigSidebar active="prioridades" />
-      <div className="flex-1 p-8">
+      <PageContainer>
         <h1 className="mb-1">Prioridades de Agendamento de 1ª Avaliação</h1>
         <p className="mb-6 text-sm text-ink-soft">
           Configure os níveis de prioridade para agendar avaliações iniciais de
@@ -337,7 +338,7 @@ export function PrioridadesAvaliacaoManager({
             <p className="text-xs text-status-negative-text">{error}</p>
           )}
         </form>
-      </div>
+      </PageContainer>
     </div>
   );
 }

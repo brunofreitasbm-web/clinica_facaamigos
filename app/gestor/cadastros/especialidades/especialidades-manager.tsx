@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { CadastrosSidebar } from "../cadastros-sidebar";
 import { createSpecialty, renameSpecialtyLabel, toggleSpecialtyActive } from "./actions";
+import { PageContainer } from "@/components/page-container";
 
 export type SpecialtyRow = {
   id: string;
@@ -100,7 +101,7 @@ export function EspecialidadesManager({ specialties }: { specialties: SpecialtyR
   return (
     <div className="flex flex-1">
       <CadastrosSidebar active="especialidades" />
-      <div className="flex-1 p-8">
+      <PageContainer>
         <h1 className="mb-1">Especialidades</h1>
         <p className="mb-6 text-sm text-ink-soft">
           Lista de especialidades profissionais (musicoterapia, fisioterapia, psicologia ABA, fonoaudiologia,
@@ -157,7 +158,7 @@ export function EspecialidadesManager({ specialties }: { specialties: SpecialtyR
           </button>
           {error && <p className="text-xs text-status-negative-text">{error}</p>}
         </form>
-      </div>
+      </PageContainer>
     </div>
   );
 }

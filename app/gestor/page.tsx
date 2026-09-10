@@ -4,6 +4,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getLeakCards, getBonusRows, getTierProgression, getOperationalAlerts, currentMonthRange } from "./data";
 import { ExecutiveLeaks } from "./executive-leaks";
 import { GestorCockpit } from "@/components/gestor/gestor-cockpit";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -136,7 +137,8 @@ export default async function GestorPage() {
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
       <GestorNav active={null} />
 
-      <div className="flex flex-wrap items-end justify-between gap-6 px-10 pt-9">
+      <PageContainer fullBleed>
+      <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
             Painel executivo
@@ -161,7 +163,7 @@ export default async function GestorPage() {
 
       <ExecutiveLeaks leaks={leaks} bonusPanel={bonusPanel} />
 
-      <section className="px-10 pt-14">
+      <section className="pt-14">
         <h6 style={{ color: "var(--color-accent-2-600)" }}>Terapeutas</h6>
         <h3 className="mb-5">Progressão de faixa</h3>
         <table className="table">
@@ -214,6 +216,7 @@ export default async function GestorPage() {
           </tbody>
         </table>
       </section>
+      </PageContainer>
     </main>
   );
 }

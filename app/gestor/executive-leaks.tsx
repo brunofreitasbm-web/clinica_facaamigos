@@ -36,7 +36,7 @@ export function ExecutiveLeaks({ leaks, bonusPanel }: { leaks: LeakCard[]; bonus
 
   return (
     <>
-      <section className="grid grid-cols-1 gap-8 px-10 pt-8 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-1 gap-8 pt-8 sm:grid-cols-2 lg:grid-cols-4">
         {leaks.map((leak) => (
           <button
             key={leak.key}
@@ -63,7 +63,7 @@ export function ExecutiveLeaks({ leaks, bonusPanel }: { leaks: LeakCard[]; bonus
         ))}
       </section>
 
-      <section className="grid grid-cols-1 gap-15 px-10 pt-12 lg:grid-cols-2">
+      <section className="grid grid-cols-1 gap-15 pt-12 lg:grid-cols-2">
         <div>
           <div className="flex items-center justify-between mb-2">
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">

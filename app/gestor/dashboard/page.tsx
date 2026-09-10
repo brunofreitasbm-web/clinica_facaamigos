@@ -3,6 +3,7 @@ import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getDashboardMetrics } from "./data";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,8 @@ export default async function GestorDashboardPage() {
     <main className="flex flex-1 flex-col pb-16">
       <GestorNav active="painel" />
 
-      <div className="flex flex-wrap items-end justify-between gap-6 px-10 pt-9">
+      <PageContainer fullBleed>
+      <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
             Painel
@@ -46,7 +48,7 @@ export default async function GestorDashboardPage() {
         </Link>
       </div>
 
-      <section className="grid grid-cols-2 gap-6 px-10 pt-8 sm:grid-cols-3 lg:grid-cols-5">
+      <section className="grid grid-cols-2 gap-6 pt-8 sm:grid-cols-3 lg:grid-cols-5">
         <div className="card">
           <span className="card-kicker">Pacientes</span>
           <span className="card-title tabular-figure" style={{ fontSize: 28 }}>{metrics.activePatients}</span>
@@ -76,7 +78,7 @@ export default async function GestorDashboardPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-15 px-10 pt-12 lg:grid-cols-2">
+      <section className="grid grid-cols-1 gap-15 pt-12 lg:grid-cols-2">
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-4">
             Sessões por status · mês
@@ -118,7 +120,7 @@ export default async function GestorDashboardPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-15 px-10 pt-12 lg:grid-cols-2">
+      <section className="grid grid-cols-1 gap-15 pt-12 lg:grid-cols-2">
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-4">
             Ocupação por sala · horas realizadas no mês
@@ -156,6 +158,7 @@ export default async function GestorDashboardPage() {
           </div>
         </div>
       </section>
+      </PageContainer>
     </main>
   );
 }

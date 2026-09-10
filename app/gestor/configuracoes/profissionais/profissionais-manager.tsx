@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { ConfigSidebar } from "../config-sidebar";
 import { setTherapistContract } from "./actions";
 import type { TherapistRow } from "./types";
+import { PageContainer } from "@/components/page-container";
 
 function fmtDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR");
@@ -136,7 +137,7 @@ export function ProfissionaisManager({ therapists }: { therapists: TherapistRow[
           title="Contratos & Honorários por Módulo"
           description="Honorário por Módulo Assistencial por terapeuta (therapist_contracts, cláusula 6ª do contrato-quadro PJ–PJ) — usado pelo fechamento mensal de repasse."
         />
-        <div className="flex flex-col gap-4 p-6 sm:p-10 max-w-3xl">
+        <PageContainer>
           <table className="table">
             <thead>
               <tr>
@@ -158,7 +159,7 @@ export function ProfissionaisManager({ therapists }: { therapists: TherapistRow[
               )}
             </tbody>
           </table>
-        </div>
+        </PageContainer>
       </div>
     </>
   );

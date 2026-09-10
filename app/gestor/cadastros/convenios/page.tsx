@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { InsurerForm } from "./insurer-form";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export default async function ConveniosPage() {
           title="Convênios"
           description="Só o gestor cadastra convênio novo — recepção e faturamento usam a lista pra vincular ao paciente."
         />
-        <div className="flex flex-col gap-6 p-6 sm:p-10">
+        <PageContainer>
           <InsurerForm />
           <ul className="flex flex-col gap-2">
             {(insurers ?? []).map((insurer) => (
@@ -52,7 +53,7 @@ export default async function ConveniosPage() {
               <li className="text-sm text-ink-faint">Nenhum convênio cadastrado ainda.</li>
             )}
           </ul>
-        </div>
+        </PageContainer>
       </div>
     </>
   );

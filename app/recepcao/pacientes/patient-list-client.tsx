@@ -20,6 +20,7 @@ import { FixedSizeList, ListChildComponentProps } from "react-window";
 import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
 import { formatDateBR } from "@/lib/format";
 import { inactivatePatient } from "./actions";
+import { PageContainer } from "@/components/page-container";
 
 export interface PatientRow {
   id: string;
@@ -366,7 +367,7 @@ export function PatientListClient({ rows }: PatientListClientProps) {
   const endRecord = pageSize > 0 ? Math.min(currentPage * pageSize, filteredRows.length) : filteredRows.length;
 
   return (
-    <div className="flex flex-col gap-6 p-6 sm:p-10 max-w-7xl mx-auto w-full">
+    <PageContainer>
       {/* Modal de Confirmação de Inativação */}
       <InactivateConfirmModal
         isOpen={!!targetPatient}
@@ -535,6 +536,6 @@ export function PatientListClient({ rows }: PatientListClientProps) {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

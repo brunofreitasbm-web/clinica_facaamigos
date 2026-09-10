@@ -6,6 +6,7 @@ import { getRepasseRows, getGlosaRows, getFinanceiroKpis, getRevenueByMonth, get
 import { getGlosaBreakdown } from "@/lib/glosa-analytics";
 import { FinanceiroTabs } from "./financeiro-tabs";
 import { FinanceiroSubnav } from "@/components/financeiro-subnav";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -32,14 +33,15 @@ export default async function GestorFinanceiroPage() {
       <GestorNav active="financeiro" />
       <FinanceiroSubnav activeTab="repasses" />
 
-      <div className="px-10 pt-9">
+      <PageContainer fullBleed>
+      <div>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
           Financeiro
         </h6>
         <h1 className="m-0">Repasses e glosas</h1>
       </div>
 
-      <section className="grid grid-cols-2 gap-6 px-10 pt-8 sm:grid-cols-4">
+      <section className="grid grid-cols-2 gap-6 pt-8 sm:grid-cols-4">
         <div className="card">
           <span className="card-kicker">Receita bruta</span>
           <span className="card-title tabular-figure" style={{ fontSize: 26 }}>{currency.format(kpis.receitaBruta)}</span>
@@ -68,11 +70,11 @@ export default async function GestorFinanceiroPage() {
         </div>
       </section>
 
-      <section className="px-10 pt-10">
+      <section className="pt-10">
         <FinanceiroTabs repasseRows={repasseRows} glosaRows={glosaRows} glosaBreakdown={glosaBreakdown} competenceMonth={competenceMonth} />
       </section>
 
-      <section className="grid grid-cols-1 gap-15 px-10 pt-14 lg:grid-cols-2">
+      <section className="grid grid-cols-1 gap-15 pt-14 lg:grid-cols-2">
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-4">
             Receita por convênio · 6 meses
@@ -135,6 +137,7 @@ export default async function GestorFinanceiroPage() {
           </div>
         </div>
       </section>
+      </PageContainer>
     </main>
   );
 }

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { couponSettingsFromRow, type CheckinCouponSettingsRow } from "@/lib/checkin-coupon";
 import { CupomManager } from "./cupom-manager";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +28,9 @@ export default async function CupomCheckinPage() {
           title="Cupom de Check-in"
           description="Impressão automática do roteiro do dia do paciente na chegada, em cupom não-fiscal 80mm/58mm."
         />
-        <div className="max-w-5xl p-6 sm:p-10">
+        <PageContainer>
           <CupomManager settings={settings} />
-        </div>
+        </PageContainer>
       </div>
     </>
   );

@@ -8,6 +8,7 @@ import {
   upsertPtsTemplateAction,
   togglePtsTemplateActiveAction,
 } from "@/app/supervisao/pts-template-actions";
+import { PageContainer } from "@/components/page-container";
 
 export function PtsTemplatesManager({
   initialTemplates,
@@ -72,7 +73,7 @@ export function PtsTemplatesManager({
     <div className="flex min-h-screen bg-paper">
       <CadastrosSidebar active="pts-templates" />
 
-      <main className="flex-1 p-6 space-y-6 max-w-6xl">
+      <PageContainer>
         {/* Cabeçalho da Página */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-paper-line pb-4">
           <div>
@@ -401,7 +402,7 @@ export function PtsTemplatesManager({
             </form>
           </div>
         )}
-      </main>
+      </PageContainer>
     </div>
   );
 }

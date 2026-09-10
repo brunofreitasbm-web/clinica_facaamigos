@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { InteligenciaMetrics } from "../data";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageContainer } from "@/components/page-container";
 
 function formatPlural(value: number, singular: string, plural: string) {
   return `${value} ${value === 1 ? singular : plural}`;
@@ -86,9 +87,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
   }, [donutItems, totalDonut]);
 
   return (
-    <div className="bg-paper p-6 pb-16 md:p-8 md:pb-16">
-      {/* Conteúdo Principal */}
-      <div className="max-w-7xl mx-auto space-y-6">
+    <PageContainer className="bg-paper">
         {/* Topo / Breadcrumb */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -965,7 +964,6 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             )}
           </div>
         )}
-      </div>
-    </div>
+      </PageContainer>
   );
 }

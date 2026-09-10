@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { CadastrosSidebar } from "../cadastros-sidebar";
 import { createBehavior, renameBehaviorLabel, toggleBehaviorActive } from "./actions";
+import { PageContainer } from "@/components/page-container";
 
 export type BehaviorRow = {
   id: string;
@@ -98,7 +99,7 @@ export function ComportamentosManager({ behaviors }: { behaviors: BehaviorRow[] 
   return (
     <div className="flex flex-1">
       <CadastrosSidebar active="comportamentos" />
-      <div className="flex-1 p-8">
+      <PageContainer>
         <h1 className="mb-1">Comportamentos-alvo</h1>
         <p className="mb-6 text-sm text-ink-soft">
           Lista de comportamentos-alvo que aparece no formulário de evolução do terapeuta. Um
@@ -155,7 +156,7 @@ export function ComportamentosManager({ behaviors }: { behaviors: BehaviorRow[] 
           </button>
           {error && <p className="text-xs text-status-negative-text sm:col-span-2">{error}</p>}
         </form>
-      </div>
+      </PageContainer>
     </div>
   );
 }

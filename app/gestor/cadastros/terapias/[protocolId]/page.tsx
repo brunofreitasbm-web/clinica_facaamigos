@@ -6,6 +6,7 @@ import { getProtocolScale } from "@/lib/protocol-assessments";
 import { ProtocolItemForm } from "./protocol-item-form";
 import { ProtocolImportForm } from "./protocol-import-form";
 import { deleteProtocolItem } from "./actions";
+import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,8 @@ export default async function ProtocoloItensPage({
   const scale = getProtocolScale(protocol.scale);
 
   return (
-    <main className="flex flex-1 flex-col">
-      <div className="px-10 pt-9">
+    <PageContainer>
+      <div>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
           <Link href="/gestor/cadastros/protocolos">Protocolos</Link>
         </h6>
@@ -54,7 +55,7 @@ export default async function ProtocoloItensPage({
         </p>
       </div>
 
-      <div className="flex flex-col gap-8 px-10 pb-16 pt-8">
+      <div className="flex flex-col gap-8">
         <div className="flex flex-wrap items-start gap-4">
           <ProtocolItemForm protocolId={protocol.id} />
         </div>
@@ -105,6 +106,6 @@ export default async function ProtocoloItensPage({
           </section>
         ))}
       </div>
-    </main>
+    </PageContainer>
   );
 }

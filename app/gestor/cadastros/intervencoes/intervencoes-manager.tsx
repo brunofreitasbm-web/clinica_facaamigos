@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { CadastrosSidebar } from "../cadastros-sidebar";
 import { createIntervention, renameInterventionLabel, toggleInterventionActive } from "./actions";
+import { PageContainer } from "@/components/page-container";
 
 export type InterventionRow = {
   id: string;
@@ -98,7 +99,7 @@ export function IntervencoesManager({ interventions }: { interventions: Interven
   return (
     <div className="flex flex-1">
       <CadastrosSidebar active="intervencoes" />
-      <div className="flex-1 p-8">
+      <PageContainer>
         <h1 className="mb-1">Intervenções do terapeuta</h1>
         <p className="mb-6 text-sm text-ink-soft">
           Lista de técnicas/intervenções que aparece no formulário de evolução, para o terapeuta marcar o que foi
@@ -156,7 +157,7 @@ export function IntervencoesManager({ interventions }: { interventions: Interven
           </button>
           {error && <p className="text-xs text-status-negative-text sm:col-span-2">{error}</p>}
         </form>
-      </div>
+      </PageContainer>
     </div>
   );
 }

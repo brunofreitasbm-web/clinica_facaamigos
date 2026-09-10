@@ -10,6 +10,7 @@ import { RESOURCE_CATEGORY_LABEL } from "@/lib/resource-categories";
 import { CANCEL_REASONS } from "@/lib/appointment-cancel-reasons";
 import { TurmasAbaPanel } from "./turmas-aba-panel";
 import type { AbaClassRow, ResourceRow, RoomRow, SpecialtyOption } from "./types";
+import { PageContainer } from "@/components/page-container";
 
 export function AtendimentosManager({
   resources,
@@ -34,7 +35,7 @@ export function AtendimentosManager({
           description="Gestão de salas físicas, recursos reserváveis e motivos de falta/cancelamento por origem."
         />
 
-        <div className="flex flex-col gap-6 p-6 sm:p-10 max-w-4xl">
+        <PageContainer>
           {/* Abas Superiores */}
           <div className="flex border-b border-paper-line gap-6">
             <button
@@ -188,7 +189,7 @@ export function AtendimentosManager({
             </div>
           )}
 
-        </div>
+        </PageContainer>
       </div>
     </>
   );

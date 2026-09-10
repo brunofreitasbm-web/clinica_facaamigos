@@ -956,7 +956,7 @@ export function DocumentosManager({
             </div>
           </div>
         </div>
-      </main>
+      </PageContainer>
     </div>
   );
 }

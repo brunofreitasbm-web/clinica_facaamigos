@@ -44,7 +44,7 @@ export function GestorCockpit({ initialAlerts }: { initialAlerts: AlertItem[] })
   };
 
   return (
-    <div className="flex flex-col gap-6 px-10 pt-6">
+    <div className="flex flex-col gap-6 pt-6">
       {/* BANNER GUIA PASSO A PASSO "ANTI-BURRO" */}
       <div
         className="rounded-xl border p-5 shadow-sm transition-all"

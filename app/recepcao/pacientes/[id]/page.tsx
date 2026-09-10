@@ -33,6 +33,7 @@ import {
   activatePatient,
   setEmergencyContact,
 } from "./stage-actions";
+import { PageContainer } from "@/components/page-container";
 
 // Papéis que a RLS de `documents` permite escrever (clínica inteira, ou
 // terapeuta vinculado ao paciente). Mostrar o formulário pra esses papéis é
@@ -438,8 +439,8 @@ export default async function PacientePage({
     (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0] ?? null;
 
   return (
-    <main className="flex flex-1 flex-col pb-10">
-      <div className="mx-auto w-full max-w-[1720px] px-4 py-4 sm:px-6 lg:px-8">
+    <main className="flex flex-1 flex-col">
+      <PageContainer>
         <div className="mb-2">
           <Link
             href="/recepcao/pacientes"
@@ -809,7 +810,7 @@ export default async function PacientePage({
             </div>
           </div>
         </div>
-      </div>
+      </PageContainer>
     </main>
   );
 }
