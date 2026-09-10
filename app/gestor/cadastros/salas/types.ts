@@ -12,6 +12,7 @@ export type RoomRow = {
   recommendedInterns: number | null;
   specialtyId: string | null;
   isAbaTraining: boolean;
+  isEvaluationRoom: boolean;
 };
 
 /** Turma fixa de Treino ABA (sala própria + dia da semana + horário fechado). */

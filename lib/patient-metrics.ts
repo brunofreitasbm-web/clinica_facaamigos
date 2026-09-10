@@ -21,6 +21,15 @@ export type DomainGoalCounts = {
   suspensa: number;
 };
 
+// Sessões muito antigas continuam existindo em `appointments` para sempre;
+// sem esse corte, um paciente em tratamento há vários anos faz a home de
+// métricas baixar todo o histórico de `trial_data` a cada acesso.
+const METRICS_HISTORY_WINDOW_DAYS = 365;
+
+function metricsHistoryCutoffIso(): string {
+  return new Date(Date.now() - METRICS_HISTORY_WINDOW_DAYS * 86_400_000).toISOString();
+}
+
 function mondayOf(dateIso: string): string {
   const d = new Date(dateIso);
   const day = d.getUTCDay();
@@ -49,7 +58,8 @@ export async function getPatientProgramTrends(
   const { data: appointmentIds } = await supabase
     .from("appointments")
     .select("id")
-    .eq("patient_id", patientId);
+    .eq("patient_id", patientId)
+    .gte("starts_at", metricsHistoryCutoffIso());
 
   const ids = (appointmentIds ?? []).map((a) => a.id);
   if (ids.length === 0) return { trends: [], domainAverages: [] };
@@ -168,7 +178,8 @@ export async function getPatientAbaLearningCurves(
   const { data: appointments } = await supabase
     .from("appointments")
     .select("id, starts_at")
-    .eq("patient_id", patientId);
+    .eq("patient_id", patientId)
+    .gte("starts_at", metricsHistoryCutoffIso());
 
   const appointmentsList = appointments ?? [];
   if (appointmentsList.length === 0) return [];

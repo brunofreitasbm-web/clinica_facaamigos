@@ -162,20 +162,19 @@ export default async function RecepcaoPage({
   }));
 
   // Indicador "registro pendente" (ícone de caneta na linha da sessão): só
-  // faz sentido pra sessões já realizadas, e delega a checagem de existência
-  // de session_notes assinada à mesma RPC usada em lib/session-note-pending.ts
-  // (evita duplicar a regra "realizada + sem nota assinada = pendente").
+  // faz sentido pra sessões já realizadas. Uma única RPC em lote resolve
+  // "realizada + sem session_notes assinada" pra todas as sessões do dia
+  // de uma vez (evita 1 round-trip por sessão).
   const pendingNoteByAppointment = new Map<string, boolean>();
-  await Promise.all(
-    appointments
-      .filter((a) => a.status === "realizada")
-      .map(async (a) => {
-        const { data: isPending } = await supabase.rpc("session_note_pending", {
-          p_appointment_id: a.id,
-        });
-        pendingNoteByAppointment.set(a.id, Boolean(isPending));
-      }),
-  );
+  const todaysRealizedIds = appointments.filter((a) => a.status === "realizada").map((a) => a.id);
+  if (todaysRealizedIds.length) {
+    const { data: pendingRows } = await supabase.rpc("session_notes_pending_status", {
+      p_appointment_ids: todaysRealizedIds,
+    });
+    for (const row of pendingRows ?? []) {
+      pendingNoteByAppointment.set(row.appointment_id, Boolean(row.is_pending));
+    }
+  }
 
   // Responsáveis (ícone de contato) por paciente com sessão hoje — só busca
   // pros pacientes realmente listados, não a base inteira.

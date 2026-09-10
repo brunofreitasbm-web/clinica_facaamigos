@@ -6705,6 +6705,7 @@ export type Database = {
           clinic_id: string
           id: string
           is_aba_training: boolean
+          is_evaluation_room: boolean
           name: string
           recommended_interns: number | null
           specialty_id: string | null
@@ -6714,6 +6715,7 @@ export type Database = {
           clinic_id: string
           id?: string
           is_aba_training?: boolean
+          is_evaluation_room?: boolean
           name: string
           recommended_interns?: number | null
           specialty_id?: string | null
@@ -6723,6 +6725,7 @@ export type Database = {
           clinic_id?: string
           id?: string
           is_aba_training?: boolean
+          is_evaluation_room?: boolean
           name?: string
           recommended_interns?: number | null
           specialty_id?: string | null
@@ -8392,6 +8395,10 @@ export type Database = {
         Args: { p_confirmed_by: string; p_lead_id: string }
         Returns: Json
       }
+      count_overdue_session_notes: {
+        Args: { p_hours_threshold?: number }
+        Returns: number
+      }
       create_employee_self_registration: {
         Args: {
           p_address: Json
@@ -8638,6 +8645,16 @@ export type Database = {
         Returns: boolean
       }
       jwt_own_unit_workspace: { Args: never; Returns: string }
+      list_overdue_session_notes: {
+        Args: { p_hours_threshold?: number }
+        Returns: {
+          appointment_id: string
+          patient_name: string | null
+          starts_at: string
+          therapist_id: string
+          therapist_name: string | null
+        }[]
+      }
       list_system_user_audit: { Args: { p_limit?: number }; Returns: Json }
       list_system_users: { Args: never; Returns: Json }
       lives_ok: { Args: { "": string }; Returns: string }
@@ -8764,6 +8781,10 @@ export type Database = {
       session_note_pending: {
         Args: { p_appointment_id: string }
         Returns: boolean
+      }
+      session_notes_pending_status: {
+        Args: { p_appointment_ids: string[] }
+        Returns: { appointment_id: string; is_pending: boolean }[]
       }
       set_family_image_consent: {
         Args: { p_consent: boolean }

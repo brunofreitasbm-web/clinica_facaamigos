@@ -12,7 +12,7 @@ export default async function AtendimentosConfigPage() {
     supabase.from("resources").select("id, name, category, notes").eq("clinic_id", DEV_CLINIC_ID).order("name"),
     supabase
       .from("rooms")
-      .select("id, name, capacity, recommended_interns, specialty_id, is_aba_training")
+      .select("id, name, capacity, recommended_interns, specialty_id, is_aba_training, is_evaluation_room")
       .eq("clinic_id", DEV_CLINIC_ID)
       .order("name"),
     supabase
@@ -43,6 +43,7 @@ export default async function AtendimentosConfigPage() {
     recommendedInterns: r.recommended_interns,
     specialtyId: r.specialty_id,
     isAbaTraining: r.is_aba_training,
+    isEvaluationRoom: r.is_evaluation_room,
   }));
 
   const abaClasses: AbaClassRow[] = (abaClassRows ?? []).map((c) => {

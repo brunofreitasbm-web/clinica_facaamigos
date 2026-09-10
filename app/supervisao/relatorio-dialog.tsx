@@ -136,7 +136,7 @@ export function RelatorioReavaliacaoDialog({
                   </div>
                   <div className="text-right text-xs text-ink-soft">
                     <p className="font-semibold text-ink">Unidade Central</p>
-                    <p>São Paulo - SP</p>
+                    <p>Belém - PA</p>
                     <p>Contato: (11) 3000-0000</p>
                   </div>
                 </div>

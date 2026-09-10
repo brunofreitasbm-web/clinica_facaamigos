@@ -100,7 +100,7 @@ export function AtendimentosManager({
                     <th>Capacidade</th>
                     <th>Estagiários (recomendado)</th>
                     <th>Especialidade</th>
-                    <th>Treino ABA</th>
+                    <th>Tags</th>
                     <th />
                   </tr>
                 </thead>

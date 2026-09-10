@@ -116,7 +116,7 @@ export function DadosClinicaForm({ initial }: { initial: ClinicRow }) {
             placeholder="Cj. 501"
           />
           <Field label="Bairro" name="endereco_bairro" defaultValue={initial.endereco_bairro} placeholder="Bela Vista" />
-          <Field label="Cidade" name="endereco_cidade" defaultValue={initial.endereco_cidade} placeholder="São Paulo" />
+          <Field label="Cidade" name="endereco_cidade" defaultValue={initial.endereco_cidade} placeholder="Belém" />
           <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
             UF
             <select name="endereco_uf" defaultValue={initial.endereco_uf} className="input">
@@ -128,7 +128,7 @@ export function DadosClinicaForm({ initial }: { initial: ClinicRow }) {
               ))}
             </select>
           </label>
-          <Field label="CEP" name="endereco_cep" defaultValue={initial.endereco_cep} placeholder="01310-100" />
+          <Field label="CEP" name="endereco_cep" defaultValue={initial.endereco_cep} placeholder="66015-000" />
         </div>
       </section>
 

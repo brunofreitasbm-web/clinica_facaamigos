@@ -62,7 +62,10 @@ function parseSpecialtyId(formData: FormData): string | null {
 
 export async function createRoom(formData: FormData): Promise<ActionResult> {
   const name = String(formData.get("name") ?? "").trim();
-  const capacity = Number(formData.get("capacity") ?? 1);
+  const isEvaluationRoom = formData.get("isEvaluationRoom") === "on";
+  // Sala de Avaliação atende 1 paciente por vez — capacidade é travada em 1
+  // independente do que veio no form, mesmo se o campo estiver desabilitado no cliente.
+  const capacity = isEvaluationRoom ? 1 : Number(formData.get("capacity") ?? 1);
 
   if (!name) return { success: false, error: "Dê um nome à sala." };
   if (!Number.isInteger(capacity) || capacity < 1) {
@@ -80,6 +83,7 @@ export async function createRoom(formData: FormData): Promise<ActionResult> {
     recommended_interns: recommendedInterns.value,
     specialty_id: parseSpecialtyId(formData),
     is_aba_training: formData.get("isAbaTraining") === "on",
+    is_evaluation_room: isEvaluationRoom,
   });
 
   if (error) {
@@ -92,7 +96,10 @@ export async function createRoom(formData: FormData): Promise<ActionResult> {
 
 export async function updateRoom(roomId: string, formData: FormData): Promise<ActionResult> {
   const name = String(formData.get("name") ?? "").trim();
-  const capacity = Number(formData.get("capacity") ?? 1);
+  const isEvaluationRoom = formData.get("isEvaluationRoom") === "on";
+  // Sala de Avaliação atende 1 paciente por vez — capacidade é travada em 1
+  // independente do que veio no form, mesmo se o campo estiver desabilitado no cliente.
+  const capacity = isEvaluationRoom ? 1 : Number(formData.get("capacity") ?? 1);
 
   if (!name) return { success: false, error: "Dê um nome à sala." };
   if (!Number.isInteger(capacity) || capacity < 1) {
@@ -111,6 +118,7 @@ export async function updateRoom(roomId: string, formData: FormData): Promise<Ac
       recommended_interns: recommendedInterns.value,
       specialty_id: parseSpecialtyId(formData),
       is_aba_training: formData.get("isAbaTraining") === "on",
+      is_evaluation_room: isEvaluationRoom,
     })
     .eq("id", roomId);
 

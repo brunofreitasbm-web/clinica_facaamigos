@@ -912,7 +912,7 @@ export function DocumentosManager({
               {/* Data de Emissão + Bloco de Assinatura e Carimbo */}
               <div className="mt-16 pt-8 border-t border-gray-200">
                 <div className="text-right text-sm font-semibold text-gray-800 mb-12">
-                  São Paulo/SP, {fmtExtensoDate(issueDate)}.
+                  Belém/PA, {fmtExtensoDate(issueDate)}.
                 </div>
 
                 <div className="grid grid-cols-2 gap-8 items-end">
