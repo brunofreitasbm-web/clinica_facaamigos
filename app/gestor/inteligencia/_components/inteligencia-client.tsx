@@ -565,6 +565,64 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
         {/* ABA: SALAS */}
         {activeTab === "salas" && (
           <div className="space-y-6">
+            {/* Indicador em Destaque: Capacidade Operacional da Clínica */}
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold tracking-wider text-indigo-500 uppercase">Indicador em Destaque</span>
+                  <h3 className="text-base font-bold text-slate-900">Capacidade Operacional da Clínica</h3>
+                  <p className="text-xs text-slate-600">Ocupação combinada de todas as salas (exceto Sala de Avaliação)</p>
+                </div>
+                <div className="flex rounded-full border border-indigo-200 bg-white p-1 text-xs font-semibold">
+                  {metrics.clinicCapacity.map((item) => (
+                    <button
+                      key={item.key}
+                      onClick={() => setCapacityPeriod(item.key)}
+                      className={`rounded-full px-3 py-1.5 transition-colors ${
+                        capacityPeriod === item.key
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-600 hover:bg-indigo-50"
+                      }`}
+                    >
+                      {item.key === "manha" && "Manhã"}
+                      {item.key === "tarde" && "Tarde"}
+                      {item.key === "dia" && "Dia"}
+                      {item.key === "semana" && "Semana"}
+                      {item.key === "mes" && "Mês"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(() => {
+                const selected = metrics.clinicCapacity.find((c) => c.key === capacityPeriod);
+                if (!selected) return null;
+                const barColor =
+                  selected.occupancyPct >= 80
+                    ? "bg-rose-500"
+                    : selected.occupancyPct >= 60
+                      ? "bg-amber-400"
+                      : "bg-emerald-500";
+                return (
+                  <div className="mt-5 flex flex-wrap items-end gap-6">
+                    <span className="text-5xl font-extrabold text-slate-900 tabular-nums">
+                      {selected.occupancyPct}%
+                    </span>
+                    <div className="flex-1 min-w-[200px]">
+                      <p className="text-xs text-slate-600">{selected.label}</p>
+                      <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-white">
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max(2, selected.occupancyPct)}%` }} />
+                      </div>
+                      <p className="mt-2 text-xs text-slate-600">
+                        {selected.bookedHours}h ocupadas de {selected.availableHours}h disponíveis · {selected.roomsConsidered}{" "}
+                        {selected.roomsConsidered === 1 ? "sala" : "salas"}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Alerta de Capacidade — sala próxima do limite na semana */}
             {metrics.roomCapacityAlerts.length > 0 && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 shadow-xs">
@@ -731,64 +789,6 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 </p>
               </div>
             )}
-
-            {/* Indicador em Destaque: Capacidade Operacional da Clínica */}
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-xs">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <span className="text-xs font-bold tracking-wider text-indigo-500 uppercase">Indicador em Destaque</span>
-                  <h3 className="text-base font-bold text-slate-900">Capacidade Operacional da Clínica</h3>
-                  <p className="text-xs text-slate-600">Ocupação combinada de todas as salas (exceto Sala de Avaliação)</p>
-                </div>
-                <div className="flex rounded-full border border-indigo-200 bg-white p-1 text-xs font-semibold">
-                  {metrics.clinicCapacity.map((item) => (
-                    <button
-                      key={item.key}
-                      onClick={() => setCapacityPeriod(item.key)}
-                      className={`rounded-full px-3 py-1.5 transition-colors ${
-                        capacityPeriod === item.key
-                          ? "bg-indigo-600 text-white"
-                          : "text-slate-600 hover:bg-indigo-50"
-                      }`}
-                    >
-                      {item.key === "manha" && "Manhã"}
-                      {item.key === "tarde" && "Tarde"}
-                      {item.key === "dia" && "Dia"}
-                      {item.key === "semana" && "Semana"}
-                      {item.key === "mes" && "Mês"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {(() => {
-                const selected = metrics.clinicCapacity.find((c) => c.key === capacityPeriod);
-                if (!selected) return null;
-                const barColor =
-                  selected.occupancyPct >= 80
-                    ? "bg-rose-500"
-                    : selected.occupancyPct >= 60
-                      ? "bg-amber-400"
-                      : "bg-emerald-500";
-                return (
-                  <div className="mt-5 flex flex-wrap items-end gap-6">
-                    <span className="text-5xl font-extrabold text-slate-900 tabular-nums">
-                      {selected.occupancyPct}%
-                    </span>
-                    <div className="flex-1 min-w-[200px]">
-                      <p className="text-xs text-slate-600">{selected.label}</p>
-                      <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-white">
-                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max(2, selected.occupancyPct)}%` }} />
-                      </div>
-                      <p className="mt-2 text-xs text-slate-600">
-                        {selected.bookedHours}h ocupadas de {selected.availableHours}h disponíveis · {selected.roomsConsidered}{" "}
-                        {selected.roomsConsidered === 1 ? "sala" : "salas"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
 
             {/* Cards resumo */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
