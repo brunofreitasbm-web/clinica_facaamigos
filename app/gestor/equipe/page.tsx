@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { GestorNav } from "@/components/gestor-nav";
 import { EquipeSubnav } from "@/components/equipe-subnav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -45,8 +44,7 @@ export default async function EquipePage() {
   }));
 
   return (
-    <div className="min-h-screen bg-canvas flex flex-col">
-      <GestorNav active="equipe" />
+    <div className="flex min-h-0 flex-1 flex-col bg-canvas">
       <EquipeSubnav activeTab="colaboradores" />
       <main className="flex flex-1 flex-col overflow-y-auto">
         <div className="px-6 pt-8 sm:px-10">

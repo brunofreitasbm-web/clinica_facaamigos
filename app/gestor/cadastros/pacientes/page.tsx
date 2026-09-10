@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { PageHeader } from "@/components/page-header";
 import { QuickActionsBar } from "@/components/quick-actions-bar";
 import { createClient } from "@/lib/supabase/server";
@@ -24,7 +23,6 @@ export default async function PacientesPage() {
 
   return (
     <>
-      <CadastrosSidebar active="pacientes" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader axisLabel="Cadastros" title="Pacientes" description="Todos os pacientes cadastrados nesta clínica." />
 

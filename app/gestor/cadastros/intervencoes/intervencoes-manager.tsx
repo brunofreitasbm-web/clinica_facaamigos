@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { createIntervention, renameInterventionLabel, toggleInterventionActive } from "./actions";
 import { PageContainer } from "@/components/page-container";
 
@@ -98,7 +97,6 @@ export function IntervencoesManager({ interventions }: { interventions: Interven
 
   return (
     <div className="flex flex-1">
-      <CadastrosSidebar active="intervencoes" />
       <PageContainer>
         <h1 className="mb-1">Intervenções do terapeuta</h1>
         <p className="mb-6 text-sm text-ink-soft">

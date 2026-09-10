@@ -1,5 +1,4 @@
 import { PageHeader } from "@/components/page-header";
-import { ConfigSidebar } from "../config-sidebar";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { DadosClinicaForm, type ClinicRow } from "./dados-clinica-form";
@@ -46,7 +45,6 @@ export default async function DadosDaClinicaPage() {
 
   return (
     <>
-      <ConfigSidebar active="dados-da-clinica" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Configurações"

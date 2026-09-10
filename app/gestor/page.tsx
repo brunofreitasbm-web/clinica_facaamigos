@@ -1,4 +1,3 @@
-import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getLeakCards, getBonusRows, getTierProgression, getOperationalAlerts, currentMonthRange } from "./data";
@@ -135,7 +134,6 @@ export default async function GestorPage() {
 
   return (
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
-      <GestorNav active={null} />
 
       <PageContainer fullBleed>
       <div className="flex flex-wrap items-end justify-between gap-6">

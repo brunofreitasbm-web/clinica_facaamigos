@@ -2,7 +2,6 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { PageContainer } from "@/components/page-container";
-import { FaturamentoHeader } from "../faturamento-header";
 import { CompetenceForm } from "./competence-form";
 
 export const dynamic = "force-dynamic";
@@ -45,8 +44,7 @@ export default async function CompetenciasPage() {
     .order("competence_month", { ascending: false });
 
   return (
-    <main className="flex flex-1 flex-col">
-      <FaturamentoHeader active="competencia" />
+    <>
       <PageContainer>
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
@@ -103,6 +101,6 @@ export default async function CompetenciasPage() {
           </tbody>
         </table>
       </PageContainer>
-    </main>
+    </>
   );
 }

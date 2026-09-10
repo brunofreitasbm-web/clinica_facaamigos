@@ -1,4 +1,3 @@
-import { GestorNav } from "@/components/gestor-nav";
 import { EquipeSubnav } from "@/components/equipe-subnav";
 import { getBonificacaoData } from "./actions";
 import { TierApprovalForm } from "./tier-approval-form";
@@ -9,8 +8,7 @@ export default async function BonificacaoPage() {
   const { bonusRows, tierRows, closedHistory } = await getBonificacaoData();
 
   return (
-    <div className="min-h-screen bg-canvas flex flex-col">
-      <GestorNav active="equipe" />
+    <div className="flex min-h-0 flex-1 flex-col bg-canvas">
       <EquipeSubnav activeTab="bonificacao" />
 
       <PageContainer>

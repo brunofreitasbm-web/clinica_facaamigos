@@ -1,11 +1,5 @@
-import { GestorNav } from "@/components/gestor-nav";
 import { ModuleSkeleton } from "@/components/module-skeleton";
 
 export default function MetasLoading() {
-  return (
-    <>
-      <GestorNav active="equipe" />
-      <ModuleSkeleton title="Metas por Cargo" subtitle="Carregando metas operacionais e clínicas" />
-    </>
-  );
+  return <ModuleSkeleton fill={false} title="Metas por Cargo" subtitle="Carregando metas operacionais e clínicas" />;
 }

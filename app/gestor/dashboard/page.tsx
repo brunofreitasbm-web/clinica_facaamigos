@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getDashboardMetrics } from "./data";
@@ -33,7 +32,6 @@ export default async function GestorDashboardPage() {
 
   return (
     <main className="flex flex-1 flex-col pb-16">
-      <GestorNav active="painel" />
 
       <PageContainer fullBleed>
       <div className="flex flex-wrap items-end justify-between gap-6">

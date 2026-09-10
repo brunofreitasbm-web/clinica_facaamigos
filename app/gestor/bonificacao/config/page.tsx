@@ -1,4 +1,3 @@
-import { GestorNav } from "@/components/gestor-nav";
 import { EquipeSubnav } from "@/components/equipe-subnav";
 import { getBonusConfigData } from "./actions";
 import { BonusConfigClient } from "./bonus-config-client";
@@ -8,8 +7,7 @@ export default async function BonusConfigPage() {
   const { roles, modules, catalog, active, history } = await getBonusConfigData();
 
   return (
-    <div className="min-h-screen bg-canvas flex flex-col">
-      <GestorNav active="equipe" />
+    <div className="flex min-h-0 flex-1 flex-col bg-canvas">
       <EquipeSubnav activeTab="bonificacao-config" />
 
       <PageContainer>

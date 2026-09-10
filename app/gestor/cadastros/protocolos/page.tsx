@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { PageHeader } from "@/components/page-header";
 import { QuickActionsBar } from "@/components/quick-actions-bar";
 import { createClient } from "@/lib/supabase/server";
@@ -87,7 +86,6 @@ export default async function ProtocolosPage() {
 
   return (
     <>
-      <CadastrosSidebar active="protocolos" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Cadastros"

@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { Package, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { NewItemDialog } from "./new-item-dialog";
 import { MovementDialog } from "./movement-dialog";
@@ -35,7 +34,6 @@ export default async function EstoquePage() {
 
   return (
     <div className="flex flex-1">
-      <CadastrosSidebar active="estoque" />
       <PageContainer className="flex-1">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { PageContainer } from "@/components/page-container";
-import { FaturamentoHeader } from "../faturamento-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { GlosaRegisterForm, type EligibleBillingItem, type Therapist } from "./glosa-register-form";
@@ -234,8 +233,7 @@ export default async function GlosasPage({
     : allGlosas;
 
   return (
-    <main className="flex flex-1 flex-col">
-      <FaturamentoHeader active="glosas" />
+    <>
       <PageContainer>
         <div>
           <h1 className="m-0 text-xl font-semibold text-ink">Glosas</h1>
@@ -362,6 +360,6 @@ export default async function GlosasPage({
           </ul>
         </section>
       </PageContainer>
-    </main>
+    </>
   );
 }

@@ -1,4 +1,3 @@
-import { GestorNav } from "@/components/gestor-nav";
 import { EquipeSubnav } from "@/components/equipe-subnav";
 import { getTargetsData } from "./actions";
 import { TargetForm } from "./target-form";
@@ -33,8 +32,7 @@ export default async function MetasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas flex flex-col">
-      <GestorNav active="equipe" />
+    <div className="flex min-h-0 flex-1 flex-col bg-canvas">
       <EquipeSubnav activeTab="metas" />
 
       <PageContainer>

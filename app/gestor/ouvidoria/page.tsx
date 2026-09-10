@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
-import { GestorNav } from "@/components/gestor-nav";
 import { AuditoriaSubnav } from "@/components/auditoria-subnav";
 import { AlertTriangle, MessageSquareWarning, ShieldAlert } from "lucide-react";
 import { NewIncidentDialog } from "./new-incident-dialog";
@@ -64,7 +63,6 @@ export default async function OuvidoriaPage() {
 
   return (
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
-      <GestorNav active="auditoria" />
       <AuditoriaSubnav activeTab="ouvidoria" />
 
       <PageContainer>

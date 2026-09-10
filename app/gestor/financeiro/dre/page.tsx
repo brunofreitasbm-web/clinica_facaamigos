@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { GestorNav } from "@/components/gestor-nav";
 import { FinanceiroSubnav } from "@/components/financeiro-subnav";
 import { getRepasseRows } from "../data";
 import { getDreByMonth, getCashFlowProjection } from "./data";
@@ -49,7 +48,6 @@ export default async function DrePage() {
 
   return (
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
-      <GestorNav active="financeiro" />
       <FinanceiroSubnav activeTab="dre" />
 
       <PageContainer>

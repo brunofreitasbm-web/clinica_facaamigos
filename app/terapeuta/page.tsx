@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { RealtimeAppointmentToast } from "@/components/realtime-appointment-toast";
-import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
@@ -334,7 +333,6 @@ export default async function TerapeutaPage({
         </section>
       </div>
 
-      <TerapeutaBottomNav active="hoje" />
 
       {/* Só a sessão real do próprio terapeuta (não a visão "ver como" de
           gestor/supervisor) recebe o toast de chegada na recepção. */}

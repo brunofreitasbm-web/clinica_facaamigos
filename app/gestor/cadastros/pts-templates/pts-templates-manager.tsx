@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { DISCIPLINES } from "@/app/supervisao/planos/novo/disciplines";
 import type { PtsTemplate } from "@/lib/pts-templates";
 import {
@@ -70,8 +69,7 @@ export function PtsTemplatesManager({
   }
 
   return (
-    <div className="flex min-h-screen bg-paper">
-      <CadastrosSidebar active="pts-templates" />
+    <div className="flex min-h-0 flex-1 bg-paper">
 
       <PageContainer>
         {/* Cabeçalho da Página */}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { createSpecialty, renameSpecialtyLabel, toggleSpecialtyActive } from "./actions";
 import { PageContainer } from "@/components/page-container";
 
@@ -100,7 +99,6 @@ export function EspecialidadesManager({ specialties }: { specialties: SpecialtyR
 
   return (
     <div className="flex flex-1">
-      <CadastrosSidebar active="especialidades" />
       <PageContainer>
         <h1 className="mb-1">Especialidades</h1>
         <p className="mb-6 text-sm text-ink-soft">

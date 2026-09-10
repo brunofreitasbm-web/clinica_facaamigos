@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { computeCompetenceEligibility } from "@/lib/billing-eligibility";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { PageContainer } from "@/components/page-container";
-import { FaturamentoHeader } from "../../faturamento-header";
 import { ReprocessButton } from "./reprocess-button";
 import { CsvExportButton } from "../csv-export-button";
 
@@ -97,8 +96,7 @@ export default async function CompetenceDetailPage({
   const { inconsistent } = await computeCompetenceEligibility(supabase, period.insurer_id, monthStr);
 
   return (
-    <main className="flex flex-1 flex-col">
-      <FaturamentoHeader active="competencia" />
+    <>
       <PageContainer>
         <section className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -202,6 +200,6 @@ export default async function CompetenceDetailPage({
           </table>
         </section>
       </PageContainer>
-    </main>
+    </>
   );
 }

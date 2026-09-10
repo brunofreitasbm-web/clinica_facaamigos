@@ -45,7 +45,7 @@ export default async function TerapeutaMetricasPage() {
   const metrics = await getMyTherapistMetrics(supabase, profile.id);
 
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="flex flex-1 flex-col pb-24 md:pb-0">
       <BackToTodayShortcut />
       <header
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}

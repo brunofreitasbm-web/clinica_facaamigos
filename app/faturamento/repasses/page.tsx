@@ -1,4 +1,3 @@
-import { FaturamentoHeader } from "../faturamento-header";
 import { PageContainer } from "@/components/page-container";
 import { PayoutStatementModal } from "@/components/payout-statement";
 import { createClient } from "@/lib/supabase/server";
@@ -125,8 +124,6 @@ export default async function RepassesPage() {
 
   return (
     <div className="min-h-screen bg-paper text-ink">
-      <FaturamentoHeader active="repasses" />
-
       <PageContainer>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-paper-line pb-6">
           <div>

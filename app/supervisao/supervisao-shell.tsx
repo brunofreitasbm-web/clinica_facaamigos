@@ -1,10 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { ShieldCheck, UserX, ListOrdered, Users, CalendarClock } from "lucide-react";
-import { BrandLockup } from "@/components/brand/brand-lockup";
+import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 import { PageContainer } from "@/components/page-container";
 
 const TABS = [
@@ -54,7 +52,6 @@ export function SupervisaoShell({
   inboxTab: ReactNode;
 }) {
   const [tab, setTab] = useState<SupervisaoTabKey>("grade");
-  const pathname = usePathname();
 
   const count: Partial<Record<SupervisaoTabKey, number>> = {
     agenda1a: nAgenda1a,
@@ -64,110 +61,30 @@ export function SupervisaoShell({
     inbox: nInbox,
   };
 
+  // A Coordenação é uma única rota (app/supervisao/page.tsx) com seções
+  // trocadas em memória — por isso os primeiros itens são abas (`onSelect`,
+  // sem `href`) e não links. "Pacientes", "Lista de Espera", "Prontuário
+  // Unificado", "Disponibilidade" e "Aviso Falta Terapeuta" são as exceções:
+  // rotas de verdade, fora deste componente. O <ModuleHeader> compartilhado
+  // (ver components/module-header.tsx) aceita os dois tipos no mesmo `items`.
+  const items: ModuleNavItem[] = [
+    ...TABS.map((t) => ({
+      key: t.key,
+      label: t.label,
+      selected: tab === t.key,
+      onSelect: () => setTab(t.key),
+      badge: count[t.key] ?? 0,
+    })),
+    { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", match: ["/recepcao/pacientes"], icon: Users },
+    { key: "lista-espera", label: "Lista de Espera", href: "/supervisao/lista-espera", icon: ListOrdered },
+    { key: "prontuario-unificado", label: "Prontuário Unificado", href: "/supervisao/prontuario-unificado", icon: ShieldCheck },
+    { key: "disponibilidade", label: "Disponibilidade", href: "/supervisao/disponibilidade", icon: CalendarClock },
+    { key: "emergencias", label: "Aviso Falta Terapeuta", href: "/recepcao/emergencias", icon: UserX },
+  ];
+
   return (
     <SupervisaoTabContext.Provider value={{ tab, setTab }}>
-      <header
-        style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
-        className="flex h-16 items-center gap-8 px-10"
-      >
-        <BrandLockup module="Coordenação" className="mr-auto" />
-        <nav role="tablist" aria-label="Seções da coordenação" className="flex h-full items-center gap-6 text-[15px]">
-          {TABS.map((t) => {
-            const n = count[t.key] ?? 0;
-            const isActive = tab === t.key;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setTab(t.key)}
-                className="flex h-full items-center gap-1.5 transition-all"
-                style={{
-                  color: isActive ? "#FFFFFF" : "var(--color-on-accent-soft)",
-                  borderBottom: isActive ? "3px solid #FFFFFF" : "3px solid transparent",
-                  fontWeight: isActive ? 700 : 500,
-                }}
-              >
-                {t.label}
-                {n > 0 && (
-                  <span
-                    className="inline-flex h-5 min-w-5 animate-pulse items-center justify-center rounded-full px-1.5 text-[11px] font-bold"
-                    style={{ background: "var(--color-accent-2)", color: "var(--color-bg)" }}
-                  >
-                    {n}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-          <Link
-            href="/recepcao/pacientes"
-            className="flex h-full items-center gap-1.5 transition-all"
-            aria-current={pathname.startsWith("/recepcao/pacientes") ? "page" : undefined}
-            style={{
-              color: pathname.startsWith("/recepcao/pacientes") ? "#FFFFFF" : "var(--color-on-accent-soft)",
-              borderBottom: pathname.startsWith("/recepcao/pacientes") ? "3px solid #FFFFFF" : "3px solid transparent",
-              fontWeight: pathname.startsWith("/recepcao/pacientes") ? 700 : 500,
-            }}
-          >
-            <Users size={15} />
-            Pacientes
-          </Link>
-          <Link
-            href="/supervisao/lista-espera"
-            className="flex h-full items-center gap-1.5 transition-all"
-            aria-current={pathname === "/supervisao/lista-espera" ? "page" : undefined}
-            style={{
-              color: pathname === "/supervisao/lista-espera" ? "#FFFFFF" : "var(--color-on-accent-soft)",
-              borderBottom: pathname === "/supervisao/lista-espera" ? "3px solid #FFFFFF" : "3px solid transparent",
-              fontWeight: pathname === "/supervisao/lista-espera" ? 700 : 500,
-            }}
-          >
-            <ListOrdered size={15} />
-            Lista de Espera
-          </Link>
-          <Link
-            href="/supervisao/prontuario-unificado"
-            className="flex h-full items-center gap-1.5 transition-all"
-            aria-current={pathname === "/supervisao/prontuario-unificado" ? "page" : undefined}
-            style={{
-              color: pathname === "/supervisao/prontuario-unificado" ? "#FFFFFF" : "var(--color-on-accent-soft)",
-              borderBottom: pathname === "/supervisao/prontuario-unificado" ? "3px solid #FFFFFF" : "3px solid transparent",
-              fontWeight: pathname === "/supervisao/prontuario-unificado" ? 700 : 500,
-            }}
-          >
-            <ShieldCheck size={15} />
-            Prontuário Unificado
-          </Link>
-          <Link
-            href="/supervisao/disponibilidade"
-            className="flex h-full items-center gap-1.5 transition-all"
-            aria-current={pathname === "/supervisao/disponibilidade" ? "page" : undefined}
-            style={{
-              color: pathname === "/supervisao/disponibilidade" ? "#FFFFFF" : "var(--color-on-accent-soft)",
-              borderBottom: pathname === "/supervisao/disponibilidade" ? "3px solid #FFFFFF" : "3px solid transparent",
-              fontWeight: pathname === "/supervisao/disponibilidade" ? 700 : 500,
-            }}
-          >
-            <CalendarClock size={15} />
-            Disponibilidade
-          </Link>
-          <Link
-            href="/recepcao/emergencias"
-            className="flex h-full items-center gap-1.5 transition-all"
-            aria-current={pathname === "/recepcao/emergencias" ? "page" : undefined}
-            style={{
-              color: pathname === "/recepcao/emergencias" ? "#FFFFFF" : "var(--color-on-accent-soft)",
-              borderBottom: pathname === "/recepcao/emergencias" ? "3px solid #FFFFFF" : "3px solid transparent",
-              fontWeight: pathname === "/recepcao/emergencias" ? 700 : 500,
-            }}
-          >
-            <UserX size={15} />
-            Aviso Falta Terapeuta
-          </Link>
-        </nav>
-      </header>
+      <ModuleHeader module="Coordenação" navLabel="Seções da coordenação" items={items} />
 
       <main className="flex flex-1 flex-col">
         <PageContainer>

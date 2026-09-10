@@ -7,7 +7,7 @@ import { SectionSidebar } from "@/components/section-sidebar";
 // uma tela aqui dentro.
 const SIDEBAR_ITEMS = [
   { key: "pacientes", label: "Pacientes", href: "/gestor/cadastros/pacientes" },
-  { key: "terapeutas", label: "Terapeutas", href: "/gestor/equipe" },
+  { key: "terapeutas", label: "Terapeutas", href: "/gestor/equipe", external: true },
   { key: "convenios", label: "Convênios", href: "/gestor/cadastros/convenios" },
   { key: "tipos-atendimento", label: "Tipos de Atendimento", href: "/gestor/cadastros/tipos-atendimento" },
   { key: "protocolos", label: "Protocolos", href: "/gestor/cadastros/protocolos" },
@@ -19,8 +19,6 @@ const SIDEBAR_ITEMS = [
   { key: "estoque", label: "Estoque & Almoxarifado", href: "/gestor/cadastros/estoque" },
 ] as const;
 
-export type CadastrosSidebarKey = (typeof SIDEBAR_ITEMS)[number]["key"];
-
-export function CadastrosSidebar({ active }: { active: CadastrosSidebarKey }) {
-  return <SectionSidebar title="Clínica" items={SIDEBAR_ITEMS} active={active} />;
+export function CadastrosSidebar() {
+  return <SectionSidebar title="Clínica" items={SIDEBAR_ITEMS} />;
 }

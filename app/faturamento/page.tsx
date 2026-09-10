@@ -3,7 +3,6 @@ import { ArrowRight, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { PageContainer } from "@/components/page-container";
-import { FaturamentoHeader } from "./faturamento-header";
 import { getCurrentCompetenceOverview } from "./overview-data";
 import { NotifyTherapistButton } from "./notify-therapist-button";
 
@@ -51,9 +50,7 @@ export default async function FaturamentoPage() {
   const { blocked, byInsurer, trace } = overview;
 
   return (
-    <main className="flex flex-1 flex-col">
-      <FaturamentoHeader active="competencia" />
-
+    <>
       <PageContainer>
         <section className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -258,6 +255,6 @@ export default async function FaturamentoPage() {
           </aside>
         </section>
       </PageContainer>
-    </main>
+    </>
   );
 }

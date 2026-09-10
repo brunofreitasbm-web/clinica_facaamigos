@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
-import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -75,7 +74,6 @@ export default async function TerapeutaPacientesPage({
         ))}
       </div>
 
-      <TerapeutaBottomNav active="pacientes" />
     </main>
   );
 }

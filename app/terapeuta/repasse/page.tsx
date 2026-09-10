@@ -48,7 +48,7 @@ export default async function TerapeutaRepassePage() {
   );
 
   return (
-    <div className="min-h-screen bg-canvas p-6">
+    <div className="flex flex-1 flex-col bg-canvas p-6 pb-24 md:pb-6">
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="flex items-center justify-between">
           <div>

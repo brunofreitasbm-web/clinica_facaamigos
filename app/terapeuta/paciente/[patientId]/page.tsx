@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
-import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { PatientTabs } from "@/components/prontuario/patient-tabs";
 import { DocumentViewButton } from "@/components/prontuario/document-view-button";
@@ -349,8 +348,6 @@ export default async function TerapeutaFichaPacientePage({
           </div>
         </div>
       </div>
-
-      <TerapeutaBottomNav active="prontuario" />
     </main>
   );
 }

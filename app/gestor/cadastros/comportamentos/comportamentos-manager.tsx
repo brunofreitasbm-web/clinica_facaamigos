@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { createBehavior, renameBehaviorLabel, toggleBehaviorActive } from "./actions";
 import { PageContainer } from "@/components/page-container";
 
@@ -98,7 +97,6 @@ export function ComportamentosManager({ behaviors }: { behaviors: BehaviorRow[] 
 
   return (
     <div className="flex flex-1">
-      <CadastrosSidebar active="comportamentos" />
       <PageContainer>
         <h1 className="mb-1">Comportamentos-alvo</h1>
         <p className="mb-6 text-sm text-ink-soft">

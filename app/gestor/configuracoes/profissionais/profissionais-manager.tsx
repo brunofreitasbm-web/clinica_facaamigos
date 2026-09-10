@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { PageHeader } from "@/components/page-header";
-import { ConfigSidebar } from "../config-sidebar";
 import { setTherapistContract } from "./actions";
 import type { TherapistRow } from "./types";
 import { PageContainer } from "@/components/page-container";
@@ -130,7 +129,6 @@ function TherapistContractRow({ therapist }: { therapist: TherapistRow }) {
 export function ProfissionaisManager({ therapists }: { therapists: TherapistRow[] }) {
   return (
     <>
-      <ConfigSidebar active="profissionais" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Configurações"

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
-import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone } from "@/lib/timezone";
@@ -199,7 +198,6 @@ export default async function TerapeutaAgendaPage({
         <MyAvailability windows={(availabilityRows ?? []) as AvailabilityWindow[]} />
       </div>
 
-      <TerapeutaBottomNav active="agenda" />
     </main>
   );
 }

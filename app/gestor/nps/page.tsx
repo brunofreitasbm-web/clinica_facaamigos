@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { currentMonthRange } from "../data";
@@ -83,8 +82,7 @@ export default async function NpsPage() {
   });
 
   return (
-    <main className="flex min-h-screen flex-1 flex-col">
-      <GestorNav active="nps" pendingNpsAlerts={pendingAlertsCount ?? 0} />
+    <main className="flex flex-1 flex-col">
 
       <PageContainer>
         <div>

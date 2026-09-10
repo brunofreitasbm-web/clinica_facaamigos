@@ -4,15 +4,31 @@ export function ModuleSkeleton({
   title = "Carregando...",
   subtitle = "Buscando dados atualizados do sistema",
   showCards = true,
+  fill = true,
 }: {
   title?: string;
   subtitle?: string;
   showCards?: boolean;
+  /**
+   * `false` quando o skeleton entra ABAIXO de um cabeçalho persistente — o
+   * caso de todo loading.tsx de /gestor desde que a nav passou a viver em
+   * app/gestor/layout.tsx. Com `min-h-screen` aí a tela mede 100vh + a altura
+   * do header: nasce uma barra de rolagem e um "pulo" a cada navegação.
+   * Também troca o <main> interno por <div>, pra não aninhar landmark dentro
+   * do <main> dos layouts de seção.
+   */
+  fill?: boolean;
 }) {
+  const Inner = fill ? "main" : "div";
+
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--color-bg)]">
+    <div
+      className={
+        (fill ? "min-h-screen" : "min-h-0 flex-1") + " flex flex-col bg-[var(--color-bg)]"
+      }
+    >
       {/* Top Header Placeholder if needed */}
-      <main className="flex-1 p-8 space-y-6 max-w-[1400px] w-full mx-auto animate-fade-in">
+      <Inner className="flex-1 p-8 space-y-6 max-w-[1400px] w-full mx-auto animate-fade-in">
         {/* Title Block */}
         <div className="space-y-2">
           <div className="h-8 w-64 rounded-lg skeleton-shimmer" />
@@ -56,7 +72,7 @@ export function ModuleSkeleton({
             ))}
           </div>
         </div>
-      </main>
+      </Inner>
     </div>
   );
 }

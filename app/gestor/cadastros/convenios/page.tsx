@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -18,7 +17,6 @@ export default async function ConveniosPage() {
 
   return (
     <>
-      <CadastrosSidebar active="convenios" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Cadastros"

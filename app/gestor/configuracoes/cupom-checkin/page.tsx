@@ -1,5 +1,4 @@
 import { PageHeader } from "@/components/page-header";
-import { ConfigSidebar } from "../config-sidebar";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { couponSettingsFromRow, type CheckinCouponSettingsRow } from "@/lib/checkin-coupon";
@@ -21,7 +20,6 @@ export default async function CupomCheckinPage() {
 
   return (
     <>
-      <ConfigSidebar active="cupom-checkin" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Configurações"

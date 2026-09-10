@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { NewResourceForm } from "./new-resource-form";
 import { NewRoomForm } from "./new-room-form";
 import { RoomRowItem } from "./room-row";
@@ -27,7 +26,6 @@ export function AtendimentosManager({
 
   return (
     <>
-      <CadastrosSidebar active="salas" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Cadastros"

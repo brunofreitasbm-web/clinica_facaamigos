@@ -1,4 +1,3 @@
-import { CadastrosSidebar } from "../cadastros-sidebar";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -28,7 +27,6 @@ export default async function AtendimentosPage() {
 
   return (
     <>
-      <CadastrosSidebar active="tipos-atendimento" />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Cadastros"

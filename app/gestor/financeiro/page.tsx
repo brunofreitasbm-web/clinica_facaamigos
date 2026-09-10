@@ -1,4 +1,3 @@
-import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { currentMonthRange } from "../data";
@@ -30,7 +29,6 @@ export default async function GestorFinanceiroPage() {
 
   return (
     <main className="flex flex-1 flex-col pb-16">
-      <GestorNav active="financeiro" />
       <FinanceiroSubnav activeTab="repasses" />
 
       <PageContainer fullBleed>

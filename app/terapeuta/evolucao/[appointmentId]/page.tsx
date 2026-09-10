@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
-import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
@@ -344,11 +343,6 @@ export default async function EvolucaoPage({
         )}
       </div>
 
-      {/* Só pro papel terapeuta de verdade — gestor/supervisor abrindo esta
-          tela pra assinar por um colega não usam a nav do portal do
-          terapeuta. Sem isso, este estado de leitura era um beco sem saída
-          no celular (ver plano "evolução mobile"). */}
-      {profile.role === "terapeuta" && <TerapeutaBottomNav active="hoje" />}
     </main>
   );
 }

@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { getPatientTimeline, fmt } from "@/lib/patient-timeline";
 import { PageHeader } from "@/components/page-header";
-import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { AuditoriaPanel } from "./auditoria-panel";
 
 export const dynamic = "force-dynamic";
@@ -186,8 +185,6 @@ export default async function TerapeutaProntuarioPage({
           </div>
         </div>
       </div>
-
-      <TerapeutaBottomNav active="prontuario" />
     </main>
   );
 }

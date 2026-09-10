@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { ConfigSidebar } from "../config-sidebar";
 import { createPriority, updatePriority, togglePriorityActive, deletePriority } from "./actions";
 import { PageContainer } from "@/components/page-container";
 
@@ -194,7 +193,6 @@ export function PrioridadesAvaliacaoManager({
 
   return (
     <div className="flex flex-1">
-      <ConfigSidebar active="prioridades" />
       <PageContainer>
         <h1 className="mb-1">Prioridades de Agendamento de 1ª Avaliação</h1>
         <p className="mb-6 text-sm text-ink-soft">

@@ -1,4 +1,3 @@
-import { GestorNav } from "@/components/gestor-nav";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { PageContainer } from "@/components/page-container";
@@ -71,7 +70,6 @@ export default async function MaturidadePage() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <GestorNav />
       <PageContainer>
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">

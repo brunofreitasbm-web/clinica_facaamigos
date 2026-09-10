@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { GestorNav } from "@/components/gestor-nav";
 import { FinanceiroSubnav } from "@/components/financeiro-subnav";
 import { FileText, Clock, CreditCard } from "lucide-react";
 import { NewContractDialog } from "./new-contract-dialog";
@@ -84,7 +83,6 @@ export default async function ContratosPage() {
 
   return (
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
-      <GestorNav active="financeiro" />
       <FinanceiroSubnav activeTab="contratos" />
 
       <PageContainer>
