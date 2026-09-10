@@ -46,7 +46,7 @@ export default async function DisponibilidadePage() {
       <PageHeader
         axisLabel="Supervisão"
         title="Disponibilidade dos profissionais"
-        description="Dias e horários em que cada terapeuta atende. Um agendamento fora dessa janela é bloqueado automaticamente na recepção, na grade recorrente e no calendário do PTS."
+        description="Dias e horários em que cada terapeuta atende — cadastro exclusivo da supervisão e da gestão; o terapeuta apenas visualiza a própria janela. Um agendamento fora dela é bloqueado automaticamente na recepção, na grade recorrente e no calendário do PTS."
       />
       <AvailabilityManager
         therapists={(therapists ?? []) as TherapistOption[]}

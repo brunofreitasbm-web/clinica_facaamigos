@@ -9,6 +9,7 @@ import { AgendaToolbar, type AgendaView } from "./agenda-toolbar";
 import { DayAgendaList } from "./day-agenda-list";
 import { WeekAgenda } from "./week-agenda";
 import { MonthAgenda } from "./month-agenda";
+import { MyAvailability, type AvailabilityWindow } from "./my-availability";
 
 export const dynamic = "force-dynamic";
 
@@ -138,6 +139,19 @@ export default async function TerapeutaAgendaPage({
   const notedIds = new Set((existingNotes ?? []).map((n) => n.appointment_id));
   const pendingNoteIds = realizedIdsInRange.filter((id) => !notedIds.has(id));
 
+  // Janela de atendimento cadastrada pela supervisão — somente leitura aqui
+  // (ver comentário em ./my-availability.tsx). Não depende do range da
+  // agenda: é o expediente semanal, igual em qualquer visão.
+  const { data: availabilityRows } = therapistId
+    ? await supabase
+        .from("professional_availability")
+        .select("day_of_week, start_time, end_time")
+        .eq("profile_id", therapistId)
+        .eq("active", true)
+        .order("day_of_week")
+        .order("start_time")
+    : { data: null };
+
   const qs = therapistQs ? `&therapist=${therapistQs}` : "";
   const prevAnchor = view === "dia" ? addCalendarDays(anchor, -1) : view === "semana" ? addCalendarDays(anchor, -7) : addCalendarDays(anchor, -30);
   const nextAnchor = view === "dia" ? addCalendarDays(anchor, 1) : view === "semana" ? addCalendarDays(anchor, 7) : addCalendarDays(anchor, 30);
@@ -181,6 +195,8 @@ export default async function TerapeutaAgendaPage({
         {view === "mes" && (
           <MonthAgenda grid={monthGrid} appointments={appointments} todayIso={today} therapistParam={therapistQs} />
         )}
+
+        <MyAvailability windows={(availabilityRows ?? []) as AvailabilityWindow[]} />
       </div>
 
       <TerapeutaBottomNav active="agenda" />

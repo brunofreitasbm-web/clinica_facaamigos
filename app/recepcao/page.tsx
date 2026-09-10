@@ -17,6 +17,7 @@ import { MiniCalendarPicker } from "./mini-calendar-picker";
 import { AnamnesisPendingBadge } from "@/components/anamnesis-pending-badge";
 import { InteressadoRapidoDialog } from "./interessado-rapido-dialog";
 import { ChecklistEntradaDialog } from "./checklist-entrada-dialog";
+import { getIntakeChecklistRows } from "@/lib/intake-checklist";
 import { ChegadasBanner } from "./chegadas-banner";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +73,10 @@ export default async function RecepcaoPage({
       .eq("role", "terapeuta")
       .order("full_name"),
   ]);
+
+  // Checklist de entrada (meta intake_complete_rate da recepção, §10.1):
+  // status real dos 6 documentos por paciente que ainda não teve 1ª sessão.
+  const intakeChecklistRows = await getIntakeChecklistRows(supabase, DEV_CLINIC_ID);
 
   const { data: appointmentTypeRows } = await supabase
     .from("appointment_types")
@@ -419,7 +424,7 @@ export default async function RecepcaoPage({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <InteressadoRapidoDialog />
-              <ChecklistEntradaDialog />
+              <ChecklistEntradaDialog rows={intakeChecklistRows} />
               <NovaSessaoDialog
                 patients={patients ?? []}
                 therapists={therapists ?? []}

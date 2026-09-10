@@ -1,29 +1,57 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Pencil, Ban, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
-import { toggleStaffActive } from "./actions";
+import {
+  Pencil,
+  Ban,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  KeyRound,
+  ShieldOff,
+  Cake,
+  Copy,
+} from "lucide-react";
+import { toggleStaffActive, resetStaffPassword, resetSignaturePin } from "./actions";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { StaffDialog } from "./staff-dialog";
 import { useToast } from "@/components/toast-provider";
-import type { StaffRow } from "./types";
+import { formatBirthday, isBirthdayThisMonth, isBirthdayToday } from "./birthdays";
+import type { StaffRow, UnitOption } from "./types";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 const DEFAULT_PAGE_SIZE = 20;
 
-export function StaffTable({ staff }: { staff: StaffRow[] }) {
+const MONTH_LABEL = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOption[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [unitFilter, setUnitFilter] = useState<string>("all");
+  const [birthdayOnly, setBirthdayOnly] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StaffRow | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<StaffRow | null>(null);
+  const [passwordTarget, setPasswordTarget] = useState<StaffRow | null>(null);
+  const [pinTarget, setPinTarget] = useState<StaffRow | null>(null);
+  const [tempPassword, setTempPassword] = useState<{ name: string; password: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  // Uma referência de "hoje" só, criada no primeiro render: recalcular por
+  // linha deixaria colunas e contador dessincronizados numa virada de dia.
+  const today = useMemo(() => new Date(), []);
+  const birthdaysThisMonth = staff.filter(
+    (s) => s.active && isBirthdayThisMonth(s.birthDate, today),
+  ).length;
 
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const limitParam = Number(searchParams.get("limit") ?? String(DEFAULT_PAGE_SIZE));
@@ -39,13 +67,18 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
   };
 
   const filtered = staff.filter((s) => {
+    const term = search.toLowerCase();
     const matchesSearch =
-      s.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      (s.councilType ?? "").toLowerCase().includes(search.toLowerCase());
+      s.fullName.toLowerCase().includes(term) ||
+      (s.councilType ?? "").toLowerCase().includes(term) ||
+      (s.email ?? "").toLowerCase().includes(term);
     const matchesRole = roleFilter === "all" || s.role === roleFilter;
     const matchesStatus =
       statusFilter === "all" || (statusFilter === "active" ? s.active : !s.active);
-    return matchesSearch && matchesRole && matchesStatus;
+    const matchesUnit =
+      unitFilter === "all" || (unitFilter === "none" ? !s.unitId : s.unitId === unitFilter);
+    const matchesBirthday = !birthdayOnly || isBirthdayThisMonth(s.birthDate, today);
+    return matchesSearch && matchesRole && matchesStatus && matchesUnit && matchesBirthday;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
@@ -72,6 +105,38 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
     });
   };
 
+  const handleResetPassword = () => {
+    if (!passwordTarget) return;
+    const target = passwordTarget;
+    startTransition(async () => {
+      const result = await resetStaffPassword(target.id);
+      if (!result.success) {
+        toast(result.error, "error");
+        setPasswordTarget(null);
+        return;
+      }
+      // A senha temporária só existe aqui: não fica no banco nem no audit_log,
+      // então a modal fica aberta até o gestor confirmar que anotou.
+      setTempPassword({ name: target.fullName, password: result.tempPassword });
+      setPasswordTarget(null);
+    });
+  };
+
+  const handleResetPin = () => {
+    if (!pinTarget) return;
+    const target = pinTarget;
+    startTransition(async () => {
+      const result = await resetSignaturePin(target.id);
+      toast(
+        result.success
+          ? `PIN de assinatura de ${target.fullName} resetado. Ele cadastra um novo na próxima evolução.`
+          : result.error,
+        result.success ? "success" : "error",
+      );
+      setPinTarget(null);
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6 p-6 sm:p-10">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -80,7 +145,7 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
             type="search"
             className="input"
             style={{ maxWidth: 280 }}
-            placeholder="Buscar por nome ou conselho..."
+            placeholder="Buscar por nome, e-mail ou conselho..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -103,6 +168,21 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
           </select>
           <select
             className="input cursor-pointer"
+            style={{ minWidth: 190 }}
+            value={unitFilter}
+            onChange={(e) => {
+              setUnitFilter(e.target.value);
+              handleFilterChange();
+            }}
+          >
+            <option value="all">Todas as unidades</option>
+            {units.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+            <option value="none">Sem unidade</option>
+          </select>
+          <select
+            className="input cursor-pointer"
             style={{ minWidth: 170 }}
             value={statusFilter}
             onChange={(e) => {
@@ -114,6 +194,23 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
             <option value="active">Ativos</option>
             <option value="inactive">Inativos</option>
           </select>
+          <button
+            type="button"
+            onClick={() => {
+              setBirthdayOnly((v) => !v);
+              handleFilterChange();
+            }}
+            aria-pressed={birthdayOnly}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+              birthdayOnly
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-paper-line text-ink-soft hover:bg-neutral-100"
+            }`}
+          >
+            <Cake size={15} />
+            Aniversariantes de {MONTH_LABEL[today.getMonth()]}
+            <span className="tag text-[11px] bg-neutral-100 text-ink-soft">{birthdaysThisMonth}</span>
+          </button>
         </div>
         <button
           onClick={() => {
@@ -126,14 +223,15 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
         </button>
       </div>
 
-      <div className="rounded-xl border border-paper-line bg-paper-panel overflow-hidden shadow-sm">
+      <div className="rounded-xl border border-paper-line bg-paper-panel overflow-x-auto shadow-sm">
         <table className="table w-full">
           <thead>
             <tr>
               <th>Colaborador</th>
               <th>Papel</th>
+              <th>Unidade</th>
               <th>Conselho / especialidade</th>
-              <th>Cadastrado em</th>
+              <th>Aniversário</th>
               <th>Status</th>
               <th className="text-right">Ações</th>
             </tr>
@@ -141,14 +239,34 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
           <tbody>
             {paginated.map((s) => (
               <tr key={s.id}>
-                <td className="font-semibold text-ink-strong">{s.fullName}</td>
+                <td>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-ink-strong">{s.fullName}</span>
+                    <span className="text-xs text-ink-faint">{s.email || "sem e-mail"}</span>
+                    {s.sourceSystem === "grupo_ib" && (
+                      <span className="mt-1 w-fit tag text-[10px] font-medium bg-sky-100 text-sky-800">
+                        Grupo IB
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td>
                   <span className="tag text-[11px] font-medium bg-emerald-100 text-emerald-800">
                     {ROLE_LABEL[s.role]}
                   </span>
                 </td>
+                <td className="text-sm">{s.unitName || "—"}</td>
                 <td>{s.councilType || "—"}</td>
-                <td>{s.createdAtLabel}</td>
+                <td>
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-sm ${
+                      isBirthdayToday(s.birthDate, today) ? "font-semibold text-accent" : ""
+                    }`}
+                  >
+                    {isBirthdayThisMonth(s.birthDate, today) && <Cake size={14} />}
+                    {formatBirthday(s.birthDate)}
+                  </span>
+                </td>
                 <td>
                   <span className={`tag-status ${s.active ? "st-realizada" : "st-cancelada"}`}>
                     {s.active ? "Ativo" : "Inativo"}
@@ -168,6 +286,28 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
                       <Pencil size={18} />
                     </button>
                     <button
+                      onClick={() => setPasswordTarget(s)}
+                      disabled={isPending || !s.email}
+                      title={s.email ? "Resetar senha de acesso" : "Colaborador sem e-mail de login"}
+                      aria-label={`Resetar senha de ${s.fullName}`}
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-neutral-100 hover:text-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <KeyRound size={18} />
+                    </button>
+                    <button
+                      onClick={() => setPinTarget(s)}
+                      disabled={isPending || !s.hasSignaturePin}
+                      title={
+                        s.hasSignaturePin
+                          ? "Resetar PIN de assinatura"
+                          : "Colaborador ainda não cadastrou PIN de assinatura"
+                      }
+                      aria-label={`Resetar PIN de assinatura de ${s.fullName}`}
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-neutral-100 hover:text-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <ShieldOff size={18} />
+                    </button>
+                    <button
                       onClick={() => setConfirmTarget(s)}
                       disabled={isPending}
                       title={s.active ? "Inativar acesso" : "Reativar acesso"}
@@ -184,7 +324,7 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
             ))}
             {paginated.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center py-8 text-ink-faint text-sm">
+                <td colSpan={7} className="text-center py-8 text-ink-faint text-sm">
                   Nenhum colaborador encontrado com os filtros selecionados.
                 </td>
               </tr>
@@ -233,7 +373,15 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
         </div>
       </div>
 
-      <StaffDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} staffToEdit={editing} />
+      {/* A key remonta o diálogo a cada alvo: sem ela os campos ficariam com o
+          estado inicial do primeiro colaborador aberto na sessão. */}
+      <StaffDialog
+        key={editing?.id ?? "novo"}
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        staffToEdit={editing}
+        units={units}
+      />
 
       {confirmTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
@@ -266,6 +414,92 @@ export function StaffTable({ staff }: { staff: StaffRow[] }) {
                 }
               >
                 {isPending ? "Salvando…" : confirmTarget.active ? "Inativar" : "Reativar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {passwordTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-paper-line bg-paper-panel p-6 shadow-xl">
+            <h2 className="text-base font-semibold text-ink-strong">Resetar senha de acesso?</h2>
+            <p className="mt-2 text-sm text-ink-soft">
+              {passwordTarget.fullName} vai receber uma senha temporária e será obrigado a trocá-la
+              no próximo login. A senha atual deixa de funcionar imediatamente.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPasswordTarget(null)}
+                disabled={isPending}
+                className="btn btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button type="button" onClick={handleResetPassword} disabled={isPending} className="btn btn-primary">
+                {isPending ? "Gerando…" : "Gerar senha temporária"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tempPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-paper-line bg-paper-panel p-6 shadow-xl">
+            <h2 className="text-base font-semibold text-ink-strong">Senha temporária gerada</h2>
+            <p className="mt-2 text-sm text-ink-soft">
+              Entregue esta senha a {tempPassword.name} agora — ela não fica salva em lugar nenhum e
+              não poderá ser consultada depois.
+            </p>
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-paper-line bg-neutral-50 px-3 py-2">
+              <code className="flex-1 break-all text-sm font-semibold text-ink-strong">
+                {tempPassword.password}
+              </code>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard
+                    ?.writeText(tempPassword.password)
+                    .then(() => toast("Senha copiada.", "success"))
+                    .catch(() => toast("Não foi possível copiar — selecione e copie manualmente.", "error"));
+                }}
+                aria-label="Copiar senha temporária"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-neutral-200"
+              >
+                <Copy size={16} />
+              </button>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button type="button" onClick={() => setTempPassword(null)} className="btn btn-primary">
+                Já anotei, fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pinTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-paper-line bg-paper-panel p-6 shadow-xl">
+            <h2 className="text-base font-semibold text-ink-strong">Resetar PIN de assinatura?</h2>
+            <p className="mt-2 text-sm text-ink-soft">
+              O PIN de {pinTarget.fullName} será apagado (junto com qualquer bloqueio por tentativas
+              erradas). Na próxima evolução o sistema vai pedir que ele cadastre um PIN novo — só o
+              próprio terapeuta define o PIN, ninguém consulta o atual.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPinTarget(null)}
+                disabled={isPending}
+                className="btn btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button type="button" onClick={handleResetPin} disabled={isPending} className="btn btn-primary">
+                {isPending ? "Resetando…" : "Resetar PIN"}
               </button>
             </div>
           </div>

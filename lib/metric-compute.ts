@@ -13,7 +13,23 @@ export function hoursBetween(startsAt: string, endsAt: string): number {
   return (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 3_600_000;
 }
 
-export const LIVE_COMPUTABLE = new Set(["no_show_rate", "occupancy_rate", "glosa_rate"]);
+/**
+ * Categorias de `documents` que compõem o checklist de entrada
+ * (app/recepcao/checklist-entrada-dialog.tsx, categorias criadas em
+ * 20260906000006_intake_documents.sql). `carteirinha` fica de fora desta
+ * lista porque só é exigida de paciente com convênio — ver
+ * INTAKE_INSURANCE_CATEGORY e a checagem em computeLiveMetric.
+ */
+export const INTAKE_REQUIRED_CATEGORIES = [
+  "pedido_medico",
+  "documento_responsavel",
+  "termo_lgpd",
+  "termo_imagem",
+  "contrato",
+] as const;
+export const INTAKE_INSURANCE_CATEGORY = "carteirinha";
+
+export const LIVE_COMPUTABLE = new Set(["no_show_rate", "occupancy_rate", "glosa_rate", "intake_complete_rate"]);
 
 export async function computeLiveMetric(
   supabase: Supa,
@@ -41,6 +57,50 @@ export async function computeLiveMetric(
       .filter((a) => a.status === "realizada")
       .reduce((sum, a) => sum + hoursBetween(a.starts_at, a.ends_at), 0);
     return scheduledHours > 0 ? realizedHours / scheduledHours : null;
+  }
+
+  /**
+   * intake_complete_rate (§10.1): meta operacional da recepção que substituiu
+   * no_show_rate — ver 20260910071000_intake_complete_rate_metric.sql, que
+   * calcula exatamente a mesma coisa no fechamento mensal.
+   *
+   * Denominador: pacientes cuja 1ª sessão caiu no período. Numerador: os que
+   * tinham todos os documentos obrigatórios anexados ANTES da 1ª sessão —
+   * anexar depois não conta, senão a métrica premiaria o cadastro atrasado.
+   */
+  if (metricKey === "intake_complete_rate") {
+    const { data: newPatients } = await supabase
+      .from("patients")
+      .select("id, first_session_at")
+      .eq("clinic_id", clinicId)
+      .gte("first_session_at", startISO)
+      .lt("first_session_at", endISO);
+    const cohort = (newPatients ?? []).filter((p) => p.first_session_at != null);
+    if (cohort.length === 0) return null;
+
+    const ids = cohort.map((p) => p.id);
+    const [{ data: docs }, { data: insurances }] = await Promise.all([
+      supabase.from("documents").select("patient_id, category, uploaded_at").in("patient_id", ids),
+      supabase.from("patient_insurance").select("patient_id, is_private").in("patient_id", ids),
+    ]);
+
+    const withInsurer = new Set(
+      (insurances ?? []).filter((i) => i.is_private === false).map((i) => i.patient_id),
+    );
+    const complete = cohort.filter((p) => {
+      const deadline = new Date(p.first_session_at as string).getTime();
+      const onTime = new Set(
+        (docs ?? [])
+          .filter((d) => d.patient_id === p.id && new Date(d.uploaded_at).getTime() <= deadline)
+          .map((d) => d.category),
+      );
+      if (!INTAKE_REQUIRED_CATEGORIES.every((c) => onTime.has(c))) return false;
+      // Carteirinha só é cobrada de quem tem convênio: particular sem
+      // carteirinha não é cadastro incompleto.
+      return !withInsurer.has(p.id) || onTime.has(INTAKE_INSURANCE_CATEGORY);
+    });
+
+    return complete.length / cohort.length;
   }
 
   if (metricKey === "glosa_rate") {

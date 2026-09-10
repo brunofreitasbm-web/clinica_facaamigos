@@ -5844,6 +5844,7 @@ export type Database = {
       profiles: {
         Row: {
           active: boolean
+          birth_date: string | null
           clinic_id: string
           council_number: string | null
           council_type: string | null
@@ -5870,9 +5871,11 @@ export type Database = {
           source_id: string | null
           source_system: string | null
           specialty_id: string | null
+          unit_id: string | null
         }
         Insert: {
           active?: boolean
+          birth_date?: string | null
           clinic_id: string
           council_number?: string | null
           council_type?: string | null
@@ -5899,9 +5902,11 @@ export type Database = {
           source_id?: string | null
           source_system?: string | null
           specialty_id?: string | null
+          unit_id?: string | null
         }
         Update: {
           active?: boolean
+          birth_date?: string | null
           clinic_id?: string
           council_number?: string | null
           council_type?: string | null
@@ -5928,6 +5933,7 @@ export type Database = {
           source_id?: string | null
           source_system?: string | null
           specialty_id?: string | null
+          unit_id?: string | null
         }
         Relationships: [
           {
@@ -5942,6 +5948,13 @@ export type Database = {
             columns: ["specialty_id"]
             isOneToOne: false
             referencedRelation: "specialties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]
@@ -6890,6 +6903,8 @@ export type Database = {
           atendido_em: string | null
           atendido_por: string | null
           clinic_id: string
+          convenio_id: string | null
+          convenio_nome: string | null
           created_at: string
           crianca_idade: string | null
           id: string
@@ -6899,11 +6914,14 @@ export type Database = {
           responsavel_nome: string
           status: string
           telefone: string
+          tem_guia: string | null
         }
         Insert: {
           atendido_em?: string | null
           atendido_por?: string | null
           clinic_id?: string
+          convenio_id?: string | null
+          convenio_nome?: string | null
           created_at?: string
           crianca_idade?: string | null
           id?: string
@@ -6913,11 +6931,14 @@ export type Database = {
           responsavel_nome: string
           status?: string
           telefone: string
+          tem_guia?: string | null
         }
         Update: {
           atendido_em?: string | null
           atendido_por?: string | null
           clinic_id?: string
+          convenio_id?: string | null
+          convenio_nome?: string | null
           created_at?: string
           crianca_idade?: string | null
           id?: string
@@ -6927,6 +6948,7 @@ export type Database = {
           responsavel_nome?: string
           status?: string
           telefone?: string
+          tem_guia?: string | null
         }
         Relationships: [
           {
@@ -6934,6 +6956,13 @@ export type Database = {
             columns: ["atendido_por"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_leads_convenio_id_fkey"
+            columns: ["convenio_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
             referencedColumns: ["id"]
           },
           {
@@ -7019,6 +7048,7 @@ export type Database = {
           created_at: string
           id: string
           intern_count: number
+          pj_count: number
           label: string
           sort_order: number
           updated_at: string
@@ -7030,6 +7060,7 @@ export type Database = {
           created_at?: string
           id?: string
           intern_count?: number
+          pj_count?: number
           label: string
           sort_order?: number
           updated_at?: string
@@ -7041,6 +7072,7 @@ export type Database = {
           created_at?: string
           id?: string
           intern_count?: number
+          pj_count?: number
           label?: string
           sort_order?: number
           updated_at?: string

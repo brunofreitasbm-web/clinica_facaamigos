@@ -32,7 +32,8 @@
 - 0 sessões realizadas sem autorização vigente (bloqueio no agendamento)
 - ≥ 98% das evoluções registradas em até 24h
 - Glosa ≤ 4% do faturado
-- No-show ≤ 8% com recuperação ≥ 40%
+- Cadastro de entrada completo (6 documentos) antes da 1ª sessão em ≥ 95% dos pacientes novos
+- No-show acompanhado como monitor de operação (sem meta de cargo: a clínica não faz reposição de falta, então ninguém tem alavanca sobre ele)
 - Tempo de registro de evolução ≤ 2 min por sessão (medido no app)
 - Todo indicador de bonificação calculado por view SQL, sem planilha manual
 
@@ -461,10 +462,19 @@ Todas as métricas são views SQL sobre o schema do §7. Cada uma tem `metric_ke
 | `lead_to_eval_rate` | avaliações agendadas ÷ leads do mês | ≥ 50% | 15% |
 | `eval_show_rate` | avaliações `realizada` ÷ agendadas | ≥ 80% | 10% |
 | `confirm_d1_rate` | appointments com `confirmed_at` até D-1 ÷ agendadas | ≥ 95% | 15% |
-| `no_show_rate` | `falta_familia` ÷ agendadas | ≤ 8% | 20% |
-| `recovery_rate` | faltas/cancelamentos com nova sessão `realizada` na mesma semana ÷ faltas | ≥ 40% | 15% |
-| `intake_complete_rate` | pacientes novos com checklist de documentos completo antes da 1ª sessão ÷ novos | 100% | 10% |
+| `intake_complete_rate` | pacientes com 1ª sessão no mês que tinham os 6 documentos do checklist de entrada anexados **antes** da 1ª sessão ÷ pacientes com 1ª sessão no mês (carteirinha só é exigida de convênio) | ≥ 95% | 10% |
 | `no_auth_sessions` | sessões `realizada` sem `authorization_id` válido | 0 | 5% (eliminatório) |
+
+> **Métricas removidas do PLR da recepção.** `recovery_rate` (peso 15%) saiu em
+> `20260909230000_drop_recovery_rate_metric.sql`: a clínica não faz
+> reagendamento/reposição de falta, então a métrica media um processo que não
+> existe. `no_show_rate` (peso 20%) saiu em
+> `20260910071000_intake_complete_rate_metric.sql`: falta é comportamento da
+> família e, sem reposição, a recepção não tem nenhuma alavanca depois que ela
+> acontece — continua sendo **calculado e exibido como monitor da clínica**, só
+> não é mais meta de cargo. Os 35% de peso liberados ficam **em aberto de
+> propósito**: quem redistribui é o gestor em `/gestor/bonificacao/config`, não
+> uma migration.
 
 ### 10.2 Coordenação clínica (variável trimestral)
 

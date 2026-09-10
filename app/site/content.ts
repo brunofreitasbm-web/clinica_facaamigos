@@ -54,7 +54,7 @@ export const CONTATO = {
  * começar.
  */
 export function linkWhatsApp(
-  assunto = "Olá! Gostaria de agendar uma avaliação para meu filho(a).",
+  assunto = "Olá! Vim pelo site do FaçaAmigos e gostaria de tirar uma dúvida.",
 ) {
   return `https://wa.me/${CONTATO.whatsappE164}?text=${encodeURIComponent(assunto)}`;
 }
@@ -67,14 +67,24 @@ export const MENU = [
   { rotulo: "Início", href: "#inicio" },
   { rotulo: "Sobre", href: "#ecossistema" },
   { rotulo: "Serviços", href: "#servicos" },
+  { rotulo: "Planos", href: "#planos" },
   { rotulo: "Dúvidas", href: "#duvidas" },
   { rotulo: "Contato", href: "#agendar" },
 ];
 
+/**
+ * A porta de entrada da página é o WhatsApp, não um agendamento.
+ *
+ * Quem chega aqui pela primeira vez quase nunca quer marcar avaliação de
+ * cara — quer saber se o plano dele é atendido (ver PLANOS abaixo e
+ * lib/twilio-faq-bot.ts, onde essa é a pergunta campeã). Botão principal que
+ * pede compromisso antes de responder a dúvida derruba conversão; por isso o
+ * CTA primário abre a conversa e o secundário leva à consulta de convênio.
+ */
 export const CTA = {
-  principal: "Agendar avaliação",
-  principalApoio: "Resposta em até 2h úteis",
-  secundario: "Falar no WhatsApp",
+  principal: "Falar no WhatsApp",
+  principalApoio: "A gente responde no horário de funcionamento",
+  secundario: "Ver planos atendidos",
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -312,6 +322,67 @@ export const EQUIPE: Array<{
 }> = [];
 
 // ─────────────────────────────────────────────────────────────────────────
+// Planos de saúde — a pergunta mais frequente da clínica
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * A lista de convênios NÃO é escrita aqui: ela é lida da tabela `insurers`
+ * (só os `active`) em page.tsx, a mesma fonte que o bot de WhatsApp já usa em
+ * `getAcceptedInsurersFormatted` (lib/twilio.ts). Credenciou um convênio no
+ * sistema, ele aparece no site; descredenciou, some. Manter uma segunda lista
+ * em texto aqui é o caminho garantido para o site prometer o que a clínica
+ * não atende mais.
+ *
+ * O que fica neste arquivo é só a moldura de texto em volta da lista.
+ */
+export const PLANOS = {
+  chapeu: "Convênios",
+  titulo: "Seu plano de saúde é atendido aqui?",
+  subtitulo:
+    "É a pergunta que mais chega pra gente — então ela vem antes de qualquer agendamento. A lista abaixo sai direto do cadastro da clínica: se o seu plano está nela, está credenciado hoje.",
+  /** Mostrado quando não há nenhum convênio ativo cadastrado. */
+  semLista:
+    "No momento o atendimento é particular. Emitimos nota fiscal e relatórios da equipe para você solicitar reembolso ao seu plano — e a recepção te ajuda a montar essa documentação.",
+  reembolso:
+    "Não encontrou o seu? Emitimos nota fiscal e relatório para reembolso, e todo plano perguntado aqui entra na nossa fila de novos credenciamentos.",
+  formulario: {
+    titulo: "Consultar meu plano",
+    subtitulo:
+      "Deixe seu contato: a recepção confirma a cobertura e já te diz qual é o próximo passo.",
+    botao: "Consultar meu plano",
+    botaoEnviando: "Enviando...",
+    sucessoTitulo: "Consulta recebida!",
+    sucessoTexto:
+      "Vamos te responder pelo WhatsApp com a situação do seu plano. Se a janela do WhatsApp não abrir sozinha, use o botão abaixo.",
+    sucessoBotao: "Abrir conversa no WhatsApp",
+    consentimento:
+      "Ao enviar, você concorda em ser contatado pela nossa recepção sobre esta consulta. Seus dados são usados só para isso.",
+  },
+  campos: {
+    plano: "Qual é o seu plano?",
+    planoPlaceholder: "Selecione",
+    planoOutroRotulo: "Meu plano não está na lista",
+    planoParticularRotulo: "Particular / não tenho plano",
+    planoOutroCampo: "Nome do seu plano",
+    planoOutroPlaceholder: "Ex.: Unimed Belém",
+  },
+  /**
+   * A bifurcação que a recepção precisa ANTES de ligar: com guia em mãos já
+   * se agenda; sem guia, o contato é para orientar como conseguir. "Não sei o
+   * que é" é a resposta mais comum de quem está começando agora — e é a que
+   * mais precisa de uma pessoa do outro lado.
+   */
+  guia: {
+    pergunta: "Você já tem o pedido médico (guia) em mãos?",
+    opcoes: [
+      { valor: "sim", rotulo: "Já tenho" },
+      { valor: "nao", rotulo: "Ainda não tenho" },
+      { valor: "nao_sei", rotulo: "Não sei o que é isso" },
+    ],
+  },
+} as const;
+
+// ─────────────────────────────────────────────────────────────────────────
 // FAQ
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -329,7 +400,7 @@ export const FAQ = [
   {
     pergunta: "Vocês atendem por convênio?",
     resposta:
-      "Trabalhamos com atendimento particular e com convênios credenciados. Como a lista muda, confirme o seu plano com a recepção pelo WhatsApp antes de agendar — respondemos na hora se o seu está incluso.",
+      "Sim, além do atendimento particular. A lista de convênios credenciados fica logo acima, na seção “Planos de saúde”, e sai direto do cadastro da clínica — se o seu plano estiver lá, está credenciado hoje. Não achou o seu? Consulte pelo formulário dessa seção: a recepção confirma a cobertura e explica o caminho do reembolso.",
   },
   {
     pergunta: "Como funciona a primeira avaliação?",
@@ -363,13 +434,13 @@ export const FAQ = [
 // ─────────────────────────────────────────────────────────────────────────
 
 export const FECHAMENTO = {
-  titulo: "Dê o primeiro passo hoje.",
+  titulo: "Comece pela dúvida que você tem hoje.",
   subtitulo:
-    "Preencha os dados e a recepção entra em contato para marcar a avaliação. Se preferir conversar antes, chame no WhatsApp — a gente responde.",
+    "Não precisa decidir nada agora. Descubra primeiro se o seu plano é atendido — a recepção confirma a cobertura, explica o que é a guia e, só então, se fizer sentido, marca a primeira avaliação.",
   reforco:
-    "As turmas têm vaga limitada porque cada criança tem seu terapeuta na sessão. Quanto antes você falar com a gente, mais cedo entra na agenda.",
+    "Cada criança tem seu terapeuta na sessão, então a agenda é limitada. Quanto antes a gente conversar, mais cedo dá para reservar um horário.",
   garantia:
-    "Seu filho será avaliado por uma equipe completa, não por um único profissional.",
+    "Nenhum dado seu vira cobrança: a consulta de plano é só uma resposta, no seu tempo.",
 };
 
 export const RODAPE = {

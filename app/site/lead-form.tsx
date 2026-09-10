@@ -35,8 +35,9 @@ export function LeadForm({ origem = "cta-final" }: { origem?: string }) {
         <CheckCircle2 className="h-11 w-11 text-teal" aria-hidden />
         <p className="font-display text-2xl font-semibold text-[var(--color-dark)]">Recebemos seu pedido!</p>
         <p className="max-w-sm text-[15px] text-[var(--text-secondary)]">
-          Nossa recepção entra em contato em até 2h úteis para marcar a avaliação. Se preferir, fale
-          agora mesmo pelo WhatsApp.
+          Nossa recepção entra em contato para responder o que você precisa saber — e, se fizer
+          sentido pra sua família, marcar a primeira avaliação. Se preferir, fale agora mesmo pelo
+          WhatsApp.
         </p>
       </div>
     );
@@ -98,7 +99,7 @@ export function LeadForm({ origem = "cta-final" }: { origem?: string }) {
 
       <button type="submit" disabled={pending} className="btn btn-primary btn-block justify-center text-base">
         {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
-        {pending ? "Enviando..." : "Agendar avaliação"}
+        {pending ? "Enviando..." : "Enviar meu contato"}
       </button>
 
       <p className="text-center text-xs text-[var(--text-secondary)]">

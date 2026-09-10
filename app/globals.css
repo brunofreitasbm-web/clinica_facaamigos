@@ -214,6 +214,22 @@
   --color-status-neutral-text: var(--color-status-neutral-text);
   --color-milestone: var(--color-milestone);
 
+  /* Aliases dos nomes que as rotas já usam. Sem eles o Tailwind não gera a
+     classe e o estilo some sem erro nenhum (achado real: bg-paper-panel e
+     text-ink-strong no modal de colaborador ficavam transparentes). */
+  --color-paper-surface: var(--color-surface);
+  --color-paper-panel: var(--color-surface);
+  --color-paper-card: var(--color-surface);
+  --color-paper-subtle: var(--color-bg);
+  --color-paper-soft: var(--color-neutral-100);
+  --color-paper-darker: var(--color-neutral-200);
+  --color-ink-strong: var(--color-ink);
+  --color-ink-muted: var(--color-ink-faint);
+  --color-status-falta: var(--status-falta);
+  --color-status-positive-bg: var(--color-status-positive-soft);
+  --color-status-positive-border: var(--color-status-positive);
+  --color-status-negative-bg: var(--color-status-negative-soft);
+
   /* marca, disponível como utilitário Tailwind (bg-pink, text-teal, ...) */
   --color-pink: var(--color-pink);
   --color-teal: var(--color-teal);
@@ -286,24 +302,29 @@ a {
   }
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-  font-weight: var(--font-heading-weight);
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  margin: 0 0 var(--space-2);
-}
-/* título de página — o único lugar que usa a display font bubbly da marca */
-h1 { font-family: var(--font-display); font-weight: 600; font-size: 40px; }
-h2 { font-size: 30px; }
-h3 { font-size: 23px; }
-h4 { font-size: 19px; }
-h5 { font-size: 16px; }
-h6 {
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-accent-2-700);
+/* @layer base pelo mesmo motivo do <a> abaixo: sem a layer, estas regras cruas
+   vencem as utilities do Tailwind e um título de diálogo escrito como
+   <h2 className="text-lg"> saía com 30px (achado real: modal de colaborador). */
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: var(--font-heading-weight);
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    margin: 0 0 var(--space-2);
+  }
+  /* título de página — o único lugar que usa a display font bubbly da marca */
+  h1 { font-family: var(--font-display); font-weight: 600; font-size: 40px; }
+  h2 { font-size: 30px; }
+  h3 { font-size: 23px; }
+  h4 { font-size: 19px; }
+  h5 { font-size: 16px; }
+  h6 {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-accent-2-700);
+  }
 }
 
 /* @layer base: fica ATRÁS das utilities do Tailwind na cascata, senão uma

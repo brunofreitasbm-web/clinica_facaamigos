@@ -17,6 +17,7 @@ import {
   UtensilsCrossed,
   MessageCircle,
   ChevronDown,
+  CheckCircle2,
   Star,
   Phone,
   Mail,
@@ -26,9 +27,11 @@ import {
   Quote,
 } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
-import { CLINIC_NAME } from "@/lib/clinic-identity";
+import { CLINIC_NAME, CLINIC_WEBSITE } from "@/lib/clinic-identity";
 import { SiteHeader } from "./site-header";
 import { LeadForm } from "./lead-form";
+import { PlanosForm } from "./planos-form";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { TrackedWhatsAppLink } from "./tracked-link";
 import { WaveDivider } from "./wave-divider";
 import { Blob } from "./blob";
@@ -47,6 +50,7 @@ import {
   EQUIPE,
   FAQ,
   FECHAMENTO,
+  PLANOS,
   RODAPE,
   linkWhatsApp,
 } from "./content";
@@ -91,10 +95,39 @@ export const metadata: Metadata = {
   },
 };
 
-// A landing é institucional: nada nela depende de sessão ou de dado que
-// mude a cada visita, então pode ser servida estática (ao contrário de
-// app/ficha, que revalida token a cada acesso).
-export const dynamic = "force-static";
+// Quase tudo aqui é institucional e estático, mas a lista de convênios
+// (seção "#planos") vem da tabela `insurers` — se ficasse congelada no build,
+// o site prometeria plano descredenciado até o próximo deploy. ISR de 5 min
+// resolve: a página segue servida de cache, e credenciar/descredenciar um
+// convênio no sistema aparece aqui sozinho.
+export const revalidate = 300;
+
+/**
+ * Convênios que a clínica atende HOJE — mesma consulta que o bot de WhatsApp
+ * usa em `getAcceptedInsurersFormatted` (lib/twilio.ts): só os `active`, em
+ * ordem alfabética. Lida com service-role porque o visitante não tem sessão;
+ * o que sai daqui (nome do convênio) é exatamente o que o bot já manda por
+ * WhatsApp para quem pergunta, então não expõe nada novo.
+ */
+async function listarConvenios(): Promise<Array<{ id: string; name: string }>> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from("insurers")
+      .select("id, name")
+      .eq("active", true)
+      .order("name");
+    if (error) {
+      console.error("[site/planos] Erro ao listar convênios:", error);
+      return [];
+    }
+    return (data ?? []).map((c) => ({ id: c.id, name: c.name.trim() }));
+  } catch (err) {
+    // Site fora do ar por causa da lista de convênios seria o pior desfecho:
+    // a seção sabe se virar com lista vazia (cai no texto de particular).
+    console.error("[site/planos] Falha ao consultar convênios:", err);
+    return [];
+  }
+}
 
 const ICONES_DIFERENCIAL = {
   equipe: Users2,
@@ -119,14 +152,16 @@ const BADGE_CORES = [
   { bg: "var(--color-accent-2)", fg: "#ffffff" },
 ] as const;
 
-export default function SiteLandingPage() {
+export default async function SiteLandingPage() {
+  const convenios = await listarConvenios();
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "MedicalBusiness",
     name: "FaçaAmigos — Centro de Terapia Comportamental",
     description:
       "Centro de terapia comportamental especializado em crianças autistas e desenvolvimento infantil, em Belém/PA.",
-    url: "https://facaamigos.com.br/site",
+    url: `${CLINIC_WEBSITE}/site`,
     telephone: CONTATO.telefoneVisivel,
     email: CONTATO.email,
     address: {
@@ -187,21 +222,24 @@ export default function SiteLandingPage() {
               {HERO.subtitulo}
             </p>
 
+            {/* O botão primário abre a conversa direto — quem chega aqui
+                quer perguntar, não se comprometer com uma agenda. O caminho
+                para a consulta de convênio fica no secundário. */}
             <div className="flex flex-col gap-3 sm:flex-row">
-              <a href="#agendar" className="btn btn-primary justify-center text-base">
-                {CTA.principal}
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </a>
               <TrackedWhatsAppLink
                 href={linkWhatsApp()}
                 target="_blank"
                 rel="noreferrer"
                 local="hero"
-                className="btn btn-secondary justify-center text-base"
+                className="btn btn-primary justify-center text-base"
               >
                 <MessageCircle className="h-4 w-4" aria-hidden />
-                {CTA.secundario}
+                {CTA.principal}
               </TrackedWhatsAppLink>
+              <a href="#planos" className="btn btn-secondary justify-center text-base">
+                {CTA.secundario}
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </a>
             </div>
             <p className="-mt-1 text-sm font-medium text-[var(--color-teal-800)]">{CTA.principalApoio}</p>
 
@@ -453,6 +491,54 @@ export default function SiteLandingPage() {
           </div>
         </section>
       )}
+
+      {/* ── Planos de saúde ──────────────────────────────────────────── */}
+      <section id="planos" className="bg-white">
+        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.05fr_1fr] lg:items-start">
+          <div className="flex flex-col gap-4">
+            <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--color-teal-100)] px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[var(--color-teal-800)]">
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+              {PLANOS.chapeu}
+            </span>
+            <h2 className="m-0 text-3xl font-extrabold text-[var(--color-dark)] sm:text-4xl">{PLANOS.titulo}</h2>
+            <p className="m-0 text-[17px] leading-relaxed text-[var(--text-secondary)]">{PLANOS.subtitulo}</p>
+
+            {convenios.length > 0 ? (
+              <>
+                <ul className="m-0 grid list-none grid-cols-1 gap-2 p-0 sm:grid-cols-2">
+                  {convenios.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex items-center gap-2 rounded-2xl bg-[var(--color-bg)] px-4 py-3 text-[15px] font-semibold text-[var(--color-dark)]"
+                    >
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--color-teal)]" aria-hidden />
+                      {c.name}
+                    </li>
+                  ))}
+                </ul>
+                <p className="m-0 text-[15px] leading-relaxed text-[var(--text-secondary)]">{PLANOS.reembolso}</p>
+              </>
+            ) : (
+              <p className="m-0 rounded-2xl bg-[var(--color-teal-100)] p-4 text-[15px] leading-relaxed font-medium text-[var(--color-teal-800)]">
+                {PLANOS.semLista}
+              </p>
+            )}
+
+            <TrackedWhatsAppLink
+              href={linkWhatsApp()}
+              target="_blank"
+              rel="noreferrer"
+              local="planos"
+              className="btn btn-secondary w-fit"
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden />
+              Prefiro perguntar no WhatsApp
+            </TrackedWhatsAppLink>
+          </div>
+
+          <PlanosForm convenios={convenios} />
+        </div>
+      </section>
 
       {/* ── FAQ ──────────────────────────────────────────────────────── */}
       <section id="duvidas" className="bg-[var(--color-bg)]">

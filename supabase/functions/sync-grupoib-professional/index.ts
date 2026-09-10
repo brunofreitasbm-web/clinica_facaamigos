@@ -1,9 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-// Sincroniza profissionais PJ e funcionarios CLT da unidade "clinica-a" (Grupo IB)
-// para o sistema CLINICA (tabela profiles / auth.users), na MESMA base Supabase.
-// Disparado por trigger em public.professionals e public.employees.
+// Sincroniza os profissionais PJ da unidade "clinica-a" (Grupo IB) para o
+// sistema CLINICA (tabela profiles / auth.users), na MESMA base Supabase.
+// Disparado por trigger em public.professionals.
+//
+// Só PJ entra, e sempre com o papel "terapeuta": funcionario CLT (public.employees)
+// nao vira conta automaticamente — quem precisa de acesso e cadastrado a mao em
+// /gestor/equipe, com o papel escolhido por um humano.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -132,37 +136,6 @@ function keywordMatch(professionText: string, specialties: Specialty[]): Special
     specialties.find((s) => stripAccents(s.label).toLowerCase().includes(normalized.trim())) ??
     null
   );
-}
-
-// Papeis privilegiados (gestor/supervisor/faturamento) nunca sao auto-atribuidos: o
-// funcionario entra com o papel minimo (recepcao) e o papel sugerido fica em
-// pending_role para um gestor humano revisar e promover manualmente.
-const PRIVILEGED_ROLES = new Set(["gestor", "supervisor", "faturamento"]);
-
-function resolveRoleForEmployee(jobTitle?: string, department?: string): { role: string; pendingRole: string | null } {
-  const t = stripAccents(`${jobTitle ?? ""} ${department ?? ""}`).toLowerCase();
-  let suggested = "recepcao";
-  if (/recep/.test(t)) suggested = "recepcao";
-  else if (/financ|fatur/.test(t)) suggested = "faturamento";
-  else if (/supervis/.test(t)) suggested = "supervisor";
-  else if (/gerent|gestor|diretor|coordenad/.test(t)) suggested = "gestor";
-  else if (/terap|psic|fono|fisiot|nutri|pedagog|musicoterap/.test(t)) suggested = "terapeuta";
-
-  if (PRIVILEGED_ROLES.has(suggested)) {
-    return { role: "recepcao", pendingRole: suggested };
-  }
-  return { role: suggested, pendingRole: null };
-}
-
-async function logPendingRoleReview(profileId: string, sourceId: string, pendingRole: string) {
-  await admin.from("audit_log").insert({
-    table_name: "profiles",
-    row_id: profileId,
-    action: "grupoib_sync_role_pending_review",
-    actor_id: null,
-    clinic_id: CLINIC_ID,
-    after: { source_id: sourceId, pending_role: pendingRole },
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -331,14 +304,17 @@ Deno.serve(async (req: Request) => {
     const payload = await req.json();
     const { table, record } = payload as { type: string; table: string; record: Record<string, unknown> };
 
+    // Guarda explicita: mesmo que sobre alguma trigger em public.employees, um
+    // payload de CLT nunca cria conta por aqui.
+    if (table !== "professionals") {
+      return new Response(JSON.stringify({ skipped: true, reason: "só profissionais PJ sincronizam" }), { status: 200 });
+    }
+
     if (!record || record["unit_id"] !== TARGET_UNIT_ID) {
       return new Response(JSON.stringify({ skipped: true, reason: "unit_id fora do escopo (só clinica-a)" }), { status: 200 });
     }
 
-    const isProfessional = table === "professionals";
-    const eligible = isProfessional
-      ? record["registration_status"] === "validated"
-      : record["status"] === "ativo";
+    const eligible = record["registration_status"] === "validated";
 
     const { data: existing } = await admin
       .from("profiles")
@@ -355,16 +331,13 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ skipped: true, reason: "não elegível para sincronizar" }), { status: 200 });
     }
 
-    const professionText = (isProfessional ? record["profession"] : record["job_title"]) as string;
+    const professionText = record["profession"] as string;
     const specialty = await matchDiscipline(professionText);
-    const { role, pendingRole } = isProfessional
-      ? { role: "terapeuta", pendingRole: null as string | null }
-      : resolveRoleForEmployee(record["job_title"] as string, record["department"] as string);
 
     const commonFields = {
       clinic_id: CLINIC_ID,
-      role,
-      pending_role: pendingRole,
+      role: "terapeuta",
+      pending_role: null,
       full_name: record["name"] ?? null,
       council_type: record["council_type"] ?? null,
       council_number: record["council_number"] ?? null,
@@ -374,6 +347,11 @@ Deno.serve(async (req: Request) => {
       cpf: record["cpf"] ?? null,
       email: record["email"] ?? null,
       photo_url: record["photo"] ?? null,
+      // Unidade e data de nascimento vêm prontas do formulário do Grupo IB —
+      // a tela de Colaboradores & Contas usa a primeira pra segmentar por
+      // unidade e a segunda pra montar a lista de aniversariantes.
+      unit_id: record["unit_id"] ?? null,
+      birth_date: record["birthdate"] ?? null,
       discipline: specialty?.value ?? null,
       specialty_id: specialty?.id ?? null,
       active: true,
@@ -383,8 +361,7 @@ Deno.serve(async (req: Request) => {
     // comunicar (a senha em uso é a que ele mesmo definiu), então não envia e-mail.
     if (existing) {
       await admin.from("profiles").update(commonFields).eq("id", existing.id);
-      if (pendingRole) await logPendingRoleReview(existing.id, record["id"] as string, pendingRole);
-      return new Response(JSON.stringify({ updated: true, profile_id: existing.id, pending_role: pendingRole }), { status: 200 });
+      return new Response(JSON.stringify({ updated: true, profile_id: existing.id }), { status: 200 });
     }
 
     const email = record["email"] as string | undefined;
@@ -415,8 +392,6 @@ Deno.serve(async (req: Request) => {
             must_change_password: true,
             ...commonFields,
           });
-          if (pendingRole) await logPendingRoleReview(found.id, record["id"] as string, pendingRole);
-
           // A conta já existia com senha própria (não sobrescrevemos a senha de
           // ninguém) — avisa que o acesso foi liberado, sem credencial no corpo.
           const emailResult = await sendAccessEmail({ to: email, name: fullName, variant: { kind: "existing_account" } });
@@ -432,7 +407,6 @@ Deno.serve(async (req: Request) => {
             JSON.stringify({
               linked_existing_user: true,
               profile_id: found.id,
-              pending_role: pendingRole,
               access_email: emailResult.status,
             }),
             { status: 200 },
@@ -450,8 +424,6 @@ Deno.serve(async (req: Request) => {
       ...commonFields,
     });
 
-    if (pendingRole) await logPendingRoleReview(userData.user.id, record["id"] as string, pendingRole);
-
     const emailResult = await sendAccessEmail({ to: email, name: fullName, variant: { kind: "new_account", password } });
     await logAccessEmail({
       profileId: userData.user.id,
@@ -465,7 +437,6 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         created: true,
         profile_id: userData.user.id,
-        pending_role: pendingRole,
         access_email: emailResult.status,
       }),
       { status: 200 },

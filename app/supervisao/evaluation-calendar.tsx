@@ -151,16 +151,27 @@ export function EvaluationCalendar({
   // agendado na semana visível — sem isso o dropdown pode dizer "nenhum
   // terapeuta avaliador cadastrado" enquanto o grid mostra agendamentos reais,
   // já que o agendamento em si não exige a flag is_evaluator.
+  // Esses avulsos entram só para leitura do grid: `isEvaluator: false` os
+  // desabilita como destino de NOVO agendamento — não é uma trava (o banco
+  // aceitaria), é orientação: nem todo terapeuta é avaliador.
   const availableTherapists = useMemo(() => {
-    const byId = new Map(therapists.map((t) => [t.id, t] as const));
+    const byId = new Map<string, { id: string; name: string; isEvaluator: boolean }>(
+      therapists.map((t) => [t.id, { ...t, isEvaluator: true }]),
+    );
     for (const a of appointments) {
-      if (!byId.has(a.therapistId)) byId.set(a.therapistId, { id: a.therapistId, name: a.therapistName });
+      if (!byId.has(a.therapistId))
+        byId.set(a.therapistId, { id: a.therapistId, name: a.therapistName, isEvaluator: false });
     }
     return Array.from(byId.values());
   }, [therapists, appointments]);
 
   useEffect(() => {
-    if (!therapistId && availableTherapists.length > 0) setTherapistId(availableTherapists[0].id);
+    // Nunca pré-selecionar um avulso sem qualificação: ele só está na lista
+    // para o grid, não como destino padrão de novo agendamento.
+    if (!therapistId) {
+      const first = availableTherapists.find((t) => t.isEvaluator);
+      if (first) setTherapistId(first.id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableTherapists]);
 
@@ -304,8 +315,8 @@ export function EvaluationCalendar({
           <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
             {availableTherapists.length === 0 && <option value="">Nenhum terapeuta avaliador cadastrado</option>}
             {availableTherapists.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+              <option key={t.id} value={t.id} disabled={!t.isEvaluator}>
+                {t.isEvaluator ? t.name : `${t.name} (sem qualificação de avaliador)`}
               </option>
             ))}
           </select>

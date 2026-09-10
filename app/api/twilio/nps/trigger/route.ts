@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CLINIC_WEBSITE } from "@/lib/clinic-identity";
 
 /**
  * Libera a pesquisa NPS (1-5) no portal da família 1h após reavaliação
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
       if (!insertError) {
         const { getTwilioContentSidForCategory, sendTwilioWhatsApp } = await import("@/lib/twilio");
         const contentSid = getTwilioContentSidForCategory("nps");
-        const clinicUrl = process.env.NEXT_PUBLIC_APP_URL || "https://facaamigos.com.br";
+        const clinicUrl = process.env.NEXT_PUBLIC_APP_URL || CLINIC_WEBSITE;
         
         await sendTwilioWhatsApp({
           to: guardian.phone,

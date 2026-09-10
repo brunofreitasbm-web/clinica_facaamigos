@@ -27,8 +27,18 @@ export const METRIC_CATALOG: Partial<Record<Role, MetricDef[]>> = {
     { key: "interessado_to_eval_rate", label: "Interessado → avaliação agendada", direction: "min", unit: "pct", computed: true },
     { key: "eval_show_rate", label: "Avaliação realizada / agendada", direction: "min", unit: "pct", computed: true },
     { key: "confirm_d1_rate", label: "Confirmação D-1", direction: "min", unit: "pct", computed: true },
-    { key: "no_show_rate", label: "No-show", direction: "max", unit: "pct", computed: true },
-    { key: "intake_complete_rate", label: "Cadastro completo antes da 1ª sessão", direction: "min", unit: "pct", computed: false },
+    // Entrou no lugar de `no_show_rate` (20260910071000_intake_complete_rate_metric.sql):
+    // falta é comportamento da família e a clínica não faz reposição, então a
+    // recepção não tinha alavanca sobre a meta antiga. `no_show_rate` segue
+    // calculado como monitor da clínica no painel do gestor, mas não é mais
+    // meta de cargo e por isso saiu daqui — este catálogo só alimenta o
+    // cadastro de meta/PLR.
+    //
+    // "Completo" = as 6 categorias do checklist de entrada anexadas em
+    // `documents` ANTES de `patients.first_session_at` (carteirinha só é
+    // exigida de paciente com convênio). Ver computeLiveMetric em
+    // lib/metric-compute.ts e o bloco homônimo em close_monthly_metric_snapshots.
+    { key: "intake_complete_rate", label: "Cadastro completo antes da 1ª sessão", direction: "min", unit: "pct", computed: true },
     { key: "no_auth_sessions", label: "Sessões sem guia vigente", direction: "max", unit: "pct", eliminatory: true, computed: true },
   ],
   supervisor: [

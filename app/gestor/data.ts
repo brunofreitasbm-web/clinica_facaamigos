@@ -3,7 +3,7 @@ import type { Database } from "@/lib/database.types";
 import { countOverdueSessionNotes } from "@/lib/session-note-pending";
 import { findMetricDef, formatMetricValue } from "@/lib/metric-catalog";
 import { getActiveRuleSets } from "@/lib/bonus-rules";
-import { computeMetricActual } from "@/lib/metric-compute";
+import { computeLiveMetric, computeMetricActual } from "@/lib/metric-compute";
 
 type Supa = SupabaseClient<Database>;
 
@@ -466,8 +466,6 @@ export async function getBonusRows(supabase: Supa, clinicId: string): Promise<Bo
   const consideredStatuses = ["realizada", "falta_familia", "cancelada_familia", "cancelada_terapeuta", "cancelada_clinica"];
   const denom = list.filter((a) => consideredStatuses.includes(a.status));
 
-  const noShowRate = denom.length > 0 ? denom.filter((a) => a.status === "falta_familia").length / denom.length : null;
-
   const scheduledHours = denom.reduce((sum, a) => sum + hoursBetween(a.starts_at, a.ends_at), 0);
   const realizedHours = denom
     .filter((a) => a.status === "realizada")
@@ -488,18 +486,23 @@ export async function getBonusRows(supabase: Supa, clinicId: string): Promise<Bo
     }
   }
 
-  const noShow = evalTarget(noShowRate, 0.08, "max");
+  // Meta padrão da recepção desde 20260910071000_intake_complete_rate_metric.sql:
+  // no_show_rate saiu do PLR (falta é comportamento da família e a clínica não
+  // faz reposição — a recepção não tinha alavanca). O piso de 95% acompanha o
+  // 100% do PRD §10.1 com folga de um caso perdido a cada 20 entradas.
+  const intakeCompleteRate = await computeLiveMetric(supabase, clinicId, "intake_complete_rate", startISO, endISO);
+  const intakeComplete = evalTarget(intakeCompleteRate, 0.95, "min");
   const occupancy = evalTarget(occupancyRate, 0.85, "min");
   const glosa = evalTarget(glosaRate, 0.04, "max");
 
   const defaultRows: Record<string, BonusRow> = {
     recepcao: {
       role: "Recepção",
-      metricLabel: "No-show ≤ 8%",
-      actualLabel: noShowRate != null ? `${(noShowRate * 100).toFixed(1)}%` : "sem sessões no mês",
+      metricLabel: "Cadastro completo antes da 1ª sessão ≥ 95%",
+      actualLabel: intakeCompleteRate != null ? `${(intakeCompleteRate * 100).toFixed(1)}%` : "sem 1ª sessão no mês",
       weightPct: PLR_DEFAULT_WEIGHT.recepcao,
       isEliminatory: false,
-      ...noShow,
+      ...intakeComplete,
     },
     supervisor: {
       role: "Coordenação clínica",
@@ -561,7 +564,10 @@ export async function getBonusRows(supabase: Supa, clinicId: string): Promise<Bo
 // rodar pela primeira vez no dia 1 — meses antes disso ficam sem histórico
 // mesmo, não tem como reconstruir retroativamente sem os dados originais.
 const CLOSED_METRIC_LABEL: Record<string, string> = {
-  no_show_rate: "No-show (recepção)",
+  // Continua fechando todo mês como monitor de operação da clínica — deixou
+  // de ser meta de PLR da recepção (20260910071000_intake_complete_rate_metric.sql).
+  no_show_rate: "No-show (clínica)",
+  intake_complete_rate: "Cadastro completo antes da 1ª sessão (recepção)",
   occupancy_rate: "Ocupação (coordenação)",
   glosa_rate: "Glosa (faturamento)",
   no_auth_sessions: "Sessões sem guia vigente",

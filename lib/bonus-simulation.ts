@@ -16,8 +16,9 @@ type Supa = SupabaseClient<Database>;
  *     (fração, ex.: 0.05 para 5%) — cobre métricas ainda sem pipeline real
  *     (`computed: false` no catálogo) e cenários "e se".
  *  2. Cálculo ao vivo sobre `appointments`/`billing_items` do período pedido,
- *     para as 3 métricas com fórmula recorrente aqui (no_show_rate,
- *     occupancy_rate, glosa_rate) — igual ao que já roda em getBonusRows,
+ *     para as 4 métricas com fórmula recorrente aqui (no_show_rate,
+ *     occupancy_rate, glosa_rate, intake_complete_rate) — igual ao que já
+ *     roda em getBonusRows,
  *     mas parametrizado por período em vez de fixo no mês corrente.
  *  3. Média das linhas fechadas em `metric_snapshots` que caem dentro do
  *     período (grava pelo job close_monthly_metric_snapshots) — só existe

@@ -99,10 +99,15 @@ export default async function PacientePage({
 
   const { data: therapists } = await supabase
     .from("profiles")
-    .select("id, full_name")
+    .select("id, full_name, is_evaluator")
     .eq("clinic_id", DEV_CLINIC_ID)
     .eq("role", "terapeuta")
     .order("full_name");
+
+  // Nem todo terapeuta é avaliador: a 1ª avaliação só pode ser agendada para
+  // quem o gestor marcou em Gestor › Equipe (profiles.is_evaluator). A grade
+  // de sessões (etapa 4) continua usando a lista completa.
+  const evaluatorTherapists = (therapists ?? []).filter((t) => t.is_evaluator);
 
   const { data: rooms } = await supabase
     .from("rooms")
@@ -563,12 +568,17 @@ export default async function PacientePage({
                   <div>
                     {stage === 1 && (
                       <StageActionForm action={scheduleEvaluation.bind(null, patient.id)} submitLabel="Agendar avaliação">
-                        <select name="therapist_id" required className="input">
-                          <option value="">Terapeuta</option>
-                          {(therapists ?? []).map((t) => (
+                        <select name="therapist_id" required className="input" disabled={evaluatorTherapists.length === 0}>
+                          <option value="">Terapeuta avaliador</option>
+                          {evaluatorTherapists.map((t) => (
                             <option key={t.id} value={t.id}>{t.full_name}</option>
                           ))}
                         </select>
+                        {evaluatorTherapists.length === 0 && (
+                          <p className="text-sm text-ink-soft">
+                            Nenhum terapeuta está habilitado como avaliador. O gestor marca essa qualificação em Gestor › Equipe.
+                          </p>
+                        )}
                         <select name="room_id" required className="input">
                           <option value="">Sala</option>
                           {(rooms ?? []).map((r) => (

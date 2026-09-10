@@ -94,7 +94,7 @@ export function DadosClinicaForm({ initial }: { initial: ClinicRow }) {
             placeholder="Ex.: FaçaAmigos Terapias Ltda"
           />
           <Field label="CNPJ" name="cnpj" defaultValue={initial.cnpj} placeholder="12.345.678/0001-90" />
-          <Field label="Site" name="site" defaultValue={initial.site} placeholder="https://facaamigos.com.br" />
+          <Field label="Site" name="site" defaultValue={initial.site} placeholder="https://institutofacaamigos.com.br" />
         </div>
       </section>
 

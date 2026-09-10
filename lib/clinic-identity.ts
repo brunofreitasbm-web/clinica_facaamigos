@@ -16,7 +16,19 @@ export const CLINIC_TAGLINE = "Centro de Terapia Comportamental";
 export const CLINIC_NAME = `${CLINIC_BRAND} - ${CLINIC_TAGLINE}`;
 export const CLINIC_NAME_DISPLAY = `${CLINIC_BRAND} — ${CLINIC_TAGLINE}`;
 export const CLINIC_SUPPORT_EMAIL = "contato@clinicafacaamigos.com.br";
-export const CLINIC_WEBSITE = "https://facaamigos.com.br";
+/**
+ * Endereço público DESTE app — a clínica tem subdomínio próprio dentro do
+ * ecossistema (hub em institutofacaamigos.com.br, playground em
+ * playground.…, clínica em clinica.…). É daqui que saem canonical, Open
+ * Graph, sitemap e robots, então um valor errado aqui não quebra tela
+ * nenhuma: só entrega o SEO e as prévias de link para o endereço errado, em
+ * silêncio.
+ *
+ * NÃO use "facaamigos.com.br" (sem "instituto"): esse domínio é de outra
+ * empresa — uma gráfica de hot stamping em São Paulo — e já esteve aqui por
+ * engano.
+ */
+export const CLINIC_WEBSITE = "https://clinica.institutofacaamigos.com.br";
 
 /**
  * Identidade institucional da clínica para uso em timbre de documento

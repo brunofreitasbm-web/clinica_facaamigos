@@ -94,18 +94,20 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
+          <a href="#planos" className="btn btn-secondary !min-h-0 !py-2.5 text-sm">
+            {CTA.secundario}
+          </a>
           <a
             href={linkWhatsApp()}
             target="_blank"
             rel="noreferrer"
             onClick={() => trackContactClick("whatsapp", "header-desktop")}
-            className="btn btn-secondary !min-h-0 !py-2.5 text-sm"
+            className="btn btn-primary !min-h-0 flex-col !gap-0 !py-2 text-sm leading-tight"
           >
-            <MessageCircle className="h-4 w-4" aria-hidden />
-            {CTA.secundario}
-          </a>
-          <a href="#agendar" className="btn btn-primary !min-h-0 flex-col !gap-0 !py-2 text-sm leading-tight">
-            <span>{CTA.principal}</span>
+            <span className="flex items-center gap-1.5">
+              <MessageCircle className="h-4 w-4" aria-hidden />
+              {CTA.principal}
+            </span>
             <span className="text-[10px] font-medium opacity-85">{CTA.principalApoio}</span>
           </a>
           <a href="/login" className="btn btn-ghost !min-h-0 !py-2.5 text-sm gap-1.5 ml-1">
@@ -158,17 +160,17 @@ export function SiteHeader() {
             <span>Área Restrita (Login)</span>
           </a>
           <div className="mt-2 flex flex-col gap-2">
+            <a href="#planos" onClick={() => setAberto(false)} className="btn btn-secondary justify-center">
+              {CTA.secundario}
+            </a>
             <a
               href={linkWhatsApp()}
               target="_blank"
               rel="noreferrer"
               onClick={() => trackContactClick("whatsapp", "header-mobile")}
-              className="btn btn-secondary justify-center"
+              className="btn btn-primary justify-center"
             >
               <MessageCircle className="h-4 w-4" aria-hidden />
-              {CTA.secundario}
-            </a>
-            <a href="#agendar" onClick={() => setAberto(false)} className="btn btn-primary justify-center">
               {CTA.principal}
             </a>
           </div>

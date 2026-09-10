@@ -9,7 +9,7 @@ export default async function EspecialidadesConfigPage() {
 
   const { data: rows } = await supabase
     .from("specialties")
-    .select("id, value, label, active, intern_count")
+    .select("id, value, label, active, intern_count, pj_count")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("sort_order", { ascending: true });
 
@@ -19,6 +19,7 @@ export default async function EspecialidadesConfigPage() {
     label: r.label,
     active: r.active,
     internCount: r.intern_count,
+    pjCount: r.pj_count,
   }));
 
   return <EspecialidadesManager specialties={specialties} />;
