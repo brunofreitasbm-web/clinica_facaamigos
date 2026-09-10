@@ -100,6 +100,10 @@ export function AcolhimentoLeadDrawer({
   const [rejectReason, setRejectReason] = useState<string | null>(null);
   const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
+  // O que a família vai escolher no WhatsApp: sessão de avaliação de 50min
+  // (padrão) ou bloco de 2h de Treino ABA em turma — no Treino ABA a sala e
+  // o horário vêm da turma, não daqui.
+  const [offerKind, setOfferKind] = useState<"avaliacao" | "treino_aba">("avaliacao");
 
   function saveFields(form: HTMLFormElement) {
     const data = new FormData(form);
@@ -140,7 +144,7 @@ export function AcolhimentoLeadDrawer({
 
   function handleApproveDocs() {
     startTransition(async () => {
-      const res = await approveIntakeLeadDocuments(lead.id, therapistId, roomId);
+      const res = await approveIntakeLeadDocuments(lead.id, therapistId, roomId, offerKind);
       setFeedback(res.success ? { type: "success", text: "Documentos aprovados — horários enviados por WhatsApp." } : { type: "error", text: res.error });
     });
   }
@@ -327,7 +331,17 @@ export function AcolhimentoLeadDrawer({
 
         {lead.status === "pending_supervisor" && (
           <div className="flex flex-col gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Agendamento da avaliação</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
+              {offerKind === "treino_aba" ? "Agendamento do Treino ABA" : "Agendamento da avaliação"}
+            </h4>
+            <select
+              value={offerKind}
+              onChange={(e) => setOfferKind(e.target.value as "avaliacao" | "treino_aba")}
+              className="input"
+            >
+              <option value="avaliacao">Avaliação (sessão de 50min)</option>
+              <option value="treino_aba">Treino ABA (bloco de 2h em turma)</option>
+            </select>
             <div className="grid grid-cols-2 gap-2">
               <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input">
                 {therapists.map((t) => (
@@ -336,13 +350,19 @@ export function AcolhimentoLeadDrawer({
                   </option>
                 ))}
               </select>
-              <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input">
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+              {offerKind === "treino_aba" ? (
+                <p className="self-center text-[11px] text-ink-soft">
+                  Sala e horário vêm da turma escolhida pela família (8h, 10h, 14h ou 16h).
+                </p>
+              ) : (
+                <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input">
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <button
               type="button"

@@ -10,6 +10,8 @@ export interface EvaluationNotificationParams {
   roomId: string;
   date: string;
   time: string;
+  /** Quando true, ajusta a mensagem para deixar claro que a data foi alterada (remarcação), não uma 1ª marcação. */
+  isReschedule?: boolean;
 }
 
 export function buildEvaluationConfirmationMessage(params: {
@@ -17,13 +19,17 @@ export function buildEvaluationConfirmationMessage(params: {
   formattedDate: string;
   therapistName?: string;
   roomName?: string;
+  isReschedule?: boolean;
 }): string {
   const therapistInfo = params.therapistName ? ` com o(a) especialista *${params.therapistName}*` : "";
   const roomInfo = params.roomName ? ` (${params.roomName})` : "";
+  const intro = params.isReschedule
+    ? `Olá! 💙 A data da 1ª Avaliação de *${params.patientName}* foi *alterada*. Confira os novos detalhes abaixo!`
+    : `Olá! 💙 A 1ª Avaliação de *${params.patientName}* foi agendada e confirmada com muito carinho para a sua família!`;
 
   return (
-    `🗓️ *Confirmação de Agendamento - FaçaAmigos - Centro de Terapia Comportamental*\n\n` +
-    `Olá! 💙 A 1ª Avaliação de *${params.patientName}* foi agendada e confirmada com muito carinho para a sua família!\n\n` +
+    `🗓️ *${params.isReschedule ? "Alteração" : "Confirmação"} de Agendamento - FaçaAmigos - Centro de Terapia Comportamental*\n\n` +
+    `${intro}\n\n` +
     `📅 *Data e Horário:* ${params.formattedDate}\n` +
     `👤 *Profissional / Sala:*${therapistInfo}${roomInfo}\n\n` +
     `📌 *Orientações importantes para a família:*\n` +
@@ -138,6 +144,7 @@ export async function sendEvaluationConfirmationNotification(
       formattedDate,
       therapistName,
       roomName,
+      isReschedule: params.isReschedule,
     });
 
     // 5. Disparar via Twilio WhatsApp

@@ -453,6 +453,93 @@ export type Database = {
           },
         ]
       }
+      aba_training_classes: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          day_of_week: number
+          id: string
+          room_id: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          day_of_week: number
+          id?: string
+          room_id: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          room_id?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aba_training_classes_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aba_training_classes_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aba_training_consumptions: {
+        Row: {
+          appointment_id: string
+          authorization_id: string
+          created_at: string
+          id: string
+          units: number
+        }
+        Insert: {
+          appointment_id: string
+          authorization_id: string
+          created_at?: string
+          id?: string
+          units: number
+        }
+        Update: {
+          appointment_id?: string
+          authorization_id?: string
+          created_at?: string
+          id?: string
+          units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aba_training_consumptions_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aba_training_consumptions_authorization_id_fkey"
+            columns: ["authorization_id"]
+            isOneToOne: false
+            referencedRelation: "authorizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_types: {
         Row: {
           active: boolean
@@ -463,10 +550,14 @@ export type Database = {
           id: string
           modality: string
           name: string
+          aba_role: string | null
           recurrence: string
+          requires_intern_ratio: boolean
+          sessions_consumed: number
           updated_at: string
         }
         Insert: {
+          aba_role?: string | null
           active?: boolean
           clinic_id: string
           created_at?: string
@@ -476,9 +567,12 @@ export type Database = {
           modality?: string
           name: string
           recurrence?: string
+          requires_intern_ratio?: boolean
+          sessions_consumed?: number
           updated_at?: string
         }
         Update: {
+          aba_role?: string | null
           active?: boolean
           clinic_id?: string
           created_at?: string
@@ -488,6 +582,8 @@ export type Database = {
           modality?: string
           name?: string
           recurrence?: string
+          requires_intern_ratio?: boolean
+          sessions_consumed?: number
           updated_at?: string
         }
         Relationships: [
@@ -502,6 +598,7 @@ export type Database = {
       }
       appointments: {
         Row: {
+          aba_class_id: string | null
           appointment_type_id: string | null
           attendance_started_at: string | null
           authorization_id: string | null
@@ -518,6 +615,7 @@ export type Database = {
           group_id: string | null
           id: string
           is_evaluation: boolean
+          is_family_meeting: boolean
           is_provisional: boolean
           modality: string
           patient_id: string
@@ -528,6 +626,7 @@ export type Database = {
           therapist_id: string
         }
         Insert: {
+          aba_class_id?: string | null
           appointment_type_id?: string | null
           attendance_started_at?: string | null
           authorization_id?: string | null
@@ -544,6 +643,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_evaluation?: boolean
+          is_family_meeting?: boolean
           is_provisional?: boolean
           modality?: string
           patient_id: string
@@ -554,6 +654,7 @@ export type Database = {
           therapist_id: string
         }
         Update: {
+          aba_class_id?: string | null
           appointment_type_id?: string | null
           attendance_started_at?: string | null
           authorization_id?: string | null
@@ -570,6 +671,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_evaluation?: boolean
+          is_family_meeting?: boolean
           is_provisional?: boolean
           modality?: string
           patient_id?: string
@@ -580,6 +682,13 @@ export type Database = {
           therapist_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointments_aba_class_id_fkey"
+            columns: ["aba_class_id"]
+            isOneToOne: false
+            referencedRelation: "aba_training_classes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointments_appointment_type_id_fkey"
             columns: ["appointment_type_id"]
@@ -910,6 +1019,7 @@ export type Database = {
           id: string
           paid_at: string | null
           procedure_code: string
+          quantity: number
           status: string
         }
         Insert: {
@@ -919,6 +1029,7 @@ export type Database = {
           id?: string
           paid_at?: string | null
           procedure_code: string
+          quantity?: number
           status?: string
         }
         Update: {
@@ -928,6 +1039,7 @@ export type Database = {
           id?: string
           paid_at?: string | null
           procedure_code?: string
+          quantity?: number
           status?: string
         }
         Relationships: [
@@ -3855,6 +3967,138 @@ export type Database = {
           },
         ]
       }
+      insurance_remittance_batches: {
+        Row: {
+          clinic_id: string
+          competence_month: string
+          created_at: string
+          file_name: string
+          id: string
+          insurer_id: string | null
+          insurer_name: string | null
+          line_count: number
+          total_glosa: number
+          total_gross: number
+          total_net: number
+          warnings: Json
+        }
+        Insert: {
+          clinic_id: string
+          competence_month: string
+          created_at?: string
+          file_name: string
+          id?: string
+          insurer_id?: string | null
+          insurer_name?: string | null
+          line_count?: number
+          total_glosa?: number
+          total_gross?: number
+          total_net?: number
+          warnings?: Json
+        }
+        Update: {
+          clinic_id?: string
+          competence_month?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          insurer_id?: string | null
+          insurer_name?: string | null
+          line_count?: number
+          total_glosa?: number
+          total_gross?: number
+          total_net?: number
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_remittance_batches_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_remittance_batches_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_remittance_lines: {
+        Row: {
+          batch_id: string
+          clinic_id: string
+          competence_month: string
+          consolidated: boolean
+          created_at: string
+          glosa_amount: number | null
+          gross_amount: number | null
+          guide_number: string | null
+          id: string
+          low_confidence: boolean
+          net_amount: number
+          patient_name: string | null
+          procedure_code: string | null
+          raw_line: string | null
+          service_date: string | null
+          sessions: number | null
+        }
+        Insert: {
+          batch_id: string
+          clinic_id: string
+          competence_month: string
+          consolidated?: boolean
+          created_at?: string
+          glosa_amount?: number | null
+          gross_amount?: number | null
+          guide_number?: string | null
+          id?: string
+          low_confidence?: boolean
+          net_amount: number
+          patient_name?: string | null
+          procedure_code?: string | null
+          raw_line?: string | null
+          service_date?: string | null
+          sessions?: number | null
+        }
+        Update: {
+          batch_id?: string
+          clinic_id?: string
+          competence_month?: string
+          consolidated?: boolean
+          created_at?: string
+          glosa_amount?: number | null
+          gross_amount?: number | null
+          guide_number?: string | null
+          id?: string
+          low_confidence?: boolean
+          net_amount?: number
+          patient_name?: string | null
+          procedure_code?: string | null
+          raw_line?: string | null
+          service_date?: string | null
+          sessions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_remittance_lines_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_remittance_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_remittance_lines_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insurer_price_tables: {
         Row: {
           cost: number | null
@@ -6420,21 +6664,37 @@ export type Database = {
           capacity: number
           clinic_id: string
           id: string
+          is_aba_training: boolean
           name: string
+          recommended_interns: number | null
+          specialty_id: string | null
         }
         Insert: {
           capacity?: number
           clinic_id: string
           id?: string
+          is_aba_training?: boolean
           name: string
+          recommended_interns?: number | null
+          specialty_id?: string | null
         }
         Update: {
           capacity?: number
           clinic_id?: string
           id?: string
+          is_aba_training?: boolean
           name?: string
+          recommended_interns?: number | null
+          specialty_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "rooms_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rooms_clinic_id_fkey"
             columns: ["clinic_id"]
@@ -6758,6 +7018,7 @@ export type Database = {
           clinic_id: string
           created_at: string
           id: string
+          intern_count: number
           label: string
           sort_order: number
           updated_at: string
@@ -6768,6 +7029,7 @@ export type Database = {
           clinic_id: string
           created_at?: string
           id?: string
+          intern_count?: number
           label: string
           sort_order?: number
           updated_at?: string
@@ -6778,6 +7040,7 @@ export type Database = {
           clinic_id?: string
           created_at?: string
           id?: string
+          intern_count?: number
           label?: string
           sort_order?: number
           updated_at?: string
@@ -7812,6 +8075,28 @@ export type Database = {
     }
     Functions: {
       _cleanup: { Args: never; Returns: boolean }
+      book_aba_training_slot_atomic: {
+        Args: {
+          p_class_id: string
+          p_lead_id: string
+          p_starts_at: string
+          p_therapist_id: string
+        }
+        Returns: Json
+      }
+      aba_training_balance: {
+        Args: { p_on_date?: string; p_patient_id: string }
+        Returns: { blocks_available: number; sessions_remaining: number }[]
+      }
+      aba_training_consume_pool: {
+        Args: {
+          p_appointment_id: string
+          p_on_date: string
+          p_patient_id: string
+          p_units: number
+        }
+        Returns: undefined
+      }
       _contract_on: { Args: { "": string }; Returns: unknown }
       _currtest: { Args: never; Returns: number }
       _db_privs: { Args: never; Returns: unknown[] }

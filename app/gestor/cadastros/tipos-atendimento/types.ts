@@ -5,6 +5,7 @@ export type AppointmentType = {
   durationMinutes: number;
   displayIntervalMinutes: number;
   recurrence: string;
+  requiresInternRatio: boolean;
   active: boolean;
 };
 

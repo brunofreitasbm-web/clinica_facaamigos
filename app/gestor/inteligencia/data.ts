@@ -90,6 +90,11 @@ export type InteligenciaMetrics = {
   // Capacidade Operacional da Clínica (indicador em destaque)
   clinicCapacity: ClinicCapacityItem[];
   roomCapacityAlerts: RoomCapacityAlert[];
+
+  // Necessidade de Estagiário (indicador em destaque)
+  internShortageAlerts: InternShortageAlert[];
+  internCoverage: InternCoverageItem[];
+  internCoverageOverallPct: number;
 };
 
 export type ClinicCapacityPeriodKey = "manha" | "tarde" | "dia" | "semana" | "mes";
@@ -112,6 +117,29 @@ export type RoomCapacityAlert = {
   bookedHours: number;
   availableHours: number;
   description: string;
+};
+
+export type InternShortageAlert = {
+  specialtyId: string;
+  specialtyLabel: string;
+  childrenCount: number;
+  internsCount: number;
+  deficitPct: number;
+  description: string;
+};
+
+/**
+ * Cobertura de estagiários de uma especialidade na semana atual: quantos
+ * estagiários contratados existem para cada 100 crianças com check-in em
+ * atendimentos que seguem a proporção 1:1. 100% = um estagiário por criança.
+ */
+export type InternCoverageItem = {
+  specialtyId: string;
+  specialtyLabel: string;
+  childrenCount: number;
+  internsCount: number;
+  coveragePct: number;
+  status: "adequada" | "atencao" | "critica" | "sem_demanda";
 };
 
 export async function getInteligenciaMetrics(
@@ -171,6 +199,8 @@ export async function getInteligenciaMetrics(
     { data: roomAppointments },
     { data: roomBillingItems },
     { data: clinicCapacityAppointments },
+    { data: internCheckins },
+    { data: specialtiesList },
   ] = await Promise.all([
     // Atendimentos no período
     supabase
@@ -231,7 +261,7 @@ export async function getInteligenciaMetrics(
     // Salas da clínica
     supabase
       .from("rooms")
-      .select("id, name, capacity")
+      .select("id, name, capacity, specialty_id")
       .eq("clinic_id", clinicId),
 
     // Atendimentos por Sala no período (para taxa de ocupação)
@@ -260,6 +290,22 @@ export async function getInteligenciaMetrics(
       .neq("status", "cancelada")
       .gte("starts_at", capacityQueryStart.toISOString())
       .lt("starts_at", capacityQueryEnd.toISOString()),
+
+    // Check-ins da semana atual, com sala (e sua especialidade vinculada) e
+    // isenção do tipo de atendimento — pro Alerta de Necessidade de Estagiário
+    supabase
+      .from("appointments")
+      .select(
+        "id, patient_id, checkin_at, room_id, appointment_types(requires_intern_ratio), patients!inner(clinic_id)"
+      )
+      .eq("patients.clinic_id", clinicId)
+      .not("checkin_at", "is", null)
+      .gte("checkin_at", weekStart.toISOString())
+      .lt("checkin_at", weekEnd.toISOString()),
+
+    // Especialidades da clínica, com nº de estagiários contratados (hoje
+    // informado manualmente; futuramente por integração externa)
+    supabase.from("specialties").select("id, label, intern_count").eq("clinic_id", clinicId).eq("active", true),
   ]);
 
   const appointments = currentAppointments ?? [];
@@ -645,6 +691,94 @@ export async function getInteligenciaMetrics(
 
   roomCapacityAlerts.sort((a, b) => b.occupancyPct - a.occupancyPct);
 
+  // Alerta ao gestor: nº de estagiários contratados por especialidade
+  // (informado em Cadastros > Especialidades, hoje manual — no futuro
+  // atualizado por integração externa) abaixo de 80% das crianças com
+  // check-in na semana atual naquela especialidade. Só considera
+  // atendimentos de tipos que seguem a proporção 1:1
+  // (appointment_types.requires_intern_ratio).
+  const INTERN_DEFICIT_ALERT_THRESHOLD_PCT = 20;
+  const roomSpecialtyMap = new Map((roomsList ?? []).map((r) => [r.id, r.specialty_id]));
+  const childrenBySpecialty = new Map<string, Set<string>>();
+
+  for (const app of internCheckins ?? []) {
+    if (!app.patient_id || !app.room_id) continue;
+    const specialtyId = roomSpecialtyMap.get(app.room_id);
+    if (!specialtyId) continue;
+    const appointmentType = app.appointment_types as { requires_intern_ratio: boolean } | null;
+    const requiresInternRatio = appointmentType?.requires_intern_ratio ?? true;
+    if (!requiresInternRatio) continue;
+
+    const children = childrenBySpecialty.get(specialtyId) ?? new Set<string>();
+    children.add(app.patient_id);
+    childrenBySpecialty.set(specialtyId, children);
+  }
+
+  const internShortageAlerts: InternShortageAlert[] = [];
+  const internCoverage: InternCoverageItem[] = [];
+  let coverageChildrenTotal = 0;
+  let coverageInternsTotal = 0;
+
+  for (const specialty of specialtiesList ?? []) {
+    const childrenCount = childrenBySpecialty.get(specialty.id)?.size ?? 0;
+    const internsCount = specialty.intern_count;
+
+    // Acompanhamento contínuo (não é alerta): entra toda especialidade ativa,
+    // inclusive as sem crianças na semana — aí não há proporção a cumprir.
+    const coveragePct =
+      childrenCount === 0 ? 0 : Math.round((internsCount / childrenCount) * 1000) / 10;
+    internCoverage.push({
+      specialtyId: specialty.id,
+      specialtyLabel: specialty.label,
+      childrenCount,
+      internsCount,
+      coveragePct,
+      status:
+        childrenCount === 0
+          ? "sem_demanda"
+          : coveragePct >= 100
+            ? "adequada"
+            : coveragePct >= 100 - INTERN_DEFICIT_ALERT_THRESHOLD_PCT
+              ? "atencao"
+              : "critica",
+    });
+    if (childrenCount > 0) {
+      coverageChildrenTotal += childrenCount;
+      coverageInternsTotal += internsCount;
+    }
+
+    if (childrenCount === 0) continue;
+
+    const deficitPct = Math.round(((childrenCount - internsCount) / childrenCount) * 1000) / 10;
+    if (deficitPct >= INTERN_DEFICIT_ALERT_THRESHOLD_PCT) {
+      internShortageAlerts.push({
+        specialtyId: specialty.id,
+        specialtyLabel: specialty.label,
+        childrenCount,
+        internsCount,
+        deficitPct,
+        description: `${specialty.label} teve ${childrenCount} criança(s) com check-in nesta semana e apenas ${internsCount} estagiário(s) contratado(s) — ${deficitPct}% abaixo da proporção recomendada de 1 estagiário por criança.`,
+      });
+    }
+  }
+
+  internShortageAlerts.sort((a, b) => b.deficitPct - a.deficitPct);
+
+  // Menor cobertura primeiro; especialidades sem demanda na semana ao final.
+  internCoverage.sort((a, b) => {
+    if (a.status === "sem_demanda" && b.status !== "sem_demanda") return 1;
+    if (b.status === "sem_demanda" && a.status !== "sem_demanda") return -1;
+    if (a.status === "sem_demanda" && b.status === "sem_demanda") {
+      return a.specialtyLabel.localeCompare(b.specialtyLabel, "pt-BR");
+    }
+    return a.coveragePct - b.coveragePct;
+  });
+
+  const internCoverageOverallPct =
+    coverageChildrenTotal === 0
+      ? 0
+      : Math.round((coverageInternsTotal / coverageChildrenTotal) * 1000) / 10;
+
   return {
     totalAppointments,
     prevMonthAppointments,
@@ -667,5 +801,8 @@ export async function getInteligenciaMetrics(
     roomsAvgOccupancyPct,
     clinicCapacity,
     roomCapacityAlerts,
+    internShortageAlerts,
+    internCoverage,
+    internCoverageOverallPct,
   };
 }

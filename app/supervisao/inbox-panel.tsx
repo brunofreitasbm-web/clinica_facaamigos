@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { resolveMessage, sendReply } from "./inbox-actions";
 import { approveReportFromSupervisao } from "./report-review-actions";
 import { NpsAlertsPanel, type NpsAlertRow } from "./nps-alerts-panel";
+import { FamilyMeetingButton } from "./family-meeting-modal";
 
 export type InboxMessageRow = {
   id: string;
@@ -201,12 +202,14 @@ export function InboxPanel({
   pendingReports,
   absenceReports = [],
   npsAlerts = [],
+  rooms = [],
 }: {
   messages: InboxMessageRow[];
   reassessments: ReassessmentRow[];
   pendingReports: PendingReportRow[];
   absenceReports?: AbsenceReportRow[];
   npsAlerts?: NpsAlertRow[];
+  rooms?: { id: string; name: string }[];
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(messages[0]?.id ?? null);
   const [reply, setReply] = useState("");
@@ -320,9 +323,22 @@ export function InboxPanel({
                   <h6 style={{ color: "var(--color-accent-2-600)" }}>{selected.patientName} · portal da família</h6>
                   <h2 className="m-0">{selected.whenLabel}</h2>
                 </div>
-                <button type="button" className="btn btn-primary" disabled={isPending || selected.resolved} onClick={handleResolve}>
-                  {selected.resolved ? "Resolvido" : "Marcar resolvido"}
-                </button>
+                <div className="flex items-center gap-2">
+                  {selected.patientId && (
+                    <FamilyMeetingButton
+                      message={{
+                        id: selected.id,
+                        patientId: selected.patientId,
+                        guardianId: selected.guardianId,
+                        patientName: selected.patientName,
+                      }}
+                      rooms={rooms}
+                    />
+                  )}
+                  <button type="button" className="btn btn-primary" disabled={isPending || selected.resolved} onClick={handleResolve}>
+                    {selected.resolved ? "Resolvido" : "Marcar resolvido"}
+                  </button>
+                </div>
               </div>
               {error && (
                 <p className="mb-3 text-xs" style={{ color: "var(--status-falta)" }}>

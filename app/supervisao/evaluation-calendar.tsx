@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
 import { dayIndexInWeek, timeLabel, type WeekInfo } from "./grade-data";
 import {
   getEvaluationCalendarWeekAction,
   getEvaluationPoolAction,
+  getTherapistAvailabilityAction,
   scheduleFromPoolAction,
   rescheduleEvaluationAction,
+  type TherapistAvailabilityBlock,
 } from "./evaluation-calendar-actions";
 import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationPoolItem } from "@/lib/evaluation-agenda";
 
@@ -28,12 +31,14 @@ const ORIGIN_LABEL: Record<EvaluationAgendaOrigin, string> = {
   whatsapp_anamnese: "WhatsApp · Anamnese",
   convenio_pdf: "PDF de convênio",
   presencial: "Presencial",
+  family_meeting: "Reunião · Responsável",
 };
 
 const ORIGIN_TAG: Record<EvaluationAgendaOrigin, string> = {
   whatsapp_anamnese: "st-agendada",
   convenio_pdf: "st-confirmada",
   presencial: "st-realizada",
+  family_meeting: "st-em-atendimento",
 };
 
 const WEEKDAY_LABEL = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
@@ -81,6 +86,41 @@ function parseTimeToMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
+/**
+ * Janelas LIVRES (em minutos desde 00:00) dentro do expediente comercial de
+ * um dia específico, a partir dos blocos de disponibilidade cadastrados do
+ * avaliador (day_of_week: 0=domingo..6=sábado; dayIndex do grid: 0=Seg..5=Sáb).
+ * Blocos do mesmo dia são mesclados (podem vir soltos e fora de ordem).
+ */
+function freeWindowsForDay(blocks: TherapistAvailabilityBlock[], dayIndex: number, businessStart: number, businessEnd: number): [number, number][] {
+  const dayOfWeek = dayIndex + 1; // grid Seg=0 -> dow=1 ... Sáb=5 -> dow=6
+  const dayBlocks = blocks
+    .filter((b) => b.dayOfWeek === dayOfWeek)
+    .map((b): [number, number] => [Math.max(businessStart, parseTimeToMinutes(b.startTime)), Math.min(businessEnd, parseTimeToMinutes(b.endTime))])
+    .filter(([s, e]) => e > s)
+    .sort((a, b) => a[0] - b[0]);
+
+  const merged: [number, number][] = [];
+  for (const [s, e] of dayBlocks) {
+    const last = merged[merged.length - 1];
+    if (last && s <= last[1]) last[1] = Math.max(last[1], e);
+    else merged.push([s, e]);
+  }
+  return merged;
+}
+
+/** Complemento das janelas livres dentro de [businessStart, businessEnd) — o que deve aparecer "bloqueado" na grade. */
+function blockedRangesForDay(freeWindows: [number, number][], businessStart: number, businessEnd: number): [number, number][] {
+  const blocked: [number, number][] = [];
+  let cursor = businessStart;
+  for (const [s, e] of freeWindows) {
+    if (s > cursor) blocked.push([cursor, s]);
+    cursor = Math.max(cursor, e);
+  }
+  if (cursor < businessEnd) blocked.push([cursor, businessEnd]);
+  return blocked;
+}
+
 type DragPayload =
   | { kind: "pool"; poolItemId: string }
   | { kind: "reschedule"; appointmentId: string; durationMinutes: number };
@@ -102,6 +142,7 @@ export function EvaluationCalendar({
   const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
+  const [availabilityBlocks, setAvailabilityBlocks] = useState<TherapistAvailabilityBlock[]>([]);
 
   const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
   const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
@@ -142,8 +183,34 @@ export function EvaluationCalendar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bounds.start]);
 
+  useEffect(() => {
+    if (!therapistId) return;
+    let cancelled = false;
+    getTherapistAvailabilityAction(therapistId).then((res) => {
+      if (!cancelled) setAvailabilityBlocks(res.success ? res.blocks : []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [therapistId]);
+
   const readyPool = pool.filter((p) => p.ready);
   const waitingPool = pool.filter((p) => !p.ready);
+
+  // Se o avaliador não tem NENHUM bloco cadastrado, disponibilidade ainda não
+  // foi configurada pra ele — não restringe nada além do horário comercial,
+  // mesmo comportamento do trigger appointments_availability_guard no banco.
+  const hasAvailabilityConfigured = availabilityBlocks.length > 0;
+  const blockedRangesByDay = useMemo(() => {
+    if (!hasAvailabilityConfigured) return [] as [number, number][][];
+    return week.days.map((_, dayIndex) => {
+      const businessStart = DAY_START_HOUR * 60;
+      const businessEnd = CLOSING_HOUR_BY_DAY[dayIndex] * 60;
+      const free = freeWindowsForDay(availabilityBlocks, dayIndex, businessStart, businessEnd);
+      return blockedRangesForDay(free, businessStart, businessEnd);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availabilityBlocks, hasAvailabilityConfigured, week.days.length]);
 
   function computeTimeFromOffsetY(offsetY: number): string {
     const rawMinutes = (offsetY / ROW_HEIGHT_PX) * ROW_MINUTES;
@@ -171,6 +238,21 @@ export function EvaluationCalendar({
             : `Fora do horário de atendimento — encerra às ${closingHour}h.`,
       });
       return;
+    }
+
+    // Só valida contra a disponibilidade do dropdown em novos agendamentos —
+    // reagendar um card já marcado mantém o terapeuta original do
+    // compromisso, que pode não ser o selecionado no dropdown agora.
+    if (payload.kind === "pool" && hasAvailabilityConfigured) {
+      const startMinutes = parseTimeToMinutes(time);
+      const isBlocked = blockedRangesByDay[dayIndex]?.some(([s, e]) => startMinutes < e && endMinutes > s);
+      if (isBlocked) {
+        setFeedback({
+          type: "error",
+          text: "Fora da disponibilidade cadastrada do avaliador para esse dia/horário — veja Disponibilidade no menu.",
+        });
+        return;
+      }
     }
 
     if (payload.kind === "pool") {
@@ -235,8 +317,18 @@ export function EvaluationCalendar({
               </option>
             ))}
           </select>
+          <Link href="/supervisao/disponibilidade" className="text-xs font-semibold text-accent underline underline-offset-2 hover:no-underline">
+            Disponibilidade do avaliador
+          </Link>
         </div>
       </div>
+
+      {therapistId && hasAvailabilityConfigured && (
+        <p className="text-[11px] text-ink-faint">
+          Mostrando só a disponibilidade cadastrada de {availableTherapists.find((t) => t.id === therapistId)?.name ?? "—"} — células cinza-listradas
+          estão fora do horário dele.
+        </p>
+      )}
 
       {feedback && (
         <p className={`text-xs ${feedback.type === "success" ? "text-status-positive-text" : "text-status-negative-text"}`}>{feedback.text}</p>
@@ -332,6 +424,25 @@ export function EvaluationCalendar({
                           Fechado
                         </div>
                       )}
+                      {hasAvailabilityConfigured &&
+                        blockedRangesByDay[dayIndex]?.map(([startMin, endMin], i) => {
+                          const top = ((startMin - DAY_START_HOUR * 60) / ROW_MINUTES) * ROW_HEIGHT_PX;
+                          const height = ((endMin - startMin) / ROW_MINUTES) * ROW_HEIGHT_PX;
+                          return (
+                            <div
+                              key={i}
+                              className="pointer-events-none absolute left-0 right-0 flex items-start justify-center pt-1 text-[10px] font-semibold text-ink-faint"
+                              style={{
+                                top,
+                                height,
+                                background:
+                                  "repeating-linear-gradient(45deg, var(--color-neutral-100), var(--color-neutral-100) 6px, transparent 6px, transparent 12px)",
+                              }}
+                            >
+                              {height > 20 ? "Fora da disponibilidade" : ""}
+                            </div>
+                          );
+                        })}
                       {dayAppointments.map((a) => {
                         const startMinutes = parseTimeToMinutes(timeLabel(a.startsAt, CLINIC_TIMEZONE)) - DAY_START_HOUR * 60;
                         const durationMinutes = Math.max(30, (new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime()) / 60_000);

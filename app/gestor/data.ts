@@ -54,32 +54,6 @@ export async function getAverageSessionPrice(supabase: Supa, clinicId: string): 
   return null;
 }
 
-/** Sessões `realizada` por paciente — usado pra checar recuperação de falta (janela de 7 dias, §10.1 `recovery_rate`). */
-export async function fetchRealizedStartsByPatient(supabase: Supa, patientIds: string[]) {
-  const map = new Map<string, string[]>();
-  if (patientIds.length === 0) return map;
-  const { data } = await supabase
-    .from("appointments")
-    .select("patient_id, starts_at")
-    .eq("status", "realizada")
-    .in("patient_id", patientIds);
-  for (const row of data ?? []) {
-    const arr = map.get(row.patient_id) ?? [];
-    arr.push(row.starts_at);
-    map.set(row.patient_id, arr);
-  }
-  return map;
-}
-
-export function wasRecoveredWithinWeek(faltaStartsAt: string, realizedStarts: string[]): boolean {
-  const faltaTime = new Date(faltaStartsAt).getTime();
-  const weekLater = faltaTime + 7 * 24 * 60 * 60 * 1000;
-  return realizedStarts.some((ts) => {
-    const t = new Date(ts).getTime();
-    return t > faltaTime && t <= weekLater;
-  });
-}
-
 async function namesByProfileId(supabase: Supa, ids: string[]) {
   const map = new Map<string, string>();
   if (ids.length === 0) return map;
@@ -114,7 +88,7 @@ export type LeakCard = {
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
-// ── Vazamento 1: faltas sem recuperação (§10.1 recovery_rate) ───────────
+// ── Vazamento 1: faltas de família (a clínica não repõe sessão perdida) ──
 async function buildFaltaLeak(supabase: Supa, clinicId: string, avgPrice: number | null): Promise<LeakCard> {
   const { startISO, endISO } = currentMonthRange();
   const { data } = await supabase
@@ -126,40 +100,27 @@ async function buildFaltaLeak(supabase: Supa, clinicId: string, avgPrice: number
     .lt("starts_at", endISO);
   const faltas = data ?? [];
 
-  const realizedByPatient = await fetchRealizedStartsByPatient(
-    supabase,
-    [...new Set(faltas.map((f) => f.patient_id))],
-  );
   const therapistNames = await namesByProfileId(supabase, [...new Set(faltas.map((f) => f.therapist_id))]);
 
   const byTherapist = new Map<string, number>();
-  let unrecovered = 0;
   for (const f of faltas) {
-    const recovered = wasRecoveredWithinWeek(f.starts_at, realizedByPatient.get(f.patient_id) ?? []);
-    if (!recovered) {
-      unrecovered += 1;
-      const name = therapistNames.get(f.therapist_id) ?? "Sem terapeuta";
-      byTherapist.set(name, (byTherapist.get(name) ?? 0) + 1);
-    }
+    const name = therapistNames.get(f.therapist_id) ?? "Sem terapeuta";
+    byTherapist.set(name, (byTherapist.get(name) ?? 0) + 1);
   }
-
-  const recoveredCount = faltas.length - unrecovered;
-  const recoveryRatePct = faltas.length > 0 ? Math.round((recoveredCount / faltas.length) * 100) : null;
 
   return {
     key: "faltas",
     kicker: "Vazamento 1",
-    title: "Faltas sem recuperação",
-    value: unrecovered,
-    amountLabel: avgPrice != null ? `${currency.format(unrecovered * avgPrice)} estimado` : "impacto não estimado",
-    amountValue: avgPrice != null ? unrecovered * avgPrice : null,
-    metaLabel:
-      recoveryRatePct != null
-        ? `meta: recuperar ≥ 40% das faltas em 7 dias · realizado ${recoveryRatePct}%`
-        : "meta: recuperar ≥ 40% das faltas em 7 dias",
+    title: "Faltas de família",
+    value: faltas.length,
+    amountLabel: avgPrice != null ? `${currency.format(faltas.length * avgPrice)} estimado` : "impacto não estimado",
+    amountValue: avgPrice != null ? faltas.length * avgPrice : null,
+    metaLabel: "meta: no-show ≤ 8% das sessões agendadas",
     breakdownLabel: "por terapeuta",
     breakdown: topBreakdown(byTherapist),
-    note: `${faltas.length} falta(s) de família neste mês, ${unrecovered} sem uma sessão de reposição realizada em até 7 dias.`,
+    // A clínica não faz reagendamento/reposição de falta: toda falta de família
+    // é receita perdida, não há janela de recuperação a acompanhar.
+    note: `${faltas.length} falta(s) de família neste mês. A política da clínica não prevê reposição da sessão perdida.`,
   };
 }
 
@@ -609,7 +570,6 @@ const CLOSED_METRIC_LABEL: Record<string, string> = {
   churn_rate: "Evasão (coordenação)",
   queue_days: "Dias até 1ª sessão",
   first_response_min: "Tempo de primeira resposta",
-  recovery_rate: "Recuperação de faltas",
   interessado_to_eval_rate: "Interessado → avaliação agendada",
   eval_show_rate: "Avaliação realizada / agendada",
   glosa_recovery: "Recuperação de glosa",
@@ -663,8 +623,6 @@ export type TierRow = {
   sessions: number;
   note24hRateLabel: string;
   hasSessions: boolean;
-  faltasRecuperadasLabel: string;
-  hasFaltas: boolean;
   nextTierLabel: string;
   eligible: boolean;
 };
@@ -720,13 +678,9 @@ export async function getTierProgression(supabase: Supa, clinicId: string): Prom
     }
   }
 
-  const faltaPatientIds = [...new Set(sessionList.filter((s) => s.status === "falta_familia").map((s) => s.patient_id))];
-  const realizedByPatient = await fetchRealizedStartsByPatient(supabase, faltaPatientIds);
-
   return list.map((t) => {
     const mine = sessionList.filter((s) => s.therapist_id === t.id);
     const realized = mine.filter((s) => s.status === "realizada");
-    const faltas = mine.filter((s) => s.status === "falta_familia");
 
     let onTime = 0;
     for (const s of realized) {
@@ -735,17 +689,10 @@ export async function getTierProgression(supabase: Supa, clinicId: string): Prom
     }
     const note24hRate = realized.length > 0 ? onTime / realized.length : null;
 
-    let recovered = 0;
-    for (const f of faltas) {
-      if (wasRecoveredWithinWeek(f.starts_at, realizedByPatient.get(f.patient_id) ?? [])) recovered += 1;
-    }
-    const recoveryRate = faltas.length > 0 ? recovered / faltas.length : null;
-
     const eligible = note24hRate != null && note24hRate >= 0.98 && realized.length >= 10;
 
     const hasContract = tierByTherapist.has(t.id);
     const hasSessions = note24hRate != null;
-    const hasFaltas = faltas.length > 0;
 
     return {
       id: t.id,
@@ -756,10 +703,6 @@ export async function getTierProgression(supabase: Supa, clinicId: string): Prom
       sessions: realized.length,
       note24hRateLabel: hasSessions ? `${Math.round((note24hRate as number) * 100)}%` : "",
       hasSessions,
-      faltasRecuperadasLabel: hasFaltas
-        ? `${recovered}/${faltas.length} (${Math.round((recoveryRate ?? 0) * 100)}%)`
-        : "",
-      hasFaltas,
       nextTierLabel: eligible ? "Elegível — proposta ao gestor" : "Mantém faixa atual",
       eligible,
     };

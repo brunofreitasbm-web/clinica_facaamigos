@@ -19,7 +19,20 @@ const MIN_FILES_TO_AUTO_ADVANCE = 2;
 
 type IntakeStep = "intake_awaiting_documents" | "intake_pending_supervisor" | "intake_awaiting_slot" | "intake_completed";
 
-type OfferedSlot = { index: number; label: string; starts_at: string; ends_at: string; therapist_id: string; room_id: string };
+// `aba_class_id` presente = a opção oferecida é um bloco de 2h de Treino
+// ABA numa turma (sala e horário vêm da turma), não uma sessão de avaliação
+// de 50min. A reserva então passa por `book_aba_training_slot_atomic` em vez
+// de `book_intake_lead_slot_atomic` — ver
+// supabase/migrations/20260910040000_aba_training_billing_and_intake.sql.
+type OfferedSlot = {
+  index: number;
+  label: string;
+  starts_at: string;
+  ends_at: string;
+  therapist_id: string;
+  room_id: string;
+  aba_class_id?: string | null;
+};
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -373,13 +386,20 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       return { handled: true, replyMessage: "Opção inválida. Responda apenas com o *número* do horário desejado (ex.: 1, 2, 3...)." };
     }
 
-    const { data: rpcResult, error: rpcErr } = await admin.rpc("book_intake_lead_slot_atomic", {
-      p_lead_id: leadId,
-      p_therapist_id: selected.therapist_id,
-      p_room_id: selected.room_id,
-      p_starts_at: selected.starts_at,
-      p_ends_at: selected.ends_at,
-    });
+    const { data: rpcResult, error: rpcErr } = selected.aba_class_id
+      ? await admin.rpc("book_aba_training_slot_atomic", {
+          p_lead_id: leadId,
+          p_class_id: selected.aba_class_id,
+          p_therapist_id: selected.therapist_id,
+          p_starts_at: selected.starts_at,
+        })
+      : await admin.rpc("book_intake_lead_slot_atomic", {
+          p_lead_id: leadId,
+          p_therapist_id: selected.therapist_id,
+          p_room_id: selected.room_id,
+          p_starts_at: selected.starts_at,
+          p_ends_at: selected.ends_at,
+        });
 
     const resObj = rpcResult as { success?: boolean; error?: string } | null;
     if (rpcErr || !resObj?.success) {
@@ -400,7 +420,9 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       replyMessage:
         `⏳ *Horário em aprovação!*\n\n` +
         `👤 *Paciente:* ${data.child_name ?? "—"}\n` +
-        `📅 *Data e horário escolhido:* ${formattedDate}\n\n` +
+        `📅 *Data e horário escolhido:* ${formattedDate}` +
+        (selected.aba_class_id ? `\n⏱️ *Duração:* bloco de 2h (3 sessões de 40min)` : "") +
+        `\n\n` +
         "Nossa supervisão irá analisar os documentos e a data escolhida. Em breve você receberá a confirmação final por aqui junto com o link para o formulário de anamnese!",
     };
   }

@@ -14,6 +14,7 @@ import {
 import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions";
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
+import { sendFamilyMeetingConfirmationNotification } from "@/lib/family-meeting-confirmation";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -45,6 +46,39 @@ export async function getEvaluationPoolAction(): Promise<{ success: true; pool: 
     return { success: true, pool };
   } catch {
     return { success: false, error: "Não foi possível carregar a fila de agendamento." };
+  }
+}
+
+export type TherapistAvailabilityBlock = { dayOfWeek: number; startTime: string; endTime: string };
+
+/**
+ * Janela de disponibilidade cadastrada do avaliador (professional_availability,
+ * 20260909220000_professional_availability.sql) — mesma tabela que já
+ * bloqueia agendamento fora do expediente no banco via
+ * appointments_availability_guard. Usada aqui só pra pintar visualmente as
+ * células indisponíveis no calendário de 1ª avaliação e barrar o drop antes
+ * de bater no banco; a validação real continua sendo o trigger.
+ */
+export async function getTherapistAvailabilityAction(
+  therapistId: string,
+): Promise<{ success: true; blocks: TherapistAvailabilityBlock[] } | { success: false; error: string }> {
+  if (!therapistId) return { success: true, blocks: [] };
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("professional_availability")
+      .select("day_of_week, start_time, end_time")
+      .eq("profile_id", therapistId)
+      .eq("active", true);
+
+    if (error) return { success: false, error: "Não foi possível carregar a disponibilidade do avaliador." };
+
+    return {
+      success: true,
+      blocks: (data ?? []).map((b) => ({ dayOfWeek: b.day_of_week, startTime: b.start_time, endTime: b.end_time })),
+    };
+  } catch {
+    return { success: false, error: "Não foi possível carregar a disponibilidade do avaliador." };
   }
 }
 
@@ -113,8 +147,57 @@ export async function scheduleFromPoolAction(
   return { success: true };
 }
 
+/** Janela mínima de antecedência que o supervisor tem pra mudar a data de uma 1ª avaliação já marcada. */
+const MIN_RESCHEDULE_NOTICE_MS = 2 * 60 * 60 * 1000;
+
 export async function rescheduleEvaluationAction(appointmentId: string, date: string, time: string, durationMinutes: number): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const { data: appointment, error: fetchError } = await supabase
+    .from("appointments")
+    .select("starts_at, patient_id, therapist_id, room_id, is_family_meeting")
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (fetchError || !appointment) {
+    return { success: false, error: "Não foi possível localizar a avaliação para reagendar." };
+  }
+
+  const msUntilCurrentStart = new Date(appointment.starts_at).getTime() - Date.now();
+  if (msUntilCurrentStart < MIN_RESCHEDULE_NOTICE_MS) {
+    return { success: false, error: "Não é possível mudar a data de uma avaliação com menos de 2 horas de antecedência." };
+  }
+
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-  return rescheduleAppointmentAction(appointmentId, startsAt.toISOString(), endsAt.toISOString());
+  const result = await rescheduleAppointmentAction(appointmentId, startsAt.toISOString(), endsAt.toISOString());
+
+  if (result.success && appointment.patient_id && appointment.therapist_id) {
+    // Reunião com responsável e 1ª avaliação usam mensagens de WhatsApp
+    // diferentes (lib/family-meeting-confirmation.ts vs
+    // lib/evaluation-confirmation.ts) — os dois tipos de compromisso
+    // convivem no mesmo calendário de arrastar-e-soltar (ver
+    // evaluation-calendar.tsx), então a notificação precisa checar
+    // is_family_meeting antes de disparar.
+    if (appointment.is_family_meeting) {
+      await sendFamilyMeetingConfirmationNotification({
+        patientId: appointment.patient_id,
+        supervisorId: appointment.therapist_id,
+        date,
+        time,
+        isReschedule: true,
+      });
+    } else if (appointment.room_id) {
+      await sendEvaluationConfirmationNotification({
+        patientId: appointment.patient_id,
+        therapistId: appointment.therapist_id,
+        roomId: appointment.room_id,
+        date,
+        time,
+        isReschedule: true,
+      });
+    }
+  }
+
+  return result;
 }

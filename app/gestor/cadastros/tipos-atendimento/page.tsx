@@ -11,7 +11,7 @@ export default async function AtendimentosPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("appointment_types")
-    .select("id, name, modality, duration_minutes, display_interval_minutes, recurrence, active")
+    .select("id, name, modality, duration_minutes, display_interval_minutes, recurrence, requires_intern_ratio, active")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
 
@@ -22,6 +22,7 @@ export default async function AtendimentosPage() {
     durationMinutes: t.duration_minutes,
     displayIntervalMinutes: t.display_interval_minutes,
     recurrence: t.recurrence,
+    requiresInternRatio: t.requires_intern_ratio,
     active: t.active,
   }));
 

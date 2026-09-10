@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DoorOpen, UserCheck, X, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -17,6 +17,7 @@ export type ChegadaAppointmentInfo = {
   patientId: string;
   patientName: string;
   therapistName: string;
+  authorizationWarning?: string;
 };
 
 export type ChegadaItem = {
@@ -32,7 +33,18 @@ export type ChegadaItem = {
   appointmentId: string | null;
   appointment: ChegadaAppointmentInfo | null;
   candidates: ChegadaAppointmentInfo[];
+  /** Match exato + sem aviso de guia: elegível para entrada automática (ver instrução de check-in do QR). */
+  eligibleForAutoConfirm: boolean;
+  /** Cadastro incompleto (mesma regra da fila de pendências) — nunca bloqueia a entrada, só sinaliza chamar o responsável. */
+  registrationPending: boolean;
 };
+
+// Janela de intervenção antes da entrada automática: tempo suficiente pra
+// recepção segurar um caso estranho (ex.: reconhece que a criança não
+// chegou), curto o bastante pra não parecer uma fila manual. Não deve
+// competir pela atenção da recepção — por isso é só uma barrinha discreta no
+// próprio card, sem som extra nem modal.
+const AUTO_CONFIRM_SECONDS = 18;
 
 const NEGATIVE_APPOINTMENT_STATUSES = [
   "falta_familia",
@@ -93,13 +105,16 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
     item.appointmentId ?? item.candidates[0]?.id ?? null,
   );
   const [showDiscardForm, setShowDiscardForm] = useState(false);
+  const [autoConfirmHeld, setAutoConfirmHeld] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(AUTO_CONFIRM_SECONDS);
+  const autoFiredRef = useRef(false);
 
   const isAmbiguous = item.matchQuality === "ambiguo";
   const isNoMatch = item.kind === "sem_agendamento";
   const cancelledAppointment =
     item.appointment && NEGATIVE_APPOINTMENT_STATUSES.includes(item.appointment.status) ? item.appointment : null;
 
-  function confirm() {
+  const confirm = useCallback(() => {
     if (!selectedAppointmentId) return;
     setError(null);
     startTransition(async () => {
@@ -113,7 +128,27 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
       toast(`Check-in de ${item.declaredFirstName} confirmado.`, "success");
       router.refresh();
     });
-  }
+  }, [item.id, item.declaredFirstName, selectedAppointmentId, toast, router]);
+
+  const autoConfirmActive = item.eligibleForAutoConfirm && !autoConfirmHeld && !showDiscardForm;
+
+  // Contagem discreta antes da entrada automática — só roda enquanto elegível
+  // e não segurada pela recepção. Um único intervalo por card, sem depender
+  // de re-render (router.refresh() a cada 60s não reinicia a contagem porque
+  // a instância do componente é a mesma, mantida pela key={item.id}).
+  useEffect(() => {
+    if (!autoConfirmActive) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [autoConfirmActive]);
+
+  useEffect(() => {
+    if (!autoConfirmActive || secondsLeft > 0 || isPending || autoFiredRef.current) return;
+    autoFiredRef.current = true;
+    confirm();
+  }, [autoConfirmActive, secondsLeft, isPending, confirm]);
 
   function discard(note: string) {
     setError(null);
@@ -182,6 +217,43 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
         <p className="card-body text-sm">
           {item.appointment.patientName} · sessão às {formatTime(item.appointment.startsAt)} com {item.appointment.therapistName}
         </p>
+      )}
+
+      {item.appointment?.authorizationWarning && (
+        <p className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "var(--color-accent-2-700)" }}>
+          <AlertTriangle size={14} /> {item.appointment.authorizationWarning}
+        </p>
+      )}
+
+      {item.registrationPending && (
+        <p className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "var(--color-accent-2-700)" }}>
+          <AlertTriangle size={14} /> Cadastro incompleto — chame o responsável (não atrasa a sessão).
+        </p>
+      )}
+
+      {/* Barra discreta: não é modal nem toast, não rouba o campo de visão da
+          recepção — só um traço fino no próprio card enquanto a entrada
+          automática está de pé. "Segurar" cancela sem descartar a chegada. */}
+      {autoConfirmActive && (
+        <div className="flex items-center gap-2 text-[11px] text-ink-faint">
+          <div className="h-1 flex-1 overflow-hidden rounded-full" style={{ background: "var(--color-paper-line)" }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${(secondsLeft / AUTO_CONFIRM_SECONDS) * 100}%`,
+                background: "var(--color-accent)",
+              }}
+            />
+          </div>
+          <span className="whitespace-nowrap">entra em {secondsLeft}s</span>
+          <button
+            type="button"
+            onClick={() => setAutoConfirmHeld(true)}
+            className="whitespace-nowrap underline"
+          >
+            Segurar
+          </button>
+        </div>
       )}
 
       {error && <p className="text-xs" style={{ color: "var(--color-error)" }}>{error}</p>}

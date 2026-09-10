@@ -8,12 +8,21 @@ import { NewRoomForm } from "./new-room-form";
 import { RoomRowItem } from "./room-row";
 import { RESOURCE_CATEGORY_LABEL } from "@/lib/resource-categories";
 import { CANCEL_REASONS } from "@/lib/appointment-cancel-reasons";
-import type { ResourceRow, RoomRow } from "./types";
+import { TurmasAbaPanel } from "./turmas-aba-panel";
+import type { AbaClassRow, ResourceRow, RoomRow, SpecialtyOption } from "./types";
 
-export function AtendimentosManager({ resources, rooms }: { resources: ResourceRow[]; rooms: RoomRow[] }) {
-  const [activeTab, setActiveTab] = useState<"salas" | "recursos" | "motivos" | "reagendamento">("salas");
-
-  const [janelaReagendamentoDias, setJanelaReagendamentoDias] = useState(7);
+export function AtendimentosManager({
+  resources,
+  rooms,
+  specialties,
+  abaClasses,
+}: {
+  resources: ResourceRow[];
+  rooms: RoomRow[];
+  specialties: SpecialtyOption[];
+  abaClasses: AbaClassRow[];
+}) {
+  const [activeTab, setActiveTab] = useState<"salas" | "turmas-aba" | "recursos" | "motivos">("salas");
 
   return (
     <>
@@ -22,7 +31,7 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
         <PageHeader
           axisLabel="Cadastros"
           title="Salas & Recursos"
-          description="Gestão de salas físicas, motivos de falta/cancelamento por origem e regras de reagendamento."
+          description="Gestão de salas físicas, recursos reserváveis e motivos de falta/cancelamento por origem."
         />
 
         <div className="flex flex-col gap-6 p-6 sm:p-10 max-w-4xl">
@@ -37,6 +46,16 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
               }`}
             >
               Salas Físicas ({rooms.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("turmas-aba")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors ${
+                activeTab === "turmas-aba"
+                  ? "border-accent text-accent"
+                  : "border-transparent text-ink-faint hover:text-ink-strong"
+              }`}
+            >
+              Turmas de Treino ABA ({abaClasses.length})
             </button>
             <button
               onClick={() => setActiveTab("recursos")}
@@ -58,16 +77,6 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
             >
               Motivos de Falta / Cancelamento
             </button>
-            <button
-              onClick={() => setActiveTab("reagendamento")}
-              className={`pb-3 text-sm font-semibold border-b-2 transition-colors ${
-                activeTab === "reagendamento"
-                  ? "border-accent text-accent"
-                  : "border-transparent text-ink-faint hover:text-ink-strong"
-              }`}
-            >
-              Recuperação & Reagendamento
-            </button>
           </div>
 
           {/* Aba 1: Salas — cadastro real (tabela `rooms`), usada por toda a agenda */}
@@ -77,8 +86,11 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
                 <p className="text-xs text-ink-faint">
                   Salas físicas da clínica — as mesmas que aparecem no agendamento da recepção e na grade
                   recorrente. Excluir uma sala com sessões associadas (passadas ou futuras) não é permitido.
+                  Estagiários recomendados é uma sugestão (padrão: 1 por criança), não obrigatório. A
+                  especialidade vinculada define, por sala, qual especialidade conta as crianças com check-in
+                  no Alerta de Necessidade de Estagiário (Inteligência/BI).
                 </p>
-                <NewRoomForm />
+                <NewRoomForm specialties={specialties} />
               </div>
 
               <table className="table">
@@ -86,16 +98,19 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
                   <tr>
                     <th>Nome da Sala</th>
                     <th>Capacidade</th>
+                    <th>Estagiários (recomendado)</th>
+                    <th>Especialidade</th>
+                    <th>Treino ABA</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
                   {rooms.map((r) => (
-                    <RoomRowItem key={r.id} room={r} />
+                    <RoomRowItem key={r.id} room={r} specialties={specialties} />
                   ))}
                   {rooms.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="text-ink-faint">
+                      <td colSpan={6} className="text-ink-faint">
                         Nenhuma sala cadastrada ainda.
                       </td>
                     </tr>
@@ -104,6 +119,9 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
               </table>
             </div>
           )}
+
+          {/* Aba Turmas: cadastro das turmas fixas de Treino ABA (tabela `aba_training_classes`) */}
+          {activeTab === "turmas-aba" && <TurmasAbaPanel classes={abaClasses} rooms={rooms} />}
 
           {/* Aba Recursos: cadastro real (brinquedos sensoriais, testes, pranchas) */}
           {activeTab === "recursos" && (
@@ -170,32 +188,6 @@ export function AtendimentosManager({ resources, rooms }: { resources: ResourceR
             </div>
           )}
 
-          {/* Aba 3: Reagendamento */}
-          {activeTab === "reagendamento" && (
-            <div className="flex flex-col gap-4 rounded-xl border border-paper-line bg-paper-panel p-6 shadow-sm">
-              <h3 className="text-base font-semibold text-ink-strong">Regra para Reagendamento de Falta (Recuperação)</h3>
-              <p className="text-xs text-ink-faint">Sugestão e limite de tempo para reagendamento sem gerar no-show irreversível ou perda da sessão na guia autorizada.</p>
-
-              <div className="flex flex-col gap-2 max-w-md mt-2">
-                <label className="text-xs font-medium text-ink-strong">Janela máxima para reposição de sessão (dias)</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={30}
-                  className="input"
-                  value={janelaReagendamentoDias}
-                  onChange={(e) => setJanelaReagendamentoDias(Number(e.target.value))}
-                />
-                <span className="text-[11px] text-ink-faint">Prazo em que a sessão desmarcada pode ser remarcada na mesma semana ou período.</span>
-              </div>
-
-              <div className="pt-3">
-                <button onClick={() => alert("Regra de reagendamento salva!")} className="button button-primary">
-                  Salvar Regra de Reagendamento
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>

@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { updateRoom, deleteRoom } from "./actions";
-import type { RoomRow } from "./types";
+import type { RoomRow, SpecialtyOption } from "./types";
 
-export function RoomRowItem({ room }: { room: RoomRow }) {
+export function RoomRowItem({ room, specialties }: { room: RoomRow; specialties: SpecialtyOption[] }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -12,7 +12,7 @@ export function RoomRowItem({ room }: { room: RoomRow }) {
   if (editing) {
     return (
       <tr>
-        <td colSpan={3}>
+        <td colSpan={6}>
           <form
             className="flex flex-wrap items-center gap-2 py-1"
             action={(formData) => {
@@ -29,6 +29,28 @@ export function RoomRowItem({ room }: { room: RoomRow }) {
           >
             <input type="text" name="name" required defaultValue={room.name} className="input" />
             <input type="number" name="capacity" required min={1} defaultValue={room.capacity} className="input w-24" />
+            <input
+              type="number"
+              name="recommendedInterns"
+              min={0}
+              defaultValue={room.recommendedInterns ?? ""}
+              placeholder="Estagiários"
+              title="Recomendado: 1 estagiário por criança. Deixe em branco se não aplicável."
+              className="input w-24"
+            />
+            <select name="specialtyId" defaultValue={room.specialtyId ?? ""} className="input" title="Especialidade vinculada à sala">
+              <option value="">Sem especialidade</option>
+              {specialties.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <label className="radio whitespace-nowrap" style={{ fontSize: 13 }} title="Salas de Treino ABA são as únicas em que se pode abrir turma">
+              <input type="checkbox" name="isAbaTraining" defaultChecked={room.isAbaTraining} />
+              <span className="dot" style={{ borderRadius: 2 }} />
+              Sala de Treino ABA
+            </label>
             <button type="submit" disabled={isPending} className="btn btn-primary">
               {isPending ? "Salvando…" : "Salvar"}
             </button>
@@ -46,6 +68,11 @@ export function RoomRowItem({ room }: { room: RoomRow }) {
     <tr>
       <td className="font-semibold text-sm">{room.name}</td>
       <td>{room.capacity} pessoa(s)</td>
+      <td className="text-xs text-ink-faint">
+        {room.recommendedInterns != null ? `${room.recommendedInterns} estagiário(s)` : "—"}
+      </td>
+      <td className="text-xs text-ink-faint">{specialties.find((s) => s.id === room.specialtyId)?.label ?? "—"}</td>
+      <td className="text-xs text-ink-faint">{room.isAbaTraining ? "Treino ABA" : "—"}</td>
       <td className="text-right">
         <button type="button" onClick={() => setEditing(true)} className="text-xs text-chart">
           Editar

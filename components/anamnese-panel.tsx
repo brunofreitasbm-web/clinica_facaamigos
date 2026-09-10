@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { AnamneseForm } from "@/components/anamnese-form";
@@ -16,7 +17,20 @@ import { AnamneseForm } from "@/components/anamnese-form";
 const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-export async function AnamnesePanel({ patientId, returnHref }: { patientId: string; returnHref: string }) {
+export async function AnamnesePanel({
+  patientId,
+  returnHref,
+  tcleHref,
+}: {
+  patientId: string;
+  returnHref: string;
+  /**
+   * Rota do TCLE impresso — último passo do acolhimento/1ª avaliação. Vem
+   * por prop pelo mesmo motivo de `returnHref`: cada porta (supervisão e
+   * terapeuta) tem a sua, e o guard de papel não deixa cruzar.
+   */
+  tcleHref: string;
+}) {
   const supabase = await createClient();
 
   const { data: existing } = await supabase
@@ -34,7 +48,7 @@ export async function AnamnesePanel({ patientId, returnHref }: { patientId: stri
     : null;
 
   if (!existing) {
-    return <AnamneseForm patientId={patientId} returnHref={returnHref} />;
+    return <AnamneseForm patientId={patientId} returnHref={returnHref} tcleHref={tcleHref} />;
   }
 
   const s = (existing.structured as Record<string, string | null>) || {};
@@ -46,6 +60,20 @@ export async function AnamnesePanel({ patientId, returnHref }: { patientId: stri
         <p className="text-sm text-ink-soft">
           Conduzida por {conductedByName ?? "—"} em {fmtDateTime(existing.conducted_at)}.
         </p>
+      </div>
+
+      {/* Último passo do acolhimento: o TCLE impresso, assinado pelo
+          responsável e arquivado em papel no prontuário da clínica. */}
+      <div className="card">
+        <div className="card-kicker">Último passo</div>
+        <h3 className="text-sm font-semibold text-ink">Termo de Consentimento Livre e Esclarecido (TCLE)</h3>
+        <p className="mt-1 text-sm text-ink-soft">
+          Sai no timbre da clínica já preenchido com os dados da criança e do responsável. Imprima em 2 vias, colha a
+          assinatura do responsável ainda no acolhimento e arquive uma via no prontuário físico.
+        </p>
+        <Link href={tcleHref} className="btn btn-primary mt-3 inline-flex self-start no-underline">
+          Abrir e imprimir o TCLE
+        </Link>
       </div>
 
       {/* Queixa e História Atual */}

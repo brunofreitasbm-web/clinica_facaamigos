@@ -18,6 +18,12 @@ function mapAuthorizationGuardError(message: string): string {
   if (message.includes("sem sessões restantes")) {
     return "Autorização sem sessões restantes.";
   }
+  // Treino ABA fecha consumindo 3 sessões rateadas entre as guias ABA
+  // (aba_training_consume_pool) — a falta aqui é de saldo somado, não de uma
+  // guia específica.
+  if (message.includes("saldo ABA insuficiente")) {
+    return "Saldo das guias ABA não cobre o bloco de 2h (3 sessões).";
+  }
   return "Não foi possível fechar a sessão. Tente de novo.";
 }
 

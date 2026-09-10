@@ -28,7 +28,6 @@ export const METRIC_CATALOG: Partial<Record<Role, MetricDef[]>> = {
     { key: "eval_show_rate", label: "Avaliação realizada / agendada", direction: "min", unit: "pct", computed: true },
     { key: "confirm_d1_rate", label: "Confirmação D-1", direction: "min", unit: "pct", computed: true },
     { key: "no_show_rate", label: "No-show", direction: "max", unit: "pct", computed: true },
-    { key: "recovery_rate", label: "Recuperação de faltas", direction: "min", unit: "pct", computed: true },
     { key: "intake_complete_rate", label: "Cadastro completo antes da 1ª sessão", direction: "min", unit: "pct", computed: false },
     { key: "no_auth_sessions", label: "Sessões sem guia vigente", direction: "max", unit: "pct", eliminatory: true, computed: true },
   ],

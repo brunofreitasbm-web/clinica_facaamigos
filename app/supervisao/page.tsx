@@ -75,7 +75,7 @@ export default async function SupervisaoPage() {
     supabase
       .from("appointments")
       .select(
-        "id, starts_at, status, discipline, is_evaluation, is_provisional, room_id, therapist_id, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
+        "id, starts_at, status, discipline, is_evaluation, is_provisional, is_family_meeting, room_id, therapist_id, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
       )
       .gte("starts_at", weekStartIso)
       .lt("starts_at", weekEndIso)
@@ -176,6 +176,7 @@ export default async function SupervisaoPage() {
           isEvaluation: a.is_evaluation,
           isProvisional: a.is_provisional,
           discipline: a.discipline,
+          isFamilyMeeting: a.is_family_meeting,
         }),
       };
     })
@@ -485,6 +486,7 @@ export default async function SupervisaoPage() {
           pendingReports={pendingReportRows}
           absenceReports={absenceReportRows}
           npsAlerts={npsAlerts}
+          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
         />
       }
     />

@@ -45,7 +45,11 @@ export default async function TerapeutaAnamnesePage({ params }: { params: Promis
         </Link>
       </div>
       <div className="px-6 sm:px-10">
-        <AnamnesePanel patientId={patientId} returnHref={`/terapeuta/paciente/${patientId}`} />
+        <AnamnesePanel
+          patientId={patientId}
+          returnHref={`/terapeuta/paciente/${patientId}`}
+          tcleHref={`/terapeuta/paciente/${patientId}/anamnese/tcle`}
+        />
       </div>
     </main>
   );

@@ -6,7 +6,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
-const CATEGORIES = ["confirmacao_d1", "falta", "cobranca", "aniversario", "renovacao_guia", "outro"] as const;
+const CATEGORIES = ["confirmacao_d1", "falta", "cobranca", "aniversario", "renovacao_guia", "reuniao_responsavel", "outro"] as const;
 const CHANNELS = ["whatsapp", "sms"] as const;
 
 /** Cadastro de modelo de mensagem. RLS (message_templates_manage) restringe a gestor/supervisor. */

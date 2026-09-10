@@ -233,6 +233,17 @@ export function PlanForm({
   // Calendário Conciliado de 6 Meses
   const [generatedSessions, setGeneratedSessions] = useState<CalendarSessionEvent[]>([]);
   const [showPrintModal, setShowPrintModal] = useState(false);
+
+  // Sessões que o gerador não conseguiu encaixar automaticamente (sem
+  // terapeuta direcionado, sem horário livre, ou sem sala livre). Sem esse
+  // aviso o supervisor só descobria depois de salvar, num plano com meses de
+  // sessões (ver mensagem de erro em actions.ts) — precisa reconhecer
+  // explicitamente antes de salvar mesmo assim.
+  const manualSessionsCount = generatedSessions.filter((s) => s.conflictStatus === "MANUAL_REQUIRED").length;
+  const [acknowledgeManualSessions, setAcknowledgeManualSessions] = useState(false);
+  useEffect(() => {
+    setAcknowledgeManualSessions(false);
+  }, [generatedSessions]);
   const [startDateStr, setStartDateStr] = useState<string>(
     new Date().toISOString().substring(0, 10)
   );
@@ -587,6 +598,13 @@ export function PlanForm({
         setError(`Selecione ao menos um dia da semana para a sessão de ${discLabel}.`);
         return;
       }
+    }
+
+    if (manualSessionsCount > 0 && !acknowledgeManualSessions) {
+      setError(
+        `${manualSessionsCount} sessão(ões) do calendário conciliado ficaram sem terapeuta, sala ou horário livre e vão exigir ajuste manual na agenda depois de salvar. Marque a confirmação abaixo para salvar mesmo assim, ou ajuste a grade/regenere o calendário.`,
+      );
+      return;
     }
 
     const filledGoals = goals.filter((g) => g.discipline || g.domain || g.description);
@@ -1296,7 +1314,7 @@ export function PlanForm({
 
       {/* BARRA DE AÇÃO FIXA / RODAPÉ DO FORMULÁRIO */}
       <div className="sticky bottom-4 z-20 rounded-xl border border-paper-line-strong bg-white/95 backdrop-blur-md p-4 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
+        <div className="flex-1">
           {error ? (
             <p className="text-xs font-semibold text-status-negative-text flex items-center gap-1.5 m-0">
               <span>⚠️</span> {error}
@@ -1305,6 +1323,20 @@ export function PlanForm({
             <p className="text-xs text-ink-soft m-0">
               Revise a grade de atendimento e as metas SMART antes de salvar o PTS.
             </p>
+          )}
+          {manualSessionsCount > 0 && (
+            <label className="mt-2 flex items-start gap-2 text-xs text-ink-soft">
+              <input
+                type="checkbox"
+                checked={acknowledgeManualSessions}
+                onChange={(e) => setAcknowledgeManualSessions(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                Estou ciente de que <strong>{manualSessionsCount} sessão(ões)</strong> do calendário conciliado não têm
+                terapeuta, sala ou horário livre e vou ajustá-las manualmente na agenda depois de salvar.
+              </span>
+            </label>
           )}
         </div>
 

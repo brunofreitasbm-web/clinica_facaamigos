@@ -66,7 +66,7 @@ export default async function CompetenceDetailPage({
   const { data: rawItems } = await supabase
     .from("billing_items")
     .select(
-      "id, procedure_code, amount, appointments(starts_at, patients(full_name), therapist:profiles!therapist_id(full_name))",
+      "id, procedure_code, amount, quantity, appointments(starts_at, patients(full_name), therapist:profiles!therapist_id(full_name))",
     )
     .eq("billing_period_id", id)
     .order("id");
@@ -81,6 +81,9 @@ export default async function CompetenceDetailPage({
     return {
       id: item.id,
       procedureCode: item.procedure_code,
+      // > 1 só no Treino ABA: o bloco de 2h cobra as 3 sessões que consumiu,
+      // rateadas entre as guias ABA. `amount` já é o total da linha.
+      quantity: item.quantity,
       amount: Number(item.amount),
       startsAt: appt?.starts_at ?? null,
       patientName: appt?.patients?.full_name ?? "Paciente",
@@ -143,7 +146,10 @@ export default async function CompetenceDetailPage({
                 <tr key={item.id}>
                   <td className="font-semibold">{item.patientName}</td>
                   <td className="tabular-figure">{item.startsAt ? formatDateTime(item.startsAt) : "—"}</td>
-                  <td>{item.procedureCode}</td>
+                  <td>
+                    {item.procedureCode}
+                    {item.quantity > 1 && <span className="text-xs text-ink-faint"> · {item.quantity} sessões</span>}
+                  </td>
                   <td className="text-ink-faint">{item.therapistName}</td>
                   <td>
                     <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">

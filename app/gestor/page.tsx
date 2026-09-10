@@ -171,7 +171,6 @@ export default async function GestorPage() {
               <th>Faixa</th>
               <th>Sessões (90d)</th>
               <th>Evolução em 24h</th>
-              <th>Faltas recuperadas</th>
               <th>Próxima faixa</th>
             </tr>
           </thead>
@@ -193,9 +192,6 @@ export default async function GestorPage() {
                 </td>
                 <td className="tabular-figure">
                   {t.hasSessions ? t.note24hRateLabel : <span className="text-ink-faint">—</span>}
-                </td>
-                <td className="tabular-figure">
-                  {t.hasFaltas ? t.faltasRecuperadasLabel : <span className="text-ink-faint">—</span>}
                 </td>
                 <td>
                   {t.eligible ? (

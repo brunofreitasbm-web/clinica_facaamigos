@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { getConsolidatedReceivablesByMonth, getInsurerBilledByMonth } from "./remittance-data";
 
 type Supa = SupabaseClient<Database>;
 
@@ -7,6 +8,15 @@ export type DreMonthRow = {
   monthKey: string;
   label: string;
   grossRevenue: number;
+  /** Receita de convênio já faturada no mês (subconjunto de grossRevenue). */
+  insurerBilled: number;
+  /** Soma das linhas de nota marcadas como recebível no checkbox. */
+  consolidatedReceivable: number;
+  consolidatedLineCount: number;
+  /** consolidatedReceivable − insurerBilled; zero quando o mês não tem nota consolidada. */
+  reconciliationAdjustment: number;
+  /** Receita usada no resultado: faturada + ajuste de conciliação. */
+  effectiveRevenue: number;
   therapistPayout: number;
   contributionMargin: number;
   operatingExpenses: number;
@@ -26,6 +36,12 @@ function monthKeys(count: number): string[] {
  * DRE simplificado: receita bruta - repasse a terapeuta (via
  * `v_contribution_margin`, view já existente e nunca usada em nenhuma tela)
  * - despesas operacionais (`accounts_payable`, por mês de vencimento).
+ *
+ * Quando o mês tem linhas de nota do plano marcadas como recebível
+ * (`insurance_remittance_lines.consolidated`), a receita de convênio FATURADA
+ * daquele mês é trocada pelo valor que o plano informou que vai pagar — o
+ * ajuste entra como uma linha própria em vez de somar, senão a mesma receita
+ * seria contada duas vezes (faturamento + nota).
  * Não é uma DRE contábil completa (sem impostos sobre receita, depreciação
  * etc.) — é a margem de contribuição operacional que o gestor já tinha
  * disponível na BI menos as despesas fixas que agora têm onde entrar.
@@ -34,7 +50,7 @@ export async function getDreByMonth(supabase: Supa, clinicId: string, months = 6
   const keys = monthKeys(months);
   const earliestMonth = `${keys[0]}-01`;
 
-  const [{ data: marginRows }, { data: expenseRows }] = await Promise.all([
+  const [{ data: marginRows }, { data: expenseRows }, consolidatedByMonth, insurerBilledByMonth] = await Promise.all([
     supabase
       .from("v_contribution_margin")
       .select("competence_month, gross_revenue, total_therapist_payout, contribution_margin")
@@ -46,6 +62,8 @@ export async function getDreByMonth(supabase: Supa, clinicId: string, months = 6
       .eq("clinic_id", clinicId)
       .neq("status", "cancelado")
       .gte("due_date", earliestMonth),
+    getConsolidatedReceivablesByMonth(supabase, clinicId, keys[0]!),
+    getInsurerBilledByMonth(supabase, clinicId, keys[0]!),
   ]);
 
   const marginByMonth = new Map<string, { grossRevenue: number; therapistPayout: number; contributionMargin: number }>();
@@ -68,16 +86,26 @@ export async function getDreByMonth(supabase: Supa, clinicId: string, months = 6
   return keys.map((key) => {
     const margin = marginByMonth.get(key) ?? { grossRevenue: 0, therapistPayout: 0, contributionMargin: 0 };
     const operatingExpenses = expensesByMonth.get(key) ?? 0;
+    const consolidated = consolidatedByMonth.get(key);
+    const insurerBilled = insurerBilledByMonth.get(key) ?? 0;
+    const reconciliationAdjustment = consolidated ? consolidated.amount - insurerBilled : 0;
+    const effectiveRevenue = margin.grossRevenue + reconciliationAdjustment;
+    const contributionMargin = effectiveRevenue - margin.therapistPayout;
     const [year, month] = key.split("-");
     const label = new Date(Date.UTC(Number(year), Number(month) - 1, 1)).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
     return {
       monthKey: key,
       label,
       grossRevenue: margin.grossRevenue,
+      insurerBilled,
+      consolidatedReceivable: consolidated?.amount ?? 0,
+      consolidatedLineCount: consolidated?.lineCount ?? 0,
+      reconciliationAdjustment,
+      effectiveRevenue,
       therapistPayout: margin.therapistPayout,
-      contributionMargin: margin.contributionMargin,
+      contributionMargin,
       operatingExpenses,
-      netResult: margin.contributionMargin - operatingExpenses,
+      netResult: contributionMargin - operatingExpenses,
     };
   });
 }

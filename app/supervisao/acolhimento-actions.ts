@@ -12,6 +12,7 @@ import { claimAndProcessIntakeBatches, ingestPreExtractedIntakeBatch } from "@/l
 import { parseIntakeProfile, type IntakeExtractionProfile } from "@/lib/insurance-intake-profile";
 import { parsePythonIntakeRecords, mapPythonRecordsToIntakeExtraction } from "@/lib/insurance-intake-python-import";
 import { computeAvailableSlots } from "@/lib/available-slots";
+import { computeAbaTrainingSlots } from "@/lib/aba-training-slots";
 import { startIntakeConversation, pushIntakeUpdate, setIntakeAwaitingSlot } from "@/lib/twilio-intake-bot";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 
@@ -452,16 +453,99 @@ export async function reviewIntakeLeadFile(fileId: string, patch: { kind?: "laud
 }
 
 /**
+/**
+ * O que a família vai escolher no WhatsApp: a sessão de avaliação de 50min
+ * (padrão histórico) ou um bloco de 2h de Treino ABA numa turma. O Treino
+ * ABA não cabe no cálculo de horário livre de sala+terapeuta — ele é encaixe
+ * em turma fixa (8/10/14/16h) — então a lista de opções vem de outra fonte,
+ * mas o resto do fluxo (bot, escolha por número, aprovação do supervisor) é
+ * o mesmo.
+ */
+export type IntakeOfferKind = "avaliacao" | "treino_aba";
+
+type OfferedSlotRow = {
+  index: number;
+  label: string;
+  starts_at: string;
+  ends_at: string;
+  therapist_id: string;
+  room_id: string;
+  aba_class_id?: string | null;
+};
+
+/**
+ * Monta a lista de opções que vai pro WhatsApp, no formato que
+ * `setIntakeAwaitingSlot`/`processIntakeBotStep` esperam. Devolve lista
+ * vazia quando não há vaga — quem chama decide a mensagem de erro.
+ */
+async function buildOfferedSlots(
+  admin: ReturnType<typeof createAdminClient>,
+  params: { kind: IntakeOfferKind; clinicId: string; therapistId: string; roomId: string },
+): Promise<OfferedSlotRow[]> {
+  if (params.kind === "treino_aba") {
+    const { data: treinoType } = await admin
+      .from("appointment_types")
+      .select("duration_minutes")
+      .eq("clinic_id", params.clinicId)
+      .eq("aba_role", "treino")
+      .eq("active", true)
+      .maybeSingle();
+
+    const slots = await computeAbaTrainingSlots(admin, {
+      clinicId: params.clinicId,
+      durationMinutes: treinoType?.duration_minutes ?? 120,
+      limit: 3,
+      maxPerDay: 1,
+    });
+
+    return slots.map((s, index) => ({
+      index: index + 1,
+      label: `${s.label} · bloco de 2h em ${s.roomName}`,
+      starts_at: s.startsAtIso,
+      ends_at: s.endsAtIso,
+      therapist_id: params.therapistId,
+      room_id: s.roomId,
+      aba_class_id: s.classId,
+    }));
+  }
+
+  const rawSlots = await computeAvailableSlots(admin, {
+    therapistId: params.therapistId,
+    roomId: params.roomId,
+    durationMinutes: 50,
+    limit: 3,
+    maxPerDay: 2,
+  });
+
+  return rawSlots.map((s, index) => ({
+    index: index + 1,
+    label: `${s.dateLabel} às ${s.timeLabel}`,
+    starts_at: s.startsAtIso,
+    ends_at: s.endsAtIso,
+    therapist_id: params.therapistId,
+    room_id: params.roomId,
+  }));
+}
+
+/**
  * Aprova os documentos do lead: promove os arquivos aprovados para
  * `documents`, cria/atualiza convênio e guia de autorização do paciente, e
  * envia os horários vagos por WhatsApp. Nenhum agendamento é criado aqui —
  * isso só acontece quando o responsável escolhe um horário (RPC
  * book_intake_lead_slot_atomic, disparada pelo bot).
  */
-export async function approveIntakeLeadDocuments(leadId: string, therapistId: string, roomId: string): Promise<SimpleResult> {
+export async function approveIntakeLeadDocuments(
+  leadId: string,
+  therapistId: string,
+  roomId: string,
+  offerKind: IntakeOfferKind = "avaliacao",
+): Promise<SimpleResult> {
   const auth = await requireSupervisor();
   if ("error" in auth) return { success: false, error: auth.error };
-  if (!therapistId || !roomId) return { success: false, error: "Selecione o terapeuta e a sala da avaliação." };
+  // No Treino ABA a sala vem da turma escolhida pela família, não daqui —
+  // só o terapeuta responsável pelo bloco continua sendo escolha do supervisor.
+  if (!therapistId) return { success: false, error: "Selecione o terapeuta." };
+  if (offerKind === "avaliacao" && !roomId) return { success: false, error: "Selecione o terapeuta e a sala da avaliação." };
 
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -585,32 +669,44 @@ export async function approveIntakeLeadDocuments(leadId: string, therapistId: st
   }
 
   // --- Horários vagos --------------------------------------------------
-  const rawSlots = await computeAvailableSlots(admin, {
+  const offeredSlots = await buildOfferedSlots(admin, {
+    kind: offerKind,
+    clinicId: lead.clinic_id,
     therapistId,
     roomId,
-    durationMinutes: 50,
-    limit: 3,
-    maxPerDay: 2,
   });
-  if (rawSlots.length === 0) {
-    return { success: false, error: "Sem horários livres nos próximos dias para esse terapeuta/sala — tente outra combinação." };
+  if (offeredSlots.length === 0) {
+    return {
+      success: false,
+      error:
+        offerKind === "treino_aba"
+          ? "Sem vaga nas turmas de Treino ABA nos próximos dias — abra uma turma ou libere vaga antes de enviar."
+          : "Sem horários livres nos próximos dias para esse terapeuta/sala — tente outra combinação.",
+    };
   }
-  const offeredSlots = rawSlots.map((s, index) => ({
-    index: index + 1,
-    label: `${s.dateLabel} às ${s.timeLabel}`,
-    starts_at: s.startsAtIso,
-    ends_at: s.endsAtIso,
-    therapist_id: therapistId,
-    room_id: roomId,
-  }));
+
+  // Aviso (não bloqueio): o bloco de 2h consome 3 sessões somadas das guias
+  // ABA no fechamento; se a guia recém-cadastrada não for de um dos
+  // procedimentos do bolso, a sessão é agendada mas não fecha depois.
+  if (offerKind === "treino_aba") {
+    const { data: balance } = await admin.rpc("aba_training_balance", { p_patient_id: lead.patient_id });
+    const blocks = Array.isArray(balance) ? (balance[0]?.blocks_available ?? 0) : 0;
+    if (blocks < 1) {
+      warnings.push("Paciente ainda sem saldo nas guias ABA para um bloco de 2h — confira as guias antes da sessão acontecer.");
+    }
+  }
 
   await setIntakeAwaitingSlot(leadId, lead.phone_e164!, offeredSlots);
 
   const slotListText = offeredSlots.map((s) => `*${s.index}* - ${s.label}`).join("\n");
   const messageText =
-    `✅ *Documentos aprovados!*\n\n` +
-    `Os documentos de *${lead.patient_full_name}* foram conferidos pela nossa equipe. Escolha o horário da avaliação respondendo com o *número*:\n\n${slotListText}\n\n` +
-    "Responda apenas com o número escolhido.";
+    offerKind === "treino_aba"
+      ? `✅ *Documentos aprovados!*\n\n` +
+        `Os documentos de *${lead.patient_full_name}* foram conferidos pela nossa equipe. O *Treino ABA* acontece em bloco de *2 horas* (3 sessões de 40min), em turma. Escolha o horário respondendo com o *número*:\n\n${slotListText}\n\n` +
+        "Responda apenas com o número escolhido."
+      : `✅ *Documentos aprovados!*\n\n` +
+        `Os documentos de *${lead.patient_full_name}* foram conferidos pela nossa equipe. Escolha o horário da avaliação respondendo com o *número*:\n\n${slotListText}\n\n` +
+        "Responda apenas com o número escolhido.";
   const pushResult = await pushIntakeUpdate(leadId, messageText);
   if (!pushResult.success) warnings.push("Documentos aprovados, mas não foi possível enviar a lista de horários por WhatsApp agora.");
 
@@ -748,11 +844,14 @@ export async function resendIntakeSlots(leadId: string): Promise<SimpleResult> {
     return { success: false, error: "Este acolhimento não está aguardando escolha de horário." };
   }
 
-  const slots = lead.offered_slots as { index: number; label: string }[];
+  const slots = lead.offered_slots as { index: number; label: string; aba_class_id?: string | null }[];
   const slotListText = slots.map((s) => `*${s.index}* - ${s.label}`).join("\n");
+  // Reenvia a oferta já gravada no lead — só muda o rótulo do que está sendo
+  // oferecido (avaliação de 50min ou bloco de 2h de Treino ABA).
+  const whatLabel = slots.some((s) => s.aba_class_id) ? "o Treino ABA (bloco de 2h)" : "a avaliação";
   const result = await pushIntakeUpdate(
     leadId,
-    `Lembrando: os horários disponíveis para a avaliação de *${lead.patient_full_name ?? "seu(sua) filho(a)"}* são:\n\n${slotListText}\n\nResponda apenas com o número escolhido.`,
+    `Lembrando: os horários disponíveis para ${whatLabel} de *${lead.patient_full_name ?? "seu(sua) filho(a)"}* são:\n\n${slotListText}\n\nResponda apenas com o número escolhido.`,
   );
   if (!result.success) return { success: false, error: "Não foi possível reenviar a mensagem agora." };
   return { success: true };
@@ -842,7 +941,11 @@ export async function rejectIntakeLeadAppointment(leadId: string): Promise<Simpl
   if (!lead) return { success: false, error: "Acolhimento não encontrado." };
   if (!lead.appointment_id) return { success: false, error: "Este acolhimento não tem agendamento reservado." };
 
-  const { data: appt } = await admin.from("appointments").select("therapist_id, room_id").eq("id", lead.appointment_id).maybeSingle();
+  const { data: appt } = await admin
+    .from("appointments")
+    .select("therapist_id, room_id, aba_class_id")
+    .eq("id", lead.appointment_id)
+    .maybeSingle();
   if (!appt) return { success: false, error: "Agendamento reservado não encontrado." };
 
   const { data: rpcResult, error: rpcErr } = await admin.rpc("reject_intake_lead_appointment", {
@@ -854,12 +957,14 @@ export async function rejectIntakeLeadAppointment(leadId: string): Promise<Simpl
     return { success: false, error: resObj?.error ?? rpcErr?.message ?? "Erro ao recusar agendamento." };
   }
 
-  const rawSlots = await computeAvailableSlots(admin, {
+  // A reoferta segue o mesmo tipo do agendamento recusado: bloco de turma
+  // se a sessão era Treino ABA, sessão de 50min caso contrário.
+  const rejectedKind: IntakeOfferKind = appt.aba_class_id ? "treino_aba" : "avaliacao";
+  const offeredSlots = await buildOfferedSlots(admin, {
+    kind: rejectedKind,
+    clinicId: lead.clinic_id,
     therapistId: appt.therapist_id,
     roomId: appt.room_id,
-    durationMinutes: 50,
-    limit: 3,
-    maxPerDay: 2,
   });
 
   await admin.from("audit_log").insert({
@@ -868,25 +973,19 @@ export async function rejectIntakeLeadAppointment(leadId: string): Promise<Simpl
     action: "intake_appointment_rejected",
     actor_id: auth.userId,
     clinic_id: lead.clinic_id,
-    after: { new_slots_found: rawSlots.length },
+    after: { new_slots_found: offeredSlots.length, offer_kind: rejectedKind },
   });
   revalidatePath("/supervisao");
 
-  if (rawSlots.length === 0) {
+  if (offeredSlots.length === 0) {
     return {
       success: false,
-      error: "Agendamento recusado, mas não há mais horários livres para esse terapeuta/sala — contate a família manualmente.",
+      error:
+        rejectedKind === "treino_aba"
+          ? "Agendamento recusado, mas não há mais vaga nas turmas de Treino ABA — contate a família manualmente."
+          : "Agendamento recusado, mas não há mais horários livres para esse terapeuta/sala — contate a família manualmente.",
     };
   }
-
-  const offeredSlots = rawSlots.map((s, index) => ({
-    index: index + 1,
-    label: `${s.dateLabel} às ${s.timeLabel}`,
-    starts_at: s.startsAtIso,
-    ends_at: s.endsAtIso,
-    therapist_id: appt.therapist_id,
-    room_id: appt.room_id,
-  }));
 
   await setIntakeAwaitingSlot(leadId, lead.phone_e164!, offeredSlots);
   await admin
@@ -896,7 +995,7 @@ export async function rejectIntakeLeadAppointment(leadId: string): Promise<Simpl
 
   const slotListText = offeredSlots.map((s) => `*${s.index}* - ${s.label}`).join("\n");
   const messageText =
-    `Precisamos reagendar o horário da avaliação de *${lead.patient_full_name ?? "seu(sua) filho(a)"}*. Seguem novas opções:\n\n${slotListText}\n\n` +
+    `Precisamos reagendar o horário ${rejectedKind === "treino_aba" ? "do Treino ABA (bloco de 2h)" : "da avaliação"} de *${lead.patient_full_name ?? "seu(sua) filho(a)"}*. Seguem novas opções:\n\n${slotListText}\n\n` +
     "Responda apenas com o número escolhido.";
   const pushResult = await pushIntakeUpdate(leadId, messageText);
 

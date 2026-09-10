@@ -11,6 +11,7 @@ import {
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getReceptionQueue } from "@/lib/reception-queue";
 import { NovaSessaoDialog, type GuideSummary } from "./nova-sessao-dialog";
+import { computeAbaBalance, type AbaBalance, type AbaClassOption } from "@/lib/aba-training";
 import { TodayAgendaList, type TodaySession, type GuardianContact } from "./today-agenda-list";
 import { MiniCalendarPicker } from "./mini-calendar-picker";
 import { AnamnesisPendingBadge } from "@/components/anamnesis-pending-badge";
@@ -74,7 +75,7 @@ export default async function RecepcaoPage({
 
   const { data: appointmentTypeRows } = await supabase
     .from("appointment_types")
-    .select("id, name, duration_minutes")
+    .select("id, name, duration_minutes, aba_role, sessions_consumed")
     .eq("clinic_id", DEV_CLINIC_ID)
     .eq("active", true)
     .order("name");
@@ -83,7 +84,38 @@ export default async function RecepcaoPage({
     id: t.id,
     name: t.name,
     durationMinutes: t.duration_minutes,
+    abaRole: t.aba_role,
   }));
+
+  // Treino ABA (supabase/migrations/20260910020000_aba_training.sql): as
+  // guias que formam o bolso são os tipos marcados `aba_role='pool'` e o
+  // tamanho do bloco é `sessions_consumed` do tipo 'treino' — nada disso é
+  // constante no código, então vem do mesmo SELECT do catálogo.
+  const abaPoolProcedureCodes = (appointmentTypeRows ?? [])
+    .filter((t) => t.aba_role === "pool")
+    .map((t) => t.name);
+  const abaSessionsPerBlock =
+    (appointmentTypeRows ?? []).find((t) => t.aba_role === "treino")?.sessions_consumed ?? 3;
+
+  const { data: abaClassRows } = await supabase
+    .from("aba_training_classes")
+    .select("id, room_id, day_of_week, start_time, rooms(name, capacity)")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("active", true)
+    .order("day_of_week", { ascending: true })
+    .order("start_time", { ascending: true });
+
+  const abaClasses: AbaClassOption[] = (abaClassRows ?? []).map((c) => {
+    const room = c.rooms as unknown as { name: string; capacity: number } | null;
+    return {
+      id: c.id,
+      roomId: c.room_id,
+      roomName: room?.name ?? "Sala",
+      capacity: room?.capacity ?? 0,
+      dayOfWeek: c.day_of_week,
+      startTime: c.start_time,
+    };
+  });
 
   // Nota: `appointments` tem duas FKs pra `profiles` (therapist_id e
   // cancelled_by) — o embed `profiles(...)` sem alias é ambíguo pro
@@ -212,15 +244,22 @@ export default async function RecepcaoPage({
   const { data: activeAuths } = insuranceIds.length
     ? await supabase
         .from("authorizations")
-        .select("id, patient_insurance_id, guide_number, sessions_used, sessions_authorized, valid_to")
+        .select(
+          "id, patient_insurance_id, guide_number, sessions_used, sessions_authorized, valid_from, valid_to, procedure_code",
+        )
         .in("patient_insurance_id", insuranceIds)
         .eq("status", "ativa")
-    : { data: [] as { id: string; patient_insurance_id: string; guide_number: string | null; sessions_used: number; sessions_authorized: number; valid_to: string }[] };
+    : { data: [] as { id: string; patient_insurance_id: string; guide_number: string | null; sessions_used: number; sessions_authorized: number; valid_from: string; valid_to: string; procedure_code: string }[] };
 
   const insuranceById = new Map((patientInsurances ?? []).map((pi) => [pi.id, pi]));
   const patientNameById = new Map((patients ?? []).map((p) => [p.id, p.full_name]));
 
   const guidesByPatient: Record<string, GuideSummary> = {};
+  // Saldo do bolso ABA por paciente: mesma soma da função SQL
+  // `aba_training_balance`, feita aqui em JS pra não disparar um RPC por
+  // paciente na home. O número que decide o fechamento continua sendo o do
+  // banco (`aba_training_consume_pool`).
+  const abaAuthsByPatient = new Map<string, { procedureCode: string; sessionsAuthorized: number; sessionsUsed: number; validFrom: string; validTo: string }[]>();
   const expiringGuides: {
     patientName: string;
     insurerName: string;
@@ -244,6 +283,16 @@ export default async function RecepcaoPage({
     };
     guidesByPatient[insurance.patient_id] = summary;
 
+    const abaList = abaAuthsByPatient.get(insurance.patient_id) ?? [];
+    abaList.push({
+      procedureCode: auth.procedure_code,
+      sessionsAuthorized: auth.sessions_authorized,
+      sessionsUsed: auth.sessions_used,
+      validFrom: auth.valid_from,
+      validTo: auth.valid_to,
+    });
+    abaAuthsByPatient.set(insurance.patient_id, abaList);
+
     const sessionsRemaining = auth.sessions_authorized - auth.sessions_used;
     const expiringSoon = auth.valid_to >= today && auth.valid_to <= fifteenDaysStr;
     const fewSessionsLeft = sessionsRemaining <= 4;
@@ -259,6 +308,12 @@ export default async function RecepcaoPage({
     }
   }
   expiringGuides.sort((a, b) => a.validTo.localeCompare(b.validTo));
+
+  const abaBalanceByPatient: Record<string, AbaBalance> = {};
+  for (const [patientId, auths] of abaAuthsByPatient) {
+    const balance = computeAbaBalance(auths, abaPoolProcedureCodes, abaSessionsPerBlock, day);
+    if (balance.sessionsRemaining > 0) abaBalanceByPatient[patientId] = balance;
+  }
 
   // ── Demais pendências (§9.1): guia vencendo/poucas sessões já aparece
   // acima com sua própria seção; aqui só as outras 4 categorias da fila
@@ -372,6 +427,8 @@ export default async function RecepcaoPage({
                 appointmentTypes={appointmentTypes}
                 guidesByPatient={guidesByPatient}
                 defaultDate={day}
+                abaClasses={abaClasses}
+                abaBalanceByPatient={abaBalanceByPatient}
               />
             </div>
           </div>

@@ -45,6 +45,21 @@ export async function createResource(formData: FormData): Promise<ActionResult> 
  * nenhuma pra criar uma sala além de inserir direto no banco. RLS
  * (rooms_manage_by_supervisor_gestor_*) é o portão real, gestor/supervisor.
  */
+function parseRecommendedInterns(formData: FormData): { value: number | null } | { error: string } {
+  const raw = String(formData.get("recommendedInterns") ?? "").trim();
+  if (!raw) return { value: null };
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return { error: "Estagiários recomendados precisa ser um número inteiro de pelo menos 0." };
+  }
+  return { value: parsed };
+}
+
+function parseSpecialtyId(formData: FormData): string | null {
+  const raw = String(formData.get("specialtyId") ?? "").trim();
+  return raw || null;
+}
+
 export async function createRoom(formData: FormData): Promise<ActionResult> {
   const name = String(formData.get("name") ?? "").trim();
   const capacity = Number(formData.get("capacity") ?? 1);
@@ -54,8 +69,18 @@ export async function createRoom(formData: FormData): Promise<ActionResult> {
     return { success: false, error: "Capacidade precisa ser um número inteiro de pelo menos 1." };
   }
 
+  const recommendedInterns = parseRecommendedInterns(formData);
+  if ("error" in recommendedInterns) return { success: false, error: recommendedInterns.error };
+
   const supabase = await createClient();
-  const { error } = await supabase.from("rooms").insert({ clinic_id: DEV_CLINIC_ID, name, capacity });
+  const { error } = await supabase.from("rooms").insert({
+    clinic_id: DEV_CLINIC_ID,
+    name,
+    capacity,
+    recommended_interns: recommendedInterns.value,
+    specialty_id: parseSpecialtyId(formData),
+    is_aba_training: formData.get("isAbaTraining") === "on",
+  });
 
   if (error) {
     return { success: false, error: "Você não tem permissão para cadastrar salas." };
@@ -74,8 +99,20 @@ export async function updateRoom(roomId: string, formData: FormData): Promise<Ac
     return { success: false, error: "Capacidade precisa ser um número inteiro de pelo menos 1." };
   }
 
+  const recommendedInterns = parseRecommendedInterns(formData);
+  if ("error" in recommendedInterns) return { success: false, error: recommendedInterns.error };
+
   const supabase = await createClient();
-  const { error } = await supabase.from("rooms").update({ name, capacity }).eq("id", roomId);
+  const { error } = await supabase
+    .from("rooms")
+    .update({
+      name,
+      capacity,
+      recommended_interns: recommendedInterns.value,
+      specialty_id: parseSpecialtyId(formData),
+      is_aba_training: formData.get("isAbaTraining") === "on",
+    })
+    .eq("id", roomId);
 
   if (error) {
     return { success: false, error: "Não foi possível atualizar esta sala." };

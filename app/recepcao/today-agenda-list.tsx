@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { User, PenLine, CalendarClock, X, Clock, CheckCircle2, UserCheck, XCircle, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert, Search, Printer } from "lucide-react";
 import { GuiaQuickActionModal } from "./guia-quick-action-modal";
+import { ChegadaAvaliacaoModal } from "./chegada-avaliacao-modal";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -603,6 +604,7 @@ function SessionRow({
   const [showLinkGuide, setShowLinkGuide] = useState(false);
   const [guideOptions, setGuideOptions] = useState<PatientAuthorizationOption[] | null>(null);
   const [selectedGuideId, setSelectedGuideId] = useState("");
+  const [showChegadaModal, setShowChegadaModal] = useState(false);
 
   const uiState = uiStateOf(session);
   const display = statusDisplay(session);
@@ -645,6 +647,10 @@ function SessionRow({
       if (result.warning) setWarning(result.warning);
       if (result.coupon) printCoupon(result.coupon);
     });
+  }
+
+  function handleChegadaConfirmed(result: { warning?: string; coupon?: unknown }) {
+    setWarning(result.warning ?? null);
   }
 
   function handleReprintCoupon() {
@@ -871,17 +877,32 @@ function SessionRow({
         <button
           type="button"
           disabled={isPending || isCheckedIn}
-          onClick={handleCheckIn}
+          onClick={session.isEvaluation ? () => setShowChegadaModal(true) : handleCheckIn}
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2 ${
             isCheckedIn
               ? "bg-emerald-600 text-white font-bold border border-emerald-700 shadow-sm"
               : "bg-white text-[#4a4a4a] font-medium border border-neutral-300 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300"
           }`}
-          title="Realizar check-in de entrada"
+          title={
+            session.isEvaluation
+              ? "Registrar chegada (guia e laudo opcionais) e imprimir cupom"
+              : "Realizar check-in de entrada"
+          }
         >
           <UserCheck className={`h-3.5 w-3.5 ${isCheckedIn ? "text-white" : "text-emerald-600"}`} />
-          <span>Check-in</span>
+          <span>{session.isEvaluation ? "Chegada" : "Check-in"}</span>
         </button>
+
+        {session.isEvaluation && showChegadaModal && (
+          <ChegadaAvaliacaoModal
+            isOpen={showChegadaModal}
+            onClose={() => setShowChegadaModal(false)}
+            appointmentId={session.id}
+            patientId={session.patientId}
+            patientName={session.patientName}
+            onConfirmed={handleChegadaConfirmed}
+          />
+        )}
 
         {isCheckedIn && (
           <button

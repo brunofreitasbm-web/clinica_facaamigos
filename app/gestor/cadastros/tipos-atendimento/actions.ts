@@ -15,6 +15,7 @@ function parseInput(formData: FormData): { data: AppointmentTypeInput } | { erro
   const durationMinutes = Number(formData.get("duration_minutes"));
   const displayIntervalMinutes = Number(formData.get("display_interval_minutes"));
   const recurrence = String(formData.get("recurrence") ?? "");
+  const requiresInternRatio = formData.get("requires_intern_ratio") === "on";
 
   if (!name) return { error: "Nome do tipo de atendimento é obrigatório." };
   if (!MODALITIES.includes(modality as (typeof MODALITIES)[number])) return { error: "Escolha uma modalidade válida." };
@@ -24,7 +25,7 @@ function parseInput(formData: FormData): { data: AppointmentTypeInput } | { erro
   if (!RECURRENCES.includes(recurrence as (typeof RECURRENCES)[number])) return { error: "Escolha uma recorrência válida." };
 
   return {
-    data: { name, modality, durationMinutes, displayIntervalMinutes, recurrence },
+    data: { name, modality, durationMinutes, displayIntervalMinutes, recurrence, requiresInternRatio },
   };
 }
 
@@ -34,6 +35,7 @@ type AppointmentTypeInput = {
   durationMinutes: number;
   displayIntervalMinutes: number;
   recurrence: string;
+  requiresInternRatio: boolean;
 };
 
 export async function createAppointmentType(formData: FormData): Promise<ActionResult> {
@@ -48,6 +50,7 @@ export async function createAppointmentType(formData: FormData): Promise<ActionR
     duration_minutes: parsed.data.durationMinutes,
     display_interval_minutes: parsed.data.displayIntervalMinutes,
     recurrence: parsed.data.recurrence,
+    requires_intern_ratio: parsed.data.requiresInternRatio,
   });
 
   if (error) {
@@ -74,6 +77,7 @@ export async function updateAppointmentType(id: string, formData: FormData): Pro
       duration_minutes: parsed.data.durationMinutes,
       display_interval_minutes: parsed.data.displayIntervalMinutes,
       recurrence: parsed.data.recurrence,
+      requires_intern_ratio: parsed.data.requiresInternRatio,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

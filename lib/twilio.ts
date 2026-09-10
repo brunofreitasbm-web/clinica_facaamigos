@@ -99,6 +99,8 @@ export function getTwilioContentSidForCategory(category: string): string | undef
       return process.env.TWILIO_RENEWAL_TEMPLATE_CONTENT_SID;
     case "cobranca":
       return process.env.TWILIO_BILLING_TEMPLATE_CONTENT_SID;
+    case "reuniao_responsavel":
+      return process.env.TWILIO_MEETING_TEMPLATE_CONTENT_SID;
     default:
       return undefined;
   }

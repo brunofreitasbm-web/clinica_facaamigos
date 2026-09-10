@@ -1,11 +1,14 @@
-import { formatE164Phone, getTwilioClient, sendTwilioSMS, type SendMessageResult } from "./twilio";
+import { formatE164Phone, getTwilioClient, sendTwilioWhatsApp, type SendMessageResult } from "./twilio";
 
 /**
  * Template PT-BR da mensagem de emergência, com placeholders — é o valor
- * gravado em voice_emergency_broadcasts.message_template.
+ * gravado em voice_emergency_broadcasts.message_template. Além de avisar a
+ * falta do terapeuta, reforça que os demais atendimentos da clínica (outros
+ * terapeutas/horários) seguem normalmente, pra família não achar que a
+ * clínica inteira parou.
  */
 export const EMERGENCY_MESSAGE_TEMPLATE =
-  "Olá, aqui é da equipe do FaçaAmigos - Centro de Terapia Comportamental. Informamos que a sessão do(a) paciente {NOME_PACIENTE} agendada para hoje às {HORARIO} precisará ser reagendada. Por favor, entre em contato com nossa recepção.";
+  "Olá, aqui é da equipe do FaçaAmigos - Centro de Terapia Comportamental. Informamos que o(a) terapeuta responsável pela sessão do(a) paciente {NOME_PACIENTE}, agendada para hoje às {HORARIO}, está ausente e essa sessão precisará ser reagendada. Os demais atendimentos da clínica seguem normalmente, conforme agendado. Por favor, entre em contato com nossa recepção para reagendar.";
 
 /**
  * Monta a mensagem PT-BR de emergência (usada tanto na fala do TwiML quanto
@@ -13,20 +16,6 @@ export const EMERGENCY_MESSAGE_TEMPLATE =
  */
 export function buildEmergencyMessage(patientName: string, time: string): string {
   return EMERGENCY_MESSAGE_TEMPLATE.replace("{NOME_PACIENTE}", patientName).replace("{HORARIO}", time);
-}
-
-/**
- * Template PT-BR do SMS de fallback — versão enxuta (cabe em 1 segmento de
- * 160 caracteres) usada só quando as tentativas de ligação se esgotam.
- */
-export const EMERGENCY_SMS_TEMPLATE =
-  "FaçaAmigos: sessão de {NOME_PACIENTE} às {HORARIO} precisa ser remarcada. Fale com a recepção.";
-
-/**
- * Monta o SMS curto de fallback, preenchendo o template acima.
- */
-export function buildEmergencySmsMessage(patientName: string, time: string): string {
-  return EMERGENCY_SMS_TEMPLATE.replace("{NOME_PACIENTE}", patientName).replace("{HORARIO}", time);
 }
 
 export interface CreateEmergencyVoiceCallOptions {
@@ -124,15 +113,16 @@ export interface SendEmergencyFallbackOptions {
 }
 
 /**
- * Fallback quando as tentativas de ligação de voz se esgotam: envia a
- * mensagem curta de emergência por SMS.
+ * Fallback quando as tentativas de ligação de voz se esgotam: envia a mesma
+ * mensagem de emergência (falta do terapeuta + demais atendimentos mantidos)
+ * por WhatsApp.
  */
 export async function sendEmergencyFallback(
   options: SendEmergencyFallbackOptions,
 ): Promise<SendMessageResult> {
   const { to, patientName, time } = options;
-  return sendTwilioSMS({
+  return sendTwilioWhatsApp({
     to,
-    message: buildEmergencySmsMessage(patientName, time),
+    message: buildEmergencyMessage(patientName, time),
   });
 }

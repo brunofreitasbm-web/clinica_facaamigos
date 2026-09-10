@@ -383,7 +383,8 @@ export function PTSPrintableCalendar({
                               {session.shift === "MANHA" ? "Manhã" : session.shift === "TARDE" ? "Tarde" : "Noite"} ({session.timeSlot})
                             </span>
                           </td>
-                          <td className="py-2 px-3 text-slate-800">{session.therapistName || "Terapeuta Direcionado"}</td>
+                          {/* Coluna Terapeuta deve permanecer sempre em branco no Calendário Oficial do PTS impresso */}
+                          <td className="py-2 px-3 text-slate-800"></td>
                           <td className="py-2 px-3 text-slate-600">{session.roomName || "Sala Alocada"}</td>
                         </tr>
                       ))}

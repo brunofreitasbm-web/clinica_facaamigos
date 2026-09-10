@@ -32,6 +32,9 @@ export type ClinicIdentity = {
   razaoSocial: string | null;
   cnpj: string | null;
   endereco: string | null;
+  /** Cidade isolada — o fecho de documento assinado ("Belém, 9 de setembro
+   *  de 2026") precisa dela sem ter que desmontar `endereco`. */
+  cidade: string | null;
   telefone: string | null;
   whatsapp: string | null;
   email: string | null;
@@ -81,6 +84,7 @@ export async function getClinicIdentity(
     razaoSocial: null,
     cnpj: null,
     endereco: null,
+    cidade: null,
     telefone: null,
     whatsapp: null,
     email: null,
@@ -107,6 +111,7 @@ export async function getClinicIdentity(
     razaoSocial: data.razao_social,
     cnpj: formatCnpj(data.cnpj),
     endereco: formatEndereco(data),
+    cidade: data.endereco_cidade,
     telefone: data.telefone,
     whatsapp: data.whatsapp,
     email: data.email,

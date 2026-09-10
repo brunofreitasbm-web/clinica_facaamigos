@@ -2,13 +2,14 @@
 
 import { useRef, useState, useTransition } from "react";
 import { CadastrosSidebar } from "../cadastros-sidebar";
-import { createSpecialty, renameSpecialtyLabel, toggleSpecialtyActive } from "./actions";
+import { createSpecialty, renameSpecialtyLabel, toggleSpecialtyActive, setSpecialtyInternCount } from "./actions";
 
 export type SpecialtyRow = {
   id: string;
   value: string;
   label: string;
   active: boolean;
+  internCount: number;
 };
 
 function SpecialtyRowView({ specialty }: { specialty: SpecialtyRow }) {
@@ -16,6 +17,10 @@ function SpecialtyRowView({ specialty }: { specialty: SpecialtyRow }) {
   const [label, setLabel] = useState(specialty.label);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const [internCount, setInternCount] = useState(specialty.internCount);
+  const [internError, setInternError] = useState<string | null>(null);
+  const [internPending, startInternTransition] = useTransition();
 
   return (
     <tr>
@@ -33,6 +38,28 @@ function SpecialtyRowView({ specialty }: { specialty: SpecialtyRow }) {
       </td>
       <td className="text-ink-faint">
         <code className="text-xs">{specialty.value}</code>
+      </td>
+      <td>
+        <input
+          type="number"
+          min={0}
+          className="input w-20"
+          value={internCount}
+          disabled={internPending}
+          onChange={(e) => setInternCount(Number(e.target.value))}
+          onBlur={() => {
+            if (internCount === specialty.internCount) return;
+            setInternError(null);
+            startInternTransition(async () => {
+              const result = await setSpecialtyInternCount(specialty.id, internCount);
+              if (!result.success) {
+                setInternError(result.error);
+                setInternCount(specialty.internCount);
+              }
+            });
+          }}
+        />
+        {internError && <p className="mt-1 text-xs text-status-negative-text">{internError}</p>}
       </td>
       <td className="text-right">
         <div className="flex justify-end gap-2">
@@ -102,7 +129,8 @@ export function EspecialidadesManager({ specialties }: { specialties: SpecialtyR
           Lista de especialidades profissionais (musicoterapia, fisioterapia, psicologia ABA, fonoaudiologia,
           entre outras) usada nos cadastros de terapeutas e equipe. Uma especialidade já vinculada a algum
           registro não pode ser apagada — desative-a em vez disso; o nome (rótulo) pode ser corrigido a
-          qualquer momento.
+          qualquer momento. O nº de estagiários alimenta o Alerta de Necessidade de Estagiário em
+          Inteligência (BI) — informe aqui até que a integração com o sistema de contratados esteja pronta.
         </p>
 
         <table className="table mb-6">
@@ -110,6 +138,7 @@ export function EspecialidadesManager({ specialties }: { specialties: SpecialtyR
             <tr>
               <th>Nome</th>
               <th>Chave</th>
+              <th>Estagiários</th>
               <th></th>
             </tr>
           </thead>
@@ -119,7 +148,7 @@ export function EspecialidadesManager({ specialties }: { specialties: SpecialtyR
             ))}
             {specialties.length === 0 && (
               <tr>
-                <td colSpan={3} className="text-ink-faint">
+                <td colSpan={4} className="text-ink-faint">
                   Nenhuma especialidade cadastrada ainda.
                 </td>
               </tr>

@@ -18,7 +18,7 @@ export default async function InteligenciaPage({ searchParams }: InteligenciaPag
   const metrics = await getInteligenciaMetrics(supabase, DEV_CLINIC_ID, periodKey);
 
   return (
-    <main className="flex flex-1 flex-col min-h-screen bg-paper">
+    <main className="flex flex-1 flex-col bg-paper">
       <GestorNav active="inteligencia" />
       <InteligenciaClient initialMetrics={metrics} clinicId={DEV_CLINIC_ID} currentPeriodKey={periodKey} />
     </main>

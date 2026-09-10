@@ -8,7 +8,15 @@ export type EligibleSession = {
   patientName: string;
   startsAt: string;
   procedureCode: string;
+  /** Total da linha (preço unitário × `quantity`). */
   amount: number;
+  /**
+   * Quantas sessões da guia esta linha cobra. É 1 em todo atendimento comum;
+   * no Treino ABA o bloco de 2h consome 3 sessões somadas das guias ABA e
+   * pode virar mais de uma linha — uma por guia que pagou, com a quantidade
+   * que pagou (ver `aba_training_consumptions`).
+   */
+  quantity: number;
 };
 
 export type InconsistentSession = {
@@ -46,7 +54,9 @@ function nextMonthFirstDay(monthStr: string): string {
  *    `session_note_pending`, já que a policy de leitura de `session_notes`
  *    não inclui o papel `faturamento` (só `gestor`/`supervisor`/terapeuta
  *    dono da sessão); a RPC é SECURITY DEFINER e escopada por clínica.
- * 5. `authorization_id` preenchido, com `authorizations.procedure_code`
+ * 5. `authorization_id` preenchido, com `authorizations.procedure_code` —
+ *    exceto no Treino ABA, que não tem guia única: o par
+ *    (procedimento, quantidade) sai do rateio em `aba_training_consumptions`
  * 6. preço vigente em `insurer_price_tables` pra esse `(insurer_id, procedure_code)`
  *    na data da sessão
  *
@@ -106,13 +116,65 @@ export async function computeCompetenceEligibility(
 
     const patientName = (appt.patients as { full_name: string } | null)?.full_name ?? "Paciente";
 
+    const sessionDateForAppt = civilDateInTimeZone(new Date(appt.starts_at), CLINIC_TIMEZONE);
+
     if (!appt.authorization_id) {
-      inconsistent.push({
-        appointmentId: appt.id,
-        patientName,
-        startsAt: appt.starts_at,
-        reason: "Sem autorização vinculada",
-      });
+      // Treino ABA: sem guia única, mas com rateio gravado no fechamento.
+      // Cada guia que pagou vira uma linha própria, no preço do seu
+      // procedimento — é o que "faturar a somatória das três" significa.
+      const { data: consumptions } = await supabase
+        .from("aba_training_consumptions")
+        .select("units, authorizations(procedure_code, patient_insurance(insurer_id))")
+        .eq("appointment_id", appt.id);
+
+      const unitsByProcedure = new Map<string, number>();
+      for (const row of (consumptions ?? []) as unknown as {
+        units: number;
+        authorizations: { procedure_code: string; patient_insurance: { insurer_id: string } | null } | null;
+      }[]) {
+        const procedureCode = row.authorizations?.procedure_code;
+        // Guia de outro convênio do mesmo paciente não entra nesta competência.
+        if (!procedureCode || row.authorizations?.patient_insurance?.insurer_id !== insurerId) continue;
+        unitsByProcedure.set(procedureCode, (unitsByProcedure.get(procedureCode) ?? 0) + row.units);
+      }
+
+      if (unitsByProcedure.size === 0) {
+        inconsistent.push({
+          appointmentId: appt.id,
+          patientName,
+          startsAt: appt.starts_at,
+          reason: "Sem autorização vinculada",
+        });
+        continue;
+      }
+
+      for (const [procedureCode, units] of unitsByProcedure) {
+        const abaPrice = (priceRows ?? []).find(
+          (p) =>
+            p.procedure_code === procedureCode &&
+            p.valid_from <= sessionDateForAppt &&
+            (!p.valid_to || p.valid_to >= sessionDateForAppt),
+        );
+
+        if (!abaPrice) {
+          inconsistent.push({
+            appointmentId: appt.id,
+            patientName,
+            startsAt: appt.starts_at,
+            reason: `Sem preço cadastrado para ${procedureCode}`,
+          });
+          continue;
+        }
+
+        eligible.push({
+          appointmentId: appt.id,
+          patientName,
+          startsAt: appt.starts_at,
+          procedureCode,
+          amount: Number(abaPrice.price) * units,
+          quantity: units,
+        });
+      }
       continue;
     }
 
@@ -132,7 +194,7 @@ export async function computeCompetenceEligibility(
       continue;
     }
 
-    const sessionDate = civilDateInTimeZone(new Date(appt.starts_at), CLINIC_TIMEZONE);
+    const sessionDate = sessionDateForAppt;
     const price = (priceRows ?? []).find(
       (p) =>
         p.procedure_code === authorization.procedure_code &&
@@ -156,6 +218,7 @@ export async function computeCompetenceEligibility(
       startsAt: appt.starts_at,
       procedureCode: authorization.procedure_code,
       amount: Number(price.price),
+      quantity: 1,
     });
   }
 

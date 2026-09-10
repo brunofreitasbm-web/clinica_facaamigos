@@ -8,6 +8,13 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { createAppointment } from "./agenda/actions";
+import {
+  formatAbaClassLabel,
+  toHourMinute,
+  WEEKDAY_LABELS,
+  type AbaBalance,
+  type AbaClassOption,
+} from "@/lib/aba-training";
 
 export type GuideSummary = {
   insurerName: string;
@@ -21,6 +28,8 @@ export type AppointmentTypeOption = {
   id: string;
   name: string;
   durationMinutes: number;
+  /** 'treino' = bloco de Treino ABA, agendado em turma. Ver lib/aba-training.ts. */
+  abaRole: string | null;
 };
 
 function fmtDate(iso: string): string {
@@ -34,6 +43,8 @@ export function NovaSessaoDialog({
   appointmentTypes,
   guidesByPatient,
   defaultDate,
+  abaClasses,
+  abaBalanceByPatient,
 }: {
   patients: { id: string; full_name: string }[];
   therapists: { id: string; full_name: string }[];
@@ -41,16 +52,34 @@ export function NovaSessaoDialog({
   appointmentTypes: AppointmentTypeOption[];
   guidesByPatient: Record<string, GuideSummary>;
   defaultDate: string;
+  abaClasses: AbaClassOption[];
+  abaBalanceByPatient: Record<string, AbaBalance>;
 }) {
   const [open, setOpen] = useState(false);
   const [patientId, setPatientId] = useState("");
   const [patientQuery, setPatientQuery] = useState("");
   const [showPatientOptions, setShowPatientOptions] = useState(false);
   const [isProvisional, setIsProvisional] = useState(false);
+  const [appointmentTypeId, setAppointmentTypeId] = useState("");
+  const [abaClassId, setAbaClassId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const guide = useMemo(() => guidesByPatient[patientId] ?? null, [guidesByPatient, patientId]);
+
+  // Treino ABA troca o formulario inteiro: sala, horario e modalidade deixam
+  // de ser escolha da recepcao e passam a vir da turma (createAppointment
+  // ignora esses campos nesse caso), e o preview de guia vira o saldo somado
+  // das quatro guias ABA.
+  const isAbaTraining = useMemo(
+    () => appointmentTypes.find((t) => t.id === appointmentTypeId)?.abaRole === "treino",
+    [appointmentTypes, appointmentTypeId],
+  );
+  const selectedAbaClass = useMemo(
+    () => abaClasses.find((c) => c.id === abaClassId) ?? null,
+    [abaClasses, abaClassId],
+  );
+  const abaBalance = abaBalanceByPatient[patientId] ?? null;
 
   const patientMatches = useMemo(() => {
     const q = patientQuery.trim().toLowerCase();
@@ -98,6 +127,8 @@ export function NovaSessaoDialog({
     setPatientQuery("");
     setShowPatientOptions(false);
     setIsProvisional(false);
+    setAppointmentTypeId("");
+    setAbaClassId("");
     setError(null);
   }
 
@@ -178,7 +209,16 @@ export function NovaSessaoDialog({
                 </div>
                 <div className="field">
                   <label>Tipo de atendimento</label>
-                  <select name="appointment_type_id" required className="input" defaultValue="">
+                  <select
+                    name="appointment_type_id"
+                    required
+                    className="input"
+                    value={appointmentTypeId}
+                    onChange={(e) => {
+                      setAppointmentTypeId(e.target.value);
+                      setAbaClassId("");
+                    }}
+                  >
                     <option value="" disabled>
                       Selecione…
                     </option>
@@ -200,36 +240,115 @@ export function NovaSessaoDialog({
                     ))}
                   </select>
                 </div>
-                <div className="field">
-                  <label>Sala</label>
-                  <select name="room_id" required className="input">
-                    <option value="">Selecione…</option>
-                    {rooms.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
+                {isAbaTraining ? (
+                  <div className="field">
+                    <label>Turma de Treino ABA</label>
+                    <select
+                      name="aba_class_id"
+                      required
+                      className="input"
+                      value={abaClassId}
+                      onChange={(e) => setAbaClassId(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        Selecione a turma…
                       </option>
-                    ))}
-                  </select>
-                </div>
+                      {abaClasses.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {formatAbaClassLabel(c)}
+                        </option>
+                      ))}
+                    </select>
+                    {abaClasses.length === 0 && (
+                      <p className="text-xs text-ink-faint">
+                        Nenhuma turma aberta — cadastre em Cadastros › Salas &amp; Recursos.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="field">
+                    <label>Sala</label>
+                    <select name="room_id" required className="input">
+                      <option value="">Selecione…</option>
+                      {rooms.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="field">
                   <label>Data</label>
                   <input type="date" name="date" required defaultValue={defaultDate} className="input" />
+                  {isAbaTraining && selectedAbaClass && (
+                    <p className="text-xs text-ink-faint">
+                      Essa turma só acontece na {WEEKDAY_LABELS[selectedAbaClass.dayOfWeek].toLowerCase()}.
+                    </p>
+                  )}
                 </div>
-                <div className="field">
-                  <label>Horário</label>
-                  <input type="time" name="time" required className="input" />
-                </div>
-                <div className="field sm:col-span-2">
-                  <label>Modalidade de Atendimento</label>
-                  <select name="modality" className="input" defaultValue="individual">
-                    <option value="individual">Individual (Presencial)</option>
-                    <option value="grupo">Grupo / Escola (Multi-paciente)</option>
-                    <option value="remoto">Remoto / Telessessão (Vídeo)</option>
-                  </select>
-                </div>
+                {isAbaTraining ? (
+                  <div className="field">
+                    <label>Horário</label>
+                    <input
+                      type="text"
+                      className="input"
+                      readOnly
+                      value={
+                        selectedAbaClass
+                          ? `${toHourMinute(selectedAbaClass.startTime)} · bloco de 2h (3 × 40min)`
+                          : "Definido pela turma"
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="field">
+                    <label>Horário</label>
+                    <input type="time" name="time" required className="input" />
+                  </div>
+                )}
+                {!isAbaTraining && (
+                  <div className="field sm:col-span-2">
+                    <label>Modalidade de Atendimento</label>
+                    <select name="modality" className="input" defaultValue="individual">
+                      <option value="individual">Individual (Presencial)</option>
+                      <option value="grupo">Grupo / Escola (Multi-paciente)</option>
+                      <option value="remoto">Remoto / Telessessão (Vídeo)</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
-              {patientId && (
+              {patientId && isAbaTraining && (
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: 2,
+                    background:
+                      abaBalance && abaBalance.blocksAvailable > 0
+                        ? "var(--status-confirmada-bg)"
+                        : "var(--status-falta-bg)",
+                    fontSize: 14,
+                    color:
+                      abaBalance && abaBalance.blocksAvailable > 0
+                        ? "var(--status-realizada)"
+                        : "var(--status-falta)",
+                  }}
+                >
+                  <strong>
+                    {abaBalance && abaBalance.blocksAvailable > 0
+                      ? `${abaBalance.blocksAvailable} bloco(s) de Treino ABA no saldo`
+                      : "Sem saldo para um bloco de Treino ABA"}
+                  </strong>
+                  <div style={{ fontSize: 13, marginTop: 2, opacity: 0.9 }}>
+                    {abaBalance && abaBalance.sessionsRemaining > 0
+                      ? `${abaBalance.sessionsRemaining} sessões somadas nas guias ABA vigentes · cada bloco de 2h consome 3.`
+                      : "Nenhuma guia ABA vigente (Psicologia, Fonoaudiologia, Terapia Ocupacional ou Psicopedagogia ABA)."}
+                  </div>
+                </div>
+              )}
+
+              {patientId && !isAbaTraining && (
                 <div
                   style={{
                     padding: "14px 16px",

@@ -7,7 +7,7 @@ import { GRID_EXCLUDED_STATUSES } from "@/app/supervisao/grade-data";
 
 type Supa = SupabaseClient<Database>;
 
-export type EvaluationAgendaOrigin = "whatsapp_anamnese" | "convenio_pdf" | "presencial";
+export type EvaluationAgendaOrigin = "whatsapp_anamnese" | "convenio_pdf" | "presencial" | "family_meeting";
 
 export type EvaluationBookInput =
   | { origin: "whatsapp_anamnese"; requestId: string }
@@ -147,11 +147,13 @@ export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_C
 }
 
 /**
- * 1ª avaliações já marcadas na agenda dentro de uma janela [weekStartIso,
- * weekEndIso), pra render do calendário semanal. A origem de cada
- * appointment é derivada checando se seu id aparece em
- * anamnesis_scheduling_requests/insurance_intake_leads — o que sobrar é
- * presencial (agendado direto pela Recepção, sem passar por WhatsApp/PDF).
+ * 1ª avaliações (+ reuniões com responsável de paciente já ativo, ver
+ * appointments.is_family_meeting) já marcadas na agenda dentro de uma janela
+ * [weekStartIso, weekEndIso), pra render do calendário semanal. A origem de
+ * cada appointment é derivada checando is_family_meeting primeiro e, senão,
+ * se seu id aparece em anamnesis_scheduling_requests/insurance_intake_leads —
+ * o que sobrar é presencial (agendado direto pela Recepção, sem passar por
+ * WhatsApp/PDF).
  */
 export async function getEvaluationCalendarAppointments(
   supabase: Supa,
@@ -161,9 +163,9 @@ export async function getEvaluationCalendarAppointments(
   const { data } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, patient_id, therapist_id, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
+      "id, starts_at, ends_at, patient_id, therapist_id, is_family_meeting, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
     )
-    .eq("is_evaluation", true)
+    .or("is_evaluation.eq.true,is_family_meeting.eq.true")
     .gte("starts_at", weekStartIso)
     .lt("starts_at", weekEndIso)
     .not("status", "in", `(${GRID_EXCLUDED_STATUSES.join(",")})`)
@@ -188,11 +190,13 @@ export async function getEvaluationCalendarAppointments(
     const patient = Array.isArray(a.patients) ? a.patients[0] : a.patients;
     const therapist = Array.isArray(a.therapist) ? a.therapist[0] : a.therapist;
     const room = Array.isArray(a.rooms) ? a.rooms[0] : a.rooms;
-    const origin: EvaluationAgendaOrigin = anamnesisAppointmentIds.has(a.id)
-      ? "whatsapp_anamnese"
-      : intakeAppointmentIds.has(a.id)
-        ? "convenio_pdf"
-        : "presencial";
+    const origin: EvaluationAgendaOrigin = a.is_family_meeting
+      ? "family_meeting"
+      : anamnesisAppointmentIds.has(a.id)
+        ? "whatsapp_anamnese"
+        : intakeAppointmentIds.has(a.id)
+          ? "convenio_pdf"
+          : "presencial";
 
     return {
       id: a.id,

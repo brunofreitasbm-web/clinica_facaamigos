@@ -10,11 +10,11 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const WEBHOOK_SECRET = Deno.env.get("GRUPOIB_WEBHOOK_SECRET")!;
 
-// Envio do e-mail de primeiro acesso (Resend). Sem RESEND_API_KEY a sincronizacao
+// Envio do e-mail de primeiro acesso (Brevo). Sem BREVO_API_KEY a sincronizacao
 // continua funcionando normalmente — so o e-mail e pulado (e registrado no
 // audit_log), pra um secret faltando nunca derrubar o sync.
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const RESEND_FROM = Deno.env.get("RESEND_FROM") ?? "FacaAmigos <nao-responda@facaamigos.com.br>";
+const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
+const BREVO_FROM = Deno.env.get("BREVO_FROM") ?? "FacaAmigos <nao-responda@facaamigos.com.br>";
 const APP_LOGIN_URL = Deno.env.get("APP_LOGIN_URL") ?? "https://app.facaamigos.com.br/login";
 const SUPPORT_CONTACT = Deno.env.get("SUPPORT_CONTACT") ?? "a recepcao da clinica";
 
@@ -166,8 +166,19 @@ async function logPendingRoleReview(profileId: string, sourceId: string, pending
 }
 
 // ---------------------------------------------------------------------------
-// E-mail de primeiro acesso (Resend)
+// E-mail de primeiro acesso (Brevo)
 // ---------------------------------------------------------------------------
+
+// Extrai nome e e-mail de um endereço "Nome <email@dominio>" ou "email@dominio",
+// formato exigido pelo campo `sender`/`to` da API do Brevo.
+function parseAddress(address: string): { name?: string; email: string } {
+  const match = address.match(/^(.*)<(.+)>$/);
+  if (match) {
+    const name = match[1].trim().replace(/^"|"$/g, "");
+    return { name: name || undefined, email: match[2].trim() };
+  }
+  return { email: address.trim() };
+}
 
 function escapeHtml(s: string) {
   return (s ?? "")
@@ -239,14 +250,14 @@ function buildAccessEmail(params: { name: string; login: string; variant: Access
 type EmailResult = { status: "sent"; id?: string } | { status: "skipped" | "failed"; reason: string };
 
 /**
- * Envia via Resend com uma retentativa. Se falhar de vez numa conta recém-criada,
+ * Envia via Brevo com uma retentativa. Se falhar de vez numa conta recém-criada,
  * o profissional fica sem saber a senha (que não é recuperável daqui), então o
  * fracasso precisa ficar registrado no audit_log para alguém agir manualmente.
  */
 async function sendAccessEmail(params: { to: string; name: string; variant: AccessEmail }): Promise<EmailResult> {
-  if (!RESEND_API_KEY) {
-    console.error("[GrupoIB Sync] RESEND_API_KEY ausente — e-mail de primeiro acesso não enviado.");
-    return { status: "skipped", reason: "RESEND_API_KEY ausente" };
+  if (!BREVO_API_KEY) {
+    console.error("[GrupoIB Sync] BREVO_API_KEY ausente — e-mail de primeiro acesso não enviado.");
+    return { status: "skipped", reason: "BREVO_API_KEY ausente" };
   }
 
   const { subject, html, text } = buildAccessEmail({ name: params.name, login: params.to, variant: params.variant });
@@ -254,19 +265,26 @@ async function sendAccessEmail(params: { to: string; name: string; variant: Acce
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const resp = await fetch("https://api.resend.com/emails", {
+      const resp = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${RESEND_API_KEY}`,
+          "api-key": BREVO_API_KEY,
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
-        body: JSON.stringify({ from: RESEND_FROM, to: [params.to], subject, html, text }),
+        body: JSON.stringify({
+          sender: parseAddress(BREVO_FROM),
+          to: [parseAddress(params.to)],
+          subject,
+          htmlContent: html,
+          textContent: text,
+        }),
       });
 
       const body = await resp.json().catch(() => ({}));
-      if (resp.ok) return { status: "sent", id: body?.id };
+      if (resp.ok) return { status: "sent", id: body?.messageId };
 
-      lastError = `HTTP ${resp.status}: ${body?.message ?? body?.name ?? "erro desconhecido"}`;
+      lastError = `HTTP ${resp.status}: ${body?.message ?? body?.code ?? "erro desconhecido"}`;
       // 4xx (domínio não verificado, e-mail inválido) não melhora com retentativa.
       if (resp.status < 500) break;
     } catch (err) {

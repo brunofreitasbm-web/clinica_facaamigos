@@ -78,3 +78,27 @@ export async function toggleSpecialtyActive(specialtyId: string, active: boolean
   revalidatePath("/gestor/cadastros/especialidades");
   return { success: true };
 }
+
+/**
+ * Quantidade de estagiários contratados para atuar nesta especialidade —
+ * hoje informada manualmente pelo gestor; no futuro pode vir a ser
+ * atualizada por integração externa (sistema de contratados). Alimenta o
+ * Alerta de Necessidade de Estagiário em Inteligência (BI), que relaciona
+ * este número com as crianças atendidas (check-in) na especialidade.
+ */
+export async function setSpecialtyInternCount(specialtyId: string, internCount: number): Promise<ActionResult> {
+  if (!Number.isInteger(internCount) || internCount < 0) {
+    return { success: false, error: "Quantidade precisa ser um número inteiro de pelo menos 0." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("specialties").update({ intern_count: internCount }).eq("id", specialtyId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível atualizar esta especialidade." };
+  }
+
+  revalidatePath("/gestor/cadastros/especialidades");
+  revalidatePath("/gestor/inteligencia");
+  return { success: true };
+}

@@ -191,7 +191,9 @@ export async function getCurrentCompetenceOverview(
   let billableAmount = 0;
   for (const insurer of insurers ?? []) {
     const { eligible } = await computeCompetenceEligibility(supabase, insurer.id, monthStr);
-    billableCount += eligible.length;
+    // Conta SESSÕES faturáveis, não linhas: um bloco de Treino ABA vale as
+    // 3 sessões que consome, mesmo quando vira duas linhas (duas guias).
+    billableCount += eligible.reduce((sum, e) => sum + e.quantity, 0);
     billableAmount += eligible.reduce((sum, e) => sum + e.amount, 0);
   }
 

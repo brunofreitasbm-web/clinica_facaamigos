@@ -78,7 +78,7 @@ export default async function BonificacaoPage() {
               Progressão de Faixa de Valor-Hora
             </h2>
             <p className="text-xs text-ink-soft mt-1">
-              Critérios objetivos avaliados: evoluções registradas em 24h ≥ 98%, faltas recuperadas e acompanhamento dos PTS.
+              Critérios objetivos avaliados: evoluções registradas em 24h ≥ 98%, volume de sessões realizadas e acompanhamento dos PTS.
               A progressão exige ação explícita do gestor (Aprovação ou Manutenção justificada gravada em audit_log).
             </p>
           </div>
@@ -89,7 +89,6 @@ export default async function BonificacaoPage() {
                 <tr>
                   <th className="p-3">Terapeuta (PJ)</th>
                   <th className="p-3">Evoluções 24h</th>
-                  <th className="p-3">Faltas recuperadas</th>
                   <th className="p-3">Faixa Atual</th>
                   <th className="p-3 text-right">Ação do Gestor</th>
                 </tr>
@@ -97,7 +96,7 @@ export default async function BonificacaoPage() {
               <tbody className="divide-y divide-paper-line">
                 {tierRows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-3 text-center text-ink-soft">
+                    <td colSpan={4} className="p-3 text-center text-ink-soft">
                       Nenhum terapeuta ativo cadastrado.
                     </td>
                   </tr>
@@ -107,9 +106,6 @@ export default async function BonificacaoPage() {
                     <td className="p-3 font-semibold text-ink">{row.name}</td>
                     <td className="p-3">
                       {row.hasSessions ? row.note24hRateLabel : <span className="text-ink-faint">—</span>}
-                    </td>
-                    <td className="p-3 font-medium">
-                      {row.hasFaltas ? row.faltasRecuperadasLabel : <span className="text-ink-faint">—</span>}
                     </td>
                     <td className="p-3 text-ink-soft">
                       {row.hasContract ? (

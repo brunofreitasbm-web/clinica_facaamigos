@@ -86,9 +86,9 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
   }, [donutItems, totalDonut]);
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-paper p-6 md:p-8">
+    <div className="bg-paper p-6 pb-16 md:p-8 md:pb-16">
       {/* Conteúdo Principal */}
-      <main className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Topo / Breadcrumb */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -596,6 +596,142 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
               </div>
             )}
 
+            {/* Alerta de Necessidade de Estagiário — déficit >= 20% da proporção
+                recomendada de 1 estagiário por criança, por especialidade na semana atual */}
+            {metrics.internShortageAlerts.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🧑‍🏫</span>
+                  <h3 className="text-sm font-bold text-amber-800">
+                    Alerta de Necessidade de Estagiário — {metrics.internShortageAlerts.length}{" "}
+                    {metrics.internShortageAlerts.length === 1 ? "especialidade" : "especialidades"} abaixo da proporção recomendada
+                  </h3>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {metrics.internShortageAlerts.map((alert) => (
+                    <div
+                      key={alert.specialtyId}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-white p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{alert.specialtyLabel}</p>
+                        <p className="mt-0.5 text-xs text-slate-600">{alert.description}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
+                        -{alert.deficitPct}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mesmo indicador no estado "sem necessidade": mantém a resposta
+                visível na aba (preciso ou não de estagiário?) quando nenhuma
+                especialidade está abaixo da proporção recomendada. */}
+            {metrics.internShortageAlerts.length === 0 && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🧑‍🏫</span>
+                  <h3 className="text-sm font-bold text-emerald-800">
+                    Necessidade de Estagiário — nenhuma especialidade abaixo da proporção recomendada
+                  </h3>
+                </div>
+                <p className="mt-1 text-xs text-emerald-700">
+                  Nesta semana, o nº de estagiários contratados por especialidade (Cadastros &gt; Especialidades)
+                  atende a proporção de 1 estagiário por criança com check-in.
+                </p>
+              </div>
+            )}
+
+            {/* Cobertura de Estagiários por Especialidade — acompanhamento
+                contínuo do percentual (estagiários contratados / crianças com
+                check-in na semana em atendimentos 1:1). 100% = proporção
+                recomendada atingida. */}
+            {metrics.internCoverage.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold tracking-wider text-slate-400 uppercase">Semana atual</span>
+                    <h3 className="text-base font-bold text-slate-900">Cobertura de Estagiários por Especialidade</h3>
+                    <p className="text-xs text-slate-600">
+                      Estagiários contratados por criança com check-in em atendimentos que seguem a proporção 1:1 — 100% = um
+                      estagiário por criança
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-semibold text-slate-500">Cobertura geral</span>
+                    <p
+                      className={`text-2xl font-bold ${
+                        metrics.internCoverageOverallPct >= 100
+                          ? "text-emerald-600"
+                          : metrics.internCoverageOverallPct >= 80
+                            ? "text-amber-600"
+                            : "text-rose-600"
+                      }`}
+                    >
+                      {metrics.internCoverageOverallPct}%
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {metrics.internCoverage.map((item) => {
+                    const barColor =
+                      item.status === "adequada"
+                        ? "bg-emerald-500"
+                        : item.status === "atencao"
+                          ? "bg-amber-500"
+                          : item.status === "critica"
+                            ? "bg-rose-500"
+                            : "bg-slate-300";
+                    const textColor =
+                      item.status === "adequada"
+                        ? "text-emerald-700"
+                        : item.status === "atencao"
+                          ? "text-amber-700"
+                          : item.status === "critica"
+                            ? "text-rose-700"
+                            : "text-slate-400";
+                    return (
+                      <div key={item.specialtyId}>
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className="text-sm font-semibold text-slate-900">{item.specialtyLabel}</p>
+                          <p className={`text-sm font-bold ${textColor}`}>
+                            {item.status === "sem_demanda" ? "—" : `${item.coveragePct}%`}
+                          </p>
+                        </div>
+                        <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className={`h-full rounded-full ${barColor}`}
+                            style={{
+                              width:
+                                item.status === "sem_demanda"
+                                  ? "0%"
+                                  : `${Math.min(100, Math.max(2, item.coveragePct))}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {item.status === "sem_demanda"
+                            ? `${formatPlural(item.internsCount, "estagiário contratado", "estagiários contratados")} · sem crianças com check-in nesta semana`
+                            : `${formatPlural(item.internsCount, "estagiário", "estagiários")} para ${formatPlural(item.childrenCount, "criança", "crianças")}`}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p className="mt-4 text-xs text-slate-400">
+                  O nº de estagiários contratados vem de{" "}
+                  <Link href="/gestor/cadastros/especialidades" className="font-semibold text-indigo-600 hover:underline">
+                    Cadastros &gt; Especialidades
+                  </Link>
+                  .
+                </p>
+              </div>
+            )}
+
             {/* Indicador em Destaque: Capacidade Operacional da Clínica */}
             <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -825,7 +961,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             )}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

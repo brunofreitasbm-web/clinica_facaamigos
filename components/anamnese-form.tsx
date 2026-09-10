@@ -13,7 +13,21 @@ const sectionClass = "rounded-md border border-paper-line-strong bg-paper/60 p-4
  * avaliador (que o guard de papel não deixa entrar em `/recepcao`) volta
  * para a ficha dele em `/terapeuta`.
  */
-export function AnamneseForm({ patientId, returnHref }: { patientId: string; returnHref: string }) {
+export function AnamneseForm({
+  patientId,
+  returnHref,
+  tcleHref,
+}: {
+  patientId: string;
+  returnHref: string;
+  /**
+   * Para onde o fluxo segue depois de salvar: o TCLE é o último passo do
+   * acolhimento, então quem acabou de conduzir a 1ª avaliação cai direto na
+   * folha pronta para imprimir e colher a assinatura, com a família ainda na
+   * sala. `returnHref` continua sendo o caminho de volta do TCLE.
+   */
+  tcleHref: string;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -26,7 +40,7 @@ export function AnamneseForm({ patientId, returnHref }: { patientId: string; ret
         setError(result.error);
         return;
       }
-      router.push(returnHref);
+      router.push(tcleHref);
     });
   }
 
@@ -162,9 +176,14 @@ export function AnamneseForm({ patientId, returnHref }: { patientId: string; ret
       </fieldset>
 
       <div className="flex flex-col gap-2">
-        <button type="submit" disabled={isPending} className="btn btn-primary self-start">
-          {isPending ? "Salvando…" : "Salvar 1ª avaliação (anamnese ampliada)"}
-        </button>
+        <div className="flex items-center gap-4">
+          <button type="submit" disabled={isPending} className="btn btn-primary">
+            {isPending ? "Salvando…" : "Salvar e seguir para o TCLE"}
+          </button>
+          <a href={returnHref} className="text-xs font-semibold text-ink-soft no-underline">
+            Cancelar
+          </a>
+        </div>
         {error && <p className="text-xs text-status-negative-text">{error}</p>}
       </div>
     </form>

@@ -106,6 +106,19 @@ export function AppointmentTypeDialog({ appointmentType }: { appointmentType?: A
                 </div>
               </div>
 
+              <label className="flex items-start gap-2 text-xs text-ink-faint">
+                <input
+                  type="checkbox"
+                  name="requires_intern_ratio"
+                  defaultChecked={appointmentType?.requiresInternRatio ?? true}
+                  className="mt-0.5"
+                />
+                <span>
+                  Aplicar regra de 1 estagiário por criança neste tipo de atendimento. Desmarque para tipos 1:1
+                  terapeuta-paciente (ex.: avaliação neuropsicológica, psicoterapia e fonoaudiologia convencionais).
+                </span>
+              </label>
+
               {error && (
                 <p className="text-xs" style={{ color: "var(--status-falta)" }}>
                   {error}

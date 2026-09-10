@@ -100,11 +100,16 @@ export async function closeCompetence(
 
   const { data: existingItems } = await supabase
     .from("billing_items")
-    .select("appointment_id")
+    .select("appointment_id, procedure_code")
     .eq("billing_period_id", billingPeriodId);
 
-  const alreadyBilled = new Set((existingItems ?? []).map((i) => i.appointment_id));
-  const toInsert = eligible.filter((e) => !alreadyBilled.has(e.appointmentId));
+  // A unicidade em billing_items passou a ser (sessão, procedimento) —
+  // 20260910040000_aba_training_billing_and_intake.sql — porque um bloco de
+  // Treino ABA pode ser pago por mais de uma guia, cada uma com seu
+  // procedimento. Pra todo o resto, onde a sessão gera uma linha só, a
+  // chave composta se comporta igual à antiga.
+  const alreadyBilled = new Set((existingItems ?? []).map((i) => `${i.appointment_id}|${i.procedure_code}`));
+  const toInsert = eligible.filter((e) => !alreadyBilled.has(`${e.appointmentId}|${e.procedureCode}`));
 
   if (toInsert.length > 0) {
     const { error: itemsError } = await supabase.from("billing_items").insert(
@@ -113,6 +118,7 @@ export async function closeCompetence(
         appointment_id: e.appointmentId,
         procedure_code: e.procedureCode,
         amount: e.amount,
+        quantity: e.quantity,
       })),
     );
 

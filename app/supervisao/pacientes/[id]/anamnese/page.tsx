@@ -24,7 +24,11 @@ export default async function AnamnesePage({ params }: { params: Promise<{ id: s
         <h1 className="m-0">1ª Avaliação (Anamnese ampliada)</h1>
       </div>
 
-      <AnamnesePanel patientId={id} returnHref={`/recepcao/pacientes/${id}#checklist-entrada`} />
+      <AnamnesePanel
+        patientId={id}
+        returnHref={`/recepcao/pacientes/${id}#checklist-entrada`}
+        tcleHref={`/supervisao/pacientes/${id}/anamnese/tcle`}
+      />
     </main>
   );
 }
