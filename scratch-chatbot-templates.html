@@ -178,13 +178,134 @@ section > .section-head{margin-bottom:22px;}
   <h1>Roteiro de respostas do chatbot</h1>
   <p>Textos revisados para o bot da FaçaAmigos — curtos, acolhedores e no tom da marca — com base no que já está cadastrado no sistema (<code>clinic_faq</code>, convênios ativos, tipos de atendimento). Ao final, um teste com dados fictícios do fluxo completo de 1ª avaliação, do envio do laudo e da guia até o "OK" do supervisor.</p>
   <div class="callout">
-    <b>O que ainda não está confirmado:</b> horário de funcionamento e valores continuam marcados como pendentes no cadastro (<code>clinic_faq</code> e <code>app/site/content.ts</code>). Mantive esses dois templates escalando para atendimento humano — não inventei número nenhum. Assim que o gestor confirmar em <code>/gestor/cadastros/faq</code>, o texto final entra no lugar da versão "pendente" abaixo.
+    <b>Sobre valores:</b> por decisão da clínica, preço não é informação repassada pelo WhatsApp — por isso não existe (e não deve existir) um template de resposta para isso; qualquer pergunta sobre valor deve escalar direto para atendimento humano, sem tentar responder. Horário já está confirmado (seg-sex 8h-18h, sáb 8h-12h) e só precisa ser atualizado no cadastro, que ainda traz o comentário TODO antigo em <code>app/site/content.ts</code>.
   </div>
 </header>
 
-<section id="templates">
+<section id="ordem">
   <div class="section-head">
     <span class="eyebrow">Parte 1</span>
+    <h2>Ordem do roteiro de agendamento</h2>
+    <p style="color:var(--ink-soft); font-size:14.5px; margin-top:8px; max-width:66ch;">Sequência oficial que o bot segue assim que o lead fala em marcar uma avaliação — definida com você. As respostas usam os templates da Parte 2; aqui é só a ordem das perguntas.</p>
+  </div>
+
+  <div class="flow" style="margin-top:8px;">
+
+    <div class="step">
+      <div class="rail"><div class="dot">1</div><div class="line"></div></div>
+      <div class="step-body">
+        <div class="step-meta">toda primeira mensagem, qualquer texto</div>
+        <h3>Mensagem acolhedora + pergunta aberta</h3>
+        <div class="bubble family">Oi</div>
+        <div class="bubble bot">Muito bem-vindo(a) à FaçaAmigos, Centro de Terapia Comportamental! 💛 Que bom te receber por aqui. Me conta: você quer marcar uma avaliação, tirar uma dúvida sobre terapias e convênios, ou já é família FaçaAmigos?</div>
+        <div class="tpl-note" style="margin-top:10px; border-top:none; padding-top:0;">Sem pedir nome e sem menu numerado aqui — o bot já entende texto livre, então isso só adiciona fricção antes da hora. O nome vem naturalmente no passo 4.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot">2</div><div class="line"></div></div>
+      <div class="step-body">
+        <div class="step-meta">se a resposta indicar agendamento</div>
+        <h3>Pergunta o plano de saúde e confirma se atendemos</h3>
+        <div class="bubble family">Quero marcar uma avaliação pro meu filho</div>
+        <div class="bubble bot">Oba, que alegria! 💛 Pra eu já te direcionar certinho: qual é o plano de saúde dele(a)? Se for particular, também me conta.</div>
+        <div class="bubble family">É pelo Vidalis Saúde</div>
+        <div class="bubble bot">Show! Atendemos sim o Vidalis Saúde 💙 Vamos seguir com o agendamento pelo convênio, tá bom?</div>
+        <div class="tpl-note" style="margin-top:10px; border-top:none; padding-top:0;">Se a família responder um plano que <b>não</b> está ativo em <code>insurers</code>: <span style="display:block; margin-top:6px; font-style:italic;">"Verifiquei aqui e no momento não atendemos o {'{'}plano informado{'}'} 💛 Mas o atendimento também pode ser particular — emitimos nota fiscal e relatório pra você pedir reembolso ao seu plano. Quer seguir assim?"</span></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot">3</div><div class="line"></div></div>
+      <div class="step-body">
+        <div class="step-meta">pergunta seguinte, sempre</div>
+        <h3>Pergunta se já tem laudo e guia autorizados</h3>
+        <div class="bubble bot">Você já tem o laudo e a guia autorizada em mãos?</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot">4</div><div class="line"></div></div>
+      <div class="step-body">
+        <div class="step-meta">se a resposta for "sim" — um dado por vez</div>
+        <h3>Coleta os dados do responsável e da criança</h3>
+        <div class="bubble family">Sim, já tenho os dois</div>
+        <div class="bubble bot">Perfeito! Vou te pedir alguns dados rapidinho, um de cada vez, pra eu não me perder aqui 😉 Pra começar: qual é o seu nome completo (responsável)?</div>
+        <div class="bubble family">Camila Ribeiro Santos</div>
+        <div class="bubble bot">Obrigado, Camila! Agora me manda seu CPF, por favor.</div>
+        <div class="bubble family">123.456.789-00</div>
+        <div class="bubble bot">Show! E qual é o nome completo da criança?</div>
+        <div class="bubble family">Maria Eduarda Ribeiro Santos</div>
+        <div class="bubble bot">Só mais um: qual é a data de nascimento dela?</div>
+        <div class="bubble family">12/03/2022</div>
+        <div class="bubble bot">Perfeito, já anotei tudo! 💛</div>
+        <div class="tpl-note" style="margin-top:10px; border-top:none; padding-top:0;">Pergunta <b>um dado por vez</b>, esperando a resposta antes de seguir para o próximo — em vez de pedir os quatro campos numa mensagem só. Isso evita que a família mande tudo junto num texto corrido e o bot capture errado ou perca algum campo (ex.: confundir CPF com data de nascimento). Se a resposta ao passo 3 for "ainda não tenho": o bot usa o template <b>"Laudo de TEA"</b> (não é obrigatório pra começar) e segue a mesma coleta dado a dado — só o laudo/guia ficam pendentes, sem travar o agendamento.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot">5</div><div class="line"></div></div>
+      <div class="step-body">
+        <div class="step-meta">pede os documentos</div>
+        <h3>Pede o laudo e a guia autorizada</h3>
+        <div class="bubble bot">Show, {'{'}nome do responsável{'}'}! Agora me manda o laudo e a guia autorizada da {'{'}nome da criança{'}'} — pode ser foto ou PDF 📎</div>
+        <div class="bubble family">[PDF: laudo_da_crianca.pdf]</div>
+        <div class="bubble family">[foto: guia_autorizada.jpg]</div>
+        <div class="bubble bot">Recebido! 🌱 Nossa equipe já vai conferir tudo e te aviso assim que tiver novidade.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot">6</div><div class="line"></div></div>
+      <div class="step-body">
+        <div class="step-meta">ação do supervisor · painel de acolhimento</div>
+        <h3>Supervisor avalia os documentos</h3>
+        <div class="bubble system">O laudo e a guia enviados pelo chat entram na fila do supervisor (mesma tela usada no fluxo institucional da Parte 3), que confere se estão legíveis, completos e dentro da validade.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot">7</div><div class="line"></div></div>
+      <div class="step-body">
+        <div class="step-meta">ação do supervisor · dá o OK no sistema</div>
+        <h3>Supervisor aprova os documentos</h3>
+        <div class="data-card">
+          <dt>Laudo</dt><dd><span class="tag laudo">laudo</span> → aprovado</dd>
+          <dt>Guia</dt><dd><span class="tag guia">guia</span> → aprovado</dd>
+        </div>
+        <div class="bubble system" style="margin-top:10px;">Ao dar o OK, o sistema promove os arquivos para <code>documents</code> e cria a autorização em <code>authorizations</code>, liberando o agendamento.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot">8</div><div class="line"></div></div>
+      <div class="step-body">
+        <div class="step-meta">bot retorna a validação ao responsável</div>
+        <h3>Bot avisa que os documentos foram validados</h3>
+        <div class="bubble bot">✅ Documentos validados! O laudo e a guia da {'{'}nome da criança{'}'} foram conferidos pela nossa equipe.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot">9</div></div>
+      <div class="step-body">
+        <div class="step-meta">sistema oferece 3 datas para escolha</div>
+        <h3>Responsável escolhe a data da 1ª avaliação</h3>
+        <div class="bubble bot">Agora vamos marcar a 1ª avaliação! Escolha uma data respondendo com o número:
+1 - Ter, 22/09 às 14h — com Dra. Beatriz Nunes (Fono)
+2 - Qui, 24/09 às 09h30 — com Dra. Beatriz Nunes (Fono)
+3 - Sex, 25/09 às 10h — com Dra. Beatriz Nunes (Fono)</div>
+        <div class="bubble family">Pode ser a 1</div>
+        <div class="tpl-note" style="margin-top:10px; border-top:none; padding-top:0;">Sempre 3 opções de data — só aparecem depois do OK do supervisor, porque aqui (diferente do lead do lote de convênio) o laudo/guia vieram direto da família e ainda não tinham sido conferidos antes desse ponto.</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section id="templates">
+  <div class="section-head">
+    <span class="eyebrow">Parte 2</span>
     <h2>Templates de resposta</h2>
   </div>
 
@@ -197,9 +318,9 @@ section > .section-head{margin-bottom:22px;}
       </div>
       <div class="tpl-grid">
         <div class="tpl-col before"><span class="tpl-col-label">Atual</span><p>Olá! Bem-vindo(a) à FaçaAmigos - Centro de Terapia Comportamental. Como posso ajudar?</p></div>
-        <div class="tpl-col after"><span class="tpl-col-label">Sugestão</span><p>Oi! 💛 Aqui é da FaçaAmigos, Centro de Terapia Comportamental. Que bom te ver por aqui! Me conta: é sobre um agendamento, dúvida sobre terapias/convênios, ou você já é família FaçaAmigos?</p></div>
+        <div class="tpl-col after"><span class="tpl-col-label">Sugestão</span><p>Muito bem-vindo(a) à FaçaAmigos, Centro de Terapia Comportamental! 💛 Que bom te receber por aqui. Me conta: você quer marcar uma avaliação, tirar uma dúvida sobre terapias e convênios, ou já é família FaçaAmigos?</p></div>
       </div>
-      <div class="tpl-note">Abre com pergunta orientadora em vez de "como posso ajudar", que gera respostas vagas e mais idas e vindas.</div>
+      <div class="tpl-note">Abre com a mensagem acolhedora pedida, seguida de uma pergunta orientadora com os 3 caminhos mais comuns já na frase — sem pedir o nome logo de cara (isso cria fricção) e sem menu numerado (o bot já entende texto livre, então "digite 1/2/3" só deixaria o tom mais frio). O nome entra naturalmente mais adiante, quando pedimos CPF e dados do responsável.</div>
     </div>
 
     <div class="tpl-card">
@@ -269,33 +390,21 @@ section > .section-head{margin-bottom:22px;}
       </div>
       <div class="tpl-grid">
         <div class="tpl-col before"><span class="tpl-col-label">Atual</span><p>30 a 40 minutos (Fono/Psicoterapia = 30min; TO/Integração Sensorial/ABA/Neuropsicologia = 40min).</p></div>
-        <div class="tpl-col after"><span class="tpl-col-label">Sugestão</span><p>Depende da terapia: Fonoaudiologia e Psicoterapia são sessões de 30 minutos; Terapia Ocupacional, Integração Sensorial, ABA e Neuropsicologia são de 40 minutos. Quer que eu confirme a da sua criança?</p></div>
+        <div class="tpl-col after"><span class="tpl-col-label">Sugestão</span><p>Todas as nossas sessões duram 40 minutos, seja qual for a terapia 🕐</p></div>
       </div>
-      <div class="tpl-note">Mesmo dado, só reescrito em prosa (mais fácil de ler no WhatsApp que um bloco com parênteses).</div>
+      <div class="tpl-note">Atualizado: a duração passou a ser única (40min) para todas as terapias — não varia mais por especialidade.</div>
     </div>
 
     <div class="tpl-card">
       <div class="tpl-card-top">
-        <span class="tpl-title">Remarcar ou desmarcar</span>
+        <span class="tpl-title">Endereço e horário</span>
         <span class="status ok">Dado confirmado</span>
       </div>
       <div class="tpl-grid">
-        <div class="tpl-col before"><span class="tpl-col-label">Atual</span><p>Aviso com no mínimo 24h de antecedência.</p></div>
-        <div class="tpl-col after"><span class="tpl-col-label">Sugestão</span><p>Sem problema! Só peço aviso com pelo menos 24h de antecedência, pra gente conseguir oferecer o horário pra outra família 💛 Me diga o nome da criança e a data que quer remarcar.</p></div>
-      </div>
-      <div class="tpl-note">Explica a razão da regra (empatia mútua com outras famílias) e já coleta os dois dados que a recepção vai pedir de qualquer forma.</div>
-    </div>
-
-    <div class="tpl-card">
-      <div class="tpl-card-top">
-        <span class="tpl-title">Endereço, horário e valores</span>
-        <span class="status pending">Pendente de confirmação</span>
-      </div>
-      <div class="tpl-grid">
         <div class="tpl-col before"><span class="tpl-col-label">Atual</span><p>⚠️ TODO — sem texto cadastrado; bot escala para humano.</p></div>
-        <div class="tpl-col after"><span class="tpl-col-label">Sugestão (endereço, já cadastrado)</span><p>Ficamos na Rua Boaventura da Silva, 1573, Umarizal, Belém/PA — CEP 66060-060 📍 Quer que eu te mande a localização?</p></div>
+        <div class="tpl-col after"><span class="tpl-col-label">Sugestão</span><p>Ficamos na Rua Boaventura da Silva, 1573, Umarizal, Belém/PA — CEP 66060-060 📍 Funcionamos de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h. Quer que eu te mande a localização?</p></div>
       </div>
-      <div class="tpl-note">Endereço já existe em <code>app/site/content.ts</code> e pode entrar no ar hoje. <b>Horário e valores continuam sem confirmação do gestor</b> — mantive o bot escalando para humano nesses dois casos em vez de arriscar um horário errado.</div>
+      <div class="tpl-note">Horário confirmado agora (seg-sex 8h-18h, sáb 8h-12h) — atualizar em <code>clinic_faq</code> e no comentário TODO de <code>app/site/content.ts</code>, que ainda marca esse horário como não confirmado.</div>
     </div>
 
   </div>
@@ -303,9 +412,9 @@ section > .section-head{margin-bottom:22px;}
 
 <section id="fluxo">
   <div class="section-head">
-    <span class="eyebrow">Parte 2 · Teste com dados fictícios</span>
-    <h2>Agendamento da 1ª avaliação: do laudo/guia ao "OK" do supervisor</h2>
-    <p style="color:var(--ink-soft); font-size:14.5px; margin-top:8px; max-width:66ch;">Simulação completa da paciente fictícia abaixo, seguindo exatamente os status já existentes no sistema (<code>insurance_intake_leads.status</code>, <code>authorizations</code>, <code>documents</code>).</p>
+    <span class="eyebrow">Parte 3 · Teste com dados fictícios</span>
+    <h2>Lead do lote de convênio: agendamento automático</h2>
+    <p style="color:var(--ink-soft); font-size:14.5px; margin-top:8px; max-width:66ch;">Simulação da paciente fictícia abaixo. Como o laudo e a guia já vêm validados no próprio lote enviado pelo convênio, o agendamento é automático assim que a família escolhe a data — mesmo pedindo, à parte, que ela mande o laudo e a guia (foto ou PDF) só para constar no prontuário, <b>sem precisar de aprovação do supervisor</b>.</p>
   </div>
 
   <div class="data-card">
@@ -330,66 +439,36 @@ section > .section-head{margin-bottom:22px;}
     <div class="step">
       <div class="rail"><div class="dot">2</div><div class="line"></div></div>
       <div class="step-body">
-        <div class="step-meta">status: awaiting_documents</div>
-        <h3>Bot inicia contato com a família</h3>
-        <div class="bubble bot">Oi, Camila! 💛 Aqui é da FaçaAmigos. Vimos que a Maria Eduarda tem uma guia autorizada pela Vidalis Saúde com a gente. Pra darmos andamento na 1ª avaliação, pode me mandar o <b>laudo</b> e a <b>guia autorizada</b>? Pode ser foto ou PDF, do jeito que for mais fácil pra você.</div>
-        <div class="bubble family">Oi! Consigo sim, um minutinho</div>
+        <div class="step-meta">status: awaiting_slot</div>
+        <h3>Bot já dá 3 datas e pede laudo/guia para o prontuário</h3>
+        <div class="bubble bot">Oi, Camila! Aqui é do FaçaAmigos. Vimos que a Maria Eduarda tem uma guia autorizada pela Vidalis Saúde com a gente. Escolhe uma data respondendo o número:
+1 - Ter, 22/09 às 14h — com Dra. Beatriz Nunes (Fono)
+2 - Qui, 24/09 às 09h30 — com Dra. Beatriz Nunes (Fono)
+3 - Sex, 25/09 às 10h — com Dra. Beatriz Nunes (Fono)
+
+Aproveita e já me manda o laudo e a guia autorizada, pode ser foto ou PDF 📎</div>
+        <div class="bubble family">Pode ser a 1</div>
         <div class="bubble family">[PDF: laudo_maria_eduarda.pdf]</div>
         <div class="bubble family">[foto: guia_vidalis_000123456789.jpg]</div>
+        <div class="tpl-note" style="margin-top:10px; border-top:none; padding-top:0;">O pedido dos documentos aqui é só para <b>arquivar no prontuário</b> — não bloqueia nem atrasa o agendamento, que segue direto pelo número escolhido. É diferente do fluxo institucional que passa pela fila de revisão: aqui o laudo e a guia já foram conferidos no lote do convênio, então esse novo envio vai direto para <code>documents</code>, sem <code>review_status: pending</code> nem espera pelo supervisor.</div>
       </div>
     </div>
 
     <div class="step">
       <div class="rail"><div class="dot">3</div><div class="line"></div></div>
       <div class="step-body">
-        <div class="step-meta">status: pending_supervisor</div>
-        <h3>Arquivos entram na fila de revisão</h3>
-        <div class="bubble bot">Recebido! 🌱 Nossa equipe vai conferir os documentos e já te aviso assim que tivermos os horários disponíveis pra avaliação.</div>
-        <div class="bubble system">Os 2 arquivos aparecem em <code>insurance_intake_lead_files</code> com <span class="tag supervisor">review_status: pending</span>, aguardando classificação (laudo / guia / outro) e decisão do supervisor.</div>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="rail"><div class="dot">4</div><div class="line"></div></div>
-      <div class="step-body">
-        <div class="step-meta">ação do supervisor · painel de acolhimento</div>
-        <h3>Supervisor classifica e aprova os documentos</h3>
-        <div class="data-card">
-          <dt>Arquivo 1</dt><dd><span class="tag laudo">laudo</span> → aprovado</dd>
-          <dt>Arquivo 2</dt><dd><span class="tag guia">guia</span> → aprovado</dd>
-        </div>
-        <div class="bubble system" style="margin-top:10px;">Ao aprovar, o sistema promove os arquivos para <code>documents</code> (categorias <code>laudo</code> e <code>autorizacao</code>) e cria o registro em <code>authorizations</code>: guia 000123456789, 12 sessões autorizadas, status <b>ativa</b>.</div>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="rail"><div class="dot">5</div><div class="line"></div></div>
-      <div class="step-body">
-        <div class="step-meta">status: awaiting_slot</div>
-        <h3>Bot envia horários disponíveis</h3>
-        <div class="bubble bot">✅ Documentos aprovados! Os documentos da Maria Eduarda foram conferidos pela nossa equipe. Escolha o horário da avaliação respondendo com o número:
-1 - Ter, 22/09 às 14h — com Dra. Beatriz Nunes (Fono)
-2 - Qui, 24/09 às 09h30 — com Dra. Beatriz Nunes (Fono)
-Responda apenas com o número escolhido.</div>
-        <div class="bubble family">1</div>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="rail"><div class="dot">6</div><div class="line"></div></div>
-      <div class="step-body">
-        <div class="step-meta">status: pending_confirmation → scheduled</div>
-        <h3>Supervisor confirma o agendamento</h3>
-        <div class="bubble system">Horário reservado atomicamente (evita choque de agenda). Supervisor confirma no painel → cria o <code>appointment</code> com <code>is_evaluation: true</code>.</div>
+        <div class="step-meta">status: scheduled — automático, sem supervisor</div>
+        <h3>Sistema agenda, arquiva os documentos e confirma na hora</h3>
         <div class="bubble bot">✅ AVALIAÇÃO CONFIRMADA!
 👤 Paciente: Maria Eduarda R. Santos
 📅 Data e horário: Terça, 22/09 às 14h — Sala 3 (Sensorial)
-Traga os documentos originais no dia. Em instantes você recebe por aqui o convite para preencher a anamnese antes da consulta 💛</div>
+Recebi o laudo e a guia, obrigada! 💛 Traga os documentos originais no dia. Em instantes você recebe por aqui o convite para preencher a anamnese antes da consulta.</div>
+        <div class="tpl-note" style="margin-top:10px; border-top:none; padding-top:0;">Assim que a família escolhe o número, o sistema já cria o <code>appointment</code>, salva o laudo/guia recebidos direto em <code>documents</code> (categorias <code>laudo</code> e <code>autorizacao</code>, vinculados ao paciente) e manda a confirmação — tudo sem passar pela fila do supervisor, porque a validação já aconteceu quando o lote do convênio foi conferido.</div>
       </div>
     </div>
 
     <div class="step">
-      <div class="rail"><div class="dot">7</div></div>
+      <div class="rail"><div class="dot">4</div></div>
       <div class="step-body">
         <div class="step-meta">após a avaliação · treatment_plans.status</div>
         <h3>PTS é montado e aprovado pelo supervisor</h3>
