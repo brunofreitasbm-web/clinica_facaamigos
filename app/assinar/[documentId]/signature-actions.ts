@@ -1,10 +1,12 @@
 "use server";
 
 import crypto from "crypto";
+import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requestFamilyOtp } from "@/app/login/otp-actions";
 import { sendEmail, renderBrandEmailHtml } from "@/lib/email";
 import { CLINIC_BRAND, CLINIC_TAGLINE } from "@/lib/clinic-identity";
+import { extractClientIp } from "@/lib/checkin-security";
 
 export interface DocumentSignatureData {
   id: string;
@@ -165,7 +167,6 @@ export async function confirmDocumentSignature(params: {
   otpCode: string;
   signerName: string;
   signerCpf: string;
-  ipAddress?: string;
 }): Promise<{
   success: boolean;
   error?: string;
@@ -247,8 +248,27 @@ export async function confirmDocumentSignature(params: {
         .from("documents")
         .update({ shared_with_family: true })
         .eq("id", params.documentId);
+
+      // Identificar o responsável (guardian) que efetivamente assinou, casando
+      // pelo telefone confirmado via OTP (ou, na ausência, pelo CPF informado)
+      const { data: guardians } = await admin
+        .from("guardians")
+        .select("id, phone, cpf")
+        .eq("patient_id", patientId);
+
+      const signerCpfDigits = params.signerCpf.replace(/\D/g, "");
+      const matchedGuardian = guardians?.find(
+        (g: { id: string; phone: string; cpf: string | null }) =>
+          normalizeDigits(g.phone) === digits || (g.cpf && g.cpf.replace(/\D/g, "") === signerCpfDigits),
+      );
+      guardianId = matchedGuardian?.id ?? null;
     }
   }
+
+  // Endereço IP de quem está assinando, extraído no servidor a partir dos
+  // cabeçalhos da requisição (nunca confiar em um valor enviado pelo cliente).
+  const requestHeaders = await headers();
+  const signerIp = extractClientIp(requestHeaders);
 
   // 3. Registrar Assinatura Eletrônica em document_signatures
   if (params.documentId !== "doc-9823" && params.documentId !== "demo") {
@@ -259,7 +279,7 @@ export async function confirmDocumentSignature(params: {
       signer_name: params.signerName,
       signer_cpf: params.signerCpf,
       signer_phone: digits,
-      signer_ip: params.ipAddress || "127.0.0.1",
+      signer_ip: signerIp,
       otp_code_used: cleanCode,
       document_hash: documentHash,
       signed_at: nowIso,
