@@ -18,6 +18,27 @@ import { simulateBonusRuleSet, type SimResult } from "@/lib/bonus-simulation";
 
 export type { RuleSetRow, RuleSetItemDraft, BonusModule };
 
+// Métricas que existem no catálogo (§10 do PRD, usado também pelo cadastro de
+// metas em /gestor/metas) mas que o gestor pediu pra tirar da tela de
+// PLR/Bonificação especificamente — ficam de fora só da apuração de bônus,
+// continuam disponíveis pra meta individual.
+const BONUS_EXCLUDED_METRIC_KEYS = new Set([
+  "first_response_min", // Tempo de primeira resposta
+  "interessado_to_eval_rate", // Interessado → avaliação agendada
+  "eval_show_rate", // Avaliação realizada / agendada
+  "confirm_d1_rate", // Confirmação D-1
+  "auth_first_pass", // Autorização aprovada de primeira
+  "plan_reviewed_rate", // PDIs com revisão da supervisão registrada
+]);
+
+function bonusMetricCatalog(): typeof METRIC_CATALOG {
+  const filtered: typeof METRIC_CATALOG = {};
+  for (const role of Object.keys(METRIC_CATALOG) as Role[]) {
+    filtered[role] = METRIC_CATALOG[role]?.filter((m) => !BONUS_EXCLUDED_METRIC_KEYS.has(m.key));
+  }
+  return filtered;
+}
+
 export async function getBonusConfigData(): Promise<{
   roles: { value: Role; label: string }[];
   modules: typeof BONUS_MODULES;
@@ -34,7 +55,7 @@ export async function getBonusConfigData(): Promise<{
   return {
     roles: TARGET_ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] })),
     modules: BONUS_MODULES,
-    catalog: METRIC_CATALOG,
+    catalog: bonusMetricCatalog(),
     active,
     history,
   };

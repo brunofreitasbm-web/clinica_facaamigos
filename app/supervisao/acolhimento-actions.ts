@@ -15,6 +15,7 @@ import { computeAvailableSlots } from "@/lib/available-slots";
 import { computeAbaTrainingSlots } from "@/lib/aba-training-slots";
 import { startIntakeConversation, pushIntakeUpdate, setIntakeAwaitingSlot } from "@/lib/twilio-intake-bot";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
+import { runLaudoExtraction } from "@/lib/laudo-extraction";
 
 type SimpleResult = { success: true } | { success: false; error: string };
 type UrlResult = { success: true; url: string } | { success: false; error: string };
@@ -448,6 +449,22 @@ export async function reviewIntakeLeadFile(fileId: string, patch: { kind?: "laud
   const { error } = await supabase.from("insurance_intake_lead_files").update(update as never).eq("id", fileId);
   if (error) return { success: false, error: "Não foi possível salvar a classificação do arquivo." };
 
+  revalidatePath("/supervisao");
+  return { success: true };
+}
+
+/**
+ * Roda de novo o agente de leitura do laudo/guia sobre um arquivo já salvo
+ * — usado quando a 1ª extração falhou (extraction_status='failed') ou o
+ * supervisor quer uma nova leitura depois de reclassificar o `kind` do
+ * arquivo. A extração automática já roda assim que o arquivo chega pelo
+ * WhatsApp (lib/twilio-intake-bot.ts); este botão é só o caminho manual.
+ */
+export async function reprocessLaudoExtraction(fileId: string): Promise<SimpleResult> {
+  const auth = await requireSupervisor();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  await runLaudoExtraction(fileId);
   revalidatePath("/supervisao");
   return { success: true };
 }
@@ -1041,6 +1058,62 @@ export async function getIntakeFileUrl(fileId: string): Promise<UrlResult> {
   });
 
   return { success: true, url: signed.signedUrl };
+}
+
+/**
+ * Exclui um lote inteiro (e seus leads/arquivos em cascata). Bloqueada se
+ * algum lead já tiver virado agendamento — nesse caso é preciso cancelar
+ * cada acolhimento individualmente antes de remover o lote.
+ */
+export async function deleteIntakeBatch(batchId: string): Promise<SimpleResult> {
+  const auth = await requireSupervisor();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const { data: batch } = await supabase.from("insurance_intake_batches").select("*").eq("id", batchId).maybeSingle();
+  if (!batch) return { success: false, error: "Lote não encontrado." };
+
+  const { data: leads } = await supabase.from("insurance_intake_leads").select("id, status, patient_id").eq("batch_id", batchId);
+  if ((leads ?? []).some((l) => l.status === "scheduled")) {
+    return { success: false, error: "Este lote tem acolhimento(s) já agendado(s) — cancele-os individualmente antes de excluir o lote." };
+  }
+
+  // Paciente criado só por causa de um lead deste lote e sem agendamento — arquiva (mesma regra de cancelIntakeLead).
+  for (const lead of leads ?? []) {
+    if (!lead.patient_id) continue;
+    const { count: apptCount } = await admin.from("appointments").select("id", { count: "exact", head: true }).eq("patient_id", lead.patient_id);
+    if (!apptCount) {
+      await admin.from("patients").update({ status: "arquivado" }).eq("id", lead.patient_id).eq("entry_source", "acolhimento_plano_saude");
+    }
+  }
+
+  const leadIds = (leads ?? []).map((l) => l.id);
+  if (leadIds.length > 0) {
+    const { data: files } = await admin.from("insurance_intake_lead_files").select("storage_path, document_id").in("lead_id", leadIds);
+    const orphanPaths = (files ?? []).filter((f) => !f.document_id).map((f) => f.storage_path);
+    if (orphanPaths.length > 0) await admin.storage.from(DOCUMENTS_BUCKET).remove(orphanPaths);
+  }
+
+  if (batch.storage_path) {
+    await admin.storage.from(DOCUMENTS_BUCKET).remove([batch.storage_path]);
+  }
+
+  const { error } = await admin.from("insurance_intake_batches").delete().eq("id", batchId);
+  if (error) return { success: false, error: "Não foi possível excluir o lote." };
+
+  await admin.from("audit_log").insert({
+    table_name: "insurance_intake_batches",
+    row_id: batchId,
+    action: "intake_batch_deleted",
+    actor_id: auth.userId,
+    clinic_id: batch.clinic_id,
+    after: { leads_count: leadIds.length },
+  });
+
+  revalidatePath("/supervisao");
+  return { success: true };
 }
 
 export async function getIntakeBatchPdfUrl(batchId: string): Promise<UrlResult> {

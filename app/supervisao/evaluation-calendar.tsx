@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
+import { useToast } from "@/components/toast-provider";
 import { dayIndexInWeek, timeLabel, type WeekInfo } from "./grade-data";
 import {
   getEvaluationCalendarWeekAction,
@@ -139,6 +140,7 @@ export function EvaluationCalendar({
   const [pool, setPool] = useState(initialPool);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const { toast } = useToast();
   const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
@@ -285,7 +287,12 @@ export function EvaluationCalendar({
     } else {
       const res = await rescheduleEvaluationAction(payload.appointmentId, date, time, payload.durationMinutes);
       setFeedback(res.success ? { type: "success", text: "Avaliação reagendada." } : { type: "error", text: res.error });
-      if (res.success) await fetchWeek();
+      if (res.success) {
+        await fetchWeek();
+        if (res.requiresFamilyNotice) {
+          toast("Reagendamento feito — avise o responsável pelo WhatsApp, isso não é enviado automaticamente.", "info", undefined, 10000);
+        }
+      }
     }
   }
 
@@ -336,8 +343,9 @@ export function EvaluationCalendar({
 
       {therapistId && hasAvailabilityConfigured && (
         <p className="text-[11px] text-ink-faint">
-          Mostrando só a disponibilidade cadastrada de {availableTherapists.find((t) => t.id === therapistId)?.name ?? "—"} — células cinza-listradas
-          estão fora do horário dele.
+          Mostrando só a disponibilidade cadastrada de {availableTherapists.find((t) => t.id === therapistId)?.name ?? "—"} —{" "}
+          <span style={{ color: "var(--color-success)" }} className="font-semibold">verde</span> é horário livre dele,{" "}
+          <span style={{ color: "var(--color-error)" }} className="font-semibold">vermelho</span> é fora do expediente ou fechado.
         </p>
       )}
 
@@ -402,7 +410,7 @@ export function EvaluationCalendar({
                       className="relative rounded-md"
                       style={{
                         height: COLUMN_HEIGHT_PX,
-                        background: dragOverDay === dayIndex ? "var(--color-accent-100)" : "var(--color-paper)",
+                        background: dragOverDay === dayIndex ? "var(--color-accent-100)" : "var(--status-confirmada-bg)",
                       }}
                       onDragOver={(e) => {
                         e.preventDefault();
@@ -424,12 +432,12 @@ export function EvaluationCalendar({
                       ))}
                       {closedHeight > 0 && (
                         <div
-                          className="pointer-events-none absolute left-0 right-0 flex items-start justify-center rounded-b-md pt-1 text-[10px] font-semibold text-ink-faint"
+                          className="pointer-events-none absolute left-0 right-0 flex items-start justify-center rounded-b-md pt-1 text-[10px] font-semibold"
                           style={{
                             top: closedTop,
                             height: closedHeight,
-                            background:
-                              "repeating-linear-gradient(45deg, var(--color-neutral-200), var(--color-neutral-200) 6px, transparent 6px, transparent 12px)",
+                            background: "var(--status-falta-bg)",
+                            color: "var(--color-status-negative-text)",
                           }}
                         >
                           Fechado
@@ -442,12 +450,12 @@ export function EvaluationCalendar({
                           return (
                             <div
                               key={i}
-                              className="pointer-events-none absolute left-0 right-0 flex items-start justify-center pt-1 text-[10px] font-semibold text-ink-faint"
+                              className="pointer-events-none absolute left-0 right-0 flex items-start justify-center pt-1 text-[10px] font-semibold"
                               style={{
                                 top,
                                 height,
-                                background:
-                                  "repeating-linear-gradient(45deg, var(--color-neutral-100), var(--color-neutral-100) 6px, transparent 6px, transparent 12px)",
+                                background: "var(--status-falta-bg)",
+                                color: "var(--color-status-negative-text)",
                               }}
                             >
                               {height > 20 ? "Fora da disponibilidade" : ""}

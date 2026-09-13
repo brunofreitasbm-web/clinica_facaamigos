@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { ConversationNote } from "./conversation-note";
+import type { ConversationRow } from "./atendimento-shell";
 
 type ConvenioInfo = { insurerName: string; planName: string | null };
 type AppointmentInfo = { id: string; startsAt: string; statusLabel: string };
 
-export function PatientContextPanel({ patientId }: { patientId: string }) {
+export function PatientContextPanel({ conversation }: { conversation: ConversationRow }) {
+  const patientId = conversation.patientId!;
   const [convenios, setConvenios] = useState<ConvenioInfo[]>([]);
   const [appointments, setAppointments] = useState<AppointmentInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +57,10 @@ export function PatientContextPanel({ patientId }: { patientId: string }) {
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
+      <Link href={`/recepcao/pacientes/${patientId}`} className="btn btn-secondary w-full justify-center text-sm">
+        Abrir ficha do paciente
+      </Link>
+
       <div>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-2">
           Convênio
@@ -85,6 +93,8 @@ export function PatientContextPanel({ patientId }: { patientId: string }) {
           ))}
         </ul>
       </div>
+
+      <ConversationNote conversationId={conversation.id} />
     </div>
   );
 }

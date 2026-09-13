@@ -40,6 +40,15 @@ export const METRIC_CATALOG: Partial<Record<Role, MetricDef[]>> = {
     // lib/metric-compute.ts e o bloco homônimo em close_monthly_metric_snapshots.
     { key: "intake_complete_rate", label: "Cadastro completo antes da 1ª sessão", direction: "min", unit: "pct", computed: true },
     { key: "no_auth_sessions", label: "Sessões sem guia vigente", direction: "max", unit: "pct", eliminatory: true, computed: true },
+    // As 4 métricas abaixo (20260913200000_plr_human_effort_metrics.sql)
+    // substituem, na apuração de bônus, o que o chatbot Twilio automatizou
+    // (1ª resposta, coleta de laudo/guia) — ver BONUS_EXCLUDED_METRIC_KEYS em
+    // app/gestor/bonificacao/config/actions.ts. Medem só o que sobrou de
+    // trabalho humano depois do bot.
+    { key: "guia_renewed_on_time_rate", label: "Guia renovada antes de vencer", direction: "min", unit: "pct", computed: true },
+    { key: "guia_completa_rate", label: "Cadastro completo de guia", direction: "min", unit: "pct", computed: true },
+    { key: "draft_validation_min", label: "Tempo para validar pré-cadastro da IA", direction: "max", unit: "min", computed: true },
+    { key: "escalation_response_min", label: "Resposta a conversa escalada pelo bot", direction: "max", unit: "min", computed: true },
   ],
   supervisor: [
     { key: "occupancy_rate", label: "Ocupação de agenda", direction: "min", unit: "pct", computed: true },
@@ -60,6 +69,16 @@ export const METRIC_CATALOG: Partial<Record<Role, MetricDef[]>> = {
     // e close_monthly_metric_snapshots em
     // supabase/migrations/20260906000008_pdi_50d_deadline.sql.
     { key: "pts_50d_rate", label: "PTS aprovados em até 50 dias", direction: "min", unit: "pct", computed: true },
+    // As 5 métricas abaixo (20260913200000_plr_human_effort_metrics.sql)
+    // substituem, na apuração de bônus, auth_first_pass (nunca teve
+    // pipeline) e refletem o que o supervisor de fato executa depois que o
+    // bot Twilio passou a coletar laudo/guia do convênio — ver
+    // BONUS_EXCLUDED_METRIC_KEYS em app/gestor/bonificacao/config/actions.ts.
+    { key: "therapist_utilization_rate", label: "Utilização da disponibilidade dos terapeutas", direction: "min", unit: "pct", computed: true },
+    { key: "intake_lead_approval_min", label: "Tempo para aprovar lead de convênio", direction: "max", unit: "min", computed: true },
+    { key: "intake_lead_conversion_10d_rate", label: "Lead de convênio aprovado → 1ª sessão em 10 dias", direction: "min", unit: "pct", computed: true },
+    { key: "waitlist_fill_days", label: "Dias na lista de espera até agendar", direction: "max", unit: "dias", computed: true },
+    { key: "report_approved_5d_rate", label: "Relatórios de convênio aprovados em até 5 dias", direction: "min", unit: "pct", computed: true },
   ],
   terapeuta: [
     { key: "note_24h_rate", label: "Evolução em até 24h", direction: "min", unit: "pct", computed: true },

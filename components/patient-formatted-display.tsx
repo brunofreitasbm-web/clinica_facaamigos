@@ -268,6 +268,8 @@ export function PatientStatusBadge({
   );
 }
 
+import { HealthPlanBadge } from "@/components/health-plan-badge";
+
 /**
  * Componente de exibição formatada do Nome do Paciente com avatar e detalhes visuais
  */
@@ -275,6 +277,9 @@ export function PatientFormattedDisplay({
   name,
   subtitle,
   tags,
+  healthPlanName,
+  healthPlanColor,
+  hideHealthPlanBadge = true,
   isEvaluation,
   showAvatar = true,
   size = "md",
@@ -283,6 +288,9 @@ export function PatientFormattedDisplay({
   name: string;
   subtitle?: React.ReactNode;
   tags?: string[];
+  healthPlanName?: string | null;
+  healthPlanColor?: string | null;
+  hideHealthPlanBadge?: boolean;
   isEvaluation?: boolean;
   showAvatar?: boolean;
   size?: "sm" | "md" | "lg";
@@ -323,6 +331,14 @@ export function PatientFormattedDisplay({
           <span className={`truncate text-ink hover:text-chart transition-colors ${titleSizes}`}>
             {formattedName}
           </span>
+          {healthPlanName && (
+            <HealthPlanBadge
+              name={healthPlanName}
+              color={healthPlanColor}
+              size={size === "lg" ? "md" : "sm"}
+              hideOnPrint={hideHealthPlanBadge}
+            />
+          )}
           {isIncomplete && (
             <span className="inline-flex items-center gap-1 rounded bg-amber-100 dark:bg-amber-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
               <AlertCircle className="h-2.5 w-2.5" />

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { InsurerForm } from "./insurer-form";
 import { PageContainer } from "@/components/page-container";
+import { HealthPlanBadge } from "@/components/health-plan-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function ConveniosPage() {
   const supabase = await createClient();
   const { data: insurers } = await supabase
     .from("insurers")
-    .select("id, name, ans_code")
+    .select("id, name, ans_code, badge_color")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
 
@@ -31,10 +32,11 @@ export default async function ConveniosPage() {
                 key={insurer.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
               >
-                <div>
-                  <span className="font-medium text-ink">{insurer.name}</span>
+                <div className="flex items-center gap-3">
+                  <HealthPlanBadge name={insurer.name} color={insurer.badge_color} size="md" />
+                  <span className="font-semibold text-ink">{insurer.name}</span>
                   {insurer.ans_code && (
-                    <span className="ml-2 text-ink-faint">ANS {insurer.ans_code}</span>
+                    <span className="text-xs text-ink-faint">ANS {insurer.ans_code}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-4">

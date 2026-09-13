@@ -208,28 +208,51 @@ export default async function RecepcaoPage({
     (tagsByPatient[t.patient_id] ??= []).push(t.label);
   }
 
-  const sessions: TodaySession[] = appointments.map((a) => ({
-    id: a.id,
-    patientId: a.patientId,
-    therapistId: a.therapistId,
-    roomId: a.roomId,
-    appointmentTypeId: a.appointmentTypeId,
-    patientName: a.patientName,
-    discipline: a.discipline,
-    therapistName: a.therapistName,
-    roomName: a.roomName,
-    startsAt: a.startsAt,
-    endsAt: a.endsAt,
-    status: a.status,
-    checkinAt: a.checkinAt,
-    attendanceStartedAt: a.attendanceStartedAt,
-    checkoutAt: a.checkoutAt,
-    autoMarked: a.autoMarked,
-    pendingNote: pendingNoteByAppointment.get(a.id) ?? false,
-    authorizationId: a.authorizationId,
-    isProvisional: a.isProvisional,
-    isEvaluation: a.isEvaluation,
-  }));
+  // Convênios dos pacientes do dia pra exibir pílula colorida ao lado do nome
+  const { data: patientInsuranceRows } = todaysPatientIds.length
+    ? await supabase
+        .from("patient_insurance")
+        .select("patient_id, is_private, insurers(name, badge_color)")
+        .in("patient_id", todaysPatientIds)
+    : { data: [] as any[] };
+
+  const insuranceByPatient = new Map<string, { name: string; color: string | null }>();
+  for (const pi of patientInsuranceRows ?? []) {
+    const insurerObj = Array.isArray((pi as any).insurers) ? (pi as any).insurers[0] : (pi as any).insurers;
+    const name = pi.is_private ? "Particular" : (insurerObj?.name ?? null);
+    const color = pi.is_private ? "#64748b" : (insurerObj?.badge_color ?? null);
+    if (name) {
+      insuranceByPatient.set(pi.patient_id, { name, color });
+    }
+  }
+
+  const sessions: TodaySession[] = appointments.map((a) => {
+    const ins = insuranceByPatient.get(a.patientId);
+    return {
+      id: a.id,
+      patientId: a.patientId,
+      therapistId: a.therapistId,
+      roomId: a.roomId,
+      appointmentTypeId: a.appointmentTypeId,
+      patientName: a.patientName,
+      discipline: a.discipline,
+      therapistName: a.therapistName,
+      roomName: a.roomName,
+      startsAt: a.startsAt,
+      endsAt: a.endsAt,
+      status: a.status,
+      checkinAt: a.checkinAt,
+      attendanceStartedAt: a.attendanceStartedAt,
+      checkoutAt: a.checkoutAt,
+      autoMarked: a.autoMarked,
+      pendingNote: pendingNoteByAppointment.get(a.id) ?? false,
+      authorizationId: a.authorizationId,
+      isProvisional: a.isProvisional,
+      isEvaluation: a.isEvaluation,
+      insurerName: ins?.name ?? null,
+      badgeColor: ins?.color ?? null,
+    };
+  });
 
   // ── Guias vencendo · 7 dias + mapa paciente→guia ativa (preview no diálogo
   // "Nova sessão") — duas leituras da mesma autorização ativa, sem 2º nível
@@ -388,31 +411,33 @@ export default async function RecepcaoPage({
         className="flex items-center justify-end gap-3.5 px-10 py-2 text-[13px]"
         style={{ background: "var(--color-accent-100)", color: "var(--color-accent-700)" }}
       >
-        <Link
-          href="/recepcao"
-          className="rounded px-2 py-1 no-underline hover:bg-black/5"
-        >
-          Hoje
-        </Link>
-        <Link
-          href={`/recepcao?date=${previousCalendarDay(day)}`}
-          aria-label="Dia anterior"
-          className="rounded px-2 py-1 no-underline hover:bg-black/5"
-        >
-          ‹
-        </Link>
-        <span className="font-semibold">{fmtDateLabel(day)}</span>
-        <Link
-          href={`/recepcao?date=${nextCalendarDay(day)}`}
-          aria-label="Próximo dia"
-          className="rounded px-2 py-1 no-underline hover:bg-black/5"
-        >
-          ›
-        </Link>
-        <MiniCalendarPicker selectedDate={day} basePath="/recepcao" />
+        <div className="mx-auto flex w-full max-w-[1920px] items-center justify-end gap-3.5">
+          <Link
+            href="/recepcao"
+            className="rounded px-2 py-1 no-underline hover:bg-black/5"
+          >
+            Hoje
+          </Link>
+          <Link
+            href={`/recepcao?date=${previousCalendarDay(day)}`}
+            aria-label="Dia anterior"
+            className="rounded px-2 py-1 no-underline hover:bg-black/5"
+          >
+            ‹
+          </Link>
+          <span className="font-semibold">{fmtDateLabel(day)}</span>
+          <Link
+            href={`/recepcao?date=${nextCalendarDay(day)}`}
+            aria-label="Próximo dia"
+            className="rounded px-2 py-1 no-underline hover:bg-black/5"
+          >
+            ›
+          </Link>
+          <MiniCalendarPicker selectedDate={day} basePath="/recepcao" />
+        </div>
       </div>
 
-      <main className="grid grid-cols-1 gap-14 px-10 pb-16 pt-9 lg:grid-cols-[1fr_360px]">
+      <main className="mx-auto grid w-full max-w-[1920px] grid-cols-1 gap-14 px-10 pb-16 pt-9 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] 2xl:grid-cols-[1fr_440px]">
         <section>
           <div className="mb-7 flex flex-wrap items-end justify-between gap-3.5">
             <div>
@@ -521,7 +546,7 @@ export default async function RecepcaoPage({
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3.5">
               Salas agora
             </h6>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
               {roomsNow.map((r) => (
                 <div
                   key={r.id}

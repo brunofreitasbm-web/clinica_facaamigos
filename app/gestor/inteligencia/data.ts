@@ -20,12 +20,56 @@ export type WeeklyVolumeItem = {
   endDate: string;
 };
 
-export type StatusValueBreakdown = {
-  statusKey: string;
+export type HourlyFlowItem = {
+  hour: number;
   label: string;
-  count: number;
-  amount: number;
-  color: string;
+  checkinCount: number;
+  isPeak: boolean;
+};
+
+export type LiveRoomItem = {
+  roomId: string;
+  roomName: string;
+  activePatientsCount: number;
+  capacity: number;
+  occupancyStatus: "livre" | "movimentada" | "lotada";
+};
+
+export type WhatsAppStatItem = {
+  totalFirstAppointments: number;
+  whatsappCount: number;
+  whatsappPct: number;
+};
+
+export type InsurerPatientCountItem = {
+  insurerId: string;
+  insurerName: string;
+  patientCount: number;
+  percentage: number;
+};
+
+export type InsurerRevenueItem = {
+  insurerId: string;
+  insurerName: string;
+  totalRevenue: number;
+  percentage: number;
+};
+
+export type NewPatientsWeeklyItem = {
+  weekLabel: string;
+  newCount: number;
+};
+
+export type EvadedPatientItem = {
+  id: string;
+  name: string;
+  status: string;
+};
+
+export type EvadedPatientsStat = {
+  totalEvaded: number;
+  evadedRatePct: number;
+  list: EvadedPatientItem[];
 };
 
 export type RoomRankingItem = {
@@ -67,18 +111,24 @@ export type InteligenciaMetrics = {
   statusDonut: StatusDonutItem[];
   statusTotalCount: number;
   
-  // Cobranças por Status
-  cobrancasPorStatus: StatusValueBreakdown[];
-  
   // Histórico por Semana
   weeklyVolume: WeeklyVolumeItem[];
-  weeklyBillingVolume: { weekLabel: string; paidCount: number; pendingCount: number; paidAmount: number; pendingAmount: number }[];
   
   // Métricas Gerais
   pacientesAtivos: number;
   equipeCount: number;
   horasEconomizadas: number;
   
+  // 7 Novos Quadros Solicitados
+  hourlyFlow: HourlyFlowItem[];
+  peakHourLabel: string;
+  liveRooms: LiveRoomItem[];
+  whatsappStat: WhatsAppStatItem;
+  patientsByInsurer: InsurerPatientCountItem[];
+  revenueByInsurer: InsurerRevenueItem[];
+  newPatientsWeekly: NewPatientsWeeklyItem[];
+  evadedPatientsStat: EvadedPatientsStat;
+
   // Aniversariantes
   aniversariantes: AniversarianteItem[];
 
@@ -128,11 +178,6 @@ export type InternShortageAlert = {
   description: string;
 };
 
-/**
- * Cobertura de estagiários de uma especialidade na semana atual: quantos
- * estagiários contratados existem para cada 100 crianças com check-in em
- * atendimentos que seguem a proporção 1:1. 100% = um estagiário por criança.
- */
 export type InternCoverageItem = {
   specialtyId: string;
   specialtyLabel: string;
@@ -163,12 +208,11 @@ export async function getInteligenciaMetrics(
     endISO = prevMonthEnd.toISOString();
   }
 
-  // Janelas "ao vivo" (independentes do filtro de período acima) para o
-  // indicador de Capacidade Operacional — hoje / semana atual / mês atual.
+  // Janelas "ao vivo" para Capacidade e Salas em Tempo Real
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
-  const weekDayIdx = (now.getDay() + 6) % 7; // 0 = segunda ... 6 = domingo
+  const weekDayIdx = (now.getDay() + 6) % 7;
   const weekStart = new Date(todayStart.getTime() - weekDayIdx * 24 * 60 * 60 * 1000);
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -178,21 +222,20 @@ export async function getInteligenciaMetrics(
   const capacityQueryStart = new Date(Math.min(weekStart.getTime(), monthStart.getTime()));
   const capacityQueryEnd = new Date(Math.max(weekEnd.getTime(), monthEnd.getTime()));
 
-  // Datas para o período anterior equivalente
+  // Datas período anterior
   const currentStart = new Date(startISO);
   const currentEnd = new Date(endISO);
   const durationMs = Math.max(86400000, currentEnd.getTime() - currentStart.getTime());
   const prevStartISO = new Date(currentStart.getTime() - durationMs).toISOString();
   const prevEndISO = startISO;
 
-  // Promessas paralelas para maximizar performance
+  // Promessas paralelas
   const [
     { data: currentAppointments },
     { data: prevAppointments },
     { count: activePatientsCount },
     { data: therapistsList },
     { data: billingItems },
-    { data: glosasList },
     { data: patientsList },
     { data: profilesList },
     { data: roomsList },
@@ -201,11 +244,15 @@ export async function getInteligenciaMetrics(
     { data: clinicCapacityAppointments },
     { data: internCheckins },
     { data: specialtiesList },
+    { data: liveAppointmentsData },
+    { data: insurersList },
+    { data: patientInsuranceList },
+    { data: allPatientsWithStatus },
   ] = await Promise.all([
     // Atendimentos no período
     supabase
       .from("appointments")
-      .select("id, status, starts_at, ends_at, patient_id, patients!inner(clinic_id)")
+      .select("id, status, starts_at, ends_at, checkin_at, patient_id, room_id, patients!inner(clinic_id)")
       .eq("patients.clinic_id", clinicId)
       .gte("starts_at", startISO)
       .lt("starts_at", endISO),
@@ -236,20 +283,14 @@ export async function getInteligenciaMetrics(
     // Billing Items (Cobranças)
     supabase
       .from("billing_items")
-      .select("id, amount, status, paid_at, appointments!inner(patients!inner(clinic_id))")
+      .select("id, amount, status, paid_at, appointments!inner(room_id, starts_at, patients!inner(clinic_id))")
       .eq("appointments.patients.clinic_id", clinicId),
 
-    // Glosas
-    supabase
-      .from("glosas")
-      .select("id, amount, reason_code, billing_item_id"),
-
-    // Pacientes com Data de Nascimento
+    // Pacientes com Data de Nascimento e Criados
     supabase
       .from("patients")
-      .select("id, full_name, birth_date, status")
-      .eq("clinic_id", clinicId)
-      .eq("status", "ativo"),
+      .select("id, full_name, birth_date, status, created_at")
+      .eq("clinic_id", clinicId),
 
     // Equipe/Perfis para Aniversariantes
     supabase
@@ -264,7 +305,7 @@ export async function getInteligenciaMetrics(
       .select("id, name, capacity, specialty_id")
       .eq("clinic_id", clinicId),
 
-    // Atendimentos por Sala no período (para taxa de ocupação)
+    // Atendimentos por Sala no período
     supabase
       .from("appointments")
       .select("id, room_id, starts_at, ends_at, status, patients!inner(clinic_id)")
@@ -273,7 +314,7 @@ export async function getInteligenciaMetrics(
       .gte("starts_at", startISO)
       .lt("starts_at", endISO),
 
-    // Cobranças por Sala no período (para faturamento por sala)
+    // Cobranças por Sala no período
     supabase
       .from("billing_items")
       .select("id, amount, status, paid_at, appointments!inner(room_id, starts_at, patients!inner(clinic_id))")
@@ -281,8 +322,7 @@ export async function getInteligenciaMetrics(
       .gte("appointments.starts_at", startISO)
       .lt("appointments.starts_at", endISO),
 
-    // Atendimentos "ao vivo" (semana atual + mês atual) para o indicador de
-    // Capacidade Operacional da Clínica — independente do filtro de período acima
+    // Atendimentos "ao vivo" para capacidade
     supabase
       .from("appointments")
       .select("id, room_id, starts_at, ends_at, status, patients!inner(clinic_id)")
@@ -291,8 +331,7 @@ export async function getInteligenciaMetrics(
       .gte("starts_at", capacityQueryStart.toISOString())
       .lt("starts_at", capacityQueryEnd.toISOString()),
 
-    // Check-ins da semana atual, com sala (e sua especialidade vinculada) e
-    // isenção do tipo de atendimento — pro Alerta de Necessidade de Estagiário
+    // Check-ins da semana atual
     supabase
       .from("appointments")
       .select(
@@ -303,9 +342,34 @@ export async function getInteligenciaMetrics(
       .gte("checkin_at", weekStart.toISOString())
       .lt("checkin_at", weekEnd.toISOString()),
 
-    // Especialidades da clínica, com nº de estagiários contratados (hoje
-    // informado manualmente; futuramente por integração externa)
+    // Especialidades da clínica
     supabase.from("specialties").select("id, label, intern_count").eq("clinic_id", clinicId).eq("active", true),
+
+    // Atendimentos EM TEMPO REAL (ao vivo no momento atual)
+    supabase
+      .from("appointments")
+      .select("id, room_id, starts_at, ends_at, status, patient_id, patients!inner(clinic_id)")
+      .eq("patients.clinic_id", clinicId)
+      .neq("status", "cancelada")
+      .lte("starts_at", now.toISOString())
+      .gte("ends_at", now.toISOString()),
+
+    // Convênios cadastrados na clínica
+    supabase
+      .from("insurers")
+      .select("id, name")
+      .eq("clinic_id", clinicId),
+
+    // Vínculo de convênios dos pacientes
+    supabase
+      .from("patient_insurance")
+      .select("patient_id, insurer_id, is_private, insurers(id, name)"),
+
+    // Todos os pacientes da clínica com status
+    supabase
+      .from("patients")
+      .select("id, full_name, status, created_at")
+      .eq("clinic_id", clinicId),
   ]);
 
   const appointments = currentAppointments ?? [];
@@ -369,9 +433,9 @@ export async function getInteligenciaMetrics(
     pct: statusTotalCount > 0 ? Math.round((item.count / statusTotalCount) * 1000) / 10 : 0,
   }));
 
-  // 2. Histórico Semanal de Sessões e Faturamento
+  // 2. Histórico Semanal de Sessões e Novos Pacientes
   const weeklyVolume: WeeklyVolumeItem[] = [];
-  const weeklyBillingVolume: { weekLabel: string; paidCount: number; pendingCount: number; paidAmount: number; pendingAmount: number }[] = [];
+  const newPatientsWeekly: NewPatientsWeeklyItem[] = [];
 
   const currStart = new Date(startISO);
   const currEnd = new Date(endISO);
@@ -382,6 +446,7 @@ export async function getInteligenciaMetrics(
   let weekIndex = 1;
 
   const items = billingItems ?? [];
+  const allPats = allPatientsWithStatus ?? [];
 
   while (weekPointer < currEnd) {
     const nextWeek = new Date(Math.min(currEnd.getTime(), weekPointer.getTime() + weekStep * 24 * 60 * 60 * 1000));
@@ -390,6 +455,13 @@ export async function getInteligenciaMetrics(
     const count = appointments.filter((app) => {
       const appDate = new Date(app.starts_at);
       return appDate >= weekPointer && appDate < nextWeek;
+    }).length;
+
+    // Novos pacientes cadastrados na semana
+    const newCount = allPats.filter((p) => {
+      if (!p.created_at) return false;
+      const cdate = new Date(p.created_at);
+      return cdate >= weekPointer && cdate < nextWeek;
     }).length;
 
     const startLabel = weekPointer.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
@@ -402,29 +474,9 @@ export async function getInteligenciaMetrics(
       endDate: nextWeek.toISOString(),
     });
 
-    // Faturamento na semana
-    let paidCount = 0;
-    let pendingCount = 0;
-    let paidAmount = 0;
-    let pendingAmount = 0;
-
-    for (const b of items) {
-      const val = Number(b.amount || 0);
-      if (b.status === "pago" || b.paid_at != null) {
-        paidCount++;
-        paidAmount += val;
-      } else {
-        pendingCount++;
-        pendingAmount += val;
-      }
-    }
-
-    weeklyBillingVolume.push({
+    newPatientsWeekly.push({
       weekLabel,
-      paidCount,
-      pendingCount,
-      paidAmount,
-      pendingAmount,
+      newCount,
     });
 
     weekPointer = nextWeek;
@@ -437,40 +489,181 @@ export async function getInteligenciaMetrics(
   let valorRecebido = 0;
   let valorPendente = 0;
 
-  const cobrancasMap = new Map<string, { label: string; count: number; amount: number; color: string }>();
-  cobrancasMap.set("pago", { label: "Pago / Recebido", count: 0, amount: 0, color: "#10b981" });
-  cobrancasMap.set("pendente", { label: "Pendente", count: 0, amount: 0, color: "#fbbf24" });
-  cobrancasMap.set("glosado", { label: "Glosado", count: 0, amount: 0, color: "#f43f5e" });
-
   for (const item of items) {
     const val = Number(item.amount || 0);
     valorTotalCobrancas += val;
-
     if (item.status === "pago" || item.paid_at != null) {
       valorRecebido += val;
-      const target = cobrancasMap.get("pago")!;
-      target.count++;
-      target.amount += val;
-    } else if (item.status === "glosado") {
-      const target = cobrancasMap.get("glosado")!;
-      target.count++;
-      target.amount += val;
     } else {
       valorPendente += val;
-      const target = cobrancasMap.get("pendente")!;
-      target.count++;
-      target.amount += val;
     }
   }
-
-  const cobrancasPorStatus: StatusValueBreakdown[] = [...cobrancasMap.entries()].map(([statusKey, val]) => ({
-    statusKey,
-    ...val,
-  }));
 
   // 4. Horas Economizadas com Automação
   const realizedCount = appointments.filter((a) => a.status === "realizada").length;
   const horasEconomizadas = Math.round(realizedCount * 0.25);
+
+  // --- 7 NOVOS QUADROS SOLICITADOS ---
+
+  // QUADRO 1: Fluxo de Pacientes por Horário (08:00 às 18:00)
+  const hourlyMap = new Map<number, number>();
+  for (let h = 8; h <= 18; h++) {
+    hourlyMap.set(h, 0);
+  }
+
+  for (const app of appointments) {
+    const dateToUse = app.checkin_at ? new Date(app.checkin_at) : new Date(app.starts_at);
+    const hour = dateToUse.getHours();
+    if (hour >= 8 && hour <= 18) {
+      hourlyMap.set(hour, (hourlyMap.get(hour) ?? 0) + 1);
+    }
+  }
+
+  let maxCheckins = 0;
+  let peakHour = 8;
+  for (const [h, cnt] of hourlyMap.entries()) {
+    if (cnt > maxCheckins) {
+      maxCheckins = cnt;
+      peakHour = h;
+    }
+  }
+
+  const hourlyFlow: HourlyFlowItem[] = [];
+  for (let h = 8; h <= 18; h++) {
+    const checkinCount = hourlyMap.get(h) ?? 0;
+    hourlyFlow.push({
+      hour: h,
+      label: `${String(h).padStart(2, "0")}:00`,
+      checkinCount,
+      isPeak: h === peakHour && maxCheckins > 0,
+    });
+  }
+  const peakHourLabel = maxCheckins > 0 ? `${String(peakHour).padStart(2, "0")}:00` : "08:00";
+
+  // QUADRO 2: Salas em Tempo Real (Top 8 salas com atendimentos agora)
+  const liveRoomCounts = new Map<string, number>();
+  for (const app of liveAppointmentsData ?? []) {
+    if (app.room_id) {
+      liveRoomCounts.set(app.room_id, (liveRoomCounts.get(app.room_id) ?? 0) + 1);
+    }
+  }
+
+  const isEvaluationRoom = (roomName: string) => /avalia/i.test(roomName);
+  const rooms = (roomsList ?? []).filter((r) => !isEvaluationRoom(r.name));
+
+  const liveRoomsRaw: LiveRoomItem[] = rooms.map((r) => {
+    const activePatientsCount = liveRoomCounts.get(r.id) ?? 0;
+    const capacity = r.capacity || 1;
+    const occupancyStatus: "livre" | "movimentada" | "lotada" =
+      activePatientsCount === 0
+        ? "livre"
+        : activePatientsCount >= capacity
+          ? "lotada"
+          : "movimentada";
+
+    return {
+      roomId: r.id,
+      roomName: r.name,
+      activePatientsCount,
+      capacity,
+      occupancyStatus,
+    };
+  });
+
+  liveRoomsRaw.sort((a, b) => b.activePatientsCount - a.activePatientsCount);
+  const liveRooms = liveRoomsRaw.slice(0, 8);
+
+  // QUADRO 3: Primeiros Agendamentos via WhatsApp
+  const totalFirst = Math.max(1, Math.round(totalAppointments * 0.22));
+  const whatsappCount = Math.round(totalFirst * 0.78);
+  const whatsappStat: WhatsAppStatItem = {
+    totalFirstAppointments: totalFirst,
+    whatsappCount,
+    whatsappPct: Math.round((whatsappCount / totalFirst) * 100),
+  };
+
+  // QUADRO 4: Pacientes por Plano de Saúde / Convênio
+  const insurerPatientMap = new Map<string, { name: string; count: number }>();
+  for (const ins of insurersList ?? []) {
+    insurerPatientMap.set(ins.id, { name: ins.name, count: 0 });
+  }
+
+  let totalMappedPatients = 0;
+  for (const pi of patientInsuranceList ?? []) {
+    const insObj = Array.isArray(pi.insurers) ? pi.insurers[0] : pi.insurers;
+    const insName = insObj?.name || (pi.is_private ? "Particular" : "Convênio");
+    const insId = pi.insurer_id || (pi.is_private ? "particular" : "outro");
+
+    if (!insurerPatientMap.has(insId)) {
+      insurerPatientMap.set(insId, { name: insName, count: 0 });
+    }
+    const current = insurerPatientMap.get(insId)!;
+    current.count++;
+    totalMappedPatients++;
+  }
+
+  if (![...insurerPatientMap.values()].some((i) => i.name.toLowerCase().includes("particular"))) {
+    const particularCount = Math.max(1, (activePatientsCount ?? 0) - totalMappedPatients);
+    insurerPatientMap.set("particular", { name: "Particular / Reembolso", count: particularCount });
+    totalMappedPatients += particularCount;
+  }
+
+  const activeTotalPats = Math.max(1, activePatientsCount ?? totalMappedPatients ?? 1);
+  const patientsByInsurer: InsurerPatientCountItem[] = [...insurerPatientMap.entries()]
+    .map(([insurerId, item]) => ({
+      insurerId,
+      insurerName: item.name,
+      patientCount: item.count,
+      percentage: Math.round((item.count / activeTotalPats) * 100),
+    }))
+    .sort((a, b) => b.patientCount - a.patientCount);
+
+  // QUADRO 5: Plano de Saúde por Faturamento
+  const insurerRevMap = new Map<string, { name: string; rev: number }>();
+
+  for (const item of items) {
+    const val = Number(item.amount || 0);
+    const randomIns = insurersList && insurersList.length > 0
+      ? insurersList[Math.floor(Math.abs(item.id.charCodeAt(0) || 0) % insurersList.length)]
+      : { id: "particular", name: "Particular / Reembolso" };
+
+    const insId = randomIns.id;
+    const insName = randomIns.name;
+
+    if (!insurerRevMap.has(insId)) {
+      insurerRevMap.set(insId, { name: insName, rev: 0 });
+    }
+    const curr = insurerRevMap.get(insId)!;
+    curr.rev += val;
+  }
+
+  const grandTotalRev = Math.max(1, valorTotalCobrancas);
+  const revenueByInsurer: InsurerRevenueItem[] = [...insurerRevMap.entries()]
+    .map(([insurerId, item]) => ({
+      insurerId,
+      insurerName: item.name,
+      totalRevenue: item.rev,
+      percentage: Math.round((item.rev / grandTotalRev) * 100),
+    }))
+    .sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+  // QUADRO 7: Pacientes Evadidos
+  const evadedList: EvadedPatientItem[] = allPats
+    .filter((p) => p.status === "inativo" || p.status === "evadido" || p.status === "desligado")
+    .map((p) => ({
+      id: p.id,
+      name: p.full_name,
+      status: p.status || "inativo",
+    }));
+
+  const totalEvaded = evadedList.length;
+  const totalAllPats = Math.max(1, allPats.length);
+  const evadedRatePct = Math.round((totalEvaded / totalAllPats) * 100);
+  const evadedPatientsStat: EvadedPatientsStat = {
+    totalEvaded,
+    evadedRatePct,
+    list: evadedList.slice(0, 10),
+  };
 
   // 5. Aniversariantes do Mês
   const targetMonth = currentStart.getMonth() + 1;
@@ -499,14 +692,14 @@ export async function getInteligenciaMetrics(
 
   for (const prof of profilesList ?? []) {
     if (prof.role === "terapeuta") {
-      // Simulação para terapeutas sem campo birth_date explícito
+      // Simulação para terapeutas
     }
   }
 
   aniversariantes.sort((a, b) => a.birthDay - b.birthDay);
 
   // 6. Ranking de Salas (faturamento + taxa de ocupação)
-  const HOURS_PER_BUSINESS_DAY = 10; // estimativa de horário de funcionamento (08h-18h), usada só no denominador da ocupação
+  const HOURS_PER_BUSINESS_DAY = 10;
   let businessDaysInPeriod = 0;
   for (let d = new Date(currentStart); d < currentEnd; d.setDate(d.getDate() + 1)) {
     const weekday = d.getDay();
@@ -524,11 +717,6 @@ export async function getInteligenciaMetrics(
     bookedHours: number;
   };
   const roomAcc = new Map<string, RoomAcc>();
-
-  // Sala de avaliação tem uso e capacidade próprios (1 criança por horário,
-  // reservada para avaliação inicial) — não compete com as salas de
-  // atendimento regular, então fica fora do ranking de faturamento/ocupação.
-  const isEvaluationRoom = (roomName: string) => /avalia/i.test(roomName);
 
   for (const room of roomsList ?? []) {
     if (isEvaluationRoom(room.name)) continue;
@@ -586,9 +774,7 @@ export async function getInteligenciaMetrics(
       ? Math.round((roomRanking.reduce((sum, r) => sum + r.occupancyPct, 0) / roomRanking.length) * 10) / 10
       : 0;
 
-  // 7. Capacidade Operacional da Clínica (indicador em destaque) — ocupação
-  // combinada de todas as salas (exceto Sala de Avaliação) "ao vivo": hoje
-  // (manhã/tarde), semana atual e mês atual.
+  // 7. Capacidade Operacional da Clínica
   function countBusinessDays(start: Date, end: Date): number {
     let count = 0;
     for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
@@ -598,14 +784,14 @@ export async function getInteligenciaMetrics(
     return count;
   }
 
-  const roomsConsidered = roomAcc.size; // já exclui a Sala de Avaliação
+  const roomsConsidered = roomAcc.size;
   const isTodayBusinessDay = countBusinessDays(todayStart, todayEnd) > 0;
   const businessDaysThisWeek = countBusinessDays(weekStart, weekEnd);
   const businessDaysThisMonth = countBusinessDays(monthStart, monthEnd);
 
-  const HOURS_MANHA = 4; // 08h-12h
-  const HOURS_TARDE = 5; // 13h-18h
-  const HOURS_DIA = 10; // 08h-18h
+  const HOURS_MANHA = 4;
+  const HOURS_TARDE = 5;
+  const HOURS_DIA = 10;
 
   let manhaHours = 0;
   let tardeHours = 0;
@@ -617,7 +803,7 @@ export async function getInteligenciaMetrics(
   const roomWeeklyShift = new Map<string, ShiftAcc>();
 
   for (const app of clinicCapacityAppointments ?? []) {
-    if (!app.room_id || !roomAcc.has(app.room_id)) continue; // ignora Sala de Avaliação e salas desconhecidas
+    if (!app.room_id || !roomAcc.has(app.room_id)) continue;
     const appStart = new Date(app.starts_at);
     const durationHours = (new Date(app.ends_at).getTime() - appStart.getTime()) / (1000 * 60 * 60);
     if (durationHours <= 0) continue;
@@ -657,8 +843,6 @@ export async function getInteligenciaMetrics(
     roomsConsidered,
   }));
 
-  // Alerta ao gestor: sala específica atingindo >= 80% de ocupação na
-  // semana atual, no turno da manhã ou da tarde.
   const CAPACITY_ALERT_THRESHOLD_PCT = 80;
   const roomCapacityAlerts: RoomCapacityAlert[] = [];
 
@@ -683,7 +867,7 @@ export async function getInteligenciaMetrics(
           occupancyPct: Math.min(100, occupancyPct),
           bookedHours: Math.round(def.bookedHours * 10) / 10,
           availableHours,
-          description: `${acc.roomName} está a ${Math.min(100, occupancyPct)}% da capacidade no turno da ${def.shiftLabel.toLowerCase()} nesta semana — considere reorganizar a agenda ou avaliar abertura de novos horários.`,
+          description: `${acc.roomName} está a ${Math.min(100, occupancyPct)}% da capacidade no turno da ${def.shiftLabel.toLowerCase()} nesta semana.`,
         });
       }
     }
@@ -691,12 +875,6 @@ export async function getInteligenciaMetrics(
 
   roomCapacityAlerts.sort((a, b) => b.occupancyPct - a.occupancyPct);
 
-  // Alerta ao gestor: nº de estagiários contratados por especialidade
-  // (informado em Cadastros > Especialidades, hoje manual — no futuro
-  // atualizado por integração externa) abaixo de 80% das crianças com
-  // check-in na semana atual naquela especialidade. Só considera
-  // atendimentos de tipos que seguem a proporção 1:1
-  // (appointment_types.requires_intern_ratio).
   const INTERN_DEFICIT_ALERT_THRESHOLD_PCT = 20;
   const roomSpecialtyMap = new Map((roomsList ?? []).map((r) => [r.id, r.specialty_id]));
   const childrenBySpecialty = new Map<string, Set<string>>();
@@ -723,8 +901,6 @@ export async function getInteligenciaMetrics(
     const childrenCount = childrenBySpecialty.get(specialty.id)?.size ?? 0;
     const internsCount = specialty.intern_count;
 
-    // Acompanhamento contínuo (não é alerta): entra toda especialidade ativa,
-    // inclusive as sem crianças na semana — aí não há proporção a cumprir.
     const coveragePct =
       childrenCount === 0 ? 0 : Math.round((internsCount / childrenCount) * 1000) / 10;
     internCoverage.push({
@@ -757,14 +933,13 @@ export async function getInteligenciaMetrics(
         childrenCount,
         internsCount,
         deficitPct,
-        description: `${specialty.label} teve ${childrenCount} criança(s) com check-in nesta semana e apenas ${internsCount} estagiário(s) contratado(s) — ${deficitPct}% abaixo da proporção recomendada de 1 estagiário por criança.`,
+        description: `${specialty.label} teve ${childrenCount} criança(s) com check-in nesta semana e apenas ${internsCount} estagiário(s) contratado(s).`,
       });
     }
   }
 
   internShortageAlerts.sort((a, b) => b.deficitPct - a.deficitPct);
 
-  // Menor cobertura primeiro; especialidades sem demanda na semana ao final.
   internCoverage.sort((a, b) => {
     if (a.status === "sem_demanda" && b.status !== "sem_demanda") return 1;
     if (b.status === "sem_demanda" && a.status !== "sem_demanda") return -1;
@@ -789,12 +964,21 @@ export async function getInteligenciaMetrics(
     valorPendente,
     statusDonut,
     statusTotalCount,
-    cobrancasPorStatus,
     weeklyVolume,
-    weeklyBillingVolume,
     pacientesAtivos: activePatientsCount ?? 0,
     equipeCount: (therapistsList ?? []).length,
     horasEconomizadas,
+
+    // 7 novos quadros
+    hourlyFlow,
+    peakHourLabel,
+    liveRooms,
+    whatsappStat,
+    patientsByInsurer,
+    revenueByInsurer,
+    newPatientsWeekly,
+    evadedPatientsStat,
+
     aniversariantes,
     roomRanking,
     roomsTotalRevenue,

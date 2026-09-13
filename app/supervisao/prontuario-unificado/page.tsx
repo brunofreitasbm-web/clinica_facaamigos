@@ -1,12 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
-import { ShieldCheck, FileCheck, Search, History, Lock } from "lucide-react";
+import { ShieldCheck, FileCheck, Search, Lock } from "lucide-react";
 import Link from "next/link";
-import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
+import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { logProntuarioAccess } from "./actions";
 import { PrintButton } from "./print-button";
 import { ShareFamilyButton } from "./share-family-button";
 import { PageContainer } from "@/components/page-container";
+import { PatientIdentityBar } from "@/components/patient-identity-bar";
+import { SearchAsYouTypeInput } from "@/components/search-as-you-type-input";
+import { PatientTabs } from "@/components/prontuario/patient-tabs";
+import { DocumentViewButton } from "@/components/prontuario/document-view-button";
+import { DocumentUploadForm } from "@/components/prontuario/document-upload-form";
+import { checkHasPendingPtsNotice } from "@/components/prontuario/notify-pts-actions";
+import { getPatientDossier } from "@/lib/patient-dossier";
+import { getPatientIdentitySummary } from "@/lib/patient-identity";
+import { getBehaviorCatalog } from "@/lib/behavior-catalog";
+import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
+import { fmtDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -202,6 +213,42 @@ export default async function ProntuarioUnificadoPage({
     }));
   }
 
+  // Ficha completa embutida no quadro principal (mesmo conteúdo de
+  // /terapeuta/paciente/[patientId], mas com financeiro incluído — a
+  // Supervisão vê valores de convênio, diferente do terapeuta) — ao
+  // selecionar um paciente à esquerda a supervisão já cai direto na ficha,
+  // sem precisar navegar para outra tela.
+  let dossier: Awaited<ReturnType<typeof getPatientDossier>> | null = null;
+  let identity: Awaited<ReturnType<typeof getPatientIdentitySummary>> | null = null;
+  let behaviorCatalog: Awaited<ReturnType<typeof getBehaviorCatalog>> = [];
+  let hasPendingPtsNotice = false;
+  const goalDescriptionById = new Map<string, string>();
+  let guardianContacts: { guardian_id: string; guardian_name: string; phone: string; is_emergency_contact: boolean }[] = [];
+
+  if (selectedPatient) {
+    const [dossierRes, identityRes, catalogRes, ptsRes, contactsRes] = await Promise.all([
+      getPatientDossier(supabase, selectedPatient.id, { includeBilling: true }),
+      getPatientIdentitySummary(supabase, selectedPatient.id),
+      getBehaviorCatalog(supabase, { activeOnly: false }),
+      checkHasPendingPtsNotice(selectedPatient.id),
+      supabase.rpc("patient_contact_summary", { p_patient_id: selectedPatient.id }),
+    ]);
+
+    dossier = dossierRes;
+    identity = identityRes;
+    behaviorCatalog = catalogRes;
+    hasPendingPtsNotice = ptsRes;
+    guardianContacts = contactsRes.data ?? [];
+
+    const allMetaGoalIds = Array.from(
+      new Set(dossier.notes.flatMap((n) => getMetasTrabalhadas(n.structured as SessionNoteStructured | null).map((m) => m.plan_goal_id))),
+    );
+    if (allMetaGoalIds.length > 0) {
+      const { data: metaGoals } = await supabase.from("plan_goals").select("id, description").in("id", allMetaGoalIds);
+      for (const g of metaGoals ?? []) goalDescriptionById.set(g.id, g.description);
+    }
+  }
+
   return (
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
       <PageContainer>
@@ -230,10 +277,10 @@ export default async function ProntuarioUnificadoPage({
         <section className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">
           <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
             <h4 className="mb-3">Selecionar Paciente</h4>
-            <form method="get" className="relative mb-4">
+            <div className="relative mb-4">
               <Search className="absolute left-3 top-2.5 text-ink-faint" size={16} />
-              <input type="text" name="q" defaultValue={q ?? ""} placeholder="Nome do paciente..." className="input pl-9 text-xs" />
-            </form>
+              <SearchAsYouTypeInput initialValue={q ?? ""} placeholder="Nome do paciente..." className="input pl-9 text-xs" />
+            </div>
 
             <div className="flex flex-col gap-2">
               {patientList.length === 0 && <p className="text-xs text-ink-faint">Nenhum paciente encontrado.</p>}
@@ -303,41 +350,142 @@ export default async function ProntuarioUnificadoPage({
                   </div>
                 </div>
 
-                <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
-                  <h3 className="mb-6 flex items-center gap-2">
-                    <History size={18} className="text-amber-600" /> Histórico Unificado do Paciente
-                  </h3>
+                {dossier && (
+                  <div className="rounded-xl border shadow-sm overflow-hidden" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
+                    <PatientIdentityBar
+                      patientName={selectedPatient.full_name}
+                      insurance={identity?.insurance ?? null}
+                      emergencyContact={identity?.emergencyContact ?? null}
+                    />
 
-                  {timeline.length === 0 ? (
-                    <div className="flex flex-col items-center gap-4 py-6 text-center">
-                      <p className="text-sm text-ink-faint">Nenhum registro clínico encontrado para este paciente ainda.</p>
-                      <Link href={`/terapeuta/paciente/${selectedPatient.id}`} className="btn btn-primary text-xs">
-                        Ir para a ficha do paciente
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-6 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-neutral-200">
-                      {timeline.map((item) => (
-                        <div key={item.id} className="flex gap-4 relative">
-                          <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold shrink-0 z-10">
-                            ✓
+                    <PatientTabs
+                      frequency={dossier.frequency}
+                      goals={dossier.goals}
+                      planStatusLabel={dossier.planStatusLabel}
+                      guardianText={
+                        guardianContacts.length > 0 ? (
+                          <div className="flex flex-col gap-2">
+                            {guardianContacts.map((g) => (
+                              <span key={g.guardian_id}>
+                                {g.guardian_name}
+                                {g.is_emergency_contact && <span className="tag-status st-agendada ml-2">Emergência</span>}
+                                <br />
+                                <span className="text-ink-faint">{g.phone}</span>
+                              </span>
+                            ))}
                           </div>
-                          <div className="flex-1 rounded-lg border p-4 bg-neutral-50/50">
-                            <div className="flex flex-wrap justify-between items-baseline mb-1">
-                              <span className="font-bold text-sm">{item.type}</span>
-                              <span className="tabular-figure text-xs text-ink-faint">{fmt(item.date)}</span>
-                            </div>
-                            <div className="text-xs font-medium text-amber-800 mb-2">{item.author}</div>
-                            <p className="text-xs text-ink-soft mb-3">{item.summary}</p>
-                            <div className="flex items-center justify-between text-[11px] text-ink-faint pt-2 border-t border-neutral-200">
-                              <span>{item.detail}</span>
-                            </div>
+                        ) : (
+                          <span className="text-ink-faint">Nenhum responsável cadastrado.</span>
+                        )
+                      }
+                      authorizationText={
+                        identity?.activeAuthorization ? (
+                          <span>
+                            {identity.insurance?.insurerName ?? "Convênio"} · {identity.activeAuthorization.guideNumber ?? "sem nº de guia"}
+                            <br />
+                            <span className="text-ink-faint">
+                              {identity.activeAuthorization.sessionsUsed} de {identity.activeAuthorization.sessionsAuthorized} sessões usadas ·
+                              válida até {fmt(identity.activeAuthorization.validTo)}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-ink-faint">Sem autorização vigente.</span>
+                        )
+                      }
+                      teamText={
+                        dossier.teamText.length > 0 ? (
+                          <div className="flex flex-col gap-0.5">
+                            {dossier.teamText.map((t, i) => (
+                              <span key={i}>{t}</span>
+                            ))}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        ) : (
+                          <span className="text-ink-faint">Sem terapeuta vinculado ainda.</span>
+                        )
+                      }
+                      notes={dossier.notes.map((n) => ({
+                        ...n,
+                        href: n.appointmentId ? `/terapeuta/evolucao/${n.appointmentId}` : undefined,
+                        historyHref: n.appointmentId ? `/terapeuta/evolucao/${n.appointmentId}/historico` : undefined,
+                      }))}
+                      documentsContent={
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="table">
+                              <thead>
+                                <tr>
+                                  <th>Documento</th>
+                                  <th>Data</th>
+                                  <th>Visível à família</th>
+                                  <th></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {dossier.documents.map((doc) => {
+                                  const validityBadge = getValidityBadge(doc.validUntil);
+                                  return (
+                                    <tr key={doc.id}>
+                                      <td className="font-semibold">
+                                        {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
+                                        {validityBadge && (
+                                          <span className={`tag-status ml-2 ${validityBadge.label === "Vencido" ? "st-falta" : "st-agendada"}`}>
+                                            {validityBadge.label}
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td>
+                                        {fmt(doc.uploadedAt)}
+                                        {doc.validUntil && ` · válido até ${fmt(`${doc.validUntil}T00:00:00`)}`}
+                                      </td>
+                                      <td>{doc.sharedWithFamily ? "Sim" : "Não"}</td>
+                                      <td className="text-right">
+                                        <DocumentViewButton documentId={doc.id} />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                {dossier.documents.length === 0 && (
+                                  <tr>
+                                    <td colSpan={4} className="text-ink-faint">
+                                      Nenhum documento anexado.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="mt-4">
+                            <DocumentUploadForm patientId={selectedPatient.id} />
+                          </div>
+                        </>
+                      }
+                      billing={dossier.billing ?? undefined}
+                      abaPrograms={dossier.abaPrograms}
+                      agendaContent={
+                        <ul className="flex flex-col gap-2">
+                          {dossier.upcoming.map((a) => (
+                            <li
+                              key={a.id}
+                              className="flex items-center justify-between border-b py-3 text-sm"
+                              style={{ borderColor: "var(--color-neutral-200)" }}
+                            >
+                              <span>{fmtDateTime(a.startsAt, CLINIC_TIMEZONE)}</span>
+                              <span className="text-ink-faint">
+                                {a.discipline} · {a.therapistName}
+                              </span>
+                            </li>
+                          ))}
+                          {dossier.upcoming.length === 0 && <p className="text-sm text-ink-faint">Nenhuma sessão futura agendada.</p>}
+                        </ul>
+                      }
+                      behaviorCatalog={behaviorCatalog}
+                      goalDescriptionById={goalDescriptionById}
+                      paddingClassName="px-6"
+                      patientId={selectedPatient.id}
+                      initialHasPendingPtsNotice={hasPendingPtsNotice}
+                    />
+                  </div>
+                )}
               </>
             )}
           </div>

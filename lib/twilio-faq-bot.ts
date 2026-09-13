@@ -394,6 +394,7 @@ async function escalateConversation(conversationId: string, reason: FaqEscalatio
       is_bot_active: false,
       status: "pending",
       escalation_reason: reason,
+      escalated_at: new Date().toISOString(),
     })
     .eq("id", conversationId);
 }

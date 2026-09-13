@@ -4,6 +4,7 @@ import { todayInTimeZone } from "@/lib/timezone";
 import { getReceptionQueue } from "@/lib/reception-queue";
 import { RecepcaoNav } from "@/components/recepcao-nav";
 import { KnowledgeBaseDrawer } from "@/components/knowledge-base-drawer";
+import { BonusFloatingWidget } from "@/components/bonus-floating-widget";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function RecepcaoLayout({ children }: { children: React.Rea
       <RecepcaoNav pendingCount={queue.length} chegadasCount={chegadasCount ?? 0} />
       {children}
       <KnowledgeBaseDrawer />
+      <BonusFloatingWidget />
     </div>
   );
 }

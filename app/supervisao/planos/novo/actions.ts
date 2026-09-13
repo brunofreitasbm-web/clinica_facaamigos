@@ -130,12 +130,19 @@ export async function createTreatmentPlan(
 
   const { data: patient, error: patientLookupError } = await supabase
     .from("patients")
-    .select("id, clinic_id")
+    .select("id, clinic_id, evaluated_at")
     .eq("id", patientId)
     .maybeSingle();
 
   if (patientLookupError || !patient) {
     return { success: false, error: "Paciente não encontrado." };
+  }
+
+  if (!patient.evaluated_at) {
+    return {
+      success: false,
+      error: "O PTS só pode ser iniciado após a conclusão da 1ª avaliação/anamnese/acolhimento do paciente.",
+    };
   }
 
   // version é sequencial por paciente (não o default de coluna, que é

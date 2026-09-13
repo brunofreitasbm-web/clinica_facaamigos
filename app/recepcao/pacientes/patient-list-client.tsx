@@ -32,6 +32,8 @@ export interface PatientRow {
   first_session_at?: string | null;
   cpf?: string | null;
   guardian_name?: string | null;
+  insurer_name?: string | null;
+  insurer_color?: string | null;
   stage: number;
 }
 
@@ -164,6 +166,8 @@ export const PatientListItem = React.memo(function PatientListItem({
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <PatientFormattedDisplay
             name={patient.full_name}
+            healthPlanName={patient.insurer_name}
+            healthPlanColor={patient.insurer_color}
             size="md"
             subtitle={
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-faint">

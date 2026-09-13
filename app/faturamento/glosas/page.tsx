@@ -6,6 +6,7 @@ import { GlosaRegisterForm, type EligibleBillingItem, type Therapist } from "./g
 import { GlosaRowActions } from "./glosa-row-actions";
 import { CsvImportForm } from "./csv-import-form";
 import { PatternAcknowledgeButton } from "./pattern-acknowledge-button";
+import { SearchAsYouTypeInput } from "@/components/search-as-you-type-input";
 
 export const dynamic = "force-dynamic";
 
@@ -289,21 +290,11 @@ export default async function GlosasPage({
           <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
             Registrar glosa
           </h2>
-          <form className="flex items-center gap-2" method="get">
-            <input
-              type="text"
-              name="q"
-              defaultValue={query}
-              placeholder="Buscar item por nome do paciente ou número da guia…"
-              className="flex-1 rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
-            />
-            <button
-              type="submit"
-              className="rounded-md border border-paper-line-strong px-3 py-2 text-sm text-ink hover:border-chart"
-            >
-              Buscar
-            </button>
-          </form>
+          <SearchAsYouTypeInput
+            initialValue={query}
+            placeholder="Buscar item por nome do paciente ou número da guia…"
+            className="w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
+          />
           <GlosaRegisterForm items={eligibleItems} therapists={therapists} searched={query.length >= 2} />
         </section>
 

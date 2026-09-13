@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Cartaz A4 imprimível do check-in por QR. Página administrativa (dentro de
- * /recepcao, exige login) — o único artefato público é a URL que o QR
+ * /supervisao, exige login) — o único artefato público é a URL que o QR
  * codifica, aberta por quem escaneia.
  */
 export default async function QrCheckinPage() {

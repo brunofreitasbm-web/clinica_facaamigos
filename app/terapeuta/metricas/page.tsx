@@ -3,6 +3,9 @@ import Link from "next/link";
 import { Clock, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getMyTherapistMetrics, type TherapistMetricRow } from "@/lib/therapist-metrics";
+import { getMyBonusProgress } from "@/lib/bonus-progress";
+import { BonusProgressCard } from "@/components/bonus-progress-card";
+import { DEV_CLINIC_ID } from "@/lib/constants";
 import { BackToTodayShortcut } from "./back-shortcut";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +46,7 @@ export default async function TerapeutaMetricasPage() {
   }
 
   const metrics = await getMyTherapistMetrics(supabase, profile.id);
+  const bonusProgress = await getMyBonusProgress(supabase, DEV_CLINIC_ID, "terapeuta");
 
   return (
     <main className="flex flex-1 flex-col pb-24 md:pb-0">
@@ -69,6 +73,10 @@ export default async function TerapeutaMetricasPage() {
         </h1>
         <p className="text-sm opacity-70">Último mês fechado, calculado no dia 1.</p>
       </header>
+
+      <div className="mx-auto w-full max-w-[640px] p-5 pb-0 sm:p-10 sm:pb-0 md:max-w-[900px]">
+        <BonusProgressCard progress={bonusProgress} />
+      </div>
 
       <div className="mx-auto grid w-full max-w-[640px] grid-cols-1 gap-3 p-5 sm:p-10 md:max-w-[900px] md:grid-cols-2 lg:grid-cols-3">
         {metrics.map((m) => {

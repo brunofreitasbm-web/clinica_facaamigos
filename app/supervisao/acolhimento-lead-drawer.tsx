@@ -13,7 +13,10 @@ import {
   cancelIntakeLead,
   retryIntakeLead,
   getIntakeFileUrl,
+  reprocessLaudoExtraction,
 } from "./acolhimento-actions";
+import { getValidityBadge } from "@/lib/document-categories";
+import type { LaudoExtraction } from "@/lib/laudo-extraction";
 
 const CONFIDENCE_THRESHOLD = 0.7;
 
@@ -31,6 +34,8 @@ export type LeadFileRow = {
   mime_type: string;
   kind: "laudo" | "guia" | "outro" | null;
   review_status: "pending" | "approved" | "rejected";
+  extraction: LaudoExtraction | null;
+  extraction_status: "pending" | "done" | "failed";
 };
 
 export type LeadRow = {
@@ -84,6 +89,92 @@ function Field({ label, name, defaultValue, confidence }: { label: string; name:
   );
 }
 
+/**
+ * Resumo do laudo/guia lido pela IA (lib/laudo-extraction.ts) — o laudo não
+ * tem formato padronizado entre profissionais/convênios, então isto poupa o
+ * supervisor de abrir o PDF pra achar número, validade, CID e quantidade de
+ * sessões toda vez; ele só confere e aprova/rejeita o arquivo como já fazia.
+ */
+function LaudoSummaryCard({ file, onReprocess, isPending }: { file: LeadFileRow; onReprocess: () => void; isPending: boolean }) {
+  if (file.extraction_status === "pending") {
+    return <p className="pl-1 text-[11px] italic text-ink-faint">Lendo o documento com IA…</p>;
+  }
+
+  if (file.extraction_status === "failed") {
+    return (
+      <div className="flex items-center gap-2 pl-1">
+        <p className="text-[11px] text-status-negative-text">Não foi possível ler este documento com IA.</p>
+        <button type="button" disabled={isPending} onClick={onReprocess} className="text-[11px] font-semibold text-chart hover:underline disabled:opacity-50">
+          Tentar de novo
+        </button>
+      </div>
+    );
+  }
+
+  const ex = file.extraction;
+  if (!ex || ex.document_type === "outro") return null;
+
+  const validityBadge = getValidityBadge(ex.valid_until);
+
+  return (
+    <div className="ml-1 flex flex-col gap-1.5 rounded-md border border-paper-line-strong bg-paper/30 p-2.5 text-[11px] text-ink-soft">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>
+          <strong className="text-ink">Nº do laudo:</strong> {ex.report_number ?? "—"}
+        </span>
+        <span>
+          <strong className="text-ink">CID:</strong> {ex.cid ?? "—"}
+        </span>
+        <span>
+          <strong className="text-ink">Validade:</strong> {ex.valid_until ? new Date(`${ex.valid_until}T00:00:00`).toLocaleDateString("pt-BR") : "—"}
+          {validityBadge && <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${validityBadge.soft} ${validityBadge.text}`}>{validityBadge.label}</span>}
+        </span>
+        {(ex.recommended_frequency || ex.recommended_quantity_sessions !== null) && (
+          <span>
+            <strong className="text-ink">Frequência/qtd.:</strong> {ex.recommended_frequency ?? "—"}
+            {ex.recommended_quantity_sessions !== null ? ` · ${ex.recommended_quantity_sessions} sessões` : ""}
+          </span>
+        )}
+        {ex.professional_name && (
+          <span>
+            <strong className="text-ink">Profissional:</strong> {ex.professional_name}
+            {ex.professional_register ? ` (${ex.professional_register})` : ""}
+          </span>
+        )}
+      </div>
+
+      {ex.summary && (
+        <p>
+          <strong className="text-ink">Resumo:</strong> {ex.summary}
+        </p>
+      )}
+
+      {ex.exceptions.length > 0 && (
+        <div>
+          <strong className="text-ink">Exceções/observações:</strong>
+          <ul className="list-disc pl-4">
+            {ex.exceptions.map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {ex.warnings.length > 0 && (
+        <ul className="list-disc pl-4 text-gold-strong">
+          {ex.warnings.map((w, i) => (
+            <li key={i}>{w}</li>
+          ))}
+        </ul>
+      )}
+
+      <button type="button" disabled={isPending} onClick={onReprocess} className="self-start text-[10px] font-semibold text-chart hover:underline disabled:opacity-50">
+        Reprocessar com IA
+      </button>
+    </div>
+  );
+}
+
 export function AcolhimentoLeadDrawer({
   lead,
   therapists,
@@ -118,6 +209,13 @@ export function AcolhimentoLeadDrawer({
   function handleFileAction(fileId: string, patch: { kind?: "laudo" | "guia" | "outro"; decision?: "approved" | "rejected" }) {
     startTransition(async () => {
       const res = await reviewIntakeLeadFile(fileId, patch);
+      if (!res.success) setFeedback({ type: "error", text: res.error });
+    });
+  }
+
+  function handleReprocessExtraction(fileId: string) {
+    startTransition(async () => {
+      const res = await reprocessLaudoExtraction(fileId);
       if (!res.success) setFeedback({ type: "error", text: res.error });
     });
   }
@@ -293,36 +391,39 @@ export function AcolhimentoLeadDrawer({
             {lead.files.length === 0 && <p className="text-xs text-ink-faint">Nenhum arquivo recebido ainda.</p>}
             <div className="flex flex-col gap-2">
               {lead.files.map((file) => (
-                <div key={file.id} className="flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper/40 p-2 text-xs">
-                  <button type="button" onClick={() => handleViewFile(file.id)} className="truncate text-left text-chart hover:underline">
-                    {file.original_name || "arquivo"}
-                  </button>
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      defaultValue={file.kind ?? ""}
-                      onChange={(e) => handleFileAction(file.id, { kind: e.target.value as "laudo" | "guia" | "outro" })}
-                      className="rounded border border-paper-line-strong bg-white px-1.5 py-1 text-[11px]"
-                    >
-                      <option value="">Tipo…</option>
-                      <option value="laudo">Laudo</option>
-                      <option value="guia">Guia</option>
-                      <option value="outro">Outro</option>
-                    </select>
-                    {file.review_status === "pending" ? (
-                      <>
-                        <button type="button" onClick={() => handleFileAction(file.id, { decision: "approved" })} className="rounded bg-status-positive-soft px-2 py-1 font-semibold text-status-positive-text">
-                          ✓
-                        </button>
-                        <button type="button" onClick={() => handleFileAction(file.id, { decision: "rejected" })} className="rounded bg-status-negative-soft px-2 py-1 font-semibold text-status-negative-text">
-                          ✕
-                        </button>
-                      </>
-                    ) : (
-                      <span className={`tag-status ${file.review_status === "approved" ? "st-confirmada" : "st-cancelada"}`}>
-                        {file.review_status === "approved" ? "Aprovado" : "Rejeitado"}
-                      </span>
-                    )}
+                <div key={file.id} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper/40 p-2 text-xs">
+                    <button type="button" onClick={() => handleViewFile(file.id)} className="truncate text-left text-chart hover:underline">
+                      {file.original_name || "arquivo"}
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        defaultValue={file.kind ?? ""}
+                        onChange={(e) => handleFileAction(file.id, { kind: e.target.value as "laudo" | "guia" | "outro" })}
+                        className="rounded border border-paper-line-strong bg-white px-1.5 py-1 text-[11px]"
+                      >
+                        <option value="">Tipo…</option>
+                        <option value="laudo">Laudo</option>
+                        <option value="guia">Guia</option>
+                        <option value="outro">Outro</option>
+                      </select>
+                      {file.review_status === "pending" ? (
+                        <>
+                          <button type="button" onClick={() => handleFileAction(file.id, { decision: "approved" })} className="rounded bg-status-positive-soft px-2 py-1 font-semibold text-status-positive-text">
+                            ✓
+                          </button>
+                          <button type="button" onClick={() => handleFileAction(file.id, { decision: "rejected" })} className="rounded bg-status-negative-soft px-2 py-1 font-semibold text-status-negative-text">
+                            ✕
+                          </button>
+                        </>
+                      ) : (
+                        <span className={`tag-status ${file.review_status === "approved" ? "st-confirmada" : "st-cancelada"}`}>
+                          {file.review_status === "approved" ? "Aprovado" : "Rejeitado"}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  <LaudoSummaryCard file={file} isPending={isPending} onReprocess={() => handleReprocessExtraction(file.id)} />
                 </div>
               ))}
             </div>

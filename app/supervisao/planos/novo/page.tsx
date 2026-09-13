@@ -35,11 +35,14 @@ export default async function NovoPlanoPage({
 
   const clinic = await getClinicIdentity(supabase, DEV_CLINIC_ID);
 
+  // PTS só pode ser iniciado após a 1ª avaliação/anamnese/acolhimento
+  // concluída (patients.evaluated_at preenchido) — ver createTreatmentPlan.
   const { data: patients } = await supabase
     .from("patients")
     .select("id, full_name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .in("status", ["ativo", "avaliacao"])
+    .not("evaluated_at", "is", null)
     .order("full_name");
 
   // Terapeutas da clínica — usado para seleção por clique (não texto livre)

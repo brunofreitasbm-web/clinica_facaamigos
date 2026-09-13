@@ -828,6 +828,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           authorization_password: string | null
+          created_at: string
           document_id: string | null
           guide_number: string | null
           id: string
@@ -845,6 +846,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           authorization_password?: string | null
+          created_at?: string
           document_id?: string | null
           guide_number?: string | null
           id?: string
@@ -862,6 +864,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           authorization_password?: string | null
+          created_at?: string
           document_id?: string | null
           guide_number?: string | null
           id?: string
@@ -3631,6 +3634,9 @@ export type Database = {
         Row: {
           created_at: string
           document_id: string | null
+          extracted_at: string | null
+          extraction: Json | null
+          extraction_status: string
           id: string
           kind: string | null
           lead_id: string
@@ -3646,6 +3652,9 @@ export type Database = {
         Insert: {
           created_at?: string
           document_id?: string | null
+          extracted_at?: string | null
+          extraction?: Json | null
+          extraction_status?: string
           id?: string
           kind?: string | null
           lead_id: string
@@ -3661,6 +3670,9 @@ export type Database = {
         Update: {
           created_at?: string
           document_id?: string | null
+          extracted_at?: string | null
+          extraction?: Json | null
+          extraction_status?: string
           id?: string
           kind?: string | null
           lead_id?: string
@@ -4144,6 +4156,7 @@ export type Database = {
         Row: {
           active: boolean
           ans_code: string | null
+          badge_color: string | null
           billing_rules: Json
           clinic_id: string
           id: string
@@ -4154,6 +4167,7 @@ export type Database = {
         Insert: {
           active?: boolean
           ans_code?: string | null
+          badge_color?: string | null
           billing_rules?: Json
           clinic_id: string
           id?: string
@@ -4164,6 +4178,7 @@ export type Database = {
         Update: {
           active?: boolean
           ans_code?: string | null
+          badge_color?: string | null
           billing_rules?: Json
           clinic_id?: string
           id?: string
@@ -7443,9 +7458,12 @@ export type Database = {
           contact_name: string | null
           conversation_sid: string | null
           created_at: string
+          escalated_at: string | null
           escalation_reason: string | null
           guardian_id: string | null
           id: string
+          internal_note: string | null
+          internal_note_updated_at: string | null
           is_bot_active: boolean
           kind: string
           last_message_at: string | null
@@ -7460,9 +7478,12 @@ export type Database = {
           contact_name?: string | null
           conversation_sid?: string | null
           created_at?: string
+          escalated_at?: string | null
           escalation_reason?: string | null
           guardian_id?: string | null
           id?: string
+          internal_note?: string | null
+          internal_note_updated_at?: string | null
           is_bot_active?: boolean
           kind?: string
           last_message_at?: string | null
@@ -7477,9 +7498,12 @@ export type Database = {
           contact_name?: string | null
           conversation_sid?: string | null
           created_at?: string
+          escalated_at?: string | null
           escalation_reason?: string | null
           guardian_id?: string | null
           id?: string
+          internal_note?: string | null
+          internal_note_updated_at?: string | null
           is_bot_active?: boolean
           kind?: string
           last_message_at?: string | null

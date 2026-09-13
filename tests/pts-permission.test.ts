@@ -26,3 +26,17 @@ test("Bloqueia criação de PTS para outros perfis", () => {
   assert.equal(canCreatePts(null), false);
   assert.equal(canCreatePts(undefined), false);
 });
+
+/**
+ * PTS só pode ser iniciado para paciente que concluiu a 1ª
+ * avaliação/anamnese/acolhimento (patients.evaluated_at preenchido).
+ */
+export function canStartPts(evaluatedAt?: string | null): boolean {
+  return Boolean(evaluatedAt);
+}
+
+test("Permite iniciar PTS apenas após avaliação/anamnese/acolhimento concluída", () => {
+  assert.equal(canStartPts("2026-09-10T12:00:00Z"), true);
+  assert.equal(canStartPts(null), false);
+  assert.equal(canStartPts(undefined), false);
+});

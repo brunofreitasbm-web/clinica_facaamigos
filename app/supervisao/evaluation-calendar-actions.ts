@@ -14,9 +14,8 @@ import {
 import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions";
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
-import { sendFamilyMeetingConfirmationNotification } from "@/lib/family-meeting-confirmation";
 
-type ActionResult = { success: true } | { success: false; error: string };
+type ActionResult = { success: true; requiresFamilyNotice?: boolean } | { success: false; error: string };
 
 /** Duração fixa de toda 1ª avaliação/anamnese — mesma convenção usada em scheduleEvaluation e nos bots de WhatsApp. */
 const EVALUATION_DURATION_MINUTES = 50;
@@ -147,15 +146,12 @@ export async function scheduleFromPoolAction(
   return { success: true };
 }
 
-/** Janela mínima de antecedência que o supervisor tem pra mudar a data de uma 1ª avaliação já marcada. */
-const MIN_RESCHEDULE_NOTICE_MS = 2 * 60 * 60 * 1000;
-
 export async function rescheduleEvaluationAction(appointmentId: string, date: string, time: string, durationMinutes: number): Promise<ActionResult> {
   const supabase = await createClient();
 
   const { data: appointment, error: fetchError } = await supabase
     .from("appointments")
-    .select("starts_at, patient_id, therapist_id, room_id, is_family_meeting")
+    .select("patient_id")
     .eq("id", appointmentId)
     .maybeSingle();
 
@@ -163,41 +159,15 @@ export async function rescheduleEvaluationAction(appointmentId: string, date: st
     return { success: false, error: "Não foi possível localizar a avaliação para reagendar." };
   }
 
-  const msUntilCurrentStart = new Date(appointment.starts_at).getTime() - Date.now();
-  if (msUntilCurrentStart < MIN_RESCHEDULE_NOTICE_MS) {
-    return { success: false, error: "Não é possível mudar a data de uma avaliação com menos de 2 horas de antecedência." };
-  }
-
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
   const result = await rescheduleAppointmentAction(appointmentId, startsAt.toISOString(), endsAt.toISOString());
 
-  if (result.success && appointment.patient_id && appointment.therapist_id) {
-    // Reunião com responsável e 1ª avaliação usam mensagens de WhatsApp
-    // diferentes (lib/family-meeting-confirmation.ts vs
-    // lib/evaluation-confirmation.ts) — os dois tipos de compromisso
-    // convivem no mesmo calendário de arrastar-e-soltar (ver
-    // evaluation-calendar.tsx), então a notificação precisa checar
-    // is_family_meeting antes de disparar.
-    if (appointment.is_family_meeting) {
-      await sendFamilyMeetingConfirmationNotification({
-        patientId: appointment.patient_id,
-        supervisorId: appointment.therapist_id,
-        date,
-        time,
-        isReschedule: true,
-      });
-    } else if (appointment.room_id) {
-      await sendEvaluationConfirmationNotification({
-        patientId: appointment.patient_id,
-        therapistId: appointment.therapist_id,
-        roomId: appointment.room_id,
-        date,
-        time,
-        isReschedule: true,
-      });
-    }
-  }
+  if (!result.success) return result;
 
-  return result;
+  // Reagendamento feito pelo Supervisor NÃO dispara WhatsApp automático pro
+  // responsável (diferente do agendamento inicial) — o Supervisor precisa
+  // avaliar o motivo da mudança antes de avisar a família, então a UI só
+  // mostra um lembrete flutuante pedindo pra avisar manualmente.
+  return { success: true, requiresFamilyNotice: Boolean(appointment.patient_id) };
 }

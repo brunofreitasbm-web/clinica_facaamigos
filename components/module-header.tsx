@@ -34,6 +34,8 @@ export type ModuleNavLink = {
   icon?: LucideIcon;
   /** Contagem no pill branco. 0 ou undefined = sem pill. */
   badge?: number;
+  /** true = pill vermelho piscante em vez do branco neutro — pendência que precisa de olhos agora (ex.: laudo aguardando validação). */
+  badgeUrgent?: boolean;
   /** Badge assíncrono (server component sob <Suspense>) — alternativa a `badge`. */
   badgeSlot?: React.ReactNode;
   /** Item que leva pra fora do módulo: ganha o ícone de saída. */
@@ -48,6 +50,7 @@ export type ModuleNavTab = {
   selected: boolean;
   icon?: LucideIcon;
   badge?: number;
+  badgeUrgent?: boolean;
   href?: never;
 };
 
@@ -87,11 +90,11 @@ function resolveActive(pathname: string | null, items: readonly ModuleNavItem[],
   return best;
 }
 
-function Badge({ value }: { value: number }) {
+function Badge({ value, urgent }: { value: number; urgent?: boolean }) {
   return (
     <span
-      className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums shadow-xs"
-      style={{ background: "#FFFFFF", color: "#0F172A" }}
+      className={`ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums shadow-xs ${urgent ? "animate-pulse bg-status-negative text-white" : ""}`}
+      style={urgent ? undefined : { background: "#FFFFFF", color: "#0F172A" }}
     >
       {value}
     </span>
@@ -150,7 +153,7 @@ export function ModuleHeader({
                 {Icon && <Icon size={15} aria-hidden />}
                 {item.label}
                 {!isTab(item) && item.external && <ExternalLink size={11} aria-label={`(sai do módulo ${module})`} />}
-                {item.badge ? <Badge value={item.badge} /> : null}
+                {item.badge ? <Badge value={item.badge} urgent={item.badgeUrgent} /> : null}
                 {!isTab(item) && item.badgeSlot}
               </>
             );

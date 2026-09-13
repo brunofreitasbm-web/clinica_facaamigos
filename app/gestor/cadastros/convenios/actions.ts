@@ -10,6 +10,7 @@ export async function createInsurer(
 ): Promise<{ success: true } | { success: false; error: string }> {
   const name = String(formData.get("name") ?? "").trim();
   const ansCode = String(formData.get("ans_code") ?? "").trim();
+  const badgeColor = String(formData.get("badge_color") ?? "").trim();
 
   if (!name) {
     return { success: false, error: "Nome do convênio é obrigatório." };
@@ -20,10 +21,32 @@ export async function createInsurer(
     clinic_id: DEV_CLINIC_ID,
     name,
     ans_code: ansCode || null,
+    badge_color: badgeColor || null,
   });
 
   if (error) {
     return { success: false, error: "Não foi possível salvar o convênio. Tente de novo." };
+  }
+
+  revalidatePath("/gestor/cadastros/convenios");
+  return { success: true };
+}
+
+export async function updateInsurerColor(
+  insurerId: string,
+  badgeColor: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  if (!insurerId) return { success: false, error: "Convênio inválido." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("insurers")
+    .update({ badge_color: badgeColor || null })
+    .eq("id", insurerId)
+    .eq("clinic_id", DEV_CLINIC_ID);
+
+  if (error) {
+    return { success: false, error: "Não foi possível atualizar a cor do convênio." };
   }
 
   revalidatePath("/gestor/cadastros/convenios");

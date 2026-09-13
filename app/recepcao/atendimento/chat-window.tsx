@@ -7,7 +7,7 @@ import { sendManualMessage } from "./actions";
 import { ChatHeader } from "./chat-header";
 import { QuickResponsesPopover } from "./quick-responses-popover";
 import { QuickResponseChips } from "./quick-response-chips";
-import type { ConversationRow } from "./atendimento-shell";
+import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
 
 type MessageRow = {
   id: string;
@@ -18,7 +18,30 @@ type MessageRow = {
   deliveryStatus: string | null;
 };
 
-export function ChatWindow({ conversation }: { conversation: ConversationRow }) {
+/**
+ * Respostas rápidas podem usar {nome} (ou {{nome}}): vira o primeiro nome do
+ * responsável/contato. Sem nome conhecido, o marcador some junto com a
+ * vírgula que o antecede ("Olá, {nome}!" → "Olá!").
+ */
+function applyPlaceholders(text: string, conversation: ConversationRow): string {
+  const source = conversation.guardianName ?? conversation.contactName;
+  const firstName = source?.trim().split(/\s+/)[0];
+  const token = /\{\{?\s*nome\s*\}?\}/gi;
+  if (firstName) return text.replace(token, firstName);
+  return text.replace(/,?\s*\{\{?\s*nome\s*\}?\}/gi, "");
+}
+
+export function ChatWindow({
+  conversation,
+  currentUserId,
+  staffNames,
+  onPatch,
+}: {
+  conversation: ConversationRow;
+  currentUserId: string | null;
+  staffNames: Record<string, string>;
+  onPatch: (patch: ConversationPatch) => void;
+}) {
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [draft, setDraft] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -129,7 +152,12 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
 
   return (
     <div className="flex h-full flex-col">
-      <ChatHeader conversation={conversation} />
+      <ChatHeader
+        conversation={conversation}
+        currentUserId={currentUserId}
+        staffNames={staffNames}
+        onPatch={onPatch}
+      />
 
       <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
         {messages.map((m) => {
@@ -212,11 +240,11 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
         {showQuickResponses && (
           <QuickResponsesPopover
             filter={draft}
-            onSelect={(contentText) => setDraft(contentText)}
+            onSelect={(contentText) => setDraft(applyPlaceholders(contentText, conversation))}
             onClose={() => setShowQuickResponses(false)}
           />
         )}
-        <QuickResponseChips disabled={isPending} onSelect={(contentText) => handleSendText(contentText)} />
+        <QuickResponseChips disabled={isPending} onSelect={(contentText) => handleSendText(applyPlaceholders(contentText, conversation))} />
         <div className="flex items-center gap-2">
           <input
             className="input flex-1"

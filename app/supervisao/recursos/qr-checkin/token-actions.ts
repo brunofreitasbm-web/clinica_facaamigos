@@ -34,6 +34,6 @@ export async function rotateCheckinToken(): Promise<ActionResult> {
     return { success: false, error: "Não foi possível gerar o novo cartaz." };
   }
 
-  revalidatePath("/recepcao/recursos/qr-checkin");
+  revalidatePath("/supervisao/recursos/qr-checkin");
   return { success: true };
 }

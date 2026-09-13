@@ -11,7 +11,7 @@ type ActionResult = { success: true } | { success: false; error: string };
 /**
  * Cadastro de recurso (PRD §10) — RLS (resources_manage_gestor_supervisor)
  * é o portão real, restrito a gestor/supervisor. Fica em Configurações
- * porque é cadastro mestre; a recepção só reserva (`/recepcao/recursos`).
+ * porque é cadastro mestre; a coordenação só reserva (`/supervisao/recursos`).
  */
 export async function createResource(formData: FormData): Promise<ActionResult> {
   const name = String(formData.get("name") ?? "").trim();
@@ -36,7 +36,7 @@ export async function createResource(formData: FormData): Promise<ActionResult> 
   }
 
   revalidatePath("/gestor/cadastros/salas");
-  revalidatePath("/recepcao/recursos");
+  revalidatePath("/supervisao/recursos");
   return { success: true };
 }
 

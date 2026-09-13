@@ -50,7 +50,7 @@ export async function createResourceBooking(formData: FormData): Promise<ActionR
     return { success: false, error: "Não foi possível reservar o recurso." };
   }
 
-  revalidatePath("/recepcao/recursos");
+  revalidatePath("/supervisao/recursos");
   return { success: true };
 }
 
@@ -71,6 +71,6 @@ export async function cancelResourceBooking(bookingId: string): Promise<ActionRe
     return { success: false, error: "Não foi possível cancelar — só quem reservou ou a recepção pode." };
   }
 
-  revalidatePath("/recepcao/recursos");
+  revalidatePath("/supervisao/recursos");
   return { success: true };
 }

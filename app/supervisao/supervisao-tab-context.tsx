@@ -3,10 +3,17 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
 /**
- * As 6 abas de dados de /supervisao (Grade, Agenda 1ª Avaliação, Planilha de
- * Pacientes, Fluxos, PTS, Caixa de entrada) trocam de conteúdo sem navegar —
- * o conteúdo de cada uma é pré-carregado só na page.tsx raiz (app/supervisao/
- * page.tsx), então não tem rota própria.
+ * As 5 abas de dados de /supervisao (Grade, Agenda 1ª Avaliação, Fluxos, PTS,
+ * Caixa de entrada) trocam de conteúdo sem navegar — o conteúdo de cada uma é
+ * pré-carregado só na page.tsx raiz (app/supervisao/page.tsx), então não tem
+ * rota própria.
+ *
+ * "Planilha de Pacientes" (ex-aba "acolhimentos") não é mais uma aba deste
+ * nível — virou sub-aba dentro de "Agenda 1ª Avaliação"
+ * (agenda-avaliacoes-panel.tsx), junto de "Calendário" e "Entrada via
+ * WhatsApp", porque as três são etapas do mesmo funil de 1ª avaliação e
+ * ficavam em profundidades de navegação diferentes na barra rosa, confundindo
+ * o supervisor (13/09/2026).
  *
  * O contexto agora vive no layout.tsx (10/09/2026), acima de toda a árvore
  * de /supervisao, não mais dentro da page.tsx raiz. Isso permite:
@@ -20,15 +27,19 @@ import { createContext, useContext, useState, type ReactNode } from "react";
  *    módulo (antes resetava sempre pra "grade", porque o estado vivia
  *    dentro da própria page.tsx raiz, que desmontava ao navegar).
  */
-export type SupervisaoTabKey = "grade" | "agenda1a" | "acolhimentos" | "fluxos" | "planos" | "inbox";
+export type SupervisaoTabKey = "grade" | "agenda1a" | "fluxos" | "planos" | "inbox";
 
 type Counts = Partial<Record<SupervisaoTabKey, number>>;
+/** Abas com pendência que precisa de olhos AGORA (ex.: laudo aguardando validação do supervisor) ganham o badge piscante em vez do pill neutro. */
+type UrgentFlags = Partial<Record<SupervisaoTabKey, boolean>>;
 
 type Ctx = {
   tab: SupervisaoTabKey;
   setTab: (t: SupervisaoTabKey) => void;
   counts: Counts;
   setCounts: (c: Counts) => void;
+  urgent: UrgentFlags;
+  setUrgent: (u: UrgentFlags) => void;
 };
 
 const SupervisaoTabContext = createContext<Ctx>({
@@ -36,6 +47,8 @@ const SupervisaoTabContext = createContext<Ctx>({
   setTab: () => {},
   counts: {},
   setCounts: () => {},
+  urgent: {},
+  setUrgent: () => {},
 });
 
 /** Permite que um painel filho (ex.: atalhos da aba Fluxos) troque a aba ativa sem navegar. */
@@ -46,8 +59,9 @@ export function useSupervisaoTab() {
 export function SupervisaoTabProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<SupervisaoTabKey>("grade");
   const [counts, setCounts] = useState<Counts>({});
+  const [urgent, setUrgent] = useState<UrgentFlags>({});
 
   return (
-    <SupervisaoTabContext.Provider value={{ tab, setTab, counts, setCounts }}>{children}</SupervisaoTabContext.Provider>
+    <SupervisaoTabContext.Provider value={{ tab, setTab, counts, setCounts, urgent, setUrgent }}>{children}</SupervisaoTabContext.Provider>
   );
 }

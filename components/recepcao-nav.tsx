@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Users, AlertCircle, Inbox, FileText, Boxes, Sparkles, UserX, DoorOpen } from "lucide-react";
+import { CalendarDays, Users, AlertCircle, Inbox, FileText, Sparkles, UserX, DoorOpen, Trophy } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -18,8 +18,8 @@ const NAV_ITEMS = [
   { key: "atendimento", label: "Atendimento", href: "/recepcao/atendimento", icon: Inbox },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText },
   { key: "precadastros", label: "Cadastro IA", href: "/recepcao/pre-cadastros", icon: Sparkles },
-  { key: "recursos", label: "Salas e recursos", href: "/recepcao/recursos", icon: Boxes },
   { key: "emergencias", label: "Aviso Falta Terapeuta", href: "/recepcao/emergencias", icon: UserX },
+  { key: "metricas", label: "Minha bonificação", href: "/recepcao/metricas", icon: Trophy },
 ] as const;
 
 export function RecepcaoNav({

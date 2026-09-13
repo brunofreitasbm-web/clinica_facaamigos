@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { key: "competencia", label: "Competência", href: "/faturamento" },
   { key: "glosas", label: "Glosas", href: "/faturamento/glosas" },
   { key: "repasses", label: "Repasses", href: "/faturamento/repasses" },
+  { key: "metricas", label: "Minha bonificação", href: "/faturamento/metricas" },
 ] as const;
 
 /**

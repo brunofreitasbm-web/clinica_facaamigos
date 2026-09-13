@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 
 /**
  * Gera o QR code do cartaz de check-in como SVG (string), pra renderizar
- * embutido na página de impressão em app/recepcao/recursos/qr-checkin.
+ * embutido na página de impressão em app/supervisao/recursos/qr-checkin.
  * Server-side apenas — nunca chamado do cliente. `errorCorrectionLevel: "M"`
  * dá margem pra pequenas manchas/dobras no papel impresso sem comprometer a
  * leitura, sem inflar demais a densidade do código.

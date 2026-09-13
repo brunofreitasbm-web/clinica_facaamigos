@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { uploadIntakeBatch, uploadIntakeExtractedBatch, reprocessIntakeBatch, approveIntakeLeadsAndStartContact, getIntakeBatchPdfUrl } from "./acolhimento-actions";
+import { uploadIntakeBatch, uploadIntakeExtractedBatch, reprocessIntakeBatch, approveIntakeLeadsAndStartContact, getIntakeBatchPdfUrl, cancelIntakeLead, deleteIntakeBatch } from "./acolhimento-actions";
 import { AcolhimentoLeadDrawer, type LeadRow } from "./acolhimento-lead-drawer";
 import { IntakeProfileDialog } from "./intake-profile-dialog";
 import { parseIntakeProfile } from "@/lib/insurance-intake-profile";
@@ -45,6 +45,10 @@ const LEAD_STATUS_TAG: Record<string, string> = {
   failed: "st-falta",
   cancelled: "st-cancelada",
 };
+
+// Espelha as restrições de status feitas em updateIntakeLeadFields/cancelIntakeLead no backend.
+const EDITABLE_LEAD_STATUSES = new Set(["extracted", "failed", "awaiting_documents"]);
+const NON_CANCELLABLE_LEAD_STATUSES = new Set(["scheduled", "cancelled"]);
 
 export type BatchRow = {
   id: string;
@@ -124,6 +128,15 @@ export function AcolhimentosPanel({
     });
   }
 
+  function handleDeleteBatch(batchId: string, insurerLabel: string) {
+    if (!window.confirm(`Excluir o lote de "${insurerLabel}" e todos os acolhimentos dele? Esta ação não pode ser desfeita.`)) return;
+    setBulkResult(null);
+    startTransition(async () => {
+      const res = await deleteIntakeBatch(batchId);
+      setBulkResult(res.success ? "Lote excluído." : `Erro ao excluir lote: ${res.error}`);
+    });
+  }
+
   function toggleLead(id: string) {
     setSelectedLeadIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   }
@@ -149,6 +162,29 @@ export function AcolhimentosPanel({
           ? `Contato iniciado com ${patientName || "o paciente"}.`
           : `Erro ao iniciar contato com ${patientName || "o paciente"}: ${outcome?.error ?? "falha desconhecida"}.`,
       );
+    });
+  }
+
+  function handleDeleteSingle(leadId: string, patientName: string | null) {
+    if (!window.confirm(`Excluir o acolhimento de ${patientName || "este paciente"}? Esta ação não pode ser desfeita.`)) return;
+    setBulkResult(null);
+    startTransition(async () => {
+      const res = await cancelIntakeLead(leadId, "excluido_pela_supervisao");
+      setBulkResult(res.success ? `Acolhimento de ${patientName || "paciente"} excluído.` : `Erro ao excluir: ${res.error}`);
+      setSelectedLeadIds((prev) => prev.filter((id) => id !== leadId));
+    });
+  }
+
+  function handleBulkDelete() {
+    if (!window.confirm(`Excluir os ${selectedLeadIds.length} acolhimento(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+    setBulkResult(null);
+    const ids = selectedLeadIds;
+    startTransition(async () => {
+      const results = await Promise.all(ids.map((id) => cancelIntakeLead(id, "excluido_pela_supervisao")));
+      const ok = results.filter((r) => r.success).length;
+      const failed = results.length - ok;
+      setBulkResult(failed > 0 ? `${ok} excluído(s), ${failed} com erro.` : `${ok} acolhimento(s) excluído(s) com sucesso.`);
+      setSelectedLeadIds([]);
     });
   }
 
@@ -269,6 +305,14 @@ export function AcolhimentosPanel({
                         {batch.status === "pending" ? "Forçar Extração IA" : "Reprocessar"}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => handleDeleteBatch(batch.id, batch.insurerName ?? batch.detectedInsurerName ?? "Convênio a identificar")}
+                      className="text-xs font-semibold text-status-negative-text hover:underline disabled:opacity-50"
+                    >
+                      Excluir
+                    </button>
                   </div>
                 </div>
 
@@ -289,9 +333,12 @@ export function AcolhimentosPanel({
                           <th className="p-3 w-10 text-center">
                             <input
                               type="checkbox"
-                              checked={leads.every((l) => l.status !== "extracted" || selectedLeadIds.includes(l.id)) && leads.some((l) => l.status === "extracted")}
+                              checked={
+                                leads.every((l) => NON_CANCELLABLE_LEAD_STATUSES.has(l.status) || selectedLeadIds.includes(l.id)) &&
+                                leads.some((l) => !NON_CANCELLABLE_LEAD_STATUSES.has(l.status))
+                              }
                               onChange={(e) => {
-                                const ids = leads.filter((l) => l.status === "extracted").map((l) => l.id);
+                                const ids = leads.filter((l) => !NON_CANCELLABLE_LEAD_STATUSES.has(l.status)).map((l) => l.id);
                                 setSelectedLeadIds((prev) => (e.target.checked ? Array.from(new Set([...prev, ...ids])) : prev.filter((id) => !ids.includes(id))));
                               }}
                               className="rounded border-paper-line-strong"
@@ -313,7 +360,7 @@ export function AcolhimentosPanel({
                           return (
                             <tr key={lead.id} className="hover:bg-paper/60">
                               <td className="p-3 text-center">
-                                {lead.status === "extracted" && (
+                                {!NON_CANCELLABLE_LEAD_STATUSES.has(lead.status) && (
                                   <input type="checkbox" checked={selectedLeadIds.includes(lead.id)} onChange={() => toggleLead(lead.id)} className="rounded border-paper-line-strong" />
                                 )}
                               </td>
@@ -349,8 +396,18 @@ export function AcolhimentosPanel({
                                     </button>
                                   )}
                                   <button type="button" onClick={() => setOpenLeadId(lead.id)} className="text-xs font-semibold text-chart hover:underline">
-                                    {lead.status === "pending_supervisor" ? "Validar documentos" : "Revisar"}
+                                    {EDITABLE_LEAD_STATUSES.has(lead.status) ? "Editar" : lead.status === "pending_supervisor" ? "Validar documentos" : "Revisar"}
                                   </button>
+                                  {!NON_CANCELLABLE_LEAD_STATUSES.has(lead.status) && (
+                                    <button
+                                      type="button"
+                                      disabled={isPending}
+                                      onClick={() => handleDeleteSingle(lead.id, lead.patient_full_name)}
+                                      className="text-xs font-semibold text-status-negative-text hover:underline disabled:opacity-50"
+                                    >
+                                      Excluir
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -371,6 +428,14 @@ export function AcolhimentosPanel({
           <span className="text-xs text-ink-soft">{selectedLeadIds.length} selecionado(s)</span>
           <button type="button" disabled={isPending} onClick={handleBulkStartContact} className="rounded-full bg-chart px-4 py-2 text-xs font-semibold text-white hover:bg-chart-strong disabled:opacity-50">
             Iniciar contato ({selectedLeadIds.length})
+          </button>
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleBulkDelete}
+            className="rounded-full border border-status-negative-text px-4 py-2 text-xs font-semibold text-status-negative-text hover:bg-status-negative-text/10 disabled:opacity-50"
+          >
+            Excluir ({selectedLeadIds.length})
           </button>
         </div>
       )}

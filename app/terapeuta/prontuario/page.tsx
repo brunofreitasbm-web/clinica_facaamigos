@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { getPatientTimeline, fmt } from "@/lib/patient-timeline";
 import { PageHeader } from "@/components/page-header";
+import { SearchAsYouTypeInput } from "@/components/search-as-you-type-input";
 import { AuditoriaPanel } from "./auditoria-panel";
 
 export const dynamic = "force-dynamic";
@@ -95,10 +96,10 @@ export default async function TerapeutaProntuarioPage({
           <div className={selectedPatient ? "hidden sm:block" : "block"}>
             <div className="rounded-xl border p-4 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
               <h4 className="mb-3">Meus pacientes</h4>
-              <form method="get" className="relative mb-3">
+              <div className="relative mb-3">
                 <Search className="absolute left-3 top-2.5 text-ink-faint" size={16} />
-                <input type="text" name="q" defaultValue={q ?? ""} placeholder="Buscar por nome..." className="input pl-9 text-sm" />
-              </form>
+                <SearchAsYouTypeInput initialValue={q ?? ""} placeholder="Buscar por nome..." className="input pl-9 text-sm" />
+              </div>
               <div className="flex flex-col gap-2">
                 {patients.length === 0 && <p className="text-sm text-ink-faint">Nenhum paciente vinculado a você ainda.</p>}
                 {patients.map((pt) => {

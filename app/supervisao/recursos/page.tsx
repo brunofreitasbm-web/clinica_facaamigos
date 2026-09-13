@@ -44,14 +44,14 @@ export default async function RecursosPage() {
       <PageContainer>
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-            Recepção
+            Coordenação
           </h6>
           <h1 className="m-0">Recursos e reservas</h1>
           <p className="mt-2 max-w-[640px] text-sm text-ink-soft">
             Brinquedos sensoriais, testes padronizados e pranchas de comunicação — reserva com bloqueio automático de
             conflito de horário. Salas continuam reservadas junto com a sessão, na Agenda.
           </p>
-          <Link href="/recepcao/recursos/qr-checkin" className="mt-3 inline-block text-sm text-chart no-underline hover:underline">
+          <Link href="/supervisao/recursos/qr-checkin" className="mt-3 inline-block text-sm text-chart no-underline hover:underline">
             Cartaz de check-in por QR da entrada →
           </Link>
         </div>

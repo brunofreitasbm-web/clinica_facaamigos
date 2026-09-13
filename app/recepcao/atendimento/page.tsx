@@ -131,19 +131,45 @@ export default async function AtendimentoPage() {
     canManageChatbot = profile?.role === "supervisor" || profile?.role === "gestor";
   }
 
-  const [{ data: conversationsRaw }, chatbotAdmin] = await Promise.all([
+  const [{ data: conversationsRaw }, chatbotAdmin, { data: staffRaw }] = await Promise.all([
     supabase
       .from("twilio_conversations")
       .select(
-        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, kind, contact_name, escalation_reason, patients(full_name), guardians(full_name)",
+        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, kind, contact_name, escalation_reason, assigned_to, patients(full_name), guardians(full_name)",
       )
       .order("last_message_at", { ascending: false, nullsFirst: false }),
     canManageChatbot ? loadChatbotAdminData(supabase) : Promise.resolve(null),
+    // Nomes de quem pode assumir conversa — para mostrar "com Fulana" na fila.
+    supabase.from("profiles").select("id, full_name").in("role", ["recepcao", "supervisor", "gestor"]),
   ]);
+
+  const staffNames: Record<string, string> = {};
+  for (const p of staffRaw ?? []) staffNames[p.id] = p.full_name;
+
+  // Convênio (pílula) exibido na lista de conversas — busca à parte pois
+  // `twilio_conversations` não guarda o vínculo de plano, só o `patient_id`.
+  const patientIds = Array.from(
+    new Set((conversationsRaw ?? []).map((c) => c.patient_id).filter((id): id is string => Boolean(id))),
+  );
+  const planByPatientId = new Map<string, { name: string; color: string | null }>();
+  if (patientIds.length > 0) {
+    const { data: insuranceRows } = await supabase
+      .from("patient_insurance")
+      .select("patient_id, plan_name, insurers(name, badge_color)")
+      .in("patient_id", patientIds);
+    for (const row of insuranceRows ?? []) {
+      if (planByPatientId.has(row.patient_id)) continue;
+      const insurer = Array.isArray(row.insurers) ? row.insurers[0] : row.insurers;
+      const name = insurer?.name ?? row.plan_name;
+      if (!name) continue;
+      planByPatientId.set(row.patient_id, { name, color: insurer?.badge_color ?? null });
+    }
+  }
 
   const conversations: ConversationRow[] = (conversationsRaw ?? []).map((c) => {
     const patient = Array.isArray(c.patients) ? c.patients[0] : c.patients;
     const guardian = Array.isArray(c.guardians) ? c.guardians[0] : c.guardians;
+    const plan = c.patient_id ? planByPatientId.get(c.patient_id) : undefined;
     return {
       id: c.id,
       patientId: c.patient_id,
@@ -155,16 +181,25 @@ export default async function AtendimentoPage() {
       lastMessageAt: c.last_message_at,
       kind: c.kind === "lead" ? "lead" : "patient",
       escalationReason: c.escalation_reason,
+      assignedTo: c.assigned_to,
+      contactName: c.contact_name,
       // Conversa de lead não tem paciente: o nome vem do que a pessoa disse no
       // WhatsApp e, na falta disso, do próprio telefone.
       displayName: patient?.full_name ?? c.contact_name ?? formatConversationPhone(c.phone_number),
       guardianName: guardian?.full_name ?? null,
+      planName: plan?.name ?? null,
+      planColor: plan?.color ?? null,
     };
   });
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <AtendimentoShell initialConversations={conversations} chatbotAdmin={chatbotAdmin} />
+      <AtendimentoShell
+        initialConversations={conversations}
+        chatbotAdmin={chatbotAdmin}
+        currentUserId={user?.id ?? null}
+        staffNames={staffNames}
+      />
     </main>
   );
 }

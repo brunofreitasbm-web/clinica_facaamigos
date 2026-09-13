@@ -339,6 +339,25 @@ export async function findOrCreateConversation(params: FindOrCreateConversationP
 }
 
 /**
+ * Normaliza um telefone BR para DDD + 8 dígitos, descartando o "9" extra que
+ * o celular ganhou por convenção (ex: (11) 98888-7777 e (11) 8888-7777 são o
+ * mesmo número). Sem isso, um cadastro antigo sem o 9 nunca reconhece a
+ * mensagem do WhatsApp (que sempre manda com o 9), e a conversa cai como
+ * lead mesmo sendo paciente.
+ */
+function normalizeBrLocalPhone(rawPhone: string): string {
+  let digits = rawPhone.replace(/\D/g, "");
+  if (digits.startsWith("55") && digits.length > 11) {
+    digits = digits.slice(2);
+  }
+  if (digits.length === 11) {
+    // DDD (2 dígitos) + 9 + número (8 dígitos) -> descarta o 9.
+    return digits.slice(0, 2) + digits.slice(3);
+  }
+  return digits;
+}
+
+/**
  * Resolve o paciente (e responsável, quando possível) a partir de um número
  * de telefone — mesma lógica de resolução já usada pela máquina de estados de
  * anamnese (busca em `guardians.phone`).
@@ -350,9 +369,10 @@ export async function resolvePatientFromPhone(phone: string): Promise<{ patientI
   // `guardians.phone` nem sempre está em E.164 (formulários antigos gravam
   // em formato BR cru) — comparar só pelo E.164 exato perde conversas. Filtra
   // no banco pelos últimos 8 dígitos (bem menos seletivo, mas barato o
-  // bastante pro volume desta tabela) e confirma em memória normalizando os
-  // dois lados com formatE164Phone, pra não colar números diferentes que só
-  // coincidem no sufixo.
+  // bastante pro volume desta tabela) e confirma em memória comparando
+  // DDD + 8 dígitos, ignorando o "9" opcional de celular dos dois lados, pra
+  // não colar números diferentes que só coincidem no sufixo nem perder um
+  // cadastro antigo sem o 9.
   const last8 = phone.replace(/\D/g, "").slice(-8);
   if (last8.length < 8) return null;
 
@@ -361,7 +381,8 @@ export async function resolvePatientFromPhone(phone: string): Promise<{ patientI
     .select("id, patient_id, phone")
     .ilike("phone", `%${last8}`);
 
-  const guardian = (guardians ?? []).find((g) => formatE164Phone(g.phone) === phone);
+  const normalizedPhone = normalizeBrLocalPhone(phone);
+  const guardian = (guardians ?? []).find((g) => normalizeBrLocalPhone(g.phone) === normalizedPhone);
   if (!guardian) return null;
 
   return { patientId: guardian.patient_id, guardianId: guardian.id };
@@ -443,6 +464,10 @@ export async function handleTwilioIncomingMessage(params: {
       .update({
         last_message_at: new Date().toISOString(),
         unread_count: (conversation.unread_count ?? 0) + 1,
+        // Conversa encerrada pela Central volta para a fila quando o contato
+        // escreve de novo — senão a mensagem ficaria escondida no filtro
+        // "Encerradas".
+        ...(conversation.status === "closed" ? { status: "open" } : {}),
       })
       .eq("id", conversation.id);
 

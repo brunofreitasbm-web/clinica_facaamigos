@@ -1,3 +1,5 @@
+import { HealthPlanBadge } from "@/components/health-plan-badge";
+
 /**
  * Header de identificação rápida do paciente — PRD "11 incrementos" item 1.
  * Fica sempre visível no topo da ficha: nome, convênio ativo + carteirinha,
@@ -11,10 +13,13 @@ export function PatientIdentityBar({
   variant = "bar",
 }: {
   patientName: string;
-  insurance: { insurerName: string; cardNumber: string | null } | null;
+  insurance: { insurerName: string; cardNumber: string | null; badgeColor?: string | null } | null;
   emergencyContact: { name: string; phone: string } | null;
   variant?: "bar" | "sidebar";
 }) {
+  const planName = insurance?.insurerName ?? "Particular";
+  const planColor = insurance?.badgeColor;
+
   if (variant === "sidebar") {
     const initials = patientName
       .split(" ")
@@ -32,27 +37,24 @@ export function PatientIdentityBar({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Paciente</p>
-            <h2 className="truncate text-base font-bold text-ink" title={patientName}>
-              {patientName}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="truncate text-base font-bold text-ink" title={patientName}>
+                {patientName}
+              </h2>
+              <HealthPlanBadge name={planName} color={planColor} size="sm" />
+            </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-3 text-sm">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Convênio / Plano</p>
-            {insurance ? (
-              <p className="font-medium text-ink">
-                {insurance.insurerName}
-                {insurance.cardNumber && (
-                  <span className="block text-xs text-ink-soft">Cartão: {insurance.cardNumber}</span>
-                )}
-              </p>
-            ) : (
-              <span className="inline-flex rounded-full bg-paper-surface px-2.5 py-0.5 text-xs font-medium text-ink-soft">
-                Particular
-              </span>
-            )}
+            <div className="mt-1 flex items-center gap-2">
+              <HealthPlanBadge name={planName} color={planColor} size="md" />
+              {insurance?.cardNumber && (
+                <span className="text-xs text-ink-soft">Cartão: {insurance.cardNumber}</span>
+              )}
+            </div>
           </div>
 
           <div>
@@ -81,20 +83,19 @@ export function PatientIdentityBar({
     <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-b border-paper-line-strong bg-paper px-6 py-4 sm:px-10">
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Paciente</p>
-        <p className="text-base font-semibold text-ink">{patientName}</p>
+        <div className="flex items-center gap-2.5">
+          <p className="text-base font-semibold text-ink">{patientName}</p>
+          <HealthPlanBadge name={planName} color={planColor} size="sm" />
+        </div>
       </div>
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Convênio</p>
-        {insurance ? (
-          <p className="text-sm text-ink">
-            {insurance.insurerName}
-            {insurance.cardNumber && (
-              <span className="text-ink-soft"> · carteirinha {insurance.cardNumber}</span>
-            )}
-          </p>
-        ) : (
-          <p className="text-sm text-ink-soft">Particular</p>
-        )}
+        <div className="mt-0.5 flex items-center gap-2">
+          <HealthPlanBadge name={planName} color={planColor} size="sm" />
+          {insurance?.cardNumber && (
+            <span className="text-xs text-ink-soft">carteirinha {insurance.cardNumber}</span>
+          )}
+        </div>
       </div>
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">

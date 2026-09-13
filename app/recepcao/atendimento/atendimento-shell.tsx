@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ConversationList } from "./conversation-list";
+import { ConversationList, type ConversationFilter } from "./conversation-list";
 import { ChatWindow } from "./chat-window";
 import { PatientContextPanel } from "./patient-context-panel";
 import { LeadContextPanel } from "./lead-context-panel";
@@ -28,10 +28,20 @@ export type ConversationRow = {
   lastMessageAt: string | null;
   kind: "patient" | "lead";
   escalationReason: string | null;
+  /** Quem da equipe assumiu a conversa (botão "Assumir" no cabeçalho). */
+  assignedTo: string | null;
+  /** Nome informado pelo contato ou editado pela recepção — só é o rótulo
+   * principal quando não há paciente vinculado. */
+  contactName: string | null;
   displayName: string;
   guardianName: string | null;
+  /** Convênio/plano do paciente vinculado — nulo em lead ou paciente particular. */
+  planName: string | null;
+  planColor: string | null;
   lastMessagePreview?: string | null;
 };
+
+export type ConversationPatch = Partial<Omit<ConversationRow, "id">>;
 
 export type ChatbotAdminData = {
   clinicId: string;
@@ -43,18 +53,49 @@ export type ChatbotAdminData = {
   settings: ChatbotSettingsRow;
 };
 
+function matchesFilter(c: ConversationRow, filter: ConversationFilter, currentUserId: string | null): boolean {
+  if (filter === "encerradas") return c.status === "closed";
+  if (c.status === "closed") return false;
+  switch (filter) {
+    case "aguardando":
+      return c.status === "pending";
+    case "nao_lidas":
+      return c.unreadCount > 0;
+    case "leads":
+      return c.kind === "lead";
+    case "minhas":
+      return Boolean(currentUserId) && c.assignedTo === currentUserId;
+    default:
+      return true;
+  }
+}
+
+function matchesSearch(c: ConversationRow, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const digits = q.replace(/\D/g, "");
+  if (digits.length >= 3 && c.phoneNumber.replace(/\D/g, "").includes(digits)) return true;
+  return [c.displayName, c.guardianName, c.contactName].some((v) => v?.toLowerCase().includes(q));
+}
+
 export function AtendimentoShell({
   initialConversations,
   chatbotAdmin,
+  currentUserId,
+  staffNames,
 }: {
   initialConversations: ConversationRow[];
   /** Só vem preenchido quando o usuário logado é supervisor ou gestor — ver
    * app/recepcao/atendimento/page.tsx. Recepção não vê a aba Chatbot. */
   chatbotAdmin: ChatbotAdminData | null;
+  currentUserId: string | null;
+  staffNames: Record<string, string>;
 }) {
   const [conversations, setConversations] = useState<ConversationRow[]>(initialConversations);
   const [selectedId, setSelectedId] = useState<string | null>(initialConversations[0]?.id ?? null);
   const [activeTab, setActiveTab] = useState<"conversas" | "chatbot">("conversas");
+  const [filter, setFilter] = useState<ConversationFilter>("abertas");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -77,17 +118,28 @@ export function AtendimentoShell({
             kind: string;
             contact_name: string | null;
             escalation_reason: string | null;
+            assigned_to: string | null;
           };
           setConversations((prev) => {
             const existing = prev.find((c) => c.id === row.id);
             const updated: ConversationRow = existing
               ? {
                   ...existing,
+                  patientId: row.patient_id,
+                  guardianId: row.guardian_id,
+                  kind: row.kind === "lead" ? "lead" : "patient",
                   isBotActive: row.is_bot_active,
                   status: row.status,
                   unreadCount: row.unread_count,
                   lastMessageAt: row.last_message_at,
                   escalationReason: row.escalation_reason,
+                  assignedTo: row.assigned_to,
+                  contactName: row.contact_name,
+                  // Sem paciente, o rótulo acompanha o nome editado; com
+                  // paciente, o payload não traz o join e o nome atual fica.
+                  displayName: row.patient_id
+                    ? existing.displayName
+                    : (row.contact_name ?? formatConversationPhone(row.phone_number)),
                 }
               : {
                   id: row.id,
@@ -100,10 +152,16 @@ export function AtendimentoShell({
                   lastMessageAt: row.last_message_at,
                   kind: row.kind === "lead" ? "lead" : "patient",
                   escalationReason: row.escalation_reason,
+                  assignedTo: row.assigned_to,
+                  contactName: row.contact_name,
                   // O payload do Realtime não traz o join com `patients`;
                   // sem recarregar, o telefone é o melhor rótulo disponível.
                   displayName: row.contact_name ?? formatConversationPhone(row.phone_number),
                   guardianName: null,
+                  // Idem: convênio vem só do carregamento inicial (join com
+                  // `patient_insurance`/`insurers`), não do payload do Realtime.
+                  planName: null,
+                  planColor: null,
                 };
             const rest = prev.filter((c) => c.id !== row.id);
             return [updated, ...rest].sort((a, b) => {
@@ -120,6 +178,32 @@ export function AtendimentoShell({
       supabase.removeChannel(channel);
     };
   }, []);
+
+  const patchConversation = (id: string, patch: ConversationPatch) => {
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  };
+
+  const counts = useMemo(() => {
+    const result: Record<ConversationFilter, number> = {
+      abertas: 0,
+      aguardando: 0,
+      nao_lidas: 0,
+      leads: 0,
+      minhas: 0,
+      encerradas: 0,
+    };
+    for (const c of conversations) {
+      for (const key of Object.keys(result) as ConversationFilter[]) {
+        if (matchesFilter(c, key, currentUserId)) result[key] += 1;
+      }
+    }
+    return result;
+  }, [conversations, currentUserId]);
+
+  const visibleConversations = useMemo(
+    () => conversations.filter((c) => matchesFilter(c, filter, currentUserId) && matchesSearch(c, search)),
+    [conversations, filter, search, currentUserId],
+  );
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
@@ -159,20 +243,32 @@ export function AtendimentoShell({
         />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          <div className="w-full border-b border-paper-line-strong md:w-72 md:border-b-0 md:border-r">
+          <div className="w-full border-b border-paper-line-strong md:w-80 md:border-b-0 md:border-r">
             <ConversationList
-              conversations={conversations}
+              conversations={visibleConversations}
               selectedId={selectedId}
+              filter={filter}
+              counts={counts}
+              search={search}
+              staffNames={staffNames}
+              currentUserId={currentUserId}
+              onFilterChange={setFilter}
+              onSearchChange={setSearch}
               onSelect={(id) => {
                 setSelectedId(id);
-                setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)));
+                patchConversation(id, { unreadCount: 0 });
               }}
             />
           </div>
 
           <div className="flex min-h-[60vh] flex-1 flex-col md:min-h-0">
             {selected ? (
-              <ChatWindow conversation={selected} />
+              <ChatWindow
+                conversation={selected}
+                currentUserId={currentUserId}
+                staffNames={staffNames}
+                onPatch={(patch) => patchConversation(selected.id, patch)}
+              />
             ) : (
               <div className="flex flex-1 items-center justify-center text-sm text-ink-faint">
                 Selecione uma conversa para começar.
@@ -183,9 +279,13 @@ export function AtendimentoShell({
           {selected && (
             <div className="w-full border-t border-paper-line-strong md:w-80 md:border-t-0 md:border-l">
               {selected.patientId ? (
-                <PatientContextPanel patientId={selected.patientId} />
+                <PatientContextPanel key={selected.id} conversation={selected} />
               ) : (
-                <LeadContextPanel conversation={selected} />
+                <LeadContextPanel
+                  key={selected.id}
+                  conversation={selected}
+                  onPatch={(patch) => patchConversation(selected.id, patch)}
+                />
               )}
             </div>
           )}

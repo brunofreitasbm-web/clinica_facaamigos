@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sendTwilioWhatsApp } from "@/lib/twilio";
+import { createInteressadoAction, type CreateInteressadoInput } from "../actions";
 
 export async function sendManualMessage(conversationId: string, body: string) {
   const trimmed = body.trim();
@@ -101,6 +102,125 @@ export async function toggleBotActive(conversationId: string, value: boolean) {
   if (error) return { success: false as const, error: error.message };
   revalidatePath("/recepcao/atendimento");
   return { success: true as const };
+}
+
+/**
+ * "Assumir" a conversa: registra quem da equipe está cuidando dela (coluna
+ * `assigned_to`, que existe desde a migration 20260906000010 mas nunca foi
+ * usada) e tira o bot da frente, para ninguém responder em duplicidade.
+ */
+export async function assignConversation(conversationId: string, assign: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false as const, error: "Sessão expirada." };
+
+  const { error } = await supabase
+    .from("twilio_conversations")
+    .update(assign ? { assigned_to: user.id, is_bot_active: false } : { assigned_to: null })
+    .eq("id", conversationId);
+
+  if (error) return { success: false as const, error: error.message };
+  revalidatePath("/recepcao/atendimento");
+  return { success: true as const, assignedTo: assign ? user.id : null };
+}
+
+/**
+ * Encerrar devolve a conversa ao bot e libera o responsável; se o contato
+ * escrever de novo, o webhook (lib/twilio.ts) reabre sozinho.
+ */
+export async function setConversationClosed(conversationId: string, closed: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("twilio_conversations")
+    .update(
+      closed
+        ? { status: "closed", unread_count: 0, assigned_to: null, is_bot_active: true, escalation_reason: null }
+        : { status: "open" },
+    )
+    .eq("id", conversationId);
+
+  if (error) return { success: false as const, error: error.message };
+  revalidatePath("/recepcao/atendimento");
+  return { success: true as const };
+}
+
+export async function updateConversationContactName(conversationId: string, name: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("twilio_conversations")
+    .update({ contact_name: name.trim() || null })
+    .eq("id", conversationId);
+
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const };
+}
+
+export async function saveConversationNote(conversationId: string, note: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("twilio_conversations")
+    .update({ internal_note: note.trim() || null, internal_note_updated_at: new Date().toISOString() })
+    .eq("id", conversationId);
+
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const };
+}
+
+/**
+ * Cadastro rápido de interessado a partir de uma conversa de lead. Diferente
+ * de cadastrar pela home da recepção, aqui a conversa é vinculada na hora —
+ * o webhook só promoveria o lead na PRÓXIMA mensagem que o contato mandasse.
+ * As mensagens já trocadas também ganham o patient_id, para aparecerem no
+ * histórico do paciente.
+ */
+export async function registerLeadAsInteressado(conversationId: string, input: CreateInteressadoInput) {
+  const result = await createInteressadoAction(input);
+  if (!result.success || !result.patientId) {
+    return { success: false as const, error: result.error ?? "Falha ao cadastrar interessado." };
+  }
+
+  const supabase = await createClient();
+  const { data: guardian } = await supabase
+    .from("guardians")
+    .select("id, full_name")
+    .eq("patient_id", result.patientId)
+    .limit(1)
+    .maybeSingle();
+
+  const { error: linkError } = await supabase
+    .from("twilio_conversations")
+    .update({
+      patient_id: result.patientId,
+      guardian_id: guardian?.id ?? null,
+      kind: "patient",
+      contact_name: input.guardianName.trim() || null,
+    })
+    .eq("id", conversationId);
+
+  if (linkError) {
+    return {
+      success: false as const,
+      error: `Paciente cadastrado, mas a conversa não foi vinculada: ${linkError.message}`,
+    };
+  }
+
+  await supabase
+    .from("messages")
+    .update({ patient_id: result.patientId, guardian_id: guardian?.id ?? null })
+    .eq("conversation_id", conversationId)
+    .is("patient_id", null);
+
+  revalidatePath("/recepcao/atendimento");
+  return {
+    success: true as const,
+    patientId: result.patientId,
+    guardianId: guardian?.id ?? null,
+    patientName: input.fullName.trim(),
+    guardianName: guardian?.full_name ?? null,
+    warning: result.error ?? null,
+  };
 }
 
 export async function markConversationRead(conversationId: string) {

@@ -60,6 +60,8 @@ export type TodaySession = {
   authorizationId: string | null;
   isProvisional: boolean;
   isEvaluation: boolean;
+  insurerName?: string | null;
+  badgeColor?: string | null;
 };
 
 export type GuardianContact = {
@@ -128,7 +130,7 @@ export function TodayAgendaList({
 }) {
   const [filter, setFilter] = useState<FilterKey>("todas");
   const [searchRaw, setSearchRaw] = useState("");
-  const search = useDebounce(searchRaw, 350);
+  const search = useDebounce(searchRaw, 300);
   const [groupMode, setGroupMode] = useState<GroupMode>("lista");
   const [selectedRoomSessionId, setSelectedRoomSessionId] = useState<string | null>(null);
 
@@ -561,6 +563,8 @@ function RoomGrid({
                           >
                             <PatientFormattedDisplay
                               name={s.patientName}
+                              healthPlanName={s.insurerName}
+                              healthPlanColor={s.badgeColor}
                               isEvaluation={s.isEvaluation}
                               subtitle={s.therapistName}
                               showAvatar={false}
@@ -685,6 +689,8 @@ function SessionRow({
       <div className="min-w-0">
         <PatientFormattedDisplay
           name={session.patientName}
+          healthPlanName={session.insurerName}
+          healthPlanColor={session.badgeColor}
           isEvaluation={session.isEvaluation}
           size="md"
           subtitle={

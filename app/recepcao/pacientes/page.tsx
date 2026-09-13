@@ -11,7 +11,9 @@ export default async function PacientesPage() {
 
   const { data: patients } = await supabase
     .from("patients")
-    .select("id, full_name, status, birth_date, cpf, created_at, evaluated_at, first_session_at, guardians(full_name, is_financial)")
+    .select(
+      "id, full_name, status, birth_date, cpf, created_at, evaluated_at, first_session_at, guardians(full_name, is_financial), patient_insurance(is_private, insurers(name, badge_color))",
+    )
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("full_name");
 
@@ -46,6 +48,12 @@ export default async function PacientesPage() {
   const rows = (patients ?? []).map((p) => {
     const guardiansList = Array.isArray(p.guardians) ? p.guardians : p.guardians ? [p.guardians] : [];
     const mainGuardian = guardiansList.find((g: any) => g.is_financial) || guardiansList[0];
+    const insuranceList = Array.isArray(p.patient_insurance) ? p.patient_insurance : p.patient_insurance ? [p.patient_insurance] : [];
+    const mainInsurance = insuranceList[0] as any;
+    const insurerObj = Array.isArray(mainInsurance?.insurers) ? mainInsurance?.insurers[0] : mainInsurance?.insurers;
+    const insurerName = mainInsurance?.is_private ? "Particular" : (insurerObj?.name ?? null);
+    const insurerColor = mainInsurance?.is_private ? "#64748b" : (insurerObj?.badge_color ?? null);
+
     return {
       id: p.id,
       full_name: p.full_name,
@@ -56,6 +64,8 @@ export default async function PacientesPage() {
       evaluated_at: p.evaluated_at,
       first_session_at: p.first_session_at,
       guardian_name: mainGuardian?.full_name ?? null,
+      insurer_name: insurerName,
+      insurer_color: insurerColor,
       stage: computeStage(p, evaluationScheduledIds.has(p.id), activeAuthPatientIds.has(p.id)),
     };
   });

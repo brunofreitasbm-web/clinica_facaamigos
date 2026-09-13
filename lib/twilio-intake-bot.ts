@@ -13,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatE164Phone, sendTwilioWhatsApp, findOrCreateConversation } from "@/lib/twilio";
 import { downloadTwilioMedia, ALLOWED_MIME_TYPES, sanitizeFileName, extensionFor, MAX_FILE_BYTES } from "@/lib/registration-drafts-ingest";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { runLaudoExtraction } from "@/lib/laudo-extraction";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
 const MIN_FILES_TO_AUTO_ADVANCE = 2;
@@ -294,17 +295,28 @@ export async function processIntakeBotStep(params: { from: string; body: string;
         continue;
       }
 
-      const { error: insertError } = await admin.from("insurance_intake_lead_files").insert({
-        lead_id: leadId,
-        storage_path: storagePath,
-        mime_type: downloaded.mime,
-        size_bytes: downloaded.buffer.byteLength,
-        original_name: sanitizeFileName(fileName),
-        twilio_media_url: item.url,
-      });
+      const { data: insertedFile, error: insertError } = await admin
+        .from("insurance_intake_lead_files")
+        .insert({
+          lead_id: leadId,
+          storage_path: storagePath,
+          mime_type: downloaded.mime,
+          size_bytes: downloaded.buffer.byteLength,
+          original_name: sanitizeFileName(fileName),
+          twilio_media_url: item.url,
+        })
+        .select("id")
+        .single();
       // Índice único em twilio_media_url: reentrega do webhook não duplica
       // o arquivo — erro de violação de unicidade é esperado e ignorado.
-      if (!insertError) savedCount++;
+      if (!insertError) {
+        savedCount++;
+        // Fire-and-forget: o agente de IA já lê o laudo/guia assim que
+        // chega, pra a validação do supervisor (app/supervisao) já vir com
+        // o resumo pronto — não faz o responsável esperar no WhatsApp pela
+        // chamada ao Gemini (pode levar dezenas de segundos).
+        if (insertedFile) void runLaudoExtraction(insertedFile.id);
+      }
     }
 
     if (savedCount > 0) {
@@ -358,14 +370,19 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       const storagePath = `intake/leads/${leadId}/${fileName}`;
       const { error: uploadError } = await admin.storage.from(DOCUMENTS_BUCKET).upload(storagePath, downloaded.buffer, { contentType: downloaded.mime, upsert: false });
       if (!uploadError) {
-        await admin.from("insurance_intake_lead_files").insert({
-          lead_id: leadId,
-          storage_path: storagePath,
-          mime_type: downloaded.mime,
-          size_bytes: downloaded.buffer.byteLength,
-          original_name: sanitizeFileName(fileName),
-          twilio_media_url: item.url,
-        });
+        const { data: insertedFile } = await admin
+          .from("insurance_intake_lead_files")
+          .insert({
+            lead_id: leadId,
+            storage_path: storagePath,
+            mime_type: downloaded.mime,
+            size_bytes: downloaded.buffer.byteLength,
+            original_name: sanitizeFileName(fileName),
+            twilio_media_url: item.url,
+          })
+          .select("id")
+          .single();
+        if (insertedFile) void runLaudoExtraction(insertedFile.id);
         await admin.from("insurance_intake_leads").update({ last_file_at: new Date().toISOString() }).eq("id", leadId);
       }
     }

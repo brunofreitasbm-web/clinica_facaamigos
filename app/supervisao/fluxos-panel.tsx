@@ -106,7 +106,7 @@ const FLOWS: Flow[] = [
       { label: "Nova sessão", href: "/recepcao#nova-sessao", icon: icon(<CalendarPlus />) },
       { label: "Agenda semanal", href: "/recepcao/agenda", icon: icon(<CalendarDays />) },
       { label: "Grade da semana", tab: "grade", icon: icon(<LayoutGrid />) },
-      { label: "Salas e recursos", href: "/recepcao/recursos", icon: icon(<LayoutGrid />) },
+      { label: "Salas e recursos", href: "/supervisao/recursos", icon: icon(<LayoutGrid />) },
       { label: "Ficha do paciente", hrefFor: (id) => `/recepcao/pacientes/${id}`, icon: icon(<Users />), needsPatient: true },
     ],
     steps: [

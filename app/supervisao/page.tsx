@@ -141,7 +141,7 @@ export default async function SupervisaoPage() {
     supabase
       .from("insurance_intake_leads")
       .select(
-        "id, batch_id, status, status_reason, rejection_count, patient_full_name, patient_birth_date, patient_cpf, patient_sexo, patient_cid, guardian_full_name, guardian_cpf, guardian_relationship, guardian_email, phone_e164, card_number, plan_name, card_valid_until, guide_number, procedure_code, sessions_authorized, valid_from, valid_to, authorization_password, confidence, warnings, duplicate_patient_id, duplicate_reason, offered_slots, contact_sent_at, last_file_at, slots_sent_at, scheduled_at, insurance_intake_lead_files(id, original_name, mime_type, kind, review_status)",
+        "id, batch_id, status, status_reason, rejection_count, patient_full_name, patient_birth_date, patient_cpf, patient_sexo, patient_cid, guardian_full_name, guardian_cpf, guardian_relationship, guardian_email, phone_e164, card_number, plan_name, card_valid_until, guide_number, procedure_code, sessions_authorized, valid_from, valid_to, authorization_password, confidence, warnings, duplicate_patient_id, duplicate_reason, offered_slots, contact_sent_at, last_file_at, slots_sent_at, scheduled_at, insurance_intake_lead_files(id, original_name, mime_type, kind, review_status, extraction, extraction_status)",
       )
       .neq("status", "scheduled")
       .neq("status", "cancelled")
@@ -394,6 +394,8 @@ export default async function SupervisaoPage() {
       mime_type: f.mime_type,
       kind: f.kind as LeadFileRow["kind"],
       review_status: f.review_status as LeadFileRow["review_status"],
+      extraction: f.extraction as LeadFileRow["extraction"],
+      extraction_status: f.extraction_status as LeadFileRow["extraction_status"],
     }));
     const row: LeadRow = {
       id: l.id,
@@ -437,6 +439,10 @@ export default async function SupervisaoPage() {
   }
 
   const nAcolhimentos = (rawIntakeLeads ?? []).filter((l) => l.status === "extracted" || l.status === "pending_supervisor").length;
+  // Piscar o badge só pro subconjunto que já tem laudo/guia esperando
+  // validação humana AGORA (não o "extracted" genérico, que é só cadastro
+  // pra revisar campo a campo) — agenda de supervisão 13/09/2026.
+  const nPendingValidation = (rawIntakeLeads ?? []).filter((l) => l.status === "pending_supervisor").length;
   const intakeInsurers = (rawInsurers ?? []).map((i) => ({ id: i.id, name: i.name, intake_extraction_profile: i.intake_extraction_profile }));
 
   return (
@@ -445,6 +451,7 @@ export default async function SupervisaoPage() {
       nInbox={openFamilyMessages}
       nFluxos={nFluxos}
       nAcolhimentos={nAcolhimentos}
+      nAcolhimentosUrgent={nPendingValidation > 0}
       nAgenda1a={nAgenda1a}
       agenda1aTab={
         <AgendaAvaliacoesPanel
@@ -452,15 +459,17 @@ export default async function SupervisaoPage() {
           therapists={(therapists ?? []).filter((t) => t.is_evaluator).map((t) => ({ id: t.id, name: t.full_name }))}
           rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
           triagensPanel={<AnamnesisValidationPanel />}
-        />
-      }
-      acolhimentosTab={
-        <AcolhimentosPanel
-          batches={intakeBatches}
-          leadsByBatch={intakeLeadsByBatch}
-          insurers={intakeInsurers}
-          therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
-          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
+          acolhimentosPanel={
+            <AcolhimentosPanel
+              batches={intakeBatches}
+              leadsByBatch={intakeLeadsByBatch}
+              insurers={intakeInsurers}
+              therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
+              rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
+            />
+          }
+          acolhimentosCount={nAcolhimentos}
+          acolhimentosUrgent={nPendingValidation > 0}
         />
       }
       fluxosTab={<FluxosPanel patients={flowPatients} counters={flowCounters} />}
