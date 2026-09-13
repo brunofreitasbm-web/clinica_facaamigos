@@ -92,8 +92,22 @@ type KnowledgeCacheEntry = { text: string; expiresAt: number };
 const knowledgeCache = new Map<string, KnowledgeCacheEntry>();
 
 /**
+ * Invalida imediatamente o cache de conhecimento e de configurações do chatbot
+ * para garantir sincronização em tempo real quando FAQs, terapias ou salas mudam.
+ */
+export function invalidateKnowledgeCache(clinicId?: string): void {
+  if (clinicId) {
+    knowledgeCache.delete(clinicId);
+    settingsCache.delete(clinicId);
+  } else {
+    knowledgeCache.clear();
+    settingsCache.clear();
+  }
+}
+
+/**
  * Monta o bloco de conhecimento do prompt a partir do banco. Em cache por
- * clínica: a base muda raramente e o webhook roda a cada mensagem recebida.
+ * clínica com invalidação imediata quando o banco é editado.
  */
 async function buildFaqKnowledge(clinicId: string): Promise<string> {
   const cached = knowledgeCache.get(clinicId);
@@ -102,7 +116,7 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
-  const [faqRes, insurersRes, typesRes] = await Promise.all([
+  const [faqRes, insurersRes, typesRes, roomsRes] = await Promise.all([
     supabase
       .from("clinic_faq")
       .select("question, answer, keywords, category")
@@ -115,6 +129,11 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
       .select("name, duration_minutes")
       .eq("clinic_id", clinicId)
       .eq("active", true)
+      .order("name"),
+    supabase
+      .from("rooms")
+      .select("name, is_evaluation_room")
+      .eq("clinic_id", clinicId)
       .order("name"),
   ]);
 
@@ -131,6 +150,10 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     .map((t) => `${t.name} (${t.duration_minutes} min)`)
     .join(", ");
 
+  const roomsBlock = (roomsRes.data ?? [])
+    .map((r) => `${r.name}${r.is_evaluation_room ? " (Sala de Avaliação)" : ""}`)
+    .join(", ");
+
   const text = [
     "=== PERGUNTAS FREQUENTES (fonte da verdade) ===",
     faqBlock || "(nenhuma pergunta cadastrada)",
@@ -140,6 +163,9 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     "",
     "=== TIPOS DE ATENDIMENTO E DURAÇÃO ===",
     typesBlock || "(não cadastrado)",
+    "",
+    "=== SALAS DE ATENDIMENTO E AVALIAÇÃO ===",
+    roomsBlock || "(nenhuma sala cadastrada)",
   ].join("\n");
 
   knowledgeCache.set(clinicId, { text, expiresAt: Date.now() + KNOWLEDGE_TTL_MS });

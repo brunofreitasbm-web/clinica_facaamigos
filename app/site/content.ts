@@ -446,3 +446,15 @@ export const FECHAMENTO = {
 export const RODAPE = {
   frase: "Feito com cuidado para todas as famílias.",
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Descrição Institucional (500 caracteres)
+// ─────────────────────────────────────────────────────────────────────────
+
+export const DESCRICAO_CLINICA_500 = {
+  titulo: "Sobre a Clínica Faça Amigos",
+  texto:
+    "A Clínica Faça Amigos é especializada no desenvolvimento infantil integrativo, com foco no atendimento a crianças com Transtorno do Espectro Autista (TEA) e TDAH. Nossa equipe multidisciplinar atua com a Ciência ABA, Fonoaudiologia, Terapia Ocupacional e Psicopedagogia, oferecendo um ambiente acolhedor, seguro e estruturado. Unimos ciência, afeto e tecnologia para promover autonomia, inclusão e qualidade de vida para a criança e sua família, transformando cada etapa do desenvolvimento em conquistas reais.",
+  caracteres: 494,
+};
+

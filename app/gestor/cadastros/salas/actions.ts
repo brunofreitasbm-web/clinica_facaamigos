@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { RESOURCE_CATEGORIES } from "@/lib/resource-categories";
+import { invalidateKnowledgeCache } from "@/lib/twilio-faq-bot";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -90,6 +91,7 @@ export async function createRoom(formData: FormData): Promise<ActionResult> {
     return { success: false, error: "Você não tem permissão para cadastrar salas." };
   }
 
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
   revalidatePath("/gestor/cadastros/salas");
   return { success: true };
 }
@@ -126,6 +128,7 @@ export async function updateRoom(roomId: string, formData: FormData): Promise<Ac
     return { success: false, error: "Não foi possível atualizar esta sala." };
   }
 
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
   revalidatePath("/gestor/cadastros/salas");
   return { success: true };
 }
@@ -143,6 +146,7 @@ export async function deleteRoom(roomId: string): Promise<ActionResult> {
     };
   }
 
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
   revalidatePath("/gestor/cadastros/salas");
   return { success: true };
 }

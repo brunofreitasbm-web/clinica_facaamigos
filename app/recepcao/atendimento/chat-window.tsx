@@ -54,7 +54,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
       .channel(`atendimento-messages-${conversation.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` },
+        { event: "*", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` },
         (payload) => {
           const m = payload.new as {
             id: string;
@@ -64,17 +64,34 @@ export function ChatWindow({ conversation }: { conversation: ConversationRow }) 
             sent_at: string | null;
             delivery_status: string | null;
           };
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: m.id,
-              senderType: m.sender_type,
-              direction: m.direction,
-              body: m.body,
-              sentAt: m.sent_at,
-              deliveryStatus: m.delivery_status,
-            },
-          ]);
+          if (!m || !m.id) return;
+
+          setMessages((prev) => {
+            const idx = prev.findIndex((item) => item.id === m.id);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = {
+                id: m.id,
+                senderType: m.sender_type,
+                direction: m.direction,
+                body: m.body,
+                sentAt: m.sent_at,
+                deliveryStatus: m.delivery_status,
+              };
+              return updated;
+            }
+            return [
+              ...prev,
+              {
+                id: m.id,
+                senderType: m.sender_type,
+                direction: m.direction,
+                body: m.body,
+                sentAt: m.sent_at,
+                deliveryStatus: m.delivery_status,
+              },
+            ];
+          });
         },
       )
       .subscribe();

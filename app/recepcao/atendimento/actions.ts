@@ -22,7 +22,7 @@ export async function sendManualMessage(conversationId: string, body: string) {
 
   const sendResult = await sendTwilioWhatsApp({ to: conversation.phone_number, message: trimmed });
 
-  // Detecta se a falha é por conta/perfil KYC pendente na Twilio (ex: código 20003 ou erro de compliance/Trust Hub)
+  // Detecta se a falha é por conta/perfil KYC pendente na Twilio ou por bloqueio de janela 24h da Meta (Erro 63016)
   const isKycOrAccountPending =
     !sendResult.success &&
     Boolean(
@@ -78,7 +78,6 @@ export async function sendManualMessage(conversationId: string, body: string) {
   }
 
   // Um humano respondeu: a conversa sai da fila de escalação do bot
-  // (status 'pending', definido em lib/twilio-faq-bot.ts).
   await supabase
     .from("twilio_conversations")
     .update({ last_message_at: new Date().toISOString(), status: "open", escalation_reason: null })

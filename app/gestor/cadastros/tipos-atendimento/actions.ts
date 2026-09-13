@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { invalidateKnowledgeCache } from "@/lib/twilio-faq-bot";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -60,6 +61,7 @@ export async function createAppointmentType(formData: FormData): Promise<ActionR
     };
   }
 
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
   revalidatePath("/gestor/cadastros/tipos-atendimento");
   return { success: true };
 }
@@ -89,6 +91,7 @@ export async function updateAppointmentType(id: string, formData: FormData): Pro
     };
   }
 
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
   revalidatePath("/gestor/cadastros/tipos-atendimento");
   return { success: true };
 }
@@ -101,6 +104,7 @@ export async function deleteAppointmentType(id: string): Promise<ActionResult> {
     return { success: false, error: "Não foi possível excluir o tipo de atendimento. Tente de novo." };
   }
 
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
   revalidatePath("/gestor/cadastros/tipos-atendimento");
   return { success: true };
 }
