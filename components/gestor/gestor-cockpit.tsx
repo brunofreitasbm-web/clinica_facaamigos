@@ -75,7 +75,7 @@ export function GestorCockpit({ initialAlerts }: { initialAlerts: AlertItem[] })
         {/* BOTOES DE FLUXO EXPLICATIVO */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Link
-            href="/gestor/cadastros/pacientes"
+            href="/recepcao/pacientes/novo"
             className="group flex flex-col justify-between rounded-lg border bg-surface p-4 no-underline transition-all hover:border-blue-500 hover:shadow-md"
             style={{ borderColor: "var(--color-divider)" }}
           >
@@ -107,19 +107,19 @@ export function GestorCockpit({ initialAlerts }: { initialAlerts: AlertItem[] })
                 <span className="text-lg">📄</span>
               </div>
               <h4 className="m-0 text-sm font-bold text-ink group-hover:text-amber-600">
-                Autorizações & Saldo
+                Convênios & Preços
               </h4>
               <p className="mt-1 text-xs text-ink-soft line-clamp-2">
-                Controle gráfico de horas autorizadas (ABA/Fono/TO) e renovação em 1 clique.
+                Cadastro de convênios e tabela de preços usada por recepção e faturamento.
               </p>
             </div>
             <div className="mt-3 flex items-center text-xs font-semibold text-amber-600">
-              Verificar Saldo →
+              Gerenciar Convênios →
             </div>
           </Link>
 
           <Link
-            href="/gestor/cadastros/salas"
+            href="/gestor/auditoria"
             className="group flex flex-col justify-between rounded-lg border bg-surface p-4 no-underline transition-all hover:border-emerald-500 hover:shadow-md"
             style={{ borderColor: "var(--color-divider)" }}
           >
@@ -129,14 +129,14 @@ export function GestorCockpit({ initialAlerts }: { initialAlerts: AlertItem[] })
                 <span className="text-lg">🏥</span>
               </div>
               <h4 className="m-0 text-sm font-bold text-ink group-hover:text-emerald-600">
-                Salas & Evoluções
+                Auditoria & Pendências
               </h4>
               <p className="mt-1 text-xs text-ink-soft line-clamp-2">
-                Monitor em tempo real das salas, presenças e auditoria de evoluções em 24h.
+                Fila de guias vencendo, evoluções atrasadas e cadastros incompletos escalados.
               </p>
             </div>
             <div className="mt-3 flex items-center text-xs font-semibold text-emerald-600">
-              Cockpit ao Vivo →
+              Auditar Pendências →
             </div>
           </Link>
 

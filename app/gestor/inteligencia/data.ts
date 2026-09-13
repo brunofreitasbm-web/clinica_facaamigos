@@ -248,6 +248,9 @@ export async function getInteligenciaMetrics(
     { data: insurersList },
     { data: patientInsuranceList },
     { data: allPatientsWithStatus },
+    { count: draftsAutomatedCount },
+    { count: faqResolvedCount },
+    { count: intakeScheduledCount },
   ] = await Promise.all([
     // Atendimentos no período
     supabase
@@ -370,6 +373,37 @@ export async function getInteligenciaMetrics(
       .from("patients")
       .select("id, full_name, status, created_at")
       .eq("clinic_id", clinicId),
+
+    // Pré-cadastros extraídos pela IA e validados sem retrabalho manual (Horas Economizadas)
+    supabase
+      .from("registration_drafts")
+      .select("id", { count: "exact", head: true })
+      .eq("clinic_id", clinicId)
+      .not("processed_at", "is", null)
+      .not("validated_at", "is", null)
+      .gte("validated_at", startISO)
+      .lt("validated_at", endISO),
+
+    // Conversas de FAQ resolvidas pelo bot sem escalar para humano (Horas Economizadas)
+    // kind="patient" são conversas gerais (FAQ); kind="lead" são de convênio, já contadas
+    // via insurance_intake_leads abaixo — sem isso o mesmo atendimento entraria duas vezes.
+    supabase
+      .from("twilio_conversations")
+      .select("id", { count: "exact", head: true })
+      .eq("clinic_id", clinicId)
+      .eq("kind", "patient")
+      .is("escalated_at", null)
+      .gte("last_message_at", startISO)
+      .lt("last_message_at", endISO),
+
+    // Leads de convênio com laudo/guia coletados e agendamento feito pelo bot (Horas Economizadas)
+    supabase
+      .from("insurance_intake_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("clinic_id", clinicId)
+      .not("scheduled_at", "is", null)
+      .gte("scheduled_at", startISO)
+      .lt("scheduled_at", endISO),
   ]);
 
   const appointments = currentAppointments ?? [];
@@ -500,8 +534,24 @@ export async function getInteligenciaMetrics(
   }
 
   // 4. Horas Economizadas com Automação
-  const realizedCount = appointments.filter((a) => a.status === "realizada").length;
-  const horasEconomizadas = Math.round(realizedCount * 0.25);
+  // Baseado em volume real de eventos tratados ponta-a-ponta pelos bots Twilio no
+  // período, sem intervenção humana — não numa proporção fixa por agendamento.
+  // Tempos manuais estimados por evento (contexto de recepção de clínica):
+  //   - pré-cadastro (lib/registration-drafts-ingest.ts): ~4min digitando dados
+  //     manualmente a partir de foto de documento (nome/CPF/nascimento/responsável/convênio)
+  //   - FAQ (lib/twilio-faq-bot.ts): ~2min respondendo dúvida por WhatsApp
+  //   - intake de convênio (lib/twilio-intake-bot.ts): ~10min coletando laudo/guia
+  //     por telefone e oferecendo horários manualmente
+  const MIN_PER_DRAFT_AUTOMATED = 4;
+  const MIN_PER_FAQ_RESOLVED = 2;
+  const MIN_PER_INTAKE_SCHEDULED = 10;
+  const horasEconomizadas =
+    Math.round(
+      ((draftsAutomatedCount ?? 0) * MIN_PER_DRAFT_AUTOMATED +
+        (faqResolvedCount ?? 0) * MIN_PER_FAQ_RESOLVED +
+        (intakeScheduledCount ?? 0) * MIN_PER_INTAKE_SCHEDULED) /
+        60
+    );
 
   // --- 7 NOVOS QUADROS SOLICITADOS ---
 

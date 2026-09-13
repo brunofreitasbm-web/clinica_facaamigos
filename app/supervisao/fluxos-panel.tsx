@@ -253,6 +253,8 @@ const FLOWS: Flow[] = [
       { label: "Montar PTS", hrefFor: (id) => `/supervisao/planos/novo?paciente=${id}`, icon: icon(<Target />), needsPatient: true, primary: true },
       { label: "Montar PTS (escolher paciente)", href: "/supervisao/planos/novo", icon: icon(<Target />) },
       { label: "Fila de aprovação", tab: "planos", icon: icon(<ClipboardList />) },
+      { label: "PTS atrasados", tab: "grade", icon: icon(<ClipboardList />) },
+      { label: "Relatórios para validar", tab: "inbox", icon: icon(<Inbox />) },
       { label: "Relatório devolutivo", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio`, icon: icon(<FileText />), needsPatient: true },
       { label: "Relatório para convênio", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio-convenio`, icon: icon(<FileText />), needsPatient: true },
     ],
@@ -291,6 +293,7 @@ const FLOWS: Flow[] = [
         tools: [
           { label: "Relatório devolutivo", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio`, icon: icon(<FileText />), needsPatient: true },
           { label: "Relatório convênio", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio-convenio`, icon: icon(<FileText />), needsPatient: true },
+          { label: "Relatórios para validar", tab: "inbox", icon: icon(<Inbox />) },
         ],
       },
     ],
