@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { X } from "lucide-react";
 import { PageContainer } from "@/components/page-container";
 import { useSupervisaoTab, type SupervisaoTabKey } from "./supervisao-tab-context";
 
@@ -46,7 +47,7 @@ export function SupervisaoShell({
   planosTab: ReactNode;
   inboxTab: ReactNode;
 }) {
-  const { tab, setCounts, setUrgent } = useSupervisaoTab();
+  const { tab, setCounts, setUrgent, manualScheduleOpen, setManualScheduleOpen } = useSupervisaoTab();
 
   useEffect(() => {
     setCounts({ agenda1a: nAgenda1a + nAcolhimentos, fluxos: nFluxos, planos: nPlanos, inbox: nInbox });
@@ -58,11 +59,44 @@ export function SupervisaoShell({
 
   return (
     <PageContainer>
-      {tab === "grade" ? <div key="tab-grade">{gradeTab}</div> : null}
-      {tab === "agenda1a" ? <div key="tab-agenda1a">{agenda1aTab}</div> : null}
-      {tab === "fluxos" ? <div key="tab-fluxos">{fluxosTab}</div> : null}
-      {tab === "planos" ? <div key="tab-planos">{planosTab}</div> : null}
-      {tab === "inbox" ? <div key="tab-inbox">{inboxTab}</div> : null}
+      {/* Enquanto a Agenda Manual está aberta, as abas normais ficam fora do
+       * DOM — o gradeTab reaparece dentro do overlay abaixo, e montar as
+       * duas cópias ao mesmo tempo faria os rádios "Por terapeuta/Por sala"
+       * de cada instância (mesmo atributo `name`) brigarem pelo estado
+       * marcado, já que agrupamento nativo de radio é por documento, não
+       * por árvore React. */}
+      {!manualScheduleOpen && tab === "grade" ? <div key="tab-grade">{gradeTab}</div> : null}
+      {!manualScheduleOpen && tab === "agenda1a" ? <div key="tab-agenda1a">{agenda1aTab}</div> : null}
+      {!manualScheduleOpen && tab === "fluxos" ? <div key="tab-fluxos">{fluxosTab}</div> : null}
+      {!manualScheduleOpen && tab === "planos" ? <div key="tab-planos">{planosTab}</div> : null}
+      {!manualScheduleOpen && tab === "inbox" ? <div key="tab-inbox">{inboxTab}</div> : null}
+
+      {/* Agenda Manual — grade semanal completa (todos terapeutas/salas/crianças
+       * da semana) em tela cheia, acionada pelo botão do cabeçalho a partir
+       * de qualquer rota do módulo (13/09/2026). Reaproveita o mesmo
+       * gradeTab já carregado por esta page.tsx, então não refaz nenhuma
+       * busca ao servidor. */}
+      {manualScheduleOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Agenda manual · grade semanal completa da clínica"
+          className="fixed inset-0 z-[100] overflow-y-auto bg-paper"
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-paper/95 px-6 py-3 backdrop-blur-sm" style={{ borderColor: "var(--color-divider)" }}>
+            <span className="text-sm font-semibold text-ink-soft">Agenda Manual · visão total da clínica</span>
+            <button
+              type="button"
+              onClick={() => setManualScheduleOpen(false)}
+              className="btn btn-secondary flex items-center gap-1.5 text-xs"
+            >
+              <X size={14} aria-hidden />
+              Fechar
+            </button>
+          </div>
+          <div className="p-6 sm:p-10">{gradeTab}</div>
+        </div>
+      )}
     </PageContainer>
   );
 }

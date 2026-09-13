@@ -40,6 +40,13 @@ type Ctx = {
   setCounts: (c: Counts) => void;
   urgent: UrgentFlags;
   setUrgent: (u: UrgentFlags) => void;
+  /** Botão "Agenda Manual" do cabeçalho — abre a grade semanal completa em
+   * tela cheia por cima de qualquer rota do módulo (13/09/2026). O
+   * conteúdo só é renderizado pela SupervisaoShell (raiz), então clicar no
+   * botão fora de "/supervisao" primeiro navega pra lá e o flag já vem
+   * ligado quando a shell montar. */
+  manualScheduleOpen: boolean;
+  setManualScheduleOpen: (v: boolean) => void;
 };
 
 const SupervisaoTabContext = createContext<Ctx>({
@@ -49,6 +56,8 @@ const SupervisaoTabContext = createContext<Ctx>({
   setCounts: () => {},
   urgent: {},
   setUrgent: () => {},
+  manualScheduleOpen: false,
+  setManualScheduleOpen: () => {},
 });
 
 /** Permite que um painel filho (ex.: atalhos da aba Fluxos) troque a aba ativa sem navegar. */
@@ -60,8 +69,13 @@ export function SupervisaoTabProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<SupervisaoTabKey>("grade");
   const [counts, setCounts] = useState<Counts>({});
   const [urgent, setUrgent] = useState<UrgentFlags>({});
+  const [manualScheduleOpen, setManualScheduleOpen] = useState(false);
 
   return (
-    <SupervisaoTabContext.Provider value={{ tab, setTab, counts, setCounts, urgent, setUrgent }}>{children}</SupervisaoTabContext.Provider>
+    <SupervisaoTabContext.Provider
+      value={{ tab, setTab, counts, setCounts, urgent, setUrgent, manualScheduleOpen, setManualScheduleOpen }}
+    >
+      {children}
+    </SupervisaoTabContext.Provider>
   );
 }
