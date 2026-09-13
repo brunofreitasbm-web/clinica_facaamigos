@@ -54,8 +54,14 @@ export const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
     "/terapeuta/paciente",
     "/gestor/cadastros/salas",
     "/gestor/cadastros/comportamentos",
+    // Acompanha o Acompanhamento Terapêutico (AT) do mesmo jeito que já
+    // acompanha o restante do atendimento clínico.
+    "/at",
   ],
-  terapeuta: ["/terapeuta"],
+  // Todo terapeuta pode abrir /at — quem não tem `is_at_professional` é
+  // redirecionado pelo próprio app/at/layout.tsx, não pelo middleware (a
+  // flag é por perfil, não por papel).
+  terapeuta: ["/terapeuta", "/at"],
   recepcao: ["/recepcao"],
   faturamento: ["/faturamento", "/gestor/cadastros/convenios", "/recepcao/pacientes"],
   responsavel: ["/familia"],

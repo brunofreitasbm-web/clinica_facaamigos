@@ -75,7 +75,7 @@ export default async function SupervisaoPage() {
     supabase
       .from("appointments")
       .select(
-        "id, starts_at, status, discipline, is_evaluation, is_provisional, is_family_meeting, room_id, therapist_id, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
+        "id, starts_at, status, discipline, is_evaluation, is_provisional, is_family_meeting, is_patient_feedback, room_id, therapist_id, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
       )
       .gte("starts_at", weekStartIso)
       .lt("starts_at", weekEndIso)
@@ -141,7 +141,7 @@ export default async function SupervisaoPage() {
     supabase
       .from("insurance_intake_leads")
       .select(
-        "id, batch_id, status, status_reason, rejection_count, patient_full_name, patient_birth_date, patient_cpf, patient_sexo, patient_cid, guardian_full_name, guardian_cpf, guardian_relationship, guardian_email, phone_e164, card_number, plan_name, card_valid_until, guide_number, procedure_code, sessions_authorized, valid_from, valid_to, authorization_password, confidence, warnings, duplicate_patient_id, duplicate_reason, offered_slots, contact_sent_at, last_file_at, slots_sent_at, scheduled_at, insurance_intake_lead_files(id, original_name, mime_type, kind, review_status, extraction, extraction_status)",
+        "id, batch_id, status, status_reason, rejection_count, patient_full_name, patient_birth_date, patient_cpf, patient_sexo, patient_cid, guardian_full_name, guardian_cpf, guardian_relationship, guardian_email, phone_e164, card_number, plan_name, card_valid_until, guide_number, procedure_code, sessions_authorized, valid_from, valid_to, authorization_password, confidence, warnings, duplicate_patient_id, duplicate_reason, offered_slots, contact_sent_at, last_file_at, slots_sent_at, scheduled_at, extra, insurance_intake_lead_files(id, original_name, mime_type, kind, review_status, extraction, extraction_status)",
       )
       .neq("status", "scheduled")
       .neq("status", "cancelled")
@@ -177,6 +177,7 @@ export default async function SupervisaoPage() {
           isProvisional: a.is_provisional,
           discipline: a.discipline,
           isFamilyMeeting: a.is_family_meeting,
+          isPatientFeedback: a.is_patient_feedback,
         }),
       };
     })
@@ -433,6 +434,7 @@ export default async function SupervisaoPage() {
         slots_sent_at: l.slots_sent_at,
         scheduled_at: l.scheduled_at,
       }),
+      extra: (l.extra as LeadRow["extra"]) ?? null,
       files,
     };
     (intakeLeadsByBatch[l.batch_id] ??= []).push(row);

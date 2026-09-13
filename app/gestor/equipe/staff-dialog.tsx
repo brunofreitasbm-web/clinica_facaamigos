@@ -4,6 +4,9 @@ import { useState, useTransition } from "react";
 import { createStaff, updateStaffProfile } from "./actions";
 import { ROLES, ROLE_LABEL, type Role } from "@/lib/roles";
 import { useToast } from "@/components/toast-provider";
+import { formatCpfMask } from "@/lib/masks";
+import { PasswordStrengthChecklist } from "@/components/password-strength-checklist";
+import { PASSWORD_MIN_LENGTH, isPasswordStrong } from "@/lib/password";
 import type { StaffRow, UnitOption } from "./types";
 
 interface StaffDialogProps {
@@ -19,11 +22,15 @@ export function StaffDialog({ isOpen, onClose, staffToEdit, units }: StaffDialog
   const { toast } = useToast();
 
   const [fullName, setFullName] = useState(staffToEdit?.fullName ?? "");
+  const [cpf, setCpf] = useState(staffToEdit?.cpf ? formatCpfMask(staffToEdit.cpf) : "");
   const [role, setRole] = useState<Role>(staffToEdit?.role ?? "terapeuta");
   const [councilType, setCouncilType] = useState(staffToEdit?.councilType ?? "");
   const [isEvaluator, setIsEvaluator] = useState(staffToEdit?.isEvaluator ?? false);
+  const [isAtProfessional, setIsAtProfessional] = useState(staffToEdit?.isAtProfessional ?? false);
+  const [googleCalendarOptIn, setGoogleCalendarOptIn] = useState(staffToEdit?.googleCalendarOptIn ?? false);
   const [birthDate, setBirthDate] = useState(staffToEdit?.birthDate ?? "");
   const [unitId, setUnitId] = useState(staffToEdit?.unitId ?? "");
+  const [password, setPassword] = useState("");
 
   if (!isOpen) return null;
 
@@ -35,9 +42,12 @@ export function StaffDialog({ isOpen, onClose, staffToEdit, units }: StaffDialog
       const result = staffToEdit
         ? await updateStaffProfile(staffToEdit.id, {
             fullName,
+            cpf,
             role,
             councilType,
             isEvaluator,
+            isAtProfessional,
+            googleCalendarOptIn,
             birthDate,
             unitId,
           })
@@ -91,24 +101,68 @@ export function StaffDialog({ isOpen, onClose, staffToEdit, units }: StaffDialog
           </div>
 
           {staffToEdit ? (
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-ink-strong">E-mail de acesso</label>
-              {/* O e-mail é o login no Supabase Auth: trocar aqui dessincronizaria
-                  profiles de auth.users, então a edição fica só de leitura. */}
-              <input className="input" value={staffToEdit.email ?? "—"} disabled readOnly />
-              <span className="text-[11px] text-ink-faint">
-                Para trocar o e-mail de login, fale com o time técnico.
-              </span>
-            </div>
+            <>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-ink-strong" htmlFor="cpf">CPF (login)</label>
+                <input
+                  id="cpf"
+                  name="cpf"
+                  className="input"
+                  placeholder="000.000.000-00"
+                  value={cpf}
+                  onChange={(e) => setCpf(formatCpfMask(e.target.value))}
+                />
+                <span className="text-[11px] text-ink-faint">
+                  {staffToEdit.cpf
+                    ? "Colaborador entra com este CPF + a senha."
+                    : "Sem CPF cadastrado ainda — o colaborador continua entrando com e-mail até preencher aqui."}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-ink-strong">E-mail de acesso</label>
+                {/* O e-mail é o endereço real no Supabase Auth (pode ser sintético
+                    quando não há e-mail de verdade): trocar aqui dessincronizaria
+                    profiles de auth.users, então a edição fica só de leitura. */}
+                <input className="input" value={staffToEdit.email ?? "—"} disabled readOnly />
+                <span className="text-[11px] text-ink-faint">
+                  Para trocar o e-mail associado à conta, fale com o time técnico.
+                </span>
+              </div>
+            </>
           ) : (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-ink-strong" htmlFor="email">E-mail</label>
-                <input id="email" name="email" type="email" required className="input" />
+                <label className="text-xs font-medium text-ink-strong" htmlFor="cpf">CPF</label>
+                <input
+                  id="cpf"
+                  name="cpf"
+                  required
+                  className="input"
+                  placeholder="000.000.000-00"
+                  value={cpf}
+                  onChange={(e) => setCpf(formatCpfMask(e.target.value))}
+                />
+                <span className="text-[11px] text-ink-faint">É o que o colaborador digita pra entrar.</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-ink-strong" htmlFor="email">
+                  E-mail <span className="text-ink-faint font-normal">(opcional)</span>
+                </label>
+                <input id="email" name="email" type="email" className="input" />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-ink-strong" htmlFor="password">Senha inicial</label>
-                <input id="password" name="password" type="text" minLength={8} required className="input" />
+                <input
+                  id="password"
+                  name="password"
+                  type="text"
+                  minLength={PASSWORD_MIN_LENGTH}
+                  required
+                  className="input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <PasswordStrengthChecklist password={password} />
               </div>
             </>
           )}
@@ -185,11 +239,50 @@ export function StaffDialog({ isOpen, onClose, staffToEdit, units }: StaffDialog
             </label>
           )}
 
+          {role === "terapeuta" && (
+            <label className="flex items-center gap-2 text-sm text-ink-strong">
+              <input
+                type="checkbox"
+                name="is_at_professional"
+                checked={isAtProfessional}
+                onChange={(e) => setIsAtProfessional(e.target.checked)}
+              />
+              Atua em Acompanhamento Terapêutico (AT) — abre o módulo /at
+            </label>
+          )}
+
+          {staffToEdit && (() => {
+            const hasRealEmail = !!staffToEdit.email && !staffToEdit.email.endsWith("@staff.facaamigos.local");
+            return (
+              <label className="flex items-start gap-2 text-sm text-ink-strong">
+                <input
+                  type="checkbox"
+                  checked={googleCalendarOptIn}
+                  disabled={!hasRealEmail}
+                  onChange={(e) => setGoogleCalendarOptIn(e.target.checked)}
+                />
+                <span>
+                  Enviar convites do Google Calendar para os atendimentos deste profissional
+                  <br />
+                  <span className="text-[11px] text-ink-faint">
+                    {hasRealEmail
+                      ? "O profissional recebe um convite de agenda por e-mail a cada atendimento marcado, reagendado ou cancelado."
+                      : "Requer e-mail real cadastrado — sem e-mail não há como enviar o convite."}
+                  </span>
+                </span>
+              </label>
+            );
+          })()}
+
           <div className="flex justify-end gap-3 pt-4 border-t border-paper-line mt-2">
             <button type="button" onClick={onClose} className="btn btn-secondary" disabled={isPending}>
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary" disabled={isPending}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={isPending || (!staffToEdit && !isPasswordStrong(password))}
+            >
               {isPending ? "Salvando…" : staffToEdit ? "Salvar alterações" : "Criar conta"}
             </button>
           </div>

@@ -28,6 +28,9 @@ export function PatientManagementPanel({
   complaint,
   cid,
   supportLevel,
+  medication,
+  allergies,
+  comorbidities,
   entrySource,
   isArchived,
   whatsappHref,
@@ -48,6 +51,9 @@ export function PatientManagementPanel({
   complaint: string | null;
   cid: string | null;
   supportLevel: string | null;
+  medication: string | null;
+  allergies: string | null;
+  comorbidities: string | null;
   entrySource: string | null;
   isArchived: boolean;
   whatsappHref: string | null;
@@ -73,6 +79,9 @@ export function PatientManagementPanel({
         complaint={complaint}
         cid={cid}
         supportLevel={supportLevel}
+        medication={medication}
+        allergies={allergies}
+        comorbidities={comorbidities}
         entrySource={entrySource}
         isArchived={isArchived}
         whatsappHref={whatsappHref}

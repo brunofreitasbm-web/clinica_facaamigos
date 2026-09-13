@@ -17,6 +17,7 @@ import type { ConvenioRow, InsurerOption } from "./convenios-panel";
 import type { ChargeRow } from "./charges-panel";
 import type { PatientTagRow } from "./patient-tags";
 import { TeamPanel, type TeamMemberRow, type ProfileOption } from "./team-panel";
+import { GuardiansPanel, type GuardianRow } from "./guardians-panel";
 import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,9 @@ export default async function GestaoPacientePage({
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")
-    .select("id, full_name, birth_date, status, complaint, cid, support_level, entry_source")
+    .select(
+      "id, full_name, birth_date, status, complaint, cid, support_level, medication, allergies, comorbidities, entry_source",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -51,7 +54,10 @@ export default async function GestaoPacientePage({
     { data: appointmentsRaw },
     { data: documents },
   ] = await Promise.all([
-    supabase.from("guardians").select("id, full_name, phone, is_financial").eq("patient_id", id),
+    supabase
+      .from("guardians")
+      .select("id, full_name, phone, email, relationship, is_financial, google_calendar_opt_in")
+      .eq("patient_id", id),
     supabase.from("patient_tags").select("id, label").eq("patient_id", id).order("created_at"),
     supabase
       .from("patient_insurance")
@@ -100,6 +106,14 @@ export default async function GestaoPacientePage({
       discipline: t.discipline,
     };
   });
+
+  const guardianRows: GuardianRow[] = (guardians ?? []).map((g) => ({
+    id: g.id,
+    fullName: g.full_name,
+    relationship: g.relationship,
+    email: g.email,
+    googleCalendarOptIn: g.google_calendar_opt_in ?? false,
+  }));
 
   const primaryGuardian =
     (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0] ?? null;
@@ -218,6 +232,9 @@ export default async function GestaoPacientePage({
           complaint={patient.complaint}
           cid={patient.cid}
           supportLevel={patient.support_level}
+          medication={patient.medication}
+          allergies={patient.allergies}
+          comorbidities={patient.comorbidities}
           entrySource={patient.entry_source}
           isArchived={patient.status === "arquivado"}
           whatsappHref={whatsappHref}
@@ -231,6 +248,8 @@ export default async function GestaoPacientePage({
         />
 
         <TeamPanel patientId={patient.id} members={teamMembers} candidates={candidates} />
+
+        <GuardiansPanel patientId={patient.id} guardians={guardianRows} />
       </PageContainer>
     </main>
   );

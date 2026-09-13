@@ -42,24 +42,27 @@ export const BILLING_ITEM_STATUS_STYLE: Record<string, { label: string; tagClass
 // Movidos de app/supervisao/grade-data.ts (que reexporta os quatro abaixo)
 // para cá quando app/terapeuta/agenda passou a precisar da mesma
 // classificação visual — evita import cruzado app/terapeuta/** -> app/supervisao/**.
-export type AppointmentKind = "recorrente" | "avaliacao" | "provisoria" | "supervisao" | "reuniao_familia";
+export type AppointmentKind = "recorrente" | "avaliacao" | "provisoria" | "supervisao" | "reuniao_familia" | "devolutiva_paciente";
 
 /**
  * O schema (PRD §7) não tem um "tipo de sessão" explícito — só booleans
- * (`is_evaluation`, `is_provisional`, `is_family_meeting`) e `discipline`
- * livre. O mock (Coordenador.dc.html) pinta 4 categorias; reconstruímos a 4ª
- * ("Supervisão", sem coluna própria) por convenção de nome de disciplina.
- * `is_family_meeting` é checado antes de `is_provisional` porque toda
- * reunião com responsável já nasce provisória (sem guia de convênio) — sem
- * essa ordem ela cairia na categoria genérica "Provisória · sem guia".
+ * (`is_evaluation`, `is_provisional`, `is_family_meeting`, `is_patient_feedback`)
+ * e `discipline` livre. O mock (Coordenador.dc.html) pinta 4 categorias;
+ * reconstruímos a 4ª ("Supervisão", sem coluna própria) por convenção de nome
+ * de disciplina. `is_family_meeting`/`is_patient_feedback` são checados antes
+ * de `is_provisional` porque ambos já nascem provisórios (sem guia de
+ * convênio) — sem essa ordem cairiam na categoria genérica "Provisória · sem
+ * guia".
  */
 export function classifyAppointmentKind(appointment: {
   isEvaluation: boolean;
   isProvisional: boolean;
   discipline: string;
   isFamilyMeeting?: boolean;
+  isPatientFeedback?: boolean;
 }): AppointmentKind {
   if (appointment.isEvaluation) return "avaliacao";
+  if (appointment.isPatientFeedback) return "devolutiva_paciente";
   if (appointment.isFamilyMeeting) return "reuniao_familia";
   if (appointment.isProvisional) return "provisoria";
   if (appointment.discipline.toLowerCase().includes("supervis")) return "supervisao";
@@ -105,6 +108,13 @@ export const KIND_STYLE: Record<
     text: "var(--color-accent-2-700)",
     border: "var(--color-accent-2-300)",
     swatch: "🟪",
+  },
+  devolutiva_paciente: {
+    label: "Devolutiva do paciente",
+    bg: "var(--color-accent-2-100)",
+    text: "var(--color-accent-2-700)",
+    border: "var(--color-accent-2-300)",
+    swatch: "🟫",
   },
 };
 

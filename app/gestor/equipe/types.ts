@@ -4,6 +4,7 @@ export type StaffRow = {
   id: string;
   fullName: string;
   email: string | null;
+  cpf: string | null;
   role: Role;
   councilType: string | null;
   unitId: string | null;
@@ -12,6 +13,9 @@ export type StaffRow = {
   birthDate: string | null;
   active: boolean;
   isEvaluator: boolean;
+  /** Habilita o colaborador a abrir o módulo /at e registrar sessão de Acompanhamento Terapêutico. */
+  isAtProfessional: boolean;
+  googleCalendarOptIn: boolean;
   hasSignaturePin: boolean;
   /** `grupo_ib` quando o cadastro veio do sistema de gestão de pessoas. */
   sourceSystem: string | null;

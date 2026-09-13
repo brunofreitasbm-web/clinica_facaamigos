@@ -12,6 +12,9 @@ export function EditBasicsForm({
   complaint,
   cid,
   supportLevel,
+  medication,
+  allergies,
+  comorbidities,
   entrySource,
   onDone,
 }: {
@@ -23,6 +26,9 @@ export function EditBasicsForm({
   complaint: string | null;
   cid: string | null;
   supportLevel: string | null;
+  medication: string | null;
+  allergies: string | null;
+  comorbidities: string | null;
   entrySource: string | null;
   onDone: () => void;
 }) {
@@ -72,6 +78,18 @@ export function EditBasicsForm({
       <div className="w-40">
         <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Nível de suporte</label>
         <input name="support_level" defaultValue={supportLevel ?? ""} placeholder="1, 2 ou 3" className="input mt-1" />
+      </div>
+      <div className="flex-1 basis-56">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Comorbidades</label>
+        <input name="comorbidities" defaultValue={comorbidities ?? ""} className="input mt-1" />
+      </div>
+      <div className="flex-1 basis-56">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Medicação e uso</label>
+        <input name="medication" defaultValue={medication ?? ""} className="input mt-1" />
+      </div>
+      <div className="flex-1 basis-56">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Alergias</label>
+        <input name="allergies" defaultValue={allergies ?? ""} className="input mt-1" />
       </div>
       <button type="submit" disabled={isPending} className="btn btn-primary text-xs">
         {isPending ? "Salvando…" : "Salvar"}

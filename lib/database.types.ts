@@ -612,10 +612,14 @@ export type Database = {
           confirmed_via: string | null
           discipline: string
           ends_at: string
+          google_calendar_sync_status: string
+          google_calendar_synced_at: string | null
+          google_event_id: string | null
           group_id: string | null
           id: string
           is_evaluation: boolean
           is_family_meeting: boolean
+          is_patient_feedback: boolean
           is_provisional: boolean
           modality: string
           patient_id: string
@@ -640,10 +644,14 @@ export type Database = {
           confirmed_via?: string | null
           discipline: string
           ends_at: string
+          google_calendar_sync_status?: string
+          google_calendar_synced_at?: string | null
+          google_event_id?: string | null
           group_id?: string | null
           id?: string
           is_evaluation?: boolean
           is_family_meeting?: boolean
+          is_patient_feedback?: boolean
           is_provisional?: boolean
           modality?: string
           patient_id: string
@@ -668,10 +676,14 @@ export type Database = {
           confirmed_via?: string | null
           discipline?: string
           ends_at?: string
+          google_calendar_sync_status?: string
+          google_calendar_synced_at?: string | null
+          google_event_id?: string | null
           group_id?: string | null
           id?: string
           is_evaluation?: boolean
           is_family_meeting?: boolean
+          is_patient_feedback?: boolean
           is_provisional?: boolean
           modality?: string
           patient_id?: string
@@ -729,6 +741,135 @@ export type Database = {
             columns: ["therapist_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      at_modalities: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "at_modalities_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      at_sessions: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          created_by: string
+          end_time: string
+          evolution: string
+          id: string
+          location_detail: string | null
+          location_kind: string
+          modality_id: string
+          patient_id: string
+          professional_id: string
+          school_contact_id: string | null
+          session_date: string
+          start_time: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          created_by: string
+          end_time: string
+          evolution: string
+          id?: string
+          location_detail?: string | null
+          location_kind: string
+          modality_id: string
+          patient_id: string
+          professional_id: string
+          school_contact_id?: string | null
+          session_date: string
+          start_time: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          created_by?: string
+          end_time?: string
+          evolution?: string
+          id?: string
+          location_detail?: string | null
+          location_kind?: string
+          modality_id?: string
+          patient_id?: string
+          professional_id?: string
+          school_contact_id?: string | null
+          session_date?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "at_sessions_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sessions_modality_id_fkey"
+            columns: ["modality_id"]
+            isOneToOne: false
+            referencedRelation: "at_modalities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sessions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sessions_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sessions_school_contact_id_fkey"
+            columns: ["school_contact_id"]
+            isOneToOne: false
+            referencedRelation: "external_contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -2921,6 +3062,7 @@ export type Database = {
       }
       external_contact_logs: {
         Row: {
+          at_session_id: string | null
           channel: string
           contacted_at: string
           contacted_by: string
@@ -2930,6 +3072,7 @@ export type Database = {
           summary: string
         }
         Insert: {
+          at_session_id?: string | null
           channel: string
           contacted_at?: string
           contacted_by: string
@@ -2939,6 +3082,7 @@ export type Database = {
           summary: string
         }
         Update: {
+          at_session_id?: string | null
           channel?: string
           contacted_at?: string
           contacted_by?: string
@@ -2948,6 +3092,13 @@ export type Database = {
           summary?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "external_contact_logs_at_session_id_fkey"
+            columns: ["at_session_id"]
+            isOneToOne: false
+            referencedRelation: "at_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "external_contact_logs_contacted_by_fkey"
             columns: ["contacted_by"]
@@ -2973,10 +3124,12 @@ export type Database = {
       }
       external_contacts: {
         Row: {
+          address: string | null
           clinic_id: string
           created_at: string
           created_by: string
           email: string | null
+          grade_level: string | null
           id: string
           kind: string
           name: string
@@ -2986,10 +3139,12 @@ export type Database = {
           role_title: string | null
         }
         Insert: {
+          address?: string | null
           clinic_id: string
           created_at?: string
           created_by: string
           email?: string | null
+          grade_level?: string | null
           id?: string
           kind: string
           name: string
@@ -2999,10 +3154,12 @@ export type Database = {
           role_title?: string | null
         }
         Update: {
+          address?: string | null
           clinic_id?: string
           created_at?: string
           created_by?: string
           email?: string | null
+          grade_level?: string | null
           id?: string
           kind?: string
           name?: string
@@ -3357,6 +3514,7 @@ export type Database = {
           cpf: string | null
           email: string | null
           full_name: string
+          google_calendar_opt_in: boolean
           id: string
           image_consent: boolean
           image_consent_updated_at: string | null
@@ -3374,6 +3532,7 @@ export type Database = {
           cpf?: string | null
           email?: string | null
           full_name: string
+          google_calendar_opt_in?: boolean
           id?: string
           image_consent?: boolean
           image_consent_updated_at?: string | null
@@ -3391,6 +3550,7 @@ export type Database = {
           cpf?: string | null
           email?: string | null
           full_name?: string
+          google_calendar_opt_in?: boolean
           id?: string
           image_consent?: boolean
           image_consent_updated_at?: string | null
@@ -4526,6 +4686,7 @@ export type Database = {
           agenda: Json
           conducted_by: string
           decisions: string | null
+          external_contact_id: string | null
           family_present: boolean
           held_at: string
           id: string
@@ -4539,6 +4700,7 @@ export type Database = {
           agenda?: Json
           conducted_by: string
           decisions?: string | null
+          external_contact_id?: string | null
           family_present?: boolean
           held_at?: string
           id?: string
@@ -4552,6 +4714,7 @@ export type Database = {
           agenda?: Json
           conducted_by?: string
           decisions?: string | null
+          external_contact_id?: string | null
           family_present?: boolean
           held_at?: string
           id?: string
@@ -4567,6 +4730,13 @@ export type Database = {
             columns: ["conducted_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_external_contact_id_fkey"
+            columns: ["external_contact_id"]
+            isOneToOne: false
+            referencedRelation: "external_contacts"
             referencedColumns: ["id"]
           },
           {
@@ -5167,9 +5337,11 @@ export type Database = {
           address_logradouro: string | null
           address_numero: string | null
           address_uf: string | null
+          allergies: string | null
           birth_date: string
           cid: string | null
           clinic_id: string
+          comorbidities: string | null
           complaint: string | null
           contract_sent_at: string | null
           contract_signed_at: string | null
@@ -5182,6 +5354,7 @@ export type Database = {
           first_session_at: string | null
           full_name: string
           id: string
+          medication: string | null
           naturalidade: string | null
           payment_confirmed_at: string | null
           sexo: string | null
@@ -5197,9 +5370,11 @@ export type Database = {
           address_logradouro?: string | null
           address_numero?: string | null
           address_uf?: string | null
+          allergies?: string | null
           birth_date: string
           cid?: string | null
           clinic_id: string
+          comorbidities?: string | null
           complaint?: string | null
           contract_sent_at?: string | null
           contract_signed_at?: string | null
@@ -5212,6 +5387,7 @@ export type Database = {
           first_session_at?: string | null
           full_name: string
           id?: string
+          medication?: string | null
           naturalidade?: string | null
           payment_confirmed_at?: string | null
           sexo?: string | null
@@ -5227,9 +5403,11 @@ export type Database = {
           address_logradouro?: string | null
           address_numero?: string | null
           address_uf?: string | null
+          allergies?: string | null
           birth_date?: string
           cid?: string | null
           clinic_id?: string
+          comorbidities?: string | null
           complaint?: string | null
           contract_sent_at?: string | null
           contract_signed_at?: string | null
@@ -5242,6 +5420,7 @@ export type Database = {
           first_session_at?: string | null
           full_name?: string
           id?: string
+          medication?: string | null
           naturalidade?: string | null
           payment_confirmed_at?: string | null
           sexo?: string | null
@@ -5898,7 +6077,9 @@ export type Database = {
           email: string | null
           esdm_certified: boolean
           full_name: string
+          google_calendar_opt_in: boolean
           id: string
+          is_at_professional: boolean
           is_evaluator: boolean
           is_rt: boolean
           must_change_password: boolean
@@ -5929,7 +6110,9 @@ export type Database = {
           email?: string | null
           esdm_certified?: boolean
           full_name: string
+          google_calendar_opt_in?: boolean
           id: string
+          is_at_professional?: boolean
           is_evaluator?: boolean
           is_rt?: boolean
           must_change_password?: boolean
@@ -5960,7 +6143,9 @@ export type Database = {
           email?: string | null
           esdm_certified?: boolean
           full_name?: string
+          google_calendar_opt_in?: boolean
           id?: string
+          is_at_professional?: boolean
           is_evaluator?: boolean
           is_rt?: boolean
           must_change_password?: boolean

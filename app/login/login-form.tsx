@@ -4,22 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { signIn } from "./actions";
 import { requestFamilyOtp, verifyFamilyOtp } from "./otp-actions";
-
-function formatPhoneMask(val: string): string {
-  const digits = val.replace(/\D/g, "").slice(0, 11);
-  if (digits.length === 0) return "";
-  if (digits.length <= 2) return `(${digits}`;
-  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
-function formatCpfMask(val: string): string {
-  const digits = val.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-}
+import { formatCpfMask, formatPhoneMask } from "@/lib/masks";
 
 export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +91,7 @@ export function LoginForm() {
             mode === "email" ? "bg-paper text-ink shadow-sm" : "text-ink-soft"
           }`}
         >
-          Equipe (E-mail)
+          Equipe
         </button>
         <button
           type="button"
@@ -138,17 +123,21 @@ export function LoginForm() {
           }}
         >
           <div>
-            <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="email">
-              E-mail
+            <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="identifier">
+              CPF ou e-mail
             </label>
             <input
-              id="email"
-              name="email"
-              type="email"
+              id="identifier"
+              name="identifier"
+              type="text"
+              placeholder="000.000.000-00"
               autoComplete="username"
               required
               className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-chart"
             />
+            <span className="mt-1 block text-[11px] text-ink-soft">
+              Colaboradores novos entram com CPF; contas antigas ainda podem usar e-mail.
+            </span>
           </div>
           <div>
             <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="password">
@@ -169,7 +158,7 @@ export function LoginForm() {
             className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {isPending ? "Entrando…" : "Entrar com e-mail"}
+            {isPending ? "Entrando…" : "Entrar"}
           </button>
 
           {error && (

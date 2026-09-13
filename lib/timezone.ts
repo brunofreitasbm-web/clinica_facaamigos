@@ -107,6 +107,14 @@ export function civilTimeInTimeZone(isoInstant: string, timeZone: string): strin
   }
 }
 
+/** Dia da semana civil (0=Dom..6=Sáb) de um instante ISO, no fuso `timeZone`. */
+export function weekdayInTimeZone(isoInstant: string, timeZone: string): number {
+  const civilDate = civilDateInTimeZone(new Date(isoInstant), timeZone);
+  if (!civilDate) return 0;
+  const [year, month, day] = civilDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
 /** Hora civil (0-23) de um instante ISO, no fuso `timeZone`. */
 export function hourInTimeZone(isoInstant: string, timeZone: string): number {
   if (!isoInstant) return 0;

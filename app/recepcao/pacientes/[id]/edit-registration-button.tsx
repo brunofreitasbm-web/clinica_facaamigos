@@ -12,6 +12,9 @@ export function EditRegistrationButton({
   complaint,
   cid,
   supportLevel,
+  medication,
+  allergies,
+  comorbidities,
   entrySource,
 }: {
   patientId: string;
@@ -22,6 +25,9 @@ export function EditRegistrationButton({
   complaint: string | null;
   cid: string | null;
   supportLevel: string | null;
+  medication: string | null;
+  allergies: string | null;
+  comorbidities: string | null;
   entrySource: string | null;
 }) {
   const [editing, setEditing] = useState(false);
@@ -38,6 +44,9 @@ export function EditRegistrationButton({
           complaint={complaint}
           cid={cid}
           supportLevel={supportLevel}
+          medication={medication}
+          allergies={allergies}
+          comorbidities={comorbidities}
           entrySource={entrySource}
           onDone={() => setEditing(false)}
         />

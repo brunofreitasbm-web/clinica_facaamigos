@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_HOME, type Role } from "@/lib/roles";
+import { isPasswordStrong } from "@/lib/password";
 
 export async function changePassword(
   formData: FormData,
@@ -10,8 +11,11 @@ export async function changePassword(
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (password.length < 8) {
-    return { success: false, error: "A senha deve ter pelo menos 8 caracteres." };
+  if (!isPasswordStrong(password)) {
+    return {
+      success: false,
+      error: "A senha precisa ter pelo menos 6 caracteres, uma letra maiúscula e um caractere especial.",
+    };
   }
   if (password !== confirmPassword) {
     return { success: false, error: "As senhas não conferem." };

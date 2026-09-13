@@ -13,6 +13,7 @@ const SIDEBAR_ITEMS = [
   { key: "protocolos", label: "Protocolos", href: "/gestor/cadastros/protocolos" },
   { key: "especialidades", label: "Especialidades", href: "/gestor/cadastros/especialidades" },
   { key: "comportamentos", label: "Comportamentos-alvo", href: "/gestor/cadastros/comportamentos" },
+  { key: "modalidades-at", label: "Modalidades de AT", href: "/gestor/cadastros/modalidades-at" },
   { key: "intervencoes", label: "Intervenções", href: "/gestor/cadastros/intervencoes" },
   { key: "pts-templates", label: "Templates do PTS", href: "/gestor/cadastros/pts-templates" },
   { key: "salas", label: "Salas & Recursos", href: "/gestor/cadastros/salas" },

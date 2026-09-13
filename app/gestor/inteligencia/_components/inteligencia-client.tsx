@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { InteligenciaMetrics } from "../data";
+import { formatMetricValue } from "@/lib/metric-catalog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/page-container";
 
@@ -20,7 +21,7 @@ interface InteligenciaClientProps {
 export function InteligenciaClient({ initialMetrics, currentPeriodKey }: InteligenciaClientProps) {
   const router = useRouter();
   const [metrics] = useState<InteligenciaMetrics>(initialMetrics);
-  const [activeTab, setActiveTab] = useState<"visao_geral" | "salas" | "aniversariantes">("visao_geral");
+  const [activeTab, setActiveTab] = useState<"visao_geral" | "funil" | "equipe" | "salas" | "aniversariantes">("visao_geral");
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const [activeCardMenu, setActiveCardMenu] = useState<number | null>(null);
   const [capacityPeriod, setCapacityPeriod] = useState<"manha" | "tarde" | "dia" | "semana" | "mes">("semana");
@@ -144,6 +145,36 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
           Visão Geral
         </button>
         <button
+          onClick={() => setActiveTab("funil")}
+          className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === "funil"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Funil
+          {metrics.onboardingFunnel.pipelineNow.stuck3d > 0 && (
+            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
+              {metrics.onboardingFunnel.pipelineNow.stuck3d}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("equipe")}
+          className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === "equipe"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Equipe
+          {metrics.teamProductivity.rows.length > 0 && (
+            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">
+              {metrics.teamProductivity.rows.length}
+            </span>
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab("salas")}
           className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
             activeTab === "salas"
@@ -231,11 +262,11 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   {metrics.whatsappStat.whatsappCount}
                 </span>
                 <p className="mt-1 text-xs text-slate-600">
-                  de {metrics.whatsappStat.totalFirstAppointments} triagens iniciadas via Chatbot
+                  de {metrics.whatsappStat.totalFirstAppointments} novos cadastros no período
                 </p>
               </div>
               <p className="mt-3 text-xs font-semibold text-indigo-600">
-                Canal preferencial de acolhimento
+                Entrada via bot WhatsApp (chatbot_whatsapp/acolhimento de convênio)
               </p>
             </div>
 
@@ -373,6 +404,54 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             </div>
           </div>
 
+          {/* Mapa de Calor Dia × Hora — janelas ociosas para encaixe */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <span className="font-bold text-slate-900 text-sm">🗓️ Mapa de Calor · Ocupação por Dia e Hora</span>
+              {metrics.weekHourHeatmap.idleWindows.length > 0 && (
+                <span className="text-[11px] text-slate-500">
+                  Janelas ociosas:{" "}
+                  <span className="font-semibold text-amber-700">
+                    {metrics.weekHourHeatmap.idleWindows.map((w) => w.label).join(", ")}
+                  </span>
+                </span>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <div
+                className="grid gap-1 min-w-[560px]"
+                style={{ gridTemplateColumns: `56px repeat(${metrics.weekHourHeatmap.hours.length}, minmax(0,1fr))` }}
+              >
+                <div />
+                {metrics.weekHourHeatmap.hours.map((h) => (
+                  <div key={h} className="text-center text-[10px] font-semibold text-slate-400">
+                    {h}h
+                  </div>
+                ))}
+                {metrics.weekHourHeatmap.dayLabels.map((day) => (
+                  <Fragment key={day.dow}>
+                    <div className="flex items-center text-[11px] font-semibold text-slate-600">
+                      {day.label}
+                    </div>
+                    {metrics.weekHourHeatmap.cells
+                      .filter((c) => c.dow === day.dow)
+                      .map((cell) => (
+                        <div
+                          key={`${cell.dow}-${cell.hour}`}
+                          title={`${day.label} ${String(cell.hour).padStart(2, "0")}h: ${cell.count} sessão(ões)`}
+                          className={`aspect-square rounded-sm ${cell.isIdle ? "ring-1 ring-amber-300" : ""}`}
+                          style={{ backgroundColor: `rgba(79,70,229,${(0.08 + 0.82 * cell.intensity).toFixed(2)})` }}
+                        />
+                      ))}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+            <p className="mt-3 text-[11px] text-slate-400">
+              Intensidade da cor = volume de sessões no horário; contorno âmbar marca horários sem nenhuma sessão no período — oportunidade de encaixe.
+            </p>
+          </div>
+
           {/* Linha 3: Inteligência de Convênios & Planos de Saúde */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* QUADRO 4: Pacientes por Plano de Saúde / Convênio */}
@@ -400,33 +479,56 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
               </div>
             </div>
 
-            {/* QUADRO 5: Plano de Saúde por Faturamento */}
+            {/* QUADRO 5: Plano de Saúde por Faturamento + Concentração */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600 mb-3">
                 <span className="font-bold text-slate-900 text-sm">🪙 Plano de Saúde por Faturamento</span>
-                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                  Consolidado
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                    metrics.insurerConcentration.riskLevel === "alta"
+                      ? "text-rose-700 bg-rose-50"
+                      : metrics.insurerConcentration.riskLevel === "media"
+                        ? "text-amber-700 bg-amber-50"
+                        : "text-emerald-700 bg-emerald-50"
+                  }`}
+                >
+                  Top 3 = {metrics.insurerConcentration.top3SharePct}%
                 </span>
               </div>
 
               <div className="space-y-3 py-1">
-                {metrics.revenueByInsurer.map((rev) => (
-                  <div key={rev.insurerId} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-semibold text-slate-800">{rev.insurerName}</span>
-                      <span className="font-bold text-emerald-700 tabular-nums">
-                        R${rev.totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })} ({rev.percentage}%)
-                      </span>
+                {metrics.revenueByInsurer.map((rev) => {
+                  const conc = metrics.insurerConcentration.rows.find((r) => r.insurerId === rev.insurerId);
+                  return (
+                    <div key={rev.insurerId} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="font-semibold text-slate-800">{rev.insurerName}</span>
+                        <span className="font-bold text-emerald-700 tabular-nums">
+                          R${rev.totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })} ({rev.percentage}%)
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-emerald-500"
+                          style={{ width: `${Math.max(4, rev.percentage)}%` }}
+                        />
+                      </div>
+                      {conc?.ticketMedio != null && (
+                        <p className="text-[11px] text-slate-400">
+                          ticket médio: R${conc.ticketMedio.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}/sessão
+                          {conc.glosado > 0 && ` · R$${conc.glosado.toLocaleString("pt-BR", { minimumFractionDigits: 0 })} em glosa`}
+                        </p>
+                      )}
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-emerald-500"
-                        style={{ width: `${Math.max(4, rev.percentage)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+                {metrics.revenueByInsurer.length === 0 && (
+                  <p className="py-4 text-center text-xs text-slate-400">Sem cobranças de convênio no período.</p>
+                )}
               </div>
+              <p className="mt-3 text-[11px] text-slate-400">
+                Somente cobranças de convênio (billing_items); atendimento particular não é faturado por este módulo.
+              </p>
             </div>
           </div>
 
@@ -547,6 +649,215 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 <p className="text-xs text-slate-500 mt-1">Otimização administrativa no período</p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ABA: FUNIL */}
+      {activeTab === "funil" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+            <h3 className="mb-1 text-base font-bold text-slate-900">Funil de Onboarding</h3>
+            <p className="mb-4 text-xs text-slate-500">
+              Eventos ocorridos no período selecionado, em cada etapa do cadastro contínuo.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {metrics.onboardingFunnel.stages.map((stage, idx) => {
+                const first = metrics.onboardingFunnel.stages[0]?.count ?? 0;
+                const widthPct = first > 0 ? Math.max(6, Math.round((stage.count / first) * 100)) : 0;
+                return (
+                  <div key={stage.key} className="rounded-lg border border-slate-100 bg-slate-50/70 p-4">
+                    <p className="text-xs font-semibold text-slate-600">{stage.label}</p>
+                    <p className="mt-1 text-2xl font-extrabold text-slate-900 tabular-nums">{stage.count}</p>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div className="h-full rounded-full bg-indigo-600" style={{ width: `${widthPct}%` }} />
+                    </div>
+                    {idx > 0 && (
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        {stage.avgDaysFromPrev != null
+                          ? `~${stage.avgDaysFromPrev} dia(s) desde a etapa anterior (${stage.samples} caso(s))`
+                          : "sem dados suficientes no período"}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+            <h3 className="mb-1 text-base font-bold text-slate-900">Pipeline agora</h3>
+            <p className="mb-4 text-xs text-slate-500">Situação atual de todos os pacientes ainda não ativos, independente do período selecionado.</p>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+              {[
+                { label: "Interessados", value: metrics.onboardingFunnel.pipelineNow.interessados },
+                { label: "Aguardando avaliação", value: metrics.onboardingFunnel.pipelineNow.awaitingEvaluation },
+                { label: "Avaliado sem guia", value: metrics.onboardingFunnel.pipelineNow.evaluatedNoGuide },
+                { label: "Guia sem grade", value: metrics.onboardingFunnel.pipelineNow.authorizedNoGrid },
+                { label: "Travados ≥ 3 dias", value: metrics.onboardingFunnel.pipelineNow.stuck3d, alert: true },
+              ].map((tile) => (
+                <div
+                  key={tile.label}
+                  className={`rounded-lg border p-3 text-center ${
+                    tile.alert ? "border-rose-200 bg-rose-50" : "border-slate-100 bg-slate-50/70"
+                  }`}
+                >
+                  <p className={`text-xl font-extrabold tabular-nums ${tile.alert ? "text-rose-700" : "text-slate-900"}`}>
+                    {tile.value}
+                  </p>
+                  <p className="mt-1 text-[11px] font-medium text-slate-600">{tile.label}</p>
+                </div>
+              ))}
+            </div>
+            {metrics.onboardingFunnel.pipelineNow.stuck3d > 0 && (
+              <Link
+                href="/recepcao/pacientes/pendencias"
+                className="mt-4 inline-block text-xs font-semibold text-rose-700 hover:underline"
+              >
+                Ver pacientes travados →
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ABA: EQUIPE */}
+      {activeTab === "equipe" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
+            <div className="flex items-center justify-between px-5 pt-5">
+              <h3 className="text-base font-bold text-slate-900">Produtividade por Terapeuta</h3>
+              <span className="text-xs text-slate-500">{selectedPeriodLabel}</span>
+            </div>
+            {metrics.teamProductivity.rows.length > 0 ? (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-t border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
+                      <th className="px-5 py-2">Terapeuta</th>
+                      <th className="px-5 py-2 text-right">Realizadas</th>
+                      <th className="px-5 py-2 text-right">Faltas</th>
+                      <th className="px-5 py-2 text-right">Cancel. &lt;24h</th>
+                      <th className="px-5 py-2">Utilização</th>
+                      <th className="px-5 py-2">Evolução 24h</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {metrics.teamProductivity.rows.map((row) => (
+                      <tr key={row.therapistId} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="px-5 py-3 font-semibold text-slate-900">{row.name}</td>
+                        <td className="px-5 py-3 text-right tabular-nums font-bold text-slate-900">{row.realized}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-slate-700">{row.noShows}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-slate-700">
+                          {row.therapistCancelRatePct != null ? `${row.therapistCancelRatePct}%` : "—"}
+                        </td>
+                        <td className="px-5 py-3">
+                          {row.utilizationPct != null ? (
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    row.utilizationPct >= 85
+                                      ? "bg-emerald-500"
+                                      : row.utilizationPct >= 60
+                                        ? "bg-amber-400"
+                                        : "bg-rose-400"
+                                  }`}
+                                  style={{ width: `${Math.min(100, Math.max(4, row.utilizationPct))}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-semibold text-slate-700 tabular-nums">{row.utilizationPct}%</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">sem disponibilidade cadastrada</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3">
+                          {row.note24hRatePct != null ? (
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                  className={`h-full rounded-full ${row.note24hRatePct >= 98 ? "bg-emerald-500" : "bg-rose-400"}`}
+                                  style={{ width: `${Math.min(100, Math.max(4, row.note24hRatePct))}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-semibold text-slate-700 tabular-nums">{row.note24hRatePct}%</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="px-5 pb-5">
+                <EmptyState
+                  title="Sem sessões no período"
+                  description="Nenhuma sessão de terapeuta encontrada para calcular produtividade."
+                  action={emptyStateAction}
+                />
+              </div>
+            )}
+            <p className="px-5 py-4 text-[11px] text-slate-400">
+              Utilização = horas realizadas ÷ disponibilidade cadastrada (Supervisão → Disponibilidade); mesma regra da métrica de PLR &ldquo;Utilização da disponibilidade dos terapeutas&rdquo;. Cancelamento &lt;24h conta apenas cancelamentos pelo terapeuta com menos de 24h de antecedência.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+            <h3 className="mb-1 text-base font-bold text-slate-900">Metas PLR vs. Realizado (últimos 6 meses)</h3>
+            <p className="mb-4 text-xs text-slate-500">
+              Fechamentos mensais oficiais (metric_snapshots) comparados à meta cadastrada em cada cargo.
+            </p>
+            {metrics.plrTrend.rows.length > 0 ? (
+              <div className="space-y-4">
+                {metrics.plrTrend.rows.map((row) => (
+                  <div key={`${row.role}-${row.metricKey}`} className="rounded-lg border border-slate-100 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold text-slate-900">{row.metricLabel}</span>
+                        <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                          {row.role}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500">
+                        meta: {row.direction === "max" ? "≤" : "≥"} {row.targetValue}
+                        {row.unit === "pct" ? "%" : row.unit === "dias" ? " dias" : row.unit === "min" ? " min" : ""}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-end gap-2">
+                      {row.points.map((p) => {
+                        const maxVal = Math.max(...row.points.map((pt) => pt.value ?? 0), 0.0001);
+                        const heightPct = p.value != null ? Math.max(8, (p.value / maxVal) * 100) : 0;
+                        return (
+                          <div key={p.periodStart} className="flex flex-1 flex-col items-center gap-1">
+                            <div className="flex h-14 w-full items-end">
+                              {p.value != null ? (
+                                <div
+                                  className={`w-full rounded-t ${p.met ? "bg-emerald-500" : "bg-rose-400"}`}
+                                  style={{ height: `${heightPct}%` }}
+                                  title={`${p.periodLabel}: ${formatMetricValue(p.value, row.unit)}`}
+                                />
+                              ) : (
+                                <div className="h-1 w-full self-end border-t border-dashed border-slate-300" />
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400">{p.periodLabel}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="Sem metas cadastradas ou sem fechamento mensal ainda"
+                description="Cadastre metas em /gestor/metas — a primeira linha aparece após o fechamento mensal (dia 1)."
+              />
+            )}
           </div>
         </div>
       )}

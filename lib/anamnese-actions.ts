@@ -3,10 +3,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { canConductFirstAssessment } from "@/lib/anamnese-access";
+import type { Database } from "@/lib/database.types";
+
+type PatientUpdate = Database["public"]["Tables"]["patients"]["Update"];
 
 type ActionResult = { success: true } | { success: false; error: string };
 
 export async function saveAnamnese(patientId: string, formData: FormData): Promise<ActionResult> {
+  // Seção: Diagnóstico e Dados Clínicos
+  const cid = String(formData.get("cid") ?? "").trim();
+  const supportLevel = String(formData.get("support_level") ?? "").trim();
+  const comorbidities = String(formData.get("comorbidities") ?? "").trim();
+
   // Seção: Queixa e História Atual
   const chiefComplaint = String(formData.get("chief_complaint") ?? "").trim();
   const complaintHistory = String(formData.get("complaint_history") ?? "").trim();
@@ -106,11 +114,27 @@ export async function saveAnamnese(patientId: string, formData: FormData): Promi
   }
 
   // Prioridades da família alimentam o PTS (slide 22 — "a família relatou
-  // uma prioridade, mas ela não chegou ao PDI"): gravamos também em
-  // patients-adjacent nenhuma coluna própria existe, então fica só em
-  // anamneses.structured; o formulário do PTS busca de lá.
+  // uma prioridade, mas ela não chegou ao PDI"): não existe coluna própria
+  // pra isso em patients, então fica só em anamneses.structured; o
+  // formulário do PTS busca de lá.
+
+  // CID, nível de suporte, medicação, alergia e comorbidade são dados da
+  // ficha do paciente (não só desta anamnese) — sincroniza em `patients` só
+  // quando o avaliador de fato preencheu algo aqui, pra não apagar o que a
+  // recepção já tinha coletado no acolhimento.
+  const patientClinicalUpdate: PatientUpdate = {};
+  if (cid) patientClinicalUpdate.cid = cid;
+  if (supportLevel) patientClinicalUpdate.support_level = supportLevel;
+  if (allergies) patientClinicalUpdate.allergies = allergies;
+  if (medications) patientClinicalUpdate.medication = medications;
+  if (comorbidities) patientClinicalUpdate.comorbidities = comorbidities;
+
+  if (Object.keys(patientClinicalUpdate).length > 0) {
+    await supabase.from("patients").update(patientClinicalUpdate).eq("id", patientId);
+  }
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
+  revalidatePath(`/recepcao/pacientes/${patientId}/gestao`);
   revalidatePath(`/supervisao/pacientes/${patientId}/anamnese`);
   revalidatePath(`/terapeuta/paciente/${patientId}/anamnese`);
   revalidatePath(`/terapeuta/paciente/${patientId}`);
