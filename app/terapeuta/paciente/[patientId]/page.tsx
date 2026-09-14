@@ -5,6 +5,7 @@ import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { PatientTabs } from "@/components/prontuario/patient-tabs";
 import { DocumentViewButton } from "@/components/prontuario/document-view-button";
 import { DocumentUploadForm } from "@/components/prontuario/document-upload-form";
+import { SendSignatureRequestButton } from "@/components/prontuario/send-signature-request-button";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { fmtDate as fmtDateShared, fmtDateTime } from "@/lib/format";
@@ -12,7 +13,7 @@ import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { getPatientDossier } from "@/lib/patient-dossier";
 import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
-import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
+import { DOCUMENT_CATEGORY_LABEL, getValidityBadge, isSignableCategory } from "@/lib/document-categories";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { canConductFirstAssessment } from "@/lib/anamnese-access";
 import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
@@ -165,7 +166,10 @@ export default async function TerapeutaFichaPacientePage({
                     {doc.validUntil && ` · válido até ${fmtDate(`${doc.validUntil}T00:00:00`)}`}
                   </td>
                   <td className="text-right">
-                    <DocumentViewButton documentId={doc.id} />
+                    <div className="flex flex-col items-end gap-1.5">
+                      <DocumentViewButton documentId={doc.id} />
+                      {isSignableCategory(doc.category) && <SendSignatureRequestButton documentId={doc.id} />}
+                    </div>
                   </td>
                 </tr>
               );

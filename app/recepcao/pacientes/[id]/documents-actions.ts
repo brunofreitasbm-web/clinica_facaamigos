@@ -5,10 +5,15 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
+import { DOCUMENT_CATEGORIES, isSignableCategory } from "@/lib/document-categories";
+import { CLINIC_WEBSITE } from "@/lib/clinic-identity";
+import { sendTwilioWhatsApp } from "@/lib/twilio";
 
 type ActionResult = { success: true } | { success: false; error: string };
 type UrlResult = { success: true; url: string } | { success: false; error: string };
+type SendSignatureResult =
+  | { success: true; message: string }
+  | { success: false; error: string };
 
 // Mesmo limite do bucket `clinic-documents` (25MB, já configurado no Storage).
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -187,4 +192,82 @@ export async function getDocumentUrl(documentId: string): Promise<UrlResult> {
   });
 
   return { success: true, url: signed.signedUrl };
+}
+
+/**
+ * Dispara por WhatsApp o link de assinatura eletrônica (/assinar/[documentId],
+ * ver app/assinar/[documentId]/signature-actions.ts) para o responsável
+ * financeiro do paciente. Disparo manual — quem sobe o documento decide
+ * quando mandar, em vez de sair automaticamente no upload.
+ */
+export async function sendSignatureRequestWhatsApp(documentId: string): Promise<SendSignatureResult> {
+  if (!documentId) return { success: false, error: "Documento inválido." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  // SELECT com o client de sessão: a RLS de `documents` é o portão real —
+  // se este usuário não tiver acesso a este documento, cai no mesmo erro de
+  // "não encontrado" de baixo, sem revelar qual dos dois motivos foi.
+  const { data: doc } = await supabase
+    .from("documents")
+    .select("id, category, patient_id, patients(full_name)")
+    .eq("id", documentId)
+    .maybeSingle();
+
+  if (!doc) {
+    return { success: false, error: "Documento não encontrado." };
+  }
+
+  if (!isSignableCategory(doc.category)) {
+    return {
+      success: false,
+      error: "Esta categoria de documento não é assinada eletronicamente por este canal.",
+    };
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return {
+      success: false,
+      error: "Servidor sem SUPABASE_SERVICE_ROLE_KEY configurada — avise o time técnico.",
+    };
+  }
+
+  const { data: guardian } = await admin
+    .from("guardians")
+    .select("phone")
+    .eq("patient_id", doc.patient_id)
+    .order("is_financial", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!guardian?.phone) {
+    return {
+      success: false,
+      error: "Nenhum telefone de responsável cadastrado para este paciente.",
+    };
+  }
+
+  const patientName = (doc.patients as { full_name: string } | null)?.full_name ?? "seu filho(a)";
+  const link = `${CLINIC_WEBSITE}/assinar/${documentId}`;
+
+  const result = await sendTwilioWhatsApp({
+    to: guardian.phone,
+    message: `Olá! Você tem um documento pendente de assinatura eletrônica referente ao acompanhamento de ${patientName}. Acesse o link para assinar: ${link}`,
+  });
+
+  if (!result.success) {
+    return { success: false, error: "Não foi possível enviar o WhatsApp. Verifique o telefone cadastrado e tente de novo." };
+  }
+
+  return { success: true, message: "Link de assinatura enviado por WhatsApp ao responsável." };
 }

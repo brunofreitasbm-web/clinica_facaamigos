@@ -50,6 +50,21 @@ export const DOCUMENT_CATEGORIES = [
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]["value"];
 
+/**
+ * Únicas categorias que podem ser enviadas para assinatura eletrônica em
+ * /assinar/[documentId] (app/assinar/[documentId]/signature-actions.ts) — as
+ * demais (contrato, laudo, autorização etc.) seguem assinadas em papel. Vive
+ * aqui, e não em signature-actions.ts, porque esse arquivo é "use server" e
+ * só pode exportar funções async — qualquer outro lugar que precise saber
+ * "esse documento pode ir pro fluxo de assinatura?" (ex.: o botão "Enviar
+ * para assinatura" na ficha do paciente) importa daqui.
+ */
+export const SIGNABLE_CATEGORIES = ["termo_lgpd", "termo_imagem", "tcle"] as const;
+
+export function isSignableCategory(category: string): boolean {
+  return (SIGNABLE_CATEGORIES as readonly string[]).includes(category);
+}
+
 export const DOCUMENT_CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
   DOCUMENT_CATEGORIES.map((c) => [c.value, c.label]),
 );
