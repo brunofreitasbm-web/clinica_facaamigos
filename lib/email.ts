@@ -14,10 +14,11 @@ export const DEFAULT_EMAIL_FROM =
  * Endereço de resposta padrão. institutofacaamigos.com.br não tem caixa de
  * entrada (sem registro MX, por decisão do dono) — sem isso, qualquer
  * resposta de paciente/responsável a um e-mail automático voltaria com
- * erro de entrega. Configure BREVO_REPLY_TO com uma caixa que alguém
- * realmente lê.
+ * erro de entrega. institutofacaamigos@gmail.com é a caixa oficial
+ * monitorada (definida pelo dono em 2026-09-14); BREVO_REPLY_TO sobrescreve
+ * se for preciso.
  */
-export const DEFAULT_REPLY_TO = process.env.BREVO_REPLY_TO || undefined;
+export const DEFAULT_REPLY_TO = process.env.BREVO_REPLY_TO || "institutofacaamigos@gmail.com";
 
 export type SendEmailOptions = {
   to: string | string[];
