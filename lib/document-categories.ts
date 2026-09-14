@@ -37,6 +37,11 @@ export const DOCUMENT_CATEGORIES = [
   // (20260908210000_family_share_document_category.sql) — sempre
   // shared_with_family=true, nunca aparece no seletor de upload da recepção.
   { value: "compartilhamento_familia", label: "Compartilhamento com a família" },
+  // TCLE (lib/tcle.ts) — hoje impresso e assinado em papel; ao virar um
+  // registro em `documents`, passa a poder ser enviado para assinatura
+  // eletrônica em /assinar/[documentId], junto com termo_lgpd e
+  // termo_imagem (20260914040000_documents_tcle_category.sql).
+  { value: "tcle", label: "TCLE — Termo de Consentimento Livre e Esclarecido" },
 ] as const;
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]["value"];

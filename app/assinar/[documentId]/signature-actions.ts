@@ -2,11 +2,37 @@
 
 import crypto from "crypto";
 import { headers } from "next/headers";
+import { renderToBuffer } from "@react-pdf/renderer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requestFamilyOtp } from "@/app/login/otp-actions";
 import { sendEmail, renderBrandEmailHtml } from "@/lib/email";
-import { CLINIC_BRAND, CLINIC_TAGLINE } from "@/lib/clinic-identity";
+import { CLINIC_BRAND, CLINIC_TAGLINE, getClinicIdentity } from "@/lib/clinic-identity";
 import { extractClientIp } from "@/lib/checkin-security";
+import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
+import { SignatureReceiptDocument } from "@/lib/signature-receipt-pdf";
+
+/**
+ * Únicas categorias de `documents` liberadas para o fluxo de assinatura
+ * eletrônica por OTP em /assinar/[documentId] — Termo LGPD, Termo de uso de
+ * imagem e TCLE. Qualquer outra categoria (contrato, laudo, autorização
+ * etc.) segue sendo assinada em papel na recepção; não passa por aqui.
+ */
+const SIGNABLE_CATEGORIES = ["termo_lgpd", "termo_imagem", "tcle"] as const;
+
+function isSignableCategory(category: string): boolean {
+  return (SIGNABLE_CATEGORIES as readonly string[]).includes(category);
+}
+
+/** Mesmo texto mostrado na tela de assinatura e gravado no comprovante em PDF — nunca gerar dois textos diferentes para o mesmo documento. */
+function buildDocumentContent(category: string, patientName: string, uploadedAtIso: string): string {
+  return `TERMO E DOCUMENTO DE ACOMPANHAMENTO CLÍNICO
+
+Documento registrado sob a categoria: ${category}.
+Paciente: ${patientName}
+Data de Emissão: ${new Date(uploadedAtIso).toLocaleDateString("pt-BR")}
+
+Este documento constitui parte integrante do Prontuário Único Unificado da Clínica Faça Amigos. A confirmação desta assinatura via código OTP declara ciência do responsável legal.`;
+}
 
 export interface DocumentSignatureData {
   id: string;
@@ -91,6 +117,13 @@ A validação deste documento será efetuada mediante envio e digitação de Có
       return { success: false, error: "Documento não encontrado ou link expirado." };
     }
 
+    if (!isSignableCategory(doc.category)) {
+      return {
+        success: false,
+        error: "Este documento não está habilitado para assinatura eletrônica por este canal.",
+      };
+    }
+
     const { data: patient } = await admin
       .from("patients")
       .select("full_name")
@@ -121,13 +154,7 @@ A validação deste documento será efetuada mediante envio e digitação de Có
         guardianName: guardian?.full_name || undefined,
         guardianCpf: guardian?.cpf || undefined,
         guardianPhone: guardian?.phone || undefined,
-        content: `TERMO E DOCUMENTO DE ACOMPANHAMENTO CLÍNICO
-
-Documento registrado sob a categoria: ${doc.category}.
-Paciente: ${patient?.full_name || "N/A"}
-Data de Emissão: ${new Date(doc.uploaded_at).toLocaleDateString("pt-BR")}
-
-Este documento constitui parte integrante do Prontuário Único Unificado da Clínica Faça Amigos. A confirmação desta assinatura via código OTP declara ciência do responsável legal.`,
+        content: buildDocumentContent(doc.category, patient?.full_name || "N/A", doc.uploaded_at),
         validUntil: doc.valid_until,
         uploadedAt: doc.uploaded_at,
         isSigned: Boolean(signature),
@@ -233,45 +260,53 @@ export async function confirmDocumentSignature(params: {
   // Buscar documento e responsável se existirem no banco
   let patientId: string | null = null;
   let guardianId: string | null = null;
+  const isDemo = params.documentId === "doc-9823" || params.documentId === "demo";
 
-  if (params.documentId !== "doc-9823" && params.documentId !== "demo") {
+  if (!isDemo) {
     const { data: doc } = await admin
       .from("documents")
-      .select("patient_id")
+      .select("patient_id, category, uploaded_at, uploaded_by")
       .eq("id", params.documentId)
       .maybeSingle();
 
-    if (doc) {
-      patientId = doc.patient_id;
-      // Atualizar documento para ser acessível na família e marcar atualizado
-      await admin
-        .from("documents")
-        .update({ shared_with_family: true })
-        .eq("id", params.documentId);
-
-      // Identificar o responsável (guardian) que efetivamente assinou, casando
-      // pelo telefone confirmado via OTP (ou, na ausência, pelo CPF informado)
-      const { data: guardians } = await admin
-        .from("guardians")
-        .select("id, phone, cpf")
-        .eq("patient_id", patientId);
-
-      const signerCpfDigits = params.signerCpf.replace(/\D/g, "");
-      const matchedGuardian = guardians?.find(
-        (g: { id: string; phone: string; cpf: string | null }) =>
-          normalizeDigits(g.phone) === digits || (g.cpf && g.cpf.replace(/\D/g, "") === signerCpfDigits),
-      );
-      guardianId = matchedGuardian?.id ?? null;
+    if (!doc) {
+      return { success: false, error: "Documento não encontrado ou link expirado." };
     }
-  }
 
-  // Endereço IP de quem está assinando, extraído no servidor a partir dos
-  // cabeçalhos da requisição (nunca confiar em um valor enviado pelo cliente).
-  const requestHeaders = await headers();
-  const signerIp = extractClientIp(requestHeaders);
+    if (!isSignableCategory(doc.category)) {
+      return {
+        success: false,
+        error: "Este documento não está habilitado para assinatura eletrônica por este canal.",
+      };
+    }
 
-  // 3. Registrar Assinatura Eletrônica em document_signatures
-  if (params.documentId !== "doc-9823" && params.documentId !== "demo") {
+    patientId = doc.patient_id;
+    // Atualizar documento para ser acessível na família e marcar atualizado
+    await admin
+      .from("documents")
+      .update({ shared_with_family: true })
+      .eq("id", params.documentId);
+
+    // Identificar o responsável (guardian) que efetivamente assinou, casando
+    // pelo telefone confirmado via OTP (ou, na ausência, pelo CPF informado)
+    const { data: guardians } = await admin
+      .from("guardians")
+      .select("id, phone, cpf")
+      .eq("patient_id", patientId);
+
+    const signerCpfDigits = params.signerCpf.replace(/\D/g, "");
+    const matchedGuardian = guardians?.find(
+      (g: { id: string; phone: string; cpf: string | null }) =>
+        normalizeDigits(g.phone) === digits || (g.cpf && g.cpf.replace(/\D/g, "") === signerCpfDigits),
+    );
+    guardianId = matchedGuardian?.id ?? null;
+
+    // Endereço IP de quem está assinando, extraído no servidor a partir dos
+    // cabeçalhos da requisição (nunca confiar em um valor enviado pelo cliente).
+    const requestHeaders = await headers();
+    const signerIp = extractClientIp(requestHeaders);
+
+    // 3. Registrar Assinatura Eletrônica em document_signatures
     await (admin as any).from("document_signatures").insert({
       document_id: params.documentId,
       patient_id: patientId,
@@ -285,6 +320,25 @@ export async function confirmDocumentSignature(params: {
       signed_at: nowIso,
       status: "assinado",
     });
+
+    // 4. Gerar o comprovante em PDF (selo + conteúdo do termo) e anexá-lo à
+    // ficha do paciente como um novo `documents` — é isso que faz o
+    // documento assinado "aparecer" automaticamente no prontuário/portal da
+    // família, em vez de a assinatura existir só como linha em
+    // `document_signatures`.
+    await attachSignatureReceipt({
+      admin,
+      patientId,
+      category: doc.category,
+      uploadedBy: doc.uploaded_by,
+      signerName: params.signerName,
+      signerCpf: params.signerCpf,
+      signerPhoneDigits: digits,
+      signerIp,
+      signedAtIso: nowIso,
+      documentHash,
+      otpCode: cleanCode,
+    });
   }
 
   return {
@@ -295,6 +349,86 @@ export async function confirmDocumentSignature(params: {
       validationCode: `OTP-FA-${cleanCode}`,
     },
   };
+}
+
+/**
+ * Renderiza o PDF do comprovante de assinatura e insere como novo
+ * `documents` (mesma categoria do termo original, já visível no portal da
+ * família). Best-effort: se a geração/upload falhar, a assinatura em
+ * `document_signatures` já foi gravada e não é desfeita — só registramos o
+ * erro, para não pedir ao responsável assinar de novo por uma falha só de PDF.
+ */
+async function attachSignatureReceipt(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  patientId: string;
+  category: string;
+  uploadedBy: string;
+  signerName: string;
+  signerCpf: string;
+  signerPhoneDigits: string;
+  signerIp: string;
+  signedAtIso: string;
+  documentHash: string;
+  otpCode: string;
+}): Promise<void> {
+  const { admin, patientId, category, uploadedBy } = params;
+
+  try {
+    const { data: patient } = await admin
+      .from("patients")
+      .select("full_name, clinic_id")
+      .eq("id", patientId)
+      .maybeSingle();
+
+    if (!patient) return;
+
+    const clinic = await getClinicIdentity(admin, patient.clinic_id);
+    const content = buildDocumentContent(category, patient.full_name, params.signedAtIso);
+    const categoryLabel = DOCUMENT_CATEGORY_LABEL[category] ?? category;
+    const signedAtFormatted = new Date(params.signedAtIso).toLocaleString("pt-BR");
+    const maskedPhone = params.signerPhoneDigits.replace(/^(\d{2})\d+(\d{4})$/, "$1 *****$2");
+
+    const pdfBuffer = await renderToBuffer(
+      SignatureReceiptDocument({
+        clinic,
+        documentTitle: `Comprovante de Assinatura Eletrônica — ${categoryLabel}`,
+        categoryLabel,
+        patientName: patient.full_name,
+        content,
+        signerName: params.signerName,
+        signerCpf: params.signerCpf,
+        signerPhoneMasked: maskedPhone,
+        signerIp: params.signerIp,
+        signedAtFormatted,
+        documentHash: params.documentHash,
+        validationCode: `OTP-FA-${params.otpCode}`,
+      }),
+    );
+
+    const receiptId = crypto.randomUUID();
+    const storagePath = `${patientId}/${receiptId}/comprovante-assinatura-${category}-${params.signedAtIso.slice(0, 10)}.pdf`;
+
+    const { error: insertError } = await admin.from("documents").insert({
+      id: receiptId,
+      patient_id: patientId,
+      category,
+      storage_path: storagePath,
+      uploaded_by: uploadedBy,
+      shared_with_family: true,
+    });
+
+    if (insertError) return;
+
+    const { error: uploadError } = await admin.storage
+      .from("clinic-documents")
+      .upload(storagePath, pdfBuffer, { contentType: "application/pdf", upsert: false });
+
+    if (uploadError) {
+      await admin.from("documents").delete().eq("id", receiptId);
+    }
+  } catch (err: unknown) {
+    console.error("Erro ao gerar comprovante de assinatura em PDF:", err);
+  }
 }
 
 /**
