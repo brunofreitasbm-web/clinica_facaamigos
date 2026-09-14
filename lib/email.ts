@@ -115,17 +115,22 @@ export function renderBrandEmailHtml({
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
+  <!--[if !mso]><!-->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <!--<![endif]-->
   <style>
-    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 0; color: #1e293b; }
-    .wrapper { width: 100%; background-color: #f4f6f8; padding: 32px 16px; box-sizing: border-box; }
-    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
-    .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 24px; text-align: center; color: #ffffff; }
-    .header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff; }
-    .header p { margin: 4px 0 0 0; font-size: 13px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-    .body { padding: 32px 24px; font-size: 15px; line-height: 1.6; color: #334155; }
+    body { font-family: 'Nunito', 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f7f5f2; margin: 0; padding: 0; color: #1a3f35; }
+    .wrapper { width: 100%; background-color: #f7f5f2; padding: 32px 16px; box-sizing: border-box; }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 16px rgba(26, 63, 53, 0.08); }
+    .header { background: linear-gradient(135deg, #f0196b 0%, #c8155a 100%); padding: 36px 24px; text-align: center; color: #ffffff; }
+    .header h1 { margin: 0; font-family: 'Fredoka One', 'Fredoka', 'Nunito', 'Comic Sans MS', sans-serif; font-size: 28px; font-weight: 400; letter-spacing: -0.5px; color: #ffffff; }
+    .header p { margin: 6px 0 0 0; font-family: 'Nunito', 'Segoe UI', sans-serif; font-size: 13px; font-weight: 800; color: #ffe234; text-transform: uppercase; letter-spacing: 0.14em; }
+    .body { padding: 32px 24px; font-size: 15px; line-height: 1.6; color: #1a3f35; }
+    .body h2 { font-family: 'Fredoka One', 'Fredoka', 'Nunito', 'Comic Sans MS', sans-serif; font-weight: 400; }
     .button-container { text-align: center; margin: 28px 0; }
-    .btn { display: inline-block; background-color: #2563eb; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; }
-    .footer { background-color: #f8fafc; padding: 24px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
+    .btn { display: inline-block; background-color: #f0196b; color: #ffffff !important; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 9999px; font-size: 15px; }
+    .footer { background-color: #f7f5f2; padding: 24px; text-align: center; font-size: 12px; color: #5a636e; border-top: 1px solid #e8eaec; }
     .footer p { margin: 4px 0; }
   </style>
 </head>
@@ -138,7 +143,7 @@ export function renderBrandEmailHtml({
         <p>${CLINIC_TAGLINE}</p>
       </div>
       <div class="body">
-        <h2 style="margin-top:0;font-size:18px;color:#0f172a;">${title}</h2>
+        <h2 style="margin-top:0;font-size:20px;color:#1a3f35;">${title}</h2>
         ${contentHtml}
         ${
           actionButton
