@@ -14,7 +14,7 @@ export function RoomRowItem({ room, specialties }: { room: RoomRow; specialties:
   if (editing) {
     return (
       <tr>
-        <td colSpan={6}>
+        <td colSpan={5}>
           <form
             className="flex flex-col gap-2 py-2"
             action={(formData) => {
@@ -110,9 +110,6 @@ export function RoomRowItem({ room, specialties }: { room: RoomRow; specialties:
         {room.recommendedInterns != null ? `${room.recommendedInterns} estagiário(s)` : "—"}
       </td>
       <td className="text-xs text-ink-faint">{specialties.find((s) => s.id === room.specialtyId)?.label ?? "—"}</td>
-      <td className="text-xs text-ink-faint">
-        {[room.isAbaTraining && "Treino ABA", room.isEvaluationRoom && "Avaliação"].filter(Boolean).join(" · ") || "—"}
-      </td>
       <td className="text-right">
         <button type="button" onClick={() => setEditing(true)} className="text-xs text-chart">
           Editar
