@@ -10,6 +10,15 @@ export const DEFAULT_EMAIL_FROM =
   process.env.BREVO_FROM_EMAIL ||
   `Instituto Faça Amigos <instituto@institutofacaamigos.com.br>`;
 
+/**
+ * Endereço de resposta padrão. institutofacaamigos.com.br não tem caixa de
+ * entrada (sem registro MX, por decisão do dono) — sem isso, qualquer
+ * resposta de paciente/responsável a um e-mail automático voltaria com
+ * erro de entrega. Configure BREVO_REPLY_TO com uma caixa que alguém
+ * realmente lê.
+ */
+export const DEFAULT_REPLY_TO = process.env.BREVO_REPLY_TO || undefined;
+
 export type SendEmailOptions = {
   to: string | string[];
   subject: string;
@@ -44,7 +53,7 @@ export async function sendEmail({
   html,
   text,
   from = DEFAULT_EMAIL_FROM,
-  replyTo,
+  replyTo = DEFAULT_REPLY_TO,
 }: SendEmailOptions): Promise<SendEmailResult> {
   const apiKey = process.env.BREVO_API_KEY;
 

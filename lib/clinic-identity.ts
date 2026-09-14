@@ -15,11 +15,19 @@ export const CLINIC_BRAND = "FaçaAmigos";
 export const CLINIC_TAGLINE = "Centro de Terapia Comportamental";
 export const CLINIC_NAME = `${CLINIC_BRAND} - ${CLINIC_TAGLINE}`;
 export const CLINIC_NAME_DISPLAY = `${CLINIC_BRAND} — ${CLINIC_TAGLINE}`;
+// TODO(infra): "contato@clinicafacaamigos.com.br" está num domínio de
+// terceiro (ver aviso abaixo) e não deve ser usado. Mas
+// "institutofacaamigos.com.br" também não tem caixa de entrada hoje (sem
+// registro MX) — decisão do dono foi só ENVIAR pelo domínio via Brevo, sem
+// receber. Antes de trocar este valor, decidir e criar de fato a caixa que
+// vai receber respostas de pacientes/responsáveis (Google Workspace no
+// domínio, ou um Gmail existente usado como contato oficial) — ver
+// faca_amigos/docs/INFRA_DOMINIO_EMAIL.md.
 export const CLINIC_SUPPORT_EMAIL = "contato@clinicafacaamigos.com.br";
 /**
  * Endereço público DESTE app — a clínica tem subdomínio próprio dentro do
  * ecossistema (hub em institutofacaamigos.com.br, playground em
- * playground.…, clínica em clinica.…). É daqui que saem canonical, Open
+ * playground.…, clínica em sistema.…). É daqui que saem canonical, Open
  * Graph, sitemap e robots, então um valor errado aqui não quebra tela
  * nenhuma: só entrega o SEO e as prévias de link para o endereço errado, em
  * silêncio.
@@ -28,7 +36,7 @@ export const CLINIC_SUPPORT_EMAIL = "contato@clinicafacaamigos.com.br";
  * empresa — uma gráfica de hot stamping em São Paulo — e já esteve aqui por
  * engano.
  */
-export const CLINIC_WEBSITE = "https://clinica.institutofacaamigos.com.br";
+export const CLINIC_WEBSITE = "https://sistema.institutofacaamigos.com.br";
 
 /**
  * Identidade institucional da clínica para uso em timbre de documento
