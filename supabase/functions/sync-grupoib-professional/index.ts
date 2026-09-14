@@ -12,8 +12,12 @@ const TARGET_UNIT_ID = "clinica-a";
 // funcionando normalmente — só o e-mail é pulado (e registrado no
 // audit_log), pra um secret faltando nunca derrubar a sincronização.
 const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
-const BREVO_FROM = Deno.env.get("BREVO_FROM") ?? "FaçaAmigos <nao-responda@facaamigos.com.br>";
-const APP_LOGIN_URL = Deno.env.get("APP_LOGIN_URL") ?? "https://app.facaamigos.com.br/login";
+// "facaamigos.com.br" (sem "instituto") é domínio de outra empresa — nunca
+// usar como remetente. Ver aviso em lib/clinic-identity.ts.
+const BREVO_FROM =
+  Deno.env.get("BREVO_FROM") ?? "Instituto Faça Amigos <instituto@institutofacaamigos.com.br>";
+const APP_LOGIN_URL =
+  Deno.env.get("APP_LOGIN_URL") ?? "https://sistema.institutofacaamigos.com.br/login";
 const SUPPORT_CONTACT = Deno.env.get("SUPPORT_CONTACT") ?? "a recepção da clínica";
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
