@@ -6,7 +6,6 @@ import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 import { useSupervisaoTab, type SupervisaoTabKey } from "@/app/supervisao/supervisao-tab-context";
 
 const TABS: { key: SupervisaoTabKey; label: string }[] = [
-  { key: "grade", label: "Grade" },
   { key: "agenda1a", label: "Agenda 1ª Avaliação" },
   { key: "fluxos", label: "Fluxos" },
   { key: "planos", label: "PTS" },
@@ -30,10 +29,17 @@ const LINKS = [
  * rota raiz; as outras 5 rotas do módulo ficavam sem cabeçalho nenhum ou
  * com uma versão bespoke e sem os atalhos das outras seções.
  *
- * As 5 primeiras entradas são abas de dados (useSupervisaoTab), não rotas —
+ * As 4 primeiras entradas são abas de dados (useSupervisaoTab), não rotas —
  * só têm conteúdo em "/supervisao". Clicar numa delas fora da raiz navega
  * pra lá antes de selecionar, em vez de tentar trocar uma aba que não existe
  * na tela atual.
+ *
+ * O botão "Agenda" (canto direito, renomeado de "Agenda Manual" em
+ * 14/09/2026) não é uma aba: abre a grade semanal completa em tela cheia
+ * por cima de qualquer rota do módulo — é o único ponto de entrada pra
+ * essa visão desde que a antiga aba "Grade" foi removida por redundância
+ * (14/09/2026). Dentro dela vive o botão "Editar", pra permuta manual de
+ * pacientes entre sessões (ver grade-panel.tsx).
  */
 export function SupervisaoHeader() {
   const pathname = usePathname();
@@ -72,7 +78,7 @@ export function SupervisaoHeader() {
           style={{ background: "var(--color-on-accent)", color: "var(--color-accent)" }}
         >
           <CalendarDays size={15} aria-hidden />
-          Agenda Manual
+          Agenda
         </button>
       }
     />

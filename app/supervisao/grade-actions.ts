@@ -19,6 +19,7 @@ import {
   type GradeSeriesPattern,
   type GenerateOccurrenceResult,
 } from "@/lib/grade-recurrence";
+import { notifyAppointmentSwap, type AppointmentSwapSnapshot } from "@/lib/appointment-swap-notify";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -99,6 +100,68 @@ export async function editGradeSeriesAction(
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Não foi possível editar a grade." };
   }
+}
+
+/**
+ * Permuta manual de pacientes entre 2 ou 3 agendamentos — botão "Editar" da
+ * Agenda (grade-panel.tsx), pra casos de exceção como reorganizar horários
+ * na revisão de PTS de 6 meses. Delega pra função `swap_appointment_patients`
+ * (supabase/migrations/20260914000000_swap_appointment_patients.sql), que já
+ * valida papel, status e faz a rotação atomicamente — esta action só traduz
+ * o erro do Postgres pro formato ActionResult do app e, depois de confirmada
+ * a permuta, avisa os responsáveis afetados (mural + e-mail — ver
+ * lib/appointment-swap-notify.ts).
+ *
+ * O PTS (treatment_plans/plan_goals) não guarda nenhuma referência a
+ * appointments.id — é todo indexado por patient_id — então uma permuta não
+ * deixa nada desatualizado lá; o paciente carrega o PTS dele pra onde quer
+ * que a agenda o coloque.
+ */
+export async function swapAppointmentPatientsAction(appointmentIds: string[]): Promise<ActionResult<null>> {
+  if (appointmentIds.length !== 2 && appointmentIds.length !== 3) {
+    return { success: false, error: "Selecione 2 ou 3 agendamentos para permutar." };
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login novamente." };
+  }
+
+  const { data: before }: { data: AppointmentSwapSnapshot[] | null } = await supabase
+    .from("appointments")
+    .select("id, starts_at, patient_id, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)")
+    .in("id", appointmentIds);
+
+  // `swap_appointment_patients` é nova demais pra estar em lib/database.types.ts
+  // gerado — mesmo padrão de lib/grade-recurrence.ts:73.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc("swap_appointment_patients", { p_appointment_ids: appointmentIds });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  // Notifica os responsáveis — melhor esforço: a permuta já foi commitada no
+  // banco, então uma falha aqui (e-mail fora do ar, etc.) nunca deve virar
+  // erro pro supervisor.
+  if (before) {
+    const { data: after }: { data: AppointmentSwapSnapshot[] | null } = await supabase
+      .from("appointments")
+      .select("id, starts_at, patient_id, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)")
+      .in("id", appointmentIds);
+
+    if (after) {
+      await notifyAppointmentSwap(supabase, before, after);
+    }
+  }
+
+  revalidateGradeViews();
+  return { success: true, data: null };
 }
 
 /**

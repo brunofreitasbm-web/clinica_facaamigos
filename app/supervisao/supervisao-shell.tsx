@@ -9,7 +9,7 @@ export type { SupervisaoTabKey };
 export { useSupervisaoTab };
 
 /**
- * Troca de conteúdo entre as 5 abas de dados de /supervisao. O cabeçalho
+ * Troca de conteúdo entre as 4 abas de dados de /supervisao. O cabeçalho
  * (antes renderizado aqui dentro) agora vive em app/supervisao/layout.tsx —
  * ver components/supervisao-header.tsx. Este componente só entrega o
  * conteúdo da aba ativa e sincroniza as contagens (badges do cabeçalho) com
@@ -59,32 +59,30 @@ export function SupervisaoShell({
 
   return (
     <PageContainer>
-      {/* Enquanto a Agenda Manual está aberta, as abas normais ficam fora do
-       * DOM — o gradeTab reaparece dentro do overlay abaixo, e montar as
-       * duas cópias ao mesmo tempo faria os rádios "Por terapeuta/Por sala"
-       * de cada instância (mesmo atributo `name`) brigarem pelo estado
-       * marcado, já que agrupamento nativo de radio é por documento, não
-       * por árvore React. */}
-      {!manualScheduleOpen && tab === "grade" ? <div key="tab-grade">{gradeTab}</div> : null}
+      {/* "Grade" não é mais uma aba (14/09/2026) — gradeTab só aparece dentro
+       * do overlay "Agenda" abaixo, que é agora o único ponto de entrada pra
+       * grade semanal completa. */}
       {!manualScheduleOpen && tab === "agenda1a" ? <div key="tab-agenda1a">{agenda1aTab}</div> : null}
       {!manualScheduleOpen && tab === "fluxos" ? <div key="tab-fluxos">{fluxosTab}</div> : null}
       {!manualScheduleOpen && tab === "planos" ? <div key="tab-planos">{planosTab}</div> : null}
       {!manualScheduleOpen && tab === "inbox" ? <div key="tab-inbox">{inboxTab}</div> : null}
 
-      {/* Agenda Manual — grade semanal completa (todos terapeutas/salas/crianças
-       * da semana) em tela cheia, acionada pelo botão do cabeçalho a partir
-       * de qualquer rota do módulo (13/09/2026). Reaproveita o mesmo
-       * gradeTab já carregado por esta page.tsx, então não refaz nenhuma
-       * busca ao servidor. */}
+      {/* Agenda — grade semanal completa (todos terapeutas/salas/crianças da
+       * semana) em tela cheia, acionada pelo botão do cabeçalho a partir de
+       * qualquer rota do módulo (13/09/2026, renomeado de "Agenda Manual"
+       * em 14/09/2026). Reaproveita o mesmo gradeTab já carregado por esta
+       * page.tsx, então não refaz nenhuma busca ao servidor. O botão
+       * "Editar" (permuta manual de pacientes) vive dentro do gradeTab —
+       * ver grade-panel.tsx. */}
       {manualScheduleOpen && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Agenda manual · grade semanal completa da clínica"
+          aria-label="Agenda · grade semanal completa da clínica"
           className="fixed inset-0 z-[100] overflow-y-auto bg-paper"
         >
           <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-paper/95 px-6 py-3 backdrop-blur-sm" style={{ borderColor: "var(--color-divider)" }}>
-            <span className="text-sm font-semibold text-ink-soft">Agenda Manual · visão total da clínica</span>
+            <span className="text-sm font-semibold text-ink-soft">Agenda · visão total da clínica</span>
             <button
               type="button"
               onClick={() => setManualScheduleOpen(false)}
