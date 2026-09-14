@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { WEEKDAY_LABEL, KIND_STYLE, type AppointmentKind } from "./grade-data";
-import { publishGradeAction } from "./grade-actions";
+import { publishGradeAction, swapAppointmentPatientsAction } from "./grade-actions";
 
 export type GradeAppointment = {
   id: string;
@@ -16,7 +17,11 @@ export type GradeAppointment = {
   kind: AppointmentKind;
   discipline?: string;
   hasGuide?: boolean;
+  /** Só "agendada"/"confirmada" podem entrar numa permuta manual (modo Edição). */
+  status: string;
 };
+
+const SWAPPABLE_STATUSES = new Set(["agendada", "confirmada"]);
 
 export type PendingNote = {
   appointmentId: string;
@@ -56,28 +61,53 @@ function AppointmentChip({
   appt,
   onClick,
   hasConflict,
+  editMode,
+  selectionOrder,
 }: {
   appt: GradeAppointment;
   onClick: () => void;
   hasConflict?: boolean;
+  /** Modo Edição ativo — troca o clique de "ver detalhes" para "selecionar pra permuta". */
+  editMode?: boolean;
+  /** 1, 2 ou 3 se este agendamento está selecionado pra permuta; undefined se não está. */
+  selectionOrder?: number;
 }) {
   const style = KIND_STYLE[appt.kind];
   const { displayName, isInvalid } = sanitizePatientName(appt.patientName);
+  const swappable = SWAPPABLE_STATUSES.has(appt.status);
+  const disabledInEditMode = editMode && !swappable;
 
   return (
     <div
-      onClick={onClick}
-      className={`mb-1.5 cursor-pointer rounded-md p-2 text-xs leading-tight transition-all hover:scale-[1.02] hover:shadow-sm ${
-        hasConflict ? "border-2 border-red-500" : ""
-      }`}
+      onClick={disabledInEditMode ? undefined : onClick}
+      className={`relative mb-1.5 rounded-md p-2 text-xs leading-tight transition-all ${
+        disabledInEditMode ? "cursor-not-allowed opacity-40" : "cursor-pointer hover:scale-[1.02] hover:shadow-sm"
+      } ${hasConflict ? "border-2 border-red-500" : ""}`}
       style={{
         background: style.bg,
         color: style.text,
         borderRadius: "var(--radius-sm)",
-        border: hasConflict ? "2px solid #ef4444" : `1px solid ${style.border}`,
+        border: selectionOrder
+          ? "2px solid var(--color-accent)"
+          : hasConflict
+            ? "2px solid #ef4444"
+            : `1px solid ${style.border}`,
+        boxShadow: selectionOrder ? "0 0 0 2px var(--color-accent)" : undefined,
       }}
-      title={`${style.label} · ${appt.timeLabel} · ${displayName}${isInvalid ? " (Cadastro incompleto - atualize os dados)" : ""}`}
+      title={
+        disabledInEditMode
+          ? "Só sessões agendadas/confirmadas podem ser permutadas"
+          : `${style.label} · ${appt.timeLabel} · ${displayName}${isInvalid ? " (Cadastro incompleto - atualize os dados)" : ""}`
+      }
     >
+      {selectionOrder && (
+        <span
+          className="absolute -top-1.5 -left-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white"
+          style={{ background: "var(--color-accent)" }}
+        >
+          {selectionOrder}
+        </span>
+      )}
       <div className="flex items-center justify-between gap-1 font-semibold">
         <span className="truncate flex items-center gap-1">
           {isInvalid && (
@@ -129,6 +159,7 @@ export function GradePanel({
   pendingPlans: PendingPlan[];
   carteira: { sessionsInGrid: number; provisionalNoGuide: number; onTimePercent: number | null };
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"terapeuta" | "sala">("terapeuta");
   const [disciplineFilter, setDisciplineFilter] = useState<string>("todos");
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -136,6 +167,52 @@ export function GradePanel({
   const [toastError, setToastError] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [selectedAppt, setSelectedAppt] = useState<GradeAppointment | null>(null);
+  // Modo Edição — permuta manual de pacientes entre 2 ou 3 agendamentos,
+  // pra casos de exceção (ex.: reorganizar horários na revisão de PTS de 6
+  // meses). Clicar num card em modo Edição seleciona pra permuta em vez de
+  // abrir o modal de detalhes.
+  const [editMode, setEditMode] = useState(false);
+  const [swapSelection, setSwapSelection] = useState<GradeAppointment[]>([]);
+  const [isSwapping, setIsSwapping] = useState(false);
+
+  function toggleSwapSelection(appt: GradeAppointment) {
+    setSwapSelection((current) => {
+      if (current.some((a) => a.id === appt.id)) {
+        return current.filter((a) => a.id !== appt.id);
+      }
+      if (current.length >= 3) return current;
+      return [...current, appt];
+    });
+  }
+
+  function exitEditMode() {
+    setEditMode(false);
+    setSwapSelection([]);
+  }
+
+  async function handleConfirmSwap() {
+    if (swapSelection.length !== 2 && swapSelection.length !== 3) return;
+    if (isSwapping) return;
+    setIsSwapping(true);
+    setToastError(null);
+
+    try {
+      const result = await swapAppointmentPatientsAction(swapSelection.map((a) => a.id));
+      if (result.success) {
+        setNotification("Permuta feita — agenda atualizada.");
+        setTimeout(() => setNotification(null), 4000);
+        exitEditMode();
+        router.refresh();
+      } else {
+        setToastError(`Falha ao permutar. ${result.error}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Ocorreu um erro inesperado ao permutar.";
+      setToastError(`Falha ao permutar. ${message}`);
+    } finally {
+      setIsSwapping(false);
+    }
+  }
 
   // Extrai lista única de disciplinas para filtro
   const disciplines = useMemo(() => {
@@ -336,8 +413,16 @@ export function GradePanel({
 
           <button
             type="button"
+            className={`btn ${editMode ? "btn-primary" : "btn-secondary"} flex items-center justify-center gap-2`}
+            onClick={() => (editMode ? exitEditMode() : setEditMode(true))}
+          >
+            {editMode ? "Sair da edição" : "Editar"}
+          </button>
+
+          <button
+            type="button"
             className="btn btn-primary flex items-center justify-center gap-2 min-w-[130px] disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={isPublishing}
+            disabled={isPublishing || editMode}
             onClick={handlePublishGrade}
           >
             {isPublishing ? (
@@ -354,6 +439,38 @@ export function GradePanel({
           </button>
         </div>
       </div>
+
+      {editMode && (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-accent/40 bg-accent/5 p-3 text-xs"
+          style={{ borderColor: "var(--color-accent)" }}
+        >
+          <div>
+            <div className="font-bold text-ink">Modo Edição — permuta manual de pacientes</div>
+            <p className="m-0 mt-0.5 text-ink-soft">
+              Selecione 2 ou 3 sessões (agendadas/confirmadas) pra trocar os pacientes entre elas, cruzadamente —
+              terapeuta, sala e horário de cada sessão continuam os mesmos. Use só em exceções (ex.: reorganização de
+              horários na revisão de PTS de 6 meses).
+              {swapSelection.length > 0 && (
+                <span className="ml-1 font-semibold text-ink">{swapSelection.length} de 3 selecionadas.</span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" className="btn btn-ghost text-xs" onClick={() => setSwapSelection([])} disabled={swapSelection.length === 0}>
+              Limpar seleção
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={swapSelection.length < 2 || isSwapping}
+              onClick={handleConfirmSwap}
+            >
+              {isSwapping ? "Permutando..." : `Confirmar permuta (${swapSelection.length})`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {notification && (
         <div className="mb-4 rounded-md bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
@@ -408,7 +525,11 @@ export function GradePanel({
                       key={appt.id}
                       appt={appt}
                       hasConflict={conflictIds.has(appt.id)}
-                      onClick={() => setSelectedAppt(appt)}
+                      editMode={editMode}
+                      selectionOrder={
+                        editMode ? swapSelection.findIndex((a) => a.id === appt.id) + 1 || undefined : undefined
+                      }
+                      onClick={() => (editMode ? toggleSwapSelection(appt) : setSelectedAppt(appt))}
                     />
                   ))}
                 </div>

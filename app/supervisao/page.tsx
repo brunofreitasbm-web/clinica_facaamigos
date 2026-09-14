@@ -172,6 +172,7 @@ export default async function SupervisaoPage() {
         therapistName: therapist?.full_name ?? "—",
         roomId: a.room_id,
         roomName: room?.name ?? "—",
+        status: a.status,
         kind: classifyAppointmentKind({
           isEvaluation: a.is_evaluation,
           isProvisional: a.is_provisional,

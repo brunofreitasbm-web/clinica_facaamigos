@@ -34,10 +34,12 @@ const LINKS = [
  * pra lá antes de selecionar, em vez de tentar trocar uma aba que não existe
  * na tela atual.
  *
- * O botão "Agenda Manual" (canto direito) não é uma aba: abre a grade
- * semanal completa em tela cheia por cima de qualquer rota do módulo — é o
- * único ponto de entrada pra essa visão desde que a antiga aba "Grade" foi
- * removida por redundância (14/09/2026).
+ * O botão "Agenda" (canto direito, renomeado de "Agenda Manual" em
+ * 14/09/2026) não é uma aba: abre a grade semanal completa em tela cheia
+ * por cima de qualquer rota do módulo — é o único ponto de entrada pra
+ * essa visão desde que a antiga aba "Grade" foi removida por redundância
+ * (14/09/2026). Dentro dela vive o botão "Editar", pra permuta manual de
+ * pacientes entre sessões (ver grade-panel.tsx).
  */
 export function SupervisaoHeader() {
   const pathname = usePathname();
@@ -76,7 +78,7 @@ export function SupervisaoHeader() {
           style={{ background: "var(--color-on-accent)", color: "var(--color-accent)" }}
         >
           <CalendarDays size={15} aria-hidden />
-          Agenda Manual
+          Agenda
         </button>
       }
     />

@@ -102,6 +102,42 @@ export async function editGradeSeriesAction(
 }
 
 /**
+ * Permuta manual de pacientes entre 2 ou 3 agendamentos — botão "Editar" da
+ * Agenda (grade-panel.tsx), pra casos de exceção como reorganizar horários
+ * na revisão de PTS de 6 meses. Delega pra função `swap_appointment_patients`
+ * (supabase/migrations/20260914000000_swap_appointment_patients.sql), que já
+ * valida papel, status e faz a rotação atomicamente — esta action só traduz
+ * o erro do Postgres pro formato ActionResult do app.
+ */
+export async function swapAppointmentPatientsAction(appointmentIds: string[]): Promise<ActionResult<null>> {
+  if (appointmentIds.length !== 2 && appointmentIds.length !== 3) {
+    return { success: false, error: "Selecione 2 ou 3 agendamentos para permutar." };
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login novamente." };
+  }
+
+  // `swap_appointment_patients` é nova demais pra estar em lib/database.types.ts
+  // gerado — mesmo padrão de lib/grade-recurrence.ts:73.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc("swap_appointment_patients", { p_appointment_ids: appointmentIds });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidateGradeViews();
+  return { success: true, data: null };
+}
+
+/**
  * Publicar a grade semanal em lote — valida a sessão e aciona a revalidação dos caminhos.
  */
 export async function publishGradeAction(weekNumber?: number): Promise<ActionResult<{ publishedCount: number }>> {
