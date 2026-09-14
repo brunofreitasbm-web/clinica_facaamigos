@@ -13,6 +13,13 @@
 -- 20260904000030_family_confirm_attendance.sql), porque a policy comum de
 -- UPDATE em appointments não restringe QUAIS colunas mudam — abrir a
 -- policy deixaria qualquer terapeuta reatribuir sala/horário também.
+--
+-- A agenda de sessões/terapias nasce do PTS (discipline_mix do plano
+-- aprovado, ver treatment_plans.discipline_mix e app/supervisao/planos/novo)
+-- — como a disciplina do slot NÃO muda na permuta, um paciente só pode
+-- entrar num slot cuja disciplina o PTS aprovado dele já prevê. Sem essa
+-- checagem, a permuta colocaria a criança numa terapia que o plano dela
+-- nem pede (ex.: slot de Fono recebendo um paciente cujo PTS só tem ABA).
 create function swap_appointment_patients(p_appointment_ids uuid[]) returns void
 language plpgsql security definer set search_path = public as $$
 declare
@@ -22,6 +29,10 @@ declare
   auths uuid[];
   provisionals boolean[];
   statuses text[];
+  disciplines text[];
+  new_patient uuid;
+  new_discipline text;
+  has_matching_pts boolean;
   i int;
   prev int;
 begin
@@ -42,7 +53,7 @@ begin
   -- num CTE à parte e só agrega (com ORDER BY explícito, já que array_agg
   -- sem ele não garante ordem) na consulta de fora.
   with locked as (
-    select a.id, a.patient_id, a.authorization_id, a.is_provisional, a.status, t.ord
+    select a.id, a.patient_id, a.authorization_id, a.is_provisional, a.status, a.discipline, t.ord
     from unnest(p_appointment_ids) with ordinality as t(id, ord)
     join appointments a on a.id = t.id
     join patients pt on pt.id = a.patient_id and pt.clinic_id = current_clinic_id()
@@ -50,8 +61,8 @@ begin
   )
   select array_agg(id order by ord), array_agg(patient_id order by ord),
          array_agg(authorization_id order by ord), array_agg(is_provisional order by ord),
-         array_agg(status order by ord)
-    into ids, pats, auths, provisionals, statuses
+         array_agg(status order by ord), array_agg(discipline order by ord)
+    into ids, pats, auths, provisionals, statuses, disciplines
   from locked;
 
   if coalesce(array_length(ids, 1), 0) <> n then
@@ -71,6 +82,26 @@ begin
   if exists (select 1 from nps_surveys where appointment_id = any(ids)) then
     raise exception 'Uma dessas sessões já tem pesquisa de satisfação vinculada — não é possível permutar.';
   end if;
+
+  -- Cada paciente que vai OCUPAR um slot precisa ter, no PTS aprovado dele,
+  -- a disciplina daquele slot — a disciplina do slot não muda na permuta,
+  -- só quem senta nela.
+  for i in 1..n loop
+    prev := ((i - 2 + n) % n) + 1;
+    new_patient := pats[prev];
+    new_discipline := disciplines[i];
+
+    select exists (
+      select 1 from treatment_plans tp
+      where tp.patient_id = new_patient
+        and tp.status = 'aprovado'
+        and tp.discipline_mix ? new_discipline
+    ) into has_matching_pts;
+
+    if not has_matching_pts then
+      raise exception 'O PTS aprovado de um dos pacientes não prevê a disciplina "%" — permuta bloqueada.', new_discipline;
+    end if;
+  end loop;
 
   for i in 1..n loop
     prev := ((i - 2 + n) % n) + 1;

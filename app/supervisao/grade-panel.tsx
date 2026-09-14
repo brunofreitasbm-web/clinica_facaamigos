@@ -449,8 +449,10 @@ export function GradePanel({
             <div className="font-bold text-ink">Modo Edição — permuta manual de pacientes</div>
             <p className="m-0 mt-0.5 text-ink-soft">
               Selecione 2 ou 3 sessões (agendadas/confirmadas) pra trocar os pacientes entre elas, cruzadamente —
-              terapeuta, sala e horário de cada sessão continuam os mesmos. Use só em exceções (ex.: reorganização de
-              horários na revisão de PTS de 6 meses).
+              terapeuta, sala e horário de cada sessão continuam os mesmos. A permuta só é aceita se o PTS aprovado de
+              cada paciente já previr a disciplina da sessão que ele vai ocupar (a agenda nasce do PTS, não o
+              contrário). Os responsáveis são avisados automaticamente no mural e por e-mail. Use só em exceções (ex.:
+              reorganização de horários na revisão de PTS de 6 meses).
               {swapSelection.length > 0 && (
                 <span className="ml-1 font-semibold text-ink">{swapSelection.length} de 3 selecionadas.</span>
               )}
