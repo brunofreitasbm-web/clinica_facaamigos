@@ -41,6 +41,11 @@ export const DOCUMENT_CATEGORIES = [
   // /at (20260913040000_at_therapeutic_followup.sql) — nunca aparece no
   // seletor de upload da recepção, só é atribuído pela geração de PDF.
   { value: "relatorio_at_escola", label: "Relatório de AT para a escola" },
+  // TCLE (lib/tcle.ts) — hoje impresso e assinado em papel; ao virar um
+  // registro em `documents`, passa a poder ser enviado para assinatura
+  // eletrônica em /assinar/[documentId], junto com termo_lgpd e
+  // termo_imagem (20260914040000_documents_tcle_category.sql).
+  { value: "tcle", label: "TCLE — Termo de Consentimento Livre e Esclarecido" },
 ] as const;
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]["value"];
