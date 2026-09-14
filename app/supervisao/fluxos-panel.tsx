@@ -63,7 +63,10 @@ export type FlowCounters = {
 type Tool =
   | { label: string; href: string; icon: ReactNode; primary?: boolean; needsPatient?: false }
   | { label: string; hrefFor: (patientId: string) => string; icon: ReactNode; primary?: boolean; needsPatient: true }
-  | { label: string; tab: "grade" | "planos" | "inbox"; icon: ReactNode; primary?: boolean; needsPatient?: false };
+  | { label: string; tab: "planos" | "inbox"; icon: ReactNode; primary?: boolean; needsPatient?: false }
+  // "Grade" não é mais uma aba (14/09/2026) — atalhos que levavam pra lá
+  // agora abrem o mesmo conteúdo pelo overlay "Agenda Manual".
+  | { label: string; openManualSchedule: true; icon: ReactNode; primary?: boolean; needsPatient?: false };
 
 type Step = { title: string; detail: string; tools?: Tool[] };
 
@@ -105,7 +108,7 @@ const FLOWS: Flow[] = [
       { label: "Agenda do dia", href: "/recepcao", icon: icon(<CalendarDays />), primary: true },
       { label: "Nova sessão", href: "/recepcao#nova-sessao", icon: icon(<CalendarPlus />) },
       { label: "Agenda semanal", href: "/recepcao/agenda", icon: icon(<CalendarDays />) },
-      { label: "Grade da semana", tab: "grade", icon: icon(<LayoutGrid />) },
+      { label: "Grade da semana", openManualSchedule: true, icon: icon(<LayoutGrid />) },
       { label: "Salas e recursos", href: "/supervisao/recursos", icon: icon(<LayoutGrid />) },
       { label: "Ficha do paciente", hrefFor: (id) => `/recepcao/pacientes/${id}`, icon: icon(<Users />), needsPatient: true },
     ],
@@ -118,7 +121,7 @@ const FLOWS: Flow[] = [
       {
         title: "Encontrar vaga na grade",
         detail: "Use a grade semanal para ver terapeuta e sala livres no mesmo horário. Prefira manter o mesmo terapeuta de referência.",
-        tools: [{ label: "Grade da semana", tab: "grade", icon: icon(<LayoutGrid />) }],
+        tools: [{ label: "Grade da semana", openManualSchedule: true, icon: icon(<LayoutGrid />) }],
       },
       {
         title: "Criar a sessão (ou a recorrência semanal)",
@@ -133,7 +136,7 @@ const FLOWS: Flow[] = [
       {
         title: "Acompanhar realização e evolução em 24h",
         detail: "Sessão realizada sem evolução em 24h entra na fila da supervisão. Cobre o terapeuta a partir da grade.",
-        tools: [{ label: "Evoluções pendentes", tab: "grade", icon: icon(<ClipboardList />) }],
+        tools: [{ label: "Evoluções pendentes", openManualSchedule: true, icon: icon(<ClipboardList />) }],
       },
     ],
   },
@@ -253,7 +256,7 @@ const FLOWS: Flow[] = [
       { label: "Montar PTS", hrefFor: (id) => `/supervisao/planos/novo?paciente=${id}`, icon: icon(<Target />), needsPatient: true, primary: true },
       { label: "Montar PTS (escolher paciente)", href: "/supervisao/planos/novo", icon: icon(<Target />) },
       { label: "Fila de aprovação", tab: "planos", icon: icon(<ClipboardList />) },
-      { label: "PTS atrasados", tab: "grade", icon: icon(<ClipboardList />) },
+      { label: "PTS atrasados", openManualSchedule: true, icon: icon(<ClipboardList />) },
       { label: "Relatórios para validar", tab: "inbox", icon: icon(<Inbox />) },
       { label: "Relatório devolutivo", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio`, icon: icon(<FileText />), needsPatient: true },
       { label: "Relatório para convênio", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio-convenio`, icon: icon(<FileText />), needsPatient: true },
@@ -382,10 +385,19 @@ function DisabledHint({ id, message, children }: { id: string; message: string; 
 }
 
 function ToolButton({ tool, patientId, compact }: { tool: Tool; patientId: string | null; compact?: boolean }) {
-  const { setTab } = useSupervisaoTab();
+  const { setTab, setManualScheduleOpen } = useSupervisaoTab();
   const cls = `btn ${tool.primary ? "btn-primary" : "btn-secondary"} ${compact ? "text-xs" : "text-sm"}`;
   const style = compact ? { padding: "3px 10px" } : { padding: "6px 14px" };
   const tooltipId = useId();
+
+  if ("openManualSchedule" in tool) {
+    return (
+      <button type="button" className={cls} style={style} onClick={() => setManualScheduleOpen(true)}>
+        {tool.icon}
+        {tool.label}
+      </button>
+    );
+  }
 
   if ("tab" in tool) {
     return (

@@ -9,7 +9,7 @@ export type { SupervisaoTabKey };
 export { useSupervisaoTab };
 
 /**
- * Troca de conteúdo entre as 5 abas de dados de /supervisao. O cabeçalho
+ * Troca de conteúdo entre as 4 abas de dados de /supervisao. O cabeçalho
  * (antes renderizado aqui dentro) agora vive em app/supervisao/layout.tsx —
  * ver components/supervisao-header.tsx. Este componente só entrega o
  * conteúdo da aba ativa e sincroniza as contagens (badges do cabeçalho) com
@@ -59,13 +59,9 @@ export function SupervisaoShell({
 
   return (
     <PageContainer>
-      {/* Enquanto a Agenda Manual está aberta, as abas normais ficam fora do
-       * DOM — o gradeTab reaparece dentro do overlay abaixo, e montar as
-       * duas cópias ao mesmo tempo faria os rádios "Por terapeuta/Por sala"
-       * de cada instância (mesmo atributo `name`) brigarem pelo estado
-       * marcado, já que agrupamento nativo de radio é por documento, não
-       * por árvore React. */}
-      {!manualScheduleOpen && tab === "grade" ? <div key="tab-grade">{gradeTab}</div> : null}
+      {/* "Grade" não é mais uma aba (14/09/2026) — gradeTab só aparece dentro
+       * do overlay "Agenda Manual" abaixo, que é agora o único ponto de
+       * entrada pra grade semanal completa. */}
       {!manualScheduleOpen && tab === "agenda1a" ? <div key="tab-agenda1a">{agenda1aTab}</div> : null}
       {!manualScheduleOpen && tab === "fluxos" ? <div key="tab-fluxos">{fluxosTab}</div> : null}
       {!manualScheduleOpen && tab === "planos" ? <div key="tab-planos">{planosTab}</div> : null}

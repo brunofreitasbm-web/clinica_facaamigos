@@ -26,8 +26,13 @@ import { createContext, useContext, useState, type ReactNode } from "react";
  * 2. A aba selecionada sobreviver a uma ida-e-volta pra outra rota do
  *    módulo (antes resetava sempre pra "grade", porque o estado vivia
  *    dentro da própria page.tsx raiz, que desmontava ao navegar).
+ *
+ * "Grade" deixou de ser uma aba (14/09/2026) — virou redundante assim que
+ * o botão "Agenda Manual" do cabeçalho passou a abrir o mesmo conteúdo em
+ * tela cheia (ver manualScheduleOpen abaixo). Agora esse é o único ponto de
+ * entrada pra grade semanal completa.
  */
-export type SupervisaoTabKey = "grade" | "agenda1a" | "fluxos" | "planos" | "inbox";
+export type SupervisaoTabKey = "agenda1a" | "fluxos" | "planos" | "inbox";
 
 type Counts = Partial<Record<SupervisaoTabKey, number>>;
 /** Abas com pendência que precisa de olhos AGORA (ex.: laudo aguardando validação do supervisor) ganham o badge piscante em vez do pill neutro. */
@@ -50,7 +55,7 @@ type Ctx = {
 };
 
 const SupervisaoTabContext = createContext<Ctx>({
-  tab: "grade",
+  tab: "agenda1a",
   setTab: () => {},
   counts: {},
   setCounts: () => {},
@@ -66,7 +71,7 @@ export function useSupervisaoTab() {
 }
 
 export function SupervisaoTabProvider({ children }: { children: ReactNode }) {
-  const [tab, setTab] = useState<SupervisaoTabKey>("grade");
+  const [tab, setTab] = useState<SupervisaoTabKey>("agenda1a");
   const [counts, setCounts] = useState<Counts>({});
   const [urgent, setUrgent] = useState<UrgentFlags>({});
   const [manualScheduleOpen, setManualScheduleOpen] = useState(false);
