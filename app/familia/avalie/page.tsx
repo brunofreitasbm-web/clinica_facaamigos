@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { BackButton } from "@/components/back-button";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { AvalieForm } from "./avalie-form";
 
@@ -61,9 +62,12 @@ export default async function AvaliePage({
           gap: 8,
         }}
       >
-        <Link href={`/familia?patient=${patient.id}`} style={{ color: "var(--color-accent-2)", fontSize: 13, textDecoration: "none" }}>
+        <BackButton
+          fallbackHref={`/familia?patient=${patient.id}`}
+          style={{ color: "var(--color-accent-2)", fontSize: 13, textDecoration: "none" }}
+        >
           ← Voltar
-        </Link>
+        </BackButton>
         <span style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 20 }}>Avalie</span>
         <span style={{ fontSize: 13, opacity: 0.8 }}>{patient.full_name}</span>
       </header>

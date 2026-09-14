@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { BackButton } from "@/components/back-button";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { StageChecklist } from "@/components/stage-checklist";
@@ -444,12 +444,12 @@ export default async function PacientePage({
     <main className="flex flex-1 flex-col">
       <PageContainer>
         <div className="mb-2">
-          <Link
-            href="/recepcao/pacientes"
+          <BackButton
+            fallbackHref="/recepcao/pacientes"
             className="text-[13px] font-semibold no-underline text-accent hover:underline"
           >
-            ← Voltar para Pacientes
-          </Link>
+            ← Voltar
+          </BackButton>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">

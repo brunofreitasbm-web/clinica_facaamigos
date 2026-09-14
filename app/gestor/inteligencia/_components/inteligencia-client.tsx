@@ -404,76 +404,78 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             </div>
           </div>
 
-          {/* Mapa de Calor Dia × Hora — versão compacta e otimizada */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-900 text-sm">🗓️ Mapa de Calor · Ocupação por Dia e Hora</span>
-                {metrics.weekHourHeatmap.idleWindows.length > 0 && (
-                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 border border-amber-200/60">
-                    Encaixe: {metrics.weekHourHeatmap.idleWindows.map((w) => w.label).join(", ")}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium">
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-xs bg-indigo-100 border border-indigo-200" /> Baixo
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-xs bg-indigo-600" /> Pico
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-xs bg-amber-50 ring-1 ring-amber-400" /> Ocioso
-                </span>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <div
-                className="grid gap-1 max-w-4xl min-w-[500px]"
-                style={{ gridTemplateColumns: `48px repeat(${metrics.weekHourHeatmap.hours.length}, minmax(0,1fr))` }}
-              >
-                <div />
-                {metrics.weekHourHeatmap.hours.map((h) => (
-                  <div key={h} className="text-center text-[10px] font-semibold text-slate-400">
-                    {h}h
-                  </div>
-                ))}
-                {metrics.weekHourHeatmap.dayLabels.map((day) => (
-                  <Fragment key={day.dow}>
-                    <div className="flex items-center text-[11px] font-semibold text-slate-600">
-                      {day.label}
-                    </div>
-                    {metrics.weekHourHeatmap.cells
-                      .filter((c) => c.dow === day.dow)
-                      .map((cell) => (
-                        <div
-                          key={`${cell.dow}-${cell.hour}`}
-                          title={`${day.label} ${String(cell.hour).padStart(2, "0")}h: ${cell.count} sessão(ões)`}
-                          className={`h-5.5 rounded-xs flex items-center justify-center text-[9px] font-bold transition-all hover:scale-110 hover:z-10 cursor-pointer ${
-                            cell.isIdle ? "ring-1 ring-amber-400 bg-amber-50/50" : ""
-                          }`}
-                          style={{
-                            backgroundColor: cell.isIdle
-                              ? undefined
-                              : `rgba(79,70,229,${(0.1 + 0.82 * cell.intensity).toFixed(2)})`,
-                            color: cell.intensity > 0.5 ? "#ffffff" : "#312e81",
-                          }}
-                        >
-                          {cell.count > 0 ? cell.count : ""}
-                        </div>
-                      ))}
-                  </Fragment>
-                ))}
-              </div>
-            </div>
-            <p className="mt-2 text-[10px] text-slate-400">
-              Cor mais forte = maior volume de sessões; borda âmbar = horário sem sessões (oportunidade de encaixe).
-            </p>
-          </div>
-
-          {/* Linha 3: Inteligência de Convênios & Planos de Saúde */}
+          {/* Linha 3: Mapa de Calor + Pacientes por Plano de Saúde */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Mapa de Calor Dia × Hora — versão ultra compacta em 2 colunas */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900 text-sm">🗓️ Mapa de Calor · Ocupação</span>
+                    {metrics.weekHourHeatmap.idleWindows.length > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-semibold text-amber-800 border border-amber-200/60">
+                        Encaixes: {metrics.weekHourHeatmap.idleWindows.map((w) => w.label).join(", ")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
+                    <span className="flex items-center gap-0.5">
+                      <span className="h-2 w-2 rounded-xs bg-indigo-100 border border-indigo-200" /> Baixo
+                    </span>
+                    <span className="flex items-center gap-0.5">
+                      <span className="h-2 w-2 rounded-xs bg-indigo-600" /> Pico
+                    </span>
+                    <span className="flex items-center gap-0.5">
+                      <span className="h-2 w-2 rounded-xs bg-amber-50 ring-1 ring-amber-400" /> Ocioso
+                    </span>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <div
+                    className="grid gap-1 min-w-[360px]"
+                    style={{ gridTemplateColumns: `36px repeat(${metrics.weekHourHeatmap.hours.length}, minmax(0,1fr))` }}
+                  >
+                    <div />
+                    {metrics.weekHourHeatmap.hours.map((h) => (
+                      <div key={h} className="text-center text-[9px] font-semibold text-slate-400">
+                        {h}h
+                      </div>
+                    ))}
+                    {metrics.weekHourHeatmap.dayLabels.map((day) => (
+                      <Fragment key={day.dow}>
+                        <div className="flex items-center text-[10px] font-semibold text-slate-600">
+                          {day.label}
+                        </div>
+                        {metrics.weekHourHeatmap.cells
+                          .filter((c) => c.dow === day.dow)
+                          .map((cell) => (
+                            <div
+                              key={`${cell.dow}-${cell.hour}`}
+                              title={`${day.label} ${String(cell.hour).padStart(2, "0")}h: ${cell.count} sessão(ões)`}
+                              className={`h-5 rounded-xs flex items-center justify-center text-[9px] font-bold transition-all hover:scale-110 hover:z-10 cursor-pointer ${
+                                cell.isIdle ? "ring-1 ring-amber-400 bg-amber-50/50" : ""
+                              }`}
+                              style={{
+                                backgroundColor: cell.isIdle
+                                  ? undefined
+                                  : `rgba(79,70,229,${(0.1 + 0.82 * cell.intensity).toFixed(2)})`,
+                                color: cell.intensity > 0.5 ? "#ffffff" : "#312e81",
+                              }}
+                            >
+                              {cell.count > 0 ? cell.count : ""}
+                            </div>
+                          ))}
+                      </Fragment>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-400">
+                Cor mais forte = maior volume de sessões; borda âmbar = sem sessões no horário.
+              </p>
+            </div>
+
             {/* QUADRO 4: Pacientes por Plano de Saúde / Convênio */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600 mb-3">
@@ -498,7 +500,10 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 ))}
               </div>
             </div>
+          </div>
 
+          {/* Linha 4: Faturamento por Convênio + Atendimento por Status */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* QUADRO 5: Plano de Saúde por Faturamento + Concentração */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600 mb-3">

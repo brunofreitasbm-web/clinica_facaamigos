@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { BackButton } from "@/components/back-button";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
@@ -242,9 +243,9 @@ export default async function EvolucaoPage({
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
         className="flex flex-col gap-2.5 px-5 pb-4 pt-7 sm:px-10"
       >
-        <Link href={readOnlyBackHref} className="text-[13px] no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
+        <BackButton fallbackHref={readOnlyBackHref} className="text-[13px] no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
           ← {agendaBackHref ? "Voltar para a agenda" : `Prontuário de ${patientName.split(" ")[0]}`}
-        </Link>
+        </BackButton>
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-md bg-white/20 px-2 py-0.5 text-sm font-bold text-white uppercase tracking-wider">

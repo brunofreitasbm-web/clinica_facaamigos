@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
+import { BackButton } from "@/components/back-button";
 
 /**
  * Error boundary local da ficha do paciente. Sem isso, qualquer falha aqui
@@ -41,9 +41,9 @@ export default function PatientPageError({
           <button type="button" onClick={() => reset()} className="btn btn-primary">
             Tentar novamente
           </button>
-          <Link href="/recepcao/pacientes" className="btn btn-ghost">
-            ← Voltar para pacientes
-          </Link>
+          <BackButton fallbackHref="/recepcao/pacientes" className="btn btn-ghost">
+            ← Voltar
+          </BackButton>
         </div>
       </div>
     </main>

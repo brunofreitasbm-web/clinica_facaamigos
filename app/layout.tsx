@@ -35,6 +35,7 @@ export const viewport: Viewport = {
 
 import { ToastProvider } from "@/components/toast-provider";
 import { RouteProgressBar } from "@/components/route-progress-bar";
+import { NavHistoryTracker } from "@/components/nav-history-tracker";
 import { Suspense } from "react";
 
 export default function RootLayout({
@@ -48,6 +49,9 @@ export default function RootLayout({
     >
       <body className="h-full flex flex-col" suppressHydrationWarning>
         <ToastProvider>
+          <Suspense fallback={null}>
+            <NavHistoryTracker />
+          </Suspense>
           <Suspense fallback={null}>
             <RouteProgressBar />
           </Suspense>
