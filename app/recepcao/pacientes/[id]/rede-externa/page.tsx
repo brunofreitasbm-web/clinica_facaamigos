@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { logRecordAccess } from "@/lib/record-access-log";
@@ -56,9 +56,9 @@ export default async function RedeExternaPage({ params }: { params: Promise<{ id
             <h1 className="m-0">Rede Externa</h1>
           </div>
           <div className="flex gap-3">
-            <Link href={`/recepcao/pacientes/${patient.id}`} className="btn btn-secondary">
+            <BackButton fallbackHref={`/recepcao/pacientes/${patient.id}`} className="btn btn-secondary">
               Voltar ao prontuário
-            </Link>
+            </BackButton>
             <NewContactDialog patientId={patient.id} />
           </div>
         </div>

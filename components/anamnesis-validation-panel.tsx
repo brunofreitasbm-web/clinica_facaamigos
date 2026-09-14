@@ -8,7 +8,6 @@ import {
   Clock,
   ExternalLink,
   User,
-  Phone,
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
@@ -16,14 +15,12 @@ import {
   getPendingAnamnesisRequestsAction,
   approveAnamnesisDocumentAction,
   rejectAnamnesisDocumentAction,
-  createMockWhatsAppAnamnesisRequestAction,
   type AnamnesisRequestItem,
 } from "@/app/actions/anamnesis-chatbot";
 
 export function AnamnesisValidationPanel() {
   const [requests, setRequests] = useState<AnamnesisRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creatingMock, setCreatingMock] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -35,26 +32,6 @@ export function AnamnesisValidationPanel() {
       setRequests(res.requests);
     }
     setLoading(false);
-  };
-
-  const handleCreateMock = async () => {
-    setCreatingMock(true);
-    setFeedback(null);
-    const res = await createMockWhatsAppAnamnesisRequestAction();
-    setCreatingMock(false);
-
-    if (res.success) {
-      setFeedback({
-        type: "success",
-        text: "Paciente fictício 'Lucas Gabriel Santana' adicionado à fila com dados do WhatsApp!",
-      });
-      fetchRequests();
-    } else {
-      setFeedback({
-        type: "error",
-        text: res.error || "Erro ao criar paciente fictício.",
-      });
-    }
   };
 
   useEffect(() => {
@@ -117,15 +94,6 @@ export function AnamnesisValidationPanel() {
           Valide laudos e guias recebidos via robô de WhatsApp para liberar horários de agendamento.
         </p>
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={handleCreateMock}
-            disabled={creatingMock || loading}
-            className="btn btn-primary text-xs py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            <Phone className="h-3.5 w-3.5" />
-            {creatingMock ? "Criando..." : "+ Gerar Paciente WhatsApp (Teste)"}
-          </button>
           <button
             type="button"
             onClick={fetchRequests}

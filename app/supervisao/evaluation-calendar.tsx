@@ -15,6 +15,7 @@ import {
   type TherapistAvailabilityBlock,
 } from "./evaluation-calendar-actions";
 import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationPoolItem } from "@/lib/evaluation-agenda";
+import { AnamnesisDocumentPopover } from "@/components/anamnesis-document-popover";
 
 /**
  * Calendário semanal de 1ª avaliação — visão única, independente de onde o
@@ -33,6 +34,7 @@ const ORIGIN_LABEL: Record<EvaluationAgendaOrigin, string> = {
   convenio_pdf: "PDF de convênio",
   presencial: "Presencial",
   family_meeting: "Reunião · Responsável",
+  patient_feedback: "Devolutiva do paciente",
 };
 
 const ORIGIN_TAG: Record<EvaluationAgendaOrigin, string> = {
@@ -40,6 +42,7 @@ const ORIGIN_TAG: Record<EvaluationAgendaOrigin, string> = {
   convenio_pdf: "st-confirmada",
   presencial: "st-realizada",
   family_meeting: "st-em-atendimento",
+  patient_feedback: "st-cancelada",
 };
 
 const WEEKDAY_LABEL = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
@@ -145,6 +148,7 @@ export function EvaluationCalendar({
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TherapistAvailabilityBlock[]>([]);
+  const [openDocPopoverId, setOpenDocPopoverId] = useState<string | null>(null);
 
   const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
   const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
@@ -373,13 +377,42 @@ export function EvaluationCalendar({
                 <p className="mt-1 text-[11px] text-ink-faint">{item.detail}</p>
               </div>
             ))}
-            {waitingPool.map((item) => (
-              <div key={item.id} className="rounded-md border border-dashed border-paper-line-strong bg-paper p-2.5 opacity-70">
-                <p className="text-xs font-semibold text-ink-soft">{item.patientName}</p>
-                <span className={`tag-status mt-1 inline-block ${ORIGIN_TAG[item.origin]}`}>{ORIGIN_LABEL[item.origin]}</span>
-                <p className="mt-1 text-[11px] text-ink-faint">{item.statusLabel} — aprove antes de agendar.</p>
-              </div>
-            ))}
+            {waitingPool.map((item) => {
+              const anamnesisRequestId = item.bookInput.origin === "whatsapp_anamnese" ? item.bookInput.requestId : null;
+              return (
+                <div key={item.id} className="relative rounded-md border border-dashed border-paper-line-strong bg-paper p-2.5">
+                  <div className="opacity-70">
+                    {anamnesisRequestId ? (
+                      <button
+                        type="button"
+                        onClick={() => setOpenDocPopoverId((id) => (id === item.id ? null : item.id))}
+                        className="text-xs font-semibold text-ink-soft underline decoration-dotted underline-offset-2 hover:text-ink"
+                        title="Ver e validar documentos"
+                      >
+                        {item.patientName}
+                      </button>
+                    ) : (
+                      <p className="text-xs font-semibold text-ink-soft">{item.patientName}</p>
+                    )}
+                    <span className={`tag-status mt-1 inline-block ${ORIGIN_TAG[item.origin]}`}>{ORIGIN_LABEL[item.origin]}</span>
+                    <p className="mt-1 text-[11px] text-ink-faint">{item.statusLabel} — aprove antes de agendar.</p>
+                  </div>
+                  {anamnesisRequestId && openDocPopoverId === item.id && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setOpenDocPopoverId(null)} />
+                      <AnamnesisDocumentPopover
+                        requestId={anamnesisRequestId}
+                        onClose={() => setOpenDocPopoverId(null)}
+                        onResolved={() => {
+                          setOpenDocPopoverId(null);
+                          fetchPool();
+                        }}
+                      />
+                    </>
+                  )}
+                </div>
+              );
+            })}
             {pool.length === 0 && <p className="text-xs text-ink-faint">Nenhum paciente aguardando 1ª avaliação.</p>}
           </div>
         </aside>

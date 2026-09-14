@@ -37,6 +37,10 @@ export const DOCUMENT_CATEGORIES = [
   // (20260908210000_family_share_document_category.sql) — sempre
   // shared_with_family=true, nunca aparece no seletor de upload da recepção.
   { value: "compartilhamento_familia", label: "Compartilhamento com a família" },
+  // Relatório de Acompanhamento Terapêutico (AT) para a escola, gerado em
+  // /at (20260913040000_at_therapeutic_followup.sql) — nunca aparece no
+  // seletor de upload da recepção, só é atribuído pela geração de PDF.
+  { value: "relatorio_at_escola", label: "Relatório de AT para a escola" },
   // TCLE (lib/tcle.ts) — hoje impresso e assinado em papel; ao virar um
   // registro em `documents`, passa a poder ser enviado para assinatura
   // eletrônica em /assinar/[documentId], junto com termo_lgpd e

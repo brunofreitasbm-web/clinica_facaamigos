@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { BackButton } from "@/components/back-button";
 import { PayoutStatementModal } from "@/components/payout-statement";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getMyContract, getMyPayoutHistory, getMyPayoutStatement } from "./data";
@@ -64,12 +65,12 @@ export default async function TerapeutaRepassePage() {
               Consulte seus extratos de Módulos Assistenciais entregues e faixa de honorário contratual.
             </p>
           </div>
-          <Link
-            href="/terapeuta"
+          <BackButton
+            fallbackHref="/terapeuta"
             className="rounded-md border border-paper-line-strong bg-paper px-4 py-2 text-base font-medium text-ink hover:bg-paper-subtle"
           >
-            Voltar para Agenda
-          </Link>
+            Voltar
+          </BackButton>
         </div>
 
         <div className="rounded-xl border border-paper-line bg-paper p-6 shadow-sm space-y-6">

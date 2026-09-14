@@ -158,6 +158,9 @@ export async function updatePatientBasics(patientId: string, formData: FormData)
   const complaint = String(formData.get("complaint") ?? "").trim();
   const cid = String(formData.get("cid") ?? "").trim();
   const supportLevel = String(formData.get("support_level") ?? "").trim();
+  const medication = String(formData.get("medication") ?? "").trim();
+  const allergies = String(formData.get("allergies") ?? "").trim();
+  const comorbidities = String(formData.get("comorbidities") ?? "").trim();
   const entrySource = String(formData.get("entry_source") ?? "").trim();
 
   if (!fullName || !birthDate) {
@@ -174,6 +177,9 @@ export async function updatePatientBasics(patientId: string, formData: FormData)
       complaint: complaint || null,
       cid: cid || null,
       support_level: supportLevel || null,
+      medication: medication || null,
+      allergies: allergies || null,
+      comorbidities: comorbidities || null,
       entry_source: entrySource || null,
     })
     .eq("id", patientId);
@@ -323,6 +329,71 @@ export async function createIntakeFormLink(
   // lib/print-coupon.ts usa para absolutizar o logo do cupom.
   revalidatePatient(patientId);
   return { success: true, path: `/ficha/${data.token}` };
+}
+
+// ---------------------------------------------------------------------------
+// Convites de agenda (Google Calendar) para responsáveis
+// ---------------------------------------------------------------------------
+
+export async function updateGuardianEmail(
+  patientId: string,
+  guardianId: string,
+  email: string,
+): Promise<ActionResult> {
+  const trimmed = email.trim();
+  if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return { success: false, error: "E-mail inválido." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("guardians")
+    .update({ email: trimmed || null })
+    .eq("id", guardianId)
+    .eq("patient_id", patientId);
+
+  if (error) return { success: false, error: "Não foi possível salvar o e-mail." };
+
+  revalidatePatient(patientId);
+  return { success: true };
+}
+
+/**
+ * O opt-in liga o envio de convite de agenda (supabase/functions/
+ * sync-google-calendar) a cada atendimento do paciente — verifica o e-mail
+ * no servidor (não só na UI) porque sem endereço não há pra onde mandar o
+ * convite.
+ */
+export async function updateGuardianCalendarOptIn(
+  patientId: string,
+  guardianId: string,
+  optIn: boolean,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  if (optIn) {
+    const { data: guardian } = await supabase
+      .from("guardians")
+      .select("email")
+      .eq("id", guardianId)
+      .eq("patient_id", patientId)
+      .maybeSingle();
+
+    if (!guardian?.email) {
+      return { success: false, error: "Cadastre um e-mail para este responsável antes de ativar o convite." };
+    }
+  }
+
+  const { error } = await supabase
+    .from("guardians")
+    .update({ google_calendar_opt_in: optIn })
+    .eq("id", guardianId)
+    .eq("patient_id", patientId);
+
+  if (error) return { success: false, error: "Não foi possível atualizar a preferência de convite." };
+
+  revalidatePatient(patientId);
+  return { success: true };
 }
 
 export async function revokeIntakeFormLink(

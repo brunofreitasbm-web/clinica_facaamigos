@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { BackButton } from "@/components/back-button";
 import { useOffline } from "next/offline";
 import { createSessionNote, setSignaturePin } from "../actions";
 import {
@@ -430,9 +431,9 @@ export function EvolutionForm({
         className="flex flex-col gap-2.5 px-5 pb-4 pt-7 sm:px-10"
       >
         <div className="flex items-center justify-between text-[13px]">
-          <Link href={backHref ?? `/terapeuta/paciente/${patientId}`} className="no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
+          <BackButton fallbackHref={backHref ?? `/terapeuta/paciente/${patientId}`} className="no-underline opacity-90 hover:opacity-100 transition font-medium" style={{ color: "inherit" }}>
             ← Prontuário de {patientName.split(" ")[0]}
-          </Link>
+          </BackButton>
           {!signed && (
             <div className="flex items-center gap-3 text-sm opacity-90" role="status" aria-live="polite">
               <span className={`inline-flex items-center gap-1.5 ${isOffline ? "text-amber-300" : "text-emerald-300"}`}>

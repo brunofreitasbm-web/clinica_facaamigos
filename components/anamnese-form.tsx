@@ -17,6 +17,11 @@ export function AnamneseForm({
   patientId,
   returnHref,
   tcleHref,
+  defaultCid,
+  defaultSupportLevel,
+  defaultMedication,
+  defaultAllergies,
+  defaultComorbidities,
 }: {
   patientId: string;
   returnHref: string;
@@ -27,6 +32,16 @@ export function AnamneseForm({
    * sala. `returnHref` continua sendo o caminho de volta do TCLE.
    */
   tcleHref: string;
+  /**
+   * Pré-preenchidos com o que já está em `patients` — a recepção às vezes já
+   * coletou CID/medicação/alergia no acolhimento, e o avaliador só confirma
+   * ou completa na 1ª avaliação em vez de redigitar do zero.
+   */
+  defaultCid?: string;
+  defaultSupportLevel?: string;
+  defaultMedication?: string;
+  defaultAllergies?: string;
+  defaultComorbidities?: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +61,32 @@ export function AnamneseForm({
 
   return (
     <form action={handleSubmit} className="flex max-w-3xl flex-col gap-6">
+      {/* Seção: Diagnóstico e Dados Clínicos */}
+      <fieldset className={sectionClass}>
+        <legend className="text-xs font-medium uppercase tracking-wide text-ink-soft">Diagnóstico e Dados Clínicos</legend>
+        <div className="mt-4 flex flex-col gap-4">
+          <div className="flex flex-wrap gap-4">
+            <div className="w-32">
+              <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">CID</label>
+              <input name="cid" defaultValue={defaultCid ?? ""} className={inputClass} />
+            </div>
+            <div className="w-40">
+              <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Nível de suporte</label>
+              <input
+                name="support_level"
+                defaultValue={defaultSupportLevel ?? ""}
+                placeholder="1, 2 ou 3"
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Comorbidades</label>
+            <textarea name="comorbidities" rows={2} defaultValue={defaultComorbidities ?? ""} className={inputClass} />
+          </div>
+        </div>
+      </fieldset>
+
       {/* Seção: Queixa e História Atual */}
       <fieldset className={sectionClass}>
         <legend className="text-xs font-medium uppercase tracking-wide text-ink-soft">Queixa e História Atual</legend>
@@ -96,11 +137,11 @@ export function AnamneseForm({
         <div className="mt-4 flex flex-col gap-4">
           <div>
             <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Alergias e intolerâncias</label>
-            <input name="allergies" className={inputClass} />
+            <input name="allergies" defaultValue={defaultAllergies ?? ""} className={inputClass} />
           </div>
           <div>
             <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Medicações em uso</label>
-            <textarea name="medications" rows={2} className={inputClass} />
+            <textarea name="medications" rows={2} defaultValue={defaultMedication ?? ""} className={inputClass} />
           </div>
           <div>
             <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Cirurgias e hospitalizações</label>

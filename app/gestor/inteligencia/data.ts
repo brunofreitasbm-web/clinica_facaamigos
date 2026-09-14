@@ -1,7 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
+import { APPOINTMENT_STATUS_STYLE, GRID_EXCLUDED_STATUSES } from "@/lib/appointment-status-style";
 import { currentMonthRange } from "../data";
+import {
+  buildWeekHourHeatmap,
+  getOnboardingFunnel,
+  getTeamProductivity,
+  getPlrTrend,
+  buildInsurerConcentration,
+  type WeekHourHeatmap,
+  type OnboardingFunnel,
+  type TeamProductivity,
+  type PlrTrend,
+  type InsurerConcentration,
+} from "./data-quadros";
 
 type Supa = SupabaseClient<Database>;
 
@@ -145,6 +157,13 @@ export type InteligenciaMetrics = {
   internShortageAlerts: InternShortageAlert[];
   internCoverage: InternCoverageItem[];
   internCoverageOverallPct: number;
+
+  // Novos quadros
+  weekHourHeatmap: WeekHourHeatmap;
+  onboardingFunnel: OnboardingFunnel;
+  teamProductivity: TeamProductivity;
+  plrTrend: PlrTrend;
+  insurerConcentration: InsurerConcentration;
 };
 
 export type ClinicCapacityPeriodKey = "manha" | "tarde" | "dia" | "semana" | "mes";
@@ -240,7 +259,6 @@ export async function getInteligenciaMetrics(
     { data: profilesList },
     { data: roomsList },
     { data: roomAppointments },
-    { data: roomBillingItems },
     { data: clinicCapacityAppointments },
     { data: internCheckins },
     { data: specialtiesList },
@@ -255,7 +273,9 @@ export async function getInteligenciaMetrics(
     // Atendimentos no período
     supabase
       .from("appointments")
-      .select("id, status, starts_at, ends_at, checkin_at, patient_id, room_id, patients!inner(clinic_id)")
+      .select(
+        "id, status, starts_at, ends_at, checkin_at, patient_id, room_id, therapist_id, cancelled_at, patients!inner(clinic_id)"
+      )
       .eq("patients.clinic_id", clinicId)
       .gte("starts_at", startISO)
       .lt("starts_at", endISO),
@@ -283,11 +303,17 @@ export async function getInteligenciaMetrics(
       .eq("role", "terapeuta")
       .eq("active", true),
 
-    // Billing Items (Cobranças)
+    // Billing Items (Cobranças) do período — filtradas pela data da sessão
+    // (appointments.starts_at), mesma janela usada nos demais cards. Inclui
+    // o convênio via billing_periods.insurer_id (join real, não estimativa).
     supabase
       .from("billing_items")
-      .select("id, amount, status, paid_at, appointments!inner(room_id, starts_at, patients!inner(clinic_id))")
-      .eq("appointments.patients.clinic_id", clinicId),
+      .select(
+        "id, amount, status, paid_at, appointment_id, appointments!inner(room_id, starts_at, patients!inner(clinic_id)), billing_periods!inner(insurer_id, insurers(id, name))"
+      )
+      .eq("appointments.patients.clinic_id", clinicId)
+      .gte("appointments.starts_at", startISO)
+      .lt("appointments.starts_at", endISO),
 
     // Pacientes com Data de Nascimento e Criados
     supabase
@@ -313,24 +339,16 @@ export async function getInteligenciaMetrics(
       .from("appointments")
       .select("id, room_id, starts_at, ends_at, status, patients!inner(clinic_id)")
       .eq("patients.clinic_id", clinicId)
-      .neq("status", "cancelada")
+      .not("status", "in", `(${GRID_EXCLUDED_STATUSES.join(",")})`)
       .gte("starts_at", startISO)
       .lt("starts_at", endISO),
-
-    // Cobranças por Sala no período
-    supabase
-      .from("billing_items")
-      .select("id, amount, status, paid_at, appointments!inner(room_id, starts_at, patients!inner(clinic_id))")
-      .eq("appointments.patients.clinic_id", clinicId)
-      .gte("appointments.starts_at", startISO)
-      .lt("appointments.starts_at", endISO),
 
     // Atendimentos "ao vivo" para capacidade
     supabase
       .from("appointments")
       .select("id, room_id, starts_at, ends_at, status, patients!inner(clinic_id)")
       .eq("patients.clinic_id", clinicId)
-      .neq("status", "cancelada")
+      .not("status", "in", `(${GRID_EXCLUDED_STATUSES.join(",")})`)
       .gte("starts_at", capacityQueryStart.toISOString())
       .lt("starts_at", capacityQueryEnd.toISOString()),
 
@@ -353,7 +371,7 @@ export async function getInteligenciaMetrics(
       .from("appointments")
       .select("id, room_id, starts_at, ends_at, status, patient_id, patients!inner(clinic_id)")
       .eq("patients.clinic_id", clinicId)
-      .neq("status", "cancelada")
+      .not("status", "in", `(${GRID_EXCLUDED_STATUSES.join(",")})`)
       .lte("starts_at", now.toISOString())
       .gte("ends_at", now.toISOString()),
 
@@ -363,15 +381,20 @@ export async function getInteligenciaMetrics(
       .select("id, name")
       .eq("clinic_id", clinicId),
 
-    // Vínculo de convênios dos pacientes
+    // Vínculo de convênios dos pacientes ATIVOS da clínica (antes vazava
+    // entre clínicas por falta de filtro — corrigido aqui).
     supabase
       .from("patient_insurance")
-      .select("patient_id, insurer_id, is_private, insurers(id, name)"),
+      .select("patient_id, insurer_id, is_private, insurers(id, name), patients!inner(clinic_id, status)")
+      .eq("patients.clinic_id", clinicId)
+      .eq("patients.status", "ativo"),
 
-    // Todos os pacientes da clínica com status
+    // Todos os pacientes da clínica com status e marcos de estágio
+    // (created_at/first_contact_at/evaluated_at/first_session_at/entry_source)
+    // — usados no Funil de Onboarding e no card real de "via WhatsApp".
     supabase
       .from("patients")
-      .select("id, full_name, status, created_at")
+      .select("id, full_name, status, created_at, entry_source, first_contact_at, evaluated_at, first_session_at")
       .eq("clinic_id", clinicId),
 
     // Pré-cadastros extraídos pela IA e validados sem retrabalho manual (Horas Economizadas)
@@ -624,12 +647,19 @@ export async function getInteligenciaMetrics(
   const liveRooms = liveRoomsRaw.slice(0, 8);
 
   // QUADRO 3: Primeiros Agendamentos via WhatsApp
-  const totalFirst = Math.max(1, Math.round(totalAppointments * 0.22));
-  const whatsappCount = Math.round(totalFirst * 0.78);
+  // Cohort real: pacientes CADASTRADOS no período (patients.created_at),
+  // com origem de entrada via chatbot Twilio (entry_source) — antes era
+  // totalAppointments * 0.22 fixo, sem nenhuma leitura de dado real.
+  const WHATSAPP_ENTRY_SOURCES = new Set(["chatbot_whatsapp", "acolhimento_plano_saude"]);
+  const isWhatsAppEntry = (entrySource: string | null) =>
+    !!entrySource && (WHATSAPP_ENTRY_SOURCES.has(entrySource) || /whats|zap/i.test(entrySource));
+  const newPatientsCohort = allPats.filter((p) => p.created_at >= startISO && p.created_at < endISO);
+  const totalFirst = newPatientsCohort.length;
+  const whatsappCount = newPatientsCohort.filter((p) => isWhatsAppEntry(p.entry_source)).length;
   const whatsappStat: WhatsAppStatItem = {
     totalFirstAppointments: totalFirst,
     whatsappCount,
-    whatsappPct: Math.round((whatsappCount / totalFirst) * 100),
+    whatsappPct: totalFirst > 0 ? Math.round((whatsappCount / totalFirst) * 100) : 0,
   };
 
   // QUADRO 4: Pacientes por Plano de Saúde / Convênio
@@ -668,17 +698,18 @@ export async function getInteligenciaMetrics(
     }))
     .sort((a, b) => b.patientCount - a.patientCount);
 
-  // QUADRO 5: Plano de Saúde por Faturamento
+  // QUADRO 5: Plano de Saúde por Faturamento — join real via
+  // billing_items.billing_period_id -> billing_periods.insurer_id (antes
+  // a atribuição era aleatória por item.id.charCodeAt(0) % n).
   const insurerRevMap = new Map<string, { name: string; rev: number }>();
 
   for (const item of items) {
+    const bp = Array.isArray(item.billing_periods) ? item.billing_periods[0] : item.billing_periods;
+    if (!bp || item.status === "glosado") continue;
+    const insObj = Array.isArray(bp.insurers) ? bp.insurers[0] : bp.insurers;
+    const insId = bp.insurer_id;
+    const insName = insObj?.name ?? "Convênio";
     const val = Number(item.amount || 0);
-    const randomIns = insurersList && insurersList.length > 0
-      ? insurersList[Math.floor(Math.abs(item.id.charCodeAt(0) || 0) % insurersList.length)]
-      : { id: "particular", name: "Particular / Reembolso" };
-
-    const insId = randomIns.id;
-    const insName = randomIns.name;
 
     if (!insurerRevMap.has(insId)) {
       insurerRevMap.set(insId, { name: insName, rev: 0 });
@@ -687,7 +718,7 @@ export async function getInteligenciaMetrics(
     curr.rev += val;
   }
 
-  const grandTotalRev = Math.max(1, valorTotalCobrancas);
+  const grandTotalRev = Math.max(1, [...insurerRevMap.values()].reduce((sum, i) => sum + i.rev, 0));
   const revenueByInsurer: InsurerRevenueItem[] = [...insurerRevMap.entries()]
     .map(([insurerId, item]) => ({
       insurerId,
@@ -696,6 +727,10 @@ export async function getInteligenciaMetrics(
       percentage: Math.round((item.rev / grandTotalRev) * 100),
     }))
     .sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+  // Concentração por convênio (top-3 share + ticket médio por sessão) —
+  // deriva do mesmo `items` já filtrado por período, join real.
+  const insurerConcentration = buildInsurerConcentration(items);
 
   // QUADRO 7: Pacientes Evadidos
   const evadedList: EvadedPatientItem[] = allPats
@@ -790,8 +825,9 @@ export async function getInteligenciaMetrics(
     if (durationHours > 0) acc.bookedHours += durationHours;
   }
 
-  for (const item of roomBillingItems ?? []) {
-    const roomId = (item.appointments as { room_id: string | null } | null)?.room_id;
+  for (const item of items) {
+    const appRow = Array.isArray(item.appointments) ? item.appointments[0] : item.appointments;
+    const roomId = appRow?.room_id ?? null;
     if (!roomId) continue;
     const acc = roomAcc.get(roomId);
     if (!acc) continue;
@@ -1004,6 +1040,14 @@ export async function getInteligenciaMetrics(
       ? 0
       : Math.round((coverageInternsTotal / coverageChildrenTotal) * 1000) / 10;
 
+  // Novos quadros — reaproveitam appointments/pacientes/terapeutas já buscados acima
+  const weekHourHeatmap = buildWeekHourHeatmap(appointments);
+  const [onboardingFunnel, teamProductivity, plrTrend] = await Promise.all([
+    getOnboardingFunnel(supabase, clinicId, startISO, endISO, allPats),
+    getTeamProductivity(supabase, clinicId, appointments, therapistsList ?? [], startISO, endISO),
+    getPlrTrend(supabase, clinicId),
+  ]);
+
   return {
     totalAppointments,
     prevMonthAppointments,
@@ -1038,5 +1082,11 @@ export async function getInteligenciaMetrics(
     internShortageAlerts,
     internCoverage,
     internCoverageOverallPct,
+
+    weekHourHeatmap,
+    onboardingFunnel,
+    teamProductivity,
+    plrTrend,
+    insurerConcentration,
   };
 }

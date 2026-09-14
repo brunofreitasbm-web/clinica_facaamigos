@@ -10,7 +10,7 @@ export default function LoginPage() {
         <Logo variant="vertical" height={132} className="mb-6" />
         <h1 className="mt-2 text-2xl font-semibold text-ink">Entrar</h1>
         <p className="mt-1 text-sm text-ink-soft">
-          Use o e-mail e senha cadastrados pelo gestor da clínica.
+          Use o CPF (ou e-mail) e a senha cadastrados pelo gestor da clínica.
         </p>
       </div>
       <LoginForm />

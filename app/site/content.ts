@@ -35,7 +35,7 @@ export const CONTATO = {
     linha2: "Umarizal — Belém/PA",
     cep: "66060-060",
   },
-  // TODO(clínica): confirmar o horário real de funcionamento.
+  // Horário real de funcionamento da clínica.
   horario: [
     { dias: "Segunda a sexta", horas: "08h às 18h" },
     { dias: "Sábado", horas: "08h às 12h" },

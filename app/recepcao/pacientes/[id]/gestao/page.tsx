@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
@@ -17,6 +18,7 @@ import type { ConvenioRow, InsurerOption } from "./convenios-panel";
 import type { ChargeRow } from "./charges-panel";
 import type { PatientTagRow } from "./patient-tags";
 import { TeamPanel, type TeamMemberRow, type ProfileOption } from "./team-panel";
+import { GuardiansPanel, type GuardianRow } from "./guardians-panel";
 import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +35,9 @@ export default async function GestaoPacientePage({
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")
-    .select("id, full_name, birth_date, status, complaint, cid, support_level, entry_source")
+    .select(
+      "id, full_name, birth_date, status, complaint, cid, support_level, medication, allergies, comorbidities, entry_source, photo_storage_path",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -51,7 +55,10 @@ export default async function GestaoPacientePage({
     { data: appointmentsRaw },
     { data: documents },
   ] = await Promise.all([
-    supabase.from("guardians").select("id, full_name, phone, is_financial").eq("patient_id", id),
+    supabase
+      .from("guardians")
+      .select("id, full_name, phone, email, relationship, is_financial, google_calendar_opt_in")
+      .eq("patient_id", id),
     supabase.from("patient_tags").select("id, label").eq("patient_id", id).order("created_at"),
     supabase
       .from("patient_insurance")
@@ -100,6 +107,14 @@ export default async function GestaoPacientePage({
       discipline: t.discipline,
     };
   });
+
+  const guardianRows: GuardianRow[] = (guardians ?? []).map((g) => ({
+    id: g.id,
+    fullName: g.full_name,
+    relationship: g.relationship,
+    email: g.email,
+    googleCalendarOptIn: g.google_calendar_opt_in ?? false,
+  }));
 
   const primaryGuardian =
     (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0] ?? null;
@@ -198,6 +213,22 @@ export default async function GestaoPacientePage({
     ? buildWhatsappLink(primaryGuardian.phone, `Olá ${primaryGuardian.full_name}! `)
     : null;
 
+  // Foto enviada pela família pro Mural (app/familia) — mostrada aqui pra
+  // recepção reconhecer a criança presencialmente. Bucket `patient-photos` é
+  // privado e sem Storage RLS, então só o client admin gera o signed URL.
+  let photoUrl: string | null = null;
+  if (patient.photo_storage_path) {
+    try {
+      const admin = createAdminClient();
+      const { data: signed } = await admin.storage
+        .from("patient-photos")
+        .createSignedUrl(patient.photo_storage_path, 900);
+      photoUrl = signed?.signedUrl ?? null;
+    } catch {
+      photoUrl = null;
+    }
+  }
+
   return (
     <main className="flex flex-1 flex-col">
       <PageContainer>
@@ -218,10 +249,14 @@ export default async function GestaoPacientePage({
           complaint={patient.complaint}
           cid={patient.cid}
           supportLevel={patient.support_level}
+          medication={patient.medication}
+          allergies={patient.allergies}
+          comorbidities={patient.comorbidities}
           entrySource={patient.entry_source}
           isArchived={patient.status === "arquivado"}
           whatsappHref={whatsappHref}
           tags={tags}
+          photoUrl={photoUrl}
           convenios={convenios}
           insurers={insurers}
           professionals={professionals}
@@ -231,6 +266,8 @@ export default async function GestaoPacientePage({
         />
 
         <TeamPanel patientId={patient.id} members={teamMembers} candidates={candidates} />
+
+        <GuardiansPanel patientId={patient.id} guardians={guardianRows} />
       </PageContainer>
     </main>
   );

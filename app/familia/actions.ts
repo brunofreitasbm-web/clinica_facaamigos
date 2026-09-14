@@ -583,6 +583,84 @@ export async function uploadFamilyDocument(patientId: string, formData: FormData
   return { success: true };
 }
 
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+
+/**
+ * "Mural da Família" — a família envia uma foto atual da criança pra compor
+ * o mural físico da recepção e ajudar a equipe a reconhecer a criança
+ * presencialmente (photo_storage_path/photo_updated_at, migration
+ * 20260913260000_patient_photo_wall.sql). Caminho fixo `${patientId}/photo`
+ * com upsert:true — um reenvio substitui a foto anterior no mesmo objeto do
+ * bucket, sem deixar arquivo órfão pra cada troca de foto.
+ *
+ * set_patient_photo é uma função security definer (não um UPDATE direto em
+ * `patients` pelo client de sessão) porque RLS comum não restringe QUAIS
+ * colunas um UPDATE altera — mesmo padrão de acceptLgpdConsent/
+ * setImageConsent acima: o responsável só pode tocar a própria foto, nunca
+ * outro campo do cadastro.
+ */
+export async function uploadPatientPhoto(patientId: string, formData: FormData): Promise<ActionResult> {
+  const file = formData.get("photo");
+
+  if (!(file instanceof File) || file.size === 0) {
+    return { success: false, error: "Selecione uma foto." };
+  }
+  if (!file.type.startsWith("image/")) {
+    return { success: false, error: "Envie um arquivo de imagem (JPG, PNG ou similar)." };
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    return { success: false, error: "Imagem maior que 8MB." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sessão expirada. Faça login de novo." };
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return {
+      success: false,
+      error: "Servidor sem SUPABASE_SERVICE_ROLE_KEY configurada — avise o time técnico.",
+    };
+  }
+
+  const storagePath = `${patientId}/photo`;
+  const arrayBuffer = await file.arrayBuffer();
+  const { error: uploadError } = await admin.storage
+    .from("patient-photos")
+    .upload(storagePath, arrayBuffer, {
+      contentType: file.type,
+      upsert: true,
+    });
+
+  if (uploadError) {
+    return { success: false, error: "Não foi possível enviar a foto. Tente de novo." };
+  }
+
+  // set_patient_photo já confere has_patient_access(patient_id,
+  // ['responsavel']) internamente — se o usuário não for responsável deste
+  // paciente, a foto fica no bucket mas nenhuma linha de `patients` é
+  // atualizada, então nunca aparece pra ninguém.
+  const { error: rpcError } = await supabase.rpc("set_patient_photo", {
+    p_patient_id: patientId,
+    p_storage_path: storagePath,
+  });
+
+  if (rpcError) {
+    return { success: false, error: "Verifique se esta criança é sua e tente de novo." };
+  }
+
+  revalidatePath("/familia");
+  return { success: true };
+}
+
 /**
  * Link assinado de um documento liberado à família. Mesmo padrão de
  * app/recepcao/pacientes/[id]/documents-actions.ts (getDocumentUrl), mas

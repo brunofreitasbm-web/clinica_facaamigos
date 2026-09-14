@@ -15,7 +15,7 @@ export default async function EquipePage() {
     supabase
       .from("profiles")
       .select(
-        "id, full_name, email, role, council_type, unit_id, birth_date, active, is_evaluator, signature_pin_hash, source_system, created_at",
+        "id, full_name, email, cpf, role, council_type, unit_id, birth_date, active, is_evaluator, is_at_professional, google_calendar_opt_in, signature_pin_hash, source_system, created_at",
       )
       .eq("clinic_id", DEV_CLINIC_ID)
       .order("full_name"),
@@ -29,6 +29,7 @@ export default async function EquipePage() {
     id: p.id,
     fullName: p.full_name,
     email: p.email,
+    cpf: p.cpf,
     role: p.role as Role,
     councilType: p.council_type,
     unitId: p.unit_id,
@@ -36,6 +37,8 @@ export default async function EquipePage() {
     birthDate: p.birth_date,
     active: p.active ?? true,
     isEvaluator: p.is_evaluator ?? false,
+    isAtProfessional: p.is_at_professional ?? false,
+    googleCalendarOptIn: p.google_calendar_opt_in ?? false,
     // O hash nunca sai do servidor — a tela só precisa saber se existe PIN
     // configurado pra habilitar (ou não) o botão de reset.
     hasSignaturePin: !!p.signature_pin_hash,

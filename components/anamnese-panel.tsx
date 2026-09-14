@@ -33,13 +33,20 @@ export async function AnamnesePanel({
 }) {
   const supabase = await createClient();
 
-  const { data: existing } = await supabase
-    .from("anamneses")
-    .select("id, conducted_at, free_text, structured, profiles!conducted_by(full_name)")
-    .eq("patient_id", patientId)
-    .order("conducted_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: existing }, { data: patient }] = await Promise.all([
+    supabase
+      .from("anamneses")
+      .select("id, conducted_at, free_text, structured, profiles!conducted_by(full_name)")
+      .eq("patient_id", patientId)
+      .order("conducted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("patients")
+      .select("cid, support_level, medication, allergies, comorbidities")
+      .eq("id", patientId)
+      .maybeSingle(),
+  ]);
 
   const conductedByName = existing
     ? Array.isArray(existing.profiles)
@@ -48,7 +55,18 @@ export async function AnamnesePanel({
     : null;
 
   if (!existing) {
-    return <AnamneseForm patientId={patientId} returnHref={returnHref} tcleHref={tcleHref} />;
+    return (
+      <AnamneseForm
+        patientId={patientId}
+        returnHref={returnHref}
+        tcleHref={tcleHref}
+        defaultCid={patient?.cid ?? ""}
+        defaultSupportLevel={patient?.support_level ?? ""}
+        defaultMedication={patient?.medication ?? ""}
+        defaultAllergies={patient?.allergies ?? ""}
+        defaultComorbidities={patient?.comorbidities ?? ""}
+      />
+    );
   }
 
   const s = (existing.structured as Record<string, string | null>) || {};
@@ -75,6 +93,49 @@ export async function AnamnesePanel({
           Abrir e imprimir o TCLE
         </Link>
       </div>
+
+      {/* Diagnóstico e Dados Clínicos — vivem na ficha do paciente (patients),
+          não em anamneses.structured, porque são atualizáveis depois da 1ª
+          avaliação (pela recepção, por exemplo). */}
+      {(patient?.cid ||
+        patient?.support_level ||
+        patient?.medication ||
+        patient?.allergies ||
+        patient?.comorbidities) && (
+        <div className="card">
+          <h3 className="text-sm font-semibold text-ink">Diagnóstico e Dados Clínicos</h3>
+          {patient?.cid && (
+            <div className="mt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">CID</p>
+              <p className="mt-1 text-sm text-ink">{patient.cid}</p>
+            </div>
+          )}
+          {patient?.support_level && (
+            <div className="mt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Nível de Suporte</p>
+              <p className="mt-1 text-sm text-ink">{patient.support_level}</p>
+            </div>
+          )}
+          {patient?.comorbidities && (
+            <div className="mt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Comorbidades</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{patient.comorbidities}</p>
+            </div>
+          )}
+          {patient?.medication && (
+            <div className="mt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Medicação e Uso</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{patient.medication}</p>
+            </div>
+          )}
+          {patient?.allergies && (
+            <div className="mt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Alergias</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{patient.allergies}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Queixa e História Atual */}
       {(s.chief_complaint || s.complaint_history) && (

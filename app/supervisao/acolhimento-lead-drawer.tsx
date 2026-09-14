@@ -69,6 +69,7 @@ export type LeadRow = {
   duplicate_reason: string | null;
   offered_slots: { index: number; label: string }[] | null;
   staleWarning: string | null;
+  extra?: { is_presencial?: boolean; entry_channel?: string; documents_checked?: Record<string, boolean> } | null;
   files: LeadFileRow[];
 };
 
@@ -300,7 +301,14 @@ export function AcolhimentoLeadDrawer({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div className="h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-ink">{lead.patient_full_name || "Acolhimento"}</h3>
+          <div>
+            <h3 className="text-sm font-bold text-ink">{lead.patient_full_name || "Acolhimento"}</h3>
+            {lead.extra?.is_presencial && (
+              <span className="inline-block mt-1 rounded bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider">
+                📍 Paciente na Clínica (Prioridade Alta)
+              </span>
+            )}
+          </div>
           <button type="button" onClick={onClose} className="text-xs text-ink-faint hover:text-ink">
             Fechar ✕
           </button>

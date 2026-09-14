@@ -87,6 +87,7 @@ export function AcolhimentosPanel({
   const openLead = allLeads.find((l) => l.id === openLeadId) ?? null;
   const reviewableLeads = allLeads.filter((l) => l.status === "extracted");
   const staleLeads = useMemo(() => allLeads.filter((l) => l.staleWarning), [allLeads]);
+  const presencialLeads = useMemo(() => allLeads.filter((l) => l.extra?.is_presencial), [allLeads]);
 
   function handleUpload(formData: FormData) {
     setUploadFeedback(null);
@@ -197,6 +198,36 @@ export function AcolhimentosPanel({
         (paciente, responsável, carteirinha e guia) automaticamente. Confira aqui os documentos extraídos, aprove os
         que estiverem corretos e acompanhe o contato via WhatsApp até o agendamento da 1ª avaliação.
       </p>
+
+      {presencialLeads.length > 0 && (
+        <section className="rounded-lg border border-amber-400 bg-amber-50 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-2xl animate-bounce">🚨</span>
+              <div>
+                <h2 className="text-sm font-bold text-amber-900">
+                  {presencialLeads.length} Paciente(s) Presencial(is) na Recepção Aguardando Agendamento!
+                </h2>
+                <p className="text-xs text-amber-800">
+                  Cliente fisicamente na clínica com laudo e guia autorizada digitados pela recepção. Prioridade máxima para agendar a 1ª Avaliação.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 pt-1 border-t border-amber-200">
+            {presencialLeads.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => setOpenLeadId(l.id)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition-all"
+              >
+                📍 {l.patient_full_name || "Paciente Presencial"} — Agendar 1ª Avaliação Agora
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {staleLeads.length > 0 && (
         <section className="rounded-lg border border-status-negative-text/40 bg-status-negative-text/5 p-4">
@@ -366,6 +397,11 @@ export function AcolhimentosPanel({
                               </td>
                               <td className={`p-3 font-semibold ${hasLowConfidence ? "text-status-negative-text" : "text-ink"}`}>
                                 {lead.patient_full_name || "—"}
+                                {lead.extra?.is_presencial && (
+                                  <span className="ml-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white">
+                                    📍 PRESENCIAL
+                                  </span>
+                                )}
                                 {lead.duplicate_patient_id && <span className="ml-1.5 tag-status st-agendada">Já cadastrado</span>}
                                 {lead.staleWarning && (
                                   <span title={lead.staleWarning} className="ml-1.5 cursor-help text-status-negative-text">

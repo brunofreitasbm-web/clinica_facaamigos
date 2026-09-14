@@ -7,7 +7,7 @@ import { GRID_EXCLUDED_STATUSES } from "@/app/supervisao/grade-data";
 
 type Supa = SupabaseClient<Database>;
 
-export type EvaluationAgendaOrigin = "whatsapp_anamnese" | "convenio_pdf" | "presencial" | "family_meeting";
+export type EvaluationAgendaOrigin = "whatsapp_anamnese" | "convenio_pdf" | "presencial" | "family_meeting" | "patient_feedback";
 
 export type EvaluationBookInput =
   | { origin: "whatsapp_anamnese"; requestId: string }
@@ -85,19 +85,22 @@ async function getAnamnesisPoolItems(): Promise<EvaluationPoolItem[]> {
 async function getIntakePoolItems(supabase: Supa): Promise<EvaluationPoolItem[]> {
   const { data } = await supabase
     .from("insurance_intake_leads")
-    .select("id, patient_full_name, status, created_at")
+    .select("id, patient_full_name, status, created_at, extra")
     .not("status", "in", "(scheduled,cancelled,failed)")
     .order("created_at", { ascending: true });
 
-  return (data ?? []).map((l) => ({
-    id: `convenio-${l.id}`,
-    origin: "convenio_pdf",
-    patientName: l.patient_full_name ?? "—",
-    statusLabel: INTAKE_STATUS_LABEL[l.status] ?? l.status,
-    detail: "PDF de convênio",
-    ready: l.status === "awaiting_slot",
-    bookInput: { origin: "convenio_pdf", leadId: l.id },
-  }));
+  return (data ?? []).map((l) => {
+    const isPresencial = (l.extra as Record<string, unknown> | null)?.is_presencial === true;
+    return {
+      id: `convenio-${l.id}`,
+      origin: isPresencial ? ("presencial" as const) : ("convenio_pdf" as const),
+      patientName: l.patient_full_name ?? "—",
+      statusLabel: isPresencial ? "🚨 PRESENCIAL NA CLÍNICA" : (INTAKE_STATUS_LABEL[l.status] ?? l.status),
+      detail: isPresencial ? "Presencial · docs conferidos na recepção" : "PDF de convênio",
+      ready: isPresencial || l.status === "awaiting_slot",
+      bookInput: { origin: "convenio_pdf", leadId: l.id },
+    };
+  });
 }
 
 /**
@@ -116,7 +119,7 @@ async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<str
       id: `presencial-${p.id}`,
       origin: "presencial" as const,
       patientName: p.full_name,
-      statusLabel: "Aguardando agendamento",
+      statusLabel: "🚨 PRESENCIAL NA CLÍNICA",
       detail: `Presencial · cadastrado há ${p.daysSinceCreated} dia(s)`,
       ready: true,
       bookInput: { origin: "presencial", patientId: p.id },
@@ -135,25 +138,29 @@ export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_C
 
   const [anamnesisItems, intakeItems] = await Promise.all([getAnamnesisPoolItems(), getIntakePoolItems(supabase)]);
 
-  // Paciente presencial que já tem um patient_id vinculado a uma requisição de
-  // anamnese ainda não seria coberto (pool de anamnese não retorna patient_id
-  // hoje), mas como getPendingPatients só considera stage 1 (sem nenhuma
-  // avaliação agendada nem em andamento), o overlap prático é mínimo; ainda
-  // assim, filtra por precaução caso uma requisição/lead já tenha criado o
-  // registro em `patients`.
   const presencialItems = await getPresencialPoolItems(supabase, new Set());
 
-  return [...anamnesisItems, ...intakeItems, ...presencialItems];
+  const allItems = [...anamnesisItems, ...intakeItems, ...presencialItems];
+
+  // Pacientes presenciais (origin === "presencial") sempre sobem pro TOPO da fila com prioridade alta!
+  allItems.sort((a, b) => {
+    if (a.origin === "presencial" && b.origin !== "presencial") return -1;
+    if (a.origin !== "presencial" && b.origin === "presencial") return 1;
+    return 0;
+  });
+
+  return allItems;
 }
 
 /**
  * 1ª avaliações (+ reuniões com responsável de paciente já ativo, ver
- * appointments.is_family_meeting) já marcadas na agenda dentro de uma janela
- * [weekStartIso, weekEndIso), pra render do calendário semanal. A origem de
- * cada appointment é derivada checando is_family_meeting primeiro e, senão,
- * se seu id aparece em anamnesis_scheduling_requests/insurance_intake_leads —
- * o que sobrar é presencial (agendado direto pela Recepção, sem passar por
- * WhatsApp/PDF).
+ * appointments.is_family_meeting, e devolutivas do paciente marcadas pela
+ * Supervisão, ver appointments.is_patient_feedback) já marcadas na agenda
+ * dentro de uma janela [weekStartIso, weekEndIso), pra render do calendário
+ * semanal. A origem de cada appointment é derivada checando
+ * is_patient_feedback, depois is_family_meeting e, senão, se seu id aparece
+ * em anamnesis_scheduling_requests/insurance_intake_leads — o que sobrar é
+ * presencial (agendado direto pela Recepção, sem passar por WhatsApp/PDF).
  */
 export async function getEvaluationCalendarAppointments(
   supabase: Supa,
@@ -163,9 +170,9 @@ export async function getEvaluationCalendarAppointments(
   const { data } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, patient_id, therapist_id, is_family_meeting, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
+      "id, starts_at, ends_at, patient_id, therapist_id, is_family_meeting, is_patient_feedback, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
     )
-    .or("is_evaluation.eq.true,is_family_meeting.eq.true")
+    .or("is_evaluation.eq.true,is_family_meeting.eq.true,is_patient_feedback.eq.true")
     .gte("starts_at", weekStartIso)
     .lt("starts_at", weekEndIso)
     .not("status", "in", `(${GRID_EXCLUDED_STATUSES.join(",")})`)
@@ -190,7 +197,9 @@ export async function getEvaluationCalendarAppointments(
     const patient = Array.isArray(a.patients) ? a.patients[0] : a.patients;
     const therapist = Array.isArray(a.therapist) ? a.therapist[0] : a.therapist;
     const room = Array.isArray(a.rooms) ? a.rooms[0] : a.rooms;
-    const origin: EvaluationAgendaOrigin = a.is_family_meeting
+    const origin: EvaluationAgendaOrigin = a.is_patient_feedback
+      ? "patient_feedback"
+      : a.is_family_meeting
       ? "family_meeting"
       : anamnesisAppointmentIds.has(a.id)
         ? "whatsapp_anamnese"

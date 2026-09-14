@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { BackButton } from "@/components/back-button";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
 import { getBehaviorCatalog } from "@/lib/behavior-catalog";
@@ -70,13 +70,13 @@ export default async function EvolucaoHistoricoPage({
         style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
         className="flex flex-col gap-2.5 px-5 pb-4 pt-7 sm:px-10"
       >
-        <Link
-          href={`/terapeuta/evolucao/${appointmentId}`}
+        <BackButton
+          fallbackHref={`/terapeuta/evolucao/${appointmentId}`}
           className="text-[13px] no-underline opacity-80"
           style={{ color: "inherit" }}
         >
           ← Voltar
-        </Link>
+        </BackButton>
         <div>
           <div className="text-sm opacity-70">
             Histórico de evolução · {appointment.discipline} · {sessionDate}

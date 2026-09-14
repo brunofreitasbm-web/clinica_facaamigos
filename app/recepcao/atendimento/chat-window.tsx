@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { sendManualMessage } from "./actions";
 import { ChatHeader } from "./chat-header";
 import { QuickResponsesPopover } from "./quick-responses-popover";
-import { QuickResponseChips } from "./quick-response-chips";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
 
 type MessageRow = {
@@ -244,7 +243,6 @@ export function ChatWindow({
             onClose={() => setShowQuickResponses(false)}
           />
         )}
-        <QuickResponseChips disabled={isPending} onSelect={(contentText) => handleSendText(applyPlaceholders(contentText, conversation))} />
         <div className="flex items-center gap-2">
           <input
             className="input flex-1"

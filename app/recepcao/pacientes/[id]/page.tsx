@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { BackButton } from "@/components/back-button";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { StageChecklist } from "@/components/stage-checklist";
@@ -56,7 +56,9 @@ export default async function PacientePage({
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")
-    .select("id, full_name, status, birth_date, evaluated_at, first_session_at, entry_source, complaint, cid, support_level")
+    .select(
+      "id, full_name, status, birth_date, evaluated_at, first_session_at, entry_source, complaint, cid, support_level, medication, allergies, comorbidities",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -442,12 +444,12 @@ export default async function PacientePage({
     <main className="flex flex-1 flex-col">
       <PageContainer>
         <div className="mb-2">
-          <Link
-            href="/recepcao/pacientes"
+          <BackButton
+            fallbackHref="/recepcao/pacientes"
             className="text-[13px] font-semibold no-underline text-accent hover:underline"
           >
-            ← Voltar para Pacientes
-          </Link>
+            ← Voltar
+          </BackButton>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -472,7 +474,13 @@ export default async function PacientePage({
                 variant="sidebar"
               />
 
-              {(patient.complaint || patient.cid || patient.support_level || patient.entry_source) && (
+              {(patient.complaint ||
+                patient.cid ||
+                patient.support_level ||
+                patient.medication ||
+                patient.allergies ||
+                patient.comorbidities ||
+                patient.entry_source) && (
                 <div className="rounded-xl border border-paper-line-strong bg-paper p-4 shadow-2xs">
                   <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-faint">
                     Dados Clínicos & Diagnóstico
@@ -485,6 +493,18 @@ export default async function PacientePage({
                     <div>
                       <span className="text-[10px] uppercase font-semibold text-ink-faint">Suporte</span>
                       <p className="font-semibold text-ink">{patient.support_level || "—"}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[10px] uppercase font-semibold text-ink-faint">Comorbidades</span>
+                      <p className="font-medium text-ink">{patient.comorbidities || "—"}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[10px] uppercase font-semibold text-ink-faint">Medicação e uso</span>
+                      <p className="font-medium text-ink">{patient.medication || "—"}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[10px] uppercase font-semibold text-ink-faint">Alergias</span>
+                      <p className="font-medium text-ink">{patient.allergies || "—"}</p>
                     </div>
                     <div className="col-span-2">
                       <span className="text-[10px] uppercase font-semibold text-ink-faint">Queixa Principal</span>
@@ -546,6 +566,9 @@ export default async function PacientePage({
                   complaint={patient.complaint}
                   cid={patient.cid}
                   supportLevel={patient.support_level}
+                  medication={patient.medication}
+                  allergies={patient.allergies}
+                  comorbidities={patient.comorbidities}
                   entrySource={patient.entry_source}
                 />
                 <a href={`/recepcao/pacientes/${patient.id}/gestao`} className="btn btn-secondary text-xs">

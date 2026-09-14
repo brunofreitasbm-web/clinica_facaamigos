@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ROLES, type Role } from "@/lib/roles";
+import { isPasswordStrong } from "@/lib/password";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -35,20 +36,31 @@ function parseDateInput(value: FormDataEntryValue | null | undefined): string | 
 
 export async function createStaff(formData: FormData): Promise<ActionResult> {
   const fullName = String(formData.get("full_name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const cpfDigits = String(formData.get("cpf") ?? "").replace(/\D/g, "");
+  const emailInput = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const role = String(formData.get("role") ?? "") as Role;
   const councilType = String(formData.get("council_type") ?? "").trim() || null;
   const isEvaluator = formData.get("is_evaluator") === "on";
+  const isAtProfessional = formData.get("is_at_professional") === "on";
   const birthDate = parseDateInput(formData.get("birth_date"));
   const unitId = String(formData.get("unit_id") ?? "").trim() || null;
 
-  if (!fullName || !email || !password || !ROLES.includes(role)) {
-    return { success: false, error: "Preencha nome, e-mail, senha e papel." };
+  if (!fullName || cpfDigits.length !== 11 || !password || !ROLES.includes(role)) {
+    return { success: false, error: "Preencha nome, CPF (11 dígitos), senha e papel." };
   }
-  if (password.length < 8) {
-    return { success: false, error: "Senha precisa ter pelo menos 8 caracteres." };
+  if (!isPasswordStrong(password)) {
+    return {
+      success: false,
+      error: "Senha precisa ter pelo menos 6 caracteres, uma letra maiúscula e um caractere especial.",
+    };
   }
+
+  // Login é sempre por CPF; e-mail é opcional (nem todo colaborador tem um).
+  // Sem e-mail real, o Supabase Auth ainda exige um endereço pra criar a
+  // conta — geramos um sintético que o colaborador nunca vê nem digita,
+  // mesma ideia já usada no login por telefone/OTP da família.
+  const email = emailInput || `equipe_${cpfDigits}@staff.facaamigos.local`;
 
   // A RLS de `profiles` não tem policy de INSERT (só self/admin update e
   // read por clínica) — criar conta é sempre um bypass deliberado, então a
@@ -88,8 +100,10 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
     clinic_id: caller.clinicId,
     role,
     full_name: fullName,
+    cpf: cpfDigits,
     council_type: councilType,
     is_evaluator: isEvaluator,
+    is_at_professional: isAtProfessional,
     email,
     birth_date: birthDate,
     unit_id: unitId,
@@ -100,7 +114,12 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
     // profile (não consegue logar em lugar nenhum do app mesmo assim, mas
     // fica um lixo silencioso na base de auth caso o gestor tente de novo).
     await admin.auth.admin.deleteUser(newUser.user.id);
-    return { success: false, error: "Não foi possível salvar o perfil da conta." };
+    return {
+      success: false,
+      error: profileError.message.includes("profiles_cpf_unique")
+        ? "Já existe um colaborador com esse CPF."
+        : "Não foi possível salvar o perfil da conta.",
+    };
   }
 
   revalidatePath("/gestor/equipe");
@@ -112,14 +131,22 @@ export async function updateStaffProfile(
   data: {
     fullName: string;
     role: Role;
+    cpf?: string | null;
     councilType?: string | null;
     isEvaluator?: boolean;
+    isAtProfessional?: boolean;
+    googleCalendarOptIn?: boolean;
     birthDate?: string | null;
     unitId?: string | null;
   },
 ): Promise<ActionResult> {
   if (!data.fullName.trim() || !ROLES.includes(data.role)) {
     return { success: false, error: "Preencha nome e papel." };
+  }
+
+  const cpfDigits = data.cpf?.replace(/\D/g, "") || null;
+  if (cpfDigits && cpfDigits.length !== 11) {
+    return { success: false, error: "CPF precisa ter 11 dígitos." };
   }
 
   const caller = await requireCallerIsGestor();
@@ -131,15 +158,25 @@ export async function updateStaffProfile(
     .update({
       full_name: data.fullName.trim(),
       role: data.role,
+      cpf: cpfDigits,
       council_type: data.councilType?.trim() || null,
       is_evaluator: data.isEvaluator ?? false,
+      is_at_professional: data.isAtProfessional ?? false,
+      google_calendar_opt_in: data.googleCalendarOptIn ?? false,
       birth_date: data.birthDate?.trim() || null,
       unit_id: data.unitId?.trim() || null,
     })
     .eq("id", profileId)
     .eq("clinic_id", caller.clinicId);
 
-  if (error) return { success: false, error: "Não foi possível atualizar o colaborador." };
+  if (error) {
+    return {
+      success: false,
+      error: error.message.includes("profiles_cpf_unique")
+        ? "Já existe um colaborador com esse CPF."
+        : "Não foi possível atualizar o colaborador.",
+    };
+  }
 
   revalidatePath("/gestor/equipe");
   return { success: true };

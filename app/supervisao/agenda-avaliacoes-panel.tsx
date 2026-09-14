@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { EvaluationCalendar } from "./evaluation-calendar";
+import { PatientFeedbackButton } from "./patient-feedback-modal";
 import type { EvaluationPoolItem } from "@/lib/evaluation-agenda";
 
 const SUB_TABS = [
@@ -57,23 +58,26 @@ export function AgendaAvaliacoesPanel({
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-bold text-ink">Agenda 1ª Avaliação</h2>
-        <nav className="flex gap-1 rounded-lg border border-paper-line-strong bg-white p-1">
-          {SUB_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setSubTab(t.key)}
-              className="flex items-center rounded-md px-3 py-1.5 text-xs font-semibold"
-              style={{
-                background: subTab === t.key ? "var(--color-accent)" : "transparent",
-                color: subTab === t.key ? "var(--color-bg)" : "var(--color-ink-soft, inherit)",
-              }}
-            >
-              {t.label}
-              {t.key === "acolhimentos" ? <SubTabBadge value={acolhimentosCount} urgent={acolhimentosUrgent} /> : null}
-            </button>
-          ))}
-        </nav>
+        <div className="flex items-center gap-3">
+          <PatientFeedbackButton />
+          <nav className="flex gap-1 rounded-lg border border-paper-line-strong bg-white p-1">
+            {SUB_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setSubTab(t.key)}
+                className="flex items-center rounded-md px-3 py-1.5 text-xs font-semibold"
+                style={{
+                  background: subTab === t.key ? "var(--color-accent)" : "transparent",
+                  color: subTab === t.key ? "var(--color-bg)" : "var(--color-ink-soft, inherit)",
+                }}
+              >
+                {t.label}
+                {t.key === "acolhimentos" ? <SubTabBadge value={acolhimentosCount} urgent={acolhimentosUrgent} /> : null}
+              </button>
+            ))}
+          </nav>
+        </div>
       </div>
 
       {subTab === "triagens" ? triagensPanel : null}

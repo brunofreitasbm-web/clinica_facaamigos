@@ -15,5 +15,5 @@ set
   endereco_cidade = 'Belém',
   endereco_uf = 'PA',
   endereco_cep = '66060-147',
-  telefone = '(91) 8250-1215'
+  telefone = '(91) 99178-2027'
 where id = 'c0000000-0000-0000-0000-000000000001';

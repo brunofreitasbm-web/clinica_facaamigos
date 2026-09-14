@@ -99,7 +99,6 @@ export function AtendimentosManager({
                     <th>Capacidade</th>
                     <th>Estagiários (recomendado)</th>
                     <th>Especialidade</th>
-                    <th>Tags</th>
                     <th />
                   </tr>
                 </thead>
@@ -109,7 +108,7 @@ export function AtendimentosManager({
                   ))}
                   {rooms.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="text-ink-faint">
+                      <td colSpan={5} className="text-ink-faint">
                         Nenhuma sala cadastrada ainda.
                       </td>
                     </tr>
