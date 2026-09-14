@@ -404,23 +404,34 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             </div>
           </div>
 
-          {/* Mapa de Calor Dia × Hora — janelas ociosas para encaixe */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <span className="font-bold text-slate-900 text-sm">🗓️ Mapa de Calor · Ocupação por Dia e Hora</span>
-              {metrics.weekHourHeatmap.idleWindows.length > 0 && (
-                <span className="text-[11px] text-slate-500">
-                  Janelas ociosas:{" "}
-                  <span className="font-semibold text-amber-700">
-                    {metrics.weekHourHeatmap.idleWindows.map((w) => w.label).join(", ")}
+          {/* Mapa de Calor Dia × Hora — versão compacta e otimizada */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-900 text-sm">🗓️ Mapa de Calor · Ocupação por Dia e Hora</span>
+                {metrics.weekHourHeatmap.idleWindows.length > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 border border-amber-200/60">
+                    Encaixe: {metrics.weekHourHeatmap.idleWindows.map((w) => w.label).join(", ")}
                   </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium">
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-xs bg-indigo-100 border border-indigo-200" /> Baixo
                 </span>
-              )}
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-xs bg-indigo-600" /> Pico
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-xs bg-amber-50 ring-1 ring-amber-400" /> Ocioso
+                </span>
+              </div>
             </div>
+
             <div className="overflow-x-auto">
               <div
-                className="grid gap-1 min-w-[560px]"
-                style={{ gridTemplateColumns: `56px repeat(${metrics.weekHourHeatmap.hours.length}, minmax(0,1fr))` }}
+                className="grid gap-1 max-w-4xl min-w-[500px]"
+                style={{ gridTemplateColumns: `48px repeat(${metrics.weekHourHeatmap.hours.length}, minmax(0,1fr))` }}
               >
                 <div />
                 {metrics.weekHourHeatmap.hours.map((h) => (
@@ -439,16 +450,25 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                         <div
                           key={`${cell.dow}-${cell.hour}`}
                           title={`${day.label} ${String(cell.hour).padStart(2, "0")}h: ${cell.count} sessão(ões)`}
-                          className={`aspect-square rounded-sm ${cell.isIdle ? "ring-1 ring-amber-300" : ""}`}
-                          style={{ backgroundColor: `rgba(79,70,229,${(0.08 + 0.82 * cell.intensity).toFixed(2)})` }}
-                        />
+                          className={`h-5.5 rounded-xs flex items-center justify-center text-[9px] font-bold transition-all hover:scale-110 hover:z-10 cursor-pointer ${
+                            cell.isIdle ? "ring-1 ring-amber-400 bg-amber-50/50" : ""
+                          }`}
+                          style={{
+                            backgroundColor: cell.isIdle
+                              ? undefined
+                              : `rgba(79,70,229,${(0.1 + 0.82 * cell.intensity).toFixed(2)})`,
+                            color: cell.intensity > 0.5 ? "#ffffff" : "#312e81",
+                          }}
+                        >
+                          {cell.count > 0 ? cell.count : ""}
+                        </div>
                       ))}
                   </Fragment>
                 ))}
               </div>
             </div>
-            <p className="mt-3 text-[11px] text-slate-400">
-              Intensidade da cor = volume de sessões no horário; contorno âmbar marca horários sem nenhuma sessão no período — oportunidade de encaixe.
+            <p className="mt-2 text-[10px] text-slate-400">
+              Cor mais forte = maior volume de sessões; borda âmbar = horário sem sessões (oportunidade de encaixe).
             </p>
           </div>
 

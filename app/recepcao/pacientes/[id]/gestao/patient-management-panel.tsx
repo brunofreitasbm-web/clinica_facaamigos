@@ -35,6 +35,7 @@ export function PatientManagementPanel({
   isArchived,
   whatsappHref,
   tags,
+  photoUrl,
   convenios,
   insurers,
   professionals,
@@ -58,6 +59,7 @@ export function PatientManagementPanel({
   isArchived: boolean;
   whatsappHref: string | null;
   tags: PatientTagRow[];
+  photoUrl?: string | null;
   convenios: ConvenioRow[];
   insurers: InsurerOption[];
   professionals: ProfessionalRow[];
@@ -86,6 +88,7 @@ export function PatientManagementPanel({
         isArchived={isArchived}
         whatsappHref={whatsappHref}
         tags={tags}
+        photoUrl={photoUrl}
       />
 
       <div className="px-10 pt-6">

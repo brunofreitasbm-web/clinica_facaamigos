@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
@@ -35,7 +36,7 @@ export default async function GestaoPacientePage({
   const { data: patient, error: patientError } = await supabase
     .from("patients")
     .select(
-      "id, full_name, birth_date, status, complaint, cid, support_level, medication, allergies, comorbidities, entry_source",
+      "id, full_name, birth_date, status, complaint, cid, support_level, medication, allergies, comorbidities, entry_source, photo_storage_path",
     )
     .eq("id", id)
     .maybeSingle();
@@ -212,6 +213,22 @@ export default async function GestaoPacientePage({
     ? buildWhatsappLink(primaryGuardian.phone, `Olá ${primaryGuardian.full_name}! `)
     : null;
 
+  // Foto enviada pela família pro Mural (app/familia) — mostrada aqui pra
+  // recepção reconhecer a criança presencialmente. Bucket `patient-photos` é
+  // privado e sem Storage RLS, então só o client admin gera o signed URL.
+  let photoUrl: string | null = null;
+  if (patient.photo_storage_path) {
+    try {
+      const admin = createAdminClient();
+      const { data: signed } = await admin.storage
+        .from("patient-photos")
+        .createSignedUrl(patient.photo_storage_path, 900);
+      photoUrl = signed?.signedUrl ?? null;
+    } catch {
+      photoUrl = null;
+    }
+  }
+
   return (
     <main className="flex flex-1 flex-col">
       <PageContainer>
@@ -239,6 +256,7 @@ export default async function GestaoPacientePage({
           isArchived={patient.status === "arquivado"}
           whatsappHref={whatsappHref}
           tags={tags}
+          photoUrl={photoUrl}
           convenios={convenios}
           insurers={insurers}
           professionals={professionals}

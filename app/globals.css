@@ -362,7 +362,7 @@ a {
 .btn svg { display: block; }
 .btn:hover { transform: scale(1.02); }
 .btn:active { transform: scale(0.96); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: scale(1); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: scale(1); }
 .btn-primary { background: var(--color-accent); color: #fff; }
 .btn-primary:hover { background: var(--color-accent-600); box-shadow: var(--shadow-pink); }
 .btn-primary:active { background: var(--color-accent-700); }
@@ -372,6 +372,7 @@ a {
 .btn-gold { background: var(--color-accent-2); color: #fff; }
 .btn-gold:hover { background: var(--color-accent-2-600); }
 .btn-gold:active { background: var(--color-accent-2-700); }
+.btn-gold:disabled { background: var(--color-neutral-200); color: var(--color-neutral-400); opacity: 1; }
 .btn-ghost { color: var(--color-accent); padding-inline: var(--space-2); }
 .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
 .btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
@@ -519,18 +520,21 @@ label:has(> input.sr-only:focus-visible) { outline: 2px solid var(--color-accent
   padding: var(--space-4);
   background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent);
   animation: dialog-backdrop-in 0.15s ease;
+  z-index: 100;
 }
 .dialog {
   width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
   padding: var(--space-4); border-radius: var(--radius-lg);
   background: var(--color-surface); box-shadow: var(--shadow-lg);
   animation: dialog-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--color-text);
 }
 .dialog-title {
   font-family: var(--font-body); font-weight: 800;
   font-size: 20px;
+  color: var(--color-dark);
 }
-.dialog-body { font-size: 14px; opacity: 0.85; }
+.dialog-body { font-size: 14px; color: var(--color-neutral-600); opacity: 1; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 
 /* ── Skeleton & Shimmer Keyframes para Navegação Instantânea ── */

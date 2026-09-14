@@ -5357,6 +5357,8 @@ export type Database = {
           medication: string | null
           naturalidade: string | null
           payment_confirmed_at: string | null
+          photo_storage_path: string | null
+          photo_updated_at: string | null
           sexo: string | null
           status: string
           support_level: string | null
@@ -5390,6 +5392,8 @@ export type Database = {
           medication?: string | null
           naturalidade?: string | null
           payment_confirmed_at?: string | null
+          photo_storage_path?: string | null
+          photo_updated_at?: string | null
           sexo?: string | null
           status?: string
           support_level?: string | null
@@ -5423,6 +5427,8 @@ export type Database = {
           medication?: string | null
           naturalidade?: string | null
           payment_confirmed_at?: string | null
+          photo_storage_path?: string | null
+          photo_updated_at?: string | null
           sexo?: string | null
           status?: string
           support_level?: string | null
@@ -9013,6 +9019,10 @@ export type Database = {
       }
       set_intake_step_na: {
         Args: { p_patient_id: string; p_step_key: string }
+        Returns: undefined
+      }
+      set_patient_photo: {
+        Args: { p_patient_id: string; p_storage_path: string }
         Returns: undefined
       }
       set_professional_pin: {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { APPOINTMENT_STATUS_STYLE, PLAN_GOAL_STATUS_STYLE } from "@/lib/appointment-status-style";
@@ -14,6 +15,7 @@ import { SurveyPrompt } from "./survey-prompt";
 import { NpsSurveyPrompt } from "./nps-survey-prompt";
 import { RequestReschedule } from "./request-reschedule";
 import { UploadDocument } from "./upload-document";
+import { PatientPhotoUpload } from "./patient-photo-upload";
 import { LgpdConsentGate } from "./lgpd-consent-gate";
 import { ImageConsentToggle } from "./image-consent-toggle";
 import { FAMILY_GUIDANCE_LABEL } from "@/lib/session-note-fields";
@@ -116,7 +118,7 @@ export default async function FamiliaPage({
   // o id de um paciente de outra família.
   const { data: patients } = await supabase
     .from("patients")
-    .select("id, full_name")
+    .select("id, full_name, photo_storage_path")
     .order("full_name");
 
   const { patient: requestedPatientId } = await searchParams;
@@ -134,6 +136,24 @@ export default async function FamiliaPage({
 
   const patientId = patient.id;
   const otherChildren = (patients ?? []).filter((p) => p.id !== patientId);
+
+  // Bucket `patient-photos` é privado e sem Storage RLS (mesmo padrão de
+  // clinic-documents/family-feed-media) — só o client admin consegue gerar o
+  // signed URL, independente de quem está logado. Best-effort: se o server
+  // não tiver a service role configurada, a foto simplesmente não aparece
+  // (o card de upload continua funcionando normalmente).
+  let patientPhotoUrl: string | null = null;
+  if (patient.photo_storage_path) {
+    try {
+      const admin = createAdminClient();
+      const { data: signed } = await admin.storage
+        .from("patient-photos")
+        .createSignedUrl(patient.photo_storage_path, 900);
+      patientPhotoUrl = signed?.signedUrl ?? null;
+    } catch {
+      patientPhotoUrl = null;
+    }
+  }
 
   const nowIso = new Date().toISOString();
   const today = todayInTimeZone(CLINIC_TIMEZONE);
@@ -747,6 +767,10 @@ export default async function FamiliaPage({
             </div>
           </section>
         )}
+
+        <section>
+          <PatientPhotoUpload patientId={patientId} firstName={firstName} currentPhotoUrl={patientPhotoUrl} />
+        </section>
 
         <section>
           <h6>📣 Mural</h6>

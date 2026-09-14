@@ -23,6 +23,7 @@ export function PatientHeaderPanel({
   isArchived,
   whatsappHref,
   tags,
+  photoUrl,
   onCobrar,
 }: {
   patientId: string;
@@ -40,6 +41,7 @@ export function PatientHeaderPanel({
   isArchived: boolean;
   whatsappHref: string | null;
   tags: PatientTagRow[];
+  photoUrl?: string | null;
   onCobrar?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -57,14 +59,19 @@ export function PatientHeaderPanel({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-5">
           <span
-            className="flex h-16 w-16 items-center justify-center rounded-full text-2xl font-semibold"
+            className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full text-2xl font-semibold"
             style={{
               background: "var(--color-accent-100)",
               color: "var(--color-accent-700)",
               fontFamily: "var(--font-heading)",
             }}
           >
-            {initials || "?"}
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials || "?"
+            )}
           </span>
           <h1 className="m-0">
             {fullName}

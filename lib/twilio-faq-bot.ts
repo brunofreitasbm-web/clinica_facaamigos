@@ -116,7 +116,7 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
-  const [faqRes, insurersRes, typesRes, roomsRes] = await Promise.all([
+  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes] = await Promise.all([
     supabase
       .from("clinic_faq")
       .select("question, answer, keywords, category")
@@ -135,6 +135,12 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
       .select("name, is_evaluation_room")
       .eq("clinic_id", clinicId)
       .order("name"),
+    supabase
+      .from("profiles")
+      .select("full_name, role")
+      .eq("clinic_id", clinicId)
+      .in("role", ["terapeuta", "profissional", "supervisor"])
+      .order("full_name"),
   ]);
 
   const faqBlock = (faqRes.data ?? [])
@@ -154,6 +160,10 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     .map((r) => `${r.name}${r.is_evaluation_room ? " (Sala de Avaliação)" : ""}`)
     .join(", ");
 
+  const therapistsBlock = (therapistsRes.data ?? [])
+    .map((tp) => `${tp.full_name} (${tp.role})`)
+    .join(", ");
+
   const text = [
     "=== PERGUNTAS FREQUENTES (fonte da verdade) ===",
     faqBlock || "(nenhuma pergunta cadastrada)",
@@ -166,6 +176,9 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     "",
     "=== SALAS DE ATENDIMENTO E AVALIAÇÃO ===",
     roomsBlock || "(nenhuma sala cadastrada)",
+    "",
+    "=== EQUIPE E TERAPEUTAS ATIVOS ===",
+    therapistsBlock || "(nenhum terapeuta cadastrado)",
   ].join("\n");
 
   knowledgeCache.set(clinicId, { text, expiresAt: Date.now() + KNOWLEDGE_TTL_MS });
@@ -178,14 +191,15 @@ function buildSystemInstruction(knowledge: string): string {
 ${knowledge}
 
 REGRAS OBRIGATÓRIAS:
-1. MENSAGEM INICIAL DE BOAS-VINDAS: Na primeira interação de saudação, cite obrigatoriamente a marca completa: *FaçaAmigos - Centro de Terapia Comportamental*. Demonstre acolhimento e alegria em receber a família.
+1. MENSAGEM INICIAL DE BOAS-VINDAS: Na primeira interação de saudação, cite obrigatoriamente a marca completa: *FaçaAmigos - Centro de Terapia Comportamental*. Demonstre acolhimento e alegria em receber a família. Exemplo de saudação ideal: "Muito bem-vindo(a) à FaçaAmigos, Centro de Terapia Comportamental! 💛 Que bom te receber por aqui. Me conta: você quer marcar uma avaliação, tirar uma dúvida sobre terapias e convênios, ou já é família FaçaAmigos?"
 2. ATENDIMENTO EMPÁTICO AOS PAIS E RESPONSÁVEIS: Fale diretamente com o pai, mãe ou responsável legal que busca apoio para a criança ou adolescente. Trate a família com profundo carinho, respeito, clareza e acolhimento.
 3. EMOJIS ACOLHEDORES: Use emojis integrativos e carinhosos (ex.: 💙, 🧩, 🎈, 🌱, 🤝, ✨) de forma harmoniosa nas mensagens.
-4. NUNCA INVENTE: Responda APENAS com base nas informações acima. Se a resposta não estiver ali ou estiver como "⚠️ TODO", NUNCA invente: escale para a equipe humana.
-5. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
-6. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
-7. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
-8. AGENDAMENTO: Se a pessoa demonstrar interesse em agendar a avaliação, oriente a responder *AGENDAR*.
+4. NUNCA INVENTE: Responda APENAS com base nas informações acima. Se a resposta não estiver ali ou a dúvida não for coberta pela base, NUNCA invente: escale para a equipe humana.
+5. POLÍTICA DE VALORES: Por decisão da clínica, valores de sessões particulares não são repassados automaticamente pelo bot no WhatsApp. Quando a família perguntar sobre preços/valores, acolha com carinho e informe que a equipe humana entrará em contato para detalhar os valores, definindo "escalar": true e "motivo": "fora_da_base".
+6. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
+7. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
+8. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
+9. AGENDAMENTO: Se a pessoa demonstrar interesse em agendar a avaliação, oriente a responder *AGENDAR*.
 
 SOLICITAÇÃO DE RELATÓRIO OU DOCUMENTO (laudo, declaração de comparecimento, relatório de evolução, atestado, etc.):
 Isso não é uma dúvida que você responde — é um pedido que a recepção vai atender, mas cabe a você reunir as informações antes de repassar, para a equipe não precisar perguntar tudo de novo.
@@ -195,7 +209,7 @@ Isso não é uma dúvida que você responde — é um pedido que a recepção va
 4. Junto com o "escalar=true, motivo=relatorio", preencha TAMBÉM o campo "relatorio_dados" com o que foi coletado (use null no que não foi informado) — é esse campo, não o texto da "resposta", que vira o aviso de pendência para o Supervisor providenciar junto ao terapeuta correspondente.
 
 QUANDO ESCALAR (escalar = true):
-- "fora_da_base": a informação pedida não está acima (ou está como ⚠️ TODO).
+- "fora_da_base": a informação pedida não está acima, ou refere-se a valores particulares.
 - "clinico": pergunta sobre sintoma, diagnóstico, evolução ou conduta da criança.
 - "pediu_humano": a pessoa pediu para falar com alguém, reclamou ou está claramente insatisfeita.
 - "relatorio": pedido de relatório/documento, DEPOIS de reunir os dados acima — nunca na primeira mensagem do pedido.
