@@ -62,6 +62,16 @@ begin
     raise exception 'Só é possível permutar sessões agendadas ou confirmadas (não realizadas nem canceladas).';
   end if;
 
+  -- nps_surveys.patient_id/guardian_id são colunas próprias, não derivadas de
+  -- appointments.patient_id (20260906000011_nps_surveys.sql) — não ficam em
+  -- sincronia sozinhas se a sessão já tiver disparado pesquisa (o que na
+  -- prática não deveria acontecer pra 'agendada'/'confirmada', mas o guard
+  -- acima só olha status, não isso; melhor barrar explicitamente do que
+  -- deixar uma pesquisa de satisfação ir pro paciente errado).
+  if exists (select 1 from nps_surveys where appointment_id = any(ids)) then
+    raise exception 'Uma dessas sessões já tem pesquisa de satisfação vinculada — não é possível permutar.';
+  end if;
+
   for i in 1..n loop
     prev := ((i - 2 + n) % n) + 1;
     update appointments
@@ -70,6 +80,14 @@ begin
         is_provisional = provisionals[prev]
     where id = ids[i];
   end loop;
+
+  -- O evento espelhado no Google Calendar (supabase/functions/sync-google-calendar)
+  -- é construído com o nome do paciente/responsável de quando foi sincronizado —
+  -- marca como 'pending' pra o reconciliador (app/api/google-calendar/reconcile)
+  -- atualizar o card com o paciente novo, em vez de deixar o nome antigo lá.
+  update appointments
+  set google_calendar_sync_status = 'pending'
+  where id = any(ids);
 end;
 $$;
 
