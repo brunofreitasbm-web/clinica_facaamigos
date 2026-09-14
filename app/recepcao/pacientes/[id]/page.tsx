@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
-import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
+import { DOCUMENT_CATEGORY_LABEL, getValidityBadge, isSignableCategory } from "@/lib/document-categories";
 import { APPOINTMENT_STATUS_STYLE, AUTHORIZATION_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getFeedPosts } from "@/lib/feed-posts";
 import { getPatientAbaLearningCurves } from "@/lib/patient-metrics";
@@ -21,6 +21,7 @@ import { StageActionForm } from "./stage-action-form";
 import { EditRegistrationButton } from "./edit-registration-button";
 import { DocumentViewButton } from "@/components/prontuario/document-view-button";
 import { DocumentUploadForm } from "@/components/prontuario/document-upload-form";
+import { SendSignatureRequestButton } from "@/components/prontuario/send-signature-request-button";
 import { FeedPostForm } from "./feed-post-form";
 import { AbsenceReportsList, type PendingAbsenceReport } from "./absence-reports-list";
 import { AuthorizationFormFields } from "./authorization-form-fields";
@@ -408,7 +409,10 @@ export default async function PacientePage({
                 </td>
                 <td>{doc.shared_with_family ? "Sim" : "Não"}</td>
                 <td className="text-right">
-                  <DocumentViewButton documentId={doc.id} />
+                  <div className="flex flex-col items-end gap-1.5">
+                    <DocumentViewButton documentId={doc.id} />
+                    {isSignableCategory(doc.category) && <SendSignatureRequestButton documentId={doc.id} />}
+                  </div>
                 </td>
               </tr>
             );

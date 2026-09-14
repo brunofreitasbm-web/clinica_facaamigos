@@ -8,20 +8,8 @@ import { requestFamilyOtp } from "@/app/login/otp-actions";
 import { sendEmail, renderBrandEmailHtml } from "@/lib/email";
 import { CLINIC_BRAND, CLINIC_TAGLINE, getClinicIdentity } from "@/lib/clinic-identity";
 import { extractClientIp } from "@/lib/checkin-security";
-import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
+import { DOCUMENT_CATEGORY_LABEL, isSignableCategory } from "@/lib/document-categories";
 import { SignatureReceiptDocument } from "@/lib/signature-receipt-pdf";
-
-/**
- * Únicas categorias de `documents` liberadas para o fluxo de assinatura
- * eletrônica por OTP em /assinar/[documentId] — Termo LGPD, Termo de uso de
- * imagem e TCLE. Qualquer outra categoria (contrato, laudo, autorização
- * etc.) segue sendo assinada em papel na recepção; não passa por aqui.
- */
-const SIGNABLE_CATEGORIES = ["termo_lgpd", "termo_imagem", "tcle"] as const;
-
-function isSignableCategory(category: string): boolean {
-  return (SIGNABLE_CATEGORIES as readonly string[]).includes(category);
-}
 
 /** Mesmo texto mostrado na tela de assinatura e gravado no comprovante em PDF — nunca gerar dois textos diferentes para o mesmo documento. */
 function buildDocumentContent(category: string, patientName: string, uploadedAtIso: string): string {
