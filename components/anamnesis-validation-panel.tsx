@@ -99,6 +99,22 @@ export function AnamnesisValidationPanel() {
     }
   };
 
+  const handleCreateMock = async () => {
+    setCreatingMock(true);
+    setFeedback(null);
+    const res = await createMockWhatsAppAnamnesisRequestAction();
+    setCreatingMock(false);
+
+    if (res.success) {
+      fetchRequests();
+    } else {
+      setFeedback({
+        type: "error",
+        text: res.error || "Erro ao criar paciente fictício.",
+      });
+    }
+  };
+
   const pendingRequests = requests.filter((r) => r.status === "pendente_supervisor");
   const processedRequests = requests.filter((r) => r.status !== "pendente_supervisor");
 
