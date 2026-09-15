@@ -277,7 +277,7 @@ Critério de corte: **o que impede atender e faturar no dia 1 é Fase 0/1; o res
 | Extrato de PLR (recepção/administrativo CLT) | Semestral, com memória de cálculo exportável para o acordo de PLR |
 | Progressão de faixa (terapeuta PJ) | Trimestral: critérios objetivos (documentação, assiduidade, retenção, progresso clínico validado) → proposta de mudança de faixa para o gestor aprovar; nunca automático |
 | Glosa por motivo/convênio/pessoa | Painel + recurso com prazo |
-| BI | Metabase self-host apontando para views (ou Looker Studio via conector Postgres) |
+| BI | Metabase self-host apontando para views Postgres. Regra fundamental: Dashboards são via Metabase e todo KPI deve obrigatoriamente apresentar comparativo ou métrica de referência (vs. período anterior, meta, etc.). |
 | NFS-e (opcional) | Integração com emissor para particulares e repasse PJ |
 
 **Aceite:** gestor abre o painel no dia 1 do mês e vê PLR e faixas calculadas sem planilha; toda métrica é auditável até a sessão que a compôs.

@@ -10,11 +10,13 @@ import {
   User,
   RefreshCw,
   AlertCircle,
+  Phone,
 } from "lucide-react";
 import {
   getPendingAnamnesisRequestsAction,
   approveAnamnesisDocumentAction,
   rejectAnamnesisDocumentAction,
+  createMockWhatsAppAnamnesisRequestAction,
   type AnamnesisRequestItem,
 } from "@/app/actions/anamnesis-chatbot";
 
@@ -25,6 +27,7 @@ export function AnamnesisValidationPanel() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [creatingMock, setCreatingMock] = useState(false);
 
   const fetchRequests = async () => {
     const res = await getPendingAnamnesisRequestsAction();
@@ -32,6 +35,19 @@ export function AnamnesisValidationPanel() {
       setRequests(res.requests);
     }
     setLoading(false);
+  };
+
+  const handleCreateMock = async () => {
+    setCreatingMock(true);
+    setFeedback(null);
+    const res = await createMockWhatsAppAnamnesisRequestAction();
+    setCreatingMock(false);
+    if (res.success) {
+      setFeedback({ type: "success", text: "Paciente fictício criado com sucesso!" });
+      fetchRequests();
+    } else {
+      setFeedback({ type: "error", text: res.error || "Erro ao criar paciente fictício." });
+    }
   };
 
   useEffect(() => {
