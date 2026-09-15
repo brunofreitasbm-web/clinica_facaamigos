@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { signIn } from "./actions";
 import { requestFamilyOtp, verifyFamilyOtp } from "./otp-actions";
 import { formatCpfMask, formatPhoneMask } from "@/lib/masks";
 
 export function LoginForm() {
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -19,6 +21,12 @@ export function LoginForm() {
   const [phoneSubmitted, setPhoneSubmitted] = useState(false);
   const [requiresCpf, setRequiresCpf] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    if (searchParams?.get("expired") === "true") {
+      setError("Sua sessão expirou por inatividade. Por favor, faça login novamente.");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!phoneSubmitted || resendTimer <= 0) return;

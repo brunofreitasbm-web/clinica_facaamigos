@@ -2,6 +2,7 @@ import { LoginForm } from "./login-form";
 import { Logo } from "@/components/brand/logo";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { Suspense } from "react";
 
 export default function LoginPage() {
   return (
@@ -13,7 +14,9 @@ export default function LoginPage() {
           Use o CPF (ou e-mail) e a senha cadastrados pelo gestor da clínica.
         </p>
       </div>
-      <LoginForm />
+      <Suspense fallback={<div className="text-xs text-ink-soft">Carregando…</div>}>
+        <LoginForm />
+      </Suspense>
       <div className="mt-4">
         <Link
           href="/site"
