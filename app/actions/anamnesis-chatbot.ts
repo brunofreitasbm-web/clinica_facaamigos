@@ -237,11 +237,11 @@ export async function approveAnamnesisDocumentAction(
       .join("\n");
 
     const messageText =
-      `🎉 *DOCUMENTAÇÃO APROVADA PELO SUPERVISOR!*\n\n` +
-      `Olá, *${req.guardian_name}*! Os documentos (Laudo e Guia) da criança *${req.child_name}* foram validados pelo nosso supervisor clínico.\n\n` +
-      `Por favor, responda com o **NÚMERO** correspondente ao horário que prefere agendar:\n\n` +
+      `🎉 *DOCUMENTAÇÃO APROVADA!*\n\n` +
+      `Olá, *${req.guardian_name}*! Os documentos de *${req.child_name}* foram validados. 💙\n\n` +
+      `Escolha o horário para agendar:\n\n` +
       `${slotListText}\n\n` +
-      `Responda apenas com o número escolhido (ex: 1, 2...).`;
+      `Responda apenas com o número desejado (ex: 1).`;
 
     await sendTwilioWhatsApp({
       to: formattedPhone.replace("whatsapp:", ""),
@@ -301,10 +301,10 @@ export async function rejectAnamnesisDocumentAction(
       .eq("phone_number", formattedPhone);
 
     const messageText =
-      `⚠️ *SOLICITAÇÃO DE AJUSTE DE DOCUMENTAÇÃO*\n\n` +
-      `Olá, *${req.guardian_name}*. O nosso supervisor analisou a documentação de *${req.child_name}* e identificou a seguinte pendência:\n\n` +
+      `⚠️ *AJUSTE NA DOCUMENTAÇÃO*\n\n` +
+      `Olá, *${req.guardian_name}*. Identificamos uma pendência na documentação de *${req.child_name}*:\n\n` +
       `📌 *Motivo:* ${rejectionReason}\n\n` +
-      `Por favor, providencie a correção e nos envie uma nova mensagem por aqui quando estiver com o documento em mãos.`;
+      `Por favor, envie o documento corrigido por aqui assim que puder. 💙`;
 
     await sendTwilioWhatsApp({
       to: formattedPhone.replace("whatsapp:", ""),

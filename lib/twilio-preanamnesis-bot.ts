@@ -181,7 +181,7 @@ export async function processPreAnamnesisStep(params: {
       handled: true,
       replyMessage:
         `Muito obrigado! 🙏 Recebemos as informações sobre *${childName}*.\n\n` +
-        "O terapeuta vai revisar tudo com vocês presencialmente na consulta — até breve!",
+        "Nossa equipe revisará tudo para a consulta. Até breve! 💙",
     };
   }
 

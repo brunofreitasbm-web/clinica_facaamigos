@@ -225,14 +225,14 @@ export async function ingestWhatsappMedia(params: {
   const totalFiles = existingFileCount + savedCount;
   if (existingFileCount === 0) {
     const base =
-      "Recebemos 1 documento! 📄 Pode mandar os outros (certidão, RG/CPF, comprovante de residência, carteirinha, guia e laudo) nesta mesma conversa. A recepção vai conferir tudo e te avisa quando o cadastro estiver pronto.";
+      "Documento recebido! 📄 Pode enviar os demais (RG, CPF, comprovante, carteirinha, guia e laudo) por aqui. Avisaremos assim que conferido.";
     const knownPatientNote = resolved
       ? ""
-      : "\n\nComo este número ainda não está no nosso cadastro, se puder, mande também o *nome completo da criança* e o *seu nome* numa mensagem.";
+      : "\n\nSe puder, envie também o *nome da criança* e o *seu nome*.";
     return { replyMessage: `${base}${knownPatientNote}` };
   }
 
-  return { replyMessage: `Recebido! Já são *${totalFiles} documentos* nesta conversa. 👍 Quando terminar, é só aguardar — a recepção confere e te avisa.` };
+  return { replyMessage: `Recebido! (*${totalFiles} documentos* no total). 👍 Quando terminar, é só aguardar a nossa confirmação!` };
 }
 
 /**

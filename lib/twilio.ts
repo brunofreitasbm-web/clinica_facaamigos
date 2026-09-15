@@ -252,9 +252,9 @@ export async function getAcceptedInsurersFormatted(clinicId = DEV_CLINIC_ID): Pr
 
     if (!insurers || insurers.length === 0) {
       return (
-        "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*!\n\n" +
-        "Atualmente nossos atendimentos multidisciplinares para crianças e adolescentes são realizados na modalidade *Particular* com emissão de nota fiscal para *Reembolso* junto ao seu plano de saúde.\n\n" +
-        "Caso precise de auxílio com a documentação para reembolso ou queira agendar uma avaliação, por favor nos responda por aqui! 🧩✨"
+        "Olá! 💙 Boas-vindas ao *FaçaAmigos*!\n\n" +
+        "Atualmente nossos atendimentos são na modalidade *Particular* com nota fiscal para *Reembolso* junto ao convênio.\n\n" +
+        "Responda por aqui se quiser agendar uma avaliação ou precisar de ajuda com a documentação! 🧩✨"
       );
     }
 
@@ -263,18 +263,18 @@ export async function getAcceptedInsurersFormatted(clinicId = DEV_CLINIC_ID): Pr
       .join("\n");
 
     return (
-      "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*!\n\n" +
-      "Aceitamos e atendemos os seguintes planos e convênios para o acompanhamento da sua criança ou adolescente:\n\n" +
+      "Olá! 💙 Boas-vindas ao *FaçaAmigos*!\n\n" +
+      "Atendemos os seguintes convênios:\n\n" +
       `${planList}\n\n` +
-      "Também emitimos relatórios e notas fiscais para *Reembolso* caso o seu plano não esteja na lista.\n\n" +
-      "Como podemos te ajudar hoje na jornada do seu pequeno(a) ou jovem? 🧩✨"
+      "Emitimos também nota fiscal e relatório para *Reembolso* caso o seu plano não esteja na lista.\n\n" +
+      "Como podemos te ajudar hoje? 🧩✨"
     );
   } catch (err) {
     console.error("[Twilio Chatbot Exception]:", err);
     return (
-      "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*!\n\n" +
-      "Nossos atendimentos contemplam convênios parceiros e modalidade particular com reembolso para crianças e adolescentes.\n\n" +
-      "Um de nossos atendentes responderá em instantes com as informações detalhadas para a sua família! 🤝✨"
+      "Olá! 💙 Boas-vindas ao *FaçaAmigos*!\n\n" +
+      "Atendemos convênios parceiros e modalidade particular com reembolso.\n\n" +
+      "Um de nossos atendentes responderá em instantes com todas as informações! 🤝✨"
     );
   }
 }
@@ -635,10 +635,11 @@ export async function handleTwilioIncomingMessage(params: {
   return {
     intent: "atendimento_geral",
     replyMessage:
-      "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*! É uma alegria acolher você e sua família.\n\n" +
-      "• Digite *AGENDAR* para iniciar o agendamento da *Avaliação / Anamnese* da sua criança ou adolescente pelo plano de saúde.\n" +
-      "• Pergunte sobre *PLANOS DE SAÚDE* para consultar a lista de convênios aceitos.\n\n" +
-      "Como podemos te ajudar hoje no desenvolvimento do seu pequeno(a) ou jovem? 🧩✨",
+      "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩\n\n" +
+      "Como podemos te ajudar?\n" +
+      "• Digite *AGENDAR* para marcar uma avaliação pelo plano.\n" +
+      "• Digite *CONVÊNIOS* para consultar os planos aceitos.\n\n" +
+      "Ou escreva sua dúvida por aqui! ✨",
   };
 }
 

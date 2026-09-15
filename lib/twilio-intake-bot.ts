@@ -127,11 +127,12 @@ export async function startIntakeConversation(leadId: string): Promise<{ success
   const childName = lead.patient_full_name ?? "seu(sua) filho(a)";
 
   const text =
-    `Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*!\n\n` +
-    `Recebemos do *${insurerName}* o encaminhamento de *${childName}* para a avaliação. É uma alegria podermos caminhar juntos no desenvolvimento da sua criança ou adolescente! 🧩✨\n\n` +
-    `Para agendarmos a avaliação, precisamos de dois documentos (pode enviar foto ou PDF por aqui):\n\n` +
-    `1️⃣ *Laudo Médico*\n2️⃣ *Guia / Autorização do Plano*\n\n` +
-    `Quando terminar de enviar, responda *PRONTO*. Se precisar encerrar a conversa por aqui, responda *PARAR*.`;
+    `Olá! 💙 Boas-vindas ao *FaçaAmigos*!\n\n` +
+    `Recebemos do *${insurerName}* o encaminhamento de *${childName}*. 🧩\n\n` +
+    `Para agendar, envie foto ou PDF dos documentos:\n` +
+    `1️⃣ *Laudo Médico*\n` +
+    `2️⃣ *Guia / Autorização do Plano*\n\n` +
+    `Ao terminar, responda *PRONTO*. (Ou *PARAR* para encerrar).`;
 
   const templateSid = process.env.TWILIO_INTAKE_TEMPLATE_CONTENT_SID;
   const send = await sendTwilioWhatsApp({

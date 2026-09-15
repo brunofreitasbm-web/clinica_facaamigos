@@ -45,7 +45,7 @@ export async function processAbsenceBotStep(
 
     return {
       handled: true,
-      replyMessage: "Recebemos sua mensagem. Como a política da clínica não prevê reagendamento de faltas, aguardamos vocês na próxima sessão agendada!"
+      replyMessage: "Recebemos sua mensagem. Pela política da clínica, faltas não são reagendadas. Aguardamos vocês na próxima sessão! 💙"
     };
   }
 

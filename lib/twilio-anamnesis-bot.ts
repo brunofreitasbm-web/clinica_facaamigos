@@ -167,9 +167,9 @@ export async function processAnamnesisChatbotStep(
       return {
         handled: true,
         replyMessage:
-          "Olá! 💙 Seja muito bem-vindo(a) ao *FaçaAmigos - Centro de Terapia Comportamental*! É uma alegria acolher você e sua família.\n\n" +
-          "Vou te ajudar no agendamento da *Avaliação / Anamnese* da sua criança ou adolescente pelo plano de saúde. 🧩✨\n\n" +
-          "Para começarmos, por favor me informe o seu *Nome Completo* (Nome do Responsável):",
+          "Olá! 💙 Boas-vindas ao *FaçaAmigos*! 🧩\n\n" +
+          "Vou te ajudar no agendamento da avaliação pelo plano de saúde.\n\n" +
+          "Para começar, qual o seu *Nome Completo* (Responsável)?",
       };
     }
 
@@ -181,7 +181,7 @@ export async function processAnamnesisChatbotStep(
     if (rawBody.trim().length < 3) {
       return {
         handled: true,
-        replyMessage: "Por favor, informe seu nome completo para prosseguirmos:",
+        replyMessage: "Por favor, me informe o seu nome completo:",
       };
     }
 
@@ -197,7 +197,7 @@ export async function processAnamnesisChatbotStep(
 
     return {
       handled: true,
-      replyMessage: `Obrigado, *${data.guardian_name}*!\n\nAgora, por favor, me informe o seu *CPF* (somente números ou formatado):`,
+      replyMessage: `Obrigado, *${data.guardian_name}*! 💙\n\nAgora, informe o seu *CPF* (somente números):`,
     };
   }
 
@@ -207,7 +207,7 @@ export async function processAnamnesisChatbotStep(
     if (cpfDigits.length !== 11) {
       return {
         handled: true,
-        replyMessage: "O CPF informado parece inválido. Por favor, digite os 11 números do seu CPF:",
+        replyMessage: "CPF inválido. Digite os 11 números do seu CPF:",
       };
     }
 
@@ -223,7 +223,7 @@ export async function processAnamnesisChatbotStep(
 
     return {
       handled: true,
-      replyMessage: "Perfeito! 🤝 Agora me informe o *Nome Completo da Criança ou Adolescente* que fará a avaliação:",
+      replyMessage: "Perfeito! 🤝 Qual o *Nome Completo da Criança ou Adolescente* que fará a avaliação?",
     };
   }
 
@@ -248,7 +248,7 @@ export async function processAnamnesisChatbotStep(
 
     return {
       handled: true,
-      replyMessage: `Anotado! 🎈 Agora me informe a *Data de Nascimento* de ${data.child_name} (formato DD/MM/AAAA):`,
+      replyMessage: `Anotado! 🎈 Qual a *Data de Nascimento* de ${data.child_name}? (DD/MM/AAAA):`,
     };
   }
 
@@ -258,7 +258,7 @@ export async function processAnamnesisChatbotStep(
     if (!isoDate) {
       return {
         handled: true,
-        replyMessage: "Data inválida. Por favor, informe a data de nascimento no formato DD/MM/AAAA (ex: 15/03/2018):",
+        replyMessage: "Data inválida. Informe no formato DD/MM/AAAA (ex: 15/03/2018):",
       };
     }
 
@@ -275,8 +275,7 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        `Perfeito! Atendimento para *${data.child_name}*. 🧩\n\n` +
-        "Ele(a) já possui *Laudo Médico* expedido pelo neuropediatra ou psiquiatra?\n\n" +
+        `Perfeito! 🧩 ${data.child_name} já possui *Laudo Médico*?\n\n` +
         "Responda *SIM* ou *NÃO*.",
     };
   }
@@ -297,8 +296,8 @@ export async function processAnamnesisChatbotStep(
       return {
         handled: true,
         replyMessage:
-          "Compreendemos perfeitamente! 💙 Para o agendamento de Avaliação/Anamnese coberto pelo plano de saúde, a apresentação do *Laudo Médico* é essencial.\n\n" +
-          "Orientamos que entre em contato com o médico especialista ou com a operadora do plano de saúde. Assim que tiver o documento em mãos, basta nos enviar uma mensagem por aqui! Estaremos prontos para te acolher. 🌱✨",
+          "Compreendemos! 💙 Para o agendamento pelo plano de saúde, o *Laudo Médico* é essencial.\n\n" +
+          "Assim que tiver o documento em mãos com o especialista, basta nos enviar uma mensagem por aqui para agendarmos! 🌱✨",
       };
     }
 
@@ -315,13 +314,13 @@ export async function processAnamnesisChatbotStep(
       return {
         handled: true,
         replyMessage:
-          "Ótimo! 📄 Por favor, **envie agora o PDF do Laudo Médico** anexado nesta conversa do WhatsApp.",
+          "Ótimo! 📄 Envie a foto ou PDF do *Laudo Médico* por aqui.",
       };
     }
 
     return {
       handled: true,
-      replyMessage: "Por favor, responda apenas **SIM** se já possui o Laudo Médico ou **NÃO** caso ainda não possua.",
+      replyMessage: "Por favor, responda apenas *SIM* se já possui o Laudo ou *NÃO* caso não possua.",
     };
   }
 
@@ -332,7 +331,7 @@ export async function processAnamnesisChatbotStep(
     if (!params.mediaUrl0 && !isPdf) {
       return {
         handled: true,
-        replyMessage: "Não identificamos um arquivo PDF anexado. Por favor, selecione o arquivo PDF do Laudo Médico e envie por aqui.",
+        replyMessage: "Arquivo não identificado. Por favor, envie o PDF ou foto do Laudo Médico por aqui.",
       };
     }
 
@@ -352,8 +351,8 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        "Laudo recebido com sucesso! ✅\n\n" +
-        "Agora, a criança já possui a *Guia de Autorização* liberada pelo plano de saúde para a avaliação?\n\n" +
+        "Laudo recebido! ✅\n\n" +
+        "Já possui a *Guia de Autorização* liberada pelo plano?\n\n" +
         "Responda *SIM* ou *NÃO*.",
     };
   }
@@ -373,8 +372,8 @@ export async function processAnamnesisChatbotStep(
       return {
         handled: true,
         replyMessage:
-          "Entendido! ℹ️ A *Guia de Autorização* do plano de saúde é um requisito indispensável para agendarmos a sessão de avaliação.\n\n" +
-          "Por favor, solicite a emissão da guia junto ao seu convênio. Assim que for liberada, nos envie uma mensagem por aqui!",
+          "Entendido! 💙 A *Guia de Autorização* do plano é necessária para o agendamento.\n\n" +
+          "Solicite a emissão no seu convênio e nos avise assim que tiver em mãos!",
       };
     }
 
@@ -390,13 +389,13 @@ export async function processAnamnesisChatbotStep(
 
       return {
         handled: true,
-        replyMessage: "Excelente! 📄 Por favor, **envie o PDF da Guia de Autorização** anexado nesta conversa.",
+        replyMessage: "Excelente! 📄 Envie a foto ou PDF da *Guia de Autorização* por aqui.",
       };
     }
 
     return {
       handled: true,
-      replyMessage: "Por favor, responda apenas **SIM** se já possui a Guia de Autorização ou **NÃO** caso não possua.",
+      replyMessage: "Por favor, responda apenas *SIM* se já possui a Guia ou *NÃO* caso não possua.",
     };
   }
 
@@ -407,7 +406,7 @@ export async function processAnamnesisChatbotStep(
     if (!params.mediaUrl0 && !isPdf) {
       return {
         handled: true,
-        replyMessage: "Não identificamos o anexo em PDF da guia. Por favor, envie o documento PDF da Guia de Autorização.",
+        replyMessage: "Arquivo não identificado. Por favor, envie a foto ou PDF da Guia de Autorização.",
       };
     }
 
@@ -449,9 +448,8 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        "Tudo certo! 🎉 Recebemos com carinho todas as suas informações e os documentos em PDF (Laudo e Guia).\n\n" +
-        "O supervisor da *FaçaAmigos - Centro de Terapia Comportamental* irá analisar e validar os documentos. Assim que for aprovado, enviaremos as datas e horários disponíveis por aqui para você escolher o melhor agendamento da sua criança/adolescente! 🧩💙\n\n" +
-        "Agradecemos o seu contato e a confiança em nossa equipe!",
+        "Tudo certo! 🎉 Recebemos as informações e documentos (Laudo e Guia).\n\n" +
+        "Nosso supervisor fará a validação rápida. Assim que aprovado, enviaremos os horários disponíveis por aqui para você escolher! 🧩💙",
     };
   }
 
@@ -460,8 +458,8 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        "Olá! Sua documentação (Laudo e Guia) já foi recebida e está na fila de análise do nosso supervisor clínico.\n\n" +
-        "Assim que for validada, enviaremos a lista de datas e horários disponíveis diretamente nesta conversa!",
+        "Olá! Seus documentos (Laudo e Guia) estão em análise pela supervisão. 💙\n\n" +
+        "Assim que validados, enviaremos os horários disponíveis por aqui!",
     };
   }
 
@@ -476,7 +474,7 @@ export async function processAnamnesisChatbotStep(
       return {
         handled: true,
         replyMessage:
-          "Opção inválida. Por favor, digite apenas o **número** correspondente ao horário desejado da lista (ex: 1, 2, 3...).",
+          "Opção inválida. Digite apenas o **número** correspondente ao horário desejado (ex: 1, 2...).",
       };
     }
 
@@ -500,7 +498,7 @@ export async function processAnamnesisChatbotStep(
         handled: true,
         replyMessage:
           `⚠️ ${errReason}\n\n` +
-          "Por favor, responda com outro número de horário vago disponível.",
+          "Por favor, escolha outro número de horário disponível.",
       };
     }
 
@@ -523,12 +521,11 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        `✅ *AGENDAMENTO CONFIRMADO COM SUCESSO!*\n\n` +
-        `👤 **Paciente:** ${data.child_name}\n` +
-        `📅 **Data e Horário:** ${formattedDate}\n` +
-        `📍 **Local:** Clínica de Desenvolvimento Infantil - Sala de Anamnese\n\n` +
-        "Sua sessão de Avaliação/Anamnese já está reservada no nosso sistema. Lembre-se de trazer os documentos originais no dia da consulta.\n\n" +
-        "Aguardamos vocês!",
+        `✅ *AGENDAMENTO CONFIRMADO!*\n\n` +
+        `👤 *Paciente:* ${data.child_name}\n` +
+        `📅 *Data e Horário:* ${formattedDate}\n` +
+        `📍 *Local:* FaçaAmigos - Sala de Anamnese\n\n` +
+        "Aguardamos vocês! Traga os documentos originais no dia da consulta. 💙✨",
     };
   }
 
