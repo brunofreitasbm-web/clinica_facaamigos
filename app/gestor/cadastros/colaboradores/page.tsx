@@ -17,23 +17,30 @@ export default async function ColaboradoresPage() {
 
   let clinicId = DEV_CLINIC_ID;
   if (user) {
-    const { data: callerProfile } = await supabase
+    const { data: callerProfile, error: callerProfileError } = await supabase
       .from("profiles")
       .select("clinic_id")
       .eq("id", user.id)
       .maybeSingle();
+    if (callerProfileError) {
+      console.error("[colaboradores] falha ao buscar perfil do usuário logado:", callerProfileError);
+    }
     if (callerProfile?.clinic_id) {
       clinicId = callerProfile.clinic_id;
     }
   }
 
-  const { data: profiles } = await supabase
+  const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
     .select(
       "id, full_name, email, cpf, role, council_type, birth_date, active, is_evaluator, is_at_professional, google_calendar_opt_in, signature_pin_hash, source_system, created_at",
     )
     .eq("clinic_id", clinicId)
     .order("full_name");
+
+  if (profilesError) {
+    console.error("[colaboradores] falha ao listar colaboradores:", profilesError);
+  }
 
   const staff: StaffRow[] = (profiles ?? []).map((p) => ({
     id: p.id,

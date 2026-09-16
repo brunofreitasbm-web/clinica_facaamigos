@@ -639,7 +639,8 @@ export async function handleTwilioIncomingMessage(params: {
       "Como podemos te ajudar?\n" +
       "• Digite *AGENDAR* para marcar uma avaliação pelo plano.\n" +
       "• Digite *CONVÊNIOS* para consultar os planos aceitos.\n\n" +
-      "Ou escreva sua dúvida por aqui! ✨",
+      "Ou escreva sua dúvida por aqui! ✨\n\n" +
+      "🌐 Acesse também nosso site: www.institutofacaamigos.com.br",
   };
 }
 
