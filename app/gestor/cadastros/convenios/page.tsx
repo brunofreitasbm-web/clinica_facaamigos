@@ -25,11 +25,20 @@ export default async function ConveniosPage() {
     if (profile?.clinic_id) clinicId = profile.clinic_id;
   }
 
-  const { data: insurers } = await supabase
+  let { data: insurers, error: fetchError } = await supabase
     .from("insurers")
     .select("id, name, ans_code, badge_color")
     .eq("clinic_id", clinicId)
     .order("name");
+
+  if (fetchError && fetchError.message.includes("badge_color")) {
+    const fallback = await supabase
+      .from("insurers")
+      .select("id, name, ans_code")
+      .eq("clinic_id", clinicId)
+      .order("name");
+    insurers = (fallback.data ?? []).map((i) => ({ ...i, badge_color: null }));
+  }
 
   return (
     <>

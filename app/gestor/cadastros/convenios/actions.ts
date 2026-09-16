@@ -34,12 +34,24 @@ export async function createInsurer(
   const supabase = await createClient();
   const clinicId = await getGestorClinicId(supabase);
 
-  const { error } = await supabase.from("insurers").insert({
+  const payload: Record<string, any> = {
     clinic_id: clinicId,
     name,
     ans_code: ansCode || null,
-    badge_color: badgeColor || null,
-  });
+  };
+  if (badgeColor) {
+    payload.badge_color = badgeColor;
+  }
+
+  let { error } = await supabase.from("insurers").insert(payload);
+
+  // Fallback gracioso: se a coluna badge_color ainda não foi adicionada no Supabase,
+  // insere sem ela para não impedir o cadastro do convênio.
+  if (error && error.message.includes("badge_color")) {
+    delete payload.badge_color;
+    const fallback = await supabase.from("insurers").insert(payload);
+    error = fallback.error;
+  }
 
   if (error) {
     return {
@@ -61,11 +73,18 @@ export async function updateInsurerColor(
   const supabase = await createClient();
   const clinicId = await getGestorClinicId(supabase);
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from("insurers")
     .update({ badge_color: badgeColor || null })
     .eq("id", insurerId)
     .eq("clinic_id", clinicId);
+
+  if (error && error.message.includes("badge_color")) {
+    return {
+      success: false,
+      error: "A coluna de cor personalizada ainda não foi adicionada no seu banco Supabase. Execute a migration correspondente.",
+    };
+  }
 
   if (error) {
     return {
