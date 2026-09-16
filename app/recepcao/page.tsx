@@ -72,6 +72,7 @@ export default async function RecepcaoPage({
       .select("id, full_name")
       .eq("clinic_id", DEV_CLINIC_ID)
       .eq("role", "terapeuta")
+      .eq("active", true)
       .order("full_name"),
     supabase.from("insurers").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
   ]);
@@ -449,9 +450,6 @@ export default async function RecepcaoPage({
               <h1 className="m-0">Agenda do dia</h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <AcolhimentoPresencialDialog insurers={insurers ?? []} therapists={therapists ?? []} rooms={rooms ?? []} />
-              <InteressadoRapidoDialog />
-              <ChecklistEntradaDialog rows={intakeChecklistRows} />
               <NovaSessaoDialog
                 patients={patients ?? []}
                 therapists={therapists ?? []}
@@ -462,6 +460,9 @@ export default async function RecepcaoPage({
                 abaClasses={abaClasses}
                 abaBalanceByPatient={abaBalanceByPatient}
               />
+              <AcolhimentoPresencialDialog insurers={insurers ?? []} therapists={therapists ?? []} rooms={rooms ?? []} />
+              <InteressadoRapidoDialog />
+              <ChecklistEntradaDialog rows={intakeChecklistRows} />
             </div>
           </div>
 
@@ -477,28 +478,29 @@ export default async function RecepcaoPage({
           />
         </section>
 
-        <aside className="flex flex-col gap-10 pt-2">
-          <div>
-            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3.5">
+        <aside className="flex flex-col gap-6 pt-2">
+          {/* Card: Guias Vencendo */}
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-2xs">
+            <h6 className="mb-3.5 text-xs font-bold uppercase tracking-wide text-slate-700">
               Guias vencendo ou acabando
             </h6>
             <div className="flex flex-col gap-3.5">
               {expiringGuides.length === 0 && (
-                <p className="text-sm text-ink-faint">
+                <p className="text-xs text-slate-500 italic">
                   Nenhuma guia vencendo em 15 dias nem com poucas sessões restantes.
                 </p>
               )}
               {expiringGuides.map((g, i) => (
-                <div key={i} className="flex items-baseline justify-between gap-3 text-sm">
+                <div key={i} className="flex items-baseline justify-between gap-3 text-xs border-b border-slate-100 pb-2 last:border-0">
                   <div>
-                    <div style={{ fontFamily: "var(--font-heading)" }} className="text-[15px] font-semibold">
+                    <div className="text-sm font-semibold text-slate-800">
                       {g.patientName}
                     </div>
-                    <div className="text-xs" style={{ color: "var(--color-neutral-600)" }}>
+                    <div className="text-[11px] text-slate-600">
                       {g.insurerName} · {g.sessionsUsed} de {g.sessionsAuthorized} sessões
                     </div>
                   </div>
-                  <span className="whitespace-nowrap text-xs" style={{ color: "var(--color-accent-2-700)" }}>
+                  <span className="whitespace-nowrap text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                     {g.reason === "vencendo" ? `até ${fmtShortDate(g.validTo)}` : "poucas sessões"}
                   </span>
                 </div>
@@ -506,14 +508,14 @@ export default async function RecepcaoPage({
             </div>
           </div>
 
-          <div>
+          {/* Card: Outras Pendências */}
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-2xs">
             <div className="mb-3.5 flex items-center justify-between">
-              <h6 style={{ color: "var(--color-accent-2-600)" }}>Outras pendências</h6>
+              <h6 className="text-xs font-bold uppercase tracking-wide text-slate-700">Outras pendências</h6>
               {otherPendingItems.length > 0 && (
                 <Link
                   href="/recepcao/pacientes/pendencias"
-                  className="text-xs no-underline"
-                  style={{ color: "var(--color-accent-2-700)" }}
+                  className="text-xs font-semibold text-teal-700 hover:text-teal-900 no-underline"
                 >
                   ver todas ({otherPendingItems.length})
                 </Link>
@@ -521,15 +523,15 @@ export default async function RecepcaoPage({
             </div>
             <div className="flex flex-col gap-3">
               {otherPendingItems.length === 0 && (
-                <p className="text-sm text-ink-faint">Nenhuma outra pendência no momento.</p>
+                <p className="text-xs text-slate-500 italic">Nenhuma outra pendência no momento.</p>
               )}
               {otherPendingItems.slice(0, 5).map((item) => {
                 const content = (
-                  <div>
-                    <div style={{ fontFamily: "var(--font-heading)" }} className="text-[15px] font-semibold">
+                  <div className="border-b border-slate-100 pb-2 last:border-0 hover:bg-slate-50/50 p-1 rounded transition-colors">
+                    <div className="text-sm font-semibold text-slate-800">
                       {item.patientName}
                     </div>
-                    <div className="text-xs" style={{ color: "var(--color-neutral-600)" }}>
+                    <div className="text-[11px] text-slate-600">
                       {item.categoryLabel} · {item.detail}
                     </div>
                   </div>
@@ -545,39 +547,51 @@ export default async function RecepcaoPage({
             </div>
           </div>
 
-          <div>
-            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3.5">
+          {/* Card: Salas Agora com Chips Semânticos */}
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-2xs">
+            <h6 className="mb-3.5 text-xs font-bold uppercase tracking-wide text-slate-700">
               Salas agora
             </h6>
-            <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
-              {roomsNow.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex flex-col gap-1"
-                  style={{ padding: "12px 14px", background: "var(--color-surface)", borderRadius: 2 }}
-                >
-                  <span className="text-xs" style={{ color: "var(--color-neutral-600)" }}>
-                    {r.name}
-                  </span>
-                  <span style={{ fontFamily: "var(--font-heading)" }} className="text-sm font-semibold">
-                    {r.who}
-                  </span>
-                </div>
-              ))}
-              {roomsNow.length === 0 && <p className="text-sm text-ink-faint">Nenhuma sala cadastrada.</p>}
+            <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-2">
+              {roomsNow.map((r) => {
+                const isLivre = r.who === "Livre";
+                return (
+                  <div
+                    key={r.id}
+                    className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50/60 p-2.5"
+                  >
+                    <span className="text-xs font-semibold text-slate-700 truncate">
+                      {r.name}
+                    </span>
+                    {isLivre ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 w-max">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Livre
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 w-max max-w-full truncate" title={r.who}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                        <span className="truncate">{r.who}</span>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {roomsNow.length === 0 && <p className="text-xs text-slate-500 italic">Nenhuma sala cadastrada.</p>}
             </div>
           </div>
 
-          <div>
-            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3.5">
+          {/* Card: Rastro do Dia com Rolagem Independente */}
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-2xs">
+            <h6 className="mb-3.5 text-xs font-bold uppercase tracking-wide text-slate-700">
               Rastro do dia
             </h6>
-            <div className="flex flex-col gap-2.5 text-[13px]" style={{ color: "var(--color-neutral-700)" }}>
-              {log.length === 0 && <p className="text-ink-faint">Nenhuma atividade registrada ainda hoje.</p>}
+            <div className="flex flex-col gap-2.5 text-xs text-slate-700 max-h-56 overflow-y-auto pr-1">
+              {log.length === 0 && <p className="text-xs text-slate-500 italic">Nenhuma atividade registrada ainda hoje.</p>}
               {log.map((l, i) => (
-                <div key={i} className="grid gap-2.5" style={{ gridTemplateColumns: "44px 1fr" }}>
-                  <span style={{ color: "var(--color-neutral-500)" }}>{l.t}</span>
-                  <span>{l.msg}</span>
+                <div key={i} className="grid gap-2 border-b border-slate-100 pb-1.5 last:border-0" style={{ gridTemplateColumns: "42px 1fr" }}>
+                  <span className="font-medium text-slate-500">{l.t}</span>
+                  <span className="text-slate-800 font-medium">{l.msg}</span>
                 </div>
               ))}
             </div>

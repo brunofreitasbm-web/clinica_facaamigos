@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getLeakCards, getBonusRows, getTierProgression, getOperationalAlerts, currentMonthRange } from "./data";
 import { ExecutiveLeaks } from "./executive-leaks";
+import { TierProgressionTable } from "./tier-progression-table";
 import { GestorCockpit } from "@/components/gestor/gestor-cockpit";
 import { PageContainer } from "@/components/page-container";
 
@@ -157,62 +158,14 @@ export default async function GestorPage() {
         </div>
       </div>
 
-      <GestorCockpit initialAlerts={operationalAlerts} />
+      <GestorCockpit initialAlerts={operationalAlerts} hasActivePatients={(activePatientsCount ?? 0) > 0} />
 
       <ExecutiveLeaks leaks={leaks} bonusPanel={bonusPanel} />
 
       <section className="pt-14">
         <h6 style={{ color: "var(--color-accent-2-600)" }}>Terapeutas</h6>
         <h3 className="mb-5">Progressão de faixa</h3>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Terapeuta</th>
-              <th>Faixa</th>
-              <th>Sessões (90d)</th>
-              <th>Evolução em 24h</th>
-              <th>Próxima faixa</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tierRows.map((t) => (
-              <tr key={t.id}>
-                <td className="font-semibold">{t.name}</td>
-                <td>
-                  {t.hasContract ? (
-                    t.tier
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
-                      Sem contrato
-                    </span>
-                  )}
-                </td>
-                <td className="tabular-figure">
-                  {t.sessions > 0 ? t.sessions : <span className="text-ink-faint">—</span>}
-                </td>
-                <td className="tabular-figure">
-                  {t.hasSessions ? t.note24hRateLabel : <span className="text-ink-faint">—</span>}
-                </td>
-                <td>
-                  {t.eligible ? (
-                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
-                      {t.nextTierLabel}
-                    </span>
-                  ) : (
-                    <span className="text-ink-faint">{t.nextTierLabel}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {tierRows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-ink-faint">
-                  Nenhum terapeuta ativo cadastrado ainda.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <TierProgressionTable rows={tierRows} />
       </section>
       </PageContainer>
     </main>

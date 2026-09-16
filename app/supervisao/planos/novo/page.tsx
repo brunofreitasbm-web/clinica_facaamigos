@@ -52,6 +52,7 @@ export default async function NovoPlanoPage({
     .select("id, full_name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .eq("role", "terapeuta")
+    .eq("active", true)
     .order("full_name");
 
   // Salas reais da clínica — usadas pelo "Calendário Conciliado" pra alocar

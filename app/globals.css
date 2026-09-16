@@ -489,6 +489,15 @@ label:has(> input.sr-only:focus-visible) { outline: 2px solid var(--color-accent
 .st-falta { background: var(--status-falta-bg); color: var(--color-status-negative-text); }
 .st-cancelada { background: var(--status-cancelada-bg); color: var(--color-status-neutral-text); }
 
+/* Foco de teclado pras células/cards interativos da grade de agendamento
+   (ver app/supervisao/evaluation-calendar.tsx) — outline inset pra não
+   deslocar o layout da grade, cor com contraste suficiente sobre qualquer
+   um dos fundos de status da célula. */
+.grid-cell-focusable:focus-visible {
+  outline: 2px solid #0e7490;
+  outline-offset: -2px;
+}
+
 .nav {
   display: flex; align-items: center; gap: var(--space-4);
   padding: var(--space-3) var(--space-4);

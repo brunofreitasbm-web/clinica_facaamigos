@@ -13,6 +13,7 @@ export default async function EmergenciasPage() {
     .select("id, full_name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .eq("role", "terapeuta")
+    .eq("active", true)
     .order("full_name");
 
   return (

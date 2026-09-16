@@ -57,6 +57,7 @@ export default async function TerapeutaAgendaPage({
       .select("id, full_name")
       .eq("clinic_id", DEV_CLINIC_ID)
       .eq("role", "terapeuta")
+      .eq("active", true)
       .order("full_name");
     therapists = data;
     therapistId = therapists?.some((t) => t.id === params.therapist) ? params.therapist! : (therapists?.[0]?.id ?? "");

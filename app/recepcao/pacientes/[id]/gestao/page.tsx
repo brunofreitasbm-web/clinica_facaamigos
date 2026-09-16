@@ -94,6 +94,7 @@ export default async function GestaoPacientePage({
     .select("id, full_name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .in("role", ["terapeuta", "supervisor"])
+    .eq("active", true)
     .order("full_name");
 
   const candidates: ProfileOption[] = candidatesRaw ?? [];

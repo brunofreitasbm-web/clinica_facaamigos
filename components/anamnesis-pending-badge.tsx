@@ -24,14 +24,22 @@ export function AnamnesisPendingBadge() {
   if (count === null || count === 0) return null;
 
   return (
-    <Link
-      href="/supervisao"
-      className="mb-8 flex items-center gap-3 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm no-underline"
-    >
-      <ShieldCheck size={16} className="text-accent" />
-      <span className="text-ink">
-        <strong>{count}</strong> {count === 1 ? "solicitação de anamnese aguardando" : "solicitações de anamnese aguardando"} validação clínica na Supervisão
-      </span>
-    </Link>
+    <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50/90 p-3.5 shadow-2xs transition-all" role="alert" aria-live="polite">
+      <Link
+        href="/supervisao"
+        className="flex items-center justify-between gap-3 text-sm no-underline text-amber-900 hover:text-amber-950"
+      >
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck size={18} className="text-amber-600 shrink-0" />
+          <span className="font-medium">
+            <strong>{count}</strong> {count === 1 ? "solicitação de anamnese aguardando" : "solicitações de anamnese aguardando"} validação clínica na Supervisão
+          </span>
+        </div>
+        <span className="text-xs font-semibold text-amber-700 underline shrink-0 hover:text-amber-900">
+          Ver na Supervisão →
+        </span>
+      </Link>
+    </div>
   );
 }
+

@@ -16,6 +16,7 @@ import {
 } from "./evaluation-calendar-actions";
 import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationPoolItem } from "@/lib/evaluation-agenda";
 import { AnamnesisDocumentPopover } from "@/components/anamnesis-document-popover";
+import { AlertTriangle, FileCheck2 } from "lucide-react";
 
 /**
  * Calendário semanal de 1ª avaliação — visão única, independente de onde o
@@ -171,6 +172,12 @@ export function EvaluationCalendar({
     return Array.from(byId.values());
   }, [therapists, appointments]);
 
+  // Sem avaliador cadastrado, a grade não tem destino válido pra receber um
+  // agendamento — em vez de deixar o usuário arrastar/clicar em slots vazios
+  // e só descobrir o erro depois do drop, a interação fica bloqueada e o
+  // aviso aparece antes, com CTA direto pra cadastrar disponibilidade.
+  const hasEvaluators = availableTherapists.some((t) => t.isEvaluator);
+
   useEffect(() => {
     // Nunca pré-selecionar um avulso sem qualificação: ele só está na lista
     // para o grid, não como destino padrão de novo agendamento.
@@ -321,29 +328,52 @@ export function EvaluationCalendar({
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Terapeuta avaliador</label>
-          <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
-            {availableTherapists.length === 0 && <option value="">Nenhum terapeuta avaliador cadastrado</option>}
-            {availableTherapists.map((t) => (
-              <option key={t.id} value={t.id} disabled={!t.isEvaluator}>
-                {t.isEvaluator ? t.name : `${t.name} (sem qualificação de avaliador)`}
-              </option>
-            ))}
-          </select>
-          <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Sala</label>
-          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input text-xs">
-            {rooms.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-          <Link href="/supervisao/disponibilidade" className="text-xs font-semibold text-accent underline underline-offset-2 hover:no-underline">
+        {hasEvaluators ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Terapeuta avaliador</label>
+            <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
+              {availableTherapists.map((t) => (
+                <option key={t.id} value={t.id} disabled={!t.isEvaluator}>
+                  {t.isEvaluator ? t.name : `${t.name} (sem qualificação de avaliador)`}
+                </option>
+              ))}
+            </select>
+            <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Sala</label>
+            <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input text-xs">
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+            <Link href="/supervisao/disponibilidade" className="text-xs font-semibold text-accent underline underline-offset-2 hover:no-underline">
+              Disponibilidade do avaliador
+            </Link>
+          </div>
+        ) : null}
+      </div>
+
+      {!hasEvaluators && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+          style={{ background: "var(--status-falta-bg)", borderColor: "var(--color-status-negative-text)" }}
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={18} aria-hidden style={{ color: "var(--color-status-negative-text)" }} className="mt-0.5 shrink-0" />
+            <p className="text-xs font-semibold" style={{ color: "var(--color-status-negative-text)" }}>
+              Nenhum terapeuta avaliador disponível para esta data. Cadastre ou vincule a disponibilidade de um profissional para liberar a agenda.
+            </p>
+          </div>
+          <Link
+            href="/supervisao/disponibilidade"
+            className="btn shrink-0 text-xs font-semibold"
+            style={{ background: "var(--color-status-negative-text)", color: "#fff" }}
+          >
             Disponibilidade do avaliador
           </Link>
         </div>
-      </div>
+      )}
 
       {therapistId && hasAvailabilityConfigured && (
         <p className="text-[11px] text-ink-faint">
@@ -365,12 +395,19 @@ export function EvaluationCalendar({
             {readyPool.map((item) => (
               <div
                 key={item.id}
-                draggable
+                draggable={hasEvaluators}
+                tabIndex={hasEvaluators ? 0 : undefined}
                 onDragStart={(e) => {
+                  if (!hasEvaluators) {
+                    e.preventDefault();
+                    return;
+                  }
                   e.dataTransfer.setData("application/json", JSON.stringify({ kind: "pool", poolItemId: item.id } satisfies DragPayload));
                 }}
-                className="cursor-grab rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm active:cursor-grabbing"
-                title="Arraste para uma célula do calendário"
+                className={`grid-cell-focusable rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm ${
+                  hasEvaluators ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-50"
+                }`}
+                title={hasEvaluators ? "Arraste para uma célula do calendário" : "Cadastre um terapeuta avaliador para liberar o agendamento"}
               >
                 <p className="text-xs font-semibold text-ink">{item.patientName}</p>
                 <span className={`tag-status mt-1 inline-block ${ORIGIN_TAG[item.origin]}`}>{ORIGIN_LABEL[item.origin]}</span>
@@ -380,23 +417,50 @@ export function EvaluationCalendar({
             {waitingPool.map((item) => {
               const anamnesisRequestId = item.bookInput.origin === "whatsapp_anamnese" ? item.bookInput.requestId : null;
               return (
-                <div key={item.id} className="relative rounded-md border border-dashed border-paper-line-strong bg-paper p-2.5">
-                  <div className="opacity-70">
-                    {anamnesisRequestId ? (
-                      <button
-                        type="button"
-                        onClick={() => setOpenDocPopoverId((id) => (id === item.id ? null : item.id))}
-                        className="text-xs font-semibold text-ink-soft underline decoration-dotted underline-offset-2 hover:text-ink"
-                        title="Ver e validar documentos"
-                      >
-                        {item.patientName}
-                      </button>
-                    ) : (
-                      <p className="text-xs font-semibold text-ink-soft">{item.patientName}</p>
-                    )}
-                    <span className={`tag-status mt-1 inline-block ${ORIGIN_TAG[item.origin]}`}>{ORIGIN_LABEL[item.origin]}</span>
-                    <p className="mt-1 text-[11px] text-ink-faint">{item.statusLabel} — aprove antes de agendar.</p>
+                <div
+                  key={item.id}
+                  role={anamnesisRequestId ? "button" : undefined}
+                  tabIndex={anamnesisRequestId ? 0 : undefined}
+                  onClick={anamnesisRequestId ? () => setOpenDocPopoverId((id) => (id === item.id ? null : item.id)) : undefined}
+                  onKeyDown={
+                    anamnesisRequestId
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setOpenDocPopoverId((id) => (id === item.id ? null : item.id));
+                          }
+                        }
+                      : undefined
+                  }
+                  className={`relative rounded-md border border-dashed border-paper-line-strong bg-paper p-2.5 ${
+                    anamnesisRequestId ? "cursor-pointer hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]" : ""
+                  }`}
+                >
+                  <p className="text-xs font-semibold text-ink">{item.patientName}</p>
+                  <span className={`tag-status mt-1 inline-block ${ORIGIN_TAG[item.origin]}`}>{ORIGIN_LABEL[item.origin]}</span>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span
+                      className="tag-status st-agendada"
+                      aria-label="Documentação pendente de aprovação"
+                    >
+                      Aguardando Aprovação
+                    </span>
                   </div>
+                  <p className="mt-1 text-[11px] text-ink-faint">{item.statusLabel} — aprove antes de agendar.</p>
+                  {anamnesisRequestId && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenDocPopoverId((id) => (id === item.id ? null : item.id));
+                      }}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border-2 px-2.5 py-1 text-[11px] font-bold hover:opacity-80"
+                      style={{ borderColor: "var(--color-accent)", color: "var(--color-accent)" }}
+                    >
+                      <FileCheck2 size={12} aria-hidden />
+                      Validar Documentos
+                    </button>
+                  )}
                   {anamnesisRequestId && openDocPopoverId === item.id && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setOpenDocPopoverId(null)} />
@@ -418,7 +482,14 @@ export function EvaluationCalendar({
         </aside>
 
         {/* Grade semanal */}
-        <div className="flex-1 overflow-x-auto">
+        <div className={`relative flex-1 overflow-x-auto ${hasEvaluators ? "" : "pointer-events-none opacity-50"}`} aria-disabled={!hasEvaluators}>
+          {!hasEvaluators && !loading && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center pt-10">
+              <p className="rounded-md border border-paper-line-strong bg-white px-3 py-2 text-xs font-semibold text-ink-soft shadow-sm">
+                Agenda bloqueada até cadastrar um avaliador
+              </p>
+            </div>
+          )}
           {loading ? (
             <p className="p-4 text-sm text-ink-faint">Carregando semana…</p>
           ) : (
@@ -504,13 +575,14 @@ export function EvaluationCalendar({
                           <div
                             key={a.id}
                             draggable
+                            tabIndex={0}
                             onDragStart={(e) => {
                               e.dataTransfer.setData(
                                 "application/json",
                                 JSON.stringify({ kind: "reschedule", appointmentId: a.id, durationMinutes } satisfies DragPayload),
                               );
                             }}
-                            className="absolute left-0.5 right-0.5 cursor-grab overflow-hidden rounded-md border p-1 text-[11px] shadow-sm active:cursor-grabbing"
+                            className="grid-cell-focusable absolute left-0.5 right-0.5 cursor-grab overflow-hidden rounded-md border p-1 text-[11px] shadow-sm active:cursor-grabbing"
                             style={{ top, height, background: "var(--status-agendada-bg)", borderColor: "var(--paper-line-strong)" }}
                             title={`${a.patientName} · ${a.therapistName} · ${a.roomName}`}
                           >

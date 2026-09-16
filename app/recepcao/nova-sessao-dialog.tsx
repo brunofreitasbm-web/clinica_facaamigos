@@ -121,6 +121,21 @@ export function NovaSessaoDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patients]);
 
+  // Atalho de teclado global: Ctrl + N ou Cmd + N para acionar diretamente o modal de nova sessão
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
+        // Ignora se estiver num input/textarea/select para evitar conflito na digitação
+        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select") return;
+        e.preventDefault();
+        setOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   function close() {
     setOpen(false);
     setPatientId("");
@@ -134,11 +149,20 @@ export function NovaSessaoDialog({
 
   return (
     <>
-      <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        aria-label="Nova Sessão (Ctrl+N)"
+        title="Agendar nova sessão (Ctrl+N)"
+        className="inline-flex items-center justify-center gap-2 rounded-md bg-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-teal-700 active:bg-teal-800 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer"
+        onClick={() => setOpen(true)}
+      >
         <svg width="16" height="16" viewBox="0 0 256 256" fill="none" aria-hidden>
           <path d="M128 40v176M40 128h176" stroke="currentColor" strokeWidth="24" strokeLinecap="round" />
         </svg>
-        Nova sessão
+        <span>+ Nova sessão</span>
+        <kbd className="hidden sm:inline-block rounded bg-teal-700/60 px-1.5 py-0.5 text-[10px] font-normal text-teal-100">
+          Ctrl+N
+        </kbd>
       </button>
 
       {open && (

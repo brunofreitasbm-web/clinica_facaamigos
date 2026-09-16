@@ -105,6 +105,7 @@ export default async function PacientePage({
     .select("id, full_name, is_evaluator")
     .eq("clinic_id", DEV_CLINIC_ID)
     .eq("role", "terapeuta")
+    .eq("active", true)
     .order("full_name");
 
   // Nem todo terapeuta é avaliador: a 1ª avaliação só pode ser agendada para

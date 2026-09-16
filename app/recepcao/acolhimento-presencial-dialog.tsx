@@ -158,8 +158,9 @@ export function AcolhimentoPresencialDialog({
     <>
       <button
         type="button"
+        aria-label="Novo Acolhimento Presencial"
         onClick={handleOpen}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-600 bg-amber-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-amber-600 focus:outline-none"
+        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer"
       >
         <span>📍</span> Novo Acolhimento Presencial
       </button>

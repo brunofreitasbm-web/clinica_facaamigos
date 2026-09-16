@@ -23,12 +23,13 @@ export function ChecklistEntradaDialog({ rows }: { rows: IntakeChecklistRow[] })
     <>
       <button
         type="button"
+        aria-label="Ver checklist de entrada"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[#E81E61] bg-white px-3.5 py-2 text-xs font-semibold text-[#E81E61] shadow-xs transition-all hover:bg-[#E81E61]/10 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2"
+        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer"
       >
         📋 Checklist de Entrada
         {pendingCount > 0 && (
-          <span className="rounded-full bg-[#E81E61] px-1.5 py-0.5 text-[10px] font-bold text-white">
+          <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
             {pendingCount}
           </span>
         )}

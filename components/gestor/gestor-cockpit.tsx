@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Loader2, UserPlus } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
 
 export interface AlertItem {
@@ -15,7 +15,13 @@ export interface AlertItem {
   category: "Autorizações" | "Prontuários" | "Agenda" | "Financeiro";
 }
 
-export function GestorCockpit({ initialAlerts }: { initialAlerts: AlertItem[] }) {
+export function GestorCockpit({
+  initialAlerts,
+  hasActivePatients = true,
+}: {
+  initialAlerts: AlertItem[];
+  hasActivePatients?: boolean;
+}) {
   const [alerts, setAlerts] = useState<AlertItem[]>(initialAlerts);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -178,7 +184,24 @@ export function GestorCockpit({ initialAlerts }: { initialAlerts: AlertItem[] })
           </span>
         </div>
 
-        {alerts.length === 0 ? (
+        {!hasActivePatients ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed rounded-lg bg-paper-subtle">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 mb-2">
+              <UserPlus className="h-5 w-5" />
+            </span>
+            <h4 className="m-0 text-sm font-bold text-ink">Nenhum paciente cadastrado nesta unidade</h4>
+            <p className="text-xs text-ink-soft mt-1 max-w-md">
+              Cadastre os primeiros pacientes e convênios para habilitar o monitoramento de vazamentos e travas automáticas.
+            </p>
+            <Link
+              href="/recepcao/pacientes/novo"
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-md no-underline transition-all shadow-sm"
+              style={{ background: "var(--color-accent)", color: "var(--color-on-accent)" }}
+            >
+              Iniciar Onboarding →
+            </Link>
+          </div>
+        ) : alerts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed rounded-lg bg-emerald-50/30">
             <span className="text-3xl mb-2">✅</span>
             <h4 className="m-0 text-sm font-bold text-emerald-800">Nenhuma trava ou pendência crítica no momento!</h4>

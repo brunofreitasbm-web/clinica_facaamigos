@@ -164,6 +164,7 @@ export function ModuleHeader({
                 type="button"
                 onClick={item.onSelect}
                 aria-pressed={isCurrent}
+                aria-current={isCurrent ? "page" : undefined}
                 className={itemClass}
                 style={itemStyle(isCurrent)}
               >

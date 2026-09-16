@@ -237,11 +237,38 @@ export function TodayAgendaList({
     { key: "faltas", label: "Faltas", count: counts.faltas },
   ];
 
+  const [isPending, startTransition] = useTransition();
+
+  const handleGroupModeChange = (mode: GroupMode) => {
+    startTransition(() => {
+      setGroupMode(mode);
+    });
+  };
+
+  const handleFilterChange = (key: FilterKey) => {
+    startTransition(() => {
+      setFilter(key);
+    });
+  };
+
+  const clearAllFilters = () => {
+    startTransition(() => {
+      setFilter("todas");
+      setSearchRaw("");
+      setSelectedTherapistIds(new Set());
+      setSelectedDisciplines(new Set());
+      setSelectedGuiaStatus(new Set());
+      setSelectedTurnos(new Set());
+    });
+  };
+
   const activeFilterCount =
     selectedTherapistIds.size +
     selectedDisciplines.size +
     selectedGuiaStatus.size +
     selectedTurnos.size;
+  const hasActiveFilters = filter !== "todas" || searchRaw.trim() !== "" || activeFilterCount > 0;
+
   const selectedRoomSession = selectedRoomSessionId
     ? (filtered.find((s) => s.id === selectedRoomSessionId) ?? null)
     : null;
@@ -255,11 +282,11 @@ export function TodayAgendaList({
             <button
               key={f.key}
               type="button"
-              onClick={() => setFilter(f.key)}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all focus:outline-none focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-2 ${
+              onClick={() => handleFilterChange(f.key)}
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 ${
                 filter === f.key
-                  ? "border-[#E81E61] bg-[#E81E61] text-white shadow-xs"
-                  : "border-neutral-300 bg-white text-[#4a4a4a] hover:border-[#E81E61] hover:text-[#E81E61]"
+                  ? "border-teal-700 bg-teal-700 text-white shadow-xs"
+                  : "border-slate-300 bg-[#F1F5F9] text-[#334155] hover:border-slate-400 hover:bg-slate-200/80 hover:text-slate-900"
               }`}
             >
               {f.label} ({f.count})
@@ -268,19 +295,19 @@ export function TodayAgendaList({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex items-center">
-            <Search className="absolute left-2.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
+            <Search className="absolute left-2.5 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
             <input
               type="text"
               value={searchRaw}
               onChange={(e) => setSearchRaw(e.target.value)}
               placeholder="Buscar por paciente…"
-              className="input pl-8 pr-8 w-52 text-xs focus-visible:outline-2 focus-visible:outline-[#E81E61] focus-visible:outline-offset-1"
+              className="input pl-8 pr-8 w-52 text-xs text-slate-800 placeholder:text-slate-500 border-slate-300 focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-1"
             />
             {searchRaw.length > 0 && (
               <button
                 type="button"
                 onClick={() => setSearchRaw("")}
-                className="absolute right-2.5 text-neutral-400 hover:text-neutral-700 focus:outline-none"
+                className="absolute right-2.5 text-slate-500 hover:text-slate-800 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600"
                 aria-label="Limpar busca"
               >
                 <X className="h-3.5 w-3.5" />
@@ -288,21 +315,21 @@ export function TodayAgendaList({
             )}
           </div>
           <div className="seg">
-            <label className="seg-opt">
-              <input type="radio" name="group-mode" checked={groupMode === "lista"} onChange={() => setGroupMode("lista")} />
+            <label className="seg-opt cursor-pointer text-slate-700">
+              <input type="radio" name="group-mode" checked={groupMode === "lista"} onChange={() => handleGroupModeChange("lista")} />
               Lista
             </label>
-            <label className="seg-opt">
+            <label className="seg-opt cursor-pointer text-slate-700">
               <input
                 type="radio"
                 name="group-mode"
                 checked={groupMode === "profissional"}
-                onChange={() => setGroupMode("profissional")}
+                onChange={() => handleGroupModeChange("profissional")}
               />
               Por terapeuta
             </label>
-            <label className="seg-opt">
-              <input type="radio" name="group-mode" checked={groupMode === "sala"} onChange={() => setGroupMode("sala")} />
+            <label className="seg-opt cursor-pointer text-slate-700">
+              <input type="radio" name="group-mode" checked={groupMode === "sala"} onChange={() => handleGroupModeChange("sala")} />
               Por sala
             </label>
           </div>
@@ -310,28 +337,28 @@ export function TodayAgendaList({
       </div>
 
       {/* Painel Horizontal de Filtros Avançados */}
-      <details className="rounded-md border border-paper-line-strong bg-paper/60" open>
-        <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#595959] hover:text-ink">
+      <details className="rounded-md border border-slate-300 bg-white" open>
+        <summary className="cursor-pointer px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 hover:text-slate-900">
           Filtros {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}
         </summary>
-        <div className="flex flex-wrap items-start gap-6 border-t border-paper-line-strong p-3">
+        <div className="flex flex-wrap items-start gap-6 border-t border-slate-200 p-3">
           {/* Terapeutas */}
           <details className="min-w-[170px]" open>
-            <summary className="cursor-pointer text-xs font-semibold text-[#333333]">
+            <summary className="cursor-pointer text-xs font-bold text-slate-800">
               Terapeutas {selectedTherapistIds.size > 0 ? `(${selectedTherapistIds.size})` : ""}
             </summary>
             <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
-              {therapistOptions.length === 0 && <p className="text-xs text-[#595959]">Nenhum hoje.</p>}
+              {therapistOptions.length === 0 && <p className="text-xs text-slate-600 font-medium">Nenhum hoje.</p>}
               {therapistOptions.map((t) => (
                 <label
                   key={t.id}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-[#333333] hover:bg-neutral-100/80 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-[#E81E61]"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-teal-600"
                 >
                   <input
                     type="checkbox"
                     checked={selectedTherapistIds.has(t.id)}
                     onChange={() => setSelectedTherapistIds((prev) => toggleInSet(prev, t.id))}
-                    className="h-4 w-4 rounded border-neutral-300 text-[#E81E61] focus:ring-[#E81E61] cursor-pointer"
+                    className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-600 cursor-pointer"
                   />
                   <span>{t.name}</span>
                 </label>
@@ -341,21 +368,21 @@ export function TodayAgendaList({
 
           {/* Disciplinas */}
           <details className="min-w-[170px]" open>
-            <summary className="cursor-pointer text-xs font-semibold text-[#333333]">
+            <summary className="cursor-pointer text-xs font-bold text-slate-800">
               Especialidades {selectedDisciplines.size > 0 ? `(${selectedDisciplines.size})` : ""}
             </summary>
             <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
-              {disciplineOptions.length === 0 && <p className="text-xs text-[#595959]">Nenhuma hoje.</p>}
+              {disciplineOptions.length === 0 && <p className="text-xs text-slate-600 font-medium">Nenhuma hoje.</p>}
               {disciplineOptions.map((disc) => (
                 <label
                   key={disc}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-[#333333] hover:bg-neutral-100/80 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-[#E81E61]"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-teal-600"
                 >
                   <input
                     type="checkbox"
                     checked={selectedDisciplines.has(disc)}
                     onChange={() => setSelectedDisciplines((prev) => toggleInSet(prev, disc))}
-                    className="h-4 w-4 rounded border-neutral-300 text-[#E81E61] focus:ring-[#E81E61] cursor-pointer"
+                    className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-600 cursor-pointer"
                   />
                   <span>{disc}</span>
                 </label>
@@ -365,20 +392,20 @@ export function TodayAgendaList({
 
           {/* Validação de Guias */}
           <details className="min-w-[170px]" open>
-            <summary className="cursor-pointer text-xs font-semibold text-[#333333]">
+            <summary className="cursor-pointer text-xs font-bold text-slate-800">
               Status da Guia {selectedGuiaStatus.size > 0 ? `(${selectedGuiaStatus.size})` : ""}
             </summary>
             <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
               {guiaStatusOptions.map((g) => (
                 <label
                   key={g.id}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-[#333333] hover:bg-neutral-100/80 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-[#E81E61]"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-teal-600"
                 >
                   <input
                     type="checkbox"
                     checked={selectedGuiaStatus.has(g.id)}
                     onChange={() => setSelectedGuiaStatus((prev) => toggleInSet(prev, g.id))}
-                    className="h-4 w-4 rounded border-neutral-300 text-[#E81E61] focus:ring-[#E81E61] cursor-pointer"
+                    className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-600 cursor-pointer"
                   />
                   <span>{g.label}</span>
                 </label>
@@ -388,20 +415,20 @@ export function TodayAgendaList({
 
           {/* Turno de Atendimento */}
           <details className="min-w-[150px]" open>
-            <summary className="cursor-pointer text-xs font-semibold text-[#333333]">
+            <summary className="cursor-pointer text-xs font-bold text-slate-800">
               Turno {selectedTurnos.size > 0 ? `(${selectedTurnos.size})` : ""}
             </summary>
             <div className="mt-1.5 flex flex-col gap-1 max-h-40 overflow-y-auto">
               {turnoOptions.map((t) => (
                 <label
                   key={t.id}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-[#333333] hover:bg-neutral-100/80 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-[#E81E61]"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-teal-600"
                 >
                   <input
                     type="checkbox"
                     checked={selectedTurnos.has(t.id)}
                     onChange={() => setSelectedTurnos((prev) => toggleInSet(prev, t.id))}
-                    className="h-4 w-4 rounded border-neutral-300 text-[#E81E61] focus:ring-[#E81E61] cursor-pointer"
+                    className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-600 cursor-pointer"
                   />
                   <span>{t.label}</span>
                 </label>
@@ -412,13 +439,8 @@ export function TodayAgendaList({
           {activeFilterCount > 0 && (
             <button
               type="button"
-              onClick={() => {
-                setSelectedTherapistIds(new Set());
-                setSelectedDisciplines(new Set());
-                setSelectedGuiaStatus(new Set());
-                setSelectedTurnos(new Set());
-              }}
-              className="self-center text-xs text-chart underline ml-auto"
+              onClick={clearAllFilters}
+              className="self-center text-xs font-semibold text-teal-700 hover:text-teal-900 underline ml-auto cursor-pointer"
             >
               Limpar filtros
             </button>
@@ -427,10 +449,60 @@ export function TodayAgendaList({
       </details>
 
       <div className="flex flex-col gap-4">
-
-        {filtered.length === 0 && (
-          <p className="text-sm text-ink-faint">Nenhuma sessão encontrada para esse filtro.</p>
-        )}
+        {isPending ? (
+          <div className="space-y-3 py-2" role="status" aria-label="Carregando sessões">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="h-20 w-full animate-pulse rounded-lg bg-slate-200/80 border border-slate-200" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          hasActiveFilters ? (
+            /* Fluxo 1: Filtros Restritivos Ativos */
+            <div className="my-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-8 text-center shadow-2xs">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-200/80 text-slate-600">
+                <Search className="h-6 w-6" />
+              </div>
+              <h4 className="text-sm font-semibold text-slate-800">Nenhum atendimento corresponde aos filtros selecionados.</h4>
+              <p className="mt-1 max-w-sm text-xs text-slate-600">
+                Tente ajustar a busca ou remover os filtros aplicados para visualizar outros agendamentos.
+              </p>
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-teal-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-teal-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+                Limpar filtros
+              </button>
+            </div>
+          ) : (
+            /* Fluxo 2: Dia Vazio Sem Sessões */
+            <div className="my-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-8 text-center shadow-2xs">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
+                <CalendarClock className="h-6 w-6" />
+              </div>
+              <h4 className="text-sm font-semibold text-slate-800">Nenhuma sessão agendada para este dia.</h4>
+              <p className="mt-1 max-w-sm text-xs text-slate-600">
+                Não há atendimentos programados no momento nesta data. Você pode iniciar um novo agendamento abaixo.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  const btn = document.querySelector<HTMLButtonElement>('button[title="Agendar nova sessão (Ctrl+N)"]');
+                  if (btn) btn.click();
+                  else {
+                    window.location.hash = "#nova-sessao";
+                    window.dispatchEvent(new HashChangeEvent("hashchange"));
+                  }
+                }}
+                className="mt-4 inline-flex items-center gap-2 rounded-md bg-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-teal-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                + Agendar primeira sessão
+              </button>
+            </div>
+          )
+        ) : null}
 
         {groupMode === "lista" &&
           filtered.map((session) => (
