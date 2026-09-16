@@ -85,9 +85,10 @@ export function InsurerListItem({ insurer }: InsurerItemProps) {
           type="button"
           onClick={() => setIsEditing(true)}
           title="Editar plano de saúde"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-paper-line text-ink-soft hover:bg-neutral-100 hover:text-accent transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-paper-line text-ink-soft hover:bg-neutral-100 hover:text-accent transition-colors"
         >
-          <Pencil size={15} />
+          <Pencil size={14} />
+          <span>Editar</span>
         </button>
 
         {/* Botão de Excluir */}
@@ -95,9 +96,10 @@ export function InsurerListItem({ insurer }: InsurerItemProps) {
           type="button"
           onClick={() => setIsDeleting(true)}
           title="Excluir plano de saúde"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
         >
-          <Trash2 size={15} />
+          <Trash2 size={14} />
+          <span>Excluir</span>
         </button>
       </div>
 
