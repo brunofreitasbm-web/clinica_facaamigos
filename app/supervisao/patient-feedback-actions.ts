@@ -75,6 +75,17 @@ export async function bookPatientFeedbackAction(params: {
   if (!gate.success) return gate;
   const supervisorId = gate.userId!;
 
+  const { data: room } = await supabase
+    .from("rooms")
+    .select("id")
+    .eq("id", params.roomId)
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("is_evaluation_room", true)
+    .maybeSingle();
+  if (!room) {
+    return { success: false, error: "Devolutiva só pode ser marcada na sala de avaliação." };
+  }
+
   const durationMinutes = params.durationMinutes ?? 30;
   const startsAt = zonedDateTimeToUtc(params.date, params.time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
