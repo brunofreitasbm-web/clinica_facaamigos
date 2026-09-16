@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/*.test.ts"
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "perf:bench": "playwright test -c perf/playwright.perf.config.ts",
+    "perf:compare": "node perf/compare.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

@@ -11,3 +11,6 @@ next-env.d.ts
 supabase/.temp/
 .env*
 scripts/out/
+perf/.auth/
+perf/results/*.json
+test-results/
