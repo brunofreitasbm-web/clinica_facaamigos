@@ -173,24 +173,40 @@ async function buildNoAuthLeak(supabase: Supa, clinicId: string, avgPrice: numbe
 // ── Vazamento 3: evoluções atrasadas >24h (§10.3 note_24h_rate) ─────────
 async function buildOverdueNotesLeak(supabase: Supa, clinicId: string): Promise<LeakCard> {
   const cutoffISO = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // Janela de 90 dias + limite: sem isso, a query varria o histórico INTEIRO
+  // de atendimentos realizados e depois jogava todos os IDs num único
+  // `.in()` — cresce sem parar com o tempo e eventualmente estoura o limite
+  // de tamanho de URL do PostgREST (414) ou vira um seq-scan lento. O card
+  // é um indicador de vazamento recente por natureza (evolução atrasada >24h
+  // some da lista assim que é escrita ou entra noutro relatório), então 90
+  // dias é folga suficiente sem custo de uma varredura ilimitada. O `value`
+  // exibido no card continua vindo de countOverdueSessionNotes (RPC), não
+  // deste cálculo — só o "por terapeuta" abaixo depende da janela.
+  const windowStartISO = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const { data: candidates } = await supabase
     .from("appointments")
     .select("id, therapist_id, patients!inner(clinic_id)")
     .eq("status", "realizada")
     .eq("patients.clinic_id", clinicId)
-    .lte("starts_at", cutoffISO);
+    .gte("starts_at", windowStartISO)
+    .lte("starts_at", cutoffISO)
+    .limit(2000);
   const list = candidates ?? [];
 
   const pendingByTherapist = new Map<string, string>();
   if (list.length > 0) {
-    const { data: notes } = await supabase
-      .from("session_notes")
-      .select("appointment_id")
-      .in(
-        "appointment_id",
-        list.map((c) => c.id),
-      );
-    const withNote = new Set((notes ?? []).map((n) => n.appointment_id));
+    // `.in()` em lotes de 200 em paralelo — com `list` podendo chegar a
+    // 2000 ids, um único `.in()` se aproxima do limite de tamanho de URL
+    // que motivou a janela acima.
+    const CHUNK = 200;
+    const chunks: string[][] = [];
+    for (let i = 0; i < list.length; i += CHUNK) {
+      chunks.push(list.slice(i, i + CHUNK).map((c) => c.id));
+    }
+    const noteChunks = await Promise.all(
+      chunks.map((ids) => supabase.from("session_notes").select("appointment_id").in("appointment_id", ids)),
+    );
+    const withNote = new Set(noteChunks.flatMap((r) => (r.data ?? []).map((n) => n.appointment_id)));
     const pending = list.filter((c) => !withNote.has(c.id));
     const names = await namesByProfileId(supabase, [...new Set(pending.map((p) => p.therapist_id))]);
     for (const p of pending) pendingByTherapist.set(p.id, names.get(p.therapist_id) ?? "Sem terapeuta");
