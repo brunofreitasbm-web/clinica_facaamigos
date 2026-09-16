@@ -1,5 +1,8 @@
 # Kit de marca — FaçaAmigos
 
+Para compartilhar a identidade com terceiros (agências, gráficas, parceiros),
+use o resumo em PDF: [`FacaAmigos-Guia-de-Marca.pdf`](./FacaAmigos-Guia-de-Marca.pdf).
+
 Vetorização e decomposição da logo a partir das artes originais em JPEG
 (`logo/WhatsApp Image 2026-09-08 at 21.52.05.jpeg` como fonte mestre).
 Todos os SVGs são vetores reais (curvas), sem imagem embutida — escalam sem perda.
