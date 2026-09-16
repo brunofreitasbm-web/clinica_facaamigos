@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { BackButton } from "@/components/back-button";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
@@ -6,6 +7,7 @@ import { StageChecklist } from "@/components/stage-checklist";
 import { IntakeChecklist } from "@/components/intake-checklist";
 import { getIntakeSteps } from "@/lib/intake-steps";
 import { createClient } from "@/lib/supabase/server";
+import { getViewerProfile } from "@/lib/auth/viewer";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
@@ -68,169 +70,121 @@ export default async function PacientePage({
 
   if (!patient) notFound();
 
-  await logRecordAccess(supabase, id, "prontuario");
+  // Registro LGPD de acesso ao prontuário — escrita no caminho de leitura,
+  // sem valor nenhum pro usuário esperar por ela. after() (Next 16) a
+  // executa depois que a resposta já foi enviada, fora do caminho crítico.
+  after(() => logRecordAccess(supabase, id, "prontuario"));
 
-  const { data: guardians } = await supabase
-    .from("guardians")
-    .select("id, full_name, phone, is_emergency_contact, is_financial")
-    .eq("patient_id", id);
-
-  const { data: evalAppointment } = await supabase
-    .from("appointments")
-    .select("id")
-    .eq("patient_id", id)
-    .eq("is_evaluation", true)
-    .not("status", "in", `(${CANCELLED_APPOINTMENT_STATUSES.join(",")})`)
-    .limit(1)
-    .maybeSingle();
-
-  const { data: activeAuth } = await supabase
-    .from("authorizations")
-    .select("id, patient_insurance_id, patient_insurance!inner(patient_id)")
-    .eq("patient_insurance.patient_id", id)
-    .eq("status", "ativa")
-    .limit(1)
-    .maybeSingle();
-
-  const stage = computeStage(patient, !!evalAppointment, !!activeAuth);
-  const intakeSteps = await getIntakeSteps(supabase, id);
-
-  // Header de identificação (PRD §1) — lógica compartilhada com a tela de
-  // evolução do terapeuta via lib/patient-identity.ts.
-  const { insurance: activeInsurance, activeAuthorization } =
-    await getPatientIdentitySummary(supabase, id);
-
-  const { data: therapists } = await supabase
-    .from("profiles")
-    .select("id, full_name, is_evaluator")
-    .eq("clinic_id", DEV_CLINIC_ID)
-    .eq("role", "terapeuta")
-    .eq("active", true)
-    .order("full_name");
-
-  // Nem todo terapeuta é avaliador: a 1ª avaliação só pode ser agendada para
-  // quem o gestor marcou em Gestor › Equipe (profiles.is_evaluator). A grade
-  // de sessões (etapa 4) continua usando a lista completa.
-  const evaluatorTherapists = (therapists ?? []).filter((t) => t.is_evaluator);
-
-  const { data: rooms } = await supabase
-    .from("rooms")
-    .select("id, name")
-    .eq("clinic_id", DEV_CLINIC_ID)
-    .order("name");
-
-  const { data: insurers } = await supabase
-    .from("insurers")
-    .select("id, name")
-    .eq("clinic_id", DEV_CLINIC_ID)
-    .order("name");
-
-  // Seção fixa "Guias" (sempre visível, inclusive com o paciente já ativo —
-  // diferente do formulário do passo 3 do checklist, que só aparece durante
-  // o onboarding). Histórico completo, mais recente primeiro.
-  const { data: authorizationHistoryRaw } = await supabase
-    .from("authorizations")
-    .select(
-      "id, guide_number, procedure_code, sessions_authorized, sessions_used, valid_from, valid_to, status, authorization_password, password_valid_until, patient_insurance!inner(patient_id, insurers(name))",
-    )
-    .eq("patient_insurance.patient_id", id)
-    .order("valid_from", { ascending: false });
-
-  const authorizationHistory = (authorizationHistoryRaw ?? []).map((a) => {
-    const pi = a.patient_insurance;
-    const insurer = Array.isArray(pi) ? pi[0]?.insurers : pi?.insurers;
-    const insurerName = Array.isArray(insurer) ? insurer[0]?.name : insurer?.name;
-    return {
-      id: a.id,
-      insurerName: insurerName ?? "—",
-      guideNumber: a.guide_number,
-      procedureCode: a.procedure_code,
-      sessionsUsed: a.sessions_used,
-      sessionsAuthorized: a.sessions_authorized,
-      validFrom: a.valid_from,
-      validTo: a.valid_to,
-      status: a.status,
-      authorizationPassword: a.authorization_password,
-      passwordValidUntil: a.password_valid_until,
-    };
-  });
-
-  // RLS de `documents` decide sozinha o que aparece aqui por papel — nunca
-  // filtramos manualmente por role na aplicação (gestor/supervisor/recepção/
-  // faturamento veem tudo da clínica; terapeuta só do paciente vinculado;
-  // responsável só o que tiver shared_with_family=true).
-  const { data: documents } = await supabase
-    .from("documents")
-    .select("id, category, uploaded_at, valid_until, shared_with_family")
-    .eq("patient_id", id)
-    .order("uploaded_at", { ascending: false });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let canUploadDocuments = false;
-  // Quem pode de fato abrir /supervisao pra usar os links do checklist de
-  // entrada (ver lib/roles.ts ROLE_ALLOWED_PREFIXES) — recepção não pode,
-  // o middleware manda de volta; ver IntakeChecklist.linksNavigable.
-  let canNavigateToSupervisao = false;
-  if (user) {
-    const { data: viewerProfile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    canUploadDocuments = !!viewerProfile && CAN_UPLOAD_ROLES.includes(viewerProfile.role);
-    canNavigateToSupervisao = viewerProfile?.role === "supervisor" || viewerProfile?.role === "gestor";
-  }
-
-  // Mural da família (PRD §4) — mural independente das evoluções, mesma
-  // regra de RLS (feed_posts_read) decide o que aparece; ver lib/feed-posts.ts.
-  const feedPosts = await getFeedPosts(supabase, id);
-
-  // Cadastro assistido por IA (20260907000001_registration_drafts.sql) —
-  // documentos enviados por WhatsApp/portal deste paciente ainda não
-  // processados/validados. status='validated'/'rejected' não aparece mais
-  // (já virou dado real ou foi descartado).
-  const { data: registrationDrafts } = await supabase
-    .from("registration_drafts")
-    .select("id, status, created_at")
-    .eq("patient_id", id)
-    .in("status", ["pending", "processing", "extracted", "failed"])
-    .order("created_at", { ascending: false });
-
-  // Faltas informadas pela família ainda aguardando decisão da recepção
-  // (PRD §5) — as que já foram auto-aprovadas pelo trigger
-  // absence_report_apply (anexo ou categoria 'doenca') não aparecem aqui.
-  const { data: pendingAbsenceRaw } = await supabase
-    .from("absence_reports")
-    .select(
-      "id, reason_category, reason_text, attachment_storage_path, appointments!inner(patient_id, starts_at), profiles!reported_by(full_name)",
-    )
-    .eq("appointments.patient_id", id)
-    .eq("status", "em_analise")
-    .order("created_at", { ascending: false });
-
-  const pendingAbsenceReports: PendingAbsenceReport[] = (pendingAbsenceRaw ?? []).map((r) => ({
-    id: r.id,
-    appointmentStartsAt: r.appointments!.starts_at,
-    reasonCategory: r.reason_category,
-    reasonText: r.reason_text,
-    hasAttachment: r.attachment_storage_path !== null,
-    reportedByName:
-      (Array.isArray(r.profiles) ? r.profiles[0]?.full_name : r.profiles?.full_name) ?? "Responsável",
-  }));
-
-  // ── Conteúdo das abas do prontuário (Paciente.dc.html) — só vale a pena
-  // buscar quando o paciente já tem histórico de operação (estágio 5); um
-  // interessado/avaliação ainda não tem sessão, plano ou lançamento algum.
+  // Onda única: as ~20 queries/helpers abaixo dependem só de `id` (ou de
+  // constantes da clínica), nenhuma depende do resultado de outra — antes
+  // rodavam em série, uma atrás da outra. `stage` só é calculado DEPOIS
+  // (usa evalAppointment/activeAuth só para renderização, não decide mais
+  // nenhuma query). `goals` e `goalDescriptionById`, que dependem do
+  // treatmentPlan.id e dos ids extraídos de notesRaw resolvidos aqui, ficam
+  // numa 2ª onda logo abaixo.
   const [
+    { data: guardians },
+    { data: evalAppointment },
+    { data: activeAuth },
+    intakeSteps,
+    { insurance: activeInsurance, activeAuthorization },
+    { data: therapists },
+    { data: rooms },
+    { data: insurers },
+    { data: authorizationHistoryRaw },
+    { data: documents },
+    viewerProfile,
+    feedPosts,
+    { data: registrationDrafts },
+    { data: pendingAbsenceRaw },
     { data: recentAppointments },
     { data: treatmentPlan },
     { data: teamAccess },
     { data: billingItems },
     hasPendingPtsNotice,
+    { data: notesRaw },
+    behaviorCatalog,
+    abaPrograms,
   ] = await Promise.all([
+    supabase
+      .from("guardians")
+      .select("id, full_name, phone, is_emergency_contact, is_financial")
+      .eq("patient_id", id),
+    supabase
+      .from("appointments")
+      .select("id")
+      .eq("patient_id", id)
+      .eq("is_evaluation", true)
+      .not("status", "in", `(${CANCELLED_APPOINTMENT_STATUSES.join(",")})`)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("authorizations")
+      .select("id, patient_insurance_id, patient_insurance!inner(patient_id)")
+      .eq("patient_insurance.patient_id", id)
+      .eq("status", "ativa")
+      .limit(1)
+      .maybeSingle(),
+    getIntakeSteps(supabase, id),
+    // Header de identificação (PRD §1) — lógica compartilhada com a tela de
+    // evolução do terapeuta via lib/patient-identity.ts.
+    getPatientIdentitySummary(supabase, id),
+    supabase
+      .from("profiles")
+      .select("id, full_name, is_evaluator")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .eq("role", "terapeuta")
+      .eq("active", true)
+      .order("full_name"),
+    supabase.from("rooms").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
+    supabase.from("insurers").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
+    // Seção fixa "Guias" (sempre visível, inclusive com o paciente já ativo —
+    // diferente do formulário do passo 3 do checklist, que só aparece durante
+    // o onboarding). Histórico completo, mais recente primeiro.
+    supabase
+      .from("authorizations")
+      .select(
+        "id, guide_number, procedure_code, sessions_authorized, sessions_used, valid_from, valid_to, status, authorization_password, password_valid_until, patient_insurance!inner(patient_id, insurers(name))",
+      )
+      .eq("patient_insurance.patient_id", id)
+      .order("valid_from", { ascending: false }),
+    // RLS de `documents` decide sozinha o que aparece aqui por papel — nunca
+    // filtramos manualmente por role na aplicação (gestor/supervisor/recepção/
+    // faturamento veem tudo da clínica; terapeuta só do paciente vinculado;
+    // responsável só o que tiver shared_with_family=true).
+    supabase
+      .from("documents")
+      .select("id, category, uploaded_at, valid_until, shared_with_family")
+      .eq("patient_id", id)
+      .order("uploaded_at", { ascending: false }),
+    // cache()ado por request (lib/auth/viewer.ts) — substitui o antigo
+    // getUser() + select("role") em duas queries por uma leitura memoizada.
+    getViewerProfile(),
+    // Mural da família (PRD §4) — mural independente das evoluções, mesma
+    // regra de RLS (feed_posts_read) decide o que aparece; ver lib/feed-posts.ts.
+    getFeedPosts(supabase, id),
+    // Cadastro assistido por IA (20260907000001_registration_drafts.sql) —
+    // documentos enviados por WhatsApp/portal deste paciente ainda não
+    // processados/validados. status='validated'/'rejected' não aparece mais
+    // (já virou dado real ou foi descartado).
+    supabase
+      .from("registration_drafts")
+      .select("id, status, created_at")
+      .eq("patient_id", id)
+      .in("status", ["pending", "processing", "extracted", "failed"])
+      .order("created_at", { ascending: false }),
+    // Faltas informadas pela família ainda aguardando decisão da recepção
+    // (PRD §5) — as que já foram auto-aprovadas pelo trigger
+    // absence_report_apply (anexo ou categoria 'doenca') não aparecem aqui.
+    supabase
+      .from("absence_reports")
+      .select(
+        "id, reason_category, reason_text, attachment_storage_path, appointments!inner(patient_id, starts_at), profiles!reported_by(full_name)",
+      )
+      .eq("appointments.patient_id", id)
+      .eq("status", "em_analise")
+      .order("created_at", { ascending: false }),
+    // ── Conteúdo das abas do prontuário (Paciente.dc.html).
     supabase
       .from("appointments")
       .select("id, starts_at, status")
@@ -255,35 +209,83 @@ export default async function PacientePage({
       .select("id, amount, status, appointment_id, appointments!inner(patient_id, starts_at, discipline)")
       .eq("appointments.patient_id", id),
     checkHasPendingPtsNotice(id),
+    supabase
+      .from("session_notes")
+      .select(
+        "id, version, structured, free_text, created_at_server, appointment_id, appointments!inner(patient_id, starts_at), profiles!session_notes_therapist_id_fkey(full_name)",
+      )
+      .eq("appointments.patient_id", id)
+      .order("created_at_server", { ascending: false })
+      .limit(10),
+    getBehaviorCatalog(supabase, { activeOnly: false }),
+    getPatientAbaLearningCurves(supabase, id),
   ]);
 
-  const { data: goals } = treatmentPlan
-    ? await supabase
-        .from("plan_goals")
-        .select("id, description, domain, criterion, status")
-        .eq("treatment_plan_id", treatmentPlan.id)
-    : { data: [] as { id: string; description: string; domain: string; criterion: string | null; status: string }[] };
+  const stage = computeStage(patient, !!evalAppointment, !!activeAuth);
 
-  const { data: notesRaw } = await supabase
-    .from("session_notes")
-    .select(
-      "id, version, structured, free_text, created_at_server, appointment_id, appointments!inner(patient_id, starts_at), profiles!session_notes_therapist_id_fkey(full_name)",
-    )
-    .eq("appointments.patient_id", id)
-    .order("created_at_server", { ascending: false })
-    .limit(10);
+  // Nem todo terapeuta é avaliador: a 1ª avaliação só pode ser agendada para
+  // quem o gestor marcou em Gestor › Equipe (profiles.is_evaluator). A grade
+  // de sessões (etapa 4) continua usando a lista completa.
+  const evaluatorTherapists = (therapists ?? []).filter((t) => t.is_evaluator);
 
-  const behaviorCatalog = await getBehaviorCatalog(supabase, { activeOnly: false });
+  const authorizationHistory = (authorizationHistoryRaw ?? []).map((a) => {
+    const pi = a.patient_insurance;
+    const insurer = Array.isArray(pi) ? pi[0]?.insurers : pi?.insurers;
+    const insurerName = Array.isArray(insurer) ? insurer[0]?.name : insurer?.name;
+    return {
+      id: a.id,
+      insurerName: insurerName ?? "—",
+      guideNumber: a.guide_number,
+      procedureCode: a.procedure_code,
+      sessionsUsed: a.sessions_used,
+      sessionsAuthorized: a.sessions_authorized,
+      validFrom: a.valid_from,
+      validTo: a.valid_to,
+      status: a.status,
+      authorizationPassword: a.authorization_password,
+      passwordValidUntil: a.password_valid_until,
+    };
+  });
+
+  // Quem pode de fato abrir /supervisao pra usar os links do checklist de
+  // entrada (ver lib/roles.ts ROLE_ALLOWED_PREFIXES) — recepção não pode,
+  // o middleware manda de volta; ver IntakeChecklist.linksNavigable.
+  const canUploadDocuments = !!viewerProfile && !!viewerProfile.role && CAN_UPLOAD_ROLES.includes(viewerProfile.role);
+  const canNavigateToSupervisao = viewerProfile?.role === "supervisor" || viewerProfile?.role === "gestor";
+
+  const pendingAbsenceReports: PendingAbsenceReport[] = (pendingAbsenceRaw ?? []).map((r) => ({
+    id: r.id,
+    appointmentStartsAt: r.appointments!.starts_at,
+    reasonCategory: r.reason_category,
+    reasonText: r.reason_text,
+    hasAttachment: r.attachment_storage_path !== null,
+    reportedByName:
+      (Array.isArray(r.profiles) ? r.profiles[0]?.full_name : r.profiles?.full_name) ?? "Responsável",
+  }));
+
+  // 2ª onda: goals depende do id do treatment_plan resolvido acima;
+  // goalDescriptionById depende dos plan_goal_id extraídos de notesRaw.
+  // Independentes entre si — paralelas.
   const allMetaGoalIds = Array.from(
     new Set(
       (notesRaw ?? []).flatMap((n) => getMetasTrabalhadas(n.structured as SessionNoteStructured | null).map((m) => m.plan_goal_id)),
     ),
   );
+
+  const [{ data: goals }, metaGoals] = await Promise.all([
+    treatmentPlan
+      ? supabase
+          .from("plan_goals")
+          .select("id, description, domain, criterion, status")
+          .eq("treatment_plan_id", treatmentPlan.id)
+      : Promise.resolve({ data: [] as { id: string; description: string; domain: string; criterion: string | null; status: string }[] }),
+    allMetaGoalIds.length > 0
+      ? supabase.from("plan_goals").select("id, description").in("id", allMetaGoalIds).then((r) => r.data ?? [])
+      : Promise.resolve([] as { id: string; description: string }[]),
+  ]);
+
   const goalDescriptionById = new Map<string, string>();
-  if (allMetaGoalIds.length > 0) {
-    const { data: metaGoals } = await supabase.from("plan_goals").select("id, description").in("id", allMetaGoalIds);
-    for (const g of metaGoals ?? []) goalDescriptionById.set(g.id, g.description);
-  }
+  for (const g of metaGoals) goalDescriptionById.set(g.id, g.description);
 
   const frequency: FrequencyDay[] = (recentAppointments ?? [])
     .slice()
@@ -326,8 +328,6 @@ export default async function PacientePage({
     amount: b.amount,
     status: b.status,
   }));
-
-  const abaPrograms = await getPatientAbaLearningCurves(supabase, patient.id);
 
   const teamText =
     (teamAccess ?? []).length > 0 ? (

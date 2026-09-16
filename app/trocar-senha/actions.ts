@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createUncachedClient } from "@/lib/supabase/server";
 import { ROLE_HOME, type Role } from "@/lib/roles";
 import { isPasswordStrong } from "@/lib/password";
 
@@ -21,7 +21,7 @@ export async function changePassword(
     return { success: false, error: "As senhas não conferem." };
   }
 
-  const supabase = await createClient();
+  const supabase = await createUncachedClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

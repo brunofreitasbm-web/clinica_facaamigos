@@ -26,13 +26,21 @@ export function RecepcaoNav({
   pendingCount,
   chegadasCount,
 }: {
-  pendingCount: number;
+  /**
+   * `null` enquanto os badges ainda não chegaram (ver
+   * app/recepcao/nav-badges.tsx, que busca isto sob <Suspense> pra não
+   * bloquear a pintura do menu) — nesse estado o badge simplesmente não
+   * aparece, igual a 0.
+   */
+  pendingCount: number | null;
   /** Chegadas declaradas pelo QR ainda não confirmadas — ver app/recepcao/chegadas. */
-  chegadasCount?: number;
+  chegadasCount?: number | null;
 }) {
   const items: ModuleNavItem[] = NAV_ITEMS.map((item) => ({
     ...item,
-    badge: item.key === "pendencias" ? pendingCount : item.key === "chegadas" ? chegadasCount : undefined,
+    badge:
+      (item.key === "pendencias" ? pendingCount : item.key === "chegadas" ? chegadasCount : undefined) ??
+      undefined,
   }));
 
   return (

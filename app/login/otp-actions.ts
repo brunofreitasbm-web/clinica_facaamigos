@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createUncachedClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTwilioSMS, isTwilioConfigured, getTwilioContentSidForCategory } from "@/lib/twilio";
 
@@ -314,7 +314,7 @@ export async function verifyFamilyOtp(
   }
 
   // Efetuar o login do cliente na sessão da requisição Next.js
-  const supabase = await createClient();
+  const supabase = await createUncachedClient();
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email,
     password: secretPassword,

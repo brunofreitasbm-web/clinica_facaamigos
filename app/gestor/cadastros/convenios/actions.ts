@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
 import type { IntakeExtractionProfile } from "@/lib/insurance-intake-profile";
+import { invalidateKnowledgeCache } from "@/lib/twilio-faq-bot";
 
 async function getGestorClinicId(supabase: any): Promise<string> {
   const {
@@ -61,6 +62,7 @@ export async function createInsurer(
   }
 
   revalidatePath("/gestor/cadastros/convenios");
+  invalidateKnowledgeCache(clinicId);
   return { success: true };
 }
 
@@ -94,6 +96,7 @@ export async function updateInsurerColor(
   }
 
   revalidatePath("/gestor/cadastros/convenios");
+  invalidateKnowledgeCache(clinicId);
   return { success: true };
 }
 
@@ -144,6 +147,7 @@ export async function updateInsurer(
   }
 
   revalidatePath("/gestor/cadastros/convenios");
+  invalidateKnowledgeCache(clinicId);
   return { success: true };
 }
 
@@ -169,6 +173,7 @@ export async function deleteInsurer(
   }
 
   revalidatePath("/gestor/cadastros/convenios");
+  invalidateKnowledgeCache(clinicId);
   return { success: true };
 }
 

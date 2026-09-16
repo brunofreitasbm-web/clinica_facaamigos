@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getViewerProfile } from "@/lib/auth/viewer";
 import { PageContainer } from "@/components/page-container";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 
@@ -9,15 +10,9 @@ type PatientRow = { id: string; fullName: string; hasSchool: boolean; sessionCou
 
 export default async function AtPatientsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user!.id)
-    .maybeSingle();
+  // Mesmo perfil que app/at/layout.tsx já buscou neste render — getViewerProfile()
+  // é cache()ado por request, então isto não dispara uma segunda query.
+  const profile = await getViewerProfile();
 
   const isOversight = profile?.role === "gestor" || profile?.role === "supervisor";
 
@@ -33,7 +28,7 @@ export default async function AtPatientsPage() {
     const { data } = await supabase
       .from("patient_access")
       .select("patient_id")
-      .eq("profile_id", user!.id)
+      .eq("profile_id", profile?.userId ?? "")
       .eq("access_type", "terapeuta")
       .is("revoked_at", null);
     patientIds = [...new Set((data ?? []).map((a) => a.patient_id))];

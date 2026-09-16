@@ -1,9 +1,11 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { civilDateInTimeZone } from "@/lib/timezone";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
+import { createClient } from "@/lib/supabase/server";
 
 type Supa = SupabaseClient<Database>;
 
@@ -845,3 +847,20 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
 
   return attachQueueAssignments(supabase, clinicId, items);
 }
+
+/**
+ * Variante cacheada por request de `getReceptionQueue`, usando o cliente
+ * padrão (`lib/supabase/server.ts`). Existe porque `app/recepcao/layout.tsx`
+ * (badge do menu) e `app/recepcao/page.tsx` / `app/recepcao/pacientes/pendencias/page.tsx`
+ * (lista completa) chamavam `getReceptionQueue` cada um por conta própria no
+ * MESMO render — ~17 queries em fan-out, duas vezes, ~34 no total. Com
+ * `cache()`, o segundo chamador reusa o resultado do primeiro.
+ *
+ * Call sites que já têm um cliente Supabase em mãos (ex.: cron/service-role)
+ * continuam usando `getReceptionQueue(supabase, clinicId)` diretamente — esta
+ * variante é só para o caminho de render autenticado por cookie.
+ */
+export const getCachedReceptionQueue = cache(async (clinicId: string = DEV_CLINIC_ID) => {
+  const supabase = await createClient();
+  return getReceptionQueue(supabase, clinicId);
+});

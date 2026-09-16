@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { ROLE_HOME, type Role } from "@/lib/roles";
+import { getViewerProfile } from "@/lib/auth/viewer";
+import { ROLE_HOME } from "@/lib/roles";
 import { AtNav } from "@/components/at-nav";
 
 /**
@@ -9,23 +9,19 @@ import { AtNav } from "@/components/at-nav";
  * lib/roles.ts:ROLE_ALLOWED_PREFIXES); um `terapeuta` sem
  * `profiles.is_at_professional` é redirecionado aqui, não pelo middleware
  * (a flag é por perfil, não por prefixo de rota).
+ *
+ * Usa getViewerProfile() (lib/auth/viewer.ts, cache() por request) em vez de
+ * ler `auth.getUser()` + `profiles` direto: app/at/page.tsx faz exatamente a
+ * mesma checagem de papel no mesmo render, e antes isso duplicava as duas
+ * queries.
  */
 export default async function AtLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const profile = await getViewerProfile();
+  if (!profile) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, is_at_professional")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const role = profile?.role as Role | undefined;
+  const { role, isAtProfessional } = profile;
   const canOpenAt =
-    role === "gestor" || role === "supervisor" || (role === "terapeuta" && !!profile?.is_at_professional);
+    role === "gestor" || role === "supervisor" || (role === "terapeuta" && isAtProfessional);
 
   if (!canOpenAt) {
     redirect(role ? ROLE_HOME[role] : "/login");

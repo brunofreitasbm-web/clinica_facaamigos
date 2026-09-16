@@ -9,7 +9,7 @@ import {
   civilDateInTimeZone,
 } from "@/lib/timezone";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
-import { getReceptionQueue } from "@/lib/reception-queue";
+import { getCachedReceptionQueue } from "@/lib/reception-queue";
 import { NovaSessaoDialog, type GuideSummary } from "./nova-sessao-dialog";
 import { computeAbaBalance, type AbaBalance, type AbaClassOption } from "@/lib/aba-training";
 import { TodayAgendaList, type TodaySession, type GuardianContact } from "./today-agenda-list";
@@ -348,7 +348,7 @@ export default async function RecepcaoPage({
   // ── Demais pendências (§9.1): guia vencendo/poucas sessões já aparece
   // acima com sua própria seção; aqui só as outras 4 categorias da fila
   // unificada, resumidas — a lista completa fica em /recepcao/pacientes/pendencias.
-  const fullQueue = await getReceptionQueue(supabase, DEV_CLINIC_ID);
+  const fullQueue = await getCachedReceptionQueue(DEV_CLINIC_ID);
   const otherPendingItems = fullQueue.filter(
     (item) => item.category !== "guia_vencendo" && item.category !== "guia_poucas_sessoes",
   );

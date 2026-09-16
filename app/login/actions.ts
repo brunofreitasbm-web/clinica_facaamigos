@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createUncachedClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function signIn(
@@ -46,7 +46,7 @@ export async function signIn(
     email = profile.email;
   }
 
-  const supabase = await createClient();
+  const supabase = await createUncachedClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
@@ -57,7 +57,7 @@ export async function signIn(
 }
 
 export async function signOut() {
-  const supabase = await createClient();
+  const supabase = await createUncachedClient();
   await supabase.auth.signOut();
   redirect("/login");
 }
