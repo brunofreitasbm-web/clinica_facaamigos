@@ -5,6 +5,21 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
 import type { IntakeExtractionProfile } from "@/lib/insurance-intake-profile";
 
+async function getGestorClinicId(supabase: any): Promise<string> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("clinic_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.clinic_id) return profile.clinic_id;
+  }
+  return DEV_CLINIC_ID;
+}
+
 export async function createInsurer(
   formData: FormData,
 ): Promise<{ success: true } | { success: false; error: string }> {
@@ -17,15 +32,20 @@ export async function createInsurer(
   }
 
   const supabase = await createClient();
+  const clinicId = await getGestorClinicId(supabase);
+
   const { error } = await supabase.from("insurers").insert({
-    clinic_id: DEV_CLINIC_ID,
+    clinic_id: clinicId,
     name,
     ans_code: ansCode || null,
     badge_color: badgeColor || null,
   });
 
   if (error) {
-    return { success: false, error: "Não foi possível salvar o plano de saúde. Tente de novo." };
+    return {
+      success: false,
+      error: `Não foi possível salvar o plano de saúde: ${error.message || "Erro no banco de dados."}`,
+    };
   }
 
   revalidatePath("/gestor/cadastros/convenios");
@@ -39,14 +59,19 @@ export async function updateInsurerColor(
   if (!insurerId) return { success: false, error: "Plano de saúde inválido." };
 
   const supabase = await createClient();
+  const clinicId = await getGestorClinicId(supabase);
+
   const { error } = await supabase
     .from("insurers")
     .update({ badge_color: badgeColor || null })
     .eq("id", insurerId)
-    .eq("clinic_id", DEV_CLINIC_ID);
+    .eq("clinic_id", clinicId);
 
   if (error) {
-    return { success: false, error: "Não foi possível atualizar a cor do plano de saúde." };
+    return {
+      success: false,
+      error: `Não foi possível atualizar a cor do plano de saúde: ${error.message}`,
+    };
   }
 
   revalidatePath("/gestor/cadastros/convenios");

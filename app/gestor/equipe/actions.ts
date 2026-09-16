@@ -119,11 +119,15 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
       profileError.message.includes("profiles_cpf_unique") ||
       profileError.message.toLowerCase().includes("cpf");
 
+    const detailMsg = [profileError.message, profileError.details, profileError.hint]
+      .filter(Boolean)
+      .join(" - ");
+
     return {
       success: false,
       error: isCpfDuplicate
         ? "Já existe um colaborador cadastrado com este CPF."
-        : `Não foi possível salvar o perfil da conta: ${profileError.message}`,
+        : `Não foi possível salvar o perfil da conta: ${detailMsg || "Erro no banco de dados."}`,
     };
   }
 

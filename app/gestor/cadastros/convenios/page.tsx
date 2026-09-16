@@ -10,10 +10,25 @@ export const dynamic = "force-dynamic";
 
 export default async function ConveniosPage() {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let clinicId = DEV_CLINIC_ID;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("clinic_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.clinic_id) clinicId = profile.clinic_id;
+  }
+
   const { data: insurers } = await supabase
     .from("insurers")
     .select("id, name, ans_code, badge_color")
-    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("clinic_id", clinicId)
     .order("name");
 
   return (
