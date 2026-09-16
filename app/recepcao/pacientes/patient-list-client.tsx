@@ -8,14 +8,11 @@ import {
   UserPlus,
   X,
   UserX,
-  Eye,
-  Pencil,
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Filter,
   Calendar,
-  Trash2,
 } from "lucide-react";
 import { FixedSizeList, ListChildComponentProps } from "react-window";
 import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
@@ -48,23 +45,6 @@ const STAGE_LABEL: Record<number, string> = {
 
 interface PatientListClientProps {
   rows: PatientRow[];
-}
-
-/**
- * Componente de Tooltip acessível para botões de ação
- */
-function ActionTooltip({ text, children }: { text: string; children: React.ReactNode }) {
-  return (
-    <div className="group/tooltip relative inline-flex items-center">
-      {children}
-      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:flex group-focus-within/tooltip:flex flex-col items-center z-30 animate-in fade-in duration-150">
-        <span className="whitespace-nowrap rounded bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white shadow-lg">
-          {text}
-        </span>
-        <span className="h-1.5 w-1.5 -mt-1 rotate-45 bg-slate-900"></span>
-      </div>
-    </div>
-  );
 }
 
 /**
@@ -208,60 +188,52 @@ export const PatientListItem = React.memo(function PatientListItem({
 
       {/* Coluna 4: Célula de Ações com Tooltips (e.stopPropagation para isolar ações) */}
       <div
-        className="flex items-center gap-1 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-paper-line-strong/50"
+        className="flex items-center shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-paper-line-strong/50"
         onClick={(e) => e.stopPropagation()}
       >
-        <ActionTooltip text="Visualizar Prontuário">
-          <Link
-            href={`/recepcao/pacientes/${patient.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="p-1.5 rounded-md text-ink-faint hover:text-[#841B4D] hover:bg-[#841B4D]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#841B4D]"
-            aria-label="Visualizar Prontuário"
-          >
-            <Eye className="h-4 w-4" />
-          </Link>
-        </ActionTooltip>
+        <Link
+          href={`/recepcao/pacientes/${patient.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-xs text-chart"
+          aria-label="Visualizar Prontuário"
+        >
+          Visualizar
+        </Link>
 
-        <ActionTooltip text="Editar Cadastro">
-          <Link
-            href={`/recepcao/pacientes/${patient.id}/gestao`}
-            onClick={(e) => e.stopPropagation()}
-            className="p-1.5 rounded-md text-ink-faint hover:text-[#841B4D] hover:bg-[#841B4D]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#841B4D]"
-            aria-label="Editar Cadastro"
-          >
-            <Pencil className="h-4 w-4" />
-          </Link>
-        </ActionTooltip>
+        <Link
+          href={`/recepcao/pacientes/${patient.id}/gestao`}
+          onClick={(e) => e.stopPropagation()}
+          className="ml-3 text-xs text-chart"
+          aria-label="Editar Cadastro"
+        >
+          Editar
+        </Link>
 
-        <ActionTooltip text="Inativar Paciente">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              onInactivate(patient);
-            }}
-            className="p-1.5 rounded-md text-ink-faint hover:text-amber-600 hover:bg-amber-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 cursor-pointer"
-            aria-label="Inativar Paciente"
-          >
-            <UserX className="h-4 w-4" />
-          </button>
-        </ActionTooltip>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onInactivate(patient);
+          }}
+          className="ml-3 text-xs text-status-negative-text"
+          aria-label="Inativar Paciente"
+        >
+          Inativar
+        </button>
 
-        <ActionTooltip text="Excluir Paciente (Gestor)">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              onDelete(patient);
-            }}
-            className="p-1.5 rounded-md text-ink-faint hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 cursor-pointer"
-            aria-label="Excluir Paciente"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </ActionTooltip>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onDelete(patient);
+          }}
+          className="ml-3 text-xs text-status-negative-text"
+          aria-label="Excluir Paciente"
+        >
+          Excluir
+        </button>
       </div>
     </div>
   );

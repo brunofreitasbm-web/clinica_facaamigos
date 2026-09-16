@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { ROLE_LABEL, type Role } from "@/lib/roles";
+import { type Role } from "@/lib/roles";
 import { signOut } from "@/app/login/actions";
 import { isNextError } from "@/lib/next-utils";
 import { RoleSwitcherMenu } from "@/components/role-switcher-menu";
@@ -32,23 +32,17 @@ export async function AuthStatus() {
     const currentRole = profile?.role as Role | undefined;
     const userDisplayName = profile?.full_name ?? user.email ?? "Usuário";
 
+    if (currentRole !== "gestor") return null;
+
     return (
       <div className="flex items-center justify-end gap-4 border-b border-paper-line-strong bg-slate-900 px-6 py-2 text-xs text-slate-200 sm:px-10">
-        {currentRole === "gestor" && <RoleSwitcherMenu links={MODULE_LINKS} />}
+        <RoleSwitcherMenu links={MODULE_LINKS} />
 
         <span className="flex items-center gap-1.5">
           <strong className="text-white">{userDisplayName}</strong>
-          {currentRole && (
-            <span
-              className={
-                currentRole === "gestor"
-                  ? "inline-flex items-center gap-1 rounded border border-amber-400 bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-slate-900"
-                  : "inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-xs font-semibold text-slate-300"
-              }
-            >
-              {currentRole === "gestor" ? "⚡ Modo Deus (Gestor)" : (ROLE_LABEL[currentRole] ?? currentRole)}
-            </span>
-          )}
+          <span className="inline-flex items-center gap-1 rounded border border-amber-400 bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-slate-900">
+            ⚡ Modo Deus (Gestor)
+          </span>
         </span>
         <form action={signOut}>
           <button type="submit" className="rounded bg-rose-900/60 px-2 py-1 text-rose-200 hover:bg-rose-800 hover:text-white">

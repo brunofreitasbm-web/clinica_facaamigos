@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { addPatientInsurance, deletePatientInsurance, updatePatientInsurance } from "./actions";
 
 export type ConvenioRow = {
@@ -108,27 +108,27 @@ function ConvenioCard({
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">
           {convenio.insurerName}
         </h6>
-        <div className="flex gap-1">
+        <div className="flex items-center">
           <button
             type="button"
             aria-label="Editar plano de saúde"
-            className="btn btn-secondary btn-icon"
+            className="text-xs text-chart"
             onClick={() => setEditing(true)}
           >
-            <Pencil size={15} />
+            Editar
           </button>
           <button
             type="button"
             aria-label="Remover plano de saúde"
             disabled={isPending}
-            className="btn btn-secondary btn-icon"
+            className="ml-3 text-xs text-status-negative-text"
             onClick={() => {
               if (confirm(`Remover o plano de saúde ${convenio.insurerName} deste paciente?`)) {
                 startTransition(() => { deletePatientInsurance(patientId, convenio.id); });
               }
             }}
           >
-            <Trash2 size={15} />
+            Remover
           </button>
         </div>
       </div>

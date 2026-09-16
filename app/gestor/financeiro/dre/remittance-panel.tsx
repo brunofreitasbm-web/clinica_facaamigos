@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Trash2, AlertTriangle, FileText } from "lucide-react";
+import { Upload, AlertTriangle, FileText } from "lucide-react";
 import type { RemittanceBatchRow } from "./remittance-data";
 import { uploadRemittanceNote, setLineConsolidated, setBatchConsolidated, deleteRemittanceBatch } from "./actions";
 
@@ -209,12 +209,12 @@ function BatchCard({ batch, open, onToggleOpen }: { batch: RemittanceBatchRow; o
           </label>
           <button
             type="button"
-            className="btn btn-ghost text-xs"
+            className="text-xs text-status-negative-text"
             disabled={isPending}
             onClick={() => run(() => deleteRemittanceBatch(batch.id))}
             aria-label="Excluir nota"
           >
-            <Trash2 size={14} />
+            Excluir
           </button>
         </div>
       </div>

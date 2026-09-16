@@ -63,13 +63,13 @@ function QuickResponseRowView({ response }: { response: QuickResponseRow }) {
         <div className="text-xs text-ink-faint">{response.contentText}</div>
       </td>
       <td className="text-right">
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn btn-ghost text-xs" onClick={() => setEditing(true)}>
+        <div className="flex justify-end">
+          <button type="button" className="text-xs text-chart" onClick={() => setEditing(true)}>
             Editar
           </button>
           <button
             type="button"
-            className="btn btn-ghost text-xs text-status-negative-text"
+            className="ml-3 text-xs text-status-negative-text"
             disabled={isPending}
             onClick={() => {
               if (confirm(`Excluir a resposta rápida "${response.title}"?`)) {

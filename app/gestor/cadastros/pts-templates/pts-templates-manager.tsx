@@ -206,7 +206,7 @@ export function PtsTemplatesManager({
                             setIsCreating(false);
                             setEditingTemplate(template);
                           }}
-                          className="text-chart font-semibold hover:underline"
+                          className="text-xs text-chart"
                         >
                           Editar
                         </button>

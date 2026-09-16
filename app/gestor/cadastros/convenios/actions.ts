@@ -112,7 +112,7 @@ export async function updateInsurer(
   const supabase = await createClient();
   const clinicId = await getGestorClinicId(supabase);
 
-  const payload: Record<string, any> = {
+  const payload: { name: string; ans_code: string | null; badge_color?: string } = {
     name,
     ans_code: ansCode || null,
   };

@@ -426,12 +426,12 @@ export function AcolhimentosPanel({
                                       type="button"
                                       disabled={isPending}
                                       onClick={() => handleStartContactSingle(lead.id, lead.patient_full_name)}
-                                      className="text-xs font-semibold text-chart hover:underline disabled:opacity-50"
+                                      className="text-xs text-chart disabled:opacity-50"
                                     >
                                       Iniciar contato
                                     </button>
                                   )}
-                                  <button type="button" onClick={() => setOpenLeadId(lead.id)} className="text-xs font-semibold text-chart hover:underline">
+                                  <button type="button" onClick={() => setOpenLeadId(lead.id)} className="text-xs text-chart">
                                     {EDITABLE_LEAD_STATUSES.has(lead.status) ? "Editar" : lead.status === "pending_supervisor" ? "Validar documentos" : "Revisar"}
                                   </button>
                                   {!NON_CANCELLABLE_LEAD_STATUSES.has(lead.status) && (
@@ -439,7 +439,7 @@ export function AcolhimentosPanel({
                                       type="button"
                                       disabled={isPending}
                                       onClick={() => handleDeleteSingle(lead.id, lead.patient_full_name)}
-                                      className="text-xs font-semibold text-status-negative-text hover:underline disabled:opacity-50"
+                                      className="text-xs text-status-negative-text disabled:opacity-50"
                                     >
                                       Excluir
                                     </button>

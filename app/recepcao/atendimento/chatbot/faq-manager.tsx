@@ -111,13 +111,13 @@ function FaqRowView({ faq }: { faq: FaqRow }) {
         <span className="text-xs">{faq.keywords.join(", ") || "—"}</span>
       </td>
       <td className="text-right">
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn btn-ghost text-xs" onClick={() => setEditing(true)}>
+        <div className="flex justify-end">
+          <button type="button" className="text-xs text-chart" onClick={() => setEditing(true)}>
             Editar
           </button>
           <button
             type="button"
-            className="btn btn-ghost text-xs"
+            className="ml-3 text-xs text-chart"
             disabled={isPending}
             onClick={() =>
               startTransition(async () => {
@@ -129,7 +129,7 @@ function FaqRowView({ faq }: { faq: FaqRow }) {
           </button>
           <button
             type="button"
-            className="btn btn-ghost text-xs text-status-negative-text"
+            className="ml-3 text-xs text-status-negative-text"
             disabled={isPending}
             onClick={() => {
               if (confirm(`Excluir a pergunta "${faq.question}"?`)) {

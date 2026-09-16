@@ -7,6 +7,15 @@ export type AppointmentType = {
   recurrence: string;
   requiresInternRatio: boolean;
   active: boolean;
+  insurerId?: string | null;
+  insurerName?: string | null;
+  procedureCode?: string | null;
+};
+
+export type InsurerOption = {
+  id: string;
+  name: string;
+  procedures: { code: string; name: string }[];
 };
 
 export const MODALITY_LABEL: Record<string, string> = {
@@ -15,8 +24,9 @@ export const MODALITY_LABEL: Record<string, string> = {
 };
 
 export const RECURRENCE_LABEL: Record<string, string> = {
-  unica: "Única",
+  unica: "Única / Avulso",
   semanal: "Semanal",
   quinzenal: "Quinzenal",
   mensal: "Mensal",
 };
+

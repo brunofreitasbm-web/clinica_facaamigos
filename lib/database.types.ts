@@ -555,8 +555,10 @@ export type Database = {
           display_interval_minutes: number
           duration_minutes: number
           id: string
+          insurer_id: string | null
           modality: string
           name: string
+          procedure_code: string | null
           recurrence: string
           requires_intern_ratio: boolean
           sessions_consumed: number
@@ -570,8 +572,10 @@ export type Database = {
           display_interval_minutes: number
           duration_minutes: number
           id?: string
+          insurer_id?: string | null
           modality?: string
           name: string
+          procedure_code?: string | null
           recurrence?: string
           requires_intern_ratio?: boolean
           sessions_consumed?: number
@@ -585,8 +589,10 @@ export type Database = {
           display_interval_minutes?: number
           duration_minutes?: number
           id?: string
+          insurer_id?: string | null
           modality?: string
           name?: string
+          procedure_code?: string | null
           recurrence?: string
           requires_intern_ratio?: boolean
           sessions_consumed?: number
@@ -598,6 +604,13 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_types_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
             referencedColumns: ["id"]
           },
         ]

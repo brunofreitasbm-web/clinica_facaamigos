@@ -11,7 +11,7 @@ export function DeleteAppointmentTypeButton({ id, name }: { id: string; name: st
     <span>
       <button
         type="button"
-        className="btn btn-ghost text-xs"
+        className="ml-3 text-xs text-status-negative-text"
         disabled={isPending}
         onClick={() => {
           if (!window.confirm(`Excluir o tipo de atendimento "${name}"? Essa ação não pode ser desfeita.`)) return;

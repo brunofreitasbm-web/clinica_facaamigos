@@ -3,16 +3,10 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Pencil,
-  Ban,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  KeyRound,
-  ShieldOff,
   Cake,
   Copy,
-  Trash2,
 } from "lucide-react";
 import { toggleStaffActive, resetStaffPassword, resetSignaturePin, deleteStaff } from "./actions";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
@@ -291,61 +285,62 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
                   </span>
                 </td>
                 <td className="text-right">
-                  <div className="flex justify-end items-center gap-1">
-                    <button
-                      onClick={() => {
-                        setEditing(s);
-                        setIsDialogOpen(true);
-                      }}
-                      title="Editar colaborador"
-                      aria-label={`Editar ${s.fullName}`}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-neutral-100 hover:text-accent transition-colors"
-                    >
-                      <Pencil size={18} />
-                    </button>
-                    <button
-                      onClick={() => setPasswordTarget(s)}
-                      disabled={isPending || !s.email}
-                      title={s.email ? "Resetar senha de acesso" : "Colaborador sem e-mail de login"}
-                      aria-label={`Resetar senha de ${s.fullName}`}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-neutral-100 hover:text-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                    >
-                      <KeyRound size={18} />
-                    </button>
-                    <button
-                      onClick={() => setPinTarget(s)}
-                      disabled={isPending || !s.hasSignaturePin}
-                      title={
-                        s.hasSignaturePin
-                          ? "Resetar PIN de assinatura"
-                          : "Colaborador ainda não cadastrou PIN de assinatura"
-                      }
-                      aria-label={`Resetar PIN de assinatura de ${s.fullName}`}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-neutral-100 hover:text-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                    >
-                      <ShieldOff size={18} />
-                    </button>
-                    <button
-                      onClick={() => setConfirmTarget(s)}
-                      disabled={isPending}
-                      title={s.active ? "Inativar acesso" : "Reativar acesso"}
-                      aria-label={`${s.active ? "Inativar" : "Reativar"} acesso de ${s.fullName}`}
-                      className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${
-                        s.active ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"
-                      }`}
-                    >
-                      {s.active ? <Ban size={18} /> : <CheckCircle2 size={18} />}
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(s)}
-                      disabled={isPending}
-                      title="Excluir colaborador"
-                      aria-label={`Excluir colaborador ${s.fullName}`}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-40"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditing(s);
+                      setIsDialogOpen(true);
+                    }}
+                    title="Editar colaborador"
+                    aria-label={`Editar ${s.fullName}`}
+                    className="text-xs text-chart"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPasswordTarget(s)}
+                    disabled={isPending || !s.email}
+                    title={s.email ? "Resetar senha de acesso" : "Colaborador sem e-mail de login"}
+                    aria-label={`Resetar senha de ${s.fullName}`}
+                    className="ml-3 text-xs text-chart disabled:opacity-40"
+                  >
+                    Senha
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPinTarget(s)}
+                    disabled={isPending || !s.hasSignaturePin}
+                    title={
+                      s.hasSignaturePin
+                        ? "Resetar PIN de assinatura"
+                        : "Colaborador ainda não cadastrou PIN de assinatura"
+                    }
+                    aria-label={`Resetar PIN de assinatura de ${s.fullName}`}
+                    className="ml-3 text-xs text-chart disabled:opacity-40"
+                  >
+                    PIN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmTarget(s)}
+                    disabled={isPending}
+                    title={s.active ? "Inativar acesso" : "Reativar acesso"}
+                    aria-label={`${s.active ? "Inativar" : "Reativar"} acesso de ${s.fullName}`}
+                    className="ml-3 text-xs text-chart disabled:opacity-50"
+                  >
+                    {s.active ? "Inativar" : "Reativar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(s)}
+                    disabled={isPending}
+                    title="Excluir colaborador"
+                    aria-label={`Excluir colaborador ${s.fullName}`}
+                    className="ml-3 text-xs text-status-negative-text disabled:opacity-40"
+                  >
+                    Excluir
+                  </button>
                 </td>
               </tr>
             ))}

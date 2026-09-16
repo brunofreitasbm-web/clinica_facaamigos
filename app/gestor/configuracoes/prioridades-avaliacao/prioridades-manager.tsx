@@ -141,14 +141,14 @@ function PriorityRowView({
             <>
               <button
                 type="button"
-                className="btn btn-ghost text-xs"
+                className="text-xs text-chart"
                 onClick={() => setEditing(true)}
               >
                 Editar
               </button>
               <button
                 type="button"
-                className="btn btn-ghost text-xs"
+                className="ml-3 text-xs text-chart"
                 disabled={isPending}
                 onClick={() =>
                   startTransition(() => {
