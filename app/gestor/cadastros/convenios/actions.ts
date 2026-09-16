@@ -97,6 +97,81 @@ export async function updateInsurerColor(
   return { success: true };
 }
 
+export async function updateInsurer(
+  insurerId: string,
+  formData: FormData,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const name = String(formData.get("name") ?? "").trim();
+  const ansCode = String(formData.get("ans_code") ?? "").trim();
+  const badgeColor = String(formData.get("badge_color") ?? "").trim();
+
+  if (!insurerId || !name) {
+    return { success: false, error: "Nome do plano de saúde é obrigatório." };
+  }
+
+  const supabase = await createClient();
+  const clinicId = await getGestorClinicId(supabase);
+
+  const payload: Record<string, any> = {
+    name,
+    ans_code: ansCode || null,
+  };
+  if (badgeColor) {
+    payload.badge_color = badgeColor;
+  }
+
+  let { error } = await supabase
+    .from("insurers")
+    .update(payload)
+    .eq("id", insurerId)
+    .eq("clinic_id", clinicId);
+
+  if (error && error.message.includes("badge_color")) {
+    delete payload.badge_color;
+    const fallback = await supabase
+      .from("insurers")
+      .update(payload)
+      .eq("id", insurerId)
+      .eq("clinic_id", clinicId);
+    error = fallback.error;
+  }
+
+  if (error) {
+    return {
+      success: false,
+      error: `Não foi possível atualizar o plano de saúde: ${error.message}`,
+    };
+  }
+
+  revalidatePath("/gestor/cadastros/convenios");
+  return { success: true };
+}
+
+export async function deleteInsurer(
+  insurerId: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  if (!insurerId) return { success: false, error: "Plano de saúde inválido." };
+
+  const supabase = await createClient();
+  const clinicId = await getGestorClinicId(supabase);
+
+  const { error } = await supabase
+    .from("insurers")
+    .delete()
+    .eq("id", insurerId)
+    .eq("clinic_id", clinicId);
+
+  if (error) {
+    return {
+      success: false,
+      error: `Não foi possível excluir o plano de saúde. Verifique se existem pacientes ou registros vinculados. (${error.message})`,
+    };
+  }
+
+  revalidatePath("/gestor/cadastros/convenios");
+  return { success: true };
+}
+
 /**
  * Salva o perfil de extração por convênio ("campos por plano de saúde") do
  * acolhimento oriundo de plano de saúde — dicas de layout, palavras-chave

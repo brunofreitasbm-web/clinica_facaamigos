@@ -12,8 +12,9 @@ import {
   ShieldOff,
   Cake,
   Copy,
+  Trash2,
 } from "lucide-react";
-import { toggleStaffActive, resetStaffPassword, resetSignaturePin } from "./actions";
+import { toggleStaffActive, resetStaffPassword, resetSignaturePin, deleteStaff } from "./actions";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { StaffDialog } from "./staff-dialog";
 import { useToast } from "@/components/toast-provider";
@@ -41,6 +42,7 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StaffRow | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<StaffRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<StaffRow | null>(null);
   const [passwordTarget, setPasswordTarget] = useState<StaffRow | null>(null);
   const [pinTarget, setPinTarget] = useState<StaffRow | null>(null);
   const [tempPassword, setTempPassword] = useState<{ name: string; password: string } | null>(null);
@@ -135,6 +137,21 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
         result.success ? "success" : "error",
       );
       setPinTarget(null);
+    });
+  };
+
+  const handleDeleteStaff = () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    startTransition(async () => {
+      const result = await deleteStaff(target.id);
+      if (!result.success) {
+        toast(result.error, "error");
+        setDeleteTarget(null);
+        return;
+      }
+      toast(`Colaborador ${target.fullName} excluído com sucesso.`, "success");
+      setDeleteTarget(null);
     });
   };
 
@@ -314,10 +331,19 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
                       title={s.active ? "Inativar acesso" : "Reativar acesso"}
                       aria-label={`${s.active ? "Inativar" : "Reativar"} acesso de ${s.fullName}`}
                       className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${
-                        s.active ? "text-rose-600 hover:bg-rose-50" : "text-emerald-600 hover:bg-emerald-50"
+                        s.active ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"
                       }`}
                     >
                       {s.active ? <Ban size={18} /> : <CheckCircle2 size={18} />}
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(s)}
+                      disabled={isPending}
+                      title="Excluir colaborador"
+                      aria-label={`Excluir colaborador ${s.fullName}`}
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-40"
+                    >
+                      <Trash2 size={18} />
                     </button>
                   </div>
                 </td>
@@ -501,6 +527,35 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
               </button>
               <button type="button" onClick={handleResetPin} disabled={isPending} className="btn btn-primary">
                 {isPending ? "Resetando…" : "Resetar PIN"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-paper-line bg-paper-panel p-6 shadow-xl">
+            <h2 className="text-base font-semibold text-ink-strong">Excluir colaborador?</h2>
+            <p className="mt-2 text-sm text-ink-soft">
+              Tem certeza que deseja excluir o cadastro de <strong>{deleteTarget.fullName}</strong>? Esta ação removerá a conta de acesso e o perfil no sistema.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={isPending}
+                className="btn btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteStaff}
+                disabled={isPending}
+                className="btn text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-700"
+              >
+                {isPending ? "Excluindo…" : "Excluir Colaborador"}
               </button>
             </div>
           </div>

@@ -15,11 +15,12 @@ import {
   ChevronRight,
   Filter,
   Calendar,
+  Trash2,
 } from "lucide-react";
 import { FixedSizeList, ListChildComponentProps } from "react-window";
 import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
 import { formatDateBR } from "@/lib/format";
-import { inactivatePatient } from "./actions";
+import { inactivatePatient, deletePatient } from "./actions";
 import { PageContainer } from "@/components/page-container";
 
 export interface PatientRow {
@@ -131,9 +132,11 @@ function InactivateConfirmModal({
 export const PatientListItem = React.memo(function PatientListItem({
   patient,
   onInactivate,
+  onDelete,
 }: {
   patient: PatientRow;
   onInactivate: (p: PatientRow) => void;
+  onDelete: (p: PatientRow) => void;
 }) {
   const router = useRouter();
 
@@ -238,10 +241,25 @@ export const PatientListItem = React.memo(function PatientListItem({
               e.preventDefault();
               onInactivate(patient);
             }}
-            className="p-1.5 rounded-md text-ink-faint hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 cursor-pointer"
+            className="p-1.5 rounded-md text-ink-faint hover:text-amber-600 hover:bg-amber-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 cursor-pointer"
             aria-label="Inativar Paciente"
           >
             <UserX className="h-4 w-4" />
+          </button>
+        </ActionTooltip>
+
+        <ActionTooltip text="Excluir Paciente (Gestor)">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onDelete(patient);
+            }}
+            className="p-1.5 rounded-md text-ink-faint hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 cursor-pointer"
+            aria-label="Excluir Paciente"
+          >
+            <Trash2 className="h-4 w-4" />
           </button>
         </ActionTooltip>
       </div>
@@ -252,6 +270,7 @@ export const PatientListItem = React.memo(function PatientListItem({
 interface VirtualizedItemData {
   items: PatientRow[];
   onInactivate: (p: PatientRow) => void;
+  onDelete: (p: PatientRow) => void;
 }
 
 const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildComponentProps<VirtualizedItemData>) => {
@@ -259,7 +278,7 @@ const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildCompo
   if (!patient) return null;
   return (
     <div style={{ ...style, paddingBottom: "8px" }}>
-      <PatientListItem patient={patient} onInactivate={data.onInactivate} />
+      <PatientListItem patient={patient} onInactivate={data.onInactivate} onDelete={data.onDelete} />
     </div>
   );
 });
@@ -272,8 +291,9 @@ export function PatientListClient({ rows }: PatientListClientProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  // Estado para Modal de Confirmação de Inativação
+  // Estado para Modal de Confirmação de Inativação e Exclusão
   const [targetPatient, setTargetPatient] = useState<PatientRow | null>(null);
+  const [deleteTargetPatient, setDeleteTargetPatient] = useState<PatientRow | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -350,6 +370,7 @@ export function PatientListClient({ rows }: PatientListClientProps) {
     () => ({
       items: paginatedRows,
       onInactivate: (p: PatientRow) => setTargetPatient(p),
+      onDelete: (p: PatientRow) => setDeleteTargetPatient(p),
     }),
     [paginatedRows]
   );
@@ -367,6 +388,19 @@ export function PatientListClient({ rows }: PatientListClientProps) {
     });
   };
 
+  const handleConfirmDelete = () => {
+    if (!deleteTargetPatient) return;
+
+    startTransition(async () => {
+      const res = await deletePatient(deleteTargetPatient.id);
+      if (res.success) {
+        setDeleteTargetPatient(null);
+      } else {
+        alert(res.error || "Houve um erro ao excluir o paciente.");
+      }
+    });
+  };
+
   const startRecord = filteredRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endRecord = pageSize > 0 ? Math.min(currentPage * pageSize, filteredRows.length) : filteredRows.length;
 
@@ -380,6 +414,46 @@ export function PatientListClient({ rows }: PatientListClientProps) {
         onConfirm={handleConfirmInactivate}
         onClose={() => setTargetPatient(null)}
       />
+
+      {/* Modal de Confirmação de Exclusão (Gestor) */}
+      {deleteTargetPatient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-xl border border-paper-line-strong bg-paper p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-rose-100 dark:bg-rose-950/80 p-3 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-ink">Excluir Paciente (Gestor)</h3>
+                <p className="text-xs text-ink-faint">Remoção permanente de cadastro</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-ink-soft leading-relaxed">
+              Tem certeza que deseja excluir o cadastro do paciente <strong>{deleteTargetPatient.full_name}</strong>? Esta ação não pode ser desfeita.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTargetPatient(null)}
+                disabled={isPending}
+                className="btn btn-secondary text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isPending}
+                className="btn bg-rose-600 hover:bg-rose-700 text-white text-xs"
+              >
+                {isPending ? "Excluindo…" : "Excluir Paciente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Barra Superior: Botão CTA e Controles de Busca e Filtros */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">

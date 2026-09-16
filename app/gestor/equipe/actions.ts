@@ -208,6 +208,44 @@ export async function toggleStaffActive(profileId: string, active: boolean): Pro
   return { success: true };
 }
 
+export async function deleteStaff(profileId: string): Promise<ActionResult> {
+  const caller = await requireCallerIsGestor();
+  if (!caller.ok) return { success: false, error: caller.error };
+
+  if (profileId === caller.actorId) {
+    return { success: false, error: "Você não pode excluir o seu próprio usuário de gestor." };
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return {
+      success: false,
+      error: "Servidor sem SUPABASE_SERVICE_ROLE_KEY configurada.",
+    };
+  }
+
+  const { error: profileError } = await admin
+    .from("profiles")
+    .delete()
+    .eq("id", profileId)
+    .eq("clinic_id", caller.clinicId);
+
+  if (profileError) {
+    return { success: false, error: `Não foi possível excluir o colaborador: ${profileError.message}` };
+  }
+
+  try {
+    await admin.auth.admin.deleteUser(profileId);
+  } catch {
+    // se o user já não existia no auth, prossegue
+  }
+
+  revalidatePath("/gestor/equipe");
+  return { success: true };
+}
+
 // ---------------------------------------------------------------------------
 // Reset de credenciais (senha de login e PIN de assinatura)
 // ---------------------------------------------------------------------------

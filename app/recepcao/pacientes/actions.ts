@@ -124,3 +124,40 @@ export async function inactivatePatient(
   return { success: true };
 }
 
+/**
+ * Exclui o cadastro do paciente (exclusivo para gestores).
+ */
+export async function deletePatient(
+  patientId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Sessão expirada." };
+
+  const { data: callerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (callerProfile?.role !== "gestor") {
+    return { success: false, error: "Apenas gestores podem excluir o cadastro de um paciente." };
+  }
+
+  const { error } = await supabase.from("patients").delete().eq("id", patientId);
+
+  if (error) {
+    return {
+      success: false,
+      error: `Não foi possível excluir o paciente. Verifique se existem consultas ou agendamentos vinculados. (${error.message})`,
+    };
+  }
+
+  revalidatePath("/recepcao/pacientes");
+  revalidatePath("/gestor/cadastros/pacientes");
+  return { success: true };
+}
+

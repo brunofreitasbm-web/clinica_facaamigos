@@ -6,6 +6,8 @@ import { InsurerForm } from "./insurer-form";
 import { PageContainer } from "@/components/page-container";
 import { HealthPlanBadge } from "@/components/health-plan-badge";
 
+import { InsurerListItem } from "./insurer-list-item";
+
 export const dynamic = "force-dynamic";
 
 export default async function ConveniosPage() {
@@ -52,26 +54,7 @@ export default async function ConveniosPage() {
           <InsurerForm />
           <ul className="flex flex-col gap-2">
             {(insurers ?? []).map((insurer) => (
-              <li
-                key={insurer.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-line-strong bg-paper/60 px-4 py-3 text-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <HealthPlanBadge name={insurer.name} color={insurer.badge_color} size="md" />
-                  <span className="font-semibold text-ink">{insurer.name}</span>
-                  {insurer.ans_code && (
-                    <span className="text-xs text-ink-faint">ANS {insurer.ans_code}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <Link
-                    href={`/gestor/cadastros/convenios/${insurer.id}/precos`}
-                    className="text-sm font-medium text-chart hover:underline"
-                  >
-                    Tabela de preços
-                  </Link>
-                </div>
-              </li>
+              <InsurerListItem key={insurer.id} insurer={insurer} />
             ))}
             {(insurers ?? []).length === 0 && (
               <li className="text-sm text-ink-faint">Nenhum plano de saúde cadastrado ainda.</li>
