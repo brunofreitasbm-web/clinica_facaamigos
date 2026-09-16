@@ -105,19 +105,26 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
 
   const unitId = await getDefaultUnitId(admin);
 
-  const { error: profileError } = await admin.from("profiles").insert({
-    id: newUser.user.id,
-    clinic_id: caller.clinicId,
-    role,
-    full_name: fullName,
-    cpf: cpfDigits,
-    council_type: councilType,
-    is_evaluator: isEvaluator,
-    is_at_professional: isAtProfessional,
-    email,
-    birth_date: birthDate,
-    unit_id: unitId,
-  });
+  // `handle_new_auth_user` (trigger em auth.users) já inseriu um profile
+  // provisório pra este id assim que o admin.createUser acima rodou — por
+  // isso aqui é upsert, não insert: senão colide com esse row provisório
+  // (violação de profiles_pkey) e o gestor vê um falso "CPF duplicado".
+  const { error: profileError } = await admin.from("profiles").upsert(
+    {
+      id: newUser.user.id,
+      clinic_id: caller.clinicId,
+      role,
+      full_name: fullName,
+      cpf: cpfDigits,
+      council_type: councilType,
+      is_evaluator: isEvaluator,
+      is_at_professional: isAtProfessional,
+      email,
+      birth_date: birthDate,
+      unit_id: unitId,
+    },
+    { onConflict: "id" },
+  );
 
   if (profileError) {
     // Reverte a conta criada no Auth pra não deixar um usuário órfão sem
@@ -125,9 +132,8 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
     // fica um lixo silencioso na base de auth caso o gestor tente de novo).
     await admin.auth.admin.deleteUser(newUser.user.id);
     const isCpfDuplicate =
-      profileError.code === "23505" ||
       profileError.message.includes("profiles_cpf_unique") ||
-      profileError.message.toLowerCase().includes("cpf");
+      (profileError.code === "23505" && profileError.message.toLowerCase().includes("cpf"));
 
     const detailMsg = [profileError.message, profileError.details, profileError.hint]
       .filter(Boolean)
