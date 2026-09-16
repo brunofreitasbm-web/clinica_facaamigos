@@ -5,7 +5,11 @@ import Link from "next/link";
 import { Gamepad2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { getMyBonusWidgetSummary, type BonusWidgetSummary } from "@/lib/bonus-widget-actions";
 
-const POLL_MS = 60_000;
+// 5min: era 60s — é um contador de bonificação, não dado clínico, não
+// precisa de frescor por segundo. Some com isso o poll também pausa quando
+// a aba não está visível (abaixo), então o custo real de manter isto
+// montado o dia todo em toda tela de Recepção/Coordenação cai bastante.
+const POLL_MS = 5 * 60_000;
 const STORAGE_KEY = "bonus-widget-last-pct";
 
 type Trend = "up" | "down" | "flat" | null;
@@ -71,10 +75,23 @@ export function BonusFloatingWidget() {
     }
 
     refresh();
-    const id = setInterval(refresh, POLL_MS);
+    const id = setInterval(() => {
+      // Aba em segundo plano: pula o poll, mas não perde o ritmo — quando
+      // voltar a ficar visível, o listener abaixo refresca na hora em vez
+      // de esperar até 5min. Evita bater a Server Action de dezenas de abas
+      // de recepção/coordenação abertas e esquecidas em segundo plano.
+      if (document.visibilityState === "visible") refresh();
+    }, POLL_MS);
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") refresh();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     return () => {
       cancelled = true;
       clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 

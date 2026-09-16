@@ -341,7 +341,13 @@ export function ChegadasList({ initialItems, clinicId }: { initialItems: Chegada
   }, [clinicId, router]);
 
   useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 60_000);
+    // router.refresh() re-renderiza a árvore force-dynamic INTEIRA (layout +
+    // página de /recepcao) — com a aba em segundo plano isso só gera carga
+    // no banco sem ninguém olhando. Por isso o poll também checa
+    // document.hidden, igual ao listener de visibilitychange logo abaixo.
+    const interval = setInterval(() => {
+      if (!document.hidden) router.refresh();
+    }, 60_000);
     const onVisibility = () => {
       if (!document.hidden) router.refresh();
     };

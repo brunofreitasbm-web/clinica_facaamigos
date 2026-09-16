@@ -1,7 +1,7 @@
 import { SupervisaoTabProvider } from "./supervisao-tab-context";
 import { SupervisaoHeader } from "@/components/supervisao-header";
 import { SupervisaoKnowledgeBaseDrawer } from "@/components/supervisao-knowledge-base-drawer";
-import { BonusFloatingWidget } from "@/components/bonus-floating-widget";
+import { BonusFloatingWidget } from "@/components/bonus-floating-widget-lazy";
 
 /**
  * Layout do módulo Coordenação — monta o cabeçalho (SupervisaoHeader) em

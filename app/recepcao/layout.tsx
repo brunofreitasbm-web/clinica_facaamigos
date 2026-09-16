@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { RecepcaoNav } from "@/components/recepcao-nav";
 import { RecepcaoNavBadges } from "./nav-badges";
 import { KnowledgeBaseDrawer } from "@/components/knowledge-base-drawer";
-import { BonusFloatingWidget } from "@/components/bonus-floating-widget";
+import { BonusFloatingWidget } from "@/components/bonus-floating-widget-lazy";
 
 export const dynamic = "force-dynamic";
 
