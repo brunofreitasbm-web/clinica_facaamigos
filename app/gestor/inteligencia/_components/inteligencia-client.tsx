@@ -406,19 +406,25 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
 
           {/* Linha 3: Mapa de Calor + Pacientes por Plano de Saúde */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {/* Mapa de Calor Dia × Hora — versão ultra compacta em 2 colunas */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs flex flex-col justify-between">
+            {/* Mapa de Calor Dia × Hora — versão ultra compacta sem rolagem */}
+            <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-xs flex flex-col justify-between overflow-hidden">
               <div>
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-slate-900 text-sm">🗓️ Mapa de Calor · Ocupação</span>
+                <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
+                  <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                    <span className="font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap">🗓️ Mapa de Calor · Ocupação</span>
                     {metrics.weekHourHeatmap.idleWindows.length > 0 && (
-                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-semibold text-amber-800 border border-amber-200/60">
-                        Encaixes: {metrics.weekHourHeatmap.idleWindows.map((w) => w.label).join(", ")}
+                      <span
+                        className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-semibold text-amber-800 border border-amber-200/60 max-w-full truncate"
+                        title={`Encaixes vagos: ${metrics.weekHourHeatmap.idleWindows.map((w) => w.label).join(", ")}`}
+                      >
+                        Encaixes:{" "}
+                        {metrics.weekHourHeatmap.idleWindows.length <= 2
+                          ? metrics.weekHourHeatmap.idleWindows.map((w) => w.label).join(", ")
+                          : `${metrics.weekHourHeatmap.idleWindows.slice(0, 2).map((w) => w.label).join(", ")} +${metrics.weekHourHeatmap.idleWindows.length - 2}`}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
+                  <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-slate-500 font-medium">
                     <span className="flex items-center gap-0.5">
                       <span className="h-2 w-2 rounded-xs bg-indigo-100 border border-indigo-200" /> Baixo
                     </span>
@@ -431,20 +437,20 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="w-full min-w-0">
                   <div
-                    className="grid gap-1 min-w-[360px]"
-                    style={{ gridTemplateColumns: `36px repeat(${metrics.weekHourHeatmap.hours.length}, minmax(0,1fr))` }}
+                    className="grid gap-0.5 sm:gap-1 w-full"
+                    style={{ gridTemplateColumns: `24px repeat(${metrics.weekHourHeatmap.hours.length}, minmax(0,1fr))` }}
                   >
                     <div />
                     {metrics.weekHourHeatmap.hours.map((h) => (
-                      <div key={h} className="text-center text-[9px] font-semibold text-slate-400">
+                      <div key={h} className="text-center text-[8.5px] sm:text-[9px] font-semibold text-slate-400 truncate">
                         {h}h
                       </div>
                     ))}
                     {metrics.weekHourHeatmap.dayLabels.map((day) => (
                       <Fragment key={day.dow}>
-                        <div className="flex items-center text-[10px] font-semibold text-slate-600">
+                        <div className="flex items-center text-[9px] sm:text-[10px] font-semibold text-slate-600 truncate">
                           {day.label}
                         </div>
                         {metrics.weekHourHeatmap.cells
@@ -453,7 +459,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                             <div
                               key={`${cell.dow}-${cell.hour}`}
                               title={`${day.label} ${String(cell.hour).padStart(2, "0")}h: ${cell.count} sessão(ões)`}
-                              className={`h-5 rounded-xs flex items-center justify-center text-[9px] font-bold transition-all hover:scale-110 hover:z-10 cursor-pointer ${
+                              className={`h-4.5 sm:h-5 rounded-xs flex items-center justify-center text-[8.5px] sm:text-[9px] font-bold transition-all hover:scale-110 hover:z-10 cursor-pointer ${
                                 cell.isIdle ? "ring-1 ring-amber-400 bg-amber-50/50" : ""
                               }`}
                               style={{
@@ -471,7 +477,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   </div>
                 </div>
               </div>
-              <p className="mt-2 text-[10px] text-slate-400">
+              <p className="mt-2 text-[9px] sm:text-[10px] text-slate-400">
                 Cor mais forte = maior volume de sessões; borda âmbar = sem sessões no horário.
               </p>
             </div>
