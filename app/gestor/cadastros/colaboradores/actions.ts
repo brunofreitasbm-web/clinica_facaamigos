@@ -34,6 +34,15 @@ function parseDateInput(value: FormDataEntryValue | null | undefined): string | 
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
 }
 
+// `unit_id` veio herdado do webhook do sistema de gestão de pessoas (Grupo IB),
+// que opera múltiplas unidades. Esta clínica só tem uma — não faz sentido
+// perguntar isso no cadastro, então todo colaborador cai automaticamente na
+// única unidade existente.
+async function getDefaultUnitId(supabase: { from: (table: string) => any }): Promise<string | null> {
+  const { data } = await supabase.from("units").select("id").order("name").limit(1).maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function createStaff(formData: FormData): Promise<ActionResult> {
   const fullName = String(formData.get("full_name") ?? "").trim();
   const cpfDigits = String(formData.get("cpf") ?? "").replace(/\D/g, "");
@@ -44,7 +53,6 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
   const isEvaluator = formData.get("is_evaluator") === "on";
   const isAtProfessional = formData.get("is_at_professional") === "on";
   const birthDate = parseDateInput(formData.get("birth_date"));
-  const unitId = String(formData.get("unit_id") ?? "").trim() || null;
 
   if (!fullName || cpfDigits.length !== 11 || !password || !ROLES.includes(role)) {
     return { success: false, error: "Preencha nome, CPF (11 dígitos), senha e papel." };
@@ -94,6 +102,8 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
         : "Não foi possível criar a conta.",
     };
   }
+
+  const unitId = await getDefaultUnitId(admin);
 
   const { error: profileError } = await admin.from("profiles").insert({
     id: newUser.user.id,
@@ -146,7 +156,6 @@ export async function updateStaffProfile(
     isAtProfessional?: boolean;
     googleCalendarOptIn?: boolean;
     birthDate?: string | null;
-    unitId?: string | null;
   },
 ): Promise<ActionResult> {
   if (!data.fullName.trim() || !ROLES.includes(data.role)) {
@@ -162,6 +171,7 @@ export async function updateStaffProfile(
   if (!caller.ok) return { success: false, error: caller.error };
 
   const session = await createClient();
+  const unitId = await getDefaultUnitId(session);
   const { error } = await session
     .from("profiles")
     .update({
@@ -173,7 +183,7 @@ export async function updateStaffProfile(
       is_at_professional: data.isAtProfessional ?? false,
       google_calendar_opt_in: data.googleCalendarOptIn ?? false,
       birth_date: data.birthDate?.trim() || null,
-      unit_id: data.unitId?.trim() || null,
+      unit_id: unitId,
     })
     .eq("id", profileId)
     .eq("clinic_id", caller.clinicId);

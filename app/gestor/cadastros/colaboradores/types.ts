@@ -7,8 +7,6 @@ export type StaffRow = {
   cpf: string | null;
   role: Role;
   councilType: string | null;
-  unitId: string | null;
-  unitName: string | null;
   /** ISO `yyyy-mm-dd`, como vem do Postgres e como o <input type="date"> espera. */
   birthDate: string | null;
   active: boolean;
@@ -21,5 +19,3 @@ export type StaffRow = {
   sourceSystem: string | null;
   createdAtLabel: string;
 };
-
-export type UnitOption = { id: string; name: string };

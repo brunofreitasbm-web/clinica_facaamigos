@@ -7,16 +7,15 @@ import { useToast } from "@/components/toast-provider";
 import { formatCpfMask } from "@/lib/masks";
 import { PasswordStrengthChecklist } from "@/components/password-strength-checklist";
 import { PASSWORD_MIN_LENGTH, isPasswordStrong } from "@/lib/password";
-import type { StaffRow, UnitOption } from "./types";
+import type { StaffRow } from "./types";
 
 interface StaffDialogProps {
   isOpen: boolean;
   onClose: () => void;
   staffToEdit?: StaffRow | null;
-  units: UnitOption[];
 }
 
-export function StaffDialog({ isOpen, onClose, staffToEdit, units }: StaffDialogProps) {
+export function StaffDialog({ isOpen, onClose, staffToEdit }: StaffDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -29,7 +28,6 @@ export function StaffDialog({ isOpen, onClose, staffToEdit, units }: StaffDialog
   const [isAtProfessional, setIsAtProfessional] = useState(staffToEdit?.isAtProfessional ?? false);
   const [googleCalendarOptIn, setGoogleCalendarOptIn] = useState(staffToEdit?.googleCalendarOptIn ?? false);
   const [birthDate, setBirthDate] = useState(staffToEdit?.birthDate ?? "");
-  const [unitId, setUnitId] = useState(staffToEdit?.unitId ?? "");
   const [password, setPassword] = useState("");
 
   if (!isOpen) return null;
@@ -49,7 +47,6 @@ export function StaffDialog({ isOpen, onClose, staffToEdit, units }: StaffDialog
             isAtProfessional,
             googleCalendarOptIn,
             birthDate,
-            unitId,
           })
         : await createStaff(formData);
 
@@ -196,35 +193,18 @@ export function StaffDialog({ isOpen, onClose, staffToEdit, units }: StaffDialog
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-ink-strong" htmlFor="unit_id">Unidade</label>
-              <select
-                id="unit_id"
-                name="unit_id"
-                className="input cursor-pointer"
-                value={unitId}
-                onChange={(e) => setUnitId(e.target.value)}
-              >
-                <option value="">Sem unidade definida</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-ink-strong" htmlFor="birth_date">
-                Data de aniversário
-              </label>
-              <input
-                id="birth_date"
-                name="birth_date"
-                type="date"
-                className="input"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-              />
-            </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-ink-strong" htmlFor="birth_date">
+              Data de aniversário
+            </label>
+            <input
+              id="birth_date"
+              name="birth_date"
+              type="date"
+              className="input"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+            />
           </div>
 
           {role === "terapeuta" && (

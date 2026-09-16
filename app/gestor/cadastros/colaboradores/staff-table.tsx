@@ -13,7 +13,7 @@ import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { StaffDialog } from "./staff-dialog";
 import { useToast } from "@/components/toast-provider";
 import { formatBirthday, isBirthdayThisMonth, isBirthdayToday } from "./birthdays";
-import type { StaffRow, UnitOption } from "./types";
+import type { StaffRow } from "./types";
 import { PageContainer } from "@/components/page-container";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
@@ -24,14 +24,13 @@ const MONTH_LABEL = [
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 
-export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOption[] }) {
+export function StaffTable({ staff }: { staff: StaffRow[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [unitFilter, setUnitFilter] = useState<string>("all");
   const [birthdayOnly, setBirthdayOnly] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StaffRow | null>(null);
@@ -72,10 +71,8 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
     const matchesRole = roleFilter === "all" || s.role === roleFilter;
     const matchesStatus =
       statusFilter === "all" || (statusFilter === "active" ? s.active : !s.active);
-    const matchesUnit =
-      unitFilter === "all" || (unitFilter === "none" ? !s.unitId : s.unitId === unitFilter);
     const matchesBirthday = !birthdayOnly || isBirthdayThisMonth(s.birthDate, today);
-    return matchesSearch && matchesRole && matchesStatus && matchesUnit && matchesBirthday;
+    return matchesSearch && matchesRole && matchesStatus && matchesBirthday;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
@@ -180,21 +177,6 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
           </select>
           <select
             className="input cursor-pointer"
-            style={{ minWidth: 190 }}
-            value={unitFilter}
-            onChange={(e) => {
-              setUnitFilter(e.target.value);
-              handleFilterChange();
-            }}
-          >
-            <option value="all">Todas as unidades</option>
-            {units.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-            <option value="none">Sem unidade</option>
-          </select>
-          <select
-            className="input cursor-pointer"
             style={{ minWidth: 170 }}
             value={statusFilter}
             onChange={(e) => {
@@ -241,7 +223,6 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
             <tr>
               <th>Colaborador</th>
               <th>Papel</th>
-              <th>Unidade</th>
               <th>Conselho / especialidade</th>
               <th>Aniversário</th>
               <th>Status</th>
@@ -267,7 +248,6 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
                     {ROLE_LABEL[s.role]}
                   </span>
                 </td>
-                <td className="text-sm">{s.unitName || "—"}</td>
                 <td>{s.councilType || "—"}</td>
                 <td>
                   <span
@@ -346,7 +326,7 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
             ))}
             {paginated.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-8 text-ink-faint text-sm">
+                <td colSpan={6} className="text-center py-8 text-ink-faint text-sm">
                   Nenhum colaborador encontrado com os filtros selecionados.
                 </td>
               </tr>
@@ -402,7 +382,6 @@ export function StaffTable({ staff, units }: { staff: StaffRow[]; units: UnitOpt
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         staffToEdit={editing}
-        units={units}
       />
 
       {confirmTarget && (

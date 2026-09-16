@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { StaffTable } from "./staff-table";
-import type { StaffRow, UnitOption } from "./types";
+import type { StaffRow } from "./types";
 import type { Role } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
@@ -27,19 +27,13 @@ export default async function ColaboradoresPage() {
     }
   }
 
-  const [{ data: profiles }, { data: units }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "id, full_name, email, cpf, role, council_type, unit_id, birth_date, active, is_evaluator, is_at_professional, google_calendar_opt_in, signature_pin_hash, source_system, created_at",
-      )
-      .eq("clinic_id", clinicId)
-      .order("full_name"),
-    supabase.from("units").select("id, name").order("name"),
-  ]);
-
-  const unitOptions: UnitOption[] = (units ?? []).map((u) => ({ id: u.id, name: u.name }));
-  const unitNameById = new Map(unitOptions.map((u) => [u.id, u.name]));
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select(
+      "id, full_name, email, cpf, role, council_type, birth_date, active, is_evaluator, is_at_professional, google_calendar_opt_in, signature_pin_hash, source_system, created_at",
+    )
+    .eq("clinic_id", clinicId)
+    .order("full_name");
 
   const staff: StaffRow[] = (profiles ?? []).map((p) => ({
     id: p.id,
@@ -48,8 +42,6 @@ export default async function ColaboradoresPage() {
     cpf: p.cpf,
     role: p.role as Role,
     councilType: p.council_type,
-    unitId: p.unit_id,
-    unitName: p.unit_id ? unitNameById.get(p.unit_id) ?? p.unit_id : null,
     birthDate: p.birth_date,
     active: p.active ?? true,
     isEvaluator: p.is_evaluator ?? false,
@@ -68,10 +60,10 @@ export default async function ColaboradoresPage() {
         <PageHeader
           axisLabel="Cadastros"
           title="Colaboradores & Contas"
-          description="Cadastro, papel de acesso (RBAC) e status de credencial de todo terapeuta da clínica. Quem vem do sistema de gestão de pessoas do Grupo IB entra aqui automaticamente, com unidade, e-mail e data de nascimento já preenchidos."
+          description="Cadastro, papel de acesso (RBAC) e status de credencial de todo terapeuta da clínica. Quem vem do sistema de gestão de pessoas do Grupo IB entra aqui automaticamente, com e-mail e data de nascimento já preenchidos."
         />
         <Suspense fallback={null}>
-          <StaffTable staff={staff} units={unitOptions} />
+          <StaffTable staff={staff} />
         </Suspense>
       </main>
     </div>
