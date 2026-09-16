@@ -104,6 +104,59 @@ async function uploadTwilioMediaToStorage(mediaUrl: string, filename: string): P
 }
 
 /**
+ * Insere a requisição na fila de aprovação do supervisor com Laudo, Guia e
+ * Carteirinha já anexados, e coloca a sessão em `pending_supervisor` — chamado
+ * tanto após o verso da carteirinha quanto direto após um PDF único que já
+ * cobre as duas páginas.
+ */
+async function finalizeAnamnesisRequest(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  phone: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
+): Promise<{ handled: boolean; replyMessage: string }> {
+  const { data: reqData, error: reqErr } = await supabase
+    .from("anamnesis_scheduling_requests")
+    .insert({
+      guardian_name: data.guardian_name,
+      guardian_phone: phone,
+      guardian_cpf: data.guardian_cpf,
+      child_name: data.child_name,
+      child_birth_date: data.child_birth_date,
+      laudo_pdf_url: data.laudo_pdf_url,
+      guia_pdf_url: data.guia_pdf_url,
+      carteirinha_frente_url: data.carteirinha_frente_url,
+      carteirinha_verso_url: data.carteirinha_verso_url,
+      status: "pendente_supervisor",
+    })
+    .select("id")
+    .single();
+
+  if (reqErr) {
+    console.error("[Anamnesis Request Insert Error]:", reqErr.message);
+  }
+
+  data.request_id = reqData?.id;
+
+  await supabase
+    .from("chatbot_sessions")
+    .update({
+      current_step: "pending_supervisor",
+      collected_data: data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("phone_number", phone);
+
+  return {
+    handled: true,
+    replyMessage:
+      "Tudo certo! 🎉 Recebemos as informações e documentos (Laudo, Guia e Carteirinha).\n\n" +
+      "Nosso supervisor fará a validação rápida. Assim que aprovado, enviaremos os horários disponíveis por aqui para você escolher! 🧩💙",
+  };
+}
+
+/**
  * Processador principal da máquina de estados de agendamento de Anamnese via WhatsApp.
  */
 export async function processAnamnesisChatbotStep(
@@ -399,7 +452,7 @@ export async function processAnamnesisChatbotStep(
     };
   }
 
-  // 9. Etapa: Upload do PDF da Guia de Autorização & Criação da Requisição de Validação
+  // 9. Etapa: Upload do PDF da Guia de Autorização
   if (currentStep === "awaiting_guia_pdf") {
     const isPdf = params.mediaContentType0?.includes("pdf") || rawBody.toLowerCase().endsWith(".pdf");
 
@@ -414,32 +467,10 @@ export async function processAnamnesisChatbotStep(
     const guiaUrl = await uploadTwilioMediaToStorage(mediaUrl, `guia_${phone}.pdf`);
     data.guia_pdf_url = guiaUrl || mediaUrl;
 
-    // Inserir registro na fila de aprovação do supervisor
-    const { data: reqData, error: reqErr } = await supabase
-      .from("anamnesis_scheduling_requests")
-      .insert({
-        guardian_name: data.guardian_name,
-        guardian_phone: phone,
-        guardian_cpf: data.guardian_cpf,
-        child_name: data.child_name,
-        child_birth_date: data.child_birth_date,
-        laudo_pdf_url: data.laudo_pdf_url,
-        guia_pdf_url: data.guia_pdf_url,
-        status: "pendente_supervisor",
-      })
-      .select("id")
-      .single();
-
-    if (reqErr) {
-      console.error("[Anamnesis Request Insert Error]:", reqErr.message);
-    }
-
-    data.request_id = reqData?.id;
-
     await supabase
       .from("chatbot_sessions")
       .update({
-        current_step: "pending_supervisor",
+        current_step: "awaiting_carteirinha_frente",
         collected_data: data,
         updated_at: new Date().toISOString(),
       })
@@ -448,9 +479,64 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        "Tudo certo! 🎉 Recebemos as informações e documentos (Laudo e Guia).\n\n" +
-        "Nosso supervisor fará a validação rápida. Assim que aprovado, enviaremos os horários disponíveis por aqui para você escolher! 🧩💙",
+        "Guia recebida! ✅\n\n" +
+        "Agora envie a foto da *Carteirinha do Plano* — frente e verso (duas fotos), ou um único PDF com as duas páginas.\n\n" +
+        "Pode mandar a *frente* primeiro.",
     };
+  }
+
+  // 9b. Etapa: Upload da foto/PDF da frente da Carteirinha do Plano
+  if (currentStep === "awaiting_carteirinha_frente") {
+    const isPdf = params.mediaContentType0?.includes("pdf") || rawBody.toLowerCase().endsWith(".pdf");
+
+    if (!params.mediaUrl0 && !isPdf) {
+      return {
+        handled: true,
+        replyMessage: "Arquivo não identificado. Por favor, envie a foto ou PDF da Carteirinha do Plano.",
+      };
+    }
+
+    const mediaUrl = params.mediaUrl0 || "";
+    const carteirinhaUrl = await uploadTwilioMediaToStorage(mediaUrl, `carteirinha_frente_${phone}.pdf`);
+    data.carteirinha_frente_url = carteirinhaUrl || mediaUrl;
+
+    // PDF único já cobre frente e verso — não precisa pedir a segunda foto.
+    if (isPdf) {
+      data.carteirinha_verso_url = data.carteirinha_frente_url;
+      return finalizeAnamnesisRequest(supabase, phone, data);
+    }
+
+    await supabase
+      .from("chatbot_sessions")
+      .update({
+        current_step: "awaiting_carteirinha_verso",
+        collected_data: data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("phone_number", phone);
+
+    return {
+      handled: true,
+      replyMessage: "Frente recebida! ✅\n\nAgora envie a foto do *verso* da Carteirinha do Plano.",
+    };
+  }
+
+  // 9c. Etapa: Upload da foto do verso da Carteirinha do Plano & Criação da Requisição de Validação
+  if (currentStep === "awaiting_carteirinha_verso") {
+    const isPdf = params.mediaContentType0?.includes("pdf") || rawBody.toLowerCase().endsWith(".pdf");
+
+    if (!params.mediaUrl0 && !isPdf) {
+      return {
+        handled: true,
+        replyMessage: "Arquivo não identificado. Por favor, envie a foto ou PDF do verso da Carteirinha do Plano.",
+      };
+    }
+
+    const mediaUrl = params.mediaUrl0 || "";
+    const carteirinhaUrl = await uploadTwilioMediaToStorage(mediaUrl, `carteirinha_verso_${phone}.pdf`);
+    data.carteirinha_verso_url = carteirinhaUrl || mediaUrl;
+
+    return finalizeAnamnesisRequest(supabase, phone, data);
   }
 
   // 10. Etapa: Aguardando Aprovação do Supervisor
@@ -458,7 +544,7 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        "Olá! Seus documentos (Laudo e Guia) estão em análise pela supervisão. 💙\n\n" +
+        "Olá! Seus documentos (Laudo, Guia e Carteirinha) estão em análise pela supervisão. 💙\n\n" +
         "Assim que validados, enviaremos os horários disponíveis por aqui!",
     };
   }

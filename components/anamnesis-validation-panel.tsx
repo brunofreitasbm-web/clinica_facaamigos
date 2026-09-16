@@ -244,6 +244,46 @@ export function AnamnesisValidationPanel() {
                       <span>Sem guia</span>
                     </div>
                   )}
+
+                  {req.carteirinha_frente_url ? (
+                    <a
+                      href={req.carteirinha_frente_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <FileText className="h-4 w-4 shrink-0" />
+                        <span className="truncate">Carteirinha (frente).pdf</span>
+                      </span>
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-ink-faint group-hover:text-ink" />
+                    </a>
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-md border border-paper-line px-2.5 py-2 text-xs text-ink-faint">
+                      <FileText className="h-4 w-4 shrink-0" />
+                      <span>Sem carteirinha (frente)</span>
+                    </div>
+                  )}
+
+                  {req.carteirinha_verso_url && req.carteirinha_verso_url !== req.carteirinha_frente_url ? (
+                    <a
+                      href={req.carteirinha_verso_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <FileText className="h-4 w-4 shrink-0" />
+                        <span className="truncate">Carteirinha (verso).pdf</span>
+                      </span>
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-ink-faint group-hover:text-ink" />
+                    </a>
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-md border border-paper-line px-2.5 py-2 text-xs text-ink-faint">
+                      <FileText className="h-4 w-4 shrink-0" />
+                      <span>Sem carteirinha (verso)</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Rejeição de Documento */}

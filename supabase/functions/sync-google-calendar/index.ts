@@ -12,7 +12,7 @@ const GOOGLE_ORGANIZER_CALENDAR_ID = Deno.env.get("GOOGLE_ORGANIZER_CALENDAR_ID"
 
 const CLINIC_TIMEZONE = "America/Sao_Paulo";
 // Conta a conta criada com esse domínio (sync-grupoib-professional /
-// app/gestor/equipe/actions.ts) não tem inbox de verdade — nunca vira
+// app/gestor/cadastros/colaboradores/actions.ts) não tem inbox de verdade — nunca vira
 // convidado, mesmo que o opt-in esteja marcado por engano.
 const SYNTHETIC_EMAIL_DOMAIN = "@staff.facaamigos.local";
 

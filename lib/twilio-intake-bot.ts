@@ -16,7 +16,7 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { runLaudoExtraction } from "@/lib/laudo-extraction";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
-const MIN_FILES_TO_AUTO_ADVANCE = 2;
+const MIN_FILES_TO_AUTO_ADVANCE = 3;
 
 type IntakeStep = "intake_awaiting_documents" | "intake_pending_supervisor" | "intake_awaiting_slot" | "intake_completed";
 
@@ -131,7 +131,8 @@ export async function startIntakeConversation(leadId: string): Promise<{ success
     `Recebemos do *${insurerName}* o encaminhamento de *${childName}*. 🧩\n\n` +
     `Para agendar, envie foto ou PDF dos documentos:\n` +
     `1️⃣ *Laudo Médico*\n` +
-    `2️⃣ *Guia / Autorização do Plano*\n\n` +
+    `2️⃣ *Guia / Autorização do Plano*\n` +
+    `3️⃣ *Carteirinha do Plano* (frente e verso, ou PDF)\n\n` +
     `Ao terminar, responda *PRONTO*. (Ou *PARAR* para encerrar).`;
 
   const templateSid = process.env.TWILIO_INTAKE_TEMPLATE_CONTENT_SID;
@@ -262,7 +263,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
   if (upperBody === "AJUDA") {
     return {
       handled: true,
-      replyMessage: "Você pode mandar foto ou PDF do Laudo e da Guia/autorização por aqui. Quando terminar, responda *PRONTO*. Para encerrar, responda *PARAR*.",
+      replyMessage: "Você pode mandar foto ou PDF do Laudo, da Guia/autorização e da Carteirinha do plano (frente e verso, ou PDF) por aqui. Quando terminar, responda *PRONTO*. Para encerrar, responda *PARAR*.",
     };
   }
 
@@ -337,7 +338,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
     }
 
     if (upperBody === "PRONTO" && totalFiles === 0) {
-      return { handled: true, replyMessage: "Ainda não recebemos nenhum arquivo. Pode mandar o Laudo e a Guia/autorização por foto ou PDF, direto por aqui?" };
+      return { handled: true, replyMessage: "Ainda não recebemos nenhum arquivo. Pode mandar o Laudo, a Guia/autorização e a foto da Carteirinha do plano (frente e verso, ou PDF) por aqui?" };
     }
 
     if (savedCount > 0) {
@@ -356,7 +357,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
 
     return {
       handled: true,
-      replyMessage: "Aguardando os documentos: *Laudo* e *Guia/autorização* do plano. Pode mandar foto ou PDF por aqui, ou responda *AJUDA*.",
+      replyMessage: "Aguardando os documentos: *Laudo*, *Guia/autorização* do plano e *Carteirinha* (frente e verso, ou PDF). Pode mandar foto ou PDF por aqui, ou responda *AJUDA*.",
     };
   }
 

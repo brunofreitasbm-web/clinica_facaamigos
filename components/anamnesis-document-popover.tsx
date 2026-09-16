@@ -138,6 +138,39 @@ export function AnamnesisDocumentPopover({
                 <span>Sem guia</span>
               </div>
             )}
+            {request.carteirinha_frente_url ? (
+              <a
+                href={request.carteirinha_frente_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <FileText className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Carteirinha (frente)</span>
+                </span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-ink-faint group-hover:text-ink" />
+              </a>
+            ) : (
+              <div className="flex items-center gap-2 rounded-md border border-paper-line px-2.5 py-2 text-xs text-ink-faint">
+                <FileText className="h-4 w-4 shrink-0" />
+                <span>Sem carteirinha (frente)</span>
+              </div>
+            )}
+            {request.carteirinha_verso_url && request.carteirinha_verso_url !== request.carteirinha_frente_url ? (
+              <a
+                href={request.carteirinha_verso_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <FileText className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Carteirinha (verso)</span>
+                </span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-ink-faint group-hover:text-ink" />
+              </a>
+            ) : null}
           </div>
 
           {error && <p className="text-xs text-status-negative-text">{error}</p>}

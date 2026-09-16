@@ -432,7 +432,7 @@ export async function approveIntakeLeadsAndStartContact(leadIds: string[]): Prom
 }
 
 /** Aprova/rejeita um arquivo específico recebido do responsável; classifica o tipo (Laudo/Guia/Outro). */
-export async function reviewIntakeLeadFile(fileId: string, patch: { kind?: "laudo" | "guia" | "outro"; decision?: "approved" | "rejected" }): Promise<SimpleResult> {
+export async function reviewIntakeLeadFile(fileId: string, patch: { kind?: "laudo" | "guia" | "carteirinha" | "outro"; decision?: "approved" | "rejected" }): Promise<SimpleResult> {
   const auth = await requireSupervisor();
   if ("error" in auth) return { success: false, error: auth.error };
 
@@ -584,7 +584,8 @@ export async function approveIntakeLeadDocuments(
   const warnings: string[] = [];
 
   for (const file of approvedFiles) {
-    const category = file.kind === "guia" ? "autorizacao" : file.kind === "laudo" ? "laudo" : "outro";
+    const category =
+      file.kind === "guia" ? "autorizacao" : file.kind === "laudo" ? "laudo" : file.kind === "carteirinha" ? "carteirinha" : "outro";
     const documentId = randomUUID();
     const fileName = file.storage_path.split("/").pop() ?? "arquivo";
     const destPath = `${lead.patient_id}/${documentId}/${fileName}`;

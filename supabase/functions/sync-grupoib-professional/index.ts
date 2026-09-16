@@ -39,7 +39,7 @@ function stripAccents(s: string) {
 
 // CPF só entra na sincronização com 11 dígitos válidos — mesma normalização
 // usada no login por CPF da equipe (app/login/actions.ts) e no cadastro
-// manual (app/gestor/equipe/actions.ts), pra garantir que os dois caminhos
+// manual (app/gestor/cadastros/colaboradores/actions.ts), pra garantir que os dois caminhos
 // gravam o CPF no mesmo formato em profiles.cpf.
 function normalizeCpf(raw: unknown): string | null {
   const digits = String(raw ?? "").replace(/\D/g, "");

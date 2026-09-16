@@ -7,7 +7,7 @@ export type SectionSidebarItem = {
   key: string;
   label: string;
   href: string;
-  /** Sai da seção (ex.: "Terapeutas" leva pra /gestor/equipe). Ganha marca visual. */
+  /** Sai da seção (ex.: "Usuários & Permissões" leva pra /gestor/cadastros/colaboradores). Ganha marca visual. */
   external?: boolean;
 };
 

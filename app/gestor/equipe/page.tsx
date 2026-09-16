@@ -1,83 +1,12 @@
-import { Suspense } from "react";
-import { EquipeSubnav } from "@/components/equipe-subnav";
-import { createClient } from "@/lib/supabase/server";
-import { DEV_CLINIC_ID } from "@/lib/constants";
-import { StaffTable } from "./staff-table";
-import type { StaffRow, UnitOption } from "./types";
-import type { Role } from "@/lib/roles";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function EquipePage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let clinicId = DEV_CLINIC_ID;
-  if (user) {
-    const { data: callerProfile } = await supabase
-      .from("profiles")
-      .select("clinic_id")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (callerProfile?.clinic_id) {
-      clinicId = callerProfile.clinic_id;
-    }
-  }
-
-  const [{ data: profiles }, { data: units }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "id, full_name, email, cpf, role, council_type, unit_id, birth_date, active, is_evaluator, is_at_professional, google_calendar_opt_in, signature_pin_hash, source_system, created_at",
-      )
-      .eq("clinic_id", clinicId)
-      .order("full_name"),
-    supabase.from("units").select("id, name").order("name"),
-  ]);
-
-  const unitOptions: UnitOption[] = (units ?? []).map((u) => ({ id: u.id, name: u.name }));
-  const unitNameById = new Map(unitOptions.map((u) => [u.id, u.name]));
-
-  const staff: StaffRow[] = (profiles ?? []).map((p) => ({
-    id: p.id,
-    fullName: p.full_name,
-    email: p.email,
-    cpf: p.cpf,
-    role: p.role as Role,
-    councilType: p.council_type,
-    unitId: p.unit_id,
-    unitName: p.unit_id ? unitNameById.get(p.unit_id) ?? p.unit_id : null,
-    birthDate: p.birth_date,
-    active: p.active ?? true,
-    isEvaluator: p.is_evaluator ?? false,
-    isAtProfessional: p.is_at_professional ?? false,
-    googleCalendarOptIn: p.google_calendar_opt_in ?? false,
-    // O hash nunca sai do servidor — a tela só precisa saber se existe PIN
-    // configurado pra habilitar (ou não) o botão de reset.
-    hasSignaturePin: !!p.signature_pin_hash,
-    sourceSystem: p.source_system,
-    createdAtLabel: p.created_at ? new Date(p.created_at).toLocaleDateString("pt-BR") : "—",
-  }));
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col bg-canvas">
-      <EquipeSubnav activeTab="colaboradores" />
-      <main className="flex flex-1 flex-col overflow-y-auto">
-        <div className="px-6 pt-8 sm:px-10">
-          <h1 className="text-2xl font-bold text-ink">Colaboradores &amp; Contas</h1>
-          <p className="text-sm text-ink-soft">
-            Cadastro, papel de acesso (RBAC) e status de credencial de todo terapeuta da clínica.
-            Quem vem do sistema de gestão de pessoas do Grupo IB entra aqui automaticamente, com
-            unidade, e-mail e data de nascimento já preenchidos.
-          </p>
-        </div>
-        <Suspense fallback={null}>
-          <StaffTable staff={staff} units={unitOptions} />
-        </Suspense>
-      </main>
-    </div>
-  );
+/**
+ * Colaboradores & Contas mudou de módulo: é cadastro de entidade da clínica
+ * (quem), não parâmetro de sistema, então foi pra dentro de
+ * /gestor/cadastros (ver app/gestor/cadastros/cadastros-sidebar.tsx), como
+ * pacientes, convênios etc. A rota antiga continua redirecionando pra não
+ * quebrar link salvo/favorito.
+ */
+export default function EquipePage() {
+  redirect("/gestor/cadastros/colaboradores");
 }

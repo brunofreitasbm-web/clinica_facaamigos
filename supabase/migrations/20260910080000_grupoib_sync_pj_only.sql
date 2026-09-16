@@ -1,6 +1,6 @@
 -- Só profissionais PJ (public.professionals) viram conta no sistema da clínica,
 -- e sempre com o papel "terapeuta". Funcionário CLT (public.employees) não entra
--- automaticamente: quem precisa de acesso é cadastrado à mão em /gestor/equipe,
+-- automaticamente: quem precisa de acesso é cadastrado à mão em /gestor/cadastros/colaboradores,
 -- com o papel escolhido por um humano.
 --
 -- A edge function já recusa payload de employees, mas manter a trigger viva só

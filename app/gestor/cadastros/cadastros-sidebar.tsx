@@ -2,12 +2,10 @@ import { SectionSidebar } from "@/components/section-sidebar";
 
 // Tudo aqui é entidade da clínica (quem, o quê, onde) — o oposto de
 // Configurações (parâmetros de sistema, ver
-// app/gestor/configuracoes/config-sidebar.tsx). "Terapeutas" aponta para
-// /gestor/equipe (cadastro real de colaborador/conta) em vez de duplicar
-// uma tela aqui dentro.
+// app/gestor/configuracoes/config-sidebar.tsx).
 const SIDEBAR_ITEMS = [
   { key: "pacientes", label: "Pacientes", href: "/gestor/cadastros/pacientes" },
-  { key: "terapeutas", label: "Terapeutas", href: "/gestor/equipe", external: true },
+  { key: "colaboradores", label: "Colaboradores & Contas", href: "/gestor/cadastros/colaboradores" },
   { key: "convenios", label: "Planos de Saúde", href: "/gestor/cadastros/convenios" },
   { key: "tipos-atendimento", label: "Tipos de Atendimento", href: "/gestor/cadastros/tipos-atendimento" },
   { key: "protocolos", label: "Protocolos", href: "/gestor/cadastros/protocolos" },

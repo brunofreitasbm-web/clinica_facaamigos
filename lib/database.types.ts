@@ -450,6 +450,8 @@ export type Database = {
           appointment_id: string | null
           approved_at: string | null
           child_birth_date: string | null
+          carteirinha_frente_url: string | null
+          carteirinha_verso_url: string | null
           child_name: string
           clinic_id: string | null
           created_at: string
@@ -470,6 +472,8 @@ export type Database = {
         Insert: {
           appointment_id?: string | null
           approved_at?: string | null
+          carteirinha_frente_url?: string | null
+          carteirinha_verso_url?: string | null
           child_birth_date?: string | null
           child_name: string
           clinic_id?: string | null
@@ -491,6 +495,8 @@ export type Database = {
         Update: {
           appointment_id?: string | null
           approved_at?: string | null
+          carteirinha_frente_url?: string | null
+          carteirinha_verso_url?: string | null
           child_birth_date?: string | null
           child_name?: string
           clinic_id?: string | null

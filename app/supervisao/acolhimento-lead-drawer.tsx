@@ -32,7 +32,7 @@ export type LeadFileRow = {
   id: string;
   original_name: string | null;
   mime_type: string;
-  kind: "laudo" | "guia" | "outro" | null;
+  kind: "laudo" | "guia" | "carteirinha" | "outro" | null;
   review_status: "pending" | "approved" | "rejected";
   extraction: LaudoExtraction | null;
   extraction_status: "pending" | "done" | "failed";
@@ -207,7 +207,7 @@ export function AcolhimentoLeadDrawer({
     });
   }
 
-  function handleFileAction(fileId: string, patch: { kind?: "laudo" | "guia" | "outro"; decision?: "approved" | "rejected" }) {
+  function handleFileAction(fileId: string, patch: { kind?: "laudo" | "guia" | "carteirinha" | "outro"; decision?: "approved" | "rejected" }) {
     startTransition(async () => {
       const res = await reviewIntakeLeadFile(fileId, patch);
       if (!res.success) setFeedback({ type: "error", text: res.error });
@@ -407,12 +407,13 @@ export function AcolhimentoLeadDrawer({
                     <div className="flex items-center gap-1.5">
                       <select
                         defaultValue={file.kind ?? ""}
-                        onChange={(e) => handleFileAction(file.id, { kind: e.target.value as "laudo" | "guia" | "outro" })}
+                        onChange={(e) => handleFileAction(file.id, { kind: e.target.value as "laudo" | "guia" | "carteirinha" | "outro" })}
                         className="rounded border border-paper-line-strong bg-white px-1.5 py-1 text-[11px]"
                       >
                         <option value="">Tipo…</option>
                         <option value="laudo">Laudo</option>
                         <option value="guia">Guia</option>
+                        <option value="carteirinha">Carteirinha</option>
                         <option value="outro">Outro</option>
                       </select>
                       {file.review_status === "pending" ? (

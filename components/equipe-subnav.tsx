@@ -1,11 +1,10 @@
 import Link from "next/link";
 
 interface EquipeSubnavProps {
-  activeTab: "colaboradores" | "bonificacao" | "bonificacao-config" | "metas" | "faixas";
+  activeTab: "bonificacao" | "bonificacao-config" | "metas" | "faixas";
 }
 
 const ITEMS = [
-  { key: "colaboradores", label: "Colaboradores & Contas", href: "/gestor/equipe" },
   { key: "bonificacao", label: "PLR & Desempenho", href: "/gestor/bonificacao" },
   { key: "bonificacao-config", label: "Configurar & Simular", href: "/gestor/bonificacao/config" },
   { key: "metas", label: "Metas por Cargo", href: "/gestor/metas" },
