@@ -5,6 +5,7 @@ import { History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { getPatientTimeline, fmt } from "@/lib/patient-timeline";
+import { getTherapistPatients } from "@/lib/therapist-patients";
 import { PageHeader } from "@/components/page-header";
 import { SearchAsYouTypeInput } from "@/components/search-as-you-type-input";
 import { AuditoriaPanel } from "./auditoria-panel";
@@ -15,8 +16,8 @@ export const dynamic = "force-dynamic";
  * Prontuário Unificado & Auditoria do portal do terapeuta. Deliberadamente
  * NÃO é /supervisao/prontuario-unificado liberado pro papel terapeuta: aquela
  * tela lista todos os pacientes da clínica (não é o que o terapeuta deve
- * ver) e tem layout desktop. Aqui a lista é escopada por patient_access
- * (mesma query de app/terapeuta/pacientes/page.tsx) e o layout é mobile-first.
+ * ver) e tem layout desktop. Aqui a lista é de pacientes atribuídos na agenda
+ * ou atendidos por ele (lib/therapist-patients.ts) e o layout é mobile-first.
  */
 export default async function TerapeutaProntuarioPage({
   searchParams,
@@ -44,20 +45,7 @@ export default async function TerapeutaProntuarioPage({
   const therapistId = profile.id;
   const { p: selectedPatientId, q } = await searchParams;
 
-  // Mesma query de app/terapeuta/pacientes/page.tsx — nunca a lista da
-  // clínica inteira (essa é a diferença deliberada em relação à tela de
-  // supervisão).
-  const { data: access } = await supabase
-    .from("patient_access")
-    .select("patient_id, patients(id, full_name, status)")
-    .eq("profile_id", therapistId)
-    .eq("access_type", "terapeuta")
-    .is("revoked_at", null);
-
-  let patients = (access ?? [])
-    .map((a) => (Array.isArray(a.patients) ? a.patients[0] : a.patients))
-    .filter((p): p is { id: string; full_name: string; status: string } => !!p)
-    .sort((a, b) => a.full_name.localeCompare(b.full_name));
+  let patients = await getTherapistPatients(supabase, therapistId);
 
   if (q && q.trim()) {
     const needle = q.trim().toLowerCase();

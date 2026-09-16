@@ -2,14 +2,13 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { getTherapistPatients } from "@/lib/therapist-patients";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Lista de pacientes do terapeuta — faltava desde sempre: o item "Pacientes"
- * da navegação inferior (app/terapeuta/page.tsx) era um <span> sem link, e
- * as páginas /terapeuta/paciente/[id]/{metricas,avaliacao,relatorio,
- * relatorio-convenio} não tinham nenhuma porta de entrada dentro do app.
+ * Lista de pacientes do terapeuta — lista todos os pacientes que o terapeuta
+ * tem atribuição na agenda ou atendeu anteriormente (lib/therapist-patients.ts).
  */
 export default async function TerapeutaPacientesPage({
   searchParams,
@@ -40,17 +39,7 @@ export default async function TerapeutaPacientesPage({
     if (requestedTherapistId) therapistId = requestedTherapistId;
   }
 
-  const { data: access } = await supabase
-    .from("patient_access")
-    .select("patient_id, patients(id, full_name, status)")
-    .eq("profile_id", therapistId)
-    .eq("access_type", "terapeuta")
-    .is("revoked_at", null);
-
-  const patients = (access ?? [])
-    .map((a) => (Array.isArray(a.patients) ? a.patients[0] : a.patients))
-    .filter((p): p is { id: string; full_name: string; status: string } => !!p)
-    .sort((a, b) => a.full_name.localeCompare(b.full_name));
+  const patients = await getTherapistPatients(supabase, therapistId);
 
   return (
     <main className="flex flex-1 flex-col pb-20 md:pb-0">
