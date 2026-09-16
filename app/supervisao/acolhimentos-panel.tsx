@@ -194,7 +194,7 @@ export function AcolhimentosPanel({
   return (
     <div className="flex flex-col gap-8">
       <p className="text-xs text-ink-soft">
-        Envie o PDF com a relação de pacientes encaminhados pelo convênio — a IA extrai os dados de cada beneficiário
+        Envie o PDF com a relação de pacientes encaminhados pelo plano de saúde — a IA extrai os dados de cada beneficiário
         (paciente, responsável, carteirinha e guia) automaticamente. Confira aqui os documentos extraídos, aprove os
         que estiverem corretos e acompanhe o contato via WhatsApp até o agendamento da 1ª avaliação.
       </p>
@@ -254,7 +254,7 @@ export function AcolhimentosPanel({
           className="flex flex-wrap items-end gap-3"
         >
           <div>
-            <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Convênio</label>
+            <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Plano de Saúde</label>
             <select value={uploadInsurerId} onChange={(e) => setUploadInsurerId(e.target.value)} className="input mt-1">
               <option value="auto">Detectar pelo PDF</option>
               {insurers.map((i) => (
@@ -273,7 +273,7 @@ export function AcolhimentosPanel({
           </button>
           {uploadInsurerId !== "auto" && (
             <button type="button" onClick={() => setProfileDialogInsurerId(uploadInsurerId)} className="text-xs font-semibold text-chart hover:underline">
-              Configurar campos deste convênio
+              Configurar campos deste plano de saúde
             </button>
           )}
         </form>
@@ -285,7 +285,7 @@ export function AcolhimentosPanel({
           <p className="mb-2 text-xs text-ink-soft">
             Alternativa para layouts conhecidos (ex.: relação NAU/Unimed "CONTROLE ... TERAPIAS"): rode{" "}
             <code className="rounded bg-paper-soft px-1 py-0.5">scripts/extract_convenio_patients.py</code> localmente sobre o PDF e importe o
-            .json gerado — pula a IA e cria os leads direto, usando o convênio selecionado acima.
+            .json gerado — pula a IA e cria os leads direto, usando o plano de saúde selecionado acima.
           </p>
           <form action={(fd) => handleUploadExtractedJson(fd)} className="flex flex-wrap items-end gap-3">
             <div>
@@ -321,7 +321,7 @@ export function AcolhimentosPanel({
               <div key={batch.id} className="rounded-lg border border-paper-line-strong bg-white shadow-sm overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-paper-line bg-paper p-4">
                   <div>
-                    <h3 className="text-sm font-bold text-ink">{batch.insurerName ?? batch.detectedInsurerName ?? "Convênio a identificar"}</h3>
+                    <h3 className="text-sm font-bold text-ink">{batch.insurerName ?? batch.detectedInsurerName ?? "Plano de Saúde a identificar"}</h3>
                     <p className="text-xs text-ink-soft">
                       {batch.createdAtLabel} · {batch.leadsCount} lead(s)
                     </p>
@@ -339,7 +339,7 @@ export function AcolhimentosPanel({
                     <button
                       type="button"
                       disabled={isPending}
-                      onClick={() => handleDeleteBatch(batch.id, batch.insurerName ?? batch.detectedInsurerName ?? "Convênio a identificar")}
+                      onClick={() => handleDeleteBatch(batch.id, batch.insurerName ?? batch.detectedInsurerName ?? "Plano de Saúde a identificar")}
                       className="text-xs font-semibold text-status-negative-text hover:underline disabled:opacity-50"
                     >
                       Excluir

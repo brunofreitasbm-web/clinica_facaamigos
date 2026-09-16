@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
-import { getReceptionQueue, type PendingQueueCategory } from "@/lib/reception-queue";
+import { getReceptionQueue, getAuthorizationWizardItems, type PendingQueueCategory } from "@/lib/reception-queue";
 import { fmtDateTime } from "@/lib/format";
 import { RegisterContactButton } from "./register-contact-button";
 import { ResolveAutoFaltaButton } from "./resolve-auto-falta-button";
@@ -31,6 +31,7 @@ const CATEGORY_ORDER: PendingQueueCategory[] = [
 export default async function PendenciasPage() {
   const supabase = await createClient();
   const queue = await getReceptionQueue(supabase);
+  const authorizations = await getAuthorizationWizardItems(supabase, DEV_CLINIC_ID);
 
   // Candidatos pra reatribuição manual (§9.1 "dono + prazo"): mesmo conjunto
   // de papéis que pode ler/escrever pending_queue_assignments
@@ -59,7 +60,7 @@ export default async function PendenciasPage() {
         description="Guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
       />
       <PageContainer className="gap-8">
-        <AutorizacaoWizard />
+        <AutorizacaoWizard initialItems={authorizations} />
         {queue.length === 0 && (
           <p className="text-sm text-ink-faint">Nenhuma pendência no momento. 🎉</p>
         )}

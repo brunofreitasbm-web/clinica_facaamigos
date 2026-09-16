@@ -219,7 +219,7 @@ export async function analyzeMedicalDocumentWithGemini(
 {
   "patientName": "Nome completo do paciente se encontrado ou null",
   "cpf": "CPF se encontrado ou null",
-  "insurerName": "Nome do plano de saúde/convênio se encontrado ou null",
+  "insurerName": "Nome do plano de saúde se encontrado ou null",
   "documentType": "laudo" | "guia" | "carteirinha" | "outro",
   "rawSummary": "Resumo em 1 frase curta do conteúdo"
 }

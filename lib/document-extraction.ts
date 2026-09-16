@@ -452,7 +452,7 @@ export function applyNormalization(
 
   const match = matchInsurer(result.insurance.insurer_name, insurers);
   if (result.insurance.insurer_name && !match) {
-    warnings.push(`Convênio "${result.insurance.insurer_name}" não encontrado no cadastro — selecione manualmente.`);
+    warnings.push(`Plano de Saúde "${result.insurance.insurer_name}" não encontrado no cadastro — selecione manualmente.`);
   }
 
   return {

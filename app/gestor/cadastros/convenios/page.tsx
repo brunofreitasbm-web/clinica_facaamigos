@@ -21,8 +21,8 @@ export default async function ConveniosPage() {
       <div className="flex flex-1 flex-col overflow-y-auto">
         <PageHeader
           axisLabel="Cadastros"
-          title="Convênios"
-          description="Só o gestor cadastra convênio novo — recepção e faturamento usam a lista pra vincular ao paciente."
+          title="Planos de Saúde"
+          description="Só o gestor cadastra plano de saúde novo — recepção e faturamento usam a lista pra vincular ao paciente."
         />
         <PageContainer>
           <InsurerForm />
@@ -50,7 +50,7 @@ export default async function ConveniosPage() {
               </li>
             ))}
             {(insurers ?? []).length === 0 && (
-              <li className="text-sm text-ink-faint">Nenhum convênio cadastrado ainda.</li>
+              <li className="text-sm text-ink-faint">Nenhum plano de saúde cadastrado ainda.</li>
             )}
           </ul>
         </PageContainer>

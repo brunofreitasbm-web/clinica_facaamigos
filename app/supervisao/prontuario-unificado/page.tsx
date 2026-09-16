@@ -381,7 +381,7 @@ export default async function ProntuarioUnificadoPage({
                       authorizationText={
                         identity?.activeAuthorization ? (
                           <span>
-                            {identity.insurance?.insurerName ?? "Convênio"} · {identity.activeAuthorization.guideNumber ?? "sem nº de guia"}
+                            {identity.insurance?.insurerName ?? "Plano de Saúde"} · {identity.activeAuthorization.guideNumber ?? "sem nº de guia"}
                             <br />
                             <span className="text-ink-faint">
                               {identity.activeAuthorization.sessionsUsed} de {identity.activeAuthorization.sessionsAuthorized} sessões usadas ·

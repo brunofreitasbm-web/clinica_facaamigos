@@ -23,7 +23,7 @@ export const INTAKE_CHECKLIST_ITEMS = [
   },
   {
     category: "carteirinha",
-    label: "Carteirinha do convênio",
+    label: "Carteirinha do plano de saúde",
     hint: "Frente e verso visíveis, com validade",
     insuranceOnly: true,
   },

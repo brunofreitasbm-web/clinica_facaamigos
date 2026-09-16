@@ -365,7 +365,7 @@ export default async function PacientePage({
 
   const authorizationText = activeAuthorization ? (
     <span>
-      {activeInsurance?.insurerName ?? "Convênio"} · {activeAuthorization.guideNumber ?? "sem nº de guia"}
+      {activeInsurance?.insurerName ?? "Plano de Saúde"} · {activeAuthorization.guideNumber ?? "sem nº de guia"}
       <br />
       <span className="text-ink-faint">
         {activeAuthorization.sessionsUsed} de {activeAuthorization.sessionsAuthorized} sessões usadas · válida
@@ -572,7 +572,7 @@ export default async function PacientePage({
                   entrySource={patient.entry_source}
                 />
                 <a href={`/recepcao/pacientes/${patient.id}/gestao`} className="btn btn-secondary text-xs">
-                  Convênios & Cobranças
+                  Planos de Saúde & Cobranças
                 </a>
                 <a href={`/recepcao/pacientes/${patient.id}/rede-externa`} className="btn btn-secondary text-xs">
                   Rede externa
@@ -742,7 +742,7 @@ export default async function PacientePage({
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Convênio</th>
+                    <th>Plano de Saúde</th>
                     <th>Nº guia / senha</th>
                     <th>Procedimento</th>
                     <th>Sessões</th>

@@ -302,7 +302,7 @@ export default async function RecepcaoPage({
     const insurance = insuranceById.get(auth.patient_insurance_id);
     if (!insurance) continue;
     const insurerName =
-      (Array.isArray(insurance.insurers) ? insurance.insurers[0]?.name : insurance.insurers?.name) ?? "Convênio";
+      (Array.isArray(insurance.insurers) ? insurance.insurers[0]?.name : insurance.insurers?.name) ?? "Plano de Saúde";
     const summary: GuideSummary = {
       insurerName,
       guideNumber: auth.guide_number,

@@ -170,7 +170,7 @@ export async function registerAuthorization(
     !validFrom ||
     !validTo
   ) {
-    return { success: false, error: "Preencha convênio, ao menos um procedimento com sessões autorizadas, e vigência." };
+    return { success: false, error: "Preencha plano de saúde, ao menos um procedimento com sessões autorizadas, e vigência." };
   }
 
   const supabase = await createClient();
@@ -187,7 +187,7 @@ export async function registerAuthorization(
     .maybeSingle();
 
   if (lookupError) {
-    return { success: false, error: "Não foi possível verificar o convênio do paciente." };
+    return { success: false, error: "Não foi possível verificar o plano de saúde do paciente." };
   }
 
   let patientInsuranceId = existingInsurance?.id ?? null;
@@ -200,7 +200,7 @@ export async function registerAuthorization(
       .single();
 
     if (piError || !patientInsurance) {
-      return { success: false, error: "Não foi possível vincular o convênio ao paciente." };
+      return { success: false, error: "Não foi possível vincular o plano de saúde ao paciente." };
     }
     patientInsuranceId = patientInsurance.id;
   }
@@ -220,7 +220,7 @@ export async function registerAuthorization(
   );
 
   if (authError) {
-    return { success: false, error: "Convênio vinculado, mas houve erro ao registrar a autorização." };
+    return { success: false, error: "Plano de saúde vinculado, mas houve erro ao registrar a autorização." };
   }
 
   if (cid) {

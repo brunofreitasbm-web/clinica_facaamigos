@@ -508,7 +508,7 @@ export function buildInsurerConcentration(
     if (!bp) continue;
     const insObj = Array.isArray(bp.insurers) ? bp.insurers[0] : bp.insurers;
     const insurerId = bp.insurer_id;
-    const insurerName = insObj?.name ?? "Convênio";
+    const insurerName = insObj?.name ?? "Plano de Saúde";
 
     const acc = byInsurer.get(insurerId) ?? { name: insurerName, revenue: 0, glosado: 0, sessions: new Set<string>() };
     const val = Number(item.amount || 0);

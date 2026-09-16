@@ -671,7 +671,7 @@ export async function getInteligenciaMetrics(
   let totalMappedPatients = 0;
   for (const pi of patientInsuranceList ?? []) {
     const insObj = Array.isArray(pi.insurers) ? pi.insurers[0] : pi.insurers;
-    const insName = insObj?.name || (pi.is_private ? "Particular" : "Convênio");
+    const insName = insObj?.name || (pi.is_private ? "Particular" : "Plano de Saúde");
     const insId = pi.insurer_id || (pi.is_private ? "particular" : "outro");
 
     if (!insurerPatientMap.has(insId)) {
@@ -708,7 +708,7 @@ export async function getInteligenciaMetrics(
     if (!bp || item.status === "glosado") continue;
     const insObj = Array.isArray(bp.insurers) ? bp.insurers[0] : bp.insurers;
     const insId = bp.insurer_id;
-    const insName = insObj?.name ?? "Convênio";
+    const insName = insObj?.name ?? "Plano de Saúde";
     const val = Number(item.amount || 0);
 
     if (!insurerRevMap.has(insId)) {

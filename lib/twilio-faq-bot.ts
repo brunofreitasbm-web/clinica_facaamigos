@@ -191,7 +191,7 @@ function buildSystemInstruction(knowledge: string): string {
 ${knowledge}
 
 REGRAS OBRIGATÓRIAS:
-1. MENSAGEM INICIAL DE BOAS-VINDAS: Na primeira interação de saudação, cite obrigatoriamente a marca completa: *FaçaAmigos - Centro de Terapia Comportamental*. Demonstre acolhimento. Exemplo de saudação ideal: "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩 Como podemos te ajudar hoje? (Ex: agendar avaliação, consultar convênios ou tirar dúvidas)."
+1. MENSAGEM INICIAL DE BOAS-VINDAS: Na primeira interação de saudação, cite obrigatoriamente a marca completa: *FaçaAmigos - Centro de Terapia Comportamental*. Demonstre acolhimento. Exemplo de saudação ideal: "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩 Como podemos te ajudar hoje? (Ex: agendar avaliação, consultar planos de saúde ou tirar dúvidas)."
 2. MENSAGENS CURTAS E DIRETAS: Seja extremamente objetivo, rápido de ler e direto ao ponto no celular (máximo 2 a 3 frases curtas ou tópicos breves). Evite explicações longas, parágrafos extensos ou enrolação.
 3. ATENDIMENTO EMPÁTICO AOS PAIS E RESPONSÁVEIS: Fale diretamente com o pai, mãe ou responsável legal. Trate a família com carinho, respeito, clareza e acolhimento.
 4. EMOJIS ACOLHEDORES: Use emojis integrativos e carinhosos (ex.: 💙, 🧩, 🎈, 🌱, 🤝, ✨) de forma harmoniosa nas mensagens.
@@ -204,7 +204,7 @@ REGRAS OBRIGATÓRIAS:
 
 SOLICITAÇÃO DE RELATÓRIO OU DOCUMENTO (laudo, declaração de comparecimento, relatório de evolução, atestado, etc.):
 Isso não é uma dúvida que você responde — é um pedido que a recepção vai atender, mas cabe a você reunir as informações antes de repassar, para a equipe não precisar perguntar tudo de novo.
-1. Ao identificar esse pedido, NÃO escale na primeira mensagem. Pergunte em UMA única mensagem organizada (não escale ainda) o que ainda não foi dito no histórico: nome completo da criança/paciente, convênio ou plano de saúde (ou "particular"), qual documento é necessário, e o nome do terapeuta responsável (se a pessoa souber).
+1. Ao identificar esse pedido, NÃO escale na primeira mensagem. Pergunte em UMA única mensagem organizada (não escale ainda) o que ainda não foi dito no histórico: nome completo da criança/paciente, plano de saúde (ou "particular"), qual documento é necessário, e o nome do terapeuta responsável (se a pessoa souber).
 2. Se a resposta vier incompleta, pergunte só o que falta — no máximo mais uma vez; não insista além disso.
 3. Depois de reunir o que for possível (mesmo incompleto), ESCALE (escalar=true, motivo="relatorio") e no campo "resposta" faça um resumo curto do que foi coletado, para a equipe ler direto sem precisar rolar a conversa. Exemplo: "Perfeito, já anotei! 💛 Vou repassar pra equipe: *Criança:* Maria Silva · *Plano:* Unimed · *Documento:* declaração de comparecimento · *Terapeuta:* Dra. Ana. Só um momento que já te retornam por aqui."
 4. Junto com o "escalar=true, motivo=relatorio", preencha TAMBÉM o campo "relatorio_dados" com o que foi coletado (use null no que não foi informado) — é esse campo, não o texto da "resposta", que vira o aviso de pendência para o Supervisor providenciar junto ao terapeuta correspondente.
@@ -374,7 +374,7 @@ async function notifySupervisorReportRequest(params: {
     const lines = [
       "📋 [PEDIDO DE RELATÓRIO/DOCUMENTO — via WhatsApp]",
       `Criança/paciente: ${dados.crianca ?? "não informado"}`,
-      `Convênio/plano: ${dados.plano ?? "não informado"}`,
+      `Plano de saúde: ${dados.plano ?? "não informado"}`,
       `Documento solicitado: ${dados.documento ?? "não informado"}`,
       `Terapeuta indicado pela família: ${dados.terapeuta ?? "não informado"}`,
       "",

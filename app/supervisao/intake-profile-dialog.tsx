@@ -73,7 +73,7 @@ export function IntakeProfileDialog({
           </button>
         </div>
         <p className="mb-4 text-xs text-ink-soft">
-          Opcional: dicas sobre o layout do PDF que este convênio envia, pra ajudar a IA a ler certo. Sem preencher nada, a extração continua funcionando com um prompt genérico.
+          Opcional: dicas sobre o layout do PDF que este plano de saúde envia, pra ajudar a IA a ler certo. Sem preencher nada, a extração continua funcionando com um prompt genérico.
         </p>
 
         {feedback && (

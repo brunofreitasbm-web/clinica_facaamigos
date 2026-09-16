@@ -357,7 +357,7 @@ export function AcolhimentoLeadDrawer({
               <Field label="Parentesco" name="guardian_relationship" defaultValue={lead.guardian_relationship ?? ""} confidence={lead.confidence} />
             </fieldset>
             <fieldset className="grid grid-cols-2 gap-3 rounded-md border border-paper-line-strong p-3">
-              <legend className="px-1 text-xs font-semibold text-ink-soft">Convênio / guia</legend>
+              <legend className="px-1 text-xs font-semibold text-ink-soft">Plano de saúde / guia</legend>
               <Field label="Nº carteirinha" name="card_number" defaultValue={lead.card_number ?? ""} confidence={lead.confidence} />
               <Field label="Nº guia" name="guide_number" defaultValue={lead.guide_number ?? ""} confidence={lead.confidence} />
               <Field label="Código do procedimento" name="procedure_code" defaultValue={lead.procedure_code ?? ""} confidence={lead.confidence} />

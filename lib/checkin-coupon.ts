@@ -245,7 +245,7 @@ export const SAMPLE_COUPON_INPUT: CouponInput = {
       roomName: "Sala 4",
       disciplineLabel: "Fonoaudiologia",
       therapistName: "Carlos Eduardo",
-      warning: "Sessão sem guia de convênio vinculada.",
+      warning: "Sessão sem guia de plano de saúde vinculada.",
     },
   ],
 };

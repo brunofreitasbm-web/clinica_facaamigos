@@ -31,7 +31,7 @@ import { AnamnesisDocumentPopover } from "@/components/anamnesis-document-popove
 
 const ORIGIN_LABEL: Record<EvaluationAgendaOrigin, string> = {
   whatsapp_anamnese: "WhatsApp · Anamnese",
-  convenio_pdf: "PDF de convênio",
+  convenio_pdf: "PDF de plano de saúde",
   presencial: "Presencial",
   family_meeting: "Reunião · Responsável",
   patient_feedback: "Devolutiva do paciente",

@@ -24,7 +24,7 @@ export function CsvImportForm() {
         onClick={() => setOpen(true)}
         className="self-start rounded-md border border-paper-line-strong px-4 py-2 text-sm text-chart hover:border-chart"
       >
-        Importar CSV de retorno do convênio
+        Importar CSV de retorno do plano de saúde
       </button>
     );
   }

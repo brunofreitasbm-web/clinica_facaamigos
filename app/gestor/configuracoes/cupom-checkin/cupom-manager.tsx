@@ -35,7 +35,7 @@ const FIELD_TOGGLES: { key: keyof CouponSettings; label: string }[] = [
   { key: "showDiscipline", label: "Especialidade / terapia" },
   { key: "showTherapist", label: "Terapeuta" },
   { key: "showTimeRange", label: "Horário de cada sessão" },
-  { key: "showWarnings", label: "Avisos de convênio/autorização" },
+  { key: "showWarnings", label: "Avisos de plano de saúde/autorização" },
   { key: "showPrintedAt", label: "\"Impresso em\" no rodapé" },
 ];
 

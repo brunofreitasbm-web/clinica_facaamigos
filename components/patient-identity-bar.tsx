@@ -48,7 +48,7 @@ export function PatientIdentityBar({
 
         <div className="flex flex-col gap-3 text-sm">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Convênio / Plano</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Plano de Saúde</p>
             <div className="mt-1 flex items-center gap-2">
               <HealthPlanBadge name={planName} color={planColor} size="md" />
               {insurance?.cardNumber && (
@@ -89,7 +89,7 @@ export function PatientIdentityBar({
         </div>
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Convênio</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Plano de Saúde</p>
         <div className="mt-0.5 flex items-center gap-2">
           <HealthPlanBadge name={planName} color={planColor} size="sm" />
           {insurance?.cardNumber && (

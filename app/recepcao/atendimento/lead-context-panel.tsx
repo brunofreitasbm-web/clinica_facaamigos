@@ -15,7 +15,7 @@ const ESCALATION_LABELS: Record<string, string> = {
   relatorio: "Pedido de relatório/documento — dados coletados na última mensagem do bot, veja a conversa.",
 };
 
-const ORIGINS = ["WhatsApp", "Instagram", "Google", "Indicação", "Convênio", "Outro"];
+const ORIGINS = ["WhatsApp", "Instagram", "Google", "Indicação", "Plano de Saúde", "Outro"];
 
 /**
  * Painel lateral para conversas sem paciente vinculado. O painel normal

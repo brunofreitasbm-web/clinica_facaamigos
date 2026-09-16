@@ -227,12 +227,12 @@ export function DraftReviewForm({
         <fieldset className="rounded-md border border-paper-line-strong p-4">
           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">
             <label className="flex items-center gap-2">
-              <input type="checkbox" name="apply_insurance" defaultChecked={Boolean(ins?.insurer_name)} /> Convênio
+              <input type="checkbox" name="apply_insurance" defaultChecked={Boolean(ins?.insurer_name)} /> Plano de Saúde
             </label>
           </legend>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Convênio</label>
+              <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Plano de Saúde</label>
               <select name="insurer_id" defaultValue={ins?.insurer_id ?? ""} className="input mt-1">
                 <option value="">
                   {ins?.insurer_name ? `— não identificado ("${ins.insurer_name}") —` : "Selecione"}

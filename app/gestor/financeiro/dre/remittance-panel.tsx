@@ -60,7 +60,7 @@ export function RemittancePanel({
         <div>
           <h3 className="mb-1">Notas dos Planos de Saúde</h3>
           <p className="text-xs text-ink-faint max-w-2xl">
-            Envie o demonstrativo de pagamento do convênio (PDF, CSV ou XLSX). As colunas são reconhecidas pela posição de cada valor
+            Envie o demonstrativo de pagamento do plano de saúde (PDF, CSV ou XLSX). As colunas são reconhecidas pela posição de cada valor
             na tabela — não pelo texto corrido — e só as linhas ficam gravadas, não o arquivo. Marque no checkbox as linhas que são
             recebíveis para consolidá-las na DRE.
           </p>
@@ -87,7 +87,7 @@ export function RemittancePanel({
         </label>
 
         <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-          Convênio
+          Plano de Saúde
           <select name="insurerId" className="input" defaultValue="" disabled={isUploading}>
             <option value="">Detectar pelo arquivo</option>
             {insurers.map((insurer) => (
@@ -174,7 +174,7 @@ function BatchCard({ batch, open, onToggleOpen }: { batch: RemittanceBatchRow; o
         <button type="button" onClick={onToggleOpen} className="flex items-center gap-3 text-left">
           <FileText size={18} className="text-ink-faint" />
           <span>
-            <span className="block text-sm font-semibold">{batch.insurerName ?? "Convênio não identificado"}</span>
+            <span className="block text-sm font-semibold">{batch.insurerName ?? "Plano de saúde não identificado"}</span>
             <span className="block text-[11px] text-ink-faint">
               {batch.fileName} · competência <span className="capitalize">{monthLabel(batch.competenceMonth)}</span> · {batch.lines.length} linha(s)
             </span>

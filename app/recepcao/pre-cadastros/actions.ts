@@ -205,7 +205,7 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
         .select("id")
         .single();
       if (error || !created) {
-        warnings.push("Não foi possível vincular o convênio ao paciente.");
+        warnings.push("Não foi possível vincular o plano de saúde ao paciente.");
       } else {
         patientInsuranceId = created.id;
       }
@@ -239,7 +239,7 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
           authorization_password: str(formData, "authorization_password") || null,
           password_valid_until: parseBrDate(str(formData, "authorization_password_valid_until")),
         });
-        if (error) warnings.push("Convênio vinculado, mas não foi possível registrar a guia de autorização.");
+        if (error) warnings.push("Plano de saúde vinculado, mas não foi possível registrar a guia de autorização.");
       } else {
         warnings.push("Guia não cadastrada: faltou procedimento, sessões autorizadas ou vigência.");
       }

@@ -80,7 +80,7 @@ export function NewEntryDialog({
 
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-                  Convênio (opcional)
+                  Plano de Saúde (opcional)
                   <select name="insurerId" className="input" defaultValue="">
                     <option value="">Particular / não informado</option>
                     {insurers.map((i) => (

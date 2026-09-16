@@ -92,7 +92,7 @@ export async function getPatientRows(supabase: Supa, clinicId: string): Promise<
   for (const row of insuranceRows ?? []) {
     if (insurerByPatient.has(row.patient_id)) continue;
     const insurerName = Array.isArray(row.insurers) ? row.insurers[0]?.name : row.insurers?.name;
-    insurerByPatient.set(row.patient_id, row.is_private ? "Particular" : (insurerName ?? "Convênio"));
+    insurerByPatient.set(row.patient_id, row.is_private ? "Particular" : (insurerName ?? "Plano de Saúde"));
   }
 
   const therapistByPatient = new Map<string, string>();

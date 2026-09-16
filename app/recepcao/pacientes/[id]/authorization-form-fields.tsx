@@ -23,7 +23,7 @@ export function AuthorizationFormFields({
   return (
     <>
       <select name="insurer_id" required className="input">
-        <option value="">Convênio</option>
+        <option value="">Plano de Saúde</option>
         {(insurers ?? []).map((i) => (
           <option key={i.id} value={i.id}>{i.name}</option>
         ))}

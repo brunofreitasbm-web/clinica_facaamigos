@@ -452,12 +452,12 @@ export function AcolhimentoPresencialDialog({
                   {/* Convênio & Guia Autorizada */}
                   <div className="space-y-3">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-amber-700 border-b pb-1">
-                      3. Convênio & Guia Autorizada
+                      3. Plano de Saúde & Guia Autorizada
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Plano de Saúde / Convênio *
+                          Plano de Saúde *
                         </label>
                         <select
                           required
@@ -465,7 +465,7 @@ export function AcolhimentoPresencialDialog({
                           onChange={(e) => setInsurerId(e.target.value)}
                           className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs focus:border-amber-500 focus:outline-none bg-white"
                         >
-                          {insurers.length === 0 && <option value="">Selecione o convênio</option>}
+                          {insurers.length === 0 && <option value="">Selecione o plano de saúde</option>}
                           {insurers.map((ins) => (
                             <option key={ins.id} value={ins.id}>
                               {ins.name || ins.full_name}

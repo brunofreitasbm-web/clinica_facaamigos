@@ -101,10 +101,10 @@ const DOCUMENT_TEMPLATES: DocumentTemplateConfig[] = [
   {
     id: "vinculo_terapeutico",
     title: "Declaração de Vínculo Terapêutico",
-    badge: "Matrícula / Convênio",
+    badge: "Matrícula / Plano de Saúde",
     icon: Award,
     description: "Comprova que o paciente realiza acompanhamento contínuo multidisciplinar na clínica.",
-    defaultPurpose: "Comprovação para instituição de ensino ou convênio médico",
+    defaultPurpose: "Comprovação para instituição de ensino ou plano de saúde",
     defaultValidity: "60 dias",
   },
   {

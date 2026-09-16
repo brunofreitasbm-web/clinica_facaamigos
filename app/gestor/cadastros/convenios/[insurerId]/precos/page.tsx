@@ -42,13 +42,13 @@ export default async function TabelaDePrecosPage({
     <main className="flex flex-1 flex-col">
       <div className="px-6 pt-6 sm:px-10 sm:pt-9">
         <Link href="/gestor/cadastros/convenios" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
-          ← Convênios
+          ← Planos de Saúde
         </Link>
       </div>
       <PageHeader
         axisLabel="Cadastros"
         title={`Tabela de preços — ${insurer.name}`}
-        description="Preços por procedimento usados no fechamento de competência deste convênio."
+        description="Preços por procedimento usados no fechamento de competência deste plano de saúde."
       />
       <PageContainer>
         <PriceTableForm insurerId={insurer.id} />

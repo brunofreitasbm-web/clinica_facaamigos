@@ -230,7 +230,7 @@ const FLOWS: Flow[] = [
       },
       {
         title: "Registrar guia e autorização",
-        detail: "Convênio, procedimento, sessões autorizadas, vigência e senha. Enquanto pendente, só sessão provisória.",
+        detail: "Plano de saúde, procedimento, sessões autorizadas, vigência e senha. Enquanto pendente, só sessão provisória.",
         tools: [{ label: "Registrar guia", hrefFor: (id) => `/recepcao/pacientes/${id}#proximo-passo`, icon: icon(<FileText />), needsPatient: true }],
       },
       {
@@ -259,7 +259,7 @@ const FLOWS: Flow[] = [
       { label: "PTS atrasados", openManualSchedule: true, icon: icon(<ClipboardList />) },
       { label: "Relatórios para validar", tab: "inbox", icon: icon(<Inbox />) },
       { label: "Relatório devolutivo", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio`, icon: icon(<FileText />), needsPatient: true },
-      { label: "Relatório para convênio", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio-convenio`, icon: icon(<FileText />), needsPatient: true },
+      { label: "Relatório para plano de saúde", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio-convenio`, icon: icon(<FileText />), needsPatient: true },
     ],
     steps: [
       {
@@ -295,7 +295,7 @@ const FLOWS: Flow[] = [
         detail: "Devolutivo para a família e relatório para renovação de guia. A revisão gera uma nova versão do plano.",
         tools: [
           { label: "Relatório devolutivo", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio`, icon: icon(<FileText />), needsPatient: true },
-          { label: "Relatório convênio", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio-convenio`, icon: icon(<FileText />), needsPatient: true },
+          { label: "Relatório plano de saúde", hrefFor: (id) => `/terapeuta/paciente/${id}/relatorio-convenio`, icon: icon(<FileText />), needsPatient: true },
           { label: "Relatórios para validar", tab: "inbox", icon: icon(<Inbox />) },
         ],
       },

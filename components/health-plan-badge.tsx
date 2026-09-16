@@ -6,14 +6,13 @@ import React from "react";
  * Mapeamento inicial de cores predefinidas para planos de saúde (convênios).
  * - Unimed: verde
  * - Amazônia: vermelho
- * - Yazév: roxo
+ * - IASEP: roxo
  */
 const PRESET_HEALTH_PLAN_COLORS: Record<string, string> = {
   unimed: "#16a34a", // Verde
   amazonia: "#dc2626", // Vermelho
   "amazônia": "#dc2626", // Vermelho
-  yazev: "#7c3aed", // Roxo
-  "yazév": "#7c3aed", // Roxo
+  iasep: "#7c3aed", // Roxo
   bradesco: "#e11d48", // Vermelho Vivo / Rose
   sulamerica: "#ea580c", // Laranja
   "sul américa": "#ea580c",
@@ -38,7 +37,7 @@ const VIBRANT_FALLBACK_PALETTE = [
 
 /**
  * Retorna a cor em Hex para o convênio informado.
- * Prioridade: 1) Cor customizada do banco 2) Mapeamento por nome (Unimed, Amazônia, Yazév, etc.) 3) Algoritmo determinístico
+ * Prioridade: 1) Cor customizada do banco 2) Mapeamento por nome (Unimed, Amazônia, IASEP, etc.) 3) Algoritmo determinístico
  */
 export function getHealthPlanColor(name?: string | null, customColor?: string | null): string {
   if (customColor && customColor.trim()) {

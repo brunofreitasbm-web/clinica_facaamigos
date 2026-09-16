@@ -31,8 +31,8 @@ export default async function InsurerReportPage({
     <main className="flex flex-1 flex-col">
       <PageHeader
         axisLabel="Terapeuta"
-        title={`Relatório de evolução para o convênio — ${patient.full_name}`}
-        description="PDF gerado a partir das metas do plano aprovado e da frequência no período, pra anexar ao paciente e a recepção protocolar junto ao convênio na renovação de guia."
+        title={`Relatório de evolução para o plano de saúde — ${patient.full_name}`}
+        description="PDF gerado a partir das metas do plano aprovado e da frequência no período, pra anexar ao paciente e a recepção protocolar junto ao plano de saúde na renovação de guia."
       />
       <div className="p-6 sm:p-10">
         <ReportGenerator patientId={patientId} initialHistory={history} />

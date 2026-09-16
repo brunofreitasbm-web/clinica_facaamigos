@@ -81,7 +81,7 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
         patientName: "",
         birthDate: "14/05/2019 (7 anos)",
         cid: "F84.0 - Transtorno do Espectro Autista",
-        insurerName: "Guia SP/SADT Unimed / Convênio",
+        insurerName: "Guia SP/SADT Unimed / Plano de Saúde",
         cardNumber: "876.543.210-01",
         periodLabel: "Semestre Vigente",
         totalSessions: 36,

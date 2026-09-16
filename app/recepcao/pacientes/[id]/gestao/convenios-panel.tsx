@@ -42,7 +42,7 @@ function ConvenioForm({
       }}
     >
       <select name="insurer_id" required defaultValue={defaultValues?.insurerId ?? ""} className="input">
-        <option value="">Convênio</option>
+        <option value="">Plano de Saúde</option>
         {insurers.map((i) => (
           <option key={i.id} value={i.id}>
             {i.name}
@@ -111,7 +111,7 @@ function ConvenioCard({
         <div className="flex gap-1">
           <button
             type="button"
-            aria-label="Editar convênio"
+            aria-label="Editar plano de saúde"
             className="btn btn-secondary btn-icon"
             onClick={() => setEditing(true)}
           >
@@ -119,11 +119,11 @@ function ConvenioCard({
           </button>
           <button
             type="button"
-            aria-label="Remover convênio"
+            aria-label="Remover plano de saúde"
             disabled={isPending}
             className="btn btn-secondary btn-icon"
             onClick={() => {
-              if (confirm(`Remover o convênio ${convenio.insurerName} deste paciente?`)) {
+              if (confirm(`Remover o plano de saúde ${convenio.insurerName} deste paciente?`)) {
                 startTransition(() => { deletePatientInsurance(patientId, convenio.id); });
               }
             }}
@@ -163,12 +163,12 @@ export function ConveniosPanel({
     <div className="card max-w-[520px]">
       <div className="flex items-center justify-between">
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">
-          Convênios
+          Planos de Saúde
         </h6>
         {!adding && (
           <button type="button" className="btn btn-secondary text-xs" onClick={() => setAdding(true)}>
             <Plus size={14} />
-            Adicionar Convênio
+            Adicionar Plano de Saúde
           </button>
         )}
       </div>
@@ -192,7 +192,7 @@ export function ConveniosPanel({
         ))}
 
         {convenios.length === 0 && !adding && (
-          <p className="text-sm text-ink-faint">Nenhum convênio cadastrado — paciente particular.</p>
+          <p className="text-sm text-ink-faint">Nenhum plano de saúde cadastrado — paciente particular.</p>
         )}
       </div>
     </div>

@@ -47,7 +47,7 @@ export async function addPatientInsurance(patientId: string, formData: FormData)
   const planName = String(formData.get("plan_name") ?? "").trim();
   const cardNumber = String(formData.get("card_number") ?? "").trim();
 
-  if (!insurerId) return { success: false, error: "Selecione um convênio." };
+  if (!insurerId) return { success: false, error: "Selecione um plano de saúde." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("patient_insurance").insert({
@@ -58,7 +58,7 @@ export async function addPatientInsurance(patientId: string, formData: FormData)
     is_private: false,
   });
 
-  if (error) return { success: false, error: "Não foi possível adicionar o convênio." };
+  if (error) return { success: false, error: "Não foi possível adicionar o plano de saúde." };
 
   revalidatePatient(patientId);
   return { success: true };
@@ -69,7 +69,7 @@ export async function updatePatientInsurance(patientId: string, patientInsurance
   const planName = String(formData.get("plan_name") ?? "").trim();
   const cardNumber = String(formData.get("card_number") ?? "").trim();
 
-  if (!insurerId) return { success: false, error: "Selecione um convênio." };
+  if (!insurerId) return { success: false, error: "Selecione um plano de saúde." };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -77,7 +77,7 @@ export async function updatePatientInsurance(patientId: string, patientInsurance
     .update({ insurer_id: insurerId, plan_name: planName || null, card_number: cardNumber || null })
     .eq("id", patientInsuranceId);
 
-  if (error) return { success: false, error: "Não foi possível atualizar o convênio." };
+  if (error) return { success: false, error: "Não foi possível atualizar o plano de saúde." };
 
   revalidatePatient(patientId);
   return { success: true };
@@ -90,7 +90,7 @@ export async function deletePatientInsurance(patientId: string, patientInsurance
   if (error) {
     return {
       success: false,
-      error: "Não foi possível remover o convênio (pode haver autorizações vinculadas a ele).",
+      error: "Não foi possível remover o plano de saúde (pode haver autorizações vinculadas a ele).",
     };
   }
 

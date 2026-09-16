@@ -60,7 +60,7 @@ export default async function CompetenceDetailPage({
     notFound();
   }
 
-  const insurerName = (period.insurers as { name: string } | null)?.name ?? "Convênio";
+  const insurerName = (period.insurers as { name: string } | null)?.name ?? "Plano de Saúde";
   const monthStr = period.competence_month.slice(0, 7);
 
   const { data: rawItems } = await supabase

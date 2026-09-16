@@ -107,14 +107,14 @@ export function GestorCockpit({ initialAlerts }: { initialAlerts: AlertItem[] })
                 <span className="text-lg">📄</span>
               </div>
               <h4 className="m-0 text-sm font-bold text-ink group-hover:text-amber-600">
-                Convênios & Preços
+                Planos de Saúde & Preços
               </h4>
               <p className="mt-1 text-xs text-ink-soft line-clamp-2">
-                Cadastro de convênios e tabela de preços usada por recepção e faturamento.
+                Cadastro de planos de saúde e tabela de preços usada por recepção e faturamento.
               </p>
             </div>
             <div className="mt-3 flex items-center text-xs font-semibold text-amber-600">
-              Gerenciar Convênios →
+              Gerenciar Planos de Saúde →
             </div>
           </Link>
 

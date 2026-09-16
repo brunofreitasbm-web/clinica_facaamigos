@@ -38,7 +38,7 @@ export async function closeCompetence(
   monthStr: string,
 ): Promise<CloseCompetenceResult> {
   if (!insurerId) {
-    return { success: false, error: "Selecione um convênio." };
+    return { success: false, error: "Selecione um plano de saúde." };
   }
   if (!MONTH_RE.test(monthStr)) {
     return { success: false, error: "Informe um mês de competência válido." };

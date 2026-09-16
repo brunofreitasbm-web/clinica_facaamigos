@@ -197,7 +197,7 @@ export function PrioridadesAvaliacaoManager({
         <h1 className="mb-1">Prioridades de Agendamento de 1ª Avaliação</h1>
         <p className="mb-6 text-sm text-ink-soft">
           Configure os níveis de prioridade para agendar avaliações iniciais de
-          pacientes de cada plano de saúde. Cada convênio pode ter até 10 níveis
+          pacientes de cada plano de saúde. Cada plano de saúde pode ter até 10 níveis
           de prioridade diferentes.
         </p>
 
@@ -252,7 +252,7 @@ export function PrioridadesAvaliacaoManager({
               onChange={(e) => setSelectedInsurer(e.target.value)}
               className="input w-full"
             >
-              <option value="">Selecione um convênio</option>
+              <option value="">Selecione um plano de saúde</option>
               {insurers.map((i) => (
                 <option key={i.id} value={i.id}>
                   {i.name}
@@ -323,7 +323,7 @@ export function PrioridadesAvaliacaoManager({
             className="btn btn-primary w-fit"
             title={
               maxLevelReached
-                ? "Limite de 10 prioridades por convênio atingido"
+                ? "Limite de 10 prioridades por plano de saúde atingido"
                 : undefined
             }
           >

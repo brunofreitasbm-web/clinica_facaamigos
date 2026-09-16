@@ -226,7 +226,7 @@ export default async function TerapeutaFichaPacientePage({
       {insurance.cardNumber && <span className="text-ink-faint"> · carteirinha {insurance.cardNumber}</span>}
     </span>
   ) : (
-    <span className="text-ink-faint">Particular · sem convênio cadastrado.</span>
+    <span className="text-ink-faint">Particular · sem plano de saúde cadastrado.</span>
   );
 
   return (
@@ -306,7 +306,7 @@ export default async function TerapeutaFichaPacientePage({
                   👨‍👩‍👧 Relatório família
                 </Link>
                 <Link href={`/terapeuta/paciente/${patient.id}/relatorio-convenio`} className="btn btn-secondary text-sm">
-                  🏥 Relatório convênio
+                  🏥 Relatório plano de saúde
                 </Link>
                 <Link href={`/terapeuta/paciente/${patient.id}/vinculo`} className="btn btn-secondary text-sm">
                   🔗 Vínculo

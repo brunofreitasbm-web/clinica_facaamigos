@@ -97,7 +97,7 @@ export function QuickResponsesManager({ clinicId, responses }: { clinicId: strin
       <h3 className="mb-1">Respostas Rápidas</h3>
       <p className="mb-6 text-sm text-ink-soft">
         Atalhos de texto que aparecem como botões acima da caixa de mensagem e no menu &quot;/&quot; da Central de
-        Atendimento — úteis para respostas repetitivas (endereço, valores, convênios) que a recepção envia manualmente.
+        Atendimento — úteis para respostas repetitivas (endereço, valores, planos de saúde) que a recepção envia manualmente.
       </p>
 
       <table className="table mb-6">

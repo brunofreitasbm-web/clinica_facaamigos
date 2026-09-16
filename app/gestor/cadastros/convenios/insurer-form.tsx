@@ -5,13 +5,13 @@ import { createInsurer } from "./actions";
 import { HealthPlanBadge } from "@/components/health-plan-badge";
 
 const COLOR_OPTIONS = [
-  { label: "Verde (Unimed)", value: "#16a34a" },
-  { label: "Vermelho (Amazônia)", value: "#dc2626" },
-  { label: "Roxo (Yazév)", value: "#7c3aed" },
-  { label: "Azul (Amil)", value: "#2563eb" },
-  { label: "Laranja (SulAmérica)", value: "#ea580c" },
-  { label: "Teal (Cassi)", value: "#0d9488" },
-  { label: "Cinza (Particular)", value: "#64748b" },
+  { label: "Verde", value: "#16a34a" },
+  { label: "Vermelho", value: "#dc2626" },
+  { label: "Roxo", value: "#7c3aed" },
+  { label: "Azul", value: "#2563eb" },
+  { label: "Laranja", value: "#ea580c" },
+  { label: "Teal", value: "#0d9488" },
+  { label: "Cinza", value: "#64748b" },
 ];
 
 export function InsurerForm() {
@@ -40,7 +40,7 @@ export function InsurerForm() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label className="text-xs font-medium uppercase tracking-wide text-ink-soft" htmlFor="name">
-            Nome do convênio
+            Nome do plano de saúde
           </label>
           <input
             id="name"
@@ -48,7 +48,7 @@ export function InsurerForm() {
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ex: Unimed, Amazônia, Yazév..."
+            placeholder="Ex: Unimed, Amazônia, IASEP..."
             className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
           />
         </div>
@@ -98,7 +98,7 @@ export function InsurerForm() {
           disabled={isPending}
           className="rounded-md bg-chart px-4 py-2 text-sm font-medium text-paper disabled:opacity-50 sm:self-end"
         >
-          {isPending ? "Salvando…" : "Adicionar Convênio"}
+          {isPending ? "Salvando…" : "Adicionar Plano de Saúde"}
         </button>
       </div>
 

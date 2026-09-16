@@ -48,11 +48,11 @@ export default async function CompetenciasPage() {
       <PageContainer>
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-            Faturamento · convênio + mês
+            Faturamento · plano de saúde + mês
           </h6>
           <h1 className="m-0">Competências</h1>
           <p className="mt-2 max-w-[640px] text-sm text-ink-soft">
-            Fechamento por convênio e mês — lista sessões realizadas com evolução e gera o lote
+            Fechamento por plano de saúde e mês — lista sessões realizadas com evolução e gera o lote
             pro faturista.
           </p>
         </div>
@@ -62,7 +62,7 @@ export default async function CompetenciasPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>Convênio</th>
+              <th>Plano de Saúde</th>
               <th>Competência</th>
               <th>Status</th>
               <th>Itens</th>
@@ -73,7 +73,7 @@ export default async function CompetenciasPage() {
             {(periods ?? []).map((period) => {
               const items = (period.billing_items as { amount: number }[] | null) ?? [];
               const total = items.reduce((sum, item) => sum + Number(item.amount), 0);
-              const insurerName = (period.insurers as { name: string } | null)?.name ?? "Convênio";
+              const insurerName = (period.insurers as { name: string } | null)?.name ?? "Plano de Saúde";
 
               return (
                 <tr key={period.id}>

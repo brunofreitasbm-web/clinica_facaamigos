@@ -53,7 +53,7 @@ export const SUPERVISION_KB_DATA: SupervisionKBArticle[] = [
         step: 3,
         actor: "Supervisor Clínico",
         action: "Definir a grade de disciplinas recomendadas para a avaliação inicial (ABA, Fono, TO, Psicopedagogia).",
-        validation: "Verificar disponibilidade na grade e compatibilidade do plano de saúde/convenio."
+        validation: "Verificar disponibilidade na grade e compatibilidade do plano de saúde."
       },
       {
         step: 4,
@@ -65,7 +65,7 @@ export const SUPERVISION_KB_DATA: SupervisionKBArticle[] = [
     anti_error_rules: [
       "NUNCA aprove o encaminhamento de um lead para terapia continuada sem antes realizar a Avaliação Diagnóstica Multiprofissional.",
       "NUNCA prometa horários de grade à família antes da confirmação de vaga ativa pelo sistema de disponibilidade de salas e terapeutas.",
-      "NUNCA inicie o acolhimento sem verificar a vigência da guia de autorização de avaliação emitida pelo convênio."
+      "NUNCA inicie o acolhimento sem verificar a vigência da guia de autorização de avaliação emitida pelo plano de saúde."
     ],
     exceptions: [
       {

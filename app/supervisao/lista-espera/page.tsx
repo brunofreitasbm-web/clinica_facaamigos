@@ -121,7 +121,7 @@ export default async function ListaEsperaPage() {
                 <tr>
                   <th>Paciente</th>
                   <th>Especialidade</th>
-                  <th>Convênio</th>
+                  <th>Plano de Saúde</th>
                   <th>Turno</th>
                   <th>Prioridade</th>
                   <th>Espera</th>

@@ -38,7 +38,7 @@ export function evaluateAuthorizationWarning(
   }
 
   if (!input.authorizationId) {
-    return "Sessão sem guia de convênio vinculada.";
+    return "Sessão sem guia de plano de saúde vinculada.";
   }
 
   const authorization = input.authorization;

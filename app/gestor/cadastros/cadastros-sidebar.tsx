@@ -8,7 +8,7 @@ import { SectionSidebar } from "@/components/section-sidebar";
 const SIDEBAR_ITEMS = [
   { key: "pacientes", label: "Pacientes", href: "/gestor/cadastros/pacientes" },
   { key: "terapeutas", label: "Terapeutas", href: "/gestor/equipe", external: true },
-  { key: "convenios", label: "Convênios", href: "/gestor/cadastros/convenios" },
+  { key: "convenios", label: "Planos de Saúde", href: "/gestor/cadastros/convenios" },
   { key: "tipos-atendimento", label: "Tipos de Atendimento", href: "/gestor/cadastros/tipos-atendimento" },
   { key: "protocolos", label: "Protocolos", href: "/gestor/cadastros/protocolos" },
   { key: "especialidades", label: "Especialidades", href: "/gestor/cadastros/especialidades" },

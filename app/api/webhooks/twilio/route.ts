@@ -29,7 +29,7 @@ function isValidTwilioSignature(req: NextRequest, params: Record<string, string>
 export async function GET() {
   return NextResponse.json({
     status: "Twilio Webhook Ativo",
-    service: "Chatbot de Convênios & Atendimento Automatizado",
+    service: "Chatbot de Planos de Saúde & Atendimento Automatizado",
     timestamp: new Date().toISOString(),
   });
 }

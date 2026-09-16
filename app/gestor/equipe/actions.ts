@@ -114,11 +114,16 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
     // profile (não consegue logar em lugar nenhum do app mesmo assim, mas
     // fica um lixo silencioso na base de auth caso o gestor tente de novo).
     await admin.auth.admin.deleteUser(newUser.user.id);
+    const isCpfDuplicate =
+      profileError.code === "23505" ||
+      profileError.message.includes("profiles_cpf_unique") ||
+      profileError.message.toLowerCase().includes("cpf");
+
     return {
       success: false,
-      error: profileError.message.includes("profiles_cpf_unique")
-        ? "Já existe um colaborador com esse CPF."
-        : "Não foi possível salvar o perfil da conta.",
+      error: isCpfDuplicate
+        ? "Já existe um colaborador cadastrado com este CPF."
+        : `Não foi possível salvar o perfil da conta: ${profileError.message}`,
     };
   }
 

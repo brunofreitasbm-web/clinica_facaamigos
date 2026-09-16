@@ -105,7 +105,7 @@ export function ChecklistEntradaDialog({ rows }: { rows: IntakeChecklistRow[] })
                         <p className="text-[11px] text-neutral-500">
                           {item.required
                             ? item.hint
-                            : "Não se aplica — paciente particular, sem convênio."}
+                            : "Não se aplica — paciente particular, sem plano de saúde."}
                         </p>
                       </div>
                     </div>

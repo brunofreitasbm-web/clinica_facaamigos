@@ -108,7 +108,7 @@ export function GlosaRegisterForm({
               id="reason_code"
               name="reason_code"
               required
-              placeholder="Ex: código TISS do convênio"
+              placeholder="Ex: código TISS do plano de saúde"
               className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
             />
           </div>

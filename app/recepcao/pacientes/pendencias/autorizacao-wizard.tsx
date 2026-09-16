@@ -14,55 +14,8 @@ export interface AuthorizationItem {
   protocolNumber: string;
 }
 
-const MOCK_AUTHORIZATIONS: AuthorizationItem[] = [
-  {
-    id: "aut-1",
-    patientName: "Gabriel Mendonça (8 anos)",
-    insurerName: "Unimed TISS",
-    specialty: "Psicologia ABA",
-    authorizedHours: 40,
-    consumedHours: 37,
-    expiresAt: "2026-09-20",
-    status: "critical",
-    protocolNumber: "AUT-2026-9982",
-  },
-  {
-    id: "aut-2",
-    patientName: "Lucas T. Silva (5 anos)",
-    insurerName: "Bradesco Saúde (Liminar)",
-    specialty: "Fonoaudiologia Neuro",
-    authorizedHours: 20,
-    consumedHours: 18,
-    expiresAt: "2026-09-28",
-    status: "critical",
-    protocolNumber: "AUT-2026-4411",
-  },
-  {
-    id: "aut-3",
-    patientName: "Sofia Rocha (6 anos)",
-    insurerName: "Amil Saúde",
-    specialty: "Terapia Ocupacional / Integração Sensorial",
-    authorizedHours: 30,
-    consumedHours: 21,
-    expiresAt: "2026-10-15",
-    status: "attention",
-    protocolNumber: "AUT-2026-1029",
-  },
-  {
-    id: "aut-4",
-    patientName: "Matheus V. Lima (7 anos)",
-    insurerName: "SulAmérica Reembolso",
-    specialty: "Psicopedagogia ABA",
-    authorizedHours: 50,
-    consumedHours: 15,
-    expiresAt: "2026-11-30",
-    status: "regular",
-    protocolNumber: "AUT-2026-7721",
-  },
-];
-
-export function AutorizacaoWizard() {
-  const [items, setItems] = useState<AuthorizationItem[]>(MOCK_AUTHORIZATIONS);
+export function AutorizacaoWizard({ initialItems = [] }: { initialItems?: AuthorizationItem[] }) {
+  const [items, setItems] = useState<AuthorizationItem[]>(initialItems);
   const [selectedItem, setSelectedItem] = useState<AuthorizationItem | null>(null);
   const [wizardStep, setWizardStep] = useState<number>(1);
   const [justificationText, setJustificationText] = useState("");
@@ -137,10 +90,13 @@ export function AutorizacaoWizard() {
 
         {/* LISTA DE PACIENTES E SALDOS */}
         <div className="flex flex-col gap-3">
-          {items.map((item) => {
-            const pct = Math.min(100, Math.round((item.consumedHours / item.authorizedHours) * 100));
-            const isCritical = item.status === "critical" || pct >= 90;
-            const isAttention = item.status === "attention" || (pct >= 70 && pct < 90);
+          {items.length === 0 ? (
+            <p className="py-2 text-xs text-ink-faint">Nenhum pacote de horas ou autorização ativa no momento.</p>
+          ) : (
+            items.map((item) => {
+              const pct = Math.min(100, Math.round((item.consumedHours / item.authorizedHours) * 100));
+              const isCritical = item.status === "critical" || pct >= 90;
+              const isAttention = item.status === "attention" || (pct >= 70 && pct < 90);
 
             return (
               <div
@@ -210,7 +166,7 @@ export function AutorizacaoWizard() {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
       </div>
 
@@ -235,7 +191,7 @@ export function AutorizacaoWizard() {
                   <p className="m-0 text-xs font-bold text-blue-900">Paciente Selecionado:</p>
                   <h4 className="m-0 text-sm font-bold text-blue-950 mt-0.5">{selectedItem.patientName}</h4>
                   <p className="m-0 text-xs text-blue-800 mt-1">
-                    Convênio: <strong>{selectedItem.insurerName}</strong> | Especialidade: <strong>{selectedItem.specialty}</strong>
+                    Plano de Saúde: <strong>{selectedItem.insurerName}</strong> | Especialidade: <strong>{selectedItem.specialty}</strong>
                   </p>
                 </div>
 

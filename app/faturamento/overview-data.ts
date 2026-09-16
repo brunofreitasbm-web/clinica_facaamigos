@@ -175,7 +175,7 @@ export async function getCurrentCompetenceOverview(
       therapistName: therapist?.full_name ?? "Terapeuta",
       therapistPhone: therapist?.phone ?? null,
       insurerId,
-      insurerName: insurerNameById.get(insurerId) ?? "Convênio",
+      insurerName: insurerNameById.get(insurerId) ?? "Plano de Saúde",
       guideNumber: auth?.guide_number ?? null,
       amount: price ? Number(price.price) : null,
       startsAt: a.starts_at,
@@ -230,7 +230,7 @@ export async function getCurrentCompetenceOverview(
     if (!breakdownByInsurer.has(insurerId)) {
       breakdownByInsurer.set(insurerId, {
         insurerId,
-        insurerName: insurerNameById.get(insurerId) ?? "Convênio",
+        insurerName: insurerNameById.get(insurerId) ?? "Plano de Saúde",
         billingPeriodId,
         okAmount: 0,
         okCount: 0,
@@ -284,7 +284,7 @@ export async function getCurrentCompetenceOverview(
   for (const period of periods ?? []) {
     if (period.exported_at) {
       trace.push({
-        message: `Lote exportado · ${insurerNameById.get(period.insurer_id) ?? "Convênio"}`,
+        message: `Lote exportado · ${insurerNameById.get(period.insurer_id) ?? "Plano de Saúde"}`,
         when: period.exported_at,
       });
     }
@@ -295,7 +295,7 @@ export async function getCurrentCompetenceOverview(
       const authId = item.appointments?.authorization_id;
       const guide = authId ? guideByAuthId.get(authId) : null;
       trace.push({
-        message: `Glosa registrada · ${insurerNameById.get(period?.insurer_id ?? "") ?? "Convênio"} · guia ${
+        message: `Glosa registrada · ${insurerNameById.get(period?.insurer_id ?? "") ?? "Plano de Saúde"} · guia ${
           guide ?? "—"
         } · código ${g.reason_code}`,
         when: null,

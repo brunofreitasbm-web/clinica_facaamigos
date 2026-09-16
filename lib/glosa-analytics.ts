@@ -67,7 +67,7 @@ export async function getGlosaBreakdown(supabase: Supa, clinicId: string): Promi
 
   const { data: periods } = await supabase.from("billing_periods").select("id, insurer_id").in("insurer_id", insurerIds);
   const periodIds = (periods ?? []).map((p) => p.id);
-  const insurerNameByPeriod = new Map((periods ?? []).map((p) => [p.id, insurerNameById.get(p.insurer_id) ?? "Convênio"]));
+  const insurerNameByPeriod = new Map((periods ?? []).map((p) => [p.id, insurerNameById.get(p.insurer_id) ?? "Plano de Saúde"]));
   if (periodIds.length === 0) return empty;
 
   const { data: billingItems } = await supabase
@@ -76,7 +76,7 @@ export async function getGlosaBreakdown(supabase: Supa, clinicId: string): Promi
     .in("billing_period_id", periodIds);
   const billingItemIds = (billingItems ?? []).map((b) => b.id);
   const insurerNameByItem = new Map(
-    (billingItems ?? []).map((b) => [b.id, insurerNameByPeriod.get(b.billing_period_id) ?? "Convênio"]),
+    (billingItems ?? []).map((b) => [b.id, insurerNameByPeriod.get(b.billing_period_id) ?? "Plano de Saúde"]),
   );
   if (billingItemIds.length === 0) return empty;
 
@@ -94,7 +94,7 @@ export async function getGlosaBreakdown(supabase: Supa, clinicId: string): Promi
   }));
 
   const byInsurerInput = list.map((g) => ({
-    key: insurerNameByItem.get(g.billing_item_id) ?? "Convênio",
+    key: insurerNameByItem.get(g.billing_item_id) ?? "Plano de Saúde",
     amount: Number(g.amount),
     recovered: Number(g.recovered_amount ?? 0),
   }));

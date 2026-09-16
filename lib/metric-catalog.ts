@@ -75,10 +75,10 @@ export const METRIC_CATALOG: Partial<Record<Role, MetricDef[]>> = {
     // bot Twilio passou a coletar laudo/guia do convênio — ver
     // BONUS_EXCLUDED_METRIC_KEYS em app/gestor/bonificacao/config/actions.ts.
     { key: "therapist_utilization_rate", label: "Utilização da disponibilidade dos terapeutas", direction: "min", unit: "pct", computed: true },
-    { key: "intake_lead_approval_min", label: "Tempo para aprovar lead de convênio", direction: "max", unit: "min", computed: true },
-    { key: "intake_lead_conversion_10d_rate", label: "Lead de convênio aprovado → 1ª sessão em 10 dias", direction: "min", unit: "pct", computed: true },
+    { key: "intake_lead_approval_min", label: "Tempo para aprovar lead de plano de saúde", direction: "max", unit: "min", computed: true },
+    { key: "intake_lead_conversion_10d_rate", label: "Lead de plano de saúde aprovado → 1ª sessão em 10 dias", direction: "min", unit: "pct", computed: true },
     { key: "waitlist_fill_days", label: "Dias na lista de espera até agendar", direction: "max", unit: "dias", computed: true },
-    { key: "report_approved_5d_rate", label: "Relatórios de convênio aprovados em até 5 dias", direction: "min", unit: "pct", computed: true },
+    { key: "report_approved_5d_rate", label: "Relatórios de plano de saúde aprovados em até 5 dias", direction: "min", unit: "pct", computed: true },
   ],
   terapeuta: [
     { key: "note_24h_rate", label: "Evolução em até 24h", direction: "min", unit: "pct", computed: true },

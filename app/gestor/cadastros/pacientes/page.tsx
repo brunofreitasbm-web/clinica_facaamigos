@@ -39,7 +39,7 @@ export default async function PacientesPage() {
                 <th>Paciente</th>
                 <th>Responsável</th>
                 <th>Nascimento</th>
-                <th>Convênio</th>
+                <th>Plano de Saúde</th>
                 <th>Terapeuta principal</th>
                 <th>Status</th>
                 <th className="text-right">Ações</th>

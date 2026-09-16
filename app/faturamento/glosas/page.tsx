@@ -162,7 +162,7 @@ async function getActiveRecurringPatterns(
   return (patterns ?? []).map((p) => ({
     id: p.id,
     insurerId: p.insurer_id,
-    insurerName: insurerNameById.get(p.insurer_id) ?? "Convênio",
+    insurerName: insurerNameById.get(p.insurer_id) ?? "Plano de Saúde",
     reasonCode: p.reason_code,
     occurrencesCount: p.occurrences_count,
     firstSeenAt: p.first_seen_at,
@@ -239,8 +239,8 @@ export default async function GlosasPage({
         <div>
           <h1 className="m-0 text-xl font-semibold text-ink">Glosas</h1>
           <p className="mt-1 text-sm text-ink-soft">
-            Registro manual de glosas recebidas dos convênios, acompanhamento de recurso e recuperação. Análise por
-            motivo/convênio/pessoa está em{" "}
+            Registro manual de glosas recebidas dos planos de saúde, acompanhamento de recurso e recuperação. Análise por
+            motivo/plano de saúde/pessoa está em{" "}
             <Link href="/gestor/financeiro" className="underline">
               Gestão › Financeiro
             </Link>
@@ -254,7 +254,7 @@ export default async function GlosasPage({
               Padrões recorrentes a evitar
             </h2>
             <p className="text-xs text-ink-soft">
-              Estas combinações de convênio + motivo já bateram 3 ou mais ocorrências nos últimos 6 meses — vale
+              Estas combinações de plano de saúde + motivo já bateram 3 ou mais ocorrências nos últimos 6 meses — vale
               investigar a causa raiz antes de faturar de novo.
             </p>
             <ul className="flex flex-col gap-2">

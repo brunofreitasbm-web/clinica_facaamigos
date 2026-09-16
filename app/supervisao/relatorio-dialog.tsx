@@ -89,7 +89,7 @@ export function RelatorioReavaliacaoDialog({
             <div className="flex items-center justify-between border-b border-paper-line px-6 py-4 bg-paper-subtle print:hidden">
               <div>
                 <h2 className="text-lg font-bold text-ink">
-                  Pré-visualização do Relatório para Convênio
+                  Pré-visualização do Relatório para Plano de Saúde
                 </h2>
                 <p className="text-xs text-ink-soft">
                   Relatório oficial formatado para renovação de autorização.
@@ -170,7 +170,7 @@ export function RelatorioReavaliacaoDialog({
                       <p className="font-semibold text-ink">{data.cid}</p>
                     </div>
                     <div>
-                      <span className="font-medium text-ink-soft">Convênio Operadora:</span>
+                      <span className="font-medium text-ink-soft">Operadora do Plano de Saúde:</span>
                       <p className="font-semibold text-ink">{data.insurerName}</p>
                     </div>
                     <div>

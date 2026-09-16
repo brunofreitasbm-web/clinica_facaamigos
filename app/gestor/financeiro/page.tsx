@@ -75,7 +75,7 @@ export default async function GestorFinanceiroPage() {
       <section className="grid grid-cols-1 gap-15 pt-14 lg:grid-cols-2">
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-4">
-            Receita por convênio · 6 meses
+            Receita por plano de saúde · 6 meses
           </h6>
           <div className="flex items-end gap-4" style={{ height: 160 }}>
             {revenueByMonth.length > 0 ? (

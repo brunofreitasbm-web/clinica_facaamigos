@@ -47,7 +47,7 @@ export function TwilioChatbotTestPanel() {
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-semibold text-ink text-base">Chatbot Twilio — Resposta Automática de Convênios</h3>
+            <h3 className="font-semibold text-ink text-base">Chatbot Twilio — Resposta Automática de Planos de Saúde</h3>
             <p className="text-xs text-ink-muted">
               Responde instantaneamente pacientes no WhatsApp/SMS com a lista de planos cadastrados no sistema.
             </p>
@@ -159,7 +159,7 @@ export function TwilioChatbotTestPanel() {
                       : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
                   }`}
                 >
-                  Intenção: {result.intent === "planos_saude" ? "Planos & Convênios (Reconhecido)" : "Atendimento Geral"}
+                  Intenção: {result.intent === "planos_saude" ? "Plano de Saúde (Reconhecido)" : "Atendimento Geral"}
                 </span>
               )}
             </div>

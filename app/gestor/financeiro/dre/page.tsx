@@ -58,7 +58,7 @@ export default async function DrePage() {
           <h1 className="m-0">DRE Simplificado & Fluxo de Caixa Projetado</h1>
           <p className="text-sm text-ink-faint mt-2 max-w-3xl">
             Margem de contribuição (receita − repasse a terapeutas) menos as despesas operacionais de Contas a Pagar. Quando você
-            consolida as linhas da nota de um convênio, a receita de convênio faturada daquele mês é <strong>substituída</strong> pelo
+            consolida as linhas da nota de um plano de saúde, a receita de plano de saúde faturada daquele mês é <strong>substituída</strong> pelo
             valor que o plano informou que vai pagar — a diferença aparece como ajuste de conciliação, para a mesma receita não ser
             contada duas vezes. Não substitui a DRE contábil oficial: não considera impostos sobre a receita nem depreciação.
           </p>
@@ -129,7 +129,7 @@ export default async function DrePage() {
             </table>
           </div>
           <p className="mt-3 text-[11px] text-ink-faint">
-            Ajuste de conciliação = recebível consolidado do mês − receita de convênio já faturada no mês. Meses sem nota consolidada
+            Ajuste de conciliação = recebível consolidado do mês − receita de plano de saúde já faturada no mês. Meses sem nota consolidada
             seguem 100% na base faturada.
           </p>
         </section>

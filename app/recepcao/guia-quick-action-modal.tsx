@@ -183,9 +183,9 @@ export function GuiaSection({
           <form ref={formRef} action={handleCreateNew} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="block text-[11px] font-medium text-ink-soft mb-1">Convênio *</label>
+                <label className="block text-[11px] font-medium text-ink-soft mb-1">Plano de Saúde *</label>
                 <select name="insurer_id" required className="input text-xs w-full">
-                  <option value="">Selecione o Convênio</option>
+                  <option value="">Selecione o Plano de Saúde</option>
                   {insurers.map((i) => (
                     <option key={i.id} value={i.id}>
                       {i.name}
@@ -232,7 +232,7 @@ export function GuiaSection({
                 <input
                   type="text"
                   name="authorization_password"
-                  placeholder="Senha do convênio"
+                  placeholder="Senha do plano de saúde"
                   className="input text-xs w-full"
                 />
               </div>

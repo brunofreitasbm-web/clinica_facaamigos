@@ -13,7 +13,7 @@ export async function createInsurer(
   const badgeColor = String(formData.get("badge_color") ?? "").trim();
 
   if (!name) {
-    return { success: false, error: "Nome do convênio é obrigatório." };
+    return { success: false, error: "Nome do plano de saúde é obrigatório." };
   }
 
   const supabase = await createClient();
@@ -25,7 +25,7 @@ export async function createInsurer(
   });
 
   if (error) {
-    return { success: false, error: "Não foi possível salvar o convênio. Tente de novo." };
+    return { success: false, error: "Não foi possível salvar o plano de saúde. Tente de novo." };
   }
 
   revalidatePath("/gestor/cadastros/convenios");
@@ -36,7 +36,7 @@ export async function updateInsurerColor(
   insurerId: string,
   badgeColor: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
-  if (!insurerId) return { success: false, error: "Convênio inválido." };
+  if (!insurerId) return { success: false, error: "Plano de saúde inválido." };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -46,7 +46,7 @@ export async function updateInsurerColor(
     .eq("clinic_id", DEV_CLINIC_ID);
 
   if (error) {
-    return { success: false, error: "Não foi possível atualizar a cor do convênio." };
+    return { success: false, error: "Não foi possível atualizar a cor do plano de saúde." };
   }
 
   revalidatePath("/gestor/cadastros/convenios");
@@ -66,7 +66,7 @@ export async function setInsurerIntakeProfile(
   insurerId: string,
   profile: IntakeExtractionProfile,
 ): Promise<{ success: true } | { success: false; error: string }> {
-  if (!insurerId) return { success: false, error: "Convênio inválido." };
+  if (!insurerId) return { success: false, error: "Plano de saúde inválido." };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("set_insurer_intake_profile", {
@@ -75,7 +75,7 @@ export async function setInsurerIntakeProfile(
   });
 
   if (error) {
-    return { success: false, error: "Não foi possível salvar o perfil de extração deste convênio." };
+    return { success: false, error: "Não foi possível salvar o perfil de extração deste plano de saúde." };
   }
 
   revalidatePath("/gestor/cadastros/convenios");

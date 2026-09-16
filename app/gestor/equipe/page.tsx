@@ -11,13 +11,29 @@ export const dynamic = "force-dynamic";
 export default async function EquipePage() {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let clinicId = DEV_CLINIC_ID;
+  if (user) {
+    const { data: callerProfile } = await supabase
+      .from("profiles")
+      .select("clinic_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (callerProfile?.clinic_id) {
+      clinicId = callerProfile.clinic_id;
+    }
+  }
+
   const [{ data: profiles }, { data: units }] = await Promise.all([
     supabase
       .from("profiles")
       .select(
         "id, full_name, email, cpf, role, council_type, unit_id, birth_date, active, is_evaluator, is_at_professional, google_calendar_opt_in, signature_pin_hash, source_system, created_at",
       )
-      .eq("clinic_id", DEV_CLINIC_ID)
+      .eq("clinic_id", clinicId)
       .order("full_name"),
     supabase.from("units").select("id, name").order("name"),
   ]);

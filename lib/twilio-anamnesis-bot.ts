@@ -373,7 +373,7 @@ export async function processAnamnesisChatbotStep(
         handled: true,
         replyMessage:
           "Entendido! 💙 A *Guia de Autorização* do plano é necessária para o agendamento.\n\n" +
-          "Solicite a emissão no seu convênio e nos avise assim que tiver em mãos!",
+          "Solicite a emissão no seu plano de saúde e nos avise assim que tiver em mãos!",
       };
     }
 

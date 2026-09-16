@@ -93,7 +93,7 @@ export function GestorDrilldownDrawer({ isOpen, onClose, data }: GestorDrilldown
         <div className="px-6 py-3 border-b border-paper-line">
           <input
             type="text"
-            placeholder="Filtrar registros fonte por nome, ID ou convênio..."
+            placeholder="Filtrar registros fonte por nome, ID ou plano de saúde..."
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
             className="w-full rounded-md border border-paper-line bg-paper px-3 py-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent"

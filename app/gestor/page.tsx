@@ -149,7 +149,7 @@ export default async function GestorPage() {
             <div className="tabular-figure text-2xl font-semibold">{activePatientsCount ?? 0}</div>
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-ink-faint">Concentração maior convênio</div>
+            <div className="text-[11px] uppercase tracking-wide text-ink-faint">Concentração maior plano de saúde</div>
             <div className="tabular-figure text-2xl font-semibold">
               {concentrationPct != null ? `${concentrationPct}%` : "—"}
             </div>

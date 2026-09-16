@@ -58,7 +58,7 @@ export async function uploadIntakeBatch(formData: FormData): Promise<{ success: 
   const insurerId = insurerIdRaw && insurerIdRaw !== "auto" ? insurerIdRaw : null;
 
   if (!(file instanceof File) || file.size === 0) {
-    return { success: false, error: "Selecione o PDF enviado pelo convênio." };
+    return { success: false, error: "Selecione o PDF enviado pelo plano de saúde." };
   }
   if (file.type !== "application/pdf") {
     return { success: false, error: "Só arquivos PDF são aceitos nesta remessa." };
@@ -674,7 +674,7 @@ export async function approveIntakeLeadDocuments(
           .select("id")
           .single();
         if (authError || !authRow) {
-          warnings.push("Convênio vinculado, mas não foi possível registrar a guia de autorização.");
+          warnings.push("Plano de saúde vinculado, mas não foi possível registrar a guia de autorização.");
         } else {
           await supabase.from("insurance_intake_leads").update({ patient_insurance_id: patientInsuranceId, authorization_id: authRow.id }).eq("id", leadId);
         }

@@ -148,10 +148,10 @@ async function buildNoAuthLeak(supabase: Supa, clinicId: string, avgPrice: numbe
     for (const row of pi ?? []) {
       if (insurerByPatient.has(row.patient_id)) continue;
       const insurerName = Array.isArray(row.insurers) ? row.insurers[0]?.name : row.insurers?.name;
-      insurerByPatient.set(row.patient_id, row.is_private ? "Particular" : (insurerName ?? "Convênio"));
+      insurerByPatient.set(row.patient_id, row.is_private ? "Particular" : (insurerName ?? "Plano de Saúde"));
     }
     for (const r of rows) {
-      const name = insurerByPatient.get(r.patient_id) ?? "Sem convênio vinculado";
+      const name = insurerByPatient.get(r.patient_id) ?? "Sem plano de saúde vinculado";
       byInsurer.set(name, (byInsurer.get(name) ?? 0) + 1);
     }
   }
@@ -164,7 +164,7 @@ async function buildNoAuthLeak(supabase: Supa, clinicId: string, avgPrice: numbe
     amountLabel: avgPrice != null ? `${currency.format(rows.length * avgPrice)} em risco` : "impacto não estimado",
     amountValue: avgPrice != null ? rows.length * avgPrice : null,
     metaLabel: "meta: 0 sessões sem guia vigente (eliminatório)",
-    breakdownLabel: "por convênio",
+    breakdownLabel: "por plano de saúde",
     breakdown: topBreakdown(byInsurer),
     note: `${rows.length} sessão(ões) realizada(s) neste mês como provisória (sem authorization_id) — cada uma é risco de glosa integral.`,
   };
@@ -360,7 +360,7 @@ export async function getOperationalAlerts(supabase: Supa, clinicId: string): Pr
         alerts.push({
           id: "auth-low",
           type: "critical",
-          title: `${lowNames.size} autorização(ões) de convênio prestes a esgotar`,
+          title: `${lowNames.size} autorização(ões) de plano de saúde prestes a esgotar`,
           description: `${joinWithOverflow([...lowNames])} — menos de 3 sessões restantes no pacote autorizado. Risco de interrupção do tratamento.`,
           actionLabel: "Renovar autorização",
           actionHref: "/gestor/cadastros/convenios",

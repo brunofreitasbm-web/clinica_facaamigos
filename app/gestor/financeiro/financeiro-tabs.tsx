@@ -150,7 +150,7 @@ export function FinanceiroTabs({
       {view === "glosas" && glosaBreakdown.totalCount > 0 && (
         <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
           <GlosaBreakdownTable title="Por motivo" rows={glosaBreakdown.byReason} />
-          <GlosaBreakdownTable title="Por convênio" rows={glosaBreakdown.byInsurer} />
+          <GlosaBreakdownTable title="Por plano de saúde" rows={glosaBreakdown.byInsurer} />
           <GlosaBreakdownTable title="Por pessoa/cargo atribuído" rows={glosaBreakdown.byPerson} />
         </div>
       )}
@@ -159,7 +159,7 @@ export function FinanceiroTabs({
         <table className="table mt-6">
           <thead>
             <tr>
-              <th>Convênio</th>
+              <th>Plano de Saúde</th>
               <th>Guia</th>
               <th>Código</th>
               <th>Motivo</th>

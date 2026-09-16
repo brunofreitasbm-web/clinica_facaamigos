@@ -130,7 +130,7 @@ export default async function FaturamentoPage() {
                   <th>Data</th>
                   <th>Paciente</th>
                   <th>Terapeuta</th>
-                  <th>Convênio · guia</th>
+                  <th>Plano de Saúde · guia</th>
                   <th>Valor</th>
                   <th>Ações</th>
                 </tr>
@@ -183,7 +183,7 @@ export default async function FaturamentoPage() {
           <aside className="flex flex-col gap-10">
             <div>
               <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3">
-                Por convênio
+                Por plano de saúde
               </h6>
               <div className="flex flex-col gap-4">
                 {byInsurer.map((entry) => {

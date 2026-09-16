@@ -27,7 +27,7 @@ export function CompetenceForm({ insurers }: { insurers: { id: string; name: str
       }}
     >
       <div className="field flex-1">
-        <label htmlFor="insurer_id">Convênio</label>
+        <label htmlFor="insurer_id">Plano de Saúde</label>
         <select id="insurer_id" name="insurer_id" required defaultValue="" className="input">
           <option value="" disabled>
             Selecione

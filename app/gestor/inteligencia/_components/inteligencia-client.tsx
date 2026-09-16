@@ -266,7 +266,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 </p>
               </div>
               <p className="mt-3 text-xs font-semibold text-indigo-600">
-                Entrada via bot WhatsApp (chatbot_whatsapp/acolhimento de convênio)
+                Entrada via bot WhatsApp (chatbot_whatsapp/acolhimento de plano de saúde)
               </p>
             </div>
 
@@ -548,11 +548,11 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   );
                 })}
                 {metrics.revenueByInsurer.length === 0 && (
-                  <p className="py-4 text-center text-xs text-slate-400">Sem cobranças de convênio no período.</p>
+                  <p className="py-4 text-center text-xs text-slate-400">Sem cobranças de plano de saúde no período.</p>
                 )}
               </div>
               <p className="mt-3 text-[11px] text-slate-400">
-                Somente cobranças de convênio (billing_items); atendimento particular não é faturado por este módulo.
+                Somente cobranças de plano de saúde (billing_items); atendimento particular não é faturado por este módulo.
               </p>
             </div>
           </div>

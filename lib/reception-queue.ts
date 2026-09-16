@@ -152,7 +152,7 @@ export async function getExpiringAuthorizations(supabase: Supa, clinicId: string
     const insurance = insuranceById.get(auth.patient_insurance_id);
     if (!insurance) continue;
     const insurerName =
-      (Array.isArray(insurance.insurers) ? insurance.insurers[0]?.name : insurance.insurers?.name) ?? "Convênio";
+      (Array.isArray(insurance.insurers) ? insurance.insurers[0]?.name : insurance.insurers?.name) ?? "Plano de Saúde";
     const sessionsRemaining = auth.sessions_authorized - auth.sessions_used;
     const expiringSoon = auth.valid_to >= today && auth.valid_to <= fifteenDaysStr;
     const fewSessionsLeft = sessionsRemaining <= 4;
@@ -169,6 +169,91 @@ export async function getExpiringAuthorizations(supabase: Supa, clinicId: string
     });
   }
   return result;
+}
+
+export type AuthorizationWizardItem = {
+  id: string;
+  patientName: string;
+  insurerName: string;
+  specialty: string;
+  authorizedHours: number;
+  consumedHours: number;
+  expiresAt: string;
+  status: "regular" | "attention" | "critical";
+  protocolNumber: string;
+};
+
+/**
+ * Busca autorizações reais cadastradas no banco para exibir no assistente de pacotes TISS
+ */
+export async function getAuthorizationWizardItems(
+  supabase: Supa,
+  clinicId: string
+): Promise<AuthorizationWizardItem[]> {
+  const { data: patients } = await supabase
+    .from("patients")
+    .select("id, full_name, birth_date")
+    .eq("clinic_id", clinicId);
+
+  const patientIds = (patients ?? []).map((p) => p.id);
+  const patientById = new Map((patients ?? []).map((p) => [p.id, p]));
+  if (patientIds.length === 0) return [];
+
+  const { data: patientInsurances } = await supabase
+    .from("patient_insurance")
+    .select("id, patient_id, insurers(name)")
+    .in("patient_id", patientIds);
+
+  const insuranceById = new Map((patientInsurances ?? []).map((pi) => [pi.id, pi]));
+  const insuranceIds = (patientInsurances ?? []).map((pi) => pi.id);
+  if (insuranceIds.length === 0) return [];
+
+  const { data: auths } = await supabase
+    .from("authorizations")
+    .select("id, patient_insurance_id, guide_number, procedure_code, sessions_authorized, sessions_used, valid_to, status")
+    .in("patient_insurance_id", insuranceIds)
+    .in("status", ["ativa", "pendente"]);
+
+  const items: AuthorizationWizardItem[] = [];
+  for (const auth of auths ?? []) {
+    const insurance = insuranceById.get(auth.patient_insurance_id);
+    if (!insurance) continue;
+    const patient = patientById.get(insurance.patient_id);
+    const insurerName =
+      (Array.isArray(insurance.insurers) ? insurance.insurers[0]?.name : insurance.insurers?.name) ?? "Plano de Saúde";
+
+    let ageStr = "";
+    if (patient?.birth_date) {
+      const birth = new Date(patient.birth_date);
+      const age = new Date().getFullYear() - birth.getFullYear();
+      if (age >= 0 && age < 120) ageStr = ` (${age} anos)`;
+    }
+
+    const pct = auth.sessions_authorized > 0 ? Math.round((auth.sessions_used / auth.sessions_authorized) * 100) : 0;
+    let itemStatus: "regular" | "attention" | "critical" = "regular";
+    if (pct >= 90) {
+      itemStatus = "critical";
+    } else if (pct >= 70) {
+      itemStatus = "attention";
+    }
+
+    items.push({
+      id: auth.id,
+      patientName: (patient?.full_name ?? "—") + ageStr,
+      insurerName,
+      specialty: auth.procedure_code || "Atendimento",
+      authorizedHours: auth.sessions_authorized,
+      consumedHours: auth.sessions_used,
+      expiresAt: auth.valid_to,
+      status: itemStatus,
+      protocolNumber: auth.guide_number || `AUT-${auth.id.slice(0, 8)}`,
+    });
+  }
+
+  return items.sort((a, b) => {
+    const priority = { critical: 0, attention: 1, regular: 2 };
+    return priority[a.status] - priority[b.status];
+  });
 }
 
 export type ExpiredDocument = {
@@ -379,7 +464,7 @@ async function getAuthorizationRenewalRequests(supabase: Supa, clinicId: string)
     if (!pi) continue;
     const patient = Array.isArray(pi.patients) ? pi.patients[0] : pi.patients;
     if (!patient || patient.clinic_id !== clinicId) continue;
-    const insurerName = (Array.isArray(pi.insurers) ? pi.insurers[0]?.name : pi.insurers?.name) ?? "Convênio";
+    const insurerName = (Array.isArray(pi.insurers) ? pi.insurers[0]?.name : pi.insurers?.name) ?? "Plano de Saúde";
 
     result.push({
       id: r.id,
@@ -724,7 +809,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       categoryLabel: CATEGORY_LABEL.renovacao_solicitada,
       patientId: r.patientId,
       patientName: r.patientName,
-      detail: `${r.insurerName} · ${r.status === "solicitada_convenio" ? "solicitada ao convênio" : "aguardando início"}`,
+      detail: `${r.insurerName} · ${r.status === "solicitada_convenio" ? "solicitada ao plano de saúde" : "aguardando início"}`,
       urgencyLabel: new Date(r.createdAt).toLocaleDateString("pt-BR"),
       href: `/recepcao/pacientes/${r.patientId}`,
       renewalRequestId: r.id,

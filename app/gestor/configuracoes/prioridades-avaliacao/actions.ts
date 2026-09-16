@@ -44,7 +44,7 @@ export async function createPriority(
   if (existing) {
     return {
       success: false,
-      error: `Já existe uma prioridade de nível ${priority_level} para este convênio.`,
+      error: `Já existe uma prioridade de nível ${priority_level} para este plano de saúde.`,
     };
   }
 

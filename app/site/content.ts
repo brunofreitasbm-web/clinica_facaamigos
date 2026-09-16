@@ -336,7 +336,7 @@ export const EQUIPE: Array<{
  * O que fica neste arquivo é só a moldura de texto em volta da lista.
  */
 export const PLANOS = {
-  chapeu: "Convênios",
+  chapeu: "Planos de Saúde",
   titulo: "Seu plano de saúde é atendido aqui?",
   subtitulo:
     "É a pergunta que mais chega pra gente — então ela vem antes de qualquer agendamento. A lista abaixo sai direto do cadastro da clínica: se o seu plano está nela, está credenciado hoje.",
@@ -398,9 +398,9 @@ export const FAQ = [
       "Não. Você pode agendar a avaliação inicial mesmo sem diagnóstico fechado ou encaminhamento. Se já tiver laudos, relatórios da escola ou exames, traga — ajuda a equipe a chegar mais rápido no que importa.",
   },
   {
-    pergunta: "Vocês atendem por convênio?",
+    pergunta: "Vocês atendem por plano de saúde?",
     resposta:
-      "Sim, além do atendimento particular. A lista de convênios credenciados fica logo acima, na seção “Planos de saúde”, e sai direto do cadastro da clínica — se o seu plano estiver lá, está credenciado hoje. Não achou o seu? Consulte pelo formulário dessa seção: a recepção confirma a cobertura e explica o caminho do reembolso.",
+      "Sim, além do atendimento particular. A lista de planos de saúde credenciados fica logo acima, na seção “Planos de saúde”, e sai direto do cadastro da clínica — se o seu plano estiver lá, está credenciado hoje. Não achou o seu? Consulte pelo formulário dessa seção: a recepção confirma a cobertura e explica o caminho do reembolso.",
   },
   {
     pergunta: "Como funciona a primeira avaliação?",

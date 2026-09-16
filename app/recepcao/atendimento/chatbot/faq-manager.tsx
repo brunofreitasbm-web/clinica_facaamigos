@@ -13,7 +13,7 @@ export type FaqRow = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  convenios: "Convênios",
+  convenios: "Planos de Saúde",
   valores: "Valores",
   local: "Local",
   terapias: "Terapias",
@@ -60,7 +60,7 @@ function FaqRowView({ faq }: { faq: FaqRow }) {
                 className="input flex-1"
                 value={keywords}
                 onChange={(e) => setKeywords(e.target.value)}
-                placeholder="Sinônimos separados por vírgula (ex.: convenio, carteirinha)"
+                placeholder="Sinônimos separados por vírgula (ex.: plano de saúde, carteirinha)"
               />
             </div>
             <div className="flex gap-2">
@@ -159,7 +159,7 @@ export function FaqManager({ faqs }: { faqs: FaqRow[] }) {
       <h3 className="mb-1">FAQ do WhatsApp</h3>
       <p className="mb-2 text-sm text-ink-soft">
         Base de conhecimento do assistente de WhatsApp: cada pergunta cadastrada aqui é o que a IA (Gemini) usa para
-        responder às famílias sobre convênios, terapias, valores e regras. Quando a dúvida não estiver aqui, o bot
+        responder às famílias sobre planos de saúde, terapias, valores e regras. Quando a dúvida não estiver aqui, o bot
         escala automaticamente para a recepção em vez de inventar uma resposta.
       </p>
       {pendingCount > 0 && (

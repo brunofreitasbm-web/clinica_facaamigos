@@ -63,7 +63,7 @@ export async function getPatientIdentitySummary(
         insurerName:
           (Array.isArray(activeInsuranceRow.insurers)
             ? activeInsuranceRow.insurers[0]?.name
-            : activeInsuranceRow.insurers?.name) ?? "Convênio sem nome",
+            : activeInsuranceRow.insurers?.name) ?? "Plano de Saúde sem nome",
         cardNumber: activeInsuranceRow.card_number,
       }
     : null;

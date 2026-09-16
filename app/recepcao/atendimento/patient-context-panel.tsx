@@ -37,7 +37,7 @@ export function PatientContextPanel({ conversation }: { conversation: Conversati
       setConvenios(
         (insuranceRes.data ?? []).map((pi) => {
           const insurer = Array.isArray(pi.insurers) ? pi.insurers[0] : pi.insurers;
-          return { insurerName: insurer?.name ?? "Convênio", planName: pi.plan_name };
+          return { insurerName: insurer?.name ?? "Plano de Saúde", planName: pi.plan_name };
         }),
       );
       setAppointments(
@@ -63,7 +63,7 @@ export function PatientContextPanel({ conversation }: { conversation: Conversati
 
       <div>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-2">
-          Convênio
+          Plano de Saúde
         </h6>
         {loading && <p className="text-xs text-ink-faint">Carregando…</p>}
         {!loading && convenios.length === 0 && <p className="text-xs text-ink-faint">Particular.</p>}

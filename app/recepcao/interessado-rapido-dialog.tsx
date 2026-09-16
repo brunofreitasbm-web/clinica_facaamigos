@@ -141,7 +141,7 @@ export function InteressadoRapidoDialog() {
                     <option value="Instagram">Instagram</option>
                     <option value="Google">Google / Site</option>
                     <option value="Indicação">Indicação</option>
-                    <option value="Convênio">Convênio</option>
+                    <option value="Plano de Saúde">Plano de Saúde</option>
                     <option value="Passante / Presencial">Passante / Presencial</option>
                     <option value="Outro">Outro</option>
                   </select>

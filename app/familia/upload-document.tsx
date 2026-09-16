@@ -93,7 +93,7 @@ export function UploadDocument({ patientId }: { patientId: string }) {
                     name="note"
                     type="text"
                     className="input text-xs"
-                    placeholder="Ex.: Carteirinha do convênio atualizada"
+                    placeholder="Ex.: Carteirinha do plano de saúde atualizada"
                     maxLength={200}
                     disabled={isPending}
                   />

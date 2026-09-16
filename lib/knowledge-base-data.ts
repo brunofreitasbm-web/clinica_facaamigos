@@ -141,7 +141,7 @@ export const RECEPTION_KB_DATA: KBArticle[] = [
     categoryLabel: "Módulo Paciente",
     title: "Consulta de Ficha, Cadastro e Restrições",
     summary: "Como pesquisar a ficha da criança, consultar contatos de emergência, verificar laudo e garantir dados atualizados.",
-    purpose: "Manter cadastro 100% completo, sem lacunas de contatos, dados de convênio ou alertas de saúde/alergia.",
+    purpose: "Manter cadastro 100% completo, sem lacunas de contatos, dados de plano de saúde ou alertas de saúde/alergia.",
     bpmn_flow: [
       {
         step: 1,
@@ -211,7 +211,7 @@ export const RECEPTION_KB_DATA: KBArticle[] = [
     ],
     exceptions: [
       {
-        situation: "O convênio atrasou a emissão da renovação da guia e a criança tem sessão hoje.",
+        situation: "O plano de saúde atrasou a emissão da renovação da guia e a criança tem sessão hoje.",
         solution: "Verifique com o setor de Faturamento se há declaração de pedido de renovação protocolo. Caso aprovado pelo Faturamento, registre a liberação temporária."
       }
     ],
@@ -285,7 +285,7 @@ export const RECEPTION_KB_DATA: KBArticle[] = [
       {
         step: 3,
         actor: "Recepcionista",
-        action: "Se for uma Guia de Convenio, preencher os campos: Número da Guia, Validade Inicial/Final e Saldo de Sessões.",
+        action: "Se for uma Guia de Plano de Saúde, preencher os campos: Número da Guia, Validade Inicial/Final e Saldo de Sessões.",
         validation: "Conferir o número de sessões autorizadas contra o documento oficial enviado pelo plano."
       }
     ],

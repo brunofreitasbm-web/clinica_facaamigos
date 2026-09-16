@@ -95,7 +95,7 @@ export async function createPresencialAcolhimentoAction(
       return { success: false, error: "Telefone do responsável é obrigatório." };
     }
     if (!input.insurerId) {
-      return { success: false, error: "Selecione o plano de saúde/convênio." };
+      return { success: false, error: "Selecione o plano de saúde." };
     }
     if (!input.guideNumber.trim()) {
       return { success: false, error: "Número da guia autorizada é obrigatório." };
