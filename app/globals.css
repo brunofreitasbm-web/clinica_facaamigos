@@ -4,7 +4,10 @@
   Direção visual: FaçaAmigos — retematizado a partir do design system oficial
   da marca (Centro de Terapia Comportamental), ver
   C:\Users\bruno\Documents\Projetos\Faça Amigos\Branding\fa-aamigos-design-system.
-  Rosa (#F0196B) como accent primário, teal (#2ECFB5) como secundário, âmbar
+  Petróleo (#065264) como accent primário — trocado do rosa (#F0196B) em
+  16/09/2026 pra alinhar a UI ao uso de cor descrito em brand/README.md e
+  brand/cores.json (petróleo = CTAs/ação; rosa fica reservado à assinatura
+  "Amigos" e a usos pontuais de marca) —, teal (#2ECFB5) como secundário, âmbar
   (#C99020, tom da marca-mãe) como accent raro, Fredoka nos títulos grandes,
   Nunito no resto da UI, cantos sempre arredondados (pill em botão/tag/badge,
   24px em cartão), sombra sempre (nunca só fio de 1px).
@@ -23,6 +26,9 @@
   --color-pink: #f0196b;
   --color-pink-hover: #c8155a;
   --color-pink-active: #a01248;
+  --color-petroleo: #065264;
+  --color-petroleo-hover: #054452;
+  --color-petroleo-active: #043540;
   --color-teal: #2ecfb5;
   --color-teal-hover: #26b09b;
   --color-amber: #c99020;
@@ -37,7 +43,7 @@
   --color-text: var(--color-dark);
   --text-secondary: #595959;
   --color-text-secondary: #595959;
-  --color-accent: var(--color-pink);
+  --color-accent: var(--color-petroleo);
   --color-accent-2: var(--color-amber);
   --color-divider: color-mix(in srgb, var(--color-text) 14%, transparent);
 
@@ -51,16 +57,16 @@
   --color-neutral-800: #1e2328;
   --color-neutral-900: #141719;
 
-  /* rampa rosa — accent primário (interação/chrome) */
-  --color-accent-100: #fde6ef;
-  --color-accent-200: #fbc7da;
-  --color-accent-300: #f58fb4;
-  --color-accent-400: #f35995;
-  --color-accent-500: var(--color-pink);
-  --color-accent-600: var(--color-pink-hover);
-  --color-accent-700: var(--color-pink-active);
-  --color-accent-800: #7a0d37;
-  --color-accent-900: #4d0824;
+  /* rampa petróleo — accent primário (interação/chrome) */
+  --color-accent-100: #e1eef0;
+  --color-accent-200: #b8d6dc;
+  --color-accent-300: #7fb3bd;
+  --color-accent-400: #3d8998;
+  --color-accent-500: var(--color-petroleo);
+  --color-accent-600: var(--color-petroleo-hover);
+  --color-accent-700: var(--color-petroleo-active);
+  --color-accent-800: #03262e;
+  --color-accent-900: #01161a;
 
   /* rampa âmbar — accent raro (marco, destaque de card) */
   --color-accent-2-100: #faf1de;
@@ -116,10 +122,11 @@
   --shadow-sm: 0 1px 4px color-mix(in srgb, var(--color-text) 12%, transparent);
   --shadow-md: 0 4px 16px color-mix(in srgb, var(--color-text) 16%, transparent);
   --shadow-lg: 0 12px 32px color-mix(in srgb, var(--color-text) 20%, transparent);
+  --shadow-accent: 0 4px 20px color-mix(in srgb, var(--color-accent) 35%, transparent);
   --shadow-pink: 0 4px 20px rgba(240, 25, 107, 0.35);
   --shadow-teal: 0 4px 20px rgba(46, 207, 181, 0.3);
 
-  /* texto sobre fundo saturado (header rosa/teal/âmbar) — nunca usar
+  /* texto sobre fundo saturado (header petróleo/teal/âmbar) — nunca usar
      --color-bg/--color-accent-2 pra texto aqui: contra um fundo já
      saturado eles caem abaixo de AA (achado real: rótulo "· Gestão" em
      âmbar sobre rosa ficava quase ilegível). */
@@ -364,7 +371,7 @@ a {
 .btn:active { transform: scale(0.96); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: scale(1); }
 .btn-primary { background: var(--color-accent); color: #fff; }
-.btn-primary:hover { background: var(--color-accent-600); box-shadow: var(--shadow-pink); }
+.btn-primary:hover { background: var(--color-accent-600); box-shadow: var(--shadow-accent); }
 .btn-primary:active { background: var(--color-accent-700); }
 .btn-secondary { background: transparent; color: var(--color-accent); border: 2px solid var(--color-accent); padding: calc(var(--space-3) * 0.8 - 2px) calc(var(--space-4) * 1.2 - 2px); }
 .btn-secondary:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
