@@ -136,7 +136,7 @@ export default async function PacientePage({
       .eq("role", "terapeuta")
       .eq("active", true)
       .order("full_name"),
-    supabase.from("rooms").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
+    supabase.from("rooms").select("id, name, is_evaluation_room").eq("clinic_id", DEV_CLINIC_ID).order("name"),
     supabase.from("insurers").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
     // Seção fixa "Guias" (sempre visível, inclusive com o paciente já ativo —
     // diferente do formulário do passo 3 do checklist, que só aparece durante
@@ -606,9 +606,13 @@ export default async function PacientePage({
                         )}
                         <select name="room_id" required className="input">
                           <option value="">Sala</option>
-                          {(rooms ?? []).map((r) => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
-                          ))}
+                          {(() => {
+                            const evalRooms = (rooms ?? []).filter((r) => r.is_evaluation_room || r.name.toLowerCase().includes("avalia"));
+                            const displayRooms = evalRooms.length > 0 ? evalRooms : (rooms ?? []).filter((r) => Boolean(r.is_evaluation_room));
+                            return displayRooms.map((r) => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ));
+                          })()}
                         </select>
                         <input type="date" name="date" required className="input" />
                         <input type="time" name="time" required className="input" />

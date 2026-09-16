@@ -48,7 +48,7 @@ export function NovaSessaoDialog({
 }: {
   patients: { id: string; full_name: string }[];
   therapists: { id: string; full_name: string }[];
-  rooms: { id: string; name: string }[];
+  rooms: { id: string; name: string; is_evaluation_room?: boolean }[];
   appointmentTypes: AppointmentTypeOption[];
   guidesByPatient: Record<string, GuideSummary>;
   defaultDate: string;
@@ -75,6 +75,20 @@ export function NovaSessaoDialog({
     () => appointmentTypes.find((t) => t.id === appointmentTypeId)?.abaRole === "treino",
     [appointmentTypes, appointmentTypeId],
   );
+
+  const isEvaluationType = useMemo(() => {
+    if (!appointmentTypeId) return false;
+    const selectedType = appointmentTypes.find((t) => t.id === appointmentTypeId);
+    if (!selectedType) return false;
+    const nameLower = selectedType.name.toLowerCase();
+    return nameLower.includes("avalia") || nameLower.includes("anamnese") || nameLower.includes("acolhimento");
+  }, [appointmentTypes, appointmentTypeId]);
+
+  const availableRooms = useMemo(() => {
+    if (!isEvaluationType) return rooms;
+    const evalRooms = rooms.filter((r) => r.is_evaluation_room || r.name.toLowerCase().includes("avalia"));
+    return evalRooms.length > 0 ? evalRooms : rooms.filter((r) => Boolean(r.is_evaluation_room));
+  }, [rooms, isEvaluationType]);
   const selectedAbaClass = useMemo(
     () => abaClasses.find((c) => c.id === abaClassId) ?? null,
     [abaClasses, abaClassId],
@@ -294,7 +308,7 @@ export function NovaSessaoDialog({
                     <label>Sala</label>
                     <select name="room_id" required className="input">
                       <option value="">Selecione…</option>
-                      {rooms.map((r) => (
+                      {availableRooms.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.name}
                         </option>

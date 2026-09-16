@@ -72,7 +72,7 @@ export default async function SupervisaoPage() {
       .eq("role", "terapeuta")
       .eq("active", true)
       .order("full_name"),
-    supabase.from("rooms").select("id, name, capacity").eq("clinic_id", DEV_CLINIC_ID).order("name"),
+    supabase.from("rooms").select("id, name, capacity, is_evaluation_room").eq("clinic_id", DEV_CLINIC_ID).order("name"),
     supabase
       .from("appointments")
       .select(
@@ -461,7 +461,7 @@ export default async function SupervisaoPage() {
         <AgendaAvaliacoesPanel
           pool={evaluationPool}
           therapists={(therapists ?? []).filter((t) => t.is_evaluator).map((t) => ({ id: t.id, name: t.full_name }))}
-          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
+          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name, is_evaluation_room: r.is_evaluation_room }))}
           triagensPanel={<AnamnesisValidationPanel />}
           acolhimentosPanel={
             <AcolhimentosPanel
@@ -469,7 +469,7 @@ export default async function SupervisaoPage() {
               leadsByBatch={intakeLeadsByBatch}
               insurers={intakeInsurers}
               therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
-              rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
+              rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name, is_evaluation_room: r.is_evaluation_room }))}
             />
           }
           acolhimentosCount={nAcolhimentos}

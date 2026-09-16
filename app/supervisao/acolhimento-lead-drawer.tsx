@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   updateIntakeLeadFields,
   approveIntakeLeadsAndStartContact,
@@ -184,14 +184,20 @@ export function AcolhimentoLeadDrawer({
 }: {
   lead: LeadRow;
   therapists: { id: string; name: string }[];
-  rooms: { id: string; name: string }[];
+  rooms: { id: string; name: string; is_evaluation_room?: boolean }[];
   onClose: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
+
+  const evaluationRooms = useMemo(() => {
+    const filtered = rooms.filter((r) => r.is_evaluation_room || r.name.toLowerCase().includes("avalia"));
+    return filtered.length > 0 ? filtered : rooms.filter((r) => Boolean(r.is_evaluation_room));
+  }, [rooms]);
+
   const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
-  const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
+  const [roomId, setRoomId] = useState(() => evaluationRooms[0]?.id ?? rooms[0]?.id ?? "");
   // O que a família vai escolher no WhatsApp: sessão de avaliação de 50min
   // (padrão) ou bloco de 2h de Treino ABA em turma — no Treino ABA a sala e
   // o horário vêm da turma, não daqui.
@@ -466,11 +472,15 @@ export function AcolhimentoLeadDrawer({
                 </p>
               ) : (
                 <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input">
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
+                  {evaluationRooms.length === 0 ? (
+                    <option value="">Nenhuma sala de avaliação cadastrada</option>
+                  ) : (
+                    evaluationRooms.map((r: { id: string; name: string; is_evaluation_room?: boolean }) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))
+                  )}
                 </select>
               )}
             </div>

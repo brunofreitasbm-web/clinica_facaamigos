@@ -137,7 +137,7 @@ export function EvaluationCalendar({
 }: {
   pool: EvaluationPoolItem[];
   therapists: { id: string; name: string }[];
-  rooms: { id: string; name: string }[];
+  rooms: { id: string; name: string; is_evaluation_room?: boolean }[];
 }) {
   const [weekAnchor, setWeekAnchor] = useState(() => todayInTimeZone(CLINIC_TIMEZONE));
   const [appointments, setAppointments] = useState<EvaluationCalendarAppointment[]>([]);
@@ -145,8 +145,14 @@ export function EvaluationCalendar({
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const { toast } = useToast();
+
+  const evaluationRooms = useMemo(() => {
+    const filtered = rooms.filter((r) => r.is_evaluation_room || r.name.toLowerCase().includes("avalia"));
+    return filtered.length > 0 ? filtered : rooms.filter((r) => Boolean(r.is_evaluation_room));
+  }, [rooms]);
+
   const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
-  const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
+  const [roomId, setRoomId] = useState(() => evaluationRooms[0]?.id ?? rooms[0]?.id ?? "");
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TherapistAvailabilityBlock[]>([]);
   const [openDocPopoverId, setOpenDocPopoverId] = useState<string | null>(null);
@@ -340,11 +346,15 @@ export function EvaluationCalendar({
             </select>
             <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Sala</label>
             <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input text-xs">
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
+              {evaluationRooms.length === 0 ? (
+                <option value="">Nenhuma sala de avaliação cadastrada</option>
+              ) : (
+                evaluationRooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))
+              )}
             </select>
             <Link href="/supervisao/disponibilidade" className="text-xs font-semibold text-accent underline underline-offset-2 hover:no-underline">
               Disponibilidade do avaliador

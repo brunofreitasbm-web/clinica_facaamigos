@@ -72,7 +72,7 @@ export function AcolhimentosPanel({
   leadsByBatch: Record<string, LeadRow[]>;
   insurers: { id: string; name: string; intake_extraction_profile: unknown }[];
   therapists: { id: string; name: string }[];
-  rooms: { id: string; name: string }[];
+  rooms: { id: string; name: string; is_evaluation_room?: boolean }[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [uploadInsurerId, setUploadInsurerId] = useState("auto");

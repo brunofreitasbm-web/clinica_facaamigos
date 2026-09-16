@@ -65,7 +65,7 @@ export default async function RecepcaoPage({
   const fifteenDaysStr = civilDateInTimeZone(new Date(now.getTime() + 15 * 86_400_000), CLINIC_TIMEZONE);
 
   const [{ data: rooms }, { data: patients }, { data: therapists }, { data: insurers }] = await Promise.all([
-    supabase.from("rooms").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
+    supabase.from("rooms").select("id, name, is_evaluation_room").eq("clinic_id", DEV_CLINIC_ID).order("name"),
     supabase.from("patients").select("id, full_name").eq("clinic_id", DEV_CLINIC_ID).order("full_name"),
     supabase
       .from("profiles")

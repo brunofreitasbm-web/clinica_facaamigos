@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createPresencialAcolhimentoAction,
   type CreatePresencialAcolhimentoResult,
 } from "./acolhimento-presencial-actions";
 
-type OptionItem = { id: string; name?: string; full_name?: string };
+type OptionItem = { id: string; name?: string; full_name?: string; is_evaluation_room?: boolean };
 
 export function AcolhimentoPresencialDialog({
   insurers = [],
@@ -23,6 +23,11 @@ export function AcolhimentoPresencialDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreatePresencialAcolhimentoResult | null>(null);
+
+  const evaluationRooms = useMemo(() => {
+    const filtered = rooms.filter((r) => r.is_evaluation_room || (r.name || r.full_name || "").toLowerCase().includes("avalia"));
+    return filtered.length > 0 ? filtered : rooms.filter((r) => Boolean(r.is_evaluation_room));
+  }, [rooms]);
 
   // Form states - Paciente
   const [patientFullName, setPatientFullName] = useState("");
@@ -61,7 +66,7 @@ export function AcolhimentoPresencialDialog({
   // Agendamento Imediato
   const [scheduleNow, setScheduleNow] = useState(false);
   const [selectedTherapistId, setSelectedTherapistId] = useState(therapists[0]?.id || "");
-  const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.id || "");
+  const [selectedRoomId, setSelectedRoomId] = useState(evaluationRooms[0]?.id || rooms[0]?.id || "");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [selectedTime, setSelectedTime] = useState("09:00");
 
@@ -649,11 +654,15 @@ export function AcolhimentoPresencialDialog({
                             onChange={(e) => setSelectedRoomId(e.target.value)}
                             className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs focus:border-amber-500 focus:outline-none bg-white"
                           >
-                            {rooms.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {r.name}
-                              </option>
-                            ))}
+                            {evaluationRooms.length === 0 ? (
+                              <option value="">Nenhuma sala de avaliação cadastrada</option>
+                            ) : (
+                              evaluationRooms.map((r: OptionItem) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name || r.full_name}
+                                </option>
+                              ))
+                            )}
                           </select>
                         </div>
 

@@ -46,7 +46,7 @@ export function AgendaAvaliacoesPanel({
 }: {
   pool: EvaluationPoolItem[];
   therapists: { id: string; name: string }[];
-  rooms: { id: string; name: string }[];
+  rooms: { id: string; name: string; is_evaluation_room?: boolean }[];
   triagensPanel: ReactNode;
   acolhimentosPanel: ReactNode;
   acolhimentosCount?: number;

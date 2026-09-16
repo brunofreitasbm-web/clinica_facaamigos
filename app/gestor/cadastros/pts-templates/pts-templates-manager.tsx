@@ -69,7 +69,7 @@ export function PtsTemplatesManager({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 bg-paper">
+    <div className="flex flex-1 bg-paper">
 
       <PageContainer>
         {/* Cabeçalho da Página */}
