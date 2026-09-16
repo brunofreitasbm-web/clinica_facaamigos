@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
@@ -569,6 +570,50 @@ async function getUnconfirmedCheckins(supabase: Supa, clinicId: string, minMinut
  * Muta e devolve os próprios itens (evita recriar os objetos e perder
  * qualquer campo extra que outra categoria tenha colocado neles).
  */
+/**
+ * Cria o assignment padrão (dono + prazo) dos itens da fila que ainda não
+ * têm um — chamada via after() por attachQueueAssignments, fora do caminho
+ * de resposta da página.
+ */
+async function insertMissingAssignments(
+  supabase: Supa,
+  clinicId: string,
+  missing: PendingQueueItem[],
+): Promise<void> {
+  // Regra de "plantão" documentada (§9.1 da tarefa): o sistema não tem
+  // conceito de escala/plantão hoje, então o dono padrão de um item recém
+  // detectado é, deterministicamente, o profile ativo mais antigo com
+  // role='recepcao' — evita sortear um dono diferente a cada carregamento
+  // de página enquanto ninguém reatribui manualmente.
+  const { data: onDuty } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("clinic_id", clinicId)
+    .eq("role", "recepcao")
+    .eq("active", true)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const now = Date.now();
+  const inserts = missing.map((item) => ({
+    clinic_id: clinicId,
+    item_id: item.id,
+    category: item.category,
+    patient_id: item.patientId,
+    assigned_to: onDuty?.id ?? null,
+    due_at: new Date(now + DUE_MINUTES_BY_CATEGORY[item.category] * 60_000).toISOString(),
+  }));
+
+  // onConflict com ignoreDuplicates: se outra requisição concorrente já
+  // inseriu o mesmo item_id entre a leitura em attachQueueAssignments e este
+  // insert, este upsert não sobrescreve o assignment que já existe (não
+  // queremos "resetar" due_at/assigned_to de um item que já tinha dono).
+  await supabase
+    .from("pending_queue_assignments")
+    .upsert(inserts, { onConflict: "clinic_id,item_id", ignoreDuplicates: true });
+}
+
 async function attachQueueAssignments(
   supabase: Supa,
   clinicId: string,
@@ -589,46 +634,14 @@ async function attachQueueAssignments(
   const missing = items.filter((item) => !existingByItemId.has(item.id));
 
   if (missing.length > 0) {
-    // Regra de "plantão" documentada (§9.1 da tarefa): o sistema não tem
-    // conceito de escala/plantão hoje, então o dono padrão de um item recém
-    // detectado é, deterministicamente, o profile ativo mais antigo com
-    // role='recepcao' — evita sortear um dono diferente a cada carregamento
-    // de página enquanto ninguém reatribui manualmente.
-    const { data: onDuty } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("clinic_id", clinicId)
-      .eq("role", "recepcao")
-      .eq("active", true)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    const now = Date.now();
-    const inserts = missing.map((item) => ({
-      clinic_id: clinicId,
-      item_id: item.id,
-      category: item.category,
-      patient_id: item.patientId,
-      assigned_to: onDuty?.id ?? null,
-      due_at: new Date(now + DUE_MINUTES_BY_CATEGORY[item.category] * 60_000).toISOString(),
-    }));
-
-    // onConflict com ignoreDuplicates: se outra requisição concorrente já
-    // inseriu o mesmo item_id entre a leitura acima e este insert, este
-    // upsert não sobrescreve o assignment que já existe (não queremos
-    // "resetar" due_at/assigned_to de um item que já tinha dono).
-    const { data: inserted } = await supabase
-      .from("pending_queue_assignments")
-      .upsert(inserts, { onConflict: "clinic_id,item_id", ignoreDuplicates: true })
-      .select("item_id, assigned_to, due_at, escalated_at, resolved_at, profiles(full_name)");
-
-    for (const row of inserted ?? []) {
-      existingByItemId.set(row.item_id, row);
-    }
-    // Se o upsert ignorou por já existir (corrida concorrente), o item ainda
-    // não está em existingByItemId — os campos ficam null abaixo, o que é
-    // seguro (próximo carregamento da página resolve).
+    // O upsert (e a leitura de "quem está de plantão" que ele precisa) é uma
+    // ESCRITA no caminho de leitura desta página — antes rodava aqui, síncrono,
+    // em toda /recepcao. Adiada com after() (Next 16): a resposta não espera
+    // por ela. O comportamento no render atual é o mesmo que o comentário
+    // abaixo já descrevia para a corrida concorrente — item novo aparece sem
+    // dono/prazo agora, e resolvido no próximo carregamento da página, que já
+    // é o padrão tolerado aqui.
+    after(() => insertMissingAssignments(supabase, clinicId, missing));
   }
 
   const nowIso = new Date().toISOString();

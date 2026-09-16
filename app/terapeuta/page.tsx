@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { RealtimeAppointmentToast } from "@/components/realtime-appointment-toast";
 import { createClient } from "@/lib/supabase/server";
+import { getViewerProfile } from "@/lib/auth/viewer";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { zonedDateTimeToUtc, todayInTimeZone, nextCalendarDay } from "@/lib/timezone";
 import { TodaySessionsList } from "./today-sessions-list";
@@ -26,26 +27,20 @@ export default async function TerapeutaPage({
 }) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Mesmo perfil que app/terapeuta/layout.tsx já buscou neste render —
+  // getViewerProfile() é cache()ado por request.
+  const profile = await getViewerProfile();
 
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, full_name, role")
-    .eq("id", user.id)
-    .maybeSingle();
+  if (!profile) redirect("/login");
 
   // Gestor/supervisor têm visão ampla por clinic_id (PRD §4) e podem
   // escolher qual terapeuta olhar. Terapeuta só vê a própria agenda — sem
   // seletor, sem possibilidade de ver de outro. Qualquer outro papel aqui
   // não deveria acontecer (o proxy.ts já restringe por ROLE_HOME), mas
   // negamos acesso defensivamente.
-  const canChooseTherapist = profile?.role === "gestor" || profile?.role === "supervisor";
+  const canChooseTherapist = profile.role === "gestor" || profile.role === "supervisor";
 
-  if (!profile || (profile.role !== "terapeuta" && !canChooseTherapist)) {
+  if (profile.role !== "terapeuta" && !canChooseTherapist) {
     redirect("/");
   }
 
@@ -68,7 +63,7 @@ export default async function TerapeutaPage({
         ? requestedTherapistId!
         : (therapists?.[0]?.id ?? "");
   } else {
-    therapistId = profile.id;
+    therapistId = profile.userId;
   }
 
   const today = todayInTimeZone(CLINIC_TIMEZONE);
@@ -117,8 +112,8 @@ export default async function TerapeutaPage({
     .order("due_date");
 
   const viewingTherapistName = canChooseTherapist
-    ? (therapists?.find((t) => t.id === therapistId)?.full_name ?? profile.full_name)
-    : profile.full_name;
+    ? (therapists?.find((t) => t.id === therapistId)?.full_name ?? profile.fullName)
+    : profile.fullName;
   const firstName = viewingTherapistName.split(" ")[0] ?? viewingTherapistName;
 
   const todayLabel = capitalize(
@@ -337,7 +332,7 @@ export default async function TerapeutaPage({
 
       {/* Só a sessão real do próprio terapeuta (não a visão "ver como" de
           gestor/supervisor) recebe o toast de chegada na recepção. */}
-      {!canChooseTherapist && <RealtimeAppointmentToast therapistId={profile.id} />}
+      {!canChooseTherapist && <RealtimeAppointmentToast therapistId={profile.userId} />}
     </main>
   );
 }

@@ -1,23 +1,17 @@
 import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { getViewerProfile } from "@/lib/auth/viewer";
 import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
 import { TherapistKnowledgeBaseDrawer } from "@/components/therapist-knowledge-base-drawer";
 
 /**
  * Layout do módulo Terapeuta — monta a nav (TerapeutaBottomNav) em toda tela
  * do portal, do mesmo jeito que app/recepcao/layout.tsx faz com a RecepcaoNav.
+ *
+ * getViewerProfile() (cache() por request) — app/terapeuta/page.tsx faz a
+ * mesma checagem de papel no mesmo render; antes duplicava getUser()+profiles.
  */
 async function TerapeutaNavByRole() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = user
-    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
-    : { data: null };
-
+  const profile = await getViewerProfile();
   return <TerapeutaBottomNav role={profile?.role ?? null} />;
 }
 

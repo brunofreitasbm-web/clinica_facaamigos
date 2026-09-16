@@ -23,6 +23,16 @@ const nextConfig: NextConfig = {
       // de arquivo aplicado nas próprias actions.
       bodySizeLimit: "26mb",
     },
+    // Com o default (dynamic: 0), toda tela do sistema é dinâmica (cookie de
+    // sessão) e o cache de cliente do Next.js fica desligado — alternar entre
+    // menus/voltar refaz o fetch do zero toda vez, mesmo re-clicando na
+    // mesma tela em segundos. 5s de folga faz esse vai-e-vem ficar
+    // instantâneo sem deixar dado operacional (fila de recepção, agenda)
+    // velho por mais que isso; loading.tsx segue cobrindo qualquer navegação
+    // fora dessa janela. `static` mantido no default do Next (5min).
+    staleTimes: {
+      dynamic: 5,
+    },
   },
   async headers() {
     return [
