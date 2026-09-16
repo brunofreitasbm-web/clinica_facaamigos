@@ -10,7 +10,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/terapeuta",
     display: "standalone",
     background_color: "#ffffff",
-    theme_color: "#fb3d6a",
+    theme_color: "#065264",
     icons: [
       {
         src: "/icons/icon-192.png",

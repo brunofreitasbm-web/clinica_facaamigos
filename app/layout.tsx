@@ -30,7 +30,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#fb3d6a",
+  themeColor: "#065264",
 };
 
 import { ToastProvider } from "@/components/toast-provider";
