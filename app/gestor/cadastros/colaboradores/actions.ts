@@ -131,7 +131,7 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
     };
   }
 
-  revalidatePath("/gestor/equipe");
+  revalidatePath("/gestor/cadastros/colaboradores");
   return { success: true };
 }
 
@@ -187,7 +187,7 @@ export async function updateStaffProfile(
     };
   }
 
-  revalidatePath("/gestor/equipe");
+  revalidatePath("/gestor/cadastros/colaboradores");
   return { success: true };
 }
 
@@ -204,7 +204,7 @@ export async function toggleStaffActive(profileId: string, active: boolean): Pro
 
   if (error) return { success: false, error: "Não foi possível alterar o status do colaborador." };
 
-  revalidatePath("/gestor/equipe");
+  revalidatePath("/gestor/cadastros/colaboradores");
   return { success: true };
 }
 
@@ -242,7 +242,7 @@ export async function deleteStaff(profileId: string): Promise<ActionResult> {
     // se o user já não existia no auth, prossegue
   }
 
-  revalidatePath("/gestor/equipe");
+  revalidatePath("/gestor/cadastros/colaboradores");
   return { success: true };
 }
 
@@ -327,7 +327,7 @@ export async function resetStaffPassword(profileId: string): Promise<ResetPasswo
     after: { must_change_password: true },
   });
 
-  revalidatePath("/gestor/equipe");
+  revalidatePath("/gestor/cadastros/colaboradores");
   return { success: true, tempPassword };
 }
 
@@ -370,7 +370,7 @@ export async function resetSignaturePin(profileId: string): Promise<ActionResult
     // sem service role configurada — segue sem log
   }
 
-  revalidatePath("/gestor/equipe");
+  revalidatePath("/gestor/cadastros/colaboradores");
   revalidatePath("/terapeuta");
   return { success: true };
 }
