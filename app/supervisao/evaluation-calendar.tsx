@@ -14,7 +14,7 @@ import {
   rescheduleEvaluationAction,
   type TherapistAvailabilityBlock,
 } from "./evaluation-calendar-actions";
-import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationPoolItem } from "@/lib/evaluation-agenda";
+import { filterEvaluationRooms, type EvaluationAgendaOrigin, type EvaluationCalendarAppointment, type EvaluationPoolItem } from "@/lib/evaluation-agenda";
 import { AnamnesisDocumentPopover } from "@/components/anamnesis-document-popover";
 import { AlertTriangle, FileCheck2 } from "lucide-react";
 
@@ -43,7 +43,7 @@ const ORIGIN_TAG: Record<EvaluationAgendaOrigin, string> = {
   convenio_pdf: "st-confirmada",
   presencial: "st-realizada",
   family_meeting: "st-em-atendimento",
-  patient_feedback: "st-cancelada",
+  patient_feedback: "bg-purple-100 text-purple-900 border border-purple-300 font-bold",
 };
 
 const WEEKDAY_LABEL = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
@@ -144,12 +144,10 @@ export function EvaluationCalendar({
   const [pool, setPool] = useState(initialPool);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [originFilter, setOriginFilter] = useState<"all" | "evaluations" | "patient_feedback">("all");
   const { toast } = useToast();
 
-  const evaluationRooms = useMemo(() => {
-    const filtered = rooms.filter((r) => r.is_evaluation_room || r.name.toLowerCase().includes("avalia"));
-    return filtered.length > 0 ? filtered : rooms.filter((r) => Boolean(r.is_evaluation_room));
-  }, [rooms]);
+  const evaluationRooms = useMemo(() => filterEvaluationRooms(rooms), [rooms]);
 
   const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
   const [roomId, setRoomId] = useState(() => evaluationRooms[0]?.id ?? rooms[0]?.id ?? "");
@@ -160,13 +158,11 @@ export function EvaluationCalendar({
   const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
   const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
 
-  // Une os terapeutas cadastrados como avaliadores com quem de fato aparece
-  // agendado na semana visível — sem isso o dropdown pode dizer "nenhum
-  // terapeuta avaliador cadastrado" enquanto o grid mostra agendamentos reais,
-  // já que o agendamento em si não exige a flag is_evaluator.
-  // Esses avulsos entram só para leitura do grid: `isEvaluator: false` os
-  // desabilita como destino de NOVO agendamento — não é uma trava (o banco
-  // aceitaria), é orientação: nem todo terapeuta é avaliador.
+  const feedbackCount = useMemo(
+    () => appointments.filter((a) => a.origin === "patient_feedback").length,
+    [appointments]
+  );
+
   const availableTherapists = useMemo(() => {
     const byId = new Map<string, { id: string; name: string; isEvaluator: boolean }>(
       therapists.map((t) => [t.id, { ...t, isEvaluator: true }]),
@@ -178,15 +174,9 @@ export function EvaluationCalendar({
     return Array.from(byId.values());
   }, [therapists, appointments]);
 
-  // Sem avaliador cadastrado, a grade não tem destino válido pra receber um
-  // agendamento — em vez de deixar o usuário arrastar/clicar em slots vazios
-  // e só descobrir o erro depois do drop, a interação fica bloqueada e o
-  // aviso aparece antes, com CTA direto pra cadastrar disponibilidade.
   const hasEvaluators = availableTherapists.some((t) => t.isEvaluator);
 
   useEffect(() => {
-    // Nunca pré-selecionar um avulso sem qualificação: ele só está na lista
-    // para o grid, não como destino padrão de novo agendamento.
     if (!therapistId) {
       const first = availableTherapists.find((t) => t.isEvaluator);
       if (first) setTherapistId(first.id);
@@ -227,9 +217,6 @@ export function EvaluationCalendar({
   const readyPool = pool.filter((p) => p.ready);
   const waitingPool = pool.filter((p) => !p.ready);
 
-  // Se o avaliador não tem NENHUM bloco cadastrado, disponibilidade ainda não
-  // foi configurada pra ele — não restringe nada além do horário comercial,
-  // mesmo comportamento do trigger appointments_availability_guard no banco.
   const hasAvailabilityConfigured = availabilityBlocks.length > 0;
   const blockedRangesByDay = useMemo(() => {
     if (!hasAvailabilityConfigured) return [] as [number, number][][];
@@ -270,9 +257,6 @@ export function EvaluationCalendar({
       return;
     }
 
-    // Só valida contra a disponibilidade do dropdown em novos agendamentos —
-    // reagendar um card já marcado mantém o terapeuta original do
-    // compromisso, que pode não ser o selecionado no dropdown agora.
     if (payload.kind === "pool" && hasAvailabilityConfigured) {
       const startMinutes = parseTimeToMinutes(time);
       const isBlocked = blockedRangesByDay[dayIndex]?.some(([s, e]) => startMinutes < e && endMinutes > s);
@@ -361,6 +345,53 @@ export function EvaluationCalendar({
             </Link>
           </div>
         ) : null}
+      </div>
+
+      {/* Legenda e Filtros da Agenda de Avaliação */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-paper-line bg-paper-subtle p-2.5 text-xs text-ink-soft shadow-xs">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-bold text-ink">Filtrar visualização:</span>
+          <div className="flex items-center gap-1 rounded-md border border-paper-line-strong bg-white p-0.5">
+            <button
+              type="button"
+              onClick={() => setOriginFilter("all")}
+              className={`rounded px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                originFilter === "all" ? "bg-paper-line-strong text-ink font-bold shadow-xs" : "text-ink-soft hover:text-ink"
+              }`}
+            >
+              Todos os agendamentos
+            </button>
+            <button
+              type="button"
+              onClick={() => setOriginFilter("evaluations")}
+              className={`rounded px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                originFilter === "evaluations" ? "bg-paper-line-strong text-ink font-bold shadow-xs" : "text-ink-soft hover:text-ink"
+              }`}
+            >
+              1ªs Avaliações
+            </button>
+            <button
+              type="button"
+              onClick={() => setOriginFilter("patient_feedback")}
+              className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                originFilter === "patient_feedback" ? "bg-purple-700 text-white font-bold shadow-xs" : "text-purple-800 hover:bg-purple-100"
+              }`}
+            >
+              🗣️ Devolutivas com Pais ({feedbackCount})
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 text-[11px]">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#fef3c7] border border-[#fcd34d]" />
+            1ª Avaliação / Anamnese
+          </span>
+          <span className="inline-flex items-center gap-1.5 font-semibold text-purple-900">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#f3e8ff] border border-[#c084fc]" />
+            🗣️ Devolutiva do Paciente (Reunião Sazonal)
+          </span>
+        </div>
       </div>
 
       {!hasEvaluators && (
@@ -512,7 +543,14 @@ export function EvaluationCalendar({
                 ))}
               </div>
               {week.days.map((day, dayIndex) => {
-                const dayAppointments = appointments.filter((a) => dayIndexInWeek(a.startsAt, week, CLINIC_TIMEZONE) === dayIndex);
+                const dayAppointments = appointments
+                  .filter((a) => dayIndexInWeek(a.startsAt, week, CLINIC_TIMEZONE) === dayIndex)
+                  .filter((a) => {
+                    if (originFilter === "patient_feedback") return a.origin === "patient_feedback";
+                    if (originFilter === "evaluations") return a.origin !== "patient_feedback" && a.origin !== "family_meeting";
+                    return true;
+                  });
+
                 const closingHour = CLOSING_HOUR_BY_DAY[dayIndex];
                 const closedFromMinutes = (closingHour - DAY_START_HOUR) * 60;
                 const closedTop = (closedFromMinutes / ROW_MINUTES) * ROW_HEIGHT_PX;
@@ -581,6 +619,21 @@ export function EvaluationCalendar({
                         const durationMinutes = Math.max(30, (new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime()) / 60_000);
                         const top = (startMinutes / ROW_MINUTES) * ROW_HEIGHT_PX;
                         const height = (durationMinutes / ROW_MINUTES) * ROW_HEIGHT_PX;
+                        const isFeedback = a.origin === "patient_feedback";
+                        const isFamilyMeeting = a.origin === "family_meeting";
+
+                        const cardBg = isFeedback
+                          ? "var(--color-accent-2-100, #f3e8ff)"
+                          : isFamilyMeeting
+                          ? "#f1f5f9"
+                          : "var(--status-agendada-bg)";
+
+                        const cardBorder = isFeedback
+                          ? "#c084fc"
+                          : isFamilyMeeting
+                          ? "#cbd5e1"
+                          : "var(--paper-line-strong)";
+
                         return (
                           <div
                             key={a.id}
@@ -592,13 +645,26 @@ export function EvaluationCalendar({
                                 JSON.stringify({ kind: "reschedule", appointmentId: a.id, durationMinutes } satisfies DragPayload),
                               );
                             }}
-                            className="grid-cell-focusable absolute left-0.5 right-0.5 cursor-grab overflow-hidden rounded-md border p-1 text-[11px] shadow-sm active:cursor-grabbing"
-                            style={{ top, height, background: "var(--status-agendada-bg)", borderColor: "var(--paper-line-strong)" }}
-                            title={`${a.patientName} · ${a.therapistName} · ${a.roomName}`}
+                            className={`grid-cell-focusable absolute left-0.5 right-0.5 cursor-grab overflow-hidden rounded-md border p-1.5 text-[11px] shadow-sm active:cursor-grabbing ${
+                              isFeedback ? "ring-2 ring-purple-500/40" : ""
+                            }`}
+                            style={{ top, height, background: cardBg, borderColor: cardBorder }}
+                            title={`${a.patientName} · ${a.therapistName} · ${a.roomName}${
+                              isFeedback ? " (Devolutiva do Paciente - Reunião Sazonal com Pais)" : ""
+                            }`}
                           >
-                            <p className="truncate font-semibold text-ink">{a.patientName}</p>
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="truncate font-bold text-ink">{a.patientName}</p>
+                              {isFeedback && (
+                                <span className="shrink-0 rounded bg-purple-200 px-1 py-0.2 text-[9px] font-black text-purple-900 uppercase">
+                                  Devolutiva
+                                </span>
+                              )}
+                            </div>
                             <p className="truncate text-ink-soft">{timeLabel(a.startsAt, CLINIC_TIMEZONE)} · {a.therapistName}</p>
-                            <span className={`tag-status ${ORIGIN_TAG[a.origin]}`}>{ORIGIN_LABEL[a.origin]}</span>
+                            <span className={`tag-status mt-0.5 inline-block ${ORIGIN_TAG[a.origin]}`}>
+                              {isFeedback ? "🗣️ Devolutiva do Paciente" : ORIGIN_LABEL[a.origin]}
+                            </span>
                           </div>
                         );
                       })}
@@ -613,3 +679,4 @@ export function EvaluationCalendar({
     </div>
   );
 }
+

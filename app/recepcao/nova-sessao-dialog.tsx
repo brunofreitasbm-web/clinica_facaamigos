@@ -15,6 +15,7 @@ import {
   type AbaBalance,
   type AbaClassOption,
 } from "@/lib/aba-training";
+import { filterEvaluationRooms } from "@/lib/evaluation-agenda";
 
 export type GuideSummary = {
   insurerName: string;
@@ -86,8 +87,7 @@ export function NovaSessaoDialog({
 
   const availableRooms = useMemo(() => {
     if (!isEvaluationType) return rooms;
-    const evalRooms = rooms.filter((r) => r.is_evaluation_room || r.name.toLowerCase().includes("avalia"));
-    return evalRooms.length > 0 ? evalRooms : rooms.filter((r) => Boolean(r.is_evaluation_room));
+    return filterEvaluationRooms(rooms);
   }, [rooms, isEvaluationType]);
   const selectedAbaClass = useMemo(
     () => abaClasses.find((c) => c.id === abaClassId) ?? null,

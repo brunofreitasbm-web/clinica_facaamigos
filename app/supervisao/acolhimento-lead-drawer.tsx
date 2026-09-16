@@ -17,6 +17,7 @@ import {
 } from "./acolhimento-actions";
 import { getValidityBadge } from "@/lib/document-categories";
 import type { LaudoExtraction } from "@/lib/laudo-extraction";
+import { filterEvaluationRooms } from "@/lib/evaluation-agenda";
 
 const CONFIDENCE_THRESHOLD = 0.7;
 
@@ -191,10 +192,7 @@ export function AcolhimentoLeadDrawer({
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
 
-  const evaluationRooms = useMemo(() => {
-    const filtered = rooms.filter((r) => r.is_evaluation_room || r.name.toLowerCase().includes("avalia"));
-    return filtered.length > 0 ? filtered : rooms.filter((r) => Boolean(r.is_evaluation_room));
-  }, [rooms]);
+  const evaluationRooms = useMemo(() => filterEvaluationRooms(rooms), [rooms]);
 
   const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
   const [roomId, setRoomId] = useState(() => evaluationRooms[0]?.id ?? rooms[0]?.id ?? "");

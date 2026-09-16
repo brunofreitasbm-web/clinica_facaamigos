@@ -220,3 +220,27 @@ export async function getEvaluationCalendarAppointments(
     };
   });
 }
+
+/**
+ * Filtra e retorna apenas as salas caracterizadas para 1ª Avaliação / Anamnese / Acolhimento.
+ * Regra:
+ * 1. Se houver salas com `is_evaluation_room === true`, retorna SOMENTE estas.
+ * 2. Se nenhuma sala tiver o flag `is_evaluation_room === true` no banco, busca salas cujo nome contenha "avalia" (ignora acentos).
+ * 3. Se nenhuma sala atender a estes critérios, retorna array vazio `[]` (bloqueia o uso de salas comuns como Sala 4, Sala 5, etc).
+ */
+export function filterEvaluationRooms<T extends { name?: string; full_name?: string; is_evaluation_room?: boolean }>(rooms: T[]): T[] {
+  if (!rooms || rooms.length === 0) return [];
+
+  const flagged = rooms.filter((r) => r.is_evaluation_room === true);
+  if (flagged.length > 0) return flagged;
+
+  const byName = rooms.filter((r) => {
+    const rawName = r.name || r.full_name || "";
+    const normalized = rawName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return normalized.includes("avalia");
+  });
+
+  if (byName.length > 0) return byName;
+
+  return [];
+}

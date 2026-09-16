@@ -5,6 +5,7 @@ import { ClipboardCheck } from "lucide-react";
 import {
   getActivePatientsForFeedbackAction,
   getEvaluationRoomsForFeedbackAction,
+  getPatientEvaluationDetailsAction,
   bookPatientFeedbackAction,
 } from "./patient-feedback-actions";
 
@@ -21,6 +22,13 @@ export function PatientFeedbackButton() {
   const [rooms, setRooms] = useState<{ id: string; name: string }[] | null>(null);
   const [patientQuery, setPatientQuery] = useState("");
   const [patientId, setPatientId] = useState("");
+  const [evalInfo, setEvalInfo] = useState<{
+    roomId: string;
+    roomName: string;
+    date: string;
+    time: string;
+  } | null>(null);
+  const [loadingEval, setLoadingEval] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -50,12 +58,39 @@ export function PatientFeedbackButton() {
 
   const filteredPatients = (patients ?? []).filter((p) => p.name.toLowerCase().includes(patientQuery.trim().toLowerCase()));
 
+  function handleSelectPatient(id: string, name: string) {
+    setPatientId(id);
+    setPatientQuery(name);
+    setEvalInfo(null);
+    setLoadingEval(true);
+
+    getPatientEvaluationDetailsAction(id).then((res) => {
+      setLoadingEval(false);
+      if (res.success && res.evaluationInfo) {
+        setEvalInfo(res.evaluationInfo);
+        const evalRoomId = res.evaluationInfo.roomId;
+        const evalRoomName = res.evaluationInfo.roomName;
+
+        setRooms((prevRooms) => {
+          const current = prevRooms ?? [];
+          if (!current.some((r) => r.id === evalRoomId)) {
+            return [{ id: evalRoomId, name: evalRoomName }, ...current];
+          }
+          return current;
+        });
+
+        setRoomId(evalRoomId);
+      }
+    });
+  }
+
   function close() {
     setIsOpen(false);
     setFeedback(null);
     setDone(false);
     setPatientId("");
     setPatientQuery("");
+    setEvalInfo(null);
     setDate("");
     setTime("");
   }
@@ -102,6 +137,7 @@ export function PatientFeedbackButton() {
                   onChange={(e) => {
                     setPatientQuery(e.target.value);
                     setPatientId("");
+                    setEvalInfo(null);
                   }}
                   placeholder="Buscar paciente pelo nome…"
                 />
@@ -114,14 +150,24 @@ export function PatientFeedbackButton() {
                         key={p.id}
                         type="button"
                         className="block w-full px-2 py-1.5 text-left text-xs hover:bg-paper"
-                        onClick={() => {
-                          setPatientId(p.id);
-                          setPatientQuery(p.name);
-                        }}
+                        onClick={() => handleSelectPatient(p.id, p.name)}
                       >
                         {p.name}
                       </button>
                     ))}
+                  </div>
+                )}
+                {loadingEval && <p className="mt-1 text-[11px] text-ink-faint">Buscando sala da 1ª avaliação…</p>}
+                {evalInfo && (
+                  <div className="mt-2 rounded-md bg-paper-subtle p-2.5 text-xs border border-paper-line text-ink-soft space-y-0.5">
+                    <p className="font-semibold text-ink">
+                      📍 1ª avaliação deste paciente: {evalInfo.roomName}
+                    </p>
+                    {evalInfo.date && evalInfo.time && (
+                      <p className="text-[11px] text-ink-faint">
+                        Agendada em {evalInfo.date.split("-").reverse().join("/")} às {evalInfo.time}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

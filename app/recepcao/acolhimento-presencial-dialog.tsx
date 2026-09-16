@@ -2,10 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  createPresencialAcolhimentoAction,
-  type CreatePresencialAcolhimentoResult,
-} from "./acolhimento-presencial-actions";
+import { createPresencialAcolhimentoAction, type CreatePresencialAcolhimentoResult } from "./acolhimento-presencial-actions";
+import { filterEvaluationRooms } from "@/lib/evaluation-agenda";
 
 type OptionItem = { id: string; name?: string; full_name?: string; is_evaluation_room?: boolean };
 
@@ -24,10 +22,7 @@ export function AcolhimentoPresencialDialog({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreatePresencialAcolhimentoResult | null>(null);
 
-  const evaluationRooms = useMemo(() => {
-    const filtered = rooms.filter((r) => r.is_evaluation_room || (r.name || r.full_name || "").toLowerCase().includes("avalia"));
-    return filtered.length > 0 ? filtered : rooms.filter((r) => Boolean(r.is_evaluation_room));
-  }, [rooms]);
+  const evaluationRooms = useMemo(() => filterEvaluationRooms(rooms), [rooms]);
 
   // Form states - Paciente
   const [patientFullName, setPatientFullName] = useState("");

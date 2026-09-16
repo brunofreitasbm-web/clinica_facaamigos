@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getViewerProfile } from "@/lib/auth/viewer";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
+import { filterEvaluationRooms } from "@/lib/evaluation-agenda";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { APPOINTMENT_STATUS_STYLE, AUTHORIZATION_STATUS_STYLE } from "@/lib/appointment-status-style";
@@ -607,9 +608,11 @@ export default async function PacientePage({
                         <select name="room_id" required className="input">
                           <option value="">Sala</option>
                           {(() => {
-                            const evalRooms = (rooms ?? []).filter((r) => r.is_evaluation_room || r.name.toLowerCase().includes("avalia"));
-                            const displayRooms = evalRooms.length > 0 ? evalRooms : (rooms ?? []).filter((r) => Boolean(r.is_evaluation_room));
-                            return displayRooms.map((r) => (
+                            const evalRooms = filterEvaluationRooms(rooms ?? []);
+                            if (evalRooms.length === 0) {
+                              return <option value="">Nenhuma sala de avaliação cadastrada</option>;
+                            }
+                            return evalRooms.map((r) => (
                               <option key={r.id} value={r.id}>{r.name}</option>
                             ));
                           })()}
