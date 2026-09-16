@@ -31,7 +31,7 @@ const NAV_ITEMS = [
     external: true,
   },
   { key: "nps", label: "NPS", href: "/gestor/nps", icon: Smile },
-  { key: "equipe", label: "Equipe", href: "/gestor/equipe", match: ["/gestor/equipe", "/gestor/bonificacao", "/gestor/metas"] },
+  { key: "equipe", label: "Pessoas & Desempenho", href: "/gestor/equipe", match: ["/gestor/equipe", "/gestor/bonificacao", "/gestor/metas"] },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro", match: ["/gestor/financeiro", "/gestor/contratos"] },
   { key: "auditoria", label: "Auditoria (LGPD)", href: "/gestor/auditoria", match: ["/gestor/auditoria", "/gestor/ouvidoria"] },
