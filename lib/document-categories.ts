@@ -46,6 +46,10 @@ export const DOCUMENT_CATEGORIES = [
   // eletrônica em /assinar/[documentId], junto com termo_lgpd e
   // termo_imagem (20260914040000_documents_tcle_category.sql).
   { value: "tcle", label: "TCLE — Termo de Consentimento Livre e Esclarecido" },
+  // Recibo de pagamento (FASE 2 — contratos pacote/avulsa + recibos,
+  // 20260917170300_receipts.sql) — gerado automaticamente por lib/receipts.ts,
+  // nunca aparece no seletor de upload da recepção.
+  { value: "recibo", label: "Recibo de pagamento" },
 ] as const;
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]["value"];

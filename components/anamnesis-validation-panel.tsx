@@ -11,6 +11,7 @@ import {
   RefreshCw,
   AlertCircle,
   Phone,
+  CreditCard,
 } from "lucide-react";
 import {
   getPendingAnamnesisRequestsAction,
@@ -195,6 +196,12 @@ export function AnamnesisValidationPanel() {
                         <Phone className="h-3.5 w-3.5" />
                         Contato: <span className="font-mono text-ink-soft">{req.guardian_phone}</span>
                       </p>
+                      {req.carteirinha_numero && (
+                        <p className="flex items-center gap-1.5">
+                          <CreditCard className="h-3.5 w-3.5 text-accent" />
+                          Carteirinha do Plano: <span className="font-mono font-semibold text-accent">{req.carteirinha_numero}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
 

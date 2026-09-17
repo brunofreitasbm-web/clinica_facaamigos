@@ -18,6 +18,7 @@ export type ChegadaAppointmentInfo = {
   patientName: string;
   therapistName: string;
   authorizationWarning?: string;
+  hasAuthorization?: boolean;
 };
 
 export type ChegadaItem = {
@@ -107,6 +108,8 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
   const [showDiscardForm, setShowDiscardForm] = useState(false);
   const [autoConfirmHeld, setAutoConfirmHeld] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(AUTO_CONFIRM_SECONDS);
+  const [signPresenceSheet, setSignPresenceSheet] = useState(false);
+  const [signGuide, setSignGuide] = useState(false);
   const autoFiredRef = useRef(false);
 
   const isAmbiguous = item.matchQuality === "ambiguo";
@@ -114,11 +117,19 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
   const cancelledAppointment =
     item.appointment && NEGATIVE_APPOINTMENT_STATUSES.includes(item.appointment.status) ? item.appointment : null;
 
+  const selectedAppointment =
+    item.appointment?.id === selectedAppointmentId
+      ? item.appointment
+      : item.candidates.find((c) => c.id === selectedAppointmentId) ?? null;
+
   const confirm = useCallback(() => {
     if (!selectedAppointmentId) return;
     setError(null);
     startTransition(async () => {
-      const result = await confirmCheckinRequest(item.id, selectedAppointmentId);
+      const result = await confirmCheckinRequest(item.id, selectedAppointmentId, {
+        presenceSheet: signPresenceSheet,
+        guide: signGuide,
+      });
       if (!result.success) {
         setError(result.error);
         return;
@@ -128,7 +139,7 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
       toast(`Check-in de ${item.declaredFirstName} confirmado.`, "success");
       router.refresh();
     });
-  }, [item.id, item.declaredFirstName, selectedAppointmentId, toast, router]);
+  }, [item.id, item.declaredFirstName, selectedAppointmentId, signPresenceSheet, signGuide, toast, router]);
 
   const autoConfirmActive = item.eligibleForAutoConfirm && !autoConfirmHeld && !showDiscardForm;
 
@@ -253,6 +264,21 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
           >
             Segurar
           </button>
+        </div>
+      )}
+
+      {!isNoMatch && (
+        <div className="flex items-center gap-3 text-[11px] text-ink-faint">
+          <label className="flex items-center gap-1">
+            <input type="checkbox" checked={signPresenceSheet} onChange={(e) => setSignPresenceSheet(e.target.checked)} />
+            Assinou ficha de presença
+          </label>
+          {selectedAppointment?.hasAuthorization && (
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={signGuide} onChange={(e) => setSignGuide(e.target.checked)} />
+              Assinou guia
+            </label>
+          )}
         </div>
       )}
 

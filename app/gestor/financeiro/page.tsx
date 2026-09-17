@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { currentMonthRange } from "../data";
@@ -37,6 +39,13 @@ export default async function GestorFinanceiroPage() {
           Financeiro
         </h6>
         <h1 className="m-0">Repasses e glosas</h1>
+        <Link
+          href="/gestor/financeiro/recibos"
+          className="mt-2 inline-flex w-fit items-center gap-2 text-xs font-semibold no-underline"
+          style={{ color: "var(--color-accent-2-600)" }}
+        >
+          <Receipt size={14} /> Ver recibos de pagamento emitidos
+        </Link>
       </div>
 
       <section className="grid grid-cols-2 gap-6 pt-8 sm:grid-cols-4">

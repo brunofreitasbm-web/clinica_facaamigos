@@ -22,7 +22,17 @@ export type PendingQueueCategory =
   | "documento_familia_novo"
   | "renovacao_solicitada"
   | "cadastro_assistido_ia"
-  | "chegada_nao_confirmada";
+  | "chegada_nao_confirmada"
+  // Fluxo de acolhimento (FASE 4, acolhimento_requests) — ver
+  // lib/acolhimento-requests.ts e app/recepcao/acolhimentos.
+  | "acolhimento_para_agendar"
+  | "acolhimento_hoje"
+  | "contrato_para_entregar"
+  | "familia_para_informar"
+  | "convenio_pendente_documentos"
+  // Desligamento automático por faltas consecutivas (FASE 5, patients.
+  // discharged_auto) — ver lib/absence-policy.ts e app/supervisao/desligamentos.
+  | "desligamento_automatico";
 
 export type PendingQueueItem = {
   id: string;
@@ -44,6 +54,8 @@ export type PendingQueueItem = {
   renewalRequestId?: string;
   /** Só preenchido em cadastro_assistido_ia — id do registration_drafts pra abrir a tela de validação. */
   draftId?: string;
+  /** Só preenchido nas categorias de acolhimento — id da acolhimento_requests pra ação direta na tela do fluxo. */
+  acolhimentoRequestId?: string;
   /**
    * Dono + prazo (pending_queue_assignments) — preenchido por
    * attachQueueAssignments logo abaixo, depois que todas as categorias já
@@ -94,6 +106,19 @@ const DUE_MINUTES_BY_CATEGORY: Record<PendingQueueCategory, number> = {
   documento_vencido: 3 * 24 * 60,
   renovacao_solicitada: 3 * 24 * 60,
   cadastro_assistido_ia: 24 * 60,
+  // Acolhimento (FASE 4): "hoje" segue a mesma urgência de chegada_nao_
+  // confirmada (a família pode estar chegando no dia); as demais são
+  // administrativas de até 24h/3 dias, no mesmo espírito das categorias
+  // acima que dependem só de ação interna (recepção/gestor) vs. terceiro.
+  acolhimento_para_agendar: 24 * 60,
+  acolhimento_hoje: 60,
+  contrato_para_entregar: 24 * 60,
+  familia_para_informar: 24 * 60,
+  convenio_pendente_documentos: 3 * 24 * 60,
+  // Informacional (o desligamento em si já aconteceu sozinho no banco) —
+  // janela generosa só pra recepção/supervisão tomarem ciência e decidirem
+  // se reativam, sem pressão de prazo curto.
+  desligamento_automatico: 24 * 60,
 };
 
 const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
@@ -109,6 +134,12 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   renovacao_solicitada: "Renovação de guia solicitada",
   cadastro_assistido_ia: "Documentos para conferir (IA)",
   chegada_nao_confirmada: "Chegada aguardando confirmação",
+  acolhimento_para_agendar: "Acolhimento para agendar",
+  acolhimento_hoje: "Acolhimento com avaliação hoje",
+  contrato_para_entregar: "Contrato para entregar",
+  familia_para_informar: "Família para informar",
+  convenio_pendente_documentos: "Acolhimento convênio — documentos pendentes",
+  desligamento_automatico: "Desligamento automático",
 };
 
 export type ExpiringAuthorization = {
@@ -558,6 +589,119 @@ async function getUnconfirmedCheckins(supabase: Supa, clinicId: string, minMinut
   });
 }
 
+export type AcolhimentoQueueRow = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  funding: string;
+  status: string;
+  appointmentId: string | null;
+  appointmentStartsAt: string | null;
+  createdAt: string;
+  missingReason: "PEDIDO_MEDICO_AUSENTE" | "GUIA_NAO_VALIDADA" | null;
+};
+
+/**
+ * Acolhimentos (FASE 4, acolhimento_requests) relevantes pra fila única da
+ * recepção — busca tudo de uma vez (não-concluído/cancelado) e cada
+ * categoria abaixo filtra por status/condição, evitando 1 query por
+ * categoria. `missingReason` reproduz em TS a mesma checagem da função SQL
+ * `acolhimento_can_schedule` (pedido_medico em documents + authorizations
+ * status='ativa') pra `convenio_pendente_documentos` — mesma regra, sem
+ * round-trip extra de RPC por linha.
+ */
+async function getAcolhimentoQueueRows(supabase: Supa, clinicId: string): Promise<AcolhimentoQueueRow[]> {
+  const { data } = await supabase
+    .from("acolhimento_requests")
+    .select(
+      "id, patient_id, funding, status, appointment_id, created_at, patients(full_name), appointments(starts_at)",
+    )
+    .eq("clinic_id", clinicId)
+    .not("status", "in", "(concluido,cancelado)")
+    .order("created_at", { ascending: true });
+
+  const rows = data ?? [];
+  const convenioPatientIds = rows.filter((r) => r.funding === "convenio").map((r) => r.patient_id);
+
+  const [{ data: referralDocs }, { data: patientInsurances }] = await Promise.all([
+    convenioPatientIds.length
+      ? supabase.from("documents").select("patient_id").eq("category", "pedido_medico").in("patient_id", convenioPatientIds)
+      : Promise.resolve({ data: [] as { patient_id: string }[] }),
+    convenioPatientIds.length
+      ? supabase.from("patient_insurance").select("id, patient_id").in("patient_id", convenioPatientIds)
+      : Promise.resolve({ data: [] as { id: string; patient_id: string }[] }),
+  ]);
+
+  const patientsWithReferral = new Set((referralDocs ?? []).map((d) => d.patient_id));
+  const insuranceIdsByPatient = new Map<string, string[]>();
+  for (const pi of patientInsurances ?? []) {
+    const list = insuranceIdsByPatient.get(pi.patient_id) ?? [];
+    list.push(pi.id);
+    insuranceIdsByPatient.set(pi.patient_id, list);
+  }
+
+  const allInsuranceIds = (patientInsurances ?? []).map((pi) => pi.id);
+  const { data: activeAuths } = allInsuranceIds.length
+    ? await supabase.from("authorizations").select("patient_insurance_id").in("patient_insurance_id", allInsuranceIds).eq("status", "ativa")
+    : { data: [] as { patient_insurance_id: string }[] };
+  const insuranceIdsWithActiveAuth = new Set((activeAuths ?? []).map((a) => a.patient_insurance_id));
+
+  function missingReasonFor(patientId: string): AcolhimentoQueueRow["missingReason"] {
+    if (!patientsWithReferral.has(patientId)) return "PEDIDO_MEDICO_AUSENTE";
+    const insuranceIds = insuranceIdsByPatient.get(patientId) ?? [];
+    const hasActiveAuth = insuranceIds.some((id) => insuranceIdsWithActiveAuth.has(id));
+    if (!hasActiveAuth) return "GUIA_NAO_VALIDADA";
+    return null;
+  }
+
+  return rows.map((r) => {
+    const patient = Array.isArray(r.patients) ? r.patients[0] : r.patients;
+    const appointment = Array.isArray(r.appointments) ? r.appointments[0] : r.appointments;
+    return {
+      id: r.id,
+      patientId: r.patient_id,
+      patientName: patient?.full_name ?? "—",
+      funding: r.funding,
+      status: r.status,
+      appointmentId: r.appointment_id,
+      appointmentStartsAt: appointment?.starts_at ?? null,
+      createdAt: r.created_at,
+      missingReason: r.funding === "convenio" ? missingReasonFor(r.patient_id) : null,
+    };
+  });
+}
+
+export type AutoDischargedPatient = {
+  patientId: string;
+  patientName: string;
+  dischargedAt: string;
+  reason: string | null;
+};
+
+/**
+ * Pacientes desligados automaticamente por 2 faltas consecutivas sem
+ * justificativa aprovada (FASE 5, `patients.discharged_auto`) — sem flag
+ * própria de "revisado", então a categoria simplesmente lista todo mundo
+ * ainda com `discharged_auto=true` (reativar limpa a flag e tira o item da
+ * fila). Ver apply_auto_discharge/reactivate_discharged_patient em
+ * supabase/migrations/20260917170500_auto_discharge_consecutive_faltas.sql.
+ */
+async function getAutoDischargedPatients(supabase: Supa, clinicId: string): Promise<AutoDischargedPatient[]> {
+  const { data } = await supabase
+    .from("patients")
+    .select("id, full_name, discharged_at, discharge_reason")
+    .eq("clinic_id", clinicId)
+    .eq("discharged_auto", true)
+    .order("discharged_at", { ascending: false });
+
+  return (data ?? []).map((p) => ({
+    patientId: p.id,
+    patientName: p.full_name,
+    dischargedAt: p.discharged_at ?? new Date().toISOString(),
+    reason: p.discharge_reason,
+  }));
+}
+
 /**
  * Dá dono + prazo a cada item da fila (pending_queue_assignments, §9.1):
  * qualquer item sem assignment ganha um agora (assigned_to = plantonista
@@ -679,6 +823,8 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     renewalRequests,
     pendingRegistrationDrafts,
     unconfirmedCheckins,
+    acolhimentoRows,
+    autoDischargedPatients,
   ] = await Promise.all([
     getExpiringAuthorizations(supabase, clinicId),
     getPendingPatients(supabase, 3),
@@ -691,6 +837,8 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     getAuthorizationRenewalRequests(supabase, clinicId),
     getPendingRegistrationDrafts(supabase, clinicId),
     getUnconfirmedCheckins(supabase, clinicId),
+    getAcolhimentoQueueRows(supabase, clinicId),
+    getAutoDischargedPatients(supabase, clinicId),
   ]);
 
   const items: PendingQueueItem[] = [];
@@ -855,6 +1003,99 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       detail: `Senha ${c.ticketLabel} · aguardando na recepção`,
       urgencyLabel: `${c.minutesWaiting}min`,
       href: `/recepcao/chegadas`,
+    });
+  }
+
+  const today = civilDateInTimeZone(new Date(), CLINIC_TIMEZONE);
+
+  for (const a of acolhimentoRows.filter((r) => r.status === "aguardando_agendamento")) {
+    items.push({
+      id: `acolhimento-agendar-${a.id}`,
+      category: "acolhimento_para_agendar",
+      categoryLabel: CATEGORY_LABEL.acolhimento_para_agendar,
+      patientId: a.patientId,
+      patientName: a.patientName,
+      detail: `${a.funding === "particular" ? "Particular" : "Convênio"} · aguardando agendamento da 1ª avaliação`,
+      urgencyLabel: new Date(a.createdAt).toLocaleDateString("pt-BR"),
+      href: "/recepcao/acolhimentos",
+      acolhimentoRequestId: a.id,
+    });
+  }
+
+  for (const a of acolhimentoRows.filter(
+    (r) => r.appointmentId && r.appointmentStartsAt && r.status !== "realizado" && civilDateInTimeZone(new Date(r.appointmentStartsAt), CLINIC_TIMEZONE) === today,
+  )) {
+    items.push({
+      id: `acolhimento-hoje-${a.id}`,
+      category: "acolhimento_hoje",
+      categoryLabel: CATEGORY_LABEL.acolhimento_hoje,
+      patientId: a.patientId,
+      patientName: a.patientName,
+      detail: `1ª avaliação hoje às ${new Date(a.appointmentStartsAt as string).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: CLINIC_TIMEZONE })}`,
+      urgencyLabel: "Hoje",
+      href: "/recepcao/acolhimentos",
+      acolhimentoRequestId: a.id,
+      appointmentId: a.appointmentId ?? undefined,
+    });
+  }
+
+  for (const a of acolhimentoRows.filter((r) => r.status === "realizado")) {
+    items.push({
+      id: `acolhimento-contrato-${a.id}`,
+      category: "contrato_para_entregar",
+      categoryLabel: CATEGORY_LABEL.contrato_para_entregar,
+      patientId: a.patientId,
+      patientName: a.patientName,
+      detail: "1ª avaliação realizada · falta entregar o contrato",
+      urgencyLabel: new Date(a.createdAt).toLocaleDateString("pt-BR"),
+      href: "/recepcao/acolhimentos",
+      acolhimentoRequestId: a.id,
+    });
+  }
+
+  // familia_para_informar cobre contrato_pendente e grade_pendente: em
+  // ambos os casos a recepção ainda vai precisar avisar a família (do
+  // contrato entregue, ou já da grade fixa depois que a Supervisão definir)
+  // — mais correto agrupar os dois do que só um, senão o item "sai" da fila
+  // assim que o contrato é entregue mesmo sem a família ter sido avisada.
+  for (const a of acolhimentoRows.filter((r) => r.status === "contrato_pendente" || r.status === "grade_pendente")) {
+    items.push({
+      id: `acolhimento-familia-${a.id}`,
+      category: "familia_para_informar",
+      categoryLabel: CATEGORY_LABEL.familia_para_informar,
+      patientId: a.patientId,
+      patientName: a.patientName,
+      detail: a.status === "grade_pendente" ? "Aguardando Supervisão definir a grade fixa" : "Contrato entregue · falta informar a família",
+      urgencyLabel: new Date(a.createdAt).toLocaleDateString("pt-BR"),
+      href: "/recepcao/acolhimentos",
+      acolhimentoRequestId: a.id,
+    });
+  }
+
+  for (const a of acolhimentoRows.filter((r) => r.funding === "convenio" && r.missingReason && r.status !== "agendado")) {
+    items.push({
+      id: `acolhimento-docs-${a.id}`,
+      category: "convenio_pendente_documentos",
+      categoryLabel: CATEGORY_LABEL.convenio_pendente_documentos,
+      patientId: a.patientId,
+      patientName: a.patientName,
+      detail: a.missingReason === "PEDIDO_MEDICO_AUSENTE" ? "Falta o pedido médico (documents)" : "Falta validar a guia (authorizations)",
+      urgencyLabel: new Date(a.createdAt).toLocaleDateString("pt-BR"),
+      href: `/recepcao/pacientes/${a.patientId}`,
+      acolhimentoRequestId: a.id,
+    });
+  }
+
+  for (const d of autoDischargedPatients) {
+    items.push({
+      id: `desligamento-${d.patientId}`,
+      category: "desligamento_automatico",
+      categoryLabel: CATEGORY_LABEL.desligamento_automatico,
+      patientId: d.patientId,
+      patientName: d.patientName,
+      detail: d.reason ? `Desligado automaticamente · ${d.reason}` : "Desligado automaticamente por 2 faltas consecutivas",
+      urgencyLabel: new Date(d.dischargedAt).toLocaleDateString("pt-BR"),
+      href: `/recepcao/pacientes/${d.patientId}/gestao`,
     });
   }
 

@@ -23,7 +23,18 @@ export type IntakeStepKey =
   | "reuniao_interdisciplinar"
   | "pts_construido"
   | "pts_validado"
-  | "devolutiva_familia";
+  | "devolutiva_familia"
+  // Fluxo de acolhimento (FASE 4, acolhimento_requests — ver
+  // supabase/migrations/20260917170600_acolhimento_requests.sql). Os 4
+  // passos abaixo são concluídos automaticamente por trigger de banco na
+  // transição de status correspondente (agendado, realizado, contrato_
+  // pendente e concluido), EXCETO `grade_definida`, que é marcada pela
+  // própria action markGradeDefined (app/supervisao/acolhimento-actions.ts)
+  // quando a Supervisão define a grade fixa do paciente.
+  | "vaga_acolhimento_solicitada"
+  | "pagamento_acolhimento"
+  | "grade_definida"
+  | "familia_informada";
 
 export type IntakeStepStatus = "pendente" | "concluida" | "nao_aplicavel";
 
@@ -32,10 +43,13 @@ type IntakeStepDef = { key: IntakeStepKey; label: string; responsavel: string };
 export const INTAKE_STEP_CATALOG: IntakeStepDef[] = [
   { key: "primeiro_contato", label: "Primeiro contato", responsavel: "Recepção" },
   { key: "agendamento_anamnese", label: "Agendamento da 1ª avaliação (anamnese)", responsavel: "Recepção" },
+  { key: "vaga_acolhimento_solicitada", label: "Vaga de acolhimento solicitada", responsavel: "Gestor / Recepção" },
   { key: "contrato_enviado", label: "Contrato enviado", responsavel: "Recepção" },
   { key: "contrato_assinado", label: "Contrato assinado", responsavel: "Recepção" },
   { key: "pagamento_confirmado", label: "Pagamento confirmado (particular)", responsavel: "Recepção" },
+  { key: "pagamento_acolhimento", label: "Pagamento do acolhimento confirmado", responsavel: "Recepção" },
   { key: "grupo_whatsapp", label: "Inclusão no grupo de WhatsApp", responsavel: "Recepção" },
+  { key: "familia_informada", label: "Família informada (acolhimento concluído)", responsavel: "Recepção" },
   { key: "anamnese_realizada", label: "1ª avaliação (anamnese) realizada", responsavel: "RT / Supervisor de área" },
   { key: "equipe_definida", label: "Definição da equipe de avaliação", responsavel: "Supervisor geral / RT" },
   { key: "planejamento_avaliacao", label: "Planejamento da avaliação", responsavel: "Supervisor geral / RT" },
@@ -43,6 +57,7 @@ export const INTAKE_STEP_CATALOG: IntakeStepDef[] = [
   { key: "reuniao_interdisciplinar", label: "Reunião técnica multidisciplinar", responsavel: "Equipe" },
   { key: "pts_construido", label: "Construção do PTS", responsavel: "Terapeutas e supervisores" },
   { key: "pts_validado", label: "Revisão e validação do PTS", responsavel: "Supervisor geral / RT" },
+  { key: "grade_definida", label: "Grade fixa definida (acolhimento)", responsavel: "Supervisão" },
   { key: "devolutiva_familia", label: "Devolutiva à família", responsavel: "RT / Supervisor de área" },
 ];
 

@@ -28,6 +28,7 @@
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
+import { formatPricesBlock } from "@/lib/specialty-prices";
 
 /** Quantas mensagens da thread vão como contexto (~6 turnos). */
 const HISTORY_LIMIT = 12;
@@ -116,7 +117,7 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
-  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes] = await Promise.all([
+  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes, pricesRes, clinicRes] = await Promise.all([
     supabase
       .from("clinic_faq")
       .select("question, answer, keywords, category")
@@ -141,7 +142,19 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
       .eq("clinic_id", clinicId)
       .in("role", ["terapeuta", "profissional", "supervisor"])
       .order("full_name"),
+    supabase
+      .from("specialty_prices")
+      .select("specialty_value, price, duration_minutes")
+      .eq("clinic_id", clinicId)
+      .eq("active", true),
+    supabase.from("clinics").select("default_sessions_per_month").eq("id", clinicId).maybeSingle(),
   ]);
+
+  const specialtyLabelsRes = await supabase
+    .from("specialties")
+    .select("value, label")
+    .eq("clinic_id", clinicId);
+  const specialtyLabelByValue = new Map((specialtyLabelsRes.data ?? []).map((s) => [s.value, s.label]));
 
   const faqBlock = (faqRes.data ?? [])
     .map((row) => {
@@ -164,6 +177,14 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     .map((tp) => `${tp.full_name} (${tp.role})`)
     .join(", ");
 
+  const defaultSessions = clinicRes.data?.default_sessions_per_month ?? 10;
+  const priceRows = (pricesRes.data ?? []).map((p) => ({
+    label: specialtyLabelByValue.get(p.specialty_value) ?? p.specialty_value,
+    price: p.price,
+    duration_minutes: p.duration_minutes,
+  }));
+  const pricesBlock = formatPricesBlock(priceRows, defaultSessions);
+
   const text = [
     "=== PERGUNTAS FREQUENTES (fonte da verdade) ===",
     faqBlock || "(nenhuma pergunta cadastrada)",
@@ -179,6 +200,9 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     "",
     "=== EQUIPE E TERAPEUTAS ATIVOS ===",
     therapistsBlock || "(nenhum terapeuta cadastrado)",
+    "",
+    "=== VALORES PARTICULARES (TABELA VIVA) ===",
+    pricesBlock,
   ].join("\n");
 
   knowledgeCache.set(clinicId, { text, expiresAt: Date.now() + KNOWLEDGE_TTL_MS });
@@ -210,7 +234,7 @@ Qual dessas opções você prefere? ✨"
 3. ATENDIMENTO EMPÁTICO AOS PAIS E RESPONSÁVEIS: Fale diretamente com o pai, mãe ou responsável legal. Trate a família com carinho, respeito, clareza e acolhimento.
 4. EMOJIS ACOLHEDORES: Use emojis integrativos e carinhosos (ex.: 💙, 🧩, 🎈, 🌱, 🤝, ✨) de forma harmoniosa nas mensagens.
 5. NUNCA INVENTE: Responda APENAS com base nas informações acima. Se a resposta não estiver ali ou a dúvida não for coberta pela base, NUNCA invente: escale para a equipe humana.
-6. POLÍTICA DE VALORES: Por decisão da clínica, valores de sessões particulares não são repassados automaticamente pelo bot no WhatsApp. Quando a família perguntar sobre preços/valores, informe de forma breve que a equipe humana entrará em contato para detalhar os valores, definindo "escalar": true e "motivo": "fora_da_base".
+6. POLÍTICA DE VALORES: Quando a família perguntar sobre preços/valores de atendimento PARTICULAR, informe exatamente o que está no bloco "=== VALORES PARTICULARES (TABELA VIVA) ===" acima — preço da especialidade, duração da sessão, e como o pacote mensal adiantado é calculado (preço × número de sessões do mês). Nunca arredonde, invente ou cite um valor que não esteja nesse bloco. Já para valores de CONVÊNIO/plano de saúde, NUNCA invente nem informe um valor específico — isso sempre escala para a equipe humana ("escalar": true, "motivo": "fora_da_base"), pois o valor pago pelo convênio não é repassado à família.
 7. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
 8. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
 9. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
@@ -243,7 +267,7 @@ Isso não é uma dúvida que você responde — é um pedido que a recepção va
 4. Junto com o "escalar=true, motivo=relatorio", preencha TAMBÉM o campo "relatorio_dados" com o que foi coletado (use null no que não foi informado) — é esse campo, não o texto da "resposta", que vira o aviso de pendência para o Supervisor providenciar junto ao terapeuta correspondente.
 
 QUANDO ESCALAR (escalar = true):
-- "fora_da_base": a informação pedida não está acima, ou refere-se a valores particulares.
+- "fora_da_base": a informação pedida não está acima, ou é um valor específico de convênio/plano de saúde (nunca invente preço de convênio).
 - "clinico": pergunta sobre sintoma, diagnóstico, evolução ou conduta da criança.
 - "pediu_humano": a pessoa pediu para falar com alguém, reclamou ou está claramente insatisfeita.
 - "relatorio": pedido de relatório/documento, DEPOIS de reunir os dados acima — nunca na primeira mensagem do pedido.

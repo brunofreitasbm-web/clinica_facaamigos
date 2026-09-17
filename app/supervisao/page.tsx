@@ -26,6 +26,8 @@ import { AcolhimentosPanel, type BatchRow } from "./acolhimentos-panel";
 import type { LeadRow, LeadFileRow } from "./acolhimento-lead-drawer";
 import { AgendaAvaliacoesPanel } from "./agenda-avaliacoes-panel";
 import { getEvaluationPool } from "@/lib/evaluation-agenda";
+import { AcolhimentoRequestsPanel } from "./acolhimento-requests-panel";
+import { listAcolhimentoRequests } from "@/lib/acolhimento-requests";
 
 export const dynamic = "force-dynamic";
 
@@ -162,6 +164,10 @@ export default async function SupervisaoPage({
   // ── Agenda de 1ª Avaliação (WhatsApp anamnese + PDF convênio + presencial) ──
   const evaluationPool = await getEvaluationPool(supabase, DEV_CLINIC_ID);
   const nAgenda1a = evaluationPool.length;
+
+  // Acolhimentos (FASE 4) aguardando a Supervisão definir a grade fixa —
+  // seção dentro da aba Grade (ver AcolhimentoRequestsPanel abaixo).
+  const gradePendingAcolhimentos = await listAcolhimentoRequests(supabase, { status: "grade_pendente", clinicId: DEV_CLINIC_ID });
 
   // ── Grade semanal ──────────────────────────────────────────────────────
   const weekAppointments = (rawAppointments ?? []).filter((a) => !GRID_EXCLUDED_STATUSES.includes(a.status));
@@ -487,21 +493,29 @@ export default async function SupervisaoPage({
       }
       fluxosTab={<FluxosPanel patients={flowPatients} counters={flowCounters} />}
       gradeTab={
-        <GradePanel
-          weekLabel={week.rangeLabel}
-          weekNumber={week.weekNumber}
-          prevWeekMonday={shiftWeek(week.days[0], -1)}
-          nextWeekMonday={shiftWeek(week.days[0], 1)}
-          isCurrentWeek={week.days[0] === currentWeek(todayInTimeZone(CLINIC_TIMEZONE)).days[0]}
-          activePatientsCount={activePatientsCount ?? 0}
-          dueReassessments={dueReassessments ?? 0}
-          therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
-          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name, capacity: r.capacity }))}
-          appointments={gradeAppointments}
-          pendingNotes={pendingNoteRows}
-          pendingPlans={pendingPlanRows}
-          carteira={carteira}
-        />
+        <div className="flex flex-col gap-6">
+          <GradePanel
+            weekLabel={week.rangeLabel}
+            weekNumber={week.weekNumber}
+            prevWeekMonday={shiftWeek(week.days[0], -1)}
+            nextWeekMonday={shiftWeek(week.days[0], 1)}
+            isCurrentWeek={week.days[0] === currentWeek(todayInTimeZone(CLINIC_TIMEZONE)).days[0]}
+            activePatientsCount={activePatientsCount ?? 0}
+            dueReassessments={dueReassessments ?? 0}
+            therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
+            rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name, capacity: r.capacity }))}
+            appointments={gradeAppointments}
+            pendingNotes={pendingNoteRows}
+            pendingPlans={pendingPlanRows}
+            carteira={carteira}
+          />
+          <section className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm">
+            <h2 className="mb-3 text-sm font-bold text-ink">Acolhimentos — definir grade fixa</h2>
+            <AcolhimentoRequestsPanel
+              requests={gradePendingAcolhimentos.map((r) => ({ id: r.id, patientId: r.patientId, patientName: r.patientName }))}
+            />
+          </section>
+        </div>
       }
       planosTab={<PlanosPanel plans={plans} />}
       inboxTab={

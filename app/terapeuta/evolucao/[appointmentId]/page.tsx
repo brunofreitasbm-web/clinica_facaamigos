@@ -52,12 +52,31 @@ export default async function EvolucaoPage({
   const { data: appointment } = await supabase
     .from("appointments")
     .select(
-      "id, patient_id, starts_at, ends_at, discipline, status, therapist_id, attendance_started_at, patients(full_name, clinic_id), profiles!therapist_id(full_name)",
+      "id, patient_id, starts_at, ends_at, discipline, status, therapist_id, attendance_started_at, modality, group_id, patients(full_name, clinic_id), profiles!therapist_id(full_name)",
     )
     .eq("id", appointmentId)
     .maybeSingle();
 
   if (!appointment) notFound();
+
+  // Psicoterapia em grupo (até 3 crianças, appointments_group_capacity_guard):
+  // cada criança tem seu appointment/session_notes própria — este painel só
+  // reforça, na UI, quem mais divide o horário, pra deixar claro que a
+  // evolução sendo escrita aqui vale só para ESTA criança.
+  const groupSiblings =
+    appointment.modality === "grupo" && appointment.group_id
+      ? (
+          await supabase
+            .from("appointments")
+            .select("id, patients(full_name)")
+            .eq("group_id", appointment.group_id)
+            .neq("id", appointment.id)
+            .not("status", "in", "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,remarcada)")
+        ).data ?? []
+      : [];
+  const groupSiblingNames = groupSiblings
+    .map((s) => (s.patients as { full_name: string } | null)?.full_name)
+    .filter((name): name is string => Boolean(name));
 
   const { insurance, emergencyContact } = await getPatientIdentitySummary(
     supabase,
@@ -96,6 +115,21 @@ export default async function EvolucaoPage({
     minute: "2-digit",
     timeZone: CLINIC_TIMEZONE,
   });
+
+  const groupPanel =
+    appointment.modality === "grupo" ? (
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900 shadow-sm dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200">
+        <p className="m-0 font-semibold">
+          Sessão em grupo — outras crianças neste horário
+          {groupSiblingNames.length > 0 ? `: ${groupSiblingNames.join(", ")}` : ""}
+        </p>
+        <p className="m-0 mt-1 text-xs opacity-90">
+          {groupSiblingNames.length === 0
+            ? "Nenhuma outra criança agendada neste horário no momento."
+            : "Cada criança tem seu próprio prontuário — esta evolução vale apenas para " + patientName + "."}
+        </p>
+      </div>
+    ) : null;
 
   const enabledProtocols = patientRecord
     ? await getEnabledProtocolsForClinic(supabase, patientRecord.clinic_id)
@@ -140,6 +174,7 @@ export default async function EvolucaoPage({
           backHref={agendaBackHref ?? undefined}
           topContent={
             <>
+              {groupPanel}
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-2">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Instrumentos de Avaliação

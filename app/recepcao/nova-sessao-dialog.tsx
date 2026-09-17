@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { createAppointment } from "./agenda/actions";
+import { getGroupSlotOccupancy, type GroupSlotOccupancy } from "./agenda/group-actions";
 import {
   formatAbaClassLabel,
   toHourMinute,
@@ -16,6 +17,9 @@ import {
   type AbaClassOption,
 } from "@/lib/aba-training";
 import { filterEvaluationRooms } from "@/lib/evaluation-agenda";
+import { canJoinGroupSlot } from "@/lib/group-slot-rules";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { zonedDateTimeToUtc } from "@/lib/timezone";
 
 export type GuideSummary = {
   insurerName: string;
@@ -47,7 +51,7 @@ export function NovaSessaoDialog({
   abaClasses,
   abaBalanceByPatient,
 }: {
-  patients: { id: string; full_name: string }[];
+  patients: { id: string; full_name: string; birth_date?: string | null }[];
   therapists: { id: string; full_name: string }[];
   rooms: { id: string; name: string; is_evaluation_room?: boolean }[];
   appointmentTypes: AppointmentTypeOption[];
@@ -65,6 +69,16 @@ export function NovaSessaoDialog({
   const [abaClassId, setAbaClassId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Estado controlado só pra alimentar a pré-checagem de ocupação de grupo
+  // (RPC group_slot_occupancy) — o form em si continua sendo submetido via
+  // FormData não-controlado pros demais campos.
+  const [modality, setModality] = useState("individual");
+  const [therapistId, setTherapistId] = useState("");
+  const [date, setDate] = useState(defaultDate);
+  const [time, setTime] = useState("");
+  const [groupOccupancy, setGroupOccupancy] = useState<GroupSlotOccupancy | null>(null);
+  const [groupOccupancyLoading, setGroupOccupancyLoading] = useState(false);
 
   const guide = useMemo(() => guidesByPatient[patientId] ?? null, [guidesByPatient, patientId]);
 
@@ -94,6 +108,71 @@ export function NovaSessaoDialog({
     [abaClasses, abaClassId],
   );
   const abaBalance = abaBalanceByPatient[patientId] ?? null;
+
+  const selectedAppointmentType = useMemo(
+    () => appointmentTypes.find((t) => t.id === appointmentTypeId) ?? null,
+    [appointmentTypes, appointmentTypeId],
+  );
+
+  const isGroup = !isAbaTraining && modality === "grupo";
+
+  // Consulta a ocupação do grupo (RPC group_slot_occupancy) sempre que
+  // terapeuta + data + horário + duração estiverem completos — só uma
+  // pré-checagem otimista pra desabilitar o botão antes de bater no guard do
+  // banco (appointments_group_capacity_guard), que continua sendo a
+  // autoridade final contra condição de corrida.
+  useEffect(() => {
+    if (!isGroup || !therapistId || !date || !time || !selectedAppointmentType) {
+      setGroupOccupancy(null);
+      return;
+    }
+    let cancelled = false;
+    setGroupOccupancyLoading(true);
+    const timer = window.setTimeout(() => {
+      const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
+      const endsAt = new Date(startsAt.getTime() + selectedAppointmentType.durationMinutes * 60 * 1000);
+      getGroupSlotOccupancy(therapistId, startsAt.toISOString(), endsAt.toISOString()).then((result) => {
+        if (cancelled) return;
+        setGroupOccupancyLoading(false);
+        setGroupOccupancy(result.success ? result.data : null);
+      });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isGroup, therapistId, date, time, selectedAppointmentType]);
+
+  const selectedPatientBirthDate = useMemo(() => {
+    const raw = patients.find((p) => p.id === patientId)?.birth_date;
+    return raw ? new Date(`${raw}T00:00:00Z`) : null;
+  }, [patients, patientId]);
+
+  // Pré-checagem client-side (lib/group-slot-rules.ts, espelho do trigger):
+  // usa min/max_birth já devolvidos pela RPC como as duas datas extremas do
+  // grupo atual — suficiente pra reproduzir a mesma regra de faixa etária.
+  const groupSlotCheck = useMemo(() => {
+    if (!isGroup || !groupOccupancy) return null;
+    const existingBirthDates = [groupOccupancy.minBirth, groupOccupancy.maxBirth]
+      .filter((d): d is string => Boolean(d))
+      .map((d) => new Date(`${d}T00:00:00Z`));
+    return canJoinGroupSlot({
+      existingBirthDates,
+      maxSize: groupOccupancy.maxSize,
+      candidateBirthDate: selectedPatientBirthDate ?? new Date(),
+    });
+  }, [isGroup, groupOccupancy, selectedPatientBirthDate]);
+
+  const groupBlockReason = useMemo(() => {
+    if (!isGroup) return null;
+    if (!groupSlotCheck || groupSlotCheck.ok) return null;
+    if (groupSlotCheck.reason === "lotado") {
+      return `Grupo lotado (${groupOccupancy?.occupied ?? 0}/${groupOccupancy?.maxSize ?? 3}) neste horário.`;
+    }
+    return "Diferença de idade em relação às demais crianças do horário é maior que 2 anos.";
+  }, [isGroup, groupSlotCheck, groupOccupancy]);
+
+  const groupSubmitDisabled = Boolean(isGroup && patientId && therapistId && date && time && groupBlockReason);
 
   const patientMatches = useMemo(() => {
     const q = patientQuery.trim().toLowerCase();
@@ -159,6 +238,11 @@ export function NovaSessaoDialog({
     setAppointmentTypeId("");
     setAbaClassId("");
     setError(null);
+    setModality("individual");
+    setTherapistId("");
+    setDate(defaultDate);
+    setTime("");
+    setGroupOccupancy(null);
   }
 
   return (
@@ -269,7 +353,13 @@ export function NovaSessaoDialog({
                 </div>
                 <div className="field">
                   <label>Terapeuta</label>
-                  <select name="therapist_id" required className="input">
+                  <select
+                    name="therapist_id"
+                    required
+                    className="input"
+                    value={therapistId}
+                    onChange={(e) => setTherapistId(e.target.value)}
+                  >
                     <option value="">Selecione…</option>
                     {therapists.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -318,7 +408,14 @@ export function NovaSessaoDialog({
                 )}
                 <div className="field">
                   <label>Data</label>
-                  <input type="date" name="date" required defaultValue={defaultDate} className="input" />
+                  <input
+                    type="date"
+                    name="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="input"
+                  />
                   {isAbaTraining && selectedAbaClass && (
                     <p className="text-xs text-ink-faint">
                       Essa turma só acontece na {WEEKDAY_LABELS[selectedAbaClass.dayOfWeek].toLowerCase()}.
@@ -342,13 +439,25 @@ export function NovaSessaoDialog({
                 ) : (
                   <div className="field">
                     <label>Horário</label>
-                    <input type="time" name="time" required className="input" />
+                    <input
+                      type="time"
+                      name="time"
+                      required
+                      value={time}
+                      onChange={(e) => setTime(e.target.value)}
+                      className="input"
+                    />
                   </div>
                 )}
                 {!isAbaTraining && (
                   <div className="field sm:col-span-2">
                     <label>Modalidade de Atendimento</label>
-                    <select name="modality" className="input" defaultValue="individual">
+                    <select
+                      name="modality"
+                      className="input"
+                      value={modality}
+                      onChange={(e) => setModality(e.target.value)}
+                    >
                       <option value="individual">Individual (Presencial)</option>
                       <option value="grupo">Grupo / Escola (Multi-paciente)</option>
                       <option value="remoto">Remoto / Telessessão (Vídeo)</option>
@@ -410,6 +519,31 @@ export function NovaSessaoDialog({
                 </div>
               )}
 
+              {isGroup && therapistId && date && time && (
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: 2,
+                    background: groupBlockReason ? "var(--status-falta-bg)" : "var(--status-confirmada-bg)",
+                    fontSize: 14,
+                    color: groupBlockReason ? "var(--status-falta)" : "var(--status-realizada)",
+                  }}
+                >
+                  <strong>
+                    {groupOccupancyLoading
+                      ? "Consultando ocupação do grupo…"
+                      : groupOccupancy
+                        ? `Ocupação do grupo: ${groupOccupancy.occupied}/${groupOccupancy.maxSize}${
+                            groupOccupancy.patientNames.length ? ` — ${groupOccupancy.patientNames.join(", ")}` : ""
+                          }`
+                        : "Nenhuma sessão de grupo nesse horário ainda."}
+                  </strong>
+                  {groupBlockReason && (
+                    <div style={{ fontSize: 13, marginTop: 2, opacity: 0.9 }}>{groupBlockReason}</div>
+                  )}
+                </div>
+              )}
+
               <label className="radio" style={{ fontSize: 13 }}>
                 <input
                   type="checkbox"
@@ -427,7 +561,12 @@ export function NovaSessaoDialog({
                 <button type="button" className="btn btn-secondary" onClick={close}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={isPending}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isPending || groupSubmitDisabled}
+                  title={groupSubmitDisabled ? groupBlockReason ?? undefined : undefined}
+                >
                   {isPending ? "Agendando…" : "Agendar"}
                 </button>
               </div>

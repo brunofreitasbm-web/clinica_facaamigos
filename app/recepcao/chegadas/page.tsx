@@ -83,6 +83,7 @@ export default async function ChegadasPage() {
           patientName: patient?.full_name ?? "—",
           therapistName: therapist?.full_name ?? "—",
           authorizationWarning,
+          hasAuthorization: Boolean(a.authorization_id),
         },
       ];
     }),

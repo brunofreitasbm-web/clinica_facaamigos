@@ -31,6 +31,7 @@ const NAV_ITEMS = [
     external: true,
   },
   { key: "nps", label: "NPS", href: "/gestor/nps", icon: Smile },
+  { key: "acolhimentos", label: "Acolhimentos", href: "/gestor/acolhimentos" },
   { key: "equipe", label: "Pessoas & Desempenho", href: "/gestor/bonificacao", match: ["/gestor/bonificacao", "/gestor/metas"] },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro", match: ["/gestor/financeiro", "/gestor/contratos"] },

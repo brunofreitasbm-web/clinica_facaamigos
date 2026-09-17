@@ -19,7 +19,9 @@ import type { ChargeRow } from "./charges-panel";
 import type { PatientTagRow } from "./patient-tags";
 import { TeamPanel, type TeamMemberRow, type ProfileOption } from "./team-panel";
 import { GuardiansPanel, type GuardianRow } from "./guardians-panel";
+import { DischargePanel, type DischargeInfo } from "./discharge-panel";
 import { PageContainer } from "@/components/page-container";
+import { fmtDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +38,7 @@ export default async function GestaoPacientePage({
   const { data: patient, error: patientError } = await supabase
     .from("patients")
     .select(
-      "id, full_name, birth_date, status, complaint, cid, support_level, medication, allergies, comorbidities, entry_source, photo_storage_path",
+      "id, full_name, birth_date, status, complaint, cid, support_level, medication, allergies, comorbidities, entry_source, photo_storage_path, discharged_auto, discharged_at, discharge_reason",
     )
     .eq("id", id)
     .maybeSingle();
@@ -210,6 +212,41 @@ export default async function GestaoPacientePage({
     </table>
   );
 
+  let dischargeInfo: DischargeInfo | null = null;
+  if (patient.discharged_auto) {
+    const { data: lastEvent } = await supabase
+      .from("patient_discharge_events")
+      .select("cancelled_appointment_ids")
+      .eq("patient_id", id)
+      .eq("kind", "auto_desligamento")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const cancelledIds = lastEvent?.cancelled_appointment_ids ?? [];
+    const { data: cancelledAppointmentsRaw } =
+      cancelledIds.length > 0
+        ? await supabase
+            .from("appointments")
+            .select("id, starts_at, therapist:profiles!therapist_id(full_name)")
+            .in("id", cancelledIds)
+            .order("starts_at", { ascending: true })
+        : { data: [] };
+
+    dischargeInfo = {
+      dischargedAtLabel: fmtDateTime(patient.discharged_at, CLINIC_TIMEZONE),
+      reason: patient.discharge_reason,
+      cancelledAppointments: (cancelledAppointmentsRaw ?? []).map((a) => {
+        const therapist = Array.isArray(a.therapist) ? a.therapist[0] : a.therapist;
+        return {
+          id: a.id,
+          startsAtLabel: fmtDate(a.starts_at),
+          therapistName: therapist?.full_name ?? "—",
+        };
+      }),
+    };
+  }
+
   const whatsappHref = primaryGuardian?.phone
     ? buildWhatsappLink(primaryGuardian.phone, `Olá ${primaryGuardian.full_name}! `)
     : null;
@@ -239,6 +276,8 @@ export default async function GestaoPacientePage({
           </h6>
           <h1 className="m-0">Cadastro e gestão · {patient.full_name}</h1>
         </div>
+
+        {dischargeInfo && <DischargePanel patientId={patient.id} info={dischargeInfo} />}
 
         <PatientManagementPanel
           patientId={patient.id}

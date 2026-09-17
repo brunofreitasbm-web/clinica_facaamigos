@@ -579,6 +579,9 @@ export default async function PacientePage({
                 <a href={`/recepcao/pacientes/${patient.id}/rede-externa`} className="btn btn-secondary text-xs">
                   Rede externa
                 </a>
+                <a href={`/recepcao/pacientes/${patient.id}/ficha-presenca`} className="btn btn-secondary text-xs">
+                  Ficha de presença
+                </a>
                 <a href={`/recepcao#nova-sessao:${patient.id}`} className="btn btn-primary text-xs">
                   + Nova sessão
                 </a>

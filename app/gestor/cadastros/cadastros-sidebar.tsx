@@ -7,6 +7,7 @@ const SIDEBAR_ITEMS = [
   { key: "pacientes", label: "Pacientes", href: "/gestor/cadastros/pacientes" },
   { key: "colaboradores", label: "Colaboradores & Contas", href: "/gestor/cadastros/colaboradores" },
   { key: "convenios", label: "Planos de Saúde", href: "/gestor/cadastros/convenios" },
+  { key: "precos-particulares", label: "Preços Particulares", href: "/gestor/cadastros/precos-particulares" },
   { key: "tipos-atendimento", label: "Tipos de Atendimento", href: "/gestor/cadastros/tipos-atendimento" },
   { key: "protocolos", label: "Protocolos", href: "/gestor/cadastros/protocolos" },
   { key: "especialidades", label: "Especialidades", href: "/gestor/cadastros/especialidades" },

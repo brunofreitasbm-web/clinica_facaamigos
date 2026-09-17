@@ -18,7 +18,7 @@ export async function RecepcaoNavBadges() {
   const supabase = await createClient();
   const today = todayInTimeZone(CLINIC_TIMEZONE);
 
-  const [queue, { count: chegadasCount }] = await Promise.all([
+  const [queue, { count: chegadasCount }, { count: acolhimentosCount }] = await Promise.all([
     getCachedReceptionQueue(DEV_CLINIC_ID),
     // Chegadas declaradas pelo QR ainda não confirmadas (nem descartadas/
     // expiradas) — badge visível em toda a /recepcao, não só na página
@@ -29,7 +29,16 @@ export async function RecepcaoNavBadges() {
       .eq("clinic_id", DEV_CLINIC_ID)
       .eq("service_date", today)
       .eq("status", "aguardando"),
+    // Acolhimentos (FASE 4) aguardando ação da Recepção — agendar ou cobrar
+    // na chegada — ver app/recepcao/acolhimentos.
+    supabase
+      .from("acolhimento_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .in("status", ["aguardando_agendamento", "aguardando_pagamento"]),
   ]);
 
-  return <RecepcaoNav pendingCount={queue.length} chegadasCount={chegadasCount ?? 0} />;
+  return (
+    <RecepcaoNav pendingCount={queue.length} chegadasCount={chegadasCount ?? 0} acolhimentosCount={acolhimentosCount ?? 0} />
+  );
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateReceiptForCharge } from "@/lib/receipts";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -83,6 +84,36 @@ export async function updatePatientInsurance(patientId: string, patientInsurance
   return { success: true };
 }
 
+/**
+ * Reativa um paciente desligado automaticamente por 2 faltas consecutivas
+ * sem justificativa (FASE 5 — ver discharge-panel.tsx). Delega toda a regra
+ * (voltar `status='ativo'`, limpar campos de desligamento, registrar o
+ * evento `reativacao`) para a RPC `reactivate_discharged_patient`
+ * (security definer, supabase/migrations/20260917170500_auto_discharge_
+ * consecutive_faltas.sql) — não recria sessões: a grade precisa ser gerada
+ * de novo manualmente pela Supervisão (link "Regerar grade" no painel).
+ */
+export async function reactivatePatient(patientId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "Sessão expirada. Faça login novamente." };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc("reactivate_discharged_patient", {
+    p_patient_id: patientId,
+    p_by: user.id,
+  });
+
+  if (error) return { success: false, error: "Não foi possível reativar o paciente. Tente de novo." };
+
+  revalidatePatient(patientId);
+  revalidatePath("/supervisao/desligamentos");
+  return { success: true };
+}
+
 export async function deletePatientInsurance(patientId: string, patientInsuranceId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("patient_insurance").delete().eq("id", patientInsuranceId);
@@ -127,8 +158,18 @@ export async function addPatientCharge(patientId: string, formData: FormData): P
   return { success: true };
 }
 
+/**
+ * Marca a cobrança avulsa como paga e dispara a geração/envio do recibo
+ * (lib/receipts.ts) em melhor esforço — mesma postura de markInvoicePaid em
+ * app/gestor/contratos/actions.ts: falha de PDF/WhatsApp nunca desfaz a
+ * confirmação de pagamento, que já foi persistida antes.
+ */
 export async function markChargePaid(patientId: string, chargeId: string): Promise<ActionResult> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { error } = await supabase
     .from("patient_charges")
     .update({ status: "pago", paid_at: new Date().toISOString() })
@@ -136,7 +177,15 @@ export async function markChargePaid(patientId: string, chargeId: string): Promi
 
   if (error) return { success: false, error: "Não foi possível marcar a cobrança como paga." };
 
+  try {
+    const admin = createAdminClient();
+    await generateReceiptForCharge(admin, chargeId, user?.id ?? null);
+  } catch (err: unknown) {
+    console.error("[recepcao/gestao] Falha ao gerar recibo da cobrança:", err);
+  }
+
   revalidatePatient(patientId);
+  revalidatePath("/gestor/financeiro/recibos");
   return { success: true };
 }
 

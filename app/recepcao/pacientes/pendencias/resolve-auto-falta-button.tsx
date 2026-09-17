@@ -16,6 +16,7 @@ export function ResolveAutoFaltaButton({ appointmentId }: { appointmentId: strin
   const [reason, setReason] = useState<string>(CANCEL_REASONS[0].value);
   const [reasonOther, setReasonOther] = useState("");
   const [done, setDone] = useState<"motivo" | "desfeita" | null>(null);
+  const [reactivated, setReactivated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -23,7 +24,11 @@ export function ResolveAutoFaltaButton({ appointmentId }: { appointmentId: strin
     return <span className="text-xs font-medium text-status-positive-text">✓ Motivo registrado</span>;
   }
   if (done === "desfeita") {
-    return <span className="text-xs font-medium text-status-positive-text">✓ Falta desfeita</span>;
+    return (
+      <span className="text-xs font-medium text-status-positive-text">
+        ✓ Falta desfeita{reactivated ? " · paciente reativado automaticamente" : ""}
+      </span>
+    );
   }
 
   if (mode === "reason") {
@@ -93,8 +98,12 @@ export function ResolveAutoFaltaButton({ appointmentId }: { appointmentId: strin
             setError(null);
             startTransition(async () => {
               const result = await undoAutoFalta(appointmentId);
-              if (result.success) setDone("desfeita");
-              else setError(result.error ?? "Erro ao desfazer.");
+              if (result.success) {
+                setDone("desfeita");
+                if (result.autoReactivated) setReactivated(true);
+              } else {
+                setError(result.error ?? "Erro ao desfazer.");
+              }
             });
           }}
           className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"

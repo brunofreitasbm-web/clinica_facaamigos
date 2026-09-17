@@ -129,10 +129,12 @@ export async function startIntakeConversation(leadId: string): Promise<{ success
   const text =
     `Olá! 💙 Boas-vindas ao *FaçaAmigos*!\n\n` +
     `Recebemos do *${insurerName}* o encaminhamento de *${childName}*. 🧩\n\n` +
-    `Para agendar, envie foto ou PDF dos documentos:\n` +
-    `1️⃣ *Laudo Médico*\n` +
-    `2️⃣ *Guia / Autorização do Plano*\n` +
-    `3️⃣ *Carteirinha do Plano* (frente e verso, ou PDF)\n\n` +
+    `Para agendar, envie as informações e fotos/PDFs dos documentos:\n` +
+    `1️⃣ *Número da Carteirinha do Plano* (pode digitar por aqui)\n` +
+    `2️⃣ *Foto ou PDF da Frente da Carteirinha*\n` +
+    `3️⃣ *Foto ou PDF do Verso da Carteirinha* (ou PDF único)\n` +
+    `4️⃣ *Laudo Médico*\n` +
+    `5️⃣ *Guia / Autorização Liberada pelo Plano*\n\n` +
     `Ao terminar, responda *PRONTO*. (Ou *PARAR* para encerrar).`;
 
   const templateSid = process.env.TWILIO_INTAKE_TEMPLATE_CONTENT_SID;
@@ -263,12 +265,17 @@ export async function processIntakeBotStep(params: { from: string; body: string;
   if (upperBody === "AJUDA") {
     return {
       handled: true,
-      replyMessage: "Você pode mandar foto ou PDF do Laudo, da Guia/autorização e da Carteirinha do plano (frente e verso, ou PDF) por aqui. Quando terminar, responda *PRONTO*. Para encerrar, responda *PARAR*.",
+      replyMessage: "Você pode digitar o Número da Carteirinha e enviar foto ou PDF do Laudo Médico, da Guia/autorização e da Carteirinha do plano (frente e verso, ou PDF) por aqui. Quando terminar, responda *PRONTO*. Para encerrar, responda *PARAR*.",
     };
   }
 
   // --- intake_awaiting_documents ------------------------------------------
   if (step === "intake_awaiting_documents") {
+    // Se o responsável enviou texto com o número da carteirinha sem anexos
+    if (media.length === 0 && rawBody && rawBody.length >= 3 && upperBody !== "PRONTO" && upperBody !== "PARAR" && upperBody !== "AJUDA") {
+      await admin.from("insurance_intake_leads").update({ card_number: rawBody }).eq("id", leadId);
+    }
+
     let savedCount = 0;
     let sawUnsupported = false;
     let sawDownloadFailure = false;
@@ -338,7 +345,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
     }
 
     if (upperBody === "PRONTO" && totalFiles === 0) {
-      return { handled: true, replyMessage: "Ainda não recebemos nenhum arquivo. Pode mandar o Laudo, a Guia/autorização e a foto da Carteirinha do plano (frente e verso, ou PDF) por aqui?" };
+      return { handled: true, replyMessage: "Ainda não recebemos nenhum arquivo. Pode mandar o Número da Carteirinha (texto), o Laudo, a Guia/autorização e a foto da Carteirinha do plano (frente e verso, ou PDF) por aqui?" };
     }
 
     if (savedCount > 0) {
@@ -357,7 +364,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
 
     return {
       handled: true,
-      replyMessage: "Aguardando os documentos: *Laudo*, *Guia/autorização* do plano e *Carteirinha* (frente e verso, ou PDF). Pode mandar foto ou PDF por aqui, ou responda *AJUDA*.",
+      replyMessage: "Aguardando as informações: *Número da Carteirinha*, *Laudo*, *Guia/autorização* do plano e *Carteirinha* (frente e verso, ou PDF). Pode mandar texto, foto ou PDF por aqui, ou responda *AJUDA*.",
     };
   }
 

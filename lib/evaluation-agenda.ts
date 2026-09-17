@@ -7,7 +7,26 @@ import { GRID_EXCLUDED_STATUSES } from "@/app/supervisao/grade-data";
 
 type Supa = SupabaseClient<Database>;
 
-export type EvaluationAgendaOrigin = "whatsapp_anamnese" | "convenio_pdf" | "presencial" | "family_meeting" | "patient_feedback";
+// TODO(FASE 4 — acolhimento_requests): "acolhimento_request" foi adicionado à
+// união pra a Supervisão poder rotular a origem de um acolhimento vindo do
+// fluxo de acolhimento (app/gestor/acolhimentos, app/recepcao/acolhimentos),
+// mas AINDA NÃO está encanado no pool (getEvaluationPool) nem no calendário
+// (getEvaluationCalendarAppointments) abaixo — hoje esses acolhimentos vivem
+// só nas telas próprias do fluxo (lib/acolhimento-requests.ts). Encanar
+// exigiria: 1) um item de pool pra status='aguardando_agendamento'
+// (getIntakePoolItems tem o padrão); 2) reconhecer a origem no calendário
+// verificando se o appointment_id de um agendamento aparece em
+// acolhimento_requests (mesmo padrão de anamnesisAppointmentIds/
+// intakeAppointmentIds). Não fiz aqui pra não competir com o resto da FASE 4
+// (scheduleAcolhimento já cria o appointment via createAppointment
+// independentemente disso).
+export type EvaluationAgendaOrigin =
+  | "whatsapp_anamnese"
+  | "convenio_pdf"
+  | "presencial"
+  | "family_meeting"
+  | "patient_feedback"
+  | "acolhimento_request";
 
 export type EvaluationBookInput =
   | { origin: "whatsapp_anamnese"; requestId: string }

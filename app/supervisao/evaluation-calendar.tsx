@@ -36,6 +36,7 @@ const ORIGIN_LABEL: Record<EvaluationAgendaOrigin, string> = {
   presencial: "Presencial",
   family_meeting: "Reunião · Responsável",
   patient_feedback: "Devolutiva do paciente",
+  acolhimento_request: "Acolhimento",
 };
 
 const ORIGIN_TAG: Record<EvaluationAgendaOrigin, string> = {
@@ -44,6 +45,7 @@ const ORIGIN_TAG: Record<EvaluationAgendaOrigin, string> = {
   presencial: "st-realizada",
   family_meeting: "st-em-atendimento",
   patient_feedback: "bg-purple-100 text-purple-900 border border-purple-300 font-bold",
+  acolhimento_request: "st-agendada",
 };
 
 const WEEKDAY_LABEL = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;

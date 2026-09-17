@@ -76,8 +76,13 @@ async function notifyTherapistOfFirstCheckIn(
 }
 
 type ActionResult =
-  | { success: true; warning?: string; coupon?: CouponModel | null }
+  | { success: true; warning?: string; coupon?: CouponModel | null; autoDischarged?: boolean; autoReactivated?: boolean }
   | { success: false; error: string };
+
+/** Checkboxes de assinatura em papel registrados no check-in (FASE 6 —
+ * check-in em papel + ficha mensal de presença). Opcional em toda porta de
+ * check-in para não quebrar chamadores que ainda não têm essa UI. */
+export type PaperSignatures = { presenceSheet: boolean; guide: boolean };
 
 const SESSION_EXPIRED_ERROR: ActionResult = {
   success: false,
@@ -219,7 +224,7 @@ async function buildAuthorizationWarning(
   );
 }
 
-export async function checkIn(appointmentId: string): Promise<ActionResult> {
+export async function checkIn(appointmentId: string, signatures?: PaperSignatures): Promise<ActionResult> {
   const supabase = await createClient();
 
   const { data: appointment } = await supabase
@@ -240,9 +245,27 @@ export async function checkIn(appointmentId: string): Promise<ActionResult> {
 
   const warning = await buildAuthorizationWarning(supabase, appointmentId);
 
+  const nowIso = new Date().toISOString();
+  let signerId: string | null = null;
+  if (signatures) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    signerId = user?.id ?? null;
+  }
+
   const { error } = await supabase
     .from("appointments")
-    .update({ checkin_at: new Date().toISOString() })
+    .update(
+      signatures
+        ? {
+            checkin_at: nowIso,
+            presence_sheet_signed_at: signatures.presenceSheet ? nowIso : null,
+            guide_signed_at: signatures.guide ? nowIso : null,
+            signatures_recorded_by: signerId,
+          }
+        : { checkin_at: nowIso },
+    )
     .eq("id", appointmentId);
 
   if (error) {
@@ -258,6 +281,54 @@ export async function checkIn(appointmentId: string): Promise<ActionResult> {
 
   revalidateAgendaViews();
   return { success: true, warning, coupon };
+}
+
+/**
+ * Corrige as assinaturas em papel de uma sessão já com check-in registrado
+ * (a recepção esqueceu de marcar um checkbox, ou marcou errado) — não exige
+ * que a sessão ainda esteja em aberto, ao contrário de checkIn(). Usada pela
+ * ficha da sessão quando a recepção revisita o registro depois.
+ */
+export async function updatePaperSignatures(
+  appointmentId: string,
+  signatures: PaperSignatures,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return SESSION_EXPIRED_ERROR;
+
+  const { data: appointment } = await supabase
+    .from("appointments")
+    .select("id, checkin_at")
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (!appointment) {
+    return { success: false, error: "Sessão não encontrada." };
+  }
+  if (!appointment.checkin_at) {
+    return { success: false, error: "Essa sessão ainda não tem check-in registrado." };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      presence_sheet_signed_at: signatures.presenceSheet ? nowIso : null,
+      guide_signed_at: signatures.guide ? nowIso : null,
+      signatures_recorded_by: user.id,
+    })
+    .eq("id", appointmentId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível atualizar as assinaturas. Tente de novo." };
+  }
+
+  revalidateAgendaViews();
+  return { success: true };
 }
 
 export async function checkOut(appointmentId: string): Promise<ActionResult> {
@@ -345,6 +416,12 @@ export async function markMissedOrCancelled(
     return { success: false, error: "Essa sessão já não pode mais ser cancelada." };
   }
 
+  const { data: patientBefore } = await supabase
+    .from("appointments")
+    .select("patient_id")
+    .eq("id", appointmentId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("appointments")
     .update({
@@ -360,7 +437,23 @@ export async function markMissedOrCancelled(
   }
 
   revalidateAgendaViews();
-  return { success: true };
+
+  // O desligamento automático em si (cancelar grade futura, status='evadido')
+  // já rodou no banco via trigger `trg_appointments_auto_discharge` no UPDATE
+  // acima (ver apply_auto_discharge, supabase/migrations/20260917170500_
+  // auto_discharge_consecutive_faltas.sql) — aqui só relemos o paciente pra
+  // avisar a UI, sem duplicar nenhuma regra de negócio.
+  let autoDischarged = false;
+  if (targetStatus === "falta_familia" && patientBefore?.patient_id) {
+    const { data: patient } = await supabase
+      .from("patients")
+      .select("status, discharged_auto")
+      .eq("id", patientBefore.patient_id)
+      .maybeSingle();
+    autoDischarged = patient?.status === "evadido" && patient?.discharged_auto === true;
+  }
+
+  return { success: true, autoDischarged: autoDischarged || undefined };
 }
 
 /**
@@ -437,7 +530,7 @@ export async function undoAutoFalta(appointmentId: string): Promise<ActionResult
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: appointment } = await (supabase as any)
     .from("appointments")
-    .select("id, status, auto_marked, checkout_at")
+    .select("id, status, auto_marked, checkout_at, patient_id")
     .eq("id", appointmentId)
     .maybeSingle();
 
@@ -468,7 +561,46 @@ export async function undoAutoFalta(appointmentId: string): Promise<ActionResult
   }
 
   revalidateAgendaViews();
-  return { success: true };
+
+  // Se essa falta foi o gatilho do desligamento automático (patients.
+  // discharged_auto=true e este appointment é o trigger_appointment_id do
+  // evento mais recente), desfazê-la derruba a contagem de faltas
+  // consecutivas abaixo do limiar — reativa o paciente automaticamente pela
+  // mesma RPC que o painel de desligamento usa manualmente (ver
+  // discharge-panel.tsx), sem exigir um segundo clique da recepção.
+  let autoReactivated = false;
+  if (appointment.patient_id) {
+    const { data: patient } = await supabase
+      .from("patients")
+      .select("discharged_auto")
+      .eq("id", appointment.patient_id)
+      .maybeSingle();
+
+    if (patient?.discharged_auto) {
+      const { data: lastEvent } = await supabase
+        .from("patient_discharge_events")
+        .select("trigger_appointment_id")
+        .eq("patient_id", appointment.patient_id)
+        .eq("kind", "auto_desligamento")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastEvent?.trigger_appointment_id === appointmentId) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: reactivateError } = await (supabase as any).rpc("reactivate_discharged_patient", {
+          p_patient_id: appointment.patient_id,
+          p_by: user?.id ?? null,
+        });
+        if (!reactivateError) autoReactivated = true;
+      }
+    }
+  }
+
+  return { success: true, autoReactivated: autoReactivated || undefined };
 }
 
 /**

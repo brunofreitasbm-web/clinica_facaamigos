@@ -124,6 +124,7 @@ async function finalizeAnamnesisRequest(
       guardian_cpf: data.guardian_cpf,
       child_name: data.child_name,
       child_birth_date: data.child_birth_date,
+      carteirinha_numero: data.carteirinha_numero || null,
       laudo_pdf_url: data.laudo_pdf_url,
       guia_pdf_url: data.guia_pdf_url,
       carteirinha_frente_url: data.carteirinha_frente_url,
@@ -151,7 +152,7 @@ async function finalizeAnamnesisRequest(
   return {
     handled: true,
     replyMessage:
-      "Tudo certo! 🎉 Recebemos as informações e documentos (Laudo, Guia e Carteirinha).\n\n" +
+      "Tudo certo! 🎉 Recebemos as informações e documentos (Número da Carteirinha, Laudo, Guia e Carteirinha).\n\n" +
       "Nosso supervisor fará a validação rápida. Assim que aprovado, enviaremos os horários disponíveis por aqui para você escolher! 🧩💙",
   };
 }
@@ -319,6 +320,31 @@ export async function processAnamnesisChatbotStep(
     await supabase
       .from("chatbot_sessions")
       .update({
+        current_step: "awaiting_carteirinha_numero",
+        collected_data: data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("phone_number", phone);
+
+    return {
+      handled: true,
+      replyMessage: `Excelente! 💳 Qual o *Número da Carteirinha do Plano de Saúde* de ${data.child_name}?`,
+    };
+  }
+
+  // 5c. Etapa: Aguardando Número da Carteirinha do Plano de Saúde
+  if (currentStep === "awaiting_carteirinha_numero") {
+    if (rawBody.trim().length < 2) {
+      return {
+        handled: true,
+        replyMessage: "Por favor, informe o número da carteirinha do plano de saúde:",
+      };
+    }
+
+    data.carteirinha_numero = rawBody.trim();
+    await supabase
+      .from("chatbot_sessions")
+      .update({
         current_step: "awaiting_has_laudo",
         collected_data: data,
         updated_at: new Date().toISOString(),
@@ -328,7 +354,8 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        `Perfeito! 🧩 ${data.child_name} já possui *Laudo Médico*?\n\n` +
+        `Número de carteirinha registrado! 💳✅\n\n` +
+        `${data.child_name} já possui *Laudo Médico*?\n\n` +
         "Responda *SIM* ou *NÃO*.",
     };
   }

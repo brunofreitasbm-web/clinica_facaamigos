@@ -115,6 +115,25 @@ export function weekdayInTimeZone(isoInstant: string, timeZone: string): number 
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 
+/**
+ * Início (inclusive) e fim (exclusivo, meia-noite do 1º dia do mês
+ * seguinte) de um mês civil (`monthStr` no formato `YYYY-MM`) no fuso
+ * `timeZone`, como instantes ISO em UTC. Usado pela ficha mensal de
+ * presença (FASE 6 — ver app/recepcao/pacientes/[id]/ficha-presenca/pdf/
+ * route.ts) para alimentar a RPC `monthly_presence_sheet(p_month_start,
+ * p_month_end)` sem depender do fuso do processo Node.
+ */
+export function monthRangeInTimeZone(monthStr: string, timeZone: string): { startIso: string; endIso: string } {
+  const [year, month] = monthStr.split("-").map(Number);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+
+  const start = zonedDateTimeToUtc(`${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`, "00:00", timeZone);
+  const end = zonedDateTimeToUtc(`${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01`, "00:00", timeZone);
+
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
 /** Hora civil (0-23) de um instante ISO, no fuso `timeZone`. */
 export function hourInTimeZone(isoInstant: string, timeZone: string): number {
   if (!isoInstant) return 0;

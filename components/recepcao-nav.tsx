@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Users, AlertCircle, Inbox, FileText, Sparkles, UserX, DoorOpen, Trophy } from "lucide-react";
+import { CalendarDays, Users, AlertCircle, Inbox, FileText, Sparkles, UserX, DoorOpen, Trophy, HeartHandshake } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -13,6 +13,7 @@ import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 const NAV_ITEMS = [
   { key: "agenda", label: "Agenda do dia", href: "/recepcao", match: ["/recepcao", "/recepcao/agenda"], icon: CalendarDays },
   { key: "chegadas", label: "Chegadas", href: "/recepcao/chegadas", icon: DoorOpen },
+  { key: "acolhimentos", label: "Acolhimentos", href: "/recepcao/acolhimentos", icon: HeartHandshake },
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
   { key: "pendencias", label: "Pendências", href: "/recepcao/pacientes/pendencias", icon: AlertCircle },
   { key: "atendimento", label: "Atendimento", href: "/recepcao/atendimento", icon: Inbox },
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
 export function RecepcaoNav({
   pendingCount,
   chegadasCount,
+  acolhimentosCount,
 }: {
   /**
    * `null` enquanto os badges ainda não chegaram (ver
@@ -35,12 +37,19 @@ export function RecepcaoNav({
   pendingCount: number | null;
   /** Chegadas declaradas pelo QR ainda não confirmadas — ver app/recepcao/chegadas. */
   chegadasCount?: number | null;
+  /** Acolhimentos aguardando agendamento ou pagamento — ver app/recepcao/acolhimentos. */
+  acolhimentosCount?: number | null;
 }) {
   const items: ModuleNavItem[] = NAV_ITEMS.map((item) => ({
     ...item,
     badge:
-      (item.key === "pendencias" ? pendingCount : item.key === "chegadas" ? chegadasCount : undefined) ??
-      undefined,
+      (item.key === "pendencias"
+        ? pendingCount
+        : item.key === "chegadas"
+          ? chegadasCount
+          : item.key === "acolhimentos"
+            ? acolhimentosCount
+            : undefined) ?? undefined,
   }));
 
   return (

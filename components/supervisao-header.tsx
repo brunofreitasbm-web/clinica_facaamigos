@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { ShieldCheck, UserX, ListOrdered, Users, CalendarClock, Trophy, Boxes, CalendarDays, Stethoscope, CalendarRange, UserCircle } from "lucide-react";
+import { ShieldCheck, UserX, ListOrdered, Users, CalendarClock, Trophy, Boxes, CalendarDays, Stethoscope, CalendarRange, UserCircle, UserMinus } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 import { NavGroupDropdown } from "@/components/nav-group-dropdown";
 import { useSupervisaoTab, type SupervisaoTabKey } from "@/app/supervisao/supervisao-tab-context";
@@ -23,6 +23,7 @@ const OPERACAO_LINKS = [
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
   { key: "lista-espera", label: "Lista de Espera", href: "/supervisao/lista-espera", icon: ListOrdered },
   { key: "prontuario-unificado", label: "Prontuário Unificado", href: "/supervisao/prontuario-unificado", icon: ShieldCheck },
+  { key: "desligamentos", label: "Desligamentos", href: "/supervisao/desligamentos", icon: UserMinus },
 ] as const;
 
 const GESTAO_LINKS = [

@@ -80,6 +80,13 @@ export function InsurerListItem({ insurer }: InsurerItemProps) {
           Tabela de preços
         </Link>
 
+        <Link
+          href={`/gestor/cadastros/convenios/${insurer.id}/procedimentos`}
+          className="text-xs font-medium text-chart hover:underline mr-2"
+        >
+          Códigos de Procedimento
+        </Link>
+
         {/* Botão de Editar */}
         <button
           type="button"

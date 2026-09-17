@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, CheckCircle2, XCircle, ExternalLink, User, Phone } from "lucide-react";
+import { FileText, CheckCircle2, XCircle, ExternalLink, User, Phone, CreditCard } from "lucide-react";
 import {
   getPendingAnamnesisRequestsAction,
   approveAnamnesisDocumentAction,
@@ -97,6 +97,12 @@ export function AnamnesisDocumentPopover({
               <Phone className="h-3.5 w-3.5" />
               <span className="font-mono text-ink-soft">{request.guardian_phone}</span>
             </p>
+            {request.carteirinha_numero && (
+              <p className="flex items-center gap-1.5">
+                <CreditCard className="h-3.5 w-3.5 text-accent" />
+                Carteirinha: <span className="font-mono font-semibold text-accent">{request.carteirinha_numero}</span>
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-2 border-t border-paper-line pt-2.5">

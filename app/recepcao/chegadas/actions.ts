@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
-import { checkIn, undoAutoFalta } from "@/app/recepcao/agenda/session-actions";
+import { checkIn, undoAutoFalta, type PaperSignatures } from "@/app/recepcao/agenda/session-actions";
 import type { CouponModel } from "@/lib/checkin-coupon";
 
 type ActionResult =
@@ -30,7 +30,11 @@ function revalidateChegadasViews() {
  * por checkIn() precisa ser exibido pela UI — é o único ponto do fluxo do QR
  * em que a recepção olha a autorização antes do atendimento (ver F22 do plano).
  */
-export async function confirmCheckinRequest(requestId: string, appointmentId: string): Promise<ActionResult> {
+export async function confirmCheckinRequest(
+  requestId: string,
+  appointmentId: string,
+  signatures?: PaperSignatures,
+): Promise<ActionResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -65,7 +69,7 @@ export async function confirmCheckinRequest(requestId: string, appointmentId: st
     if (!undone.success) return undone;
   }
 
-  const result = await checkIn(appointmentId);
+  const result = await checkIn(appointmentId, signatures);
   if (!result.success) return result;
 
   const { error: updateError } = await supabase

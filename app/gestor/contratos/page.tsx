@@ -55,6 +55,39 @@ export default async function ContratosPage() {
     : { data: [] as InvoiceRow[] };
 
   const invoiceRows = invoiceRowsRaw ?? [];
+  const invoiceIds = invoiceRows.map((inv) => inv.id);
+
+  // Recibo já emitido para a fatura (ver lib/receipts.ts) — exibido na coluna
+  // de faturas em vez do botão "Marcar como Paga" quando já existe.
+  const { data: receiptRowsRaw } = invoiceIds.length
+    ? await supabase
+        .from("receipts")
+        .select("source_id, number, year")
+        .eq("source_type", "contract_invoice")
+        .in("source_id", invoiceIds)
+    : { data: [] as { source_id: string; number: number; year: number }[] };
+
+  const receiptByInvoiceId = new Map((receiptRowsRaw ?? []).map((r) => [r.source_id, r]));
+
+  const { data: specialtyRows } = await supabase
+    .from("specialties")
+    .select("value, label, specialty_prices(price, duration_minutes)")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+
+  const specialtyOptions = (specialtyRows ?? []).map((s) => ({
+    value: s.value,
+    label: s.label,
+    price: (s.specialty_prices as { price: number } | null)?.price ?? null,
+  }));
+
+  const { data: clinicRow } = await supabase
+    .from("clinics")
+    .select("default_sessions_per_month")
+    .eq("id", DEV_CLINIC_ID)
+    .maybeSingle();
+  const defaultSessionsPerMonth = clinicRow?.default_sessions_per_month ?? 10;
 
   const invoicesByContract = new Map<string, InvoiceRow[]>();
   for (const inv of invoiceRows) {
@@ -93,7 +126,11 @@ export default async function ContratosPage() {
             </h6>
             <h1 className="m-0">Gestão de Contratos e Cobrança Particular</h1>
           </div>
-          <NewContractDialog patients={allPatients ?? []} />
+          <NewContractDialog
+            patients={allPatients ?? []}
+            specialties={specialtyOptions}
+            defaultSessionsPerMonth={defaultSessionsPerMonth}
+          />
         </div>
 
         <section className="grid grid-cols-1 gap-6 sm:grid-cols-3">
@@ -169,15 +206,23 @@ export default async function ContratosPage() {
                       <td>
                         <div className="flex flex-col gap-1">
                           {invoices.length === 0 && c.status === "ativo" && <GenerateInvoiceButton contractId={c.id} />}
-                          {invoices.map((inv) => (
-                            <div key={inv.id} className="flex items-center gap-2">
-                              <span className={`tag-status ${INVOICE_STATUS_TAG[inv.status] ?? "st-agendada"}`}>
-                                {inv.status === "pago" ? "Paga" : inv.status === "atrasado" ? "Atrasada" : inv.status === "pendente" ? "Pendente" : "Cancelada"}
-                              </span>
-                              <span className="text-xs">{formatCurrency(Number(inv.amount))}</span>
-                              {inv.status !== "pago" && <MarkInvoicePaidButton invoiceId={inv.id} />}
-                            </div>
-                          ))}
+                          {invoices.map((inv) => {
+                            const receipt = receiptByInvoiceId.get(inv.id);
+                            return (
+                              <div key={inv.id} className="flex items-center gap-2">
+                                <span className={`tag-status ${INVOICE_STATUS_TAG[inv.status] ?? "st-agendada"}`}>
+                                  {inv.status === "pago" ? "Paga" : inv.status === "atrasado" ? "Atrasada" : inv.status === "pendente" ? "Pendente" : "Cancelada"}
+                                </span>
+                                <span className="text-xs">{formatCurrency(Number(inv.amount))}</span>
+                                {inv.status !== "pago" && <MarkInvoicePaidButton invoiceId={inv.id} />}
+                                {inv.status === "pago" && receipt && (
+                                  <span className="text-[11px] text-ink-faint">
+                                    Recibo nº {receipt.year}/{String(receipt.number).padStart(4, "0")}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </td>
                     </tr>

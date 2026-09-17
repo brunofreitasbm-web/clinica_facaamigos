@@ -10,6 +10,7 @@ export interface AnamnesisRequestItem {
   guardian_phone: string;
   guardian_cpf: string;
   child_name: string;
+  carteirinha_numero?: string | null;
   laudo_pdf_url?: string | null;
   guia_pdf_url?: string | null;
   carteirinha_frente_url?: string | null;
@@ -74,6 +75,7 @@ export async function createMockWhatsAppAnamnesisRequestAction(): Promise<{
         guardian_phone: mockPhone,
         guardian_cpf: mockCpf,
         child_name: mockChild,
+        carteirinha_numero: "0035.1234.567890.00-1",
         status: "pendente_supervisor",
         laudo_pdf_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
         guia_pdf_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",

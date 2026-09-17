@@ -66,7 +66,7 @@ export default async function RecepcaoPage({
 
   const [{ data: rooms }, { data: patients }, { data: therapists }, { data: insurers }] = await Promise.all([
     supabase.from("rooms").select("id, name, is_evaluation_room").eq("clinic_id", DEV_CLINIC_ID).order("name"),
-    supabase.from("patients").select("id, full_name").eq("clinic_id", DEV_CLINIC_ID).order("full_name"),
+    supabase.from("patients").select("id, full_name, birth_date").eq("clinic_id", DEV_CLINIC_ID).order("full_name"),
     supabase
       .from("profiles")
       .select("id, full_name")
@@ -133,7 +133,7 @@ export default async function RecepcaoPage({
   const { data: rawAppointments } = await (supabase as any)
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, status, room_id, patient_id, therapist_id, appointment_type_id, discipline, checkin_at, attendance_started_at, checkout_at, confirmed_at, cancelled_at, cancel_reason, auto_marked, authorization_id, is_provisional, is_evaluation, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
+      "id, starts_at, ends_at, status, room_id, patient_id, therapist_id, appointment_type_id, discipline, checkin_at, attendance_started_at, checkout_at, confirmed_at, cancelled_at, cancel_reason, auto_marked, authorization_id, is_provisional, is_evaluation, modality, group_id, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
     )
     .gte("starts_at", dayStart)
     .lt("starts_at", dayEnd)
@@ -162,6 +162,8 @@ export default async function RecepcaoPage({
     authorizationId: a.authorization_id,
     isProvisional: a.is_provisional,
     isEvaluation: a.is_evaluation,
+    modality: a.modality,
+    groupId: a.group_id,
   }));
 
   // Indicador "registro pendente" (ícone de caneta na linha da sessão): só
@@ -229,6 +231,18 @@ export default async function RecepcaoPage({
     }
   }
 
+  // Ocupação do grupo pra badge "Grupo 2/3" (today-agenda-list.tsx) —
+  // conta as sessões `modality='grupo'` ativas que já estão em mãos (mesmo
+  // group_id, mesmo dia), sem round-trip extra à RPC group_slot_occupancy.
+  // max_size real (por convênio) fica a cargo do guard no banco; aqui só o
+  // padrão 3 é usado como referência visual.
+  const CANCELLED_STATUSES = new Set(["cancelada_familia", "cancelada_terapeuta", "cancelada_clinica", "remarcada"]);
+  const groupOccupancyByGroupId = new Map<string, number>();
+  for (const a of appointments) {
+    if (a.modality !== "grupo" || !a.groupId || CANCELLED_STATUSES.has(a.status)) continue;
+    groupOccupancyByGroupId.set(a.groupId, (groupOccupancyByGroupId.get(a.groupId) ?? 0) + 1);
+  }
+
   const sessions: TodaySession[] = appointments.map((a) => {
     const ins = insuranceByPatient.get(a.patientId);
     return {
@@ -254,6 +268,11 @@ export default async function RecepcaoPage({
       isEvaluation: a.isEvaluation,
       insurerName: ins?.name ?? null,
       badgeColor: ins?.color ?? null,
+      modality: a.modality,
+      groupOccupancy:
+        a.modality === "grupo" && a.groupId && !CANCELLED_STATUSES.has(a.status)
+          ? { occupied: groupOccupancyByGroupId.get(a.groupId) ?? 1, maxSize: 3 }
+          : null,
     };
   });
 

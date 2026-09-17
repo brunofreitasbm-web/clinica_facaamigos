@@ -36,6 +36,7 @@ import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reas
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { civilTimeInTimeZone } from "@/lib/timezone";
 import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
+import { useToast } from "@/components/toast-provider";
 
 export type TodaySession = {
   id: string;
@@ -62,6 +63,9 @@ export type TodaySession = {
   isEvaluation: boolean;
   insurerName?: string | null;
   badgeColor?: string | null;
+  modality?: string | null;
+  /** Ocupação do grupo (sessões ativas com mesmo group_id, no dia) — só para modality='grupo'. */
+  groupOccupancy?: { occupied: number; maxSize: number } | null;
 };
 
 export type GuardianContact = {
@@ -672,12 +676,15 @@ function SessionRow({
   setShowGuiaModal: (v: boolean) => void;
 }) {
 
+  const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [showFaltaForm, setShowFaltaForm] = useState(false);
   const [showGuardians, setShowGuardians] = useState(false);
   const [showLinkGuide, setShowLinkGuide] = useState(false);
+  const [signPresenceSheet, setSignPresenceSheet] = useState(false);
+  const [signGuide, setSignGuide] = useState(false);
   const [guideOptions, setGuideOptions] = useState<PatientAuthorizationOption[] | null>(null);
   const [selectedGuideId, setSelectedGuideId] = useState("");
   const [showChegadaModal, setShowChegadaModal] = useState(false);
@@ -699,13 +706,27 @@ function SessionRow({
   const isCheckedIn = Boolean(session.checkinAt);
   const isFaltaOrCancelled = NEGATIVE_STATUSES.some((s) => s.value === session.status) || session.status === "falta_familia";
 
-  function runAction(action: () => Promise<{ success: true; warning?: string } | { success: false; error: string }>) {
+  function runAction(
+    action: () => Promise<
+      | { success: true; warning?: string; autoDischarged?: boolean; autoReactivated?: boolean }
+      | { success: false; error: string }
+    >,
+  ) {
     setError(null);
     setWarning(null);
     startTransition(async () => {
       const result = await action();
-      if (!result.success) setError(result.error);
-      else if (result.warning) setWarning(result.warning);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      if (result.warning) setWarning(result.warning);
+      if (result.autoDischarged) {
+        toast("Paciente desligado automaticamente (2 faltas consecutivas sem justificativa).", "info", undefined, 8000);
+      }
+      if (result.autoReactivated) {
+        toast("Paciente reativado automaticamente.", "success");
+      }
     });
   }
 
@@ -715,7 +736,7 @@ function SessionRow({
     setError(null);
     setWarning(null);
     startTransition(async () => {
-      const result = await checkIn(session.id);
+      const result = await checkIn(session.id, { presenceSheet: signPresenceSheet, guide: signGuide });
       if (!result.success) {
         setError(result.error);
         return;
@@ -781,6 +802,15 @@ function SessionRow({
           size="md"
         />
 
+        {session.groupOccupancy && (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800"
+            title="Ocupação do grupo neste horário"
+          >
+            Grupo {session.groupOccupancy.occupied}/{session.groupOccupancy.maxSize}
+          </span>
+        )}
+
         {/* Guia status & Quick action */}
         {session.authorizationId ? (
           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
@@ -832,6 +862,9 @@ function SessionRow({
                 if (!result.success) {
                   setError(result.error);
                   return;
+                }
+                if (result.autoDischarged) {
+                  toast("Paciente desligado automaticamente (2 faltas consecutivas sem justificativa).", "info", undefined, 8000);
                 }
                 setShowFaltaForm(false);
               });
@@ -951,6 +984,25 @@ function SessionRow({
           <CheckCircle2 className={`h-3.5 w-3.5 ${isConfirmado ? "text-white" : "text-sky-600"}`} />
           <span>Confirmado</span>
         </button>
+
+        {canCheckin && !session.isEvaluation && (
+          <div className="flex items-center gap-2 text-[11px] text-ink-soft">
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={signPresenceSheet}
+                onChange={(e) => setSignPresenceSheet(e.target.checked)}
+              />
+              Assinou ficha
+            </label>
+            {session.authorizationId && (
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={signGuide} onChange={(e) => setSignGuide(e.target.checked)} />
+                Assinou guia
+              </label>
+            )}
+          </div>
+        )}
 
         <button
           type="button"
