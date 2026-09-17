@@ -7414,6 +7414,47 @@ export type Database = {
           },
         ]
       }
+      specialty_prices: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          duration_minutes: number
+          id: string
+          price: number
+          specialty_value: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          duration_minutes: number
+          id?: string
+          price: number
+          specialty_value: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          price?: number
+          specialty_value?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialty_prices_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       survey_responses: {
         Row: {
           answers: Json

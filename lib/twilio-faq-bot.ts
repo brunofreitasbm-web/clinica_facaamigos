@@ -20,10 +20,11 @@
  *   takeover em lib/twilio.ts cala o bot a partir daí, até a recepção assumir
  *   ou religar o bot pelo toggle da Central.
  *
- * A regra "nunca invente" é o ponto mais importante do prompt: as respostas de
- * endereço, horário e valores nascem com "⚠️ TODO" no seed, então enquanto o
- * gestor não preencher, essas perguntas viram atendimento humano em vez de
- * alucinação sobre preço ou cobertura.
+ * A regra "nunca invente" é o ponto mais importante do prompt: perguntas sem
+ * resposta na base (endereço, horário etc., enquanto o gestor não preencher)
+ * viram atendimento humano em vez de alucinação. Valor particular é exceção
+ * deliberada — vem de `specialty_prices` e PODE ser informado direto pelo
+ * bot; valor de convênio nunca é exposto (não entra na base de conhecimento).
  */
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -40,6 +41,20 @@ const DEFAULT_DAILY_REPLY_LIMIT = 20;
 
 const KNOWLEDGE_TTL_MS = 5 * 60 * 1000;
 const SETTINGS_TTL_MS = 5 * 60 * 1000;
+
+/** Rótulo legível pro `specialty_value` de `specialty_prices` — a tabela usa
+ * chaves internas mais granulares que o catálogo `specialties`. */
+const SPECIALTY_PRICE_LABEL: Record<string, string> = {
+  psicologia_aba: "Psicologia ABA",
+  fonoaudiologia: "Fonoaudiologia",
+  fono_convencional: "Fonoaudiologia Convencional",
+  terapia_ocupacional: "Terapia Ocupacional",
+  to_convencional: "Terapia Ocupacional Convencional",
+  integracao_sensorial: "Integração Sensorial",
+  psicomotricidade: "Psicomotricidade",
+  musicoterapia: "Musicoterapia",
+  psicoterapia: "Psicoterapia",
+};
 
 export type ChatbotSettings = {
   botEnabled: boolean;
@@ -116,7 +131,7 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
-  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes] = await Promise.all([
+  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes, specialtyPricesRes] = await Promise.all([
     supabase
       .from("clinic_faq")
       .select("question, answer, keywords, category")
@@ -141,6 +156,16 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
       .eq("clinic_id", clinicId)
       .in("role", ["terapeuta", "profissional", "supervisor"])
       .order("full_name"),
+    // Preço particular (sem convênio) por especialidade — ver
+    // specialty_prices. Diferente do convênio (nunca exposto pelo bot), o
+    // gestor decidiu que o valor particular PODE ser informado direto no
+    // WhatsApp (regra 6 do prompt abaixo).
+    supabase
+      .from("specialty_prices")
+      .select("specialty_value, price, duration_minutes")
+      .eq("clinic_id", clinicId)
+      .eq("active", true)
+      .order("specialty_value"),
   ]);
 
   const faqBlock = (faqRes.data ?? [])
@@ -164,6 +189,14 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     .map((tp) => `${tp.full_name} (${tp.role})`)
     .join(", ");
 
+  const priceFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  const specialtyPricesBlock = (specialtyPricesRes.data ?? [])
+    .map((p) => {
+      const label = SPECIALTY_PRICE_LABEL[p.specialty_value] ?? p.specialty_value;
+      return `${label}: ${priceFormatter.format(Number(p.price))} (${p.duration_minutes} min)`;
+    })
+    .join(", ");
+
   const text = [
     "=== PERGUNTAS FREQUENTES (fonte da verdade) ===",
     faqBlock || "(nenhuma pergunta cadastrada)",
@@ -173,6 +206,9 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     "",
     "=== TIPOS DE ATENDIMENTO E DURAÇÃO ===",
     typesBlock || "(não cadastrado)",
+    "",
+    "=== VALORES PARTICULAR (sem convênio), por especialidade ===",
+    specialtyPricesBlock || "(nenhum valor particular cadastrado — escale pra equipe humana se perguntarem)",
     "",
     "=== SALAS DE ATENDIMENTO E AVALIAÇÃO ===",
     roomsBlock || "(nenhuma sala cadastrada)",
@@ -196,7 +232,7 @@ REGRAS OBRIGATÓRIAS:
 3. ATENDIMENTO EMPÁTICO AOS PAIS E RESPONSÁVEIS: Fale diretamente com o pai, mãe ou responsável legal. Trate a família com carinho, respeito, clareza e acolhimento.
 4. EMOJIS ACOLHEDORES: Use emojis integrativos e carinhosos (ex.: 💙, 🧩, 🎈, 🌱, 🤝, ✨) de forma harmoniosa nas mensagens.
 5. NUNCA INVENTE: Responda APENAS com base nas informações acima. Se a resposta não estiver ali ou a dúvida não for coberta pela base, NUNCA invente: escale para a equipe humana.
-6. POLÍTICA DE VALORES: Por decisão da clínica, valores de sessões particulares não são repassados automaticamente pelo bot no WhatsApp. Quando a família perguntar sobre preços/valores, informe de forma breve que a equipe humana entrará em contato para detalhar os valores, definindo "escalar": true e "motivo": "fora_da_base".
+6. POLÍTICA DE VALORES: Valores de sessão PARTICULAR (sem convênio) PODEM ser informados diretamente, usando exatamente os números da seção "VALORES PARTICULAR" acima — nunca arredonde ou estime. Valores de convênio (reembolso, coparticipação, tabela do plano) NÃO estão nesta base e NUNCA devem ser informados: escale para a equipe humana ("escalar": true, "motivo": "fora_da_base").
 7. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
 8. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
 9. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
@@ -211,7 +247,7 @@ Isso não é uma dúvida que você responde — é um pedido que a recepção va
 4. Junto com o "escalar=true, motivo=relatorio", preencha TAMBÉM o campo "relatorio_dados" com o que foi coletado (use null no que não foi informado) — é esse campo, não o texto da "resposta", que vira o aviso de pendência para o Supervisor providenciar junto ao terapeuta correspondente.
 
 QUANDO ESCALAR (escalar = true):
-- "fora_da_base": a informação pedida não está acima, ou refere-se a valores particulares.
+- "fora_da_base": a informação pedida não está acima, ou refere-se a valores de convênio/reembolso (nunca informe esses).
 - "clinico": pergunta sobre sintoma, diagnóstico, evolução ou conduta da criança.
 - "pediu_humano": a pessoa pediu para falar com alguém, reclamou ou está claramente insatisfeita.
 - "relatorio": pedido de relatório/documento, DEPOIS de reunir os dados acima — nunca na primeira mensagem do pedido.
