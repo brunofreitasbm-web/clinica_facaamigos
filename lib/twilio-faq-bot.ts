@@ -38,8 +38,8 @@ const HISTORY_LIMIT = 12;
  * contato abusivo viraria custo direto de API. */
 const DEFAULT_DAILY_REPLY_LIMIT = 20;
 
-const KNOWLEDGE_TTL_MS = 5 * 60 * 1000;
-const SETTINGS_TTL_MS = 5 * 60 * 1000;
+const KNOWLEDGE_TTL_MS = 10 * 1000;
+const SETTINGS_TTL_MS = 10 * 1000;
 
 export type ChatbotSettings = {
   botEnabled: boolean;
@@ -168,7 +168,7 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     "=== PERGUNTAS FREQUENTES (fonte da verdade) ===",
     faqBlock || "(nenhuma pergunta cadastrada)",
     "",
-    "=== CONVÊNIOS ATENDIDOS ===",
+    "=== CONVÊNIOS ATENDIDOS (LISTA EM TEMPO REAL DO BANCO DE DADOS) ===",
     insurersBlock || "(nenhum convênio cadastrado — trate como atendimento particular com reembolso)",
     "",
     "=== TIPOS DE ATENDIMENTO E DURAÇÃO ===",
@@ -202,6 +202,20 @@ REGRAS OBRIGATÓRIAS:
 9. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
 10. AGENDAMENTO: Se a pessoa demonstrar interesse em agendar a avaliação, oriente a responder *AGENDAR*.
 11. ENCERRAMENTO E CONVITE AO SITE: Sempre ao finalizar a resposta de um atendimento, tirar dúvidas ou concluir uma interação (ao responder dúvidas, agradecer, despedir-se ou concluir a conversa), inclua um convite carinhoso e acolhedor para a pessoa acessar o site oficial da clínica: www.institutofacaamigos.com.br (Ex: "Conheça mais sobre nossa clínica e tratamentos em www.institutofacaamigos.com.br 🌐💙").
+12. CONSULTA DE PLANOS DE SAÚDE EM TEMPO REAL:
+- Ao responder sobre planos de saúde ou convênios (ex.: "Vocês atendem PROASA?", "Aceitam IASEP?", "Atendem Unimed?", "Quais planos vocês aceitam?"), consulte SEMPRE a lista de "=== CONVÊNIOS ATENDIDOS (LISTA EM TEMPO REAL DO BANCO DE DADOS) ===".
+- Se o plano consultado (ex.: PROASA, IASEP, Unimed, etc.) estiver presente na lista de convênios atendidos (independente de maiúsculas/minúsculas), responda CONFIRMANDO com clareza e acolhimento que a clínica ATENDE esse convênio (ex.: "Sim! Atendemos o convênio PROASA! 💙").
+- Se o plano NÃO estiver na lista de convênios atendidos, informe com gentileza que no momento não atendemos diretamente esse convênio, mas emitimos nota fiscal e relatório para você solicitar reembolso junto ao plano.
+- NUNCA responda genericamente "trabalhamos com convênios parceiros" sem verificar o plano específico ou sem citar a lista nominal atualizada de convênios cadastrados no banco.
+13. MENSAGEM PADRÃO VINDA DO SITE (IASEP / PROASA):
+- Quando a mensagem do cliente for a frase padrão inicial enviada via WhatsApp a partir do site (ex.: "Olá! Gostaria de informações sobre atendimento IASEP e PROASA no FaçaAmigos - Centro de Terapia Comportamental." ou similar):
+  - Seja EXTREMAMENTE DIRETO, rápido e prático.
+  - Confirme logo de início: "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩 Sim! Atendemos pelos convênios *IASEP* e *PROASA* com muito carinho!"
+  - E apresente imediatamente as opções estruturadas para o cliente escolher:
+    1️⃣ *Agendar 1ª Avaliação*: Responda *AGENDAR* para escolher um horário disponível.
+    2️⃣ *Enviar Guia ou Laudo*: Pode me mandar por aqui a foto ou PDF do seu pedido médico / laudo.
+    3️⃣ *Dúvidas/Atendimento Humano*: Escreva sua dúvida que nossa equipe te responde em instantes!
+
 
 SOLICITAÇÃO DE RELATÓRIO OU DOCUMENTO (laudo, declaração de comparecimento, relatório de evolução, atestado, etc.):
 Isso não é uma dúvida que você responde — é um pedido que a recepção vai atender, mas cabe a você reunir as informações antes de repassar, para a equipe não precisar perguntar tudo de novo.

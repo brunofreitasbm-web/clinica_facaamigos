@@ -13,8 +13,9 @@ export function TwilioChatbotTestPanel() {
   const [copied, setCopied] = useState(false);
 
   const sampleMessages = [
+    "Olá! Gostaria de informações sobre atendimento IASEP e PROASA no FaçaAmigos - Centro de Terapia Comportamental.",
     "Quais os planos que a clínica atende?",
-    "Vocês aceitam Unimed ou Bradesco?",
+    "Vocês aceitam PROASA ou IASEP?",
     "Qual o valor da consulta particular?",
     "Como faço para agendar um atendimento?",
   ];
