@@ -2,7 +2,12 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import { registerAuthorization, getInsurersList } from "@/app/recepcao/pacientes/[id]/stage-actions";
-import { linkAuthorizationToAppointment, getPatientActiveAuthorizations, type PatientAuthorizationOption } from "./agenda/session-actions";
+import {
+  linkAuthorizationToAppointment,
+  getPatientActiveAuthorizations,
+  updateAuthorizationChecklist,
+  type PatientAuthorizationOption,
+} from "./agenda/session-actions";
 import { FileText, Plus, Check, X, AlertCircle, Calendar, Hash, ShieldCheck } from "lucide-react";
 
 /**
@@ -126,37 +131,41 @@ export function GuiaSection({
             {activeGuides.map((g, index) => (
               <div
                 key={g.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-paper-line-strong bg-paper-line-strong/20 p-3 transition-colors hover:border-chart/40"
+                className="rounded-lg border border-paper-line-strong bg-paper-line-strong/20 p-3 transition-colors hover:border-chart/40"
               >
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-ink">Guia #{index + 1}: {g.guideNumber ?? "Sem Número"}</span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-chart/10 text-chart">
-                      Proc: {g.procedureCode}
-                    </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-ink">Guia #{index + 1}: {g.guideNumber ?? "Sem Número"}</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-chart/10 text-chart">
+                        Proc: {g.procedureCode}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] text-ink-soft">
+                      <span className="flex items-center gap-1">
+                        <Hash className="h-3 w-3 text-ink-faint" />
+                        Sessões: <strong>{g.sessionsUsed}/{g.sessionsAuthorized}</strong>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3 text-ink-faint" />
+                        Válida até: {g.validTo ? new Date(g.validTo).toLocaleDateString("pt-BR") : "Indefinido"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-ink-soft">
-                    <span className="flex items-center gap-1">
-                      <Hash className="h-3 w-3 text-ink-faint" />
-                      Sessões: <strong>{g.sessionsUsed}/{g.sessionsAuthorized}</strong>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3 text-ink-faint" />
-                      Válida até: {g.validTo ? new Date(g.validTo).toLocaleDateString("pt-BR") : "Indefinido"}
-                    </span>
-                  </div>
+
+                  {appointmentId && (
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => handleLinkExisting(g.id)}
+                      className="btn btn-secondary text-xs self-start sm:self-center shrink-0"
+                    >
+                      Vincular a esta sessão
+                    </button>
+                  )}
                 </div>
 
-                {appointmentId && (
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => handleLinkExisting(g.id)}
-                    className="btn btn-secondary text-xs self-start sm:self-center shrink-0"
-                  >
-                    Vincular a esta sessão
-                  </button>
-                )}
+                <GuideChecklist guide={g} />
               </div>
             ))}
           </div>
@@ -280,6 +289,65 @@ export function GuiaSection({
             </div>
           </form>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Checklist documental por guia (Anexo V do contrato PROASA: a maioria dos
+ * motivos de glosa é documental, não de regra de procedimento). Alerta
+ * visual + marcação manual, não bloqueia nada — mesma filosofia "alerta,
+ * não trava" já usada para limites de sessão em insurer_price_tables.
+ */
+function GuideChecklist({ guide }: { guide: PatientAuthorizationOption }) {
+  const [, startTransition] = useTransition();
+  const [local, setLocal] = useState({
+    beneficiarySigned: guide.beneficiarySigned,
+    professionalStamped: guide.professionalStamped,
+    authorizationDocumentAttached: guide.authorizationDocumentAttached,
+  });
+
+  function toggle(field: keyof typeof local) {
+    const next = { ...local, [field]: !local[field] };
+    setLocal(next);
+    startTransition(() => {
+      updateAuthorizationChecklist(guide.id, { [field]: next[field] });
+    });
+  }
+
+  const reportDue = guide.sessionsUsed > 0 && guide.sessionsUsed % 10 === 0;
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-paper-line pt-2 text-[11px] text-ink-soft">
+      <label className="flex items-center gap-1">
+        <input type="checkbox" checked={local.beneficiarySigned} onChange={() => toggle("beneficiarySigned")} />
+        Beneficiário assinou
+      </label>
+      <label className="flex items-center gap-1">
+        <input type="checkbox" checked={local.professionalStamped} onChange={() => toggle("professionalStamped")} />
+        Carimbo do profissional
+      </label>
+      <label className="flex items-center gap-1">
+        <input
+          type="checkbox"
+          checked={local.authorizationDocumentAttached}
+          onChange={() => toggle("authorizationDocumentAttached")}
+        />
+        Autorização anexada
+      </label>
+      {reportDue && (
+        <button
+          type="button"
+          onClick={() => {
+            startTransition(() => {
+              void updateAuthorizationChecklist(guide.id, { markProgressReportSentNow: true });
+            });
+          }}
+          className="rounded-md bg-status-negative-text/10 px-2 py-0.5 font-semibold text-status-negative-text"
+        >
+          ⚠ Relatório de 10 sessões pendente — marcar enviado
+        </button>
       )}
     </div>
   );

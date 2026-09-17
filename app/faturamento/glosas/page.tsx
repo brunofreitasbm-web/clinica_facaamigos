@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
-import { GlosaRegisterForm, type EligibleBillingItem, type Therapist } from "./glosa-register-form";
+import { GlosaRegisterForm, type EligibleBillingItem, type Therapist, type GlosaReasonOption } from "./glosa-register-form";
 import { GlosaRowActions } from "./glosa-row-actions";
 import { CsvImportForm } from "./csv-import-form";
 import { PatternAcknowledgeButton } from "./pattern-acknowledge-button";
@@ -170,6 +170,35 @@ async function getActiveRecurringPatterns(
   }));
 }
 
+/**
+ * Catálogo de motivos de glosa (glosa_reason_catalog — ver
+ * supabase/migrations/20260917000001_glosa_reason_catalog.sql) de todos os
+ * convênios da clínica, oferecido como sugestão (datalist) no registro
+ * manual de glosa. Mesmo cuidado de getActiveRecurringPatterns: filtra
+ * clinic_id via insurers em vez de `.eq()` num embed aninhado.
+ */
+async function getGlosaReasonOptions(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clinicId: string,
+): Promise<GlosaReasonOption[]> {
+  const { data: insurers } = await supabase.from("insurers").select("id").eq("clinic_id", clinicId);
+  const insurerIds = (insurers ?? []).map((i) => i.id);
+  if (insurerIds.length === 0) return [];
+
+  const { data: reasons } = await supabase
+    .from("glosa_reason_catalog")
+    .select("code, description, prevention_hint")
+    .in("insurer_id", insurerIds)
+    .eq("active", true)
+    .order("code");
+
+  return (reasons ?? []).map((r) => ({
+    code: r.code,
+    description: r.description,
+    preventionHint: r.prevention_hint,
+  }));
+}
+
 export default async function GlosasPage({
   searchParams,
 }: {
@@ -182,7 +211,7 @@ export default async function GlosasPage({
 
   const supabase = await createClient();
 
-  const [{ data: therapistsRaw }, { data: rawGlosas }, recurringPatterns] = await Promise.all([
+  const [{ data: therapistsRaw }, { data: rawGlosas }, recurringPatterns, glosaReasons] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name")
@@ -202,6 +231,7 @@ export default async function GlosasPage({
       .order("id", { ascending: false })
       .limit(200),
     getActiveRecurringPatterns(supabase, DEV_CLINIC_ID),
+    getGlosaReasonOptions(supabase, DEV_CLINIC_ID),
   ]);
 
   const therapists: Therapist[] = (therapistsRaw ?? []).map((t) => ({ id: t.id, fullName: t.full_name }));
@@ -296,7 +326,12 @@ export default async function GlosasPage({
             placeholder="Buscar item por nome do paciente ou número da guia…"
             className="w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
           />
-          <GlosaRegisterForm items={eligibleItems} therapists={therapists} searched={query.length >= 2} />
+          <GlosaRegisterForm
+            items={eligibleItems}
+            therapists={therapists}
+            searched={query.length >= 2}
+            glosaReasons={glosaReasons}
+          />
         </section>
 
         <CsvImportForm />

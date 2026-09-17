@@ -987,15 +987,19 @@ export type Database = {
       authorizations: {
         Row: {
           approved_at: string | null
+          authorization_document_attached: boolean
           authorization_password: string | null
+          beneficiary_signed: boolean
           created_at: string
           document_id: string | null
           guide_number: string | null
           id: string
+          last_progress_report_sent_at: string | null
           password_valid_until: string | null
           patient_insurance_id: string
           previous_authorization_id: string | null
           procedure_code: string
+          professional_stamped: boolean
           requested_at: string | null
           sessions_authorized: number
           sessions_used: number
@@ -1005,15 +1009,19 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          authorization_document_attached?: boolean
           authorization_password?: string | null
+          beneficiary_signed?: boolean
           created_at?: string
           document_id?: string | null
           guide_number?: string | null
           id?: string
+          last_progress_report_sent_at?: string | null
           password_valid_until?: string | null
           patient_insurance_id: string
           previous_authorization_id?: string | null
           procedure_code: string
+          professional_stamped?: boolean
           requested_at?: string | null
           sessions_authorized: number
           sessions_used?: number
@@ -1023,15 +1031,19 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          authorization_document_attached?: boolean
           authorization_password?: string | null
+          beneficiary_signed?: boolean
           created_at?: string
           document_id?: string | null
           guide_number?: string | null
           id?: string
+          last_progress_report_sent_at?: string | null
           password_valid_until?: string | null
           patient_insurance_id?: string
           previous_authorization_id?: string | null
           procedure_code?: string
+          professional_stamped?: boolean
           requested_at?: string | null
           sessions_authorized?: number
           sessions_used?: number
@@ -3433,6 +3445,44 @@ export type Database = {
           },
         ]
       }
+      glosa_reason_catalog: {
+        Row: {
+          active: boolean
+          category: string
+          code: string
+          description: string
+          id: string
+          insurer_id: string
+          prevention_hint: string
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          code: string
+          description: string
+          id?: string
+          insurer_id: string
+          prevention_hint: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          code?: string
+          description?: string
+          id?: string
+          insurer_id?: string
+          prevention_hint?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "glosa_reason_catalog_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       glosa_recurring_patterns: {
         Row: {
           created_at: string
@@ -4293,31 +4343,52 @@ export type Database = {
       insurer_price_tables: {
         Row: {
           cost: number | null
+          duration_minutes: number | null
+          escalation_rule: string | null
+          guide_validity_days: number | null
           id: string
           insurer_id: string
+          max_sessions_per_guide: number | null
+          medical_order_validity_months: number | null
           price: number
           procedure_code: string
           procedure_name: string
+          requires_prior_authorization: boolean
+          session_frequency_note: string | null
           valid_from: string
           valid_to: string | null
         }
         Insert: {
           cost?: number | null
+          duration_minutes?: number | null
+          escalation_rule?: string | null
+          guide_validity_days?: number | null
           id?: string
           insurer_id: string
+          max_sessions_per_guide?: number | null
+          medical_order_validity_months?: number | null
           price: number
           procedure_code: string
           procedure_name: string
+          requires_prior_authorization?: boolean
+          session_frequency_note?: string | null
           valid_from: string
           valid_to?: string | null
         }
         Update: {
           cost?: number | null
+          duration_minutes?: number | null
+          escalation_rule?: string | null
+          guide_validity_days?: number | null
           id?: string
           insurer_id?: string
+          max_sessions_per_guide?: number | null
+          medical_order_validity_months?: number | null
           price?: number
           procedure_code?: string
           procedure_name?: string
+          requires_prior_authorization?: boolean
+          session_frequency_note?: string | null
           valid_from?: string
           valid_to?: string | null
         }
@@ -8209,6 +8280,26 @@ export type Database = {
       }
     }
     Views: {
+      authorization_documentation_risk: {
+        Row: {
+          authorization_document_attached: boolean | null
+          authorization_id: string | null
+          beneficiary_signed: boolean | null
+          checklist_incomplete: boolean | null
+          guide_number: string | null
+          insurer_id: string | null
+          insurer_name: string | null
+          last_progress_report_sent_at: string | null
+          patient_id: string | null
+          procedure_code: string | null
+          professional_stamped: boolean | null
+          progress_report_overdue: boolean | null
+          sessions_authorized: number | null
+          sessions_used: number | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
       pg_all_foreign_keys: {
         Row: {
           fk_columns: unknown[] | null

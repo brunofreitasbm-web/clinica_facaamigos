@@ -17,6 +17,8 @@ export type EligibleBillingItem = {
 
 export type Therapist = { id: string; fullName: string };
 
+export type GlosaReasonOption = { code: string; description: string; preventionHint: string };
+
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 const ATTRIBUTABLE_OPTIONS: { value: string; label: string }[] = [
@@ -30,16 +32,21 @@ export function GlosaRegisterForm({
   items,
   therapists,
   searched,
+  glosaReasons = [],
 }: {
   items: EligibleBillingItem[];
   therapists: Therapist[];
   searched: boolean;
+  glosaReasons?: GlosaReasonOption[];
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [attributableTo, setAttributableTo] = useState("");
+  const [reasonCode, setReasonCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  const matchedReason = glosaReasons.find((r) => r.code === reasonCode) ?? null;
 
   const selected = items.find((i) => i.id === selectedId) ?? null;
 
@@ -94,6 +101,7 @@ export function GlosaRegisterForm({
               }
               setSelectedId(null);
               setAttributableTo("");
+              setReasonCode("");
               router.refresh();
             });
           }}
@@ -108,9 +116,22 @@ export function GlosaRegisterForm({
               id="reason_code"
               name="reason_code"
               required
+              list="glosa-reason-options"
+              value={reasonCode}
+              onChange={(e) => setReasonCode(e.target.value)}
               placeholder="Ex: código TISS do plano de saúde"
               className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
             />
+            <datalist id="glosa-reason-options">
+              {glosaReasons.map((r) => (
+                <option key={r.code} value={r.code}>
+                  {r.description}
+                </option>
+              ))}
+            </datalist>
+            {matchedReason && (
+              <p className="mt-1 text-xs text-ink-faint">Como evitar: {matchedReason.preventionHint}</p>
+            )}
           </div>
 
           <div className="sm:col-span-2">
