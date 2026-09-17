@@ -96,7 +96,14 @@ export default async function TabelaDePrecosPage({
                   {formatDate(entry.valid_from)} até{" "}
                   {entry.valid_to ? formatDate(entry.valid_to) : "sem prazo"}
                 </span>
-                {entry.duration_minutes && <span className="text-ink-faint">{entry.duration_minutes} min</span>}
+                {entry.duration_minutes && (
+                  <span
+                    className="text-ink-faint"
+                    title="Duração contratual do convênio (referência de faturamento) — não é a duração real da sessão executada na clínica."
+                  >
+                    {entry.duration_minutes} min (contrato)
+                  </span>
+                )}
                 {entry.requires_prior_authorization && (
                   <span className="rounded-full bg-status-negative-text/10 px-2 py-0.5 text-xs text-status-negative-text">
                     Exige autorização prévia

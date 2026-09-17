@@ -62,7 +62,7 @@ export async function createAppointment(
   // duração padrão.
   const { data: appointmentType } = await supabase
     .from("appointment_types")
-    .select("id, name, duration_minutes, aba_role")
+    .select("id, name, duration_minutes, aba_role, procedure_code")
     .eq("id", appointmentTypeId)
     .maybeSingle();
 
@@ -122,9 +122,13 @@ export async function createAppointment(
   // quando marcadas como 'realizada'. Treino ABA é a exceção: não consome uma
   // guia só, e sim 3 sessões rateadas entre as guias ABA no fechamento
   // (`aba_training_consume_pool`) — por isso vai sem authorization_id.
+  // Prefere o código real do convênio (appointment_types.procedure_code,
+  // cadastrado em /gestor/cadastros/tipos-atendimento a partir do catálogo do
+  // convênio) pra achar a guia certa; cai pro nome do tipo de atendimento só
+  // pra tipos ainda não vinculados a um procedimento de convênio (ex.: "Geral").
   const authorizationId = isAbaTraining
     ? null
-    : await getActiveAuthorizationId(supabase, patientId, appointmentType.name);
+    : await getActiveAuthorizationId(supabase, patientId, appointmentType.procedure_code || appointmentType.name);
 
   const { error } = await supabase.from("appointments").insert({
     patient_id: patientId,

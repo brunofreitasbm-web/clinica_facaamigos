@@ -98,14 +98,16 @@ export function PriceTableForm({ insurerId }: { insurerId: string }) {
         <label
           className="text-xs font-medium uppercase tracking-wide text-ink-soft"
           htmlFor="duration_minutes"
+          title="Duração prevista no contrato do convênio, só para referência de faturamento — não é a duração real da sessão executada na clínica."
         >
-          Duração (min)
+          Duração contratual (min)
         </label>
         <input
           id="duration_minutes"
           name="duration_minutes"
           type="number"
           min="1"
+          title="Duração prevista no contrato do convênio, só para referência de faturamento — não é a duração real da sessão executada na clínica."
           className="mt-1 w-full rounded-md border border-paper-line-strong bg-paper px-3 py-2 text-sm text-ink"
         />
       </div>

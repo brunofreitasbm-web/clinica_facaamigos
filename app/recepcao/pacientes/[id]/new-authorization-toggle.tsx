@@ -13,7 +13,7 @@ export function NewAuthorizationToggle({
   insurers,
 }: {
   patientId: string;
-  insurers: { id: string; name: string }[] | null;
+  insurers: { id: string; name: string; procedures: { code: string; name: string }[] }[] | null;
 }) {
   const [open, setOpen] = useState(false);
 

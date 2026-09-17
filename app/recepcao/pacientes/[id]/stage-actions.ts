@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { CLINIC_TIMEZONE, STANDARD_SESSION_DURATION_MINUTES } from "@/lib/constants";
 import { zonedDateTimeToUtc } from "@/lib/timezone";
 import { getActiveAuthorizationId } from "@/lib/active-authorization";
 import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
@@ -32,7 +32,7 @@ export async function scheduleEvaluation(
   }
 
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
-  const endsAt = new Date(startsAt.getTime() + 50 * 60 * 1000);
+  const endsAt = new Date(startsAt.getTime() + STANDARD_SESSION_DURATION_MINUTES * 60 * 1000);
 
   const supabase = await createClient();
   const { data: appointment, error: apptError } = await supabase
@@ -335,7 +335,7 @@ export async function activatePatient(patientId: string, formData: FormData): Pr
   const authorizationId = await getActiveAuthorizationId(supabase, patientId, discipline);
 
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
-  const endsAt = new Date(startsAt.getTime() + 50 * 60 * 1000);
+  const endsAt = new Date(startsAt.getTime() + STANDARD_SESSION_DURATION_MINUTES * 60 * 1000);
 
   const { error: apptError } = await supabase.from("appointments").insert({
     patient_id: patientId,

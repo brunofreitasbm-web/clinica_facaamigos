@@ -11,18 +11,41 @@
 // sessions_authorized[]), enquanto convênio, número da guia e vigência valem
 // pra guia como um todo. A action grava uma linha em `authorizations` por
 // procedimento, todas com o mesmo guide_number.
+//
+// O código do procedimento vem do catálogo de preços do convênio escolhido
+// (insurer_price_tables, ver /gestor/cadastros/convenios/[id]/precos) em vez
+// de texto livre — assim bate com o `procedure_code` que os Tipos de
+// Atendimento usam pra achar a guia certa na agenda (ver
+// app/recepcao/agenda/actions.ts). Se o convênio ainda não tiver catálogo
+// cadastrado, cai pra texto livre pra não travar a recepção.
 import { useState } from "react";
+
+type InsurerOption = {
+  id: string;
+  name: string;
+  procedures: { code: string; name: string }[];
+};
 
 export function AuthorizationFormFields({
   insurers,
 }: {
-  insurers: { id: string; name: string }[] | null;
+  insurers: InsurerOption[] | null;
 }) {
   const [procedureRows, setProcedureRows] = useState([0]);
+  const [selectedInsurerId, setSelectedInsurerId] = useState("");
+
+  const selectedInsurer = (insurers ?? []).find((i) => i.id === selectedInsurerId);
+  const catalog = selectedInsurer?.procedures ?? [];
 
   return (
     <>
-      <select name="insurer_id" required className="input">
+      <select
+        name="insurer_id"
+        required
+        className="input"
+        value={selectedInsurerId}
+        onChange={(e) => setSelectedInsurerId(e.target.value)}
+      >
         <option value="">Plano de Saúde</option>
         {(insurers ?? []).map((i) => (
           <option key={i.id} value={i.id}>{i.name}</option>
@@ -33,13 +56,24 @@ export function AuthorizationFormFields({
       <div className="flex flex-col gap-2">
         {procedureRows.map((rowId, index) => (
           <div key={rowId} className="flex items-center gap-2">
-            <input
-              type="text"
-              name="procedure_code"
-              required
-              placeholder="Código do procedimento"
-              className="input flex-1"
-            />
+            {catalog.length > 0 ? (
+              <select name="procedure_code" required className="input flex-1">
+                <option value="">Selecione o procedimento...</option>
+                {catalog.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.code} — {p.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                name="procedure_code"
+                required
+                placeholder="Código do procedimento"
+                className="input flex-1"
+              />
+            )}
             <input
               type="number"
               name="sessions_authorized"

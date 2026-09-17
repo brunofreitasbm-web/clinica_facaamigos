@@ -119,11 +119,35 @@ export default async function PacientePage({
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
 
-  const { data: insurers } = await supabase
+  const { data: insurersRaw } = await supabase
     .from("insurers")
     .select("id, name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
+
+  // Catálogo de procedimentos por convênio (ex.: PROASA) — vira dropdown no
+  // formulário de guia em vez de texto livre, pra `authorizations.procedure_code`
+  // sair já compatível com o código que a agenda usa pra achar a guia certa
+  // (ver appointment_types.procedure_code em app/recepcao/agenda/actions.ts).
+  const { data: pricesData } = await supabase
+    .from("insurer_price_tables")
+    .select("insurer_id, procedure_code, procedure_name")
+    .order("procedure_code");
+
+  const insurerProceduresMap = new Map<string, { code: string; name: string }[]>();
+  for (const price of pricesData ?? []) {
+    const existing = insurerProceduresMap.get(price.insurer_id) ?? [];
+    if (!existing.some((p) => p.code === price.procedure_code)) {
+      existing.push({ code: price.procedure_code, name: price.procedure_name });
+    }
+    insurerProceduresMap.set(price.insurer_id, existing);
+  }
+
+  const insurers = (insurersRaw ?? []).map((ins) => ({
+    id: ins.id,
+    name: ins.name,
+    procedures: insurerProceduresMap.get(ins.id) ?? [],
+  }));
 
   // Seção fixa "Guias" (sempre visível, inclusive com o paciente já ativo —
   // diferente do formulário do passo 3 do checklist, que só aparece durante
