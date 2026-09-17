@@ -636,11 +636,12 @@ export async function handleTwilioIncomingMessage(params: {
     intent: "atendimento_geral",
     replyMessage:
       "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩\n\n" +
-      "Como podemos te ajudar?\n" +
-      "• Digite *AGENDAR* para marcar uma avaliação pelo plano.\n" +
-      "• Digite *CONVÊNIOS* para consultar os planos aceitos.\n\n" +
-      "Ou escreva sua dúvida por aqui! ✨\n\n" +
-      "🌐 Acesse também nosso site: www.institutofacaamigos.com.br",
+      "Como podemos te ajudar hoje?\n\n" +
+      "1️⃣ *Planos de Saúde*: Consultar convênios aceitos (como IASEP, PROASA, Unimed) e reembolso\n" +
+      "2️⃣ *Agendamento*: Marcar primeira avaliação (Anamnese)\n" +
+      "3️⃣ *Falar com a Equipe*: Tirar dúvidas com atendimento humano\n\n" +
+      "Qual dessas opções você prefere? ✨\n\n" +
+      "🌐 Acesse também: www.institutofacaamigos.com.br",
   };
 }
 

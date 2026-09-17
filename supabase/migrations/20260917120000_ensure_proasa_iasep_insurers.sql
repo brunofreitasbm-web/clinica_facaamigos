@@ -30,12 +30,12 @@ set
   updated_at = now()
 where question = 'Vocês atendem plano de saúde?';
 
--- 5. Inserir ou atualizar pergunta frequente específica para a mensagem inicial vinda do site sobre IASEP & PROASA
+-- 5. Inserir ou atualizar pergunta frequente específica para a mensagem de primeiro contato vinda do site (triagem inicial)
 insert into clinic_faq (clinic_id, question, answer, keywords, category, sort_order)
 select
   c.id,
   'Gostaria de informações sobre atendimento IASEP e PROASA no FaçaAmigos - Centro de Terapia Comportamental',
-  E'Sim! 💙 Atendemos pelos convênios *IASEP* e *PROASA* com muito carinho!\n\nComo prefere prosseguir?\n1️⃣ *Agendar 1ª Avaliação*: Responda *AGENDAR* para escolher um horário.\n2️⃣ *Enviar Guia ou Laudo*: Envie a foto ou PDF do seu pedido médico por aqui.\n3️⃣ *Dúvidas/Atendimento Humano*: Escreva sua dúvida que nossa equipe te responde já!',
+  E'Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩\n\nComo podemos te ajudar hoje?\n\n1️⃣ *Planos de Saúde*: Confirmar cobertura IASEP, PROASA ou outros convênios\n2️⃣ *Agendamento*: Marcar primeira avaliação (Anamnese)\n3️⃣ *Falar com a Equipe*: Tirar dúvidas com atendimento humano\n\nQual dessas opções você precisa no momento? ✨',
   array['iasep','proasa','informacoes','informações','atendimento iasep','atendimento proasa','site','façaamigos','facaamigos'],
   'convenios',
   5
