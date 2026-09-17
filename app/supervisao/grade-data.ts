@@ -64,6 +64,11 @@ export function weekBounds(week: WeekInfo): { start: string; end: string } {
   return { start: week.days[0], end: addDays(week.days[4], 1) };
 }
 
+/** Segunda-feira `n` semanas antes/depois de `monday` (`YYYY-MM-DD`). */
+export function shiftWeek(monday: string, n: number): string {
+  return addDays(monday, n * 7);
+}
+
 // AppointmentKind/classifyAppointmentKind/KIND_STYLE/GRID_EXCLUDED_STATUSES
 // moraram aqui até app/terapeuta/agenda precisar da mesma classificação
 // visual — mudaram para lib/appointment-status-style.ts (evita import

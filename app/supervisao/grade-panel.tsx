@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { WEEKDAY_LABEL, KIND_STYLE, type AppointmentKind } from "./grade-data";
 import { publishGradeAction, swapAppointmentPatientsAction } from "./grade-actions";
 
@@ -139,6 +140,9 @@ function AppointmentChip({
 export function GradePanel({
   weekLabel,
   weekNumber,
+  prevWeekMonday,
+  nextWeekMonday,
+  isCurrentWeek,
   activePatientsCount,
   dueReassessments,
   therapists,
@@ -150,6 +154,9 @@ export function GradePanel({
 }: {
   weekLabel: string;
   weekNumber: number;
+  prevWeekMonday: string;
+  nextWeekMonday: string;
+  isCurrentWeek: boolean;
   activePatientsCount: number;
   dueReassessments: number;
   therapists: { id: string; name: string }[];
@@ -352,8 +359,35 @@ export function GradePanel({
     <section>
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h6 style={{ color: "var(--color-accent-2-600)" }}>
+          <h6 className="flex items-center gap-1.5" style={{ color: "var(--color-accent-2-600)" }}>
+            <button
+              type="button"
+              title="Semana anterior"
+              onClick={() => router.push(`/supervisao?week=${prevWeekMonday}`)}
+              className="btn btn-icon"
+              style={{ width: 20, height: 20 }}
+            >
+              <ChevronLeft size={12} />
+            </button>
             Semana {weekNumber} · {weekLabel}
+            <button
+              type="button"
+              title="Próxima semana"
+              onClick={() => router.push(`/supervisao?week=${nextWeekMonday}`)}
+              className="btn btn-icon"
+              style={{ width: 20, height: 20 }}
+            >
+              <ChevronRight size={12} />
+            </button>
+            {!isCurrentWeek && (
+              <button
+                type="button"
+                onClick={() => router.push("/supervisao")}
+                className="ml-1 text-[11px] font-normal underline opacity-80 hover:opacity-100"
+              >
+                Semana atual
+              </button>
+            )}
           </h6>
           <h1 className="m-0">Grade semanal de supervisão</h1>
           <p className="mt-1 text-[13px] text-ink-soft">

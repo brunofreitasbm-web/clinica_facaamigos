@@ -104,16 +104,16 @@ export const KIND_STYLE: Record<
   },
   reuniao_familia: {
     label: "Reunião · Responsável",
-    bg: "var(--color-accent-2-100)",
-    text: "var(--color-accent-2-700)",
-    border: "var(--color-accent-2-300)",
+    bg: "color-mix(in srgb, var(--color-pink) 14%, var(--color-surface))",
+    text: "var(--color-pink-active)",
+    border: "color-mix(in srgb, var(--color-pink) 40%, var(--color-surface))",
     swatch: "🟪",
   },
   devolutiva_paciente: {
     label: "Devolutiva do paciente",
-    bg: "var(--color-accent-2-100)",
-    text: "var(--color-accent-2-700)",
-    border: "var(--color-accent-2-300)",
+    bg: "var(--color-teal-100)",
+    text: "var(--color-teal-800)",
+    border: "var(--color-teal-300)",
     swatch: "🟫",
   },
 };

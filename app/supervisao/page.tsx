@@ -9,6 +9,7 @@ import { computeIntakeStaleWarning } from "@/lib/insurance-intake-stale";
 import {
   currentWeek,
   weekBounds,
+  shiftWeek,
   classifyAppointmentKind,
   dayIndexInWeek,
   timeLabel,
@@ -31,10 +32,18 @@ export const dynamic = "force-dynamic";
 const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-export default async function SupervisaoPage() {
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export default async function SupervisaoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string }>;
+}) {
   const supabase = await createClient();
 
-  const week = currentWeek(todayInTimeZone(CLINIC_TIMEZONE));
+  const { week: weekParam } = await searchParams;
+  const referenceDate = weekParam && ISO_DATE_RE.test(weekParam) ? weekParam : todayInTimeZone(CLINIC_TIMEZONE);
+  const week = currentWeek(referenceDate);
   const bounds = weekBounds(week);
   const weekStartIso = zonedDateTimeToUtc(bounds.start, "00:00", CLINIC_TIMEZONE).toISOString();
   const weekEndIso = zonedDateTimeToUtc(bounds.end, "00:00", CLINIC_TIMEZONE).toISOString();
@@ -481,6 +490,9 @@ export default async function SupervisaoPage() {
         <GradePanel
           weekLabel={week.rangeLabel}
           weekNumber={week.weekNumber}
+          prevWeekMonday={shiftWeek(week.days[0], -1)}
+          nextWeekMonday={shiftWeek(week.days[0], 1)}
+          isCurrentWeek={week.days[0] === currentWeek(todayInTimeZone(CLINIC_TIMEZONE)).days[0]}
           activePatientsCount={activePatientsCount ?? 0}
           dueReassessments={dueReassessments ?? 0}
           therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))}
