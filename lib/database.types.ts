@@ -769,6 +769,7 @@ export type Database = {
           id: string
           is_evaluation: boolean
           is_family_meeting: boolean
+          is_patient_feedback: boolean
           is_provisional: boolean
           modality: string
           patient_id: string
@@ -800,6 +801,7 @@ export type Database = {
           id?: string
           is_evaluation?: boolean
           is_family_meeting?: boolean
+          is_patient_feedback?: boolean
           is_provisional?: boolean
           modality?: string
           patient_id: string
@@ -831,6 +833,7 @@ export type Database = {
           id?: string
           is_evaluation?: boolean
           is_family_meeting?: boolean
+          is_patient_feedback?: boolean
           is_provisional?: boolean
           modality?: string
           patient_id?: string
@@ -1125,6 +1128,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           authorization_password: string | null
+          created_at: string
           document_id: string | null
           guide_number: string | null
           id: string
@@ -1142,6 +1146,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           authorization_password?: string | null
+          created_at?: string
           document_id?: string | null
           guide_number?: string | null
           id?: string
@@ -1159,6 +1164,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           authorization_password?: string | null
+          created_at?: string
           document_id?: string | null
           guide_number?: string | null
           id?: string
@@ -3233,6 +3239,7 @@ export type Database = {
       }
       external_contact_logs: {
         Row: {
+          at_session_id: string | null
           channel: string
           contacted_at: string
           contacted_by: string
@@ -3242,6 +3249,7 @@ export type Database = {
           summary: string
         }
         Insert: {
+          at_session_id?: string | null
           channel: string
           contacted_at?: string
           contacted_by: string
@@ -3251,6 +3259,7 @@ export type Database = {
           summary: string
         }
         Update: {
+          at_session_id?: string | null
           channel?: string
           contacted_at?: string
           contacted_by?: string
@@ -3260,6 +3269,13 @@ export type Database = {
           summary?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "external_contact_logs_at_session_id_fkey"
+            columns: ["at_session_id"]
+            isOneToOne: false
+            referencedRelation: "at_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "external_contact_logs_contacted_by_fkey"
             columns: ["contacted_by"]
@@ -5660,6 +5676,8 @@ export type Database = {
           medication: string | null
           naturalidade: string | null
           payment_confirmed_at: string | null
+          photo_storage_path: string | null
+          photo_updated_at: string | null
           sexo: string | null
           status: string
           support_level: string | null
@@ -5696,6 +5714,8 @@ export type Database = {
           medication?: string | null
           naturalidade?: string | null
           payment_confirmed_at?: string | null
+          photo_storage_path?: string | null
+          photo_updated_at?: string | null
           sexo?: string | null
           status?: string
           support_level?: string | null
@@ -5732,6 +5752,8 @@ export type Database = {
           medication?: string | null
           naturalidade?: string | null
           payment_confirmed_at?: string | null
+          photo_storage_path?: string | null
+          photo_updated_at?: string | null
           sexo?: string | null
           status?: string
           support_level?: string | null
@@ -8408,9 +8430,12 @@ export type Database = {
           contact_name: string | null
           conversation_sid: string | null
           created_at: string
+          escalated_at: string | null
           escalation_reason: string | null
           guardian_id: string | null
           id: string
+          internal_note: string | null
+          internal_note_updated_at: string | null
           is_bot_active: boolean
           kind: string
           last_message_at: string | null
@@ -8425,9 +8450,12 @@ export type Database = {
           contact_name?: string | null
           conversation_sid?: string | null
           created_at?: string
+          escalated_at?: string | null
           escalation_reason?: string | null
           guardian_id?: string | null
           id?: string
+          internal_note?: string | null
+          internal_note_updated_at?: string | null
           is_bot_active?: boolean
           kind?: string
           last_message_at?: string | null
@@ -8442,9 +8470,12 @@ export type Database = {
           contact_name?: string | null
           conversation_sid?: string | null
           created_at?: string
+          escalated_at?: string | null
           escalation_reason?: string | null
           guardian_id?: string | null
           id?: string
+          internal_note?: string | null
+          internal_note_updated_at?: string | null
           is_bot_active?: boolean
           kind?: string
           last_message_at?: string | null
@@ -9825,6 +9856,10 @@ export type Database = {
       }
       set_intake_step_na: {
         Args: { p_patient_id: string; p_step_key: string }
+        Returns: undefined
+      }
+      set_patient_photo: {
+        Args: { p_patient_id: string; p_storage_path: string }
         Returns: undefined
       }
       set_professional_pin: {
