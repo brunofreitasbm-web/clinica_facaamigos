@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { PriceTableForm } from "./price-table-form";
 import { PageContainer } from "@/components/page-container";
+import { ensureProasaCatalog } from "@/lib/proasa-catalog-seeder";
+import { LoadDefaultProasaButton } from "./load-proasa-button";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,9 @@ export default async function TabelaDePrecosPage({
 
   if (!insurer || insurerError) notFound();
 
+  // Garante que o catálogo PROASA esteja alimentado se o convênio for PROASA
+  await ensureProasaCatalog(insurer.id, insurer.name);
+
   const { data: priceTables } = await supabase
     .from("insurer_price_tables")
     .select(
@@ -47,6 +52,8 @@ export default async function TabelaDePrecosPage({
     .eq("active", true)
     .order("code");
 
+  const isProasa = insurer.name.toUpperCase().includes("PROASA");
+
   return (
     <main className="flex flex-1 flex-col">
       <div className="px-6 pt-6 sm:px-10 sm:pt-9">
@@ -60,6 +67,14 @@ export default async function TabelaDePrecosPage({
         description="Preços por procedimento usados no fechamento de competência deste plano de saúde."
       />
       <PageContainer>
+        {isProasa && (priceTables ?? []).length === 0 && (
+          <div className="mb-4 rounded-md border border-paper-line-strong bg-paper/80 p-4">
+            <p className="mb-3 text-sm text-ink font-medium">
+              Este é o convênio PROASA. Você pode importar automaticamente os 21 procedimentos e valores do Contrato nº 12473.
+            </p>
+            <LoadDefaultProasaButton insurerId={insurer.id} />
+          </div>
+        )}
         <PriceTableForm insurerId={insurer.id} />
         <ul className="flex flex-col gap-2">
           {(priceTables ?? []).map((entry) => (
@@ -131,3 +146,4 @@ export default async function TabelaDePrecosPage({
     </main>
   );
 }
+

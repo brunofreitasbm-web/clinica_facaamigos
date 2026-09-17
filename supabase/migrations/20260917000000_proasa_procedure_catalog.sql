@@ -29,7 +29,7 @@ comment on column insurer_price_tables.escalation_rule is
 
 do $$
 declare
-  v_insurer_id uuid;
+  r record;
 begin
   insert into insurers (clinic_id, name, ans_code, billing_rules)
   select
@@ -67,71 +67,67 @@ begin
     )
   where not exists (
     select 1 from insurers
-    where clinic_id = 'c0000000-0000-0000-0000-000000000001' and name = 'PROASA'
+    where upper(trim(name)) ilike '%PROASA%'
   );
 
-  select id into v_insurer_id from insurers
-  where clinic_id = 'c0000000-0000-0000-0000-000000000001' and name = 'PROASA';
-
-  -- Anexo II — Critérios de Remuneração + Anexo III/III.A/III.B/III.C/IV —
-  -- regras de autorização seriada por especialidade.
-  insert into insurer_price_tables (
-    insurer_id, procedure_code, procedure_name, price, valid_from,
-    duration_minutes, requires_prior_authorization, max_sessions_per_guide,
-    medical_order_validity_months, guide_validity_days, session_frequency_note, escalation_rule
-  )
-  values
-    (v_insurer_id, '9922200008', 'Consulta/sessão de terapia ocupacional - método ABA', 90.00, '2024-01-25',
-      55, true, 10, 6, 90, 'Codificação para pacientes autistas; quantidade conforme pedido médico com CID.', null),
-    (v_insurer_id, '50001221', 'Consulta ambulatorial em psicologia', 45.00, '2024-01-25',
-      35, true, 10, 6, 90, 'Limitado a 1 sessão/semana; exceção exige justificativa (auditoria pós-faturamento).', null),
-    (v_insurer_id, '50000470', 'Sessão de psicoterapia individual por psicólogo', 45.00, '2024-01-25',
-      40, true, 10, 6, 90, 'Limitado a 1 sessão/semana; exceção exige justificativa (auditoria pós-faturamento).', null),
-    (v_insurer_id, '50000586', 'Consulta ambulatorial de fonoaudiologia', 45.00, '2024-01-25',
-      35, true, 10, 6, 90, null, null),
-    (v_insurer_id, '50000616', 'Sessão individual ambulatorial de fonoaudiologia', 45.00, '2024-01-25',
-      35, true, 10, 6, 90, null, null),
-    (v_insurer_id, '50000055', 'Consulta individual ambulatorial em terapia ocupacional', 45.00, '2024-01-25',
-      35, true, 10, 6, 90, null, null),
-    (v_insurer_id, '50000080', 'Sessão individual ambulatorial em terapia ocupacional', 45.00, '2024-01-25',
-      35, true, 10, 6, 90, null, null),
-    (v_insurer_id, '50000560', 'Consulta ambulatorial por nutricionista', 50.00, '2024-01-25',
-      35, true, null, null, null,
-      'Não é seriada (guia SADT Tipo 2). Até 6 consultas/ano com o mesmo pedido, 1 a cada 30 dias. Mais de 1/mês exige auditoria técnica.', null),
-    (v_insurer_id, '41301048', 'Bioimpedanciometria (ambulatorial) exame', 30.00, '2024-01-25',
-      null, true, null, null, null, null, null),
-    (v_insurer_id, '20103646', 'Reabilitação perineal com biofeedback', 50.00, '2024-01-25',
-      null, true, null, null, null, null, null),
-    (v_insurer_id, '31601014', 'Acupuntura por sessão', 40.00, '2024-01-25',
-      null, true, null, null, null, null, null),
-    (v_insurer_id, '50000144', 'Consulta ambulatorial em fisioterapia', 30.00, '2024-01-25',
-      null, true, null, null, 90, 'DUT nº102: 2 consultas por CID apresentado ao ano.', null),
-    (v_insurer_id, '50000160', 'Atend. fisioterapêutico ambulatorial — disfunção músculo-esquelética', 30.00, '2024-01-25',
-      null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
-      'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
-    (v_insurer_id, '50000233', 'Atend. fisioterapêutico ambulatorial — genito-urinário/reprodutor/proctológico', 30.00, '2024-01-25',
-      null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
-      'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
-    (v_insurer_id, '50000713', 'Atend. fisioterapêutico ambulatorial — lesão SNC/periférico (independente/dep. parcial)', 30.00, '2024-01-25',
-      null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
-      'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
-    (v_insurer_id, '50000730', 'Atend. fisioterapêutico ambulatorial individual — disfunção respiratória', 30.00, '2024-01-25',
-      null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
-      'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
-    (v_insurer_id, '50000195', 'Atend. fisioterapêutico ambulatorial — disfunção por queimaduras', 30.00, '2024-01-25',
-      null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
-      'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
-    (v_insurer_id, '50000209', 'Atend. fisioterapêutico ambulatorial — disfunção linfático/vascular periférico', 30.00, '2024-01-25',
-      null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
-      'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
-    (v_insurer_id, '50000217', 'Atend. fisioterapêutico ambulatorial — pré/pós cirúrgico e recuperação de tecidos', 30.00, '2024-01-25',
-      null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
-      'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
-    (v_insurer_id, '50000721', 'Atend. fisioterapêutico ambulatorial — lesão SNC/periférico (dependente)', 30.00, '2024-01-25',
-      null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
-      'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
-    (v_insurer_id, '50000756', 'Atend. fisioterapêutico ambulatorial individual — disfunção cardiovascular', 30.00, '2024-01-25',
-      null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
-      'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.')
-  on conflict do nothing;
+  for r in (select id from insurers where upper(trim(name)) ilike '%PROASA%') loop
+    insert into insurer_price_tables (
+      insurer_id, procedure_code, procedure_name, price, valid_from,
+      duration_minutes, requires_prior_authorization, max_sessions_per_guide,
+      medical_order_validity_months, guide_validity_days, session_frequency_note, escalation_rule
+    )
+    values
+      (r.id, '9922200008', 'Consulta/sessão de terapia ocupacional - método ABA', 90.00, '2024-01-25',
+        55, true, 10, 6, 90, 'Codificação para pacientes autistas; quantidade conforme pedido médico com CID.', null),
+      (r.id, '50001221', 'Consulta ambulatorial em psicologia', 45.00, '2024-01-25',
+        35, true, 10, 6, 90, 'Limitado a 1 sessão/semana; exceção exige justificativa (auditoria pós-faturamento).', null),
+      (r.id, '50000470', 'Sessão de psicoterapia individual por psicólogo', 45.00, '2024-01-25',
+        40, true, 10, 6, 90, 'Limitado a 1 sessão/semana; exceção exige justificativa (auditoria pós-faturamento).', null),
+      (r.id, '50000586', 'Consulta ambulatorial de fonoaudiologia', 45.00, '2024-01-25',
+        35, true, 10, 6, 90, null, null),
+      (r.id, '50000616', 'Sessão individual ambulatorial de fonoaudiologia', 45.00, '2024-01-25',
+        35, true, 10, 6, 90, null, null),
+      (r.id, '50000055', 'Consulta individual ambulatorial em terapia ocupacional', 45.00, '2024-01-25',
+        35, true, 10, 6, 90, null, null),
+      (r.id, '50000080', 'Sessão individual ambulatorial em terapia ocupacional', 45.00, '2024-01-25',
+        35, true, 10, 6, 90, null, null),
+      (r.id, '50000560', 'Consulta ambulatorial por nutricionista', 50.00, '2024-01-25',
+        35, true, null, null, null,
+        'Não é seriada (guia SADT Tipo 2). Até 6 consultas/ano com o mesmo pedido, 1 a cada 30 dias. Mais de 1/mês exige auditoria técnica.', null),
+      (r.id, '41301048', 'Bioimpedanciometria (ambulatorial) exame', 30.00, '2024-01-25',
+        null, true, null, null, null, null, null),
+      (r.id, '20103646', 'Reabilitação perineal com biofeedback', 50.00, '2024-01-25',
+        null, true, null, null, null, null, null),
+      (r.id, '31601014', 'Acupuntura por sessão', 40.00, '2024-01-25',
+        null, true, null, null, null, null, null),
+      (r.id, '50000144', 'Consulta ambulatorial em fisioterapia', 30.00, '2024-01-25',
+        null, true, null, null, 90, 'DUT nº102: 2 consultas por CID apresentado ao ano.', null),
+      (r.id, '50000160', 'Atend. fisioterapêutico ambulatorial — disfunção músculo-esquelética', 30.00, '2024-01-25',
+        null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
+        'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
+      (r.id, '50000233', 'Atend. fisioterapêutico ambulatorial — genito-urinário/reprodutor/proctológico', 30.00, '2024-01-25',
+        null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
+        'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
+      (r.id, '50000713', 'Atend. fisioterapêutico ambulatorial — lesão SNC/periférico (independente/dep. parcial)', 30.00, '2024-01-25',
+        null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
+        'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
+      (r.id, '50000730', 'Atend. fisioterapêutico ambulatorial individual — disfunção respiratória', 30.00, '2024-01-25',
+        null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
+        'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
+      (r.id, '50000195', 'Atend. fisioterapêutico ambulatorial — disfunção por queimaduras', 30.00, '2024-01-25',
+        null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
+        'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
+      (r.id, '50000209', 'Atend. fisioterapêutico ambulatorial — disfunção linfático/vascular periférico', 30.00, '2024-01-25',
+        null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
+        'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
+      (r.id, '50000217', 'Atend. fisioterapêutico ambulatorial — pré/pós cirúrgico e recuperação de tecidos', 30.00, '2024-01-25',
+        null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
+        'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
+      (r.id, '50000721', 'Atend. fisioterapêutico ambulatorial — lesão SNC/periférico (dependente)', 30.00, '2024-01-25',
+        null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
+        'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.'),
+      (r.id, '50000756', 'Atend. fisioterapêutico ambulatorial individual — disfunção cardiovascular', 30.00, '2024-01-25',
+        null, true, 10, 6, 90, 'Relatório a cada 10 sessões deve acompanhar o faturamento (senão glosa).',
+        'Até 20 sessões: 10 iniciais + 10 mediante relatório. Até 30: reavaliação médica + relatório. Acima de 30: segunda opinião + laudos/imagem.');
+  end loop;
 end $$;

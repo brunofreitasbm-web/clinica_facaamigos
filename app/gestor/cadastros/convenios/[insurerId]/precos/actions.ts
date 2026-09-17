@@ -66,3 +66,25 @@ export async function createPriceTableEntry(
   revalidatePath(`/gestor/cadastros/convenios/${insurerId}/precos`);
   return { success: true };
 }
+
+export async function loadDefaultProasaCatalogAction(
+  insurerId: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = await createClient();
+  const { data: insurer } = await supabase
+    .from("insurers")
+    .select("name")
+    .eq("id", insurerId)
+    .maybeSingle();
+
+  if (!insurer) {
+    return { success: false, error: "Plano de saúde não encontrado." };
+  }
+
+  const { ensureProasaCatalog } = await import("@/lib/proasa-catalog-seeder");
+  await ensureProasaCatalog(insurerId, insurer.name);
+
+  revalidatePath(`/gestor/cadastros/convenios/${insurerId}/precos`);
+  return { success: true };
+}
+
