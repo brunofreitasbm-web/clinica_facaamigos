@@ -82,7 +82,14 @@ export async function loadDefaultProasaCatalogAction(
   }
 
   const { ensureProasaCatalog } = await import("@/lib/proasa-catalog-seeder");
-  await ensureProasaCatalog(insurerId, insurer.name);
+  try {
+    await ensureProasaCatalog(insurerId, insurer.name);
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Não foi possível importar a tabela de preços. Tente de novo.",
+    };
+  }
 
   revalidatePath(`/gestor/cadastros/convenios/${insurerId}/precos`);
   return { success: true };

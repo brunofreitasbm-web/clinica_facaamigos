@@ -35,7 +35,11 @@ export default async function TabelaDePrecosPage({
   if (!insurer || insurerError) notFound();
 
   // Garante que o catálogo PROASA esteja alimentado se o convênio for PROASA
-  await ensureProasaCatalog(insurer.id, insurer.name);
+  try {
+    await ensureProasaCatalog(insurer.id, insurer.name);
+  } catch (err) {
+    console.error("ensureProasaCatalog falhou:", err);
+  }
 
   const { data: priceTables } = await supabase
     .from("insurer_price_tables")

@@ -310,7 +310,8 @@ export async function ensureProasaCatalog(insurerId: string, insurerName: string
       insurer_id: insurerId,
       ...p,
     }));
-    await dbClient.from("insurer_price_tables").insert(pricesToInsert);
+    const { error } = await dbClient.from("insurer_price_tables").insert(pricesToInsert);
+    if (error) throw new Error(`Falha ao importar tabela de preços PROASA: ${error.message}`);
   }
 
   // Verificar se o catálogo de glosas está vazio para este convênio
@@ -325,6 +326,7 @@ export async function ensureProasaCatalog(insurerId: string, insurerName: string
       insurer_id: insurerId,
       ...g,
     }));
-    await dbClient.from("glosa_reason_catalog").insert(glosasToInsert);
+    const { error } = await dbClient.from("glosa_reason_catalog").insert(glosasToInsert);
+    if (error) throw new Error(`Falha ao importar catálogo de glosas PROASA: ${error.message}`);
   }
 }
