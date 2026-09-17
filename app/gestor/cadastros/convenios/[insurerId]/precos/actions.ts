@@ -12,6 +12,13 @@ export async function createPriceTableEntry(
   const priceRaw = String(formData.get("price") ?? "").trim();
   const validFrom = String(formData.get("valid_from") ?? "").trim();
   const validTo = String(formData.get("valid_to") ?? "").trim();
+  const durationRaw = String(formData.get("duration_minutes") ?? "").trim();
+  const maxSessionsRaw = String(formData.get("max_sessions_per_guide") ?? "").trim();
+  const medicalOrderMonthsRaw = String(formData.get("medical_order_validity_months") ?? "").trim();
+  const guideValidityDaysRaw = String(formData.get("guide_validity_days") ?? "").trim();
+  const requiresPriorAuthorization = formData.get("requires_prior_authorization") === "on";
+  const sessionFrequencyNote = String(formData.get("session_frequency_note") ?? "").trim();
+  const escalationRule = String(formData.get("escalation_rule") ?? "").trim();
 
   if (!procedureCode) {
     return { success: false, error: "Código do procedimento é obrigatório." };
@@ -30,6 +37,11 @@ export async function createPriceTableEntry(
     return { success: false, error: "Data de início da vigência é obrigatória." };
   }
 
+  const durationMinutes = durationRaw ? Number(durationRaw) : null;
+  const maxSessionsPerGuide = maxSessionsRaw ? Number(maxSessionsRaw) : null;
+  const medicalOrderValidityMonths = medicalOrderMonthsRaw ? Number(medicalOrderMonthsRaw) : null;
+  const guideValidityDays = guideValidityDaysRaw ? Number(guideValidityDaysRaw) : null;
+
   const supabase = await createClient();
   const { error } = await supabase.from("insurer_price_tables").insert({
     insurer_id: insurerId,
@@ -38,6 +50,13 @@ export async function createPriceTableEntry(
     price,
     valid_from: validFrom,
     valid_to: validTo || null,
+    duration_minutes: durationMinutes,
+    max_sessions_per_guide: maxSessionsPerGuide,
+    medical_order_validity_months: medicalOrderValidityMonths,
+    guide_validity_days: guideValidityDays,
+    requires_prior_authorization: requiresPriorAuthorization,
+    session_frequency_note: sessionFrequencyNote || null,
+    escalation_rule: escalationRule || null,
   });
 
   if (error) {

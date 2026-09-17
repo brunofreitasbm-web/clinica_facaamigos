@@ -34,9 +34,18 @@ export default async function TabelaDePrecosPage({
 
   const { data: priceTables } = await supabase
     .from("insurer_price_tables")
-    .select("id, procedure_code, procedure_name, price, valid_from, valid_to")
+    .select(
+      "id, procedure_code, procedure_name, price, valid_from, valid_to, duration_minutes, requires_prior_authorization, max_sessions_per_guide, medical_order_validity_months, guide_validity_days, session_frequency_note, escalation_rule",
+    )
     .eq("insurer_id", insurerId)
     .order("procedure_code");
+
+  const { data: glosaReasons } = await supabase
+    .from("glosa_reason_catalog")
+    .select("id, code, description, prevention_hint")
+    .eq("insurer_id", insurerId)
+    .eq("active", true)
+    .order("code");
 
   return (
     <main className="flex flex-1 flex-col">
@@ -62,19 +71,62 @@ export default async function TabelaDePrecosPage({
                 <span className="font-medium text-ink">{entry.procedure_code}</span>
                 <span className="ml-2 text-ink">{entry.procedure_name}</span>
               </div>
-              <div className="flex items-center gap-3 text-ink-soft">
+              <div className="flex flex-wrap items-center gap-3 text-ink-soft">
                 <span className="font-medium text-ink">{currencyFormatter.format(entry.price)}</span>
                 <span className="text-ink-faint">
                   {formatDate(entry.valid_from)} até{" "}
                   {entry.valid_to ? formatDate(entry.valid_to) : "sem prazo"}
                 </span>
+                {entry.duration_minutes && <span className="text-ink-faint">{entry.duration_minutes} min</span>}
+                {entry.requires_prior_authorization && (
+                  <span className="rounded-full bg-status-negative-text/10 px-2 py-0.5 text-xs text-status-negative-text">
+                    Exige autorização prévia
+                  </span>
+                )}
+                {entry.max_sessions_per_guide && (
+                  <span className="text-ink-faint">{entry.max_sessions_per_guide} sessões/guia</span>
+                )}
+                {entry.guide_validity_days && (
+                  <span className="text-ink-faint">guia válida {entry.guide_validity_days}d</span>
+                )}
               </div>
+              {(entry.session_frequency_note || entry.escalation_rule) && (
+                <div className="w-full basis-full text-xs text-ink-faint">
+                  {entry.session_frequency_note && <p>⚠ {entry.session_frequency_note}</p>}
+                  {entry.escalation_rule && <p>⚠ {entry.escalation_rule}</p>}
+                </div>
+              )}
             </li>
           ))}
           {(priceTables ?? []).length === 0 && (
             <li className="text-sm text-ink-faint">Nenhum preço cadastrado ainda.</li>
           )}
         </ul>
+
+        {(glosaReasons ?? []).length > 0 && (
+          <section className="flex flex-col gap-3 rounded-md border border-paper-line-strong bg-paper/60 p-5">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft">
+              Motivos de glosa deste convênio (referência)
+            </h2>
+            <p className="text-xs text-ink-soft">
+              Usados como sugestão ao registrar glosa em{" "}
+              <Link href="/faturamento/glosas" className="underline">
+                Faturamento › Glosas
+              </Link>
+              . Não bloqueiam nada — servem pra padronizar o motivo e lembrar como evitá-lo.
+            </p>
+            <ul className="flex flex-col gap-2">
+              {(glosaReasons ?? []).map((reason) => (
+                <li key={reason.id} className="rounded-md border border-paper-line-strong bg-paper px-4 py-3 text-sm">
+                  <div className="font-medium text-ink">
+                    {reason.code} — {reason.description}
+                  </div>
+                  <div className="mt-1 text-xs text-ink-faint">Como evitar: {reason.prevention_hint}</div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </PageContainer>
     </main>
   );

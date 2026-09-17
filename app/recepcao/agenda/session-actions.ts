@@ -11,6 +11,7 @@ import { sendTwilioWhatsApp, formatE164Phone } from "@/lib/twilio";
 import { evaluateAuthorizationWarning } from "@/lib/authorization-warning";
 import { maybeBuildCheckinCoupon } from "./coupon-actions";
 import type { CouponModel } from "@/lib/checkin-coupon";
+import type { Database } from "@/lib/database.types";
 
 // Status que tiram uma sessão da disputa por "primeira do dia" do terapeuta —
 // mesmo conjunto que markMissedOrCancelled/NEGATIVE_STATUSES cobre, mais
@@ -521,6 +522,10 @@ export type PatientAuthorizationOption = {
   sessionsUsed: number;
   sessionsAuthorized: number;
   validTo: string;
+  beneficiarySigned: boolean;
+  professionalStamped: boolean;
+  authorizationDocumentAttached: boolean;
+  lastProgressReportSentAt: string | null;
 };
 
 /**
@@ -543,7 +548,9 @@ export async function getPatientActiveAuthorizations(
 
   const { data: authorizations } = await supabase
     .from("authorizations")
-    .select("id, guide_number, procedure_code, sessions_used, sessions_authorized, valid_to")
+    .select(
+      "id, guide_number, procedure_code, sessions_used, sessions_authorized, valid_to, beneficiary_signed, professional_stamped, authorization_document_attached, last_progress_report_sent_at",
+    )
     .in("patient_insurance_id", insuranceIds)
     .eq("status", "ativa");
 
@@ -554,7 +561,48 @@ export async function getPatientActiveAuthorizations(
     sessionsUsed: a.sessions_used,
     sessionsAuthorized: a.sessions_authorized,
     validTo: a.valid_to,
+    beneficiarySigned: a.beneficiary_signed,
+    professionalStamped: a.professional_stamped,
+    authorizationDocumentAttached: a.authorization_document_attached,
+    lastProgressReportSentAt: a.last_progress_report_sent_at,
   }));
+}
+
+/**
+ * Checklist documental não-bloqueante da guia (Anexo V do contrato PROASA:
+ * a maioria dos motivos de glosa é documental — assinatura, carimbo,
+ * autorização anexada — não regra de procedimento). Puramente informativo:
+ * não interfere em appointments_authorization_guard nem em
+ * billing_items_requires_session_note, que continuam sendo as travas reais.
+ */
+export async function updateAuthorizationChecklist(
+  authorizationId: string,
+  fields: {
+    beneficiarySigned?: boolean;
+    professionalStamped?: boolean;
+    authorizationDocumentAttached?: boolean;
+    markProgressReportSentNow?: boolean;
+  },
+): Promise<{ success: true } | { success: false; error: string }> {
+  if (!authorizationId) return { success: false, error: "Guia inválida." };
+
+  const update: Database["public"]["Tables"]["authorizations"]["Update"] = {};
+  if (fields.beneficiarySigned !== undefined) update.beneficiary_signed = fields.beneficiarySigned;
+  if (fields.professionalStamped !== undefined) update.professional_stamped = fields.professionalStamped;
+  if (fields.authorizationDocumentAttached !== undefined)
+    update.authorization_document_attached = fields.authorizationDocumentAttached;
+  if (fields.markProgressReportSentNow) update.last_progress_report_sent_at = new Date().toISOString();
+
+  if (Object.keys(update).length === 0) return { success: true };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("authorizations").update(update).eq("id", authorizationId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível atualizar o checklist. Verifique sua permissão." };
+  }
+
+  return { success: true };
 }
 
 export type { AvailableSlot };
