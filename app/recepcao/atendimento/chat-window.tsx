@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import { Send } from "lucide-react";
+import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { sendManualMessage } from "./actions";
 import { ChatHeader } from "./chat-header";
-import { QuickResponsesPopover } from "./quick-responses-popover";
+import { ChatBubble } from "@/src/components/Reception/Chat/ChatBubble";
+import { MessageInput } from "@/src/components/Reception/Chat/MessageInput";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
 
 type MessageRow = {
@@ -16,19 +16,6 @@ type MessageRow = {
   sentAt: string | null;
   deliveryStatus: string | null;
 };
-
-/**
- * Respostas rápidas podem usar {nome} (ou {{nome}}): vira o primeiro nome do
- * responsável/contato. Sem nome conhecido, o marcador some junto com a
- * vírgula que o antecede ("Olá, {nome}!" → "Olá!").
- */
-function applyPlaceholders(text: string, conversation: ConversationRow): string {
-  const source = conversation.guardianName ?? conversation.contactName;
-  const firstName = source?.trim().split(/\s+/)[0];
-  const token = /\{\{?\s*nome\s*\}?\}/gi;
-  if (firstName) return text.replace(token, firstName);
-  return text.replace(/,?\s*\{\{?\s*nome\s*\}?\}/gi, "");
-}
 
 export function ChatWindow({
   conversation,
@@ -42,10 +29,6 @@ export function ChatWindow({
   onPatch: (patch: ConversationPatch) => void;
 }) {
   const [messages, setMessages] = useState<MessageRow[]>([]);
-  const [draft, setDraft] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [warningMessage, setWarningMessage] = useState<string | null>(null);
-  const [showQuickResponses, setShowQuickResponses] = useState(false);
   const [isPending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -128,29 +111,27 @@ export function ChatWindow({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  const handleSendText = (textToSend: string, isRetry = false) => {
-    const body = textToSend.trim();
-    if (!body || isPending) return;
-    setErrorMessage(null);
-    setWarningMessage(null);
-    if (!isRetry) {
-      setDraft("");
-    }
-    startTransition(async () => {
-      const result = await sendManualMessage(conversation.id, body);
-      if (!result.success) {
-        setErrorMessage(result.error || "Falha ao enviar mensagem via Twilio.");
-        if (!isRetry) {
-          setDraft(body); // Preserva o rascunho se o envio inicial falhou
-        }
-      } else if (result.warning) {
-        setWarningMessage(result.warning);
-      }
-    });
-  };
+  const handleSendText = useCallback(
+    async (textToSend: string, isRetry = false): Promise<{ success: boolean; error?: string; warning?: string }> => {
+      const body = textToSend.trim();
+      if (!body) return { success: false, error: "Mensagem vazia." };
+
+      return new Promise((resolve) => {
+        startTransition(async () => {
+          const result = await sendManualMessage(conversation.id, body);
+          if (!result.success) {
+            resolve({ success: false, error: result.error || "Falha ao enviar mensagem via Twilio." });
+          } else {
+            resolve({ success: true, warning: result.warning });
+          }
+        });
+      });
+    },
+    [conversation.id],
+  );
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-white dark:bg-slate-900">
       <ChatHeader
         conversation={conversation}
         currentUserId={currentUserId}
@@ -158,120 +139,27 @@ export function ChatWindow({
         onPatch={onPatch}
       />
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
-        {messages.map((m) => {
-          const isOutbound = m.direction === "outbound";
-          const isFailed = m.deliveryStatus === "failed";
-          const isSimulated = m.deliveryStatus === "simulated_dev";
-
-          return (
-            <div key={m.id} className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
-              <div
-                className="max-w-[70%] rounded-lg px-3 py-2 text-sm"
-                style={{
-                  background: isOutbound
-                    ? isFailed
-                      ? "#dc2626"
-                      : isSimulated
-                        ? "#1d4ed8"
-                        : "var(--color-accent)"
-                    : "var(--color-neutral-100)",
-                  color: isOutbound ? "#fff" : "var(--color-ink)",
-                }}
-              >
-                <p className="whitespace-pre-wrap">{m.body}</p>
-                <div
-                  className="mt-1 flex items-center justify-between gap-2 text-[10px] opacity-85"
-                  style={{ color: isOutbound ? "rgba(255,255,255,0.9)" : "var(--color-ink-faint)" }}
-                >
-                  <span>
-                    {m.sentAt ? new Date(m.sentAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""}
-                    {isOutbound && m.deliveryStatus
-                      ? ` · ${isFailed ? "⚠️ Falhou no envio" : isSimulated ? "ℹ️ Registrada (Modo Local)" : m.deliveryStatus}`
-                      : ""}
-                  </span>
-                  {isOutbound && isFailed && m.body && (
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => handleSendText(m.body!, true)}
-                      className="font-bold underline hover:opacity-100 disabled:opacity-50"
-                    >
-                      Reenviar
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {messages.length === 0 && <p className="text-sm text-ink-faint">Nenhuma mensagem ainda.</p>}
+      <div className="flex-1 space-y-2 overflow-y-auto px-5 py-4">
+        {messages.map((m) => (
+          <ChatBubble
+            key={m.id}
+            message={m}
+            isPending={isPending}
+            onRetry={(body) => handleSendText(body, true)}
+          />
+        ))}
+        {messages.length === 0 && <p className="text-sm text-slate-400 dark:text-slate-500">Nenhuma mensagem ainda.</p>}
         <div ref={bottomRef} />
       </div>
 
-      <div className="relative border-t border-paper-line-strong p-3">
-        {warningMessage && (
-          <div className="mb-2 flex items-center justify-between rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-            <span>ℹ️ {warningMessage}</span>
-            <button
-              type="button"
-              onClick={() => setWarningMessage(null)}
-              className="ml-2 font-bold text-amber-700 hover:underline dark:text-amber-300"
-            >
-              Fechar
-            </button>
-          </div>
-        )}
-
-        {errorMessage && (
-          <div className="mb-2 flex items-center justify-between rounded-md bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-600 dark:text-red-400">
-            <span>⚠️ {errorMessage}</span>
-            <button
-              type="button"
-              onClick={() => setErrorMessage(null)}
-              className="ml-2 font-bold text-red-600 hover:underline dark:text-red-400"
-            >
-              Fechar
-            </button>
-          </div>
-        )}
-
-        {showQuickResponses && (
-          <QuickResponsesPopover
-            filter={draft}
-            onSelect={(contentText) => setDraft(applyPlaceholders(contentText, conversation))}
-            onClose={() => setShowQuickResponses(false)}
-          />
-        )}
-        <div className="flex items-center gap-2">
-          <input
-            className="input flex-1"
-            placeholder="Digite uma mensagem ou / para respostas rápidas"
-            value={draft}
-            disabled={isPending}
-            onChange={(e) => {
-              const value = e.target.value;
-              setDraft(value);
-              setShowQuickResponses(value.startsWith("/"));
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSendText(draft);
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="btn btn-primary btn-icon"
-            disabled={isPending || !draft.trim()}
-            onClick={() => handleSendText(draft)}
-            aria-label="Enviar mensagem"
-          >
-            <Send size={16} />
-          </button>
-        </div>
-      </div>
+      <MessageInput
+        key={conversation.id}
+        conversationId={conversation.id}
+        isPending={isPending}
+        onSend={handleSendText}
+        contactName={conversation.contactName}
+        guardianName={conversation.guardianName}
+      />
     </div>
   );
 }

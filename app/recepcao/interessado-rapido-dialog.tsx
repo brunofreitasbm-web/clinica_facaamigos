@@ -4,9 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createInteressadoAction } from "./actions";
 
-export function InteressadoRapidoDialog() {
+export function InteressadoRapidoDialog({
+  isOpen: externalOpen,
+  onOpenChange,
+  hideTriggerButton = false,
+}: {
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTriggerButton?: boolean;
+} = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = (val: boolean) => {
+    setInternalOpen(val);
+    onOpenChange?.(val);
+  };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,14 +76,16 @@ export function InteressadoRapidoDialog() {
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Cadastrar paciente sem avaliação"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer"
-      >
-        + Paciente sem avaliação
-      </button>
+      {!hideTriggerButton && (
+        <button
+          type="button"
+          aria-label="Cadastrar paciente sem avaliação"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer"
+        >
+          + Paciente sem avaliação
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
