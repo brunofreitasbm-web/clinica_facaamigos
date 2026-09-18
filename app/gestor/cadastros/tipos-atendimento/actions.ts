@@ -17,6 +17,7 @@ function parseInput(formData: FormData): { data: AppointmentTypeInput } | { erro
   const displayIntervalMinutes = Number(formData.get("display_interval_minutes") ?? formData.get("duration_minutes"));
   const recurrence = String(formData.get("recurrence") ?? "");
   const requiresInternRatio = formData.get("requires_intern_ratio") === "on";
+  const active = formData.has("active") ? formData.get("active") === "on" : true;
   const insurerId = String(formData.get("insurer_id") ?? "").trim() || null;
   const procedureCode = String(formData.get("procedure_code") ?? "").trim() || null;
 
@@ -26,7 +27,7 @@ function parseInput(formData: FormData): { data: AppointmentTypeInput } | { erro
   if (!RECURRENCES.includes(recurrence as (typeof RECURRENCES)[number])) return { error: "Escolha uma recorrência/exibição válida." };
 
   return {
-    data: { name, modality, durationMinutes, displayIntervalMinutes: displayIntervalMinutes || durationMinutes, recurrence, requiresInternRatio, insurerId, procedureCode },
+    data: { name, modality, durationMinutes, displayIntervalMinutes: displayIntervalMinutes || durationMinutes, recurrence, requiresInternRatio, active, insurerId, procedureCode },
   };
 }
 
@@ -37,6 +38,7 @@ type AppointmentTypeInput = {
   displayIntervalMinutes: number;
   recurrence: string;
   requiresInternRatio: boolean;
+  active: boolean;
   insurerId: string | null;
   procedureCode: string | null;
 };
@@ -54,6 +56,7 @@ export async function createAppointmentType(formData: FormData): Promise<ActionR
     display_interval_minutes: parsed.data.displayIntervalMinutes,
     recurrence: parsed.data.recurrence,
     requires_intern_ratio: parsed.data.requiresInternRatio,
+    active: parsed.data.active,
     insurer_id: parsed.data.insurerId,
     procedure_code: parsed.data.procedureCode,
   });
@@ -84,6 +87,7 @@ export async function updateAppointmentType(id: string, formData: FormData): Pro
       display_interval_minutes: parsed.data.displayIntervalMinutes,
       recurrence: parsed.data.recurrence,
       requires_intern_ratio: parsed.data.requiresInternRatio,
+      active: parsed.data.active,
       insurer_id: parsed.data.insurerId,
       procedure_code: parsed.data.procedureCode,
       updated_at: new Date().toISOString(),
@@ -95,6 +99,25 @@ export async function updateAppointmentType(id: string, formData: FormData): Pro
       success: false,
       error: error.code === "23505" ? "Já existe um tipo de atendimento com esse nome." : "Não foi possível salvar o tipo de atendimento. Tente de novo.",
     };
+  }
+
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
+  revalidatePath("/gestor/cadastros/tipos-atendimento");
+  return { success: true };
+}
+
+export async function toggleAppointmentTypeActive(id: string, active: boolean): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("appointment_types")
+    .update({
+      active,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    return { success: false, error: "Não foi possível alterar o status do tipo de atendimento." };
   }
 
   invalidateKnowledgeCache(DEV_CLINIC_ID);

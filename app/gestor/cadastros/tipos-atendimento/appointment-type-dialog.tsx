@@ -147,8 +147,23 @@ export function AppointmentTypeDialog({
                 </div>
               </div>
 
-              <div className="rounded-md border border-paper-line bg-paper/60 p-3 mt-1">
+              <div className="rounded-md border border-paper-line bg-paper/60 p-3 mt-1 flex flex-col gap-3">
                 <label className="flex items-start gap-2.5 text-xs text-ink cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="active"
+                    defaultChecked={appointmentType?.active ?? true}
+                    className="mt-0.5 rounded border-paper-line"
+                  />
+                  <div>
+                    <span className="font-semibold block">Tipo de atendimento ativo</span>
+                    <span className="text-ink-faint block mt-0.5 leading-relaxed">
+                      Tipos de atendimento ativos ficam disponíveis para agendamentos e cadastros de guias.
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-2.5 text-xs text-ink cursor-pointer border-t border-paper-line/50 pt-2.5">
                   <input
                     type="checkbox"
                     name="requires_intern_ratio"

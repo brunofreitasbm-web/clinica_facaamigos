@@ -397,10 +397,29 @@ export async function resolvePatientFromPhone(phone: string): Promise<{ patientI
 // `awaiting_guia_pdf` são do bot de anamnese (lib/twilio-anamnesis-bot.ts);
 // os steps `intake_*` (bot de acolhimento de plano de saúde,
 // lib/twilio-intake-bot.ts) já são tratados antes disso no passo 0.6, mas o
-// prefixo entra aqui também como segunda trava, caso a ordem mude no futuro.
-const ANAMNESIS_AWAITING_ATTACHMENT_STEPS = ["awaiting_laudo_pdf", "awaiting_guia_pdf"];
+const SCHEDULING_FLOW_STEPS = new Set([
+  "awaiting_guardian_name",
+  "awaiting_guardian_cpf",
+  "awaiting_child_name",
+  "awaiting_child_birth_date",
+  "awaiting_has_laudo",
+  "awaiting_laudo_pdf",
+  "awaiting_has_guia",
+  "awaiting_guia_pdf",
+  "awaiting_carteirinha_frente",
+  "awaiting_carteirinha_verso",
+  "pending_supervisor",
+  "awaiting_slot_selection",
+]);
 
-async function isAwaitingAnamnesisPdf(phone: string): Promise<boolean> {
+const ANAMNESIS_AWAITING_ATTACHMENT_STEPS = new Set([
+  "awaiting_laudo_pdf",
+  "awaiting_guia_pdf",
+  "awaiting_carteirinha_frente",
+  "awaiting_carteirinha_verso",
+]);
+
+async function checkSchedulingFlowStatus(phone: string): Promise<{ inSchedulingFlow: boolean; awaitingAttachmentDirectly: boolean }> {
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
@@ -410,9 +429,13 @@ async function isAwaitingAnamnesisPdf(phone: string): Promise<boolean> {
       .eq("phone_number", phone)
       .maybeSingle();
     const step = data?.current_step ?? "";
-    return Boolean(data && (ANAMNESIS_AWAITING_ATTACHMENT_STEPS.includes(step) || step.startsWith("intake_")));
+    const inSchedulingFlow = SCHEDULING_FLOW_STEPS.has(step);
+    const awaitingAttachmentDirectly = Boolean(
+      data && (ANAMNESIS_AWAITING_ATTACHMENT_STEPS.has(step) || step.startsWith("intake_"))
+    );
+    return { inSchedulingFlow, awaitingAttachmentDirectly };
   } catch {
-    return false;
+    return { inSchedulingFlow: false, awaitingAttachmentDirectly: false };
   }
 }
 
@@ -504,15 +527,17 @@ export async function handleTwilioIncomingMessage(params: {
     }
 
     // 0.7 Ingestão de documentos do "cadastro assistido por IA" — roda
-    // mesmo que um humano já tenha assumido a conversa (a família pode
-    // mandar a carteirinha enquanto fala com a recepção; o item só entra
-    // na fila de validação, não substitui a conversa humana). Só desvia
-    // se o telefone NÃO estiver numa etapa do bot de anamnese que também
-    // consome anexo (awaiting_laudo_pdf/awaiting_guia_pdf/intake_*) —
-    // nesse caso o passo acima (ou o passo 1 abaixo) já tratou o anexo.
-    if (media && media.length > 0) {
-      const isAwaitingAnamnesisAttachment = await isAwaitingAnamnesisPdf(phone);
-      if (!isAwaitingAnamnesisAttachment) {
+    // exclusivamente se a conversa estiver no fluxo de agendamento de
+    // anamnese e com o atendimento automático ativo. Não intercepta envios
+    // em conversas com a recepção humana nem em outros fluxos (FAQ, falta, etc.).
+    if (media && media.length > 0 && conversation.is_bot_active) {
+      const { inSchedulingFlow: inSessionFlow, awaitingAttachmentDirectly } = await checkSchedulingFlowStatus(phone);
+      const normBody = (body || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const triggers = ["agendar", "anamnese", "marcar avaliacao", "marcar avaliação", "marcar consulta"];
+      const isStartingScheduling = triggers.some((t) => normBody.includes(t));
+      const inSchedulingFlow = inSessionFlow || isStartingScheduling;
+
+      if (inSchedulingFlow && !awaitingAttachmentDirectly) {
         try {
           const { ingestWhatsappMedia } = await import("./registration-drafts-ingest");
           const ingestResult = await ingestWhatsappMedia({ from, media, body });
