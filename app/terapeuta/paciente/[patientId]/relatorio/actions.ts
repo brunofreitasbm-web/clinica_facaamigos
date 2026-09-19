@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAnthropicClient, DEVOLUTION_REPORT_MODEL } from "@/lib/anthropic";
+import { logAiUsage } from "@/lib/ai-usage";
 
 type ActionResult = { success: true } | { success: false; error: string };
 type GenerateResult = { success: true; reportId: string; draft: string } | { success: false; error: string };
@@ -115,6 +116,7 @@ export async function generateDevolutionDraft(
       setTimeout(() => reject(new Error("TIMEOUT_EXCEEDED")), 25000)
     );
 
+    const startedAt = Date.now();
     const apiCallPromise = anthropic.messages.create({
       model: DEVOLUTION_REPORT_MODEL,
       max_tokens: 1024,
@@ -135,6 +137,15 @@ export async function generateDevolutionDraft(
     });
 
     const response = await Promise.race([apiCallPromise, timeoutPromise]);
+    await logAiUsage({
+      provider: "anthropic",
+      model: DEVOLUTION_REPORT_MODEL,
+      feature: "relatorio_devolutiva",
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      success: true,
+      latencyMs: Date.now() - startedAt,
+    });
     const textBlock = response.content.find((block) => block.type === "text");
     draftText = textBlock && "text" in textBlock ? textBlock.text : "";
     if (!draftText) throw new Error("resposta vazia");

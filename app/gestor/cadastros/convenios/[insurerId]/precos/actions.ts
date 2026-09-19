@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { DEV_CLINIC_ID } from "@/lib/constants";
+import { invalidateKnowledgeCache } from "@/lib/twilio-faq-bot";
 
 export async function createPriceTableEntry(
   insurerId: string,
@@ -63,6 +65,8 @@ export async function createPriceTableEntry(
     return { success: false, error: "Não foi possível salvar o preço. Tente de novo." };
   }
 
+  // A tabela do convênio "Particular" alimenta os valores que o chatbot informa.
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
   revalidatePath(`/gestor/cadastros/convenios/${insurerId}/precos`);
   return { success: true };
 }

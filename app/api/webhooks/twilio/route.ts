@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import twilio from "twilio";
 import { handleTwilioIncomingMessage, sendTwilioWhatsApp, sendTwilioSMS, formatE164Phone } from "@/lib/twilio";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { closeAttendanceResolvedByBot } from "@/lib/conversation-attendance";
 
 const EMPTY_TWIML = `<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>`;
 
@@ -178,6 +179,12 @@ export async function POST(req: NextRequest) {
             delivery_status: sendResult?.success ? "sent" : "failed",
             intent: result.intent,
           });
+
+          // Depois de gravar a resposta: o trigger de `messages` só carimba o
+          // atendimento enquanto ele está aberto.
+          if (result.concluded) {
+            await closeAttendanceResolvedByBot(conversation.id);
+          }
         }
       } catch (logErr) {
         console.error("[Twilio Webhook Message Log Error]:", logErr);

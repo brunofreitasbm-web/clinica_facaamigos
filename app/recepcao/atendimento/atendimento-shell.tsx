@@ -34,8 +34,12 @@ export type ConversationRow = {
   guardianName: string | null;
   planName: string | null;
   planColor: string | null;
+  /** Convênio cadastrado que o chatbot identificou (só conta quando a conversa não tem plano de cadastro). */
+  insurerId: string | null;
   lastMessagePreview?: string | null;
 };
+
+export type InsurerPill = { name: string; color: string | null };
 
 export type ConversationPatch = Partial<Omit<ConversationRow, "id">>;
 
@@ -79,11 +83,13 @@ export function AtendimentoShell({
   chatbotAdmin,
   currentUserId,
   staffNames,
+  insurerById,
 }: {
   initialConversations: ConversationRow[];
   chatbotAdmin: ChatbotAdminData | null;
   currentUserId: string | null;
   staffNames: Record<string, string>;
+  insurerById: Record<string, InsurerPill>;
 }) {
   const [conversations, setConversations] = useState<ConversationRow[]>(initialConversations);
   const [selectedId, setSelectedId] = useState<string | null>(initialConversations[0]?.id ?? null);
@@ -113,7 +119,10 @@ export function AtendimentoShell({
             contact_name: string | null;
             escalation_reason: string | null;
             assigned_to: string | null;
+            insurer_id: string | null;
           };
+          // Plano identificado pelo bot durante a conversa (a linha do realtime só traz ids).
+          const detected: InsurerPill | null = row.insurer_id ? (insurerById[row.insurer_id] ?? null) : null;
           setConversations((prev) => {
             const existing = prev.find((c) => c.id === row.id);
             const updated: ConversationRow = existing
@@ -132,6 +141,11 @@ export function AtendimentoShell({
                   displayName: row.patient_id
                     ? existing.displayName
                     : (row.contact_name ?? formatConversationPhone(row.phone_number)),
+                  insurerId: row.insurer_id,
+                  // Com paciente, o plano do cadastro (carregado no servidor) prevalece.
+                  ...(!row.patient_id || !existing.planName
+                    ? { planName: detected?.name ?? null, planColor: detected?.color ?? null }
+                    : {}),
                 }
               : {
                   id: row.id,
@@ -148,8 +162,9 @@ export function AtendimentoShell({
                   contactName: row.contact_name,
                   displayName: row.contact_name ?? formatConversationPhone(row.phone_number),
                   guardianName: null,
-                  planName: null,
-                  planColor: null,
+                  planName: detected?.name ?? null,
+                  planColor: detected?.color ?? null,
+                  insurerId: row.insurer_id,
                 };
             const rest = prev.filter((c) => c.id !== row.id);
             return [updated, ...rest].sort((a, b) => {
@@ -165,7 +180,7 @@ export function AtendimentoShell({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [insurerById]);
 
   const patchConversation = (id: string, patch: ConversationPatch) => {
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));

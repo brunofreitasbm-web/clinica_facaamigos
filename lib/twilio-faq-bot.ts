@@ -23,8 +23,9 @@
  * A regra "nunca invente" é o ponto mais importante do prompt: perguntas sem
  * resposta na base (endereço, horário etc., enquanto o gestor não preencher)
  * viram atendimento humano em vez de alucinação. Valor particular é exceção
- * deliberada — vem de `specialty_prices` e PODE ser informado direto pelo
- * bot; valor de convênio nunca é exposto (não entra na base de conhecimento).
+ * deliberada — vem da tabela de preços do convênio "Particular"
+ * (`insurer_price_tables`) e PODE ser informado direto pelo bot; valor de
+ * convênio nunca é exposto (não entra na base de conhecimento).
  */
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -42,19 +43,9 @@ const DEFAULT_DAILY_REPLY_LIMIT = 20;
 const KNOWLEDGE_TTL_MS = 5 * 60 * 1000;
 const SETTINGS_TTL_MS = 5 * 60 * 1000;
 
-/** Rótulo legível pro `specialty_value` de `specialty_prices` — a tabela usa
- * chaves internas mais granulares que o catálogo `specialties`. */
-const SPECIALTY_PRICE_LABEL: Record<string, string> = {
-  psicologia_aba: "Psicologia ABA",
-  fonoaudiologia: "Fonoaudiologia",
-  fono_convencional: "Fonoaudiologia Convencional",
-  terapia_ocupacional: "Terapia Ocupacional",
-  to_convencional: "Terapia Ocupacional Convencional",
-  integracao_sensorial: "Integração Sensorial",
-  psicomotricidade: "Psicomotricidade",
-  musicoterapia: "Musicoterapia",
-  psicoterapia: "Psicoterapia",
-};
+/** O atendimento particular é cadastrado como um convênio sem guia; é a
+ * tabela de preços DELE que o bot pode divulgar. */
+const PARTICULAR_INSURER_NAME = "particular";
 
 export type ChatbotSettings = {
   botEnabled: boolean;
@@ -101,6 +92,9 @@ export interface FaqBotResult {
   replyMessage: string;
   intent: string;
   escalated: boolean;
+  /** O bot deu a resposta definitiva e a pessoa não precisa de mais nada — quem
+   * grava a resposta fecha o atendimento como 'resolvido' (lib/conversation-attendance.ts). */
+  concluded?: boolean;
 }
 
 type KnowledgeCacheEntry = { text: string; expiresAt: number };
@@ -131,7 +125,7 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
-  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes, specialtyPricesRes] = await Promise.all([
+  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes, particularPricesRes] = await Promise.all([
     supabase
       .from("clinic_faq")
       .select("question, answer, keywords, category")
@@ -156,16 +150,17 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
       .eq("clinic_id", clinicId)
       .in("role", ["terapeuta", "profissional", "supervisor"])
       .order("full_name"),
-    // Preço particular (sem convênio) por especialidade — ver
-    // specialty_prices. Diferente do convênio (nunca exposto pelo bot), o
-    // gestor decidiu que o valor particular PODE ser informado direto no
-    // WhatsApp (regra 6 do prompt abaixo).
+    // Preço particular por terapia — tabela de preços do convênio
+    // "Particular" (/gestor/cadastros/convenios/[id]/precos). Diferente dos
+    // demais convênios (nunca expostos pelo bot), o gestor decidiu que o valor
+    // particular PODE ser informado direto no WhatsApp (regra 6 do prompt).
     supabase
-      .from("specialty_prices")
-      .select("specialty_value, price, duration_minutes")
-      .eq("clinic_id", clinicId)
-      .eq("active", true)
-      .order("specialty_value"),
+      .from("insurer_price_tables")
+      .select("procedure_name, price, duration_minutes, valid_from, valid_to, insurers!inner(name, clinic_id, active)")
+      .eq("insurers.clinic_id", clinicId)
+      .eq("insurers.active", true)
+      .ilike("insurers.name", PARTICULAR_INSURER_NAME)
+      .order("procedure_name"),
   ]);
 
   const faqBlock = (faqRes.data ?? [])
@@ -175,7 +170,10 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     })
     .join("\n\n");
 
-  const insurersBlock = (insurersRes.data ?? []).map((i) => i.name.trim()).join(", ");
+  const insurersBlock = (insurersRes.data ?? [])
+    .map((i) => i.name.trim())
+    .filter((name) => name.toLowerCase() !== PARTICULAR_INSURER_NAME)
+    .join(", ");
 
   const typesBlock = (typesRes.data ?? [])
     .map((t) => `${t.name} (${t.duration_minutes} min)`)
@@ -190,10 +188,12 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     .join(", ");
 
   const priceFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-  const specialtyPricesBlock = (specialtyPricesRes.data ?? [])
+  const today = new Date().toISOString().slice(0, 10);
+  const particularPricesBlock = (particularPricesRes.data ?? [])
+    .filter((p) => p.valid_from <= today && (!p.valid_to || p.valid_to >= today))
     .map((p) => {
-      const label = SPECIALTY_PRICE_LABEL[p.specialty_value] ?? p.specialty_value;
-      return `${label}: ${priceFormatter.format(Number(p.price))} (${p.duration_minutes} min)`;
+      const duration = p.duration_minutes ? ` (${p.duration_minutes} min)` : "";
+      return `${p.procedure_name}: ${priceFormatter.format(Number(p.price))}${duration}`;
     })
     .join(", ");
 
@@ -207,8 +207,8 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     "=== TIPOS DE ATENDIMENTO E DURAÇÃO ===",
     typesBlock || "(não cadastrado)",
     "",
-    "=== VALORES PARTICULAR (sem convênio), por especialidade ===",
-    specialtyPricesBlock || "(nenhum valor particular cadastrado — escale pra equipe humana se perguntarem)",
+    "=== VALORES PARTICULAR (sem convênio), por terapia ===",
+    particularPricesBlock || "(nenhum valor particular cadastrado — escale pra equipe humana se perguntarem)",
     "",
     "=== SALAS DE ATENDIMENTO E AVALIAÇÃO ===",
     roomsBlock || "(nenhuma sala cadastrada)",
@@ -232,12 +232,12 @@ REGRAS OBRIGATÓRIAS:
 3. ATENDIMENTO EMPÁTICO AOS PAIS E RESPONSÁVEIS: Fale diretamente com o pai, mãe ou responsável legal. Trate a família com carinho, respeito, clareza e acolhimento.
 4. EMOJIS ACOLHEDORES: Use emojis integrativos e carinhosos (ex.: 💙, 🧩, 🎈, 🌱, 🤝, ✨) de forma harmoniosa nas mensagens.
 5. NUNCA INVENTE: Responda APENAS com base nas informações acima. Se a resposta não estiver ali ou a dúvida não for coberta pela base, NUNCA invente: escale para a equipe humana.
-6. POLÍTICA DE VALORES: Valores de sessão PARTICULAR (sem convênio) PODEM ser informados diretamente, usando exatamente os números da seção "VALORES PARTICULAR" acima — nunca arredonde ou estime. Valores de convênio (reembolso, coparticipação, tabela do plano) NÃO estão nesta base e NUNCA devem ser informados: escale para a equipe humana ("escalar": true, "motivo": "fora_da_base").
+6. POLÍTICA DE VALORES: Quando a pessoa perguntar o valor de atendimento PARTICULAR (sem convênio), informe diretamente o valor e a duração da terapia, usando exatamente os números da seção "VALORES PARTICULAR" acima — nunca arredonde ou estime, e não escale por isso. Valores de convênio (reembolso, coparticipação, tabela do plano) NÃO estão nesta base e NUNCA devem ser informados: escale para a equipe humana ("escalar": true, "motivo": "fora_da_base").
 7. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
 8. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
 9. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
-10. AGENDAMENTO: Se a pessoa demonstrar interesse em agendar a avaliação, oriente a responder *AGENDAR*.
-11. ENCERRAMENTO E CONVITE AO SITE: Sempre ao finalizar a resposta de um atendimento, tirar dúvidas ou concluir uma interação (ao responder dúvidas, agradecer, despedir-se ou concluir a conversa), inclua um convite carinhoso e acolhedor para a pessoa acessar o site oficial da clínica: www.institutofacaamigos.com.br (Ex: "Conheça mais sobre nossa clínica e tratamentos em www.institutofacaamigos.com.br 🌐💙").
+10. AGENDAMENTO E INÍCIO DE ATENDIMENTO 100% VIA BOT/WHATSAPP: O agendamento de avaliações e o início do atendimento acontecem integralmente POR AQUI no WhatsApp! NUNCA direcione a pessoa para o site para agendar, saber como iniciar ou marcar consultas. Se a pessoa perguntar sobre convênios (ex.: "vocês atendem PROASA?") ou demonstrar interesse em iniciar/agendar, responda confirmando o convênio e convide-a a agendar diretamente por aqui mesmo, orientando a responder *AGENDAR*.
+11. NUNCA DIRECIONE PARA O SITE PARA AGENDAR OU INICIAR: O site oficial (www.institutofacaamigos.com.br) é EXCLUSIVAMENTE para consulta institucional/conhecer a clínica e deve ser incluído apenas como assinatura/despedida ao encerrar ou finalizar a conversa (Ex: "Conheça mais sobre nossa clínica em www.institutofacaamigos.com.br 🌐💙"). NUNCA associe o site a agendamentos, início de processo ou tira-dúvidas operacionais.
 
 SOLICITAÇÃO DE RELATÓRIO OU DOCUMENTO (laudo, declaração de comparecimento, relatório de evolução, atestado, etc.):
 Isso não é uma dúvida que você responde — é um pedido que a recepção vai atender, mas cabe a você reunir as informações antes de repassar, para a equipe não precisar perguntar tudo de novo.
@@ -253,12 +253,15 @@ QUANDO ESCALAR (escalar = true):
 - "relatorio": pedido de relatório/documento, DEPOIS de reunir os dados acima — nunca na primeira mensagem do pedido.
 Ao escalar por "fora_da_base", "clinico" ou "pediu_humano", o campo "resposta" deve apenas acolher e avisar que a equipe foi chamada, sem tentar responder a dúvida. Ao escalar por "relatorio", o campo "resposta" traz o resumo coletado (regra 3 acima) e "relatorio_dados" traz os mesmos dados de forma estruturada.
 
+IDENTIFICAÇÃO DO PLANO: sempre que a pessoa disser QUAL plano de saúde a criança/paciente tem (ex.: "meu filho tem Unimed", "somos particular"), preencha "convenio" com o nome do plano exatamente como está na lista de CONVÊNIOS cadastrados acima (ou "Particular" se ela disser que é particular e esse nome estiver na lista). Perguntar se a clínica atende um plano NÃO conta — só quando ela afirma que possui o plano. Se o plano citado não estiver na lista, ou se ainda não souber, use null (e mantenha o valor se já foi dito antes no histórico).
+
 Responda SEMPRE em JSON válido, exatamente neste formato:
-{"resposta": "texto para enviar no WhatsApp", "escalar": false, "motivo": null, "intent": "planos", "relatorio_dados": null}
+{"resposta": "texto para enviar no WhatsApp", "escalar": false, "motivo": null, "intent": "planos", "convenio": null, "relatorio_dados": null, "concluido": false}
 
 "motivo" é null quando escalar for false, senão um de: "fora_da_base", "clinico", "pediu_humano", "relatorio".
 "intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "relatorio", "outro".
-"relatorio_dados" é null exceto quando motivo="relatorio", caso em que é um objeto {"crianca": string ou null, "plano": string ou null, "documento": string ou null, "terapeuta": string ou null}.`;
+"relatorio_dados" é null exceto quando motivo="relatorio", caso em que é um objeto {"crianca": string ou null, "plano": string ou null, "documento": string ou null, "terapeuta": string ou null}.
+"concluido" é true SOMENTE quando a pessoa deu a conversa por encerrada (ex.: "obrigada, era só isso", "tchau", "ok, vou pensar") e a sua "resposta" é apenas a despedida, sem fazer nenhuma pergunta nem deixar nada pendente; em qualquer outro caso é false. Nunca é true junto com "escalar": true.`;
 }
 
 /** O Gemini às vezes devolve o JSON embrulhado em cerca de código mesmo em
@@ -284,7 +287,9 @@ type FaqModelOutput = {
   escalar?: boolean;
   motivo?: string | null;
   intent?: string;
+  convenio?: string | null;
   relatorio_dados?: ReportRequestData | null;
+  concluido?: boolean;
 };
 
 async function loadHistory(conversationId: string): Promise<Array<{ role: "user" | "model"; content: string }>> {
@@ -436,6 +441,41 @@ async function notifySupervisorReportRequest(params: {
   }
 }
 
+function normalizePlanName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Grava na conversa o plano que a pessoa disse ter, para a Central de
+ * Atendimento mostrar a pílula colorida. Só vale convênio cadastrado
+ * (nome + cor oficiais); se não casar com nenhum, nada é gravado.
+ */
+async function saveDetectedPlan(conversationId: string, clinicId: string, rawPlan: string): Promise<void> {
+  const typed = normalizePlanName(rawPlan);
+  if (typed.length < 3) return;
+
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+
+    const { data: insurers } = await supabase.from("insurers").select("id, name").eq("clinic_id", clinicId);
+    const match = (insurers ?? []).find((insurer) => {
+      const known = normalizePlanName(insurer.name);
+      return known.length >= 3 && (known === typed || typed.includes(known) || known.includes(typed));
+    });
+    if (!match) return;
+
+    await supabase.from("twilio_conversations").update({ insurer_id: match.id }).eq("id", conversationId);
+  } catch (err) {
+    console.error("[Twilio FAQ Bot] Falha ao registrar plano identificado:", err);
+  }
+}
+
 async function escalateConversation(conversationId: string, reason: FaqEscalationReason) {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
@@ -477,6 +517,7 @@ export async function processFaqBotStep(params: {
     conversationHistory,
     temperature: 0.4,
     jsonMode: true,
+    feature: "faq_whatsapp",
   });
 
   if (!aiResponse.success || !aiResponse.text) return notHandled;
@@ -491,6 +532,10 @@ export async function processFaqBotStep(params: {
 
   const reply = (parsed.resposta ?? "").trim();
   if (!reply) return notHandled;
+
+  if (conversationId && typeof parsed.convenio === "string" && parsed.convenio.trim()) {
+    await saveDetectedPlan(conversationId, DEV_CLINIC_ID, parsed.convenio);
+  }
 
   const shouldEscalate = parsed.escalar === true;
   const reason: FaqEscalationReason =
@@ -516,5 +561,6 @@ export async function processFaqBotStep(params: {
     replyMessage: reply,
     intent: shouldEscalate ? `escalado_${reason}` : `faq_${parsed.intent ?? "outro"}`,
     escalated: shouldEscalate,
+    concluded: parsed.concluido === true && !shouldEscalate,
   };
 }

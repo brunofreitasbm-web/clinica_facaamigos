@@ -2,6 +2,14 @@
 
 import { useState } from "react";
 import { CheckCircle2, Loader2, RotateCcw, UserCheck, UserMinus } from "lucide-react";
+import type { AttendanceManualOutcome } from "@/lib/conversation-attendance";
+
+const OUTCOME_OPTIONS: { value: AttendanceManualOutcome; label: string }[] = [
+  { value: "agendado", label: "Agendou" },
+  { value: "resolvido", label: "Dúvida resolvida" },
+  { value: "perdido", label: "Não quis seguir" },
+  { value: "spam", label: "Spam / engano" },
+];
 
 export interface ChatActionsProps {
   conversationId: string;
@@ -12,7 +20,7 @@ export interface ChatActionsProps {
   assigneeName: string | null;
   isPending: boolean;
   onAssignToggle: (shouldAssign: boolean) => Promise<void>;
-  onCloseToggle: (shouldClose: boolean) => Promise<void>;
+  onCloseToggle: (shouldClose: boolean, outcome?: AttendanceManualOutcome, note?: string) => Promise<void>;
   onBotToggle: (shouldEnableBot: boolean) => Promise<void>;
 }
 
@@ -28,6 +36,8 @@ export function ChatActions({
   onBotToggle,
 }: ChatActionsProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [outcome, setOutcome] = useState<AttendanceManualOutcome | null>(null);
+  const [outcomeNote, setOutcomeNote] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
   const [isTerminating, setIsTerminating] = useState(false);
   const [isTogglingBot, setIsTogglingBot] = useState(false);
@@ -47,11 +57,13 @@ export function ChatActions({
   };
 
   const handleConfirmClose = async () => {
-    if (isBusy) return;
+    if (isBusy || !outcome) return;
     setIsTerminating(true);
     try {
-      await onCloseToggle(true);
+      await onCloseToggle(true, outcome, outcomeNote);
       setShowConfirmModal(false);
+      setOutcome(null);
+      setOutcomeNote("");
     } finally {
       setIsTerminating(false);
     }
@@ -136,7 +148,11 @@ export function ChatActions({
           <button
             type="button"
             disabled={isBusy}
-            onClick={() => setShowConfirmModal(true)}
+            onClick={() => {
+              setOutcome(null);
+              setOutcomeNote("");
+              setShowConfirmModal(true);
+            }}
             className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50/50 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100/70 hover:border-red-300 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Encerrar: mova para encerradas com confirmação"
           >
@@ -201,6 +217,41 @@ export function ChatActions({
               </div>
             </div>
 
+            <fieldset className="mt-4">
+              <legend className="text-xs font-semibold text-slate-700 dark:text-slate-200">Como terminou o atendimento?</legend>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {OUTCOME_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      outcome === option.value
+                        ? "border-teal-600 bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-200"
+                        : "border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="attendance-outcome"
+                      value={option.value}
+                      checked={outcome === option.value}
+                      onChange={() => setOutcome(option.value)}
+                      className="accent-teal-600"
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+              <textarea
+                value={outcomeNote}
+                onChange={(event) => setOutcomeNote(event.target.value)}
+                rows={2}
+                maxLength={500}
+                placeholder="Observação (opcional)"
+                aria-label="Observação sobre o desfecho"
+                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus-visible:outline-2 focus-visible:outline-teal-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </fieldset>
+
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 type="button"
@@ -212,7 +263,7 @@ export function ChatActions({
               </button>
               <button
                 type="button"
-                disabled={isTerminating}
+                disabled={isTerminating || !outcome}
                 onClick={handleConfirmClose}
                 className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50"
               >

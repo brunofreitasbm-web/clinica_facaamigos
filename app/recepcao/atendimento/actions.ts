@@ -6,6 +6,7 @@ import { sendTwilioWhatsApp } from "@/lib/twilio";
 import { createInteressadoAction, type CreateInteressadoInput } from "../actions";
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
 import { formatConversationPhone } from "./format-phone";
+import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
 
 export type ExtractedLeadInfo = {
   fullName: string;
@@ -142,8 +143,20 @@ export async function assignConversation(conversationId: string, assign: boolean
  * Encerrar devolve a conversa ao bot e libera o responsável; se o contato
  * escrever de novo, o webhook (lib/twilio.ts) reabre sozinho.
  */
-export async function setConversationClosed(conversationId: string, closed: boolean) {
+export async function setConversationClosed(
+  conversationId: string,
+  closed: boolean,
+  outcome?: AttendanceManualOutcome,
+  note?: string,
+) {
+  if (closed && (!outcome || !ATTENDANCE_MANUAL_OUTCOMES.includes(outcome))) {
+    return { success: false as const, error: "Informe como o atendimento terminou." };
+  }
+
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { error } = await supabase
     .from("twilio_conversations")
     .update(
@@ -154,6 +167,30 @@ export async function setConversationClosed(conversationId: string, closed: bool
     .eq("id", conversationId);
 
   if (error) return { success: false as const, error: error.message };
+
+  // Fecha o atendimento aberto (métrica de fechamento). Se o trigger de
+  // agendamento já o fechou como 'agendado', não sobra linha aberta e o
+  // update não faz nada.
+  if (closed && outcome) {
+    const { error: attendanceError } = await supabase
+      .from("conversation_attendances")
+      .update({
+        closed_at: new Date().toISOString(),
+        outcome,
+        outcome_note: note?.trim() || null,
+        closed_by: user?.id ?? null,
+        closed_by_kind: "agent",
+      })
+      .eq("conversation_id", conversationId)
+      .is("closed_at", null);
+    if (attendanceError) {
+      return {
+        success: false as const,
+        error: `Conversa encerrada, mas o desfecho não foi registrado: ${attendanceError.message}`,
+      };
+    }
+  }
+
   revalidatePath("/recepcao/atendimento");
   return { success: true as const };
 }
@@ -358,6 +395,7 @@ ${transcript}`;
       systemInstruction,
       temperature: 0.1,
       jsonMode: true,
+      feature: "pre_cadastro_conversa",
     });
 
     if (aiRes.success && aiRes.text) {

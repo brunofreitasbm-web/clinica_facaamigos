@@ -146,7 +146,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
               </span>
             </div>
             <p className="text-xs text-indigo-200/80">
-              Views Postgres ativas: <code className="text-indigo-300 font-mono">metabase_monthly_faturamento_kpis</code>, <code className="text-indigo-300 font-mono">metabase_therapist_evolution_kpis</code>, <code className="text-indigo-300 font-mono">metabase_absence_rate_kpis</code>.
+              Views Postgres ativas: <code className="text-indigo-300 font-mono">metabase_monthly_faturamento_kpis</code>, <code className="text-indigo-300 font-mono">metabase_therapist_evolution_kpis</code>, <code className="text-indigo-300 font-mono">metabase_absence_rate_kpis</code>. Custo com IA: <code className="text-indigo-300 font-mono">metabase_ai_cost_kpis</code>, <code className="text-indigo-300 font-mono">metabase_ai_cost_by_feature</code>, <code className="text-indigo-300 font-mono">metabase_ai_usage_detail</code>.
             </p>
           </div>
         </div>

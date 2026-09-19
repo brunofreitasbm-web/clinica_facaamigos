@@ -7,7 +7,7 @@
 // { success: false, error }, nunca um resultado inventado. Os normalizadores
 // de lib/document-extraction.ts (CPF, data, telefone, UF, CEP, convênio) são
 // reaproveitados linha a linha em vez de duplicados aqui.
-import { GEMINI_BASE_URL, isGeminiConfigured } from "@/lib/gemini";
+import { geminiFetch, isGeminiConfigured } from "@/lib/gemini";
 import { normalizeCpf, parseBrDate, normalizePhone, matchInsurer } from "@/lib/document-extraction";
 import type { IntakeExtractionProfile } from "@/lib/insurance-intake-profile";
 
@@ -336,11 +336,7 @@ export async function extractIntakeRowsFromPdf(
   };
 
   try {
-    const url = `${GEMINI_BASE_URL}?key=${apiKey.trim()}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    const res = await geminiFetch("importacao_convenio", payload, {
       signal: AbortSignal.timeout(opts?.timeoutMs ?? 90_000),
     });
 

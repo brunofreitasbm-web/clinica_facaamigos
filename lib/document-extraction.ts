@@ -9,7 +9,7 @@
 // — nunca um resultado inventado. Quem valida de verdade os valores é
 // sempre a recepção, na tela de revisão; os normalizadores abaixo só
 // arrumam formato (datas, CPF, UF...) para facilitar a leitura humana.
-import { GEMINI_BASE_URL, isGeminiConfigured } from "@/lib/gemini";
+import { geminiFetch, isGeminiConfigured } from "@/lib/gemini";
 import { formatE164Phone } from "@/lib/twilio";
 
 export type ExtractedDocType =
@@ -252,11 +252,7 @@ export async function extractRegistrationFromFiles(
   };
 
   try {
-    const url = `${GEMINI_BASE_URL}?key=${apiKey.trim()}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    const res = await geminiFetch("extracao_cadastro", payload, {
       signal: AbortSignal.timeout(opts?.timeoutMs ?? 45_000),
     });
 

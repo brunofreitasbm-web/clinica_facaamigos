@@ -4,6 +4,7 @@
  */
 
 import { BEHAVIOR_INTENSITIES, FAMILY_GUIDANCE_OPTIONS } from "@/lib/session-note-fields";
+import { logAiUsage, type AiFeature } from "@/lib/ai-usage";
 
 export interface GeminiResponse {
   success: boolean;
@@ -21,6 +22,8 @@ export interface GeminiChatOptions {
    * no mesmo retorno — uma sentinela em texto (`[ESCALAR]`) vazaria para a
    * família quando o modelo errasse o formato. */
   jsonMode?: boolean;
+  /** Onde a chamada foi feita — dimensão do dashboard "Custo com IA". */
+  feature: AiFeature;
 }
 
 export interface DocumentAnalysisResult {
@@ -78,6 +81,77 @@ export function isGeminiConfigured(): boolean {
 export const GEMINI_MODEL = "gemini-3.5-flash-lite";
 export const GEMINI_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
+interface GeminiUsageMetadata {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  thoughtsTokenCount?: number;
+  promptTokensDetails?: Array<{ modality?: string; tokenCount?: number }>;
+}
+
+/**
+ * Único ponto de saída para a API do Gemini: faz o POST e registra tokens,
+ * status e latência em `ai_usage_log` (lib/ai-usage.ts) para o dashboard
+ * "Custo com IA". Devolve a `Response` original intacta — quem chama continua
+ * lendo `res.ok` / `res.json()` como antes (o corpo é lido num clone).
+ * Lança em falha de rede/timeout, como o `fetch` cru, depois de registrar a
+ * chamada como falha.
+ */
+export async function geminiFetch(
+  feature: AiFeature,
+  payload: unknown,
+  opts?: { signal?: AbortSignal },
+): Promise<Response> {
+  const apiKey = (process.env.GEMINI_API_KEY ?? "").trim();
+  const started = Date.now();
+
+  let res: Response;
+  try {
+    res = await fetch(`${GEMINI_BASE_URL}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: opts?.signal,
+    });
+  } catch (err) {
+    await logAiUsage({
+      provider: "gemini",
+      model: GEMINI_MODEL,
+      feature,
+      success: false,
+      latencyMs: Date.now() - started,
+    });
+    throw err;
+  }
+
+  let usage: GeminiUsageMetadata | undefined;
+  if (res.ok) {
+    try {
+      usage = ((await res.clone().json()) as { usageMetadata?: GeminiUsageMetadata })?.usageMetadata;
+    } catch {
+      // Corpo ilegível: o chamador trata; aqui só perdemos a contagem de tokens.
+    }
+  }
+
+  const audioTokens = (usage?.promptTokensDetails ?? [])
+    .filter((d) => d.modality === "AUDIO")
+    .reduce((sum, d) => sum + (d.tokenCount ?? 0), 0);
+
+  await logAiUsage({
+    provider: "gemini",
+    model: GEMINI_MODEL,
+    feature,
+    inputTokens: usage?.promptTokenCount,
+    audioInputTokens: audioTokens,
+    outputTokens: usage?.candidatesTokenCount,
+    thinkingTokens: usage?.thoughtsTokenCount,
+    httpStatus: res.status,
+    success: res.ok,
+    latencyMs: Date.now() - started,
+  });
+
+  return res;
+}
+
 /**
  * Gera uma resposta de chat inteligente usando o Google Gemini AI.
  */
@@ -126,12 +200,7 @@ export async function generateGeminiChatResponse(options: GeminiChatOptions): Pr
       };
     }
 
-    const url = `${GEMINI_BASE_URL}?key=${apiKey.trim()}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await geminiFetch(options.feature, payload);
 
     if (!res.ok) {
       const errorText = await res.text();
@@ -187,6 +256,7 @@ Responda APENAS com a palavra da categoria em maiúsculas (ex: AGENDAMENTO).`;
     prompt: userMessage,
     systemInstruction,
     temperature: 0.1,
+    feature: "classificacao_intencao",
   });
 
   if (!res.success || !res.text) return "DUVIDA_GERAL";
@@ -246,12 +316,7 @@ Responda APENAS o JSON válido sem nenhum texto adicional.`;
       },
     };
 
-    const url = `${GEMINI_BASE_URL}?key=${apiKey.trim()}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await geminiFetch("analise_documento", payload);
 
     if (!res.ok) {
       return { success: false, error: `Erro na análise visual Gemini: ${res.status}` };
@@ -368,12 +433,7 @@ Regras importantes:
       },
     };
 
-    const url = `${GEMINI_BASE_URL}?key=${apiKey.trim()}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await geminiFetch("evolucao_voz", payload);
 
     if (!res.ok) {
       const errorText = await res.text();

@@ -452,7 +452,7 @@ export async function handleTwilioIncomingMessage(params: {
    * passo 0.7 abaixo). Opcional: quem chama sem media (ex.: o painel de
    * teste do chatbot) simplesmente não aciona esse fluxo. */
   media?: { url: string; contentType?: string }[];
-}): Promise<{ replyMessage: string; intent: string }> {
+}): Promise<{ replyMessage: string; intent: string; concluded?: boolean }> {
   const { from, body, mediaUrl0, mediaContentType0, media } = params;
   const phone = formatE164Phone(from.replace("whatsapp:", ""));
 
@@ -637,7 +637,7 @@ export async function handleTwilioIncomingMessage(params: {
     const { processFaqBotStep } = await import("./twilio-faq-bot");
     const faqResult = await processFaqBotStep({ phone, body, conversationId, patientId, guardianId });
     if (faqResult.handled) {
-      return { intent: faqResult.intent, replyMessage: faqResult.replyMessage };
+      return { intent: faqResult.intent, replyMessage: faqResult.replyMessage, concluded: faqResult.concluded };
     }
   } catch (faqErr) {
     console.error("[Twilio FAQ Bot Error]:", faqErr);
@@ -665,7 +665,7 @@ export async function handleTwilioIncomingMessage(params: {
       "• Digite *AGENDAR* para marcar uma avaliação pelo plano.\n" +
       "• Digite *CONVÊNIOS* para consultar os planos aceitos.\n\n" +
       "Ou escreva sua dúvida por aqui! ✨\n\n" +
-      "🌐 Acesse também nosso site: www.institutofacaamigos.com.br",
+      "🌐 Conheça mais sobre nossa clínica: www.institutofacaamigos.com.br",
   };
 }
 
