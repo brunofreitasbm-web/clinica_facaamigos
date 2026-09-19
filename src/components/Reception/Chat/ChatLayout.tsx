@@ -83,6 +83,7 @@ export function ChatLayout({
         isOpen={isRegisterModalOpen}
         onOpenChange={setIsRegisterModalOpen}
         hideTriggerButton
+        conversationId={selectedId}
       />
     </div>
   );

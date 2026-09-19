@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createInteressadoAction } from "./actions";
+import { extractLeadInfoFromChat } from "./atendimento/actions";
+import { Sparkles, Loader2 } from "lucide-react";
 
 export function InteressadoRapidoDialog({
   isOpen: externalOpen,
   onOpenChange,
   hideTriggerButton = false,
+  conversationId = null,
 }: {
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   hideTriggerButton?: boolean;
+  conversationId?: string | null;
 } = {}) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -21,6 +25,8 @@ export function InteressadoRapidoDialog({
     onOpenChange?.(val);
   };
   const [loading, setLoading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionDone, setExtractionDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState("");
@@ -28,8 +34,36 @@ export function InteressadoRapidoDialog({
   const [guardianName, setGuardianName] = useState("");
   const [guardianPhone, setGuardianPhone] = useState("");
   const [guardianRelationship, setGuardianRelationship] = useState("Mãe");
-  const [origin, setOrigin] = useState("Instagram");
+  const [origin, setOrigin] = useState("WhatsApp");
   const [chiefComplaint, setChiefComplaint] = useState("");
+
+  const handleExtractData = useCallback(async (convId: string) => {
+    setIsExtracting(true);
+    setExtractionDone(false);
+    try {
+      const res = await extractLeadInfoFromChat(convId);
+      if (res.success && res.data) {
+        if (res.data.fullName) setFullName(res.data.fullName);
+        if (res.data.birthDate) setBirthDate(res.data.birthDate);
+        if (res.data.guardianName) setGuardianName(res.data.guardianName);
+        if (res.data.guardianPhone) setGuardianPhone(res.data.guardianPhone);
+        if (res.data.guardianRelationship) setGuardianRelationship(res.data.guardianRelationship);
+        if (res.data.origin) setOrigin(res.data.origin);
+        if (res.data.chiefComplaint) setChiefComplaint(res.data.chiefComplaint);
+        setExtractionDone(true);
+      }
+    } catch (err) {
+      console.error("Erro na extração de dados do chat:", err);
+    } finally {
+      setIsExtracting(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open && conversationId) {
+      handleExtractData(conversationId);
+    }
+  }, [open, conversationId, handleExtractData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,8 +129,8 @@ export function InteressadoRapidoDialog({
           >
             <div className="mb-4 flex items-center justify-between border-b pb-3">
               <div>
-                <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-lg font-bold">
-                  ⚡ Novo Paciente sem Avaliação (Cadastro Rápido - 30s)
+                <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-lg font-bold flex items-center gap-2">
+                  ⚡ Novo Paciente sem Avaliação
                 </h3>
                 <p className="text-xs text-neutral-500">
                   Preencha apenas os dados essenciais para iniciar a jornada.
@@ -110,6 +144,34 @@ export function InteressadoRapidoDialog({
                 ✕
               </button>
             </div>
+
+            {conversationId && (
+              <div className="mb-4 flex items-center justify-between rounded-lg border border-indigo-100 bg-indigo-50/80 p-3 text-xs text-indigo-900 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200">
+                <div className="flex items-center gap-2 min-w-0">
+                  {isExtracting ? (
+                    <Loader2 size={16} className="animate-spin shrink-0 text-indigo-600 dark:text-indigo-400" />
+                  ) : (
+                    <Sparkles size={16} className="shrink-0 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                  <span className="truncate">
+                    {isExtracting
+                      ? "Analisando histórico da conversa com IA..."
+                      : extractionDone
+                      ? "Dados preenchidos automaticamente a partir do chat!"
+                      : "Conversa do WhatsApp identificada."}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={isExtracting}
+                  onClick={() => handleExtractData(conversationId)}
+                  className="ml-2 inline-flex shrink-0 items-center gap-1 rounded bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+                >
+                  <Sparkles size={12} />
+                  <span>Reextrair</span>
+                </button>
+              </div>
+            )}
 
             {error && (
               <div className="mb-4 rounded-md bg-red-50 p-3 text-xs text-red-700 border border-red-200">

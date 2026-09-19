@@ -4,6 +4,18 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sendTwilioWhatsApp } from "@/lib/twilio";
 import { createInteressadoAction, type CreateInteressadoInput } from "../actions";
+import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
+import { formatConversationPhone } from "./format-phone";
+
+export type ExtractedLeadInfo = {
+  fullName: string;
+  birthDate: string;
+  guardianName: string;
+  guardianPhone: string;
+  guardianRelationship: string;
+  origin: string;
+  chiefComplaint: string;
+};
 
 export async function sendManualMessage(conversationId: string, body: string) {
   const trimmed = body.trim();
@@ -273,3 +285,120 @@ export async function deleteQuickResponse(id: string) {
   revalidatePath("/recepcao/atendimento");
   return { success: true as const };
 }
+
+export async function extractLeadInfoFromChat(conversationId: string) {
+  const supabase = await createClient();
+
+  const { data: conversation } = await supabase
+    .from("twilio_conversations")
+    .select("id, phone_number, contact_name")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (!conversation) {
+    return { success: false as const, error: "Conversa não encontrada." };
+  }
+
+  const phoneFormatted = formatConversationPhone(conversation.phone_number);
+
+  const fallbackData: ExtractedLeadInfo = {
+    fullName: "",
+    birthDate: "",
+    guardianName: conversation.contact_name || "",
+    guardianPhone: phoneFormatted,
+    guardianRelationship: "Mãe",
+    origin: "WhatsApp",
+    chiefComplaint: "",
+  };
+
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("sender_type, direction, body, sent_at")
+    .eq("conversation_id", conversationId)
+    .order("sent_at", { ascending: true })
+    .limit(50);
+
+  if (!messages || messages.length === 0 || !isGeminiConfigured()) {
+    return { success: true as const, data: fallbackData };
+  }
+
+  const transcript = messages
+    .filter((m) => m.body && m.body.trim().length > 0)
+    .map((m) => `[${m.direction === "inbound" ? "Contato/Responsável" : "Atendente/Bot"}]: ${m.body}`)
+    .join("\n");
+
+  if (!transcript) {
+    return { success: true as const, data: fallbackData };
+  }
+
+  const currentDate = new Date().toISOString().slice(0, 10);
+  const systemInstruction = `Você é um assistente de IA especialista da recepção de uma clínica de desenvolvimento infantil (terapias de neurodesenvolvimento, ABA, psicologia, fonoaudiologia, terapia ocupacional).
+Analise o histórico de mensagens trocadas via WhatsApp e extraia com precisão os dados para o cadastro do paciente interessado.
+
+Retorne um JSON estrito no seguinte formato:
+{
+  "fullName": "<Nome completo ou primeiro nome da criança/paciente se encontrado no chat, senão null>",
+  "birthDate": "<Data de nascimento da criança no formato YYYY-MM-DD se informada, ou calculada se dada a idade (ex: se o chat fala que a criança tem 3 anos e a data atual é ${currentDate}, calcule o ano de nascimento aproximado como YYYY-01-01), senão null>",
+  "guardianName": "<Nome completo ou primeiro nome do responsável (mãe, pai, etc.) se informado, senão null>",
+  "guardianPhone": "<Telefone/WhatsApp do responsável, ou null>",
+  "guardianRelationship": "<Um destes exatamente: 'Mãe', 'Pai', 'Avó/Avô', 'Tio(a)', 'Responsável'>",
+  "origin": "<Um destes exatamente: 'WhatsApp', 'Instagram', 'Google', 'Indicação', 'Plano de Saúde', 'Outro'>",
+  "chiefComplaint": "<Resumo de 1 a 2 frases da queixa principal ou motivo de procura da família (ex: suspeita de TEA, atraso na fala, indicação médica, agendamento de avaliação), senão null>"
+}`;
+
+  const prompt = `Contato WhatsApp Registrado: ${conversation.contact_name || "Desconhecido"}
+Telefone: ${conversation.phone_number}
+
+Histórico da Conversa:
+${transcript}`;
+
+  try {
+    const aiRes = await generateGeminiChatResponse({
+      prompt,
+      systemInstruction,
+      temperature: 0.1,
+      jsonMode: true,
+    });
+
+    if (aiRes.success && aiRes.text) {
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(aiRes.text);
+      } catch {
+        const jsonMatch = aiRes.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+      }
+
+      const extracted: ExtractedLeadInfo = {
+        fullName: typeof parsed.fullName === "string" ? parsed.fullName.trim() : "",
+        birthDate: typeof parsed.birthDate === "string" ? parsed.birthDate.trim() : "",
+        guardianName:
+          typeof parsed.guardianName === "string" && parsed.guardianName.trim()
+            ? parsed.guardianName.trim()
+            : conversation.contact_name || "",
+        guardianPhone:
+          typeof parsed.guardianPhone === "string" && parsed.guardianPhone.trim()
+            ? parsed.guardianPhone.trim()
+            : phoneFormatted,
+        guardianRelationship: ["Mãe", "Pai", "Avó/Avô", "Tio(a)", "Responsável"].includes(
+          String(parsed.guardianRelationship),
+        )
+          ? String(parsed.guardianRelationship)
+          : "Mãe",
+        origin: ["WhatsApp", "Instagram", "Google", "Indicação", "Plano de Saúde", "Outro"].includes(
+          String(parsed.origin),
+        )
+          ? String(parsed.origin)
+          : "WhatsApp",
+        chiefComplaint: typeof parsed.chiefComplaint === "string" ? parsed.chiefComplaint.trim() : "",
+      };
+
+      return { success: true as const, data: extracted };
+    }
+  } catch (e) {
+    console.error("Erro ao extrair dados do chat com Gemini:", e);
+  }
+
+  return { success: true as const, data: fallbackData };
+}
+
