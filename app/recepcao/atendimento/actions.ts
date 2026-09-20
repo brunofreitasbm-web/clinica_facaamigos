@@ -1,9 +1,10 @@
+"use server";
+
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { downloadTwilioMedia, extensionFor } from "@/lib/registration-drafts-ingest";
 import { sendTwilioWhatsApp } from "@/lib/twilio";
 import { createInteressadoAction, type CreateInteressadoInput } from "../actions";
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
@@ -239,6 +240,7 @@ export async function transferConversationMediaToPatientDocuments(
       .maybeSingle();
 
     const rawPhone = conversation?.phone_number || "";
+    const { downloadTwilioMedia, extensionFor } = await import("@/lib/registration-drafts-ingest");
 
     // 2. Transfere mídias das mensagens da conversa
     const { data: messages } = await admin
