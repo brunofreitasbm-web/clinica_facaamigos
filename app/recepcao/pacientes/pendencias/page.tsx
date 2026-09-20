@@ -16,10 +16,20 @@ import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Ordem de exibição das categorias. Toda categoria de PendingQueueCategory
+ * precisa estar aqui: getReceptionQueue conta o que falta no badge do menu,
+ * mas esta página só desenha o que consta nesta lista — uma categoria
+ * esquecida aqui vira item invisível (foi o que aconteceu com
+ * cadastro_assistido_ia e chegada_nao_confirmada até 20/09/2026).
+ */
 const CATEGORY_ORDER: PendingQueueCategory[] = [
-  // Primeiro da fila de propósito: é o que chega pelo WhatsApp fora do
-  // expediente e é o ponto de partida de quem abre a clínica (20/09/2026,
-  // quando a aba "Cadastro IA" foi retirada da navegação da recepção).
+  // Tem gente esperando no balcão agora (prazo de 15min em
+  // DUE_MINUTES_BY_CATEGORY) — nada na fila passa na frente disso.
+  "chegada_nao_confirmada",
+  // Segundo de propósito: é o que chega pelo WhatsApp fora do expediente e é
+  // o ponto de partida de quem abre a clínica (20/09/2026, quando a aba
+  // "Cadastro IA" foi retirada da navegação da recepção).
   "cadastro_assistido_ia",
   "guia_vencendo",
   "guia_poucas_sessoes",
