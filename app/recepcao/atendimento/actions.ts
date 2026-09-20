@@ -371,7 +371,7 @@ export async function transferConversationMediaToPatientDocuments(
         if (leadIds.length > 0) {
           const { data: intakeFiles } = await admin
             .from("insurance_intake_lead_files")
-            .select("id, storage_path, file_type, document_id")
+            .select("id, storage_path, kind, document_id")
             .in("lead_id", leadIds);
 
           for (const file of intakeFiles ?? []) {
@@ -386,7 +386,7 @@ export async function transferConversationMediaToPatientDocuments(
               .copy(file.storage_path, destPath);
 
             if (!copyErr) {
-              const category = file.file_type || "laudo";
+              const category = file.kind || "laudo";
               const { error: insertErr } = await admin.from("documents").insert({
                 id: docId,
                 patient_id: patientId,
