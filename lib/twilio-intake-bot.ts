@@ -18,7 +18,7 @@ import { runLaudoExtraction } from "@/lib/laudo-extraction";
 const DOCUMENTS_BUCKET = "clinic-documents";
 const MIN_FILES_TO_AUTO_ADVANCE = 3;
 
-type IntakeStep = "intake_awaiting_documents" | "intake_pending_supervisor" | "intake_awaiting_slot" | "intake_completed";
+type IntakeStep = "intake_awaiting_documents" | "intake_awaiting_card_number" | "intake_pending_supervisor" | "intake_awaiting_slot" | "intake_completed";
 
 // `aba_class_id` presente = a opção oferecida é um bloco de 2h de Treino
 // ABA numa turma (sala e horário vêm da turma), não uma sessão de avaliação
@@ -40,6 +40,38 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 async function getLeadFileCount(admin: AdminClient, leadId: string): Promise<number> {
   const { count } = await admin.from("insurance_intake_lead_files").select("id", { count: "exact", head: true }).eq("lead_id", leadId);
   return count ?? 0;
+}
+
+/**
+ * Anexa ao lead arquivos que chegam depois de os documentos já terem sido
+ * entregues (lead em análise ou esperando o número do cartão) e dispara a
+ * leitura por IA de cada um.
+ */
+async function attachExtraFiles(admin: AdminClient, leadId: string, media: { url: string; contentType?: string }[]): Promise<void> {
+  for (const item of media) {
+    const downloaded = await downloadTwilioMedia(item.url, item.contentType);
+    if (!downloaded || !ALLOWED_MIME_TYPES.has(downloaded.mime) || downloaded.buffer.byteLength > MAX_FILE_BYTES) continue;
+    const existingCount = await getLeadFileCount(admin, leadId);
+    const fileName = `${existingCount}-${Date.now()}.${extensionFor(downloaded.mime)}`;
+    const storagePath = `intake/leads/${leadId}/${fileName}`;
+    const { error: uploadError } = await admin.storage.from(DOCUMENTS_BUCKET).upload(storagePath, downloaded.buffer, { contentType: downloaded.mime, upsert: false });
+    if (!uploadError) {
+      const { data: insertedFile } = await admin
+        .from("insurance_intake_lead_files")
+        .insert({
+          lead_id: leadId,
+          storage_path: storagePath,
+          mime_type: downloaded.mime,
+          size_bytes: downloaded.buffer.byteLength,
+          original_name: sanitizeFileName(fileName),
+          twilio_media_url: item.url,
+        })
+        .select("id")
+        .single();
+      if (insertedFile) void runLaudoExtraction(insertedFile.id);
+      await admin.from("insurance_intake_leads").update({ last_file_at: new Date().toISOString() }).eq("id", leadId);
+    }
+  }
 }
 
 /**
@@ -131,8 +163,8 @@ export async function startIntakeConversation(leadId: string): Promise<{ success
     `Recebemos do *${insurerName}* o encaminhamento de *${childName}*. 🧩\n\n` +
     `Para agendar, envie foto ou PDF dos documentos:\n` +
     `1️⃣ *Laudo Médico*\n` +
-    `2️⃣ *Guia / Autorização do Plano*\n` +
-    `3️⃣ *Carteirinha do Plano* (frente e verso, ou PDF)\n\n` +
+    `2️⃣ *Carteirinha do Plano* (frente e verso, ou PDF)\n` +
+    `3️⃣ *Guia / Autorização do Plano* — se já tiver (não é obrigatória; sem ela, a autorização é feita aqui na clínica)\n\n` +
     `Ao terminar, responda *PRONTO*. (Ou *PARAR* para encerrar).`;
 
   const templateSid = process.env.TWILIO_INTAKE_TEMPLATE_CONTENT_SID;
@@ -226,6 +258,16 @@ export async function setIntakeAwaitingSlot(leadId: string, phoneE164: string, s
 
 export type IntakeBotResult = { handled: boolean; replyMessage: string };
 
+/** Fecha a coleta de documentos: sessão e lead passam a aguardar o supervisor. */
+async function advanceToSupervisor(admin: AdminClient, phone: string, leadId: string): Promise<IntakeBotResult> {
+  await admin.from("chatbot_sessions").update({ current_step: "intake_pending_supervisor", updated_at: new Date().toISOString() }).eq("phone_number", phone);
+  await admin.from("insurance_intake_leads").update({ status: "pending_supervisor" }).eq("id", leadId);
+  return {
+    handled: true,
+    replyMessage: "Tudo certo! 🎉 Recebemos os documentos. Nossa equipe vai conferir e avisamos por aqui assim que estiver aprovado, com os horários disponíveis para a avaliação.",
+  };
+}
+
 /**
  * Processa uma mensagem inbound do WhatsApp contra a máquina de estados do
  * bot de acolhimento. Só "pega" a mensagem se a sessão do telefone já
@@ -263,7 +305,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
   if (upperBody === "AJUDA") {
     return {
       handled: true,
-      replyMessage: "Você pode mandar foto ou PDF do Laudo, da Guia/autorização e da Carteirinha do plano (frente e verso, ou PDF) por aqui. Quando terminar, responda *PRONTO*. Para encerrar, responda *PARAR*.",
+      replyMessage: "Você pode mandar foto ou PDF do Laudo e da Carteirinha do plano (frente e verso, ou PDF) por aqui — e da Guia/autorização, se já tiver (não é obrigatória). Quando terminar, responda *PRONTO*. Para encerrar, responda *PARAR*.",
     };
   }
 
@@ -329,16 +371,22 @@ export async function processIntakeBotStep(params: { from: string; body: string;
     const readyToAdvance = upperBody === "PRONTO" || totalFiles >= MIN_FILES_TO_AUTO_ADVANCE;
 
     if (readyToAdvance && totalFiles > 0) {
-      await admin.from("chatbot_sessions").update({ current_step: "intake_pending_supervisor", updated_at: new Date().toISOString() }).eq("phone_number", phone);
-      await admin.from("insurance_intake_leads").update({ status: "pending_supervisor" }).eq("id", leadId);
-      return {
-        handled: true,
-        replyMessage: "Tudo certo! 🎉 Recebemos os documentos. Nossa equipe vai conferir e avisamos por aqui assim que estiver aprovado, com os horários disponíveis para a avaliação.",
-      };
+      // Todo convênio precisa do número do cartão além da imagem da
+      // carteirinha. O lead pode já trazê-lo do PDF do convênio — só pergunta
+      // se faltar.
+      const { data: lead } = await admin.from("insurance_intake_leads").select("card_number").eq("id", leadId).maybeSingle();
+      if (!lead?.card_number?.trim()) {
+        await admin.from("chatbot_sessions").update({ current_step: "intake_awaiting_card_number", updated_at: new Date().toISOString() }).eq("phone_number", phone);
+        return {
+          handled: true,
+          replyMessage: "Documentos recebidos! 🎉 Falta só um detalhe: digite o *número do cartão* (número da carteirinha) do plano:",
+        };
+      }
+      return advanceToSupervisor(admin, phone, leadId);
     }
 
     if (upperBody === "PRONTO" && totalFiles === 0) {
-      return { handled: true, replyMessage: "Ainda não recebemos nenhum arquivo. Pode mandar o Laudo, a Guia/autorização e a foto da Carteirinha do plano (frente e verso, ou PDF) por aqui?" };
+      return { handled: true, replyMessage: "Ainda não recebemos nenhum arquivo. Pode mandar o Laudo e a foto da Carteirinha do plano (frente e verso, ou PDF) por aqui? A Guia/autorização é opcional." };
     }
 
     if (savedCount > 0) {
@@ -357,37 +405,30 @@ export async function processIntakeBotStep(params: { from: string; body: string;
 
     return {
       handled: true,
-      replyMessage: "Aguardando os documentos: *Laudo*, *Guia/autorização* do plano e *Carteirinha* (frente e verso, ou PDF). Pode mandar foto ou PDF por aqui, ou responda *AJUDA*.",
+      replyMessage: "Aguardando os documentos: *Laudo* e *Carteirinha* do plano (frente e verso, ou PDF) — a *Guia/autorização* é opcional. Pode mandar foto ou PDF por aqui, ou responda *AJUDA*.",
     };
+  }
+
+  // --- intake_awaiting_card_number -----------------------------------------
+  if (step === "intake_awaiting_card_number") {
+    // Arquivo que chega aqui ainda é anexado ao lead.
+    await attachExtraFiles(admin, leadId, media);
+
+    // Aceita "0 123 456789 00-1", mas exige um mínimo de caracteres
+    // alfanuméricos (carteirinhas variam de 8 a 20 dígitos/letras).
+    const cardNumber = rawBody.replace(/[^A-Za-z0-9]/g, "");
+    if (cardNumber.length < 6) {
+      return { handled: true, replyMessage: "Não consegui identificar o número. Digite o *número do cartão* (número da carteirinha) do plano, exatamente como está impresso:" };
+    }
+
+    await admin.from("insurance_intake_leads").update({ card_number: cardNumber }).eq("id", leadId);
+    return advanceToSupervisor(admin, phone, leadId);
   }
 
   // --- intake_pending_supervisor -------------------------------------------
   if (step === "intake_pending_supervisor") {
     // Documentos extras ainda são aceitos e anexados ao lead, mesmo já em análise.
-    for (const item of media) {
-      const downloaded = await downloadTwilioMedia(item.url, item.contentType);
-      if (!downloaded || !ALLOWED_MIME_TYPES.has(downloaded.mime) || downloaded.buffer.byteLength > MAX_FILE_BYTES) continue;
-      const existingCount = await getLeadFileCount(admin, leadId);
-      const fileName = `${existingCount}-${Date.now()}.${extensionFor(downloaded.mime)}`;
-      const storagePath = `intake/leads/${leadId}/${fileName}`;
-      const { error: uploadError } = await admin.storage.from(DOCUMENTS_BUCKET).upload(storagePath, downloaded.buffer, { contentType: downloaded.mime, upsert: false });
-      if (!uploadError) {
-        const { data: insertedFile } = await admin
-          .from("insurance_intake_lead_files")
-          .insert({
-            lead_id: leadId,
-            storage_path: storagePath,
-            mime_type: downloaded.mime,
-            size_bytes: downloaded.buffer.byteLength,
-            original_name: sanitizeFileName(fileName),
-            twilio_media_url: item.url,
-          })
-          .select("id")
-          .single();
-        if (insertedFile) void runLaudoExtraction(insertedFile.id);
-        await admin.from("insurance_intake_leads").update({ last_file_at: new Date().toISOString() }).eq("id", leadId);
-      }
-    }
+    await attachExtraFiles(admin, leadId, media);
 
     return {
       handled: true,

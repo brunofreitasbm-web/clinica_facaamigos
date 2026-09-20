@@ -225,7 +225,7 @@ export async function ingestWhatsappMedia(params: {
   const totalFiles = existingFileCount + savedCount;
   if (existingFileCount === 0) {
     const base =
-      "Documento recebido! 📄 Pode enviar os demais (RG, CPF, comprovante, carteirinha, guia e laudo) por aqui. Avisaremos assim que conferido.";
+      "Documento recebido! 📄 Pode enviar os demais (RG, CPF, comprovante, laudo e carteirinha do plano com o número do cartão) por aqui — a guia autorizada é opcional. Avisaremos assim que conferido.";
     const knownPatientNote = resolved
       ? ""
       : "\n\nSe puder, envie também o *nome da criança* e o *seu nome*.";

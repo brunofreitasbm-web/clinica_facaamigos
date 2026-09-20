@@ -135,7 +135,7 @@ export function AnamnesisDocumentPopover({
             ) : (
               <div className="flex items-center gap-2 rounded-md border border-paper-line px-2.5 py-2 text-xs text-ink-faint">
                 <FileText className="h-4 w-4 shrink-0" />
-                <span>Sem guia</span>
+                <span>Sem guia (autorizar na clínica)</span>
               </div>
             )}
             {request.carteirinha_frente_url ? (
@@ -172,6 +172,18 @@ export function AnamnesisDocumentPopover({
               </a>
             ) : null}
           </div>
+          {request.is_private ? (
+            <p className="text-xs font-medium text-ink-soft">Atendimento particular — sem laudo, guia ou carteirinha.</p>
+          ) : (
+            <p className="text-xs text-ink-soft">
+              Nº do cartão:{" "}
+              {request.card_number ? (
+                <span className="font-mono text-ink">{request.card_number}</span>
+              ) : (
+                <span className="text-ink-faint">não informado</span>
+              )}
+            </p>
+          )}
 
           {error && <p className="text-xs text-status-negative-text">{error}</p>}
 

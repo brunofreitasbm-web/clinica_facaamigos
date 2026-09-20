@@ -402,12 +402,14 @@ const SCHEDULING_FLOW_STEPS = new Set([
   "awaiting_guardian_cpf",
   "awaiting_child_name",
   "awaiting_child_birth_date",
+  "awaiting_payment_mode",
   "awaiting_has_laudo",
   "awaiting_laudo_pdf",
   "awaiting_has_guia",
   "awaiting_guia_pdf",
   "awaiting_carteirinha_frente",
   "awaiting_carteirinha_verso",
+  "awaiting_card_number",
   "pending_supervisor",
   "awaiting_slot_selection",
 ]);
@@ -417,6 +419,9 @@ const ANAMNESIS_AWAITING_ATTACHMENT_STEPS = new Set([
   "awaiting_guia_pdf",
   "awaiting_carteirinha_frente",
   "awaiting_carteirinha_verso",
+  // Espera texto, mas se a pessoa mandar foto da carteirinha aqui o bot deve
+  // responder pedindo pra digitar, em vez de a ingestão de rascunhos engolir.
+  "awaiting_card_number",
 ]);
 
 async function checkSchedulingFlowStatus(phone: string): Promise<{ inSchedulingFlow: boolean; awaitingAttachmentDirectly: boolean }> {

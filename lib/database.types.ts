@@ -449,6 +449,8 @@ export type Database = {
         Row: {
           appointment_id: string | null
           approved_at: string | null
+          card_number: string | null
+          is_private: boolean
           child_birth_date: string | null
           carteirinha_frente_url: string | null
           carteirinha_verso_url: string | null
@@ -472,6 +474,8 @@ export type Database = {
         Insert: {
           appointment_id?: string | null
           approved_at?: string | null
+          card_number?: string | null
+          is_private?: boolean
           carteirinha_frente_url?: string | null
           carteirinha_verso_url?: string | null
           child_birth_date?: string | null
@@ -495,6 +499,8 @@ export type Database = {
         Update: {
           appointment_id?: string | null
           approved_at?: string | null
+          card_number?: string | null
+          is_private?: boolean
           carteirinha_frente_url?: string | null
           carteirinha_verso_url?: string | null
           child_birth_date?: string | null

@@ -14,6 +14,8 @@ export interface AnamnesisRequestItem {
   guia_pdf_url?: string | null;
   carteirinha_frente_url?: string | null;
   carteirinha_verso_url?: string | null;
+  card_number?: string | null;
+  is_private?: boolean;
   status: "pendente_supervisor" | "aprovado" | "rejeitado" | "agendado" | "cancelado";
   rejection_reason?: string | null;
   created_at: string;
@@ -79,6 +81,7 @@ export async function createMockWhatsAppAnamnesisRequestAction(): Promise<{
         guia_pdf_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
         carteirinha_frente_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
         carteirinha_verso_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        card_number: "0088123456789001",
         created_at: new Date().toISOString(),
       })
       .select()

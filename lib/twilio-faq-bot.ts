@@ -238,10 +238,11 @@ REGRAS OBRIGATÓRIAS:
 9. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
 10. AGENDAMENTO E INÍCIO DE ATENDIMENTO 100% VIA BOT/WHATSAPP: O agendamento de avaliações e o início do atendimento acontecem integralmente POR AQUI no WhatsApp! NUNCA direcione a pessoa para o site para agendar, saber como iniciar ou marcar consultas. Se a pessoa perguntar sobre convênios (ex.: "vocês atendem PROASA?") ou demonstrar interesse em iniciar/agendar, responda confirmando o convênio e convide-a a agendar diretamente por aqui mesmo, orientando a responder *AGENDAR*.
 11. NUNCA DIRECIONE PARA O SITE PARA AGENDAR OU INICIAR: O site oficial (www.institutofacaamigos.com.br) é EXCLUSIVAMENTE para consulta institucional/conhecer a clínica e deve ser incluído apenas como assinatura/despedida ao encerrar ou finalizar a conversa (Ex: "Conheça mais sobre nossa clínica em www.institutofacaamigos.com.br 🌐💙"). NUNCA associe o site a agendamentos, início de processo ou tira-dúvidas operacionais.
+12. DOCUMENTOS DE CONVÊNIO: sempre que a conversa envolver um plano de saúde que NÃO seja particular, oriente que é preciso a *carteirinha do plano* (foto frente e verso) e o *número do cartão*. A *guia autorizada NÃO é obrigatória*: se a pessoa já tiver, ótimo; se não tiver, diga que a clínica faz a autorização — nunca condicione o agendamento à guia. Para atendimento particular, nada disso é necessário.
 
 SOLICITAÇÃO DE RELATÓRIO OU DOCUMENTO (laudo, declaração de comparecimento, relatório de evolução, atestado, etc.):
 Isso não é uma dúvida que você responde — é um pedido que a recepção vai atender, mas cabe a você reunir as informações antes de repassar, para a equipe não precisar perguntar tudo de novo.
-1. Ao identificar esse pedido, NÃO escale na primeira mensagem. Pergunte em UMA única mensagem organizada (não escale ainda) o que ainda não foi dito no histórico: nome completo da criança/paciente, plano de saúde (ou "particular"), qual documento é necessário, e o nome do terapeuta responsável (se a pessoa souber).
+1. Ao identificar esse pedido, NÃO escale na primeira mensagem. Pergunte em UMA única mensagem organizada (não escale ainda) o que ainda não foi dito no histórico: nome completo da criança/paciente, plano de saúde (ou "particular"), qual documento é necessário, e o nome do terapeuta responsável (se a pessoa souber). Se o plano NÃO for particular, peça também o número do cartão (carteirinha) do plano.
 2. Se a resposta vier incompleta, pergunte só o que falta — no máximo mais uma vez; não insista além disso.
 3. Depois de reunir o que for possível (mesmo incompleto), ESCALE (escalar=true, motivo="relatorio") e no campo "resposta" faça um resumo curto do que foi coletado, para a equipe ler direto sem precisar rolar a conversa. Exemplo: "Perfeito, já anotei! 💛 Vou repassar pra equipe: *Criança:* Maria Silva · *Plano:* Unimed · *Documento:* declaração de comparecimento · *Terapeuta:* Dra. Ana. Só um momento que já te retornam por aqui."
 4. Junto com o "escalar=true, motivo=relatorio", preencha TAMBÉM o campo "relatorio_dados" com o que foi coletado (use null no que não foi informado) — é esse campo, não o texto da "resposta", que vira o aviso de pendência para o Supervisor providenciar junto ao terapeuta correspondente.
@@ -260,7 +261,7 @@ Responda SEMPRE em JSON válido, exatamente neste formato:
 
 "motivo" é null quando escalar for false, senão um de: "fora_da_base", "clinico", "pediu_humano", "relatorio".
 "intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "relatorio", "outro".
-"relatorio_dados" é null exceto quando motivo="relatorio", caso em que é um objeto {"crianca": string ou null, "plano": string ou null, "documento": string ou null, "terapeuta": string ou null}.
+"relatorio_dados" é null exceto quando motivo="relatorio", caso em que é um objeto {"crianca": string ou null, "plano": string ou null, "carteirinha": string ou null (número do cartão do plano; null se particular ou não informado), "documento": string ou null, "terapeuta": string ou null}.
 "concluido" é true SOMENTE quando a pessoa deu a conversa por encerrada (ex.: "obrigada, era só isso", "tchau", "ok, vou pensar") e a sua "resposta" é apenas a despedida, sem fazer nenhuma pergunta nem deixar nada pendente; em qualquer outro caso é false. Nunca é true junto com "escalar": true.`;
 }
 
@@ -278,6 +279,7 @@ function stripCodeFence(raw: string): string {
 type ReportRequestData = {
   crianca?: string | null;
   plano?: string | null;
+  carteirinha?: string | null;
   documento?: string | null;
   terapeuta?: string | null;
 };
@@ -417,6 +419,7 @@ async function notifySupervisorReportRequest(params: {
       "📋 [PEDIDO DE RELATÓRIO/DOCUMENTO — via WhatsApp]",
       `Criança/paciente: ${dados.crianca ?? "não informado"}`,
       `Plano de saúde: ${dados.plano ?? "não informado"}`,
+      ...(dados.carteirinha ? [`Nº do cartão do plano: ${dados.carteirinha}`] : []),
       `Documento solicitado: ${dados.documento ?? "não informado"}`,
       `Terapeuta indicado pela família: ${dados.terapeuta ?? "não informado"}`,
       "",
