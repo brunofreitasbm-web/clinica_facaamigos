@@ -81,8 +81,8 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
         }
       />
       <PageContainer>
-        <Link href="/recepcao/pre-cadastros" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
-          ← Cadastro assistido por IA
+        <Link href="/recepcao/pacientes/pendencias" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
+          ← Fila de pendências
         </Link>
 
         {draft.status === "pending" || draft.status === "processing" ? (

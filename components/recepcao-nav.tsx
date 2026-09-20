@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Users, AlertCircle, Inbox, FileText, Sparkles, UserX, DoorOpen, Trophy } from "lucide-react";
+import { CalendarDays, Users, AlertCircle, Inbox, FileText, UserX, DoorOpen, Trophy } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -17,7 +17,12 @@ const NAV_ITEMS = [
   { key: "pendencias", label: "Pendências", href: "/recepcao/pacientes/pendencias", icon: AlertCircle },
   { key: "atendimento", label: "Atendimento", href: "/recepcao/atendimento", icon: Inbox },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText },
-  { key: "precadastros", label: "Cadastro IA", href: "/recepcao/pre-cadastros", icon: Sparkles },
+  // "Cadastro IA" (/recepcao/pre-cadastros) saiu da navegação em 20/09/2026:
+  // a fila mostrava "Aguardando IA" em quase todo pré-cadastro e a recepção
+  // ainda precisava abrir o chat pra entender o contato. Os mesmos rascunhos
+  // agora entram em Pendências já com arquivos, dados e conversa — ver
+  // app/recepcao/pacientes/pendencias/draft-intake-card.tsx. A tela de
+  // validação individual continua em /recepcao/pre-cadastros/[draftId].
   { key: "emergencias", label: "Aviso Falta Terapeuta", href: "/recepcao/emergencias", icon: UserX },
   { key: "metricas", label: "Minha bonificação", href: "/recepcao/metricas", icon: Trophy },
 ] as const;

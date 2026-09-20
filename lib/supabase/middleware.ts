@@ -40,6 +40,14 @@ const PUBLIC_PREFIXES = [
   "/sitemap.xml",
   "/api/webhooks",
   "/api/twilio",
+  // Workers de fundo chamados pelo pg_cron (jobs process_registration_drafts
+  // e process_insurance_intake). Sem isso o middleware responde a página de
+  // login com 200, e o cron "tem sucesso" enquanto nada é processado — foi o
+  // que manteve os rascunhos do WhatsApp parados em `pending`. Como as rotas
+  // do Twilio acima, elas se autenticam por conta própria (x-cron-secret) e
+  // devolvem 401 sem o header, então abrir aqui é seguro.
+  "/api/extractions",
+  "/api/intake",
 ];
 
 // Rotas que só exigem sessão válida, sem o guard de papel abaixo: os links de

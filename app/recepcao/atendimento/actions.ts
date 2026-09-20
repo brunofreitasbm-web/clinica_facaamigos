@@ -23,6 +23,24 @@ export type ExtractedLeadInfo = {
   chiefComplaint: string;
 };
 
+/** Arquivo que a família mandou por WhatsApp, já guardado no nosso Storage. */
+export type LeadDraftFile = {
+  id: string;
+  originalName: string | null;
+  mimeType: string | null;
+  detectedType: string | null;
+};
+
+/** Pré-cadastro aberto para o telefone da conversa (ver /recepcao/pre-cadastros). */
+export type LeadDraftInfo = {
+  id: string;
+  status: string;
+  files: LeadDraftFile[];
+  /** true quando a IA ainda não leu os arquivos — a recepção precisa saber
+   *  que os campos vazios não significam "documento sem dados". */
+  awaitingExtraction: boolean;
+};
+
 export async function sendManualMessage(conversationId: string, body: string) {
   const trimmed = body.trim();
   if (!trimmed) return { success: false as const, error: "Mensagem vazia." };
@@ -581,6 +599,13 @@ export async function extractLeadInfoFromChat(conversationId: string) {
 
   const phoneFormatted = formatConversationPhone(conversation.phone_number);
 
+  // Pré-cadastro aberto para este telefone: é onde os arquivos que a família
+  // mandou por WhatsApp já estão guardados, com a extração da IA em
+  // `extracted`. Consultar isso ANTES de reprocessar tudo do zero evita
+  // refazer (e pagar) uma extração que já foi feita — e é a única forma de o
+  // painel aproveitar o que o cadastro assistido já entendeu.
+  const draft = await loadOpenDraftForPhone(supabase, conversation.phone_number);
+
   const fallbackData: ExtractedLeadInfo = {
     fullName: "",
     birthDate: "",
@@ -603,7 +628,8 @@ export async function extractLeadInfoFromChat(conversationId: string) {
   const messages = (latestMessages ?? []).reverse();
 
   if (messages.length === 0 || !isGeminiConfigured()) {
-    return { success: true as const, data: fallbackData };
+    const data = draft?.extraction ? mergeDocumentIntoLead(fallbackData, draft.extraction) : fallbackData;
+    return { success: true as const, data, draft: draft?.info ?? null };
   }
 
   const transcript = messages
@@ -689,10 +715,84 @@ ${transcript}`;
   // PDFs/imagens enviados na conversa (certidão, RG, laudo, carteirinha...)
   // completam o que o texto não trouxe — e, para nome e nascimento, o
   // documento é mais confiável que a frase digitada no chat.
-  const fromFiles = await extractFromConversationFiles(messages, transcript);
-  if (fromFiles) data = mergeDocumentIntoLead(data, fromFiles);
+  // A extração do pré-cadastro tem prioridade sobre baixar de novo do
+  // Twilio: ela já rodou sobre TODOS os arquivos da remessa (o `media_url`
+  // de `messages` guarda só o primeiro anexo de cada mensagem) e a mídia no
+  // Twilio expira, enquanto a nossa cópia no Storage não.
+  if (draft?.extraction) {
+    data = mergeDocumentIntoLead(data, draft.extraction);
+  } else {
+    const fromFiles = await extractFromConversationFiles(messages, transcript);
+    if (fromFiles) data = mergeDocumentIntoLead(data, fromFiles);
+  }
 
-  return { success: true as const, data };
+  return { success: true as const, data, draft: draft?.info ?? null };
+}
+
+/**
+ * Pré-cadastro aberto do telefone + os arquivos dele.
+ *
+ * Se o rascunho ainda está `pending`/`failed`, dispara a extração aqui mesmo
+ * antes de responder. O worker de fundo que deveria fazer isso (pg_cron →
+ * /api/extractions/process) depende de `app.settings.app_url`/`cron_secret`
+ * estarem configurados no banco; enquanto não estiverem, todo rascunho fica
+ * parado em `pending` e o painel abre em branco. Rodar sob demanda aqui
+ * torna a recepção independente desse worker.
+ */
+async function loadOpenDraftForPhone(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  phoneNumber: string | null,
+): Promise<{ info: LeadDraftInfo; extraction: import("@/lib/document-extraction").DocumentExtraction | null } | null> {
+  if (!phoneNumber) return null;
+
+  const select = "id, status, extracted";
+  const { data: found } = await supabase
+    .from("registration_drafts")
+    .select(select)
+    .eq("source_phone", phoneNumber)
+    .in("status", ["pending", "processing", "extracted", "failed"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!found) return null;
+
+  let draft = found;
+
+  if (draft.status === "pending" || draft.status === "failed") {
+    try {
+      const { claimAndProcessDrafts } = await import("@/lib/registration-drafts-process");
+      await claimAndProcessDrafts({ draftId: draft.id });
+      const { data: reread } = await supabase.from("registration_drafts").select(select).eq("id", draft.id).maybeSingle();
+      if (reread) draft = reread;
+    } catch (e) {
+      // Extração indisponível (sem GEMINI_API_KEY, cota, rede) não pode
+      // esconder os arquivos: o painel segue e mostra os anexos mesmo assim.
+      console.error("[lead] falha ao extrair pré-cadastro sob demanda:", e);
+    }
+  }
+
+  const { data: files } = await supabase
+    .from("registration_draft_files")
+    .select("id, original_name, mime_type, detected_type")
+    .eq("draft_id", draft.id)
+    .order("created_at", { ascending: true });
+
+  const extraction = (draft.extracted as import("@/lib/document-extraction").DocumentExtraction | null) ?? null;
+
+  return {
+    info: {
+      id: draft.id,
+      status: draft.status,
+      files: (files ?? []).map((f) => ({
+        id: f.id,
+        originalName: f.original_name,
+        mimeType: f.mime_type,
+        detectedType: f.detected_type,
+      })),
+      awaitingExtraction: !extraction,
+    },
+    extraction,
+  };
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;

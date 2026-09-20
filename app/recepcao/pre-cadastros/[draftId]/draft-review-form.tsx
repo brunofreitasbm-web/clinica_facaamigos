@@ -326,7 +326,7 @@ export function DraftReviewForm({
                 startTransition(async () => {
                   const result = await rejectRegistrationDraft(draftId, rejectReason);
                   if (!result.success) setFormError(result.error);
-                  else router.push("/recepcao/pre-cadastros");
+                  else router.push("/recepcao/pacientes/pendencias");
                 })
               }
             >

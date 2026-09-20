@@ -376,7 +376,7 @@ export async function rejectRegistrationDraft(draftId: string, reason: string): 
     }).catch(() => null);
   }
 
-  revalidatePath("/recepcao/pre-cadastros");
+  revalidatePath("/recepcao/pacientes/pendencias");
   return { success: true };
 }
 
