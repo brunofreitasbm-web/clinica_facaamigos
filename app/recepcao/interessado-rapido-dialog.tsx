@@ -1,37 +1,93 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createInteressadoAction } from "./actions";
+import { extractLeadInfoFromChat, registerLeadAsInteressado } from "./atendimento/actions";
+import { Sparkles, Loader2 } from "lucide-react";
+import { useToast } from "@/components/toast-provider";
 
-export function InteressadoRapidoDialog() {
+export function InteressadoRapidoDialog({
+  isOpen: externalOpen,
+  onOpenChange,
+  hideTriggerButton = false,
+  conversationId = null,
+}: {
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTriggerButton?: boolean;
+  conversationId?: string | null;
+} = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = (val: boolean) => {
+    setInternalOpen(val);
+    onOpenChange?.(val);
+  };
   const [loading, setLoading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionDone, setExtractionDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [guardianName, setGuardianName] = useState("");
   const [guardianPhone, setGuardianPhone] = useState("");
+  const [guardianEmail, setGuardianEmail] = useState("");
   const [guardianRelationship, setGuardianRelationship] = useState("Mãe");
-  const [origin, setOrigin] = useState("Instagram");
+  const [origin, setOrigin] = useState("WhatsApp");
   const [chiefComplaint, setChiefComplaint] = useState("");
+
+  const handleExtractData = useCallback(async (convId: string) => {
+    setIsExtracting(true);
+    setExtractionDone(false);
+    try {
+      const res = await extractLeadInfoFromChat(convId);
+      if (res.success && res.data) {
+        if (res.data.fullName) setFullName(res.data.fullName);
+        if (res.data.birthDate) setBirthDate(res.data.birthDate);
+        if (res.data.guardianName) setGuardianName(res.data.guardianName);
+        if (res.data.guardianPhone) setGuardianPhone(res.data.guardianPhone);
+        if (res.data.guardianEmail) setGuardianEmail(res.data.guardianEmail);
+        if (res.data.guardianRelationship) setGuardianRelationship(res.data.guardianRelationship);
+        if (res.data.origin) setOrigin(res.data.origin);
+        if (res.data.chiefComplaint) setChiefComplaint(res.data.chiefComplaint);
+        setExtractionDone(true);
+      }
+    } catch (err) {
+      console.error("Erro na extração de dados do chat:", err);
+    } finally {
+      setIsExtracting(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open && conversationId) {
+      handleExtractData(conversationId);
+    }
+  }, [open, conversationId, handleExtractData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const res = await createInteressadoAction({
+    const input = {
       fullName,
       birthDate,
       guardianName,
       guardianPhone,
+      guardianEmail,
       guardianRelationship,
       origin,
       chiefComplaint: chiefComplaint || undefined,
-    });
+    };
+
+    const res = conversationId
+      ? await registerLeadAsInteressado(conversationId, input)
+      : await createInteressadoAction(input);
 
     setLoading(false);
 
@@ -40,11 +96,20 @@ export function InteressadoRapidoDialog() {
       return;
     }
 
+    if ("documentsTransferred" in res) {
+      const { warning, documentsTransferred } = res as unknown as { warning: string | null; documentsTransferred: number };
+      if (warning) toast(warning, "info");
+      else if (documentsTransferred > 0) {
+        toast(`${documentsTransferred} arquivo(s) da conversa anexado(s) ao prontuário.`, "success");
+      }
+    }
+
     // Limpar formulário e fechar modal
     setFullName("");
     setBirthDate("");
     setGuardianName("");
     setGuardianPhone("");
+    setGuardianEmail("");
     setChiefComplaint("");
     setOpen(false);
 
@@ -63,14 +128,16 @@ export function InteressadoRapidoDialog() {
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Cadastrar paciente sem avaliação"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer"
-      >
-        + Paciente sem avaliação
-      </button>
+      {!hideTriggerButton && (
+        <button
+          type="button"
+          aria-label="Cadastrar paciente sem avaliação"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer"
+        >
+          + Paciente sem avaliação
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
@@ -80,8 +147,8 @@ export function InteressadoRapidoDialog() {
           >
             <div className="mb-4 flex items-center justify-between border-b pb-3">
               <div>
-                <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-lg font-bold">
-                  ⚡ Novo Paciente sem Avaliação (Cadastro Rápido - 30s)
+                <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-lg font-bold flex items-center gap-2">
+                  ⚡ Novo Paciente sem Avaliação
                 </h3>
                 <p className="text-xs text-neutral-500">
                   Preencha apenas os dados essenciais para iniciar a jornada.
@@ -95,6 +162,34 @@ export function InteressadoRapidoDialog() {
                 ✕
               </button>
             </div>
+
+            {conversationId && (
+              <div className="mb-4 flex items-center justify-between rounded-lg border border-indigo-100 bg-indigo-50/80 p-3 text-xs text-indigo-900 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200">
+                <div className="flex items-center gap-2 min-w-0">
+                  {isExtracting ? (
+                    <Loader2 size={16} className="animate-spin shrink-0 text-indigo-600 dark:text-indigo-400" />
+                  ) : (
+                    <Sparkles size={16} className="shrink-0 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                  <span className="truncate">
+                    {isExtracting
+                      ? "Analisando histórico da conversa com IA..."
+                      : extractionDone
+                      ? "Dados preenchidos automaticamente a partir do chat!"
+                      : "Conversa do WhatsApp identificada."}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={isExtracting}
+                  onClick={() => handleExtractData(conversationId)}
+                  className="ml-2 inline-flex shrink-0 items-center gap-1 rounded bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+                >
+                  <Sparkles size={12} />
+                  <span>Reextrair</span>
+                </button>
+              </div>
+            )}
 
             {error && (
               <div className="mb-4 rounded-md bg-red-50 p-3 text-xs text-red-700 border border-red-200">
@@ -176,6 +271,17 @@ export function InteressadoRapidoDialog() {
                     className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-neutral-700">E-mail do Responsável</label>
+                <input
+                  type="email"
+                  placeholder="responsavel@email.com"
+                  value={guardianEmail}
+                  onChange={(e) => setGuardianEmail(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                />
               </div>
 
               <div>

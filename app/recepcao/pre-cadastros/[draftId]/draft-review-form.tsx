@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { validateRegistrationDraft, rejectRegistrationDraft, reprocessRegistrationDraft, getDraftFileUrl } from "../actions";
+import { validateRegistrationDraft, rejectRegistrationDraft, reprocessRegistrationDraft } from "../actions";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import type { DocumentExtraction } from "@/lib/document-extraction";
 
@@ -46,22 +46,18 @@ function Field({
   );
 }
 
+// Link real (não window.open depois de um await): o navegador bloqueia como
+// pop-up qualquer janela aberta fora do gesto do usuário. Ver /api/arquivos.
 function FileViewButton({ fileId }: { fileId: string }) {
-  const [isPending, startTransition] = useTransition();
   return (
-    <button
-      type="button"
-      disabled={isPending}
-      onClick={() =>
-        startTransition(async () => {
-          const result = await getDraftFileUrl(fileId);
-          if (result.success) window.open(result.url, "_blank", "noopener,noreferrer");
-        })
-      }
-      className="rounded-md border border-paper-line-strong px-2 py-1 text-xs text-ink hover:border-chart disabled:opacity-50"
+    <a
+      href={`/api/arquivos/rascunho/${fileId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded-md border border-paper-line-strong px-2 py-1 text-xs text-ink hover:border-chart"
     >
-      {isPending ? "Abrindo…" : "Ver arquivo"}
-    </button>
+      Ver arquivo
+    </a>
   );
 }
 

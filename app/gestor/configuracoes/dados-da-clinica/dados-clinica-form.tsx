@@ -142,7 +142,7 @@ export function DadosClinicaForm({ initial }: { initial: ClinicRow }) {
             name="email"
             type="email"
             defaultValue={initial.email}
-            placeholder="contato@clinicafacaamigos.com.br"
+            placeholder="institutofacaamigos@gmail.com"
           />
         </div>
       </section>

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { Check, Copy, Pencil } from "lucide-react";
-import { registerLeadAsInteressado, updateConversationContactName } from "./actions";
+import { Check, Copy, Pencil, Sparkles, Loader2 } from "lucide-react";
+import { useToast } from "@/components/toast-provider";
+import { registerLeadAsInteressado, updateConversationContactName, extractLeadInfoFromChat } from "./actions";
 import { formatConversationPhone } from "./format-phone";
 import { ConversationNote } from "./conversation-note";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
@@ -39,18 +40,58 @@ export function LeadContextPanel({
   const [nameDraft, setNameDraft] = useState(conversation.contactName ?? "");
   const [copied, setCopied] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionDone, setExtractionDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
   const [form, setForm] = useState({
     fullName: "",
     birthDate: "",
     guardianName: conversation.contactName ?? "",
+    guardianEmail: "",
     guardianRelationship: "Mãe",
     origin: "WhatsApp",
     chiefComplaint: "",
   });
   const setField = (key: keyof typeof form) => (value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleExtractFromChat = useCallback(async () => {
+    setIsExtracting(true);
+    setExtractionDone(false);
+    try {
+      const res = await extractLeadInfoFromChat(conversation.id);
+      if (res.success && res.data) {
+        setForm({
+          fullName: res.data.fullName || "",
+          birthDate: res.data.birthDate || "",
+          guardianName: res.data.guardianName || conversation.contactName || "",
+          guardianEmail: res.data.guardianEmail || "",
+          guardianRelationship: res.data.guardianRelationship || "Mãe",
+          origin: res.data.origin || "WhatsApp",
+          chiefComplaint: res.data.chiefComplaint || "",
+        });
+        setExtractionDone(true);
+      }
+    } catch (err) {
+      console.error("Erro na extração dos dados do chat:", err);
+    } finally {
+      setIsExtracting(false);
+    }
+  }, [conversation.id, conversation.contactName]);
+
+  // Pré-extrai automaticamente os dados da conversa assim que a conversa é selecionada
+  useEffect(() => {
+    handleExtractFromChat();
+  }, [conversation.id, handleExtractFromChat]);
+
+  const handleOpenForm = () => {
+    setShowForm(true);
+    if (!extractionDone && !isExtracting) {
+      handleExtractFromChat();
+    }
+  };
 
   const saveName = () => {
     const name = nameDraft.trim();
@@ -71,6 +112,10 @@ export function LeadContextPanel({
       if (!result.success) {
         setError(result.error);
         return;
+      }
+      if (result.warning) toast(result.warning, "info");
+      else if (result.documentsTransferred > 0) {
+        toast(`${result.documentsTransferred} arquivo(s) da conversa anexado(s) ao prontuário.`, "success");
       }
       // O painel troca sozinho para o de paciente assim que patientId chega.
       onPatch({
@@ -153,7 +198,34 @@ export function LeadContextPanel({
 
         {showForm ? (
           <form onSubmit={submitInteressado} className="flex flex-col gap-2 rounded-md border border-paper-line-strong p-3">
-            <p className="text-xs font-semibold text-ink">Cadastrar interessado</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-ink">Cadastrar interessado</p>
+              <button
+                type="button"
+                disabled={isExtracting}
+                onClick={handleExtractFromChat}
+                className="flex items-center gap-1 text-[11px] text-accent hover:underline disabled:opacity-50"
+                title="Extrair novamente do chat"
+              >
+                {isExtracting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                <span>{isExtracting ? "Analisando..." : "Reextrair IA"}</span>
+              </button>
+            </div>
+
+            {isExtracting && (
+              <div className="flex items-center gap-1.5 rounded bg-indigo-50 p-2 text-[11px] text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                <Loader2 size={13} className="animate-spin shrink-0" />
+                <span>Analisando mensagens do chat com IA...</span>
+              </div>
+            )}
+
+            {!isExtracting && extractionDone && (
+              <div className="flex items-center gap-1.5 rounded bg-teal-50 p-2 text-[11px] text-teal-800 dark:bg-teal-950/40 dark:text-teal-200">
+                <Sparkles size={13} className="shrink-0 text-teal-600 dark:text-teal-400" />
+                <span>Campos preenchidos via IA a partir do chat</span>
+              </div>
+            )}
+
             <input
               required
               className="input text-sm"
@@ -177,6 +249,13 @@ export function LeadContextPanel({
               placeholder="Nome do responsável *"
               value={form.guardianName}
               onChange={(e) => setField("guardianName")(e.target.value)}
+            />
+            <input
+              type="email"
+              className="input text-sm"
+              placeholder="E-mail do responsável"
+              value={form.guardianEmail}
+              onChange={(e) => setField("guardianEmail")(e.target.value)}
             />
             <div className="grid grid-cols-2 gap-2">
               <select
@@ -216,7 +295,7 @@ export function LeadContextPanel({
             <button
               type="button"
               className="btn btn-primary w-full justify-center text-sm"
-              onClick={() => setShowForm(true)}
+              onClick={handleOpenForm}
             >
               Cadastrar interessado
             </button>

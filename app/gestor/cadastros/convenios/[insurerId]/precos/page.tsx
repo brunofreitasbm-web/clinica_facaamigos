@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { PriceTableForm } from "./price-table-form";
 import { PageContainer } from "@/components/page-container";
+import { ensureProasaCatalog } from "@/lib/proasa-catalog-seeder";
+import { LoadDefaultProasaButton } from "./load-proasa-button";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,13 @@ export default async function TabelaDePrecosPage({
 
   if (!insurer || insurerError) notFound();
 
+  // Garante que o catálogo PROASA esteja alimentado se o convênio for PROASA
+  try {
+    await ensureProasaCatalog(insurer.id, insurer.name);
+  } catch (err) {
+    console.error("ensureProasaCatalog falhou:", err);
+  }
+
   const { data: priceTables } = await supabase
     .from("insurer_price_tables")
     .select(
@@ -47,6 +56,8 @@ export default async function TabelaDePrecosPage({
     .eq("active", true)
     .order("code");
 
+  const isProasa = insurer.name.toUpperCase().includes("PROASA");
+
   return (
     <main className="flex flex-1 flex-col">
       <div className="px-6 pt-6 sm:px-10 sm:pt-9">
@@ -60,6 +71,14 @@ export default async function TabelaDePrecosPage({
         description="Preços por procedimento usados no fechamento de competência deste plano de saúde."
       />
       <PageContainer>
+        {isProasa && (priceTables ?? []).length === 0 && (
+          <div className="mb-4 rounded-md border border-paper-line-strong bg-paper/80 p-4">
+            <p className="mb-3 text-sm text-ink font-medium">
+              Este é o convênio PROASA. Você pode importar automaticamente os 21 procedimentos e valores do Contrato nº 12473.
+            </p>
+            <LoadDefaultProasaButton insurerId={insurer.id} />
+          </div>
+        )}
         <PriceTableForm insurerId={insurer.id} />
         <ul className="flex flex-col gap-2">
           {(priceTables ?? []).map((entry) => (
@@ -77,7 +96,14 @@ export default async function TabelaDePrecosPage({
                   {formatDate(entry.valid_from)} até{" "}
                   {entry.valid_to ? formatDate(entry.valid_to) : "sem prazo"}
                 </span>
-                {entry.duration_minutes && <span className="text-ink-faint">{entry.duration_minutes} min</span>}
+                {entry.duration_minutes && (
+                  <span
+                    className="text-ink-faint"
+                    title="Duração contratual do convênio (referência de faturamento) — não é a duração real da sessão executada na clínica."
+                  >
+                    {entry.duration_minutes} min (contrato)
+                  </span>
+                )}
                 {entry.requires_prior_authorization && (
                   <span className="rounded-full bg-status-negative-text/10 px-2 py-0.5 text-xs text-status-negative-text">
                     Exige autorização prévia
@@ -131,3 +157,4 @@ export default async function TabelaDePrecosPage({
     </main>
   );
 }
+

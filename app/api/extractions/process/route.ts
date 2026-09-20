@@ -4,6 +4,9 @@ import { claimAndProcessDrafts } from "@/lib/registration-drafts-process";
 export const maxDuration = 60;
 
 /**
+ * Rede de segurança: a extração dos rascunhos do WhatsApp já roda na hora, em
+ * segundo plano, logo após o webhook (lib/whatsapp-cold-media.ts); esta rota
+ * cobre quem ficou para trás (falha, timeout, envio em rascunho já aberto).
  * Disparado a cada minuto pelo pg_cron configurado em
  * 20260907000001_registration_drafts.sql (mesmo padrão de
  * app/api/twilio/nps/trigger/route.ts: guarda x-cron-secret, service role

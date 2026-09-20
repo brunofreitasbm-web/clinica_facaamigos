@@ -15,7 +15,7 @@ export const CLINIC_BRAND = "FaçaAmigos";
 export const CLINIC_TAGLINE = "Centro de Terapia Comportamental";
 export const CLINIC_NAME = `${CLINIC_BRAND} - ${CLINIC_TAGLINE}`;
 export const CLINIC_NAME_DISPLAY = `${CLINIC_BRAND} — ${CLINIC_TAGLINE}`;
-export const CLINIC_SUPPORT_EMAIL = "contato@clinicafacaamigos.com.br";
+export const CLINIC_SUPPORT_EMAIL = "institutofacaamigos@gmail.com";
 /**
  * Endereço público DESTE app — a clínica tem subdomínio próprio dentro do
  * ecossistema (hub em institutofacaamigos.com.br, playground em

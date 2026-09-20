@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { uploadIntakeBatch, uploadIntakeExtractedBatch, reprocessIntakeBatch, approveIntakeLeadsAndStartContact, getIntakeBatchPdfUrl, cancelIntakeLead, deleteIntakeBatch } from "./acolhimento-actions";
+import { uploadIntakeBatch, uploadIntakeExtractedBatch, reprocessIntakeBatch, approveIntakeLeadsAndStartContact, cancelIntakeLead, deleteIntakeBatch } from "./acolhimento-actions";
 import { AcolhimentoLeadDrawer, type LeadRow } from "./acolhimento-lead-drawer";
 import { IntakeProfileDialog } from "./intake-profile-dialog";
 import { parseIntakeProfile } from "@/lib/insurance-intake-profile";
@@ -119,13 +119,6 @@ export function AcolhimentosPanel({
   function handleReprocess(batchId: string) {
     startTransition(async () => {
       await reprocessIntakeBatch(batchId);
-    });
-  }
-
-  function handleViewBatchPdf(batchId: string) {
-    startTransition(async () => {
-      const res = await getIntakeBatchPdfUrl(batchId);
-      if (res.success) window.open(res.url, "_blank", "noopener,noreferrer");
     });
   }
 
@@ -328,9 +321,9 @@ export function AcolhimentosPanel({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`tag-status ${BATCH_STATUS_TAG[batch.status] ?? "st-agendada"}`}>{BATCH_STATUS_LABEL[batch.status] ?? batch.status}</span>
-                    <button type="button" onClick={() => handleViewBatchPdf(batch.id)} className="text-xs font-semibold text-chart hover:underline">
+                    <a href={`/api/arquivos/lote/${batch.id}`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-chart hover:underline">
                       Ver PDF
-                    </button>
+                    </a>
                     {(batch.status === "failed" || batch.status === "pending") && (
                       <button type="button" onClick={() => handleReprocess(batch.id)} disabled={isPending} className="text-xs font-semibold text-chart hover:underline disabled:opacity-50">
                         {batch.status === "pending" ? "Forçar Extração IA" : "Reprocessar"}

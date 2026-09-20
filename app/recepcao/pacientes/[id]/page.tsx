@@ -9,7 +9,6 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
-import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { APPOINTMENT_STATUS_STYLE, AUTHORIZATION_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getFeedPosts } from "@/lib/feed-posts";
 import { getPatientAbaLearningCurves } from "@/lib/patient-metrics";
@@ -19,7 +18,8 @@ import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
 import { StageActionForm } from "./stage-action-form";
 import { EditRegistrationButton } from "./edit-registration-button";
-import { DocumentViewButton } from "@/components/prontuario/document-view-button";
+import { DocumentsTable } from "@/components/prontuario/documents-table";
+import { DOCUMENT_ROW_COLUMNS, mapDocumentRows } from "@/lib/patient-dossier";
 import { DocumentUploadForm } from "@/components/prontuario/document-upload-form";
 import { FeedPostForm } from "./feed-post-form";
 import { AbsenceReportsList, type PendingAbsenceReport } from "./absence-reports-list";
@@ -119,11 +119,35 @@ export default async function PacientePage({
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
 
-  const { data: insurers } = await supabase
+  const { data: insurersRaw } = await supabase
     .from("insurers")
     .select("id, name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("name");
+
+  // Catálogo de procedimentos por convênio (ex.: PROASA) — vira dropdown no
+  // formulário de guia em vez de texto livre, pra `authorizations.procedure_code`
+  // sair já compatível com o código que a agenda usa pra achar a guia certa
+  // (ver appointment_types.procedure_code em app/recepcao/agenda/actions.ts).
+  const { data: pricesData } = await supabase
+    .from("insurer_price_tables")
+    .select("insurer_id, procedure_code, procedure_name")
+    .order("procedure_code");
+
+  const insurerProceduresMap = new Map<string, { code: string; name: string }[]>();
+  for (const price of pricesData ?? []) {
+    const existing = insurerProceduresMap.get(price.insurer_id) ?? [];
+    if (!existing.some((p) => p.code === price.procedure_code)) {
+      existing.push({ code: price.procedure_code, name: price.procedure_name });
+    }
+    insurerProceduresMap.set(price.insurer_id, existing);
+  }
+
+  const insurers = (insurersRaw ?? []).map((ins) => ({
+    id: ins.id,
+    name: ins.name,
+    procedures: insurerProceduresMap.get(ins.id) ?? [],
+  }));
 
   // Seção fixa "Guias" (sempre visível, inclusive com o paciente já ativo —
   // diferente do formulário do passo 3 do checklist, que só aparece durante
@@ -161,7 +185,7 @@ export default async function PacientePage({
   // responsável só o que tiver shared_with_family=true).
   const { data: documents } = await supabase
     .from("documents")
-    .select("id, category, uploaded_at, valid_until, shared_with_family")
+    .select(DOCUMENT_ROW_COLUMNS)
     .eq("patient_id", id)
     .order("uploaded_at", { ascending: false });
 
@@ -379,50 +403,7 @@ export default async function PacientePage({
 
   const documentsContent = (
     <>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Documento</th>
-            <th>Data</th>
-            <th>Visível à família</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {(documents ?? []).map((doc) => {
-            const validityBadge = getValidityBadge(doc.valid_until);
-            return (
-              <tr key={doc.id}>
-                <td className="font-semibold">
-                  {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
-                  {validityBadge && (
-                    <span
-                      className={`tag-status ml-2 ${validityBadge.label === "Vencido" ? "st-falta" : "st-agendada"}`}
-                    >
-                      {validityBadge.label}
-                    </span>
-                  )}
-                </td>
-                <td>
-                  {fmtDate(doc.uploaded_at)}
-                  {doc.valid_until && ` · válido até ${fmtDate(`${doc.valid_until}T00:00:00`)}`}
-                </td>
-                <td>{doc.shared_with_family ? "Sim" : "Não"}</td>
-                <td className="text-right">
-                  <DocumentViewButton documentId={doc.id} />
-                </td>
-              </tr>
-            );
-          })}
-          {(documents ?? []).length === 0 && (
-            <tr>
-              <td colSpan={4} className="text-ink-faint">
-                Nenhum documento anexado.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      <DocumentsTable documents={mapDocumentRows(documents)} />
       {canUploadDocuments && (
         <div className="mt-4">
           <DocumentUploadForm patientId={patient.id} />

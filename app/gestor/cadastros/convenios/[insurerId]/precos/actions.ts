@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { DEV_CLINIC_ID } from "@/lib/constants";
+import { invalidateKnowledgeCache } from "@/lib/twilio-faq-bot";
 
 export async function createPriceTableEntry(
   insurerId: string,
@@ -63,6 +65,37 @@ export async function createPriceTableEntry(
     return { success: false, error: "Não foi possível salvar o preço. Tente de novo." };
   }
 
+  // A tabela do convênio "Particular" alimenta os valores que o chatbot informa.
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
   revalidatePath(`/gestor/cadastros/convenios/${insurerId}/precos`);
   return { success: true };
 }
+
+export async function loadDefaultProasaCatalogAction(
+  insurerId: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = await createClient();
+  const { data: insurer } = await supabase
+    .from("insurers")
+    .select("name")
+    .eq("id", insurerId)
+    .maybeSingle();
+
+  if (!insurer) {
+    return { success: false, error: "Plano de saúde não encontrado." };
+  }
+
+  const { ensureProasaCatalog } = await import("@/lib/proasa-catalog-seeder");
+  try {
+    await ensureProasaCatalog(insurerId, insurer.name);
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Não foi possível importar a tabela de preços. Tente de novo.",
+    };
+  }
+
+  revalidatePath(`/gestor/cadastros/convenios/${insurerId}/precos`);
+  return { success: true };
+}
+

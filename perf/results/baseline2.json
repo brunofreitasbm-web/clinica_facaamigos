@@ -1,0 +1,633 @@
+{
+  "tag": "baseline2",
+  "timestamp": "2026-09-16T22:39:23.696Z",
+  "iterations": 8,
+  "rows": [
+    {
+      "route": "/gestor",
+      "label": "Gestor (painel)",
+      "iteration": 0,
+      "ttfbMs": 258.7000000476837,
+      "domContentLoadedMs": 1703.6000000238419,
+      "loadEventMs": 1709,
+      "transferSizeBytes": 14334
+    },
+    {
+      "route": "/gestor",
+      "label": "Gestor (painel)",
+      "iteration": 1,
+      "ttfbMs": 230,
+      "domContentLoadedMs": 1387.5,
+      "loadEventMs": 1389.3999999761581,
+      "transferSizeBytes": 14334
+    },
+    {
+      "route": "/gestor",
+      "label": "Gestor (painel)",
+      "iteration": 2,
+      "ttfbMs": 262.39999997615814,
+      "domContentLoadedMs": 1116.3999999761581,
+      "loadEventMs": 1120.5,
+      "transferSizeBytes": 14334
+    },
+    {
+      "route": "/gestor",
+      "label": "Gestor (painel)",
+      "iteration": 3,
+      "ttfbMs": 258.60000002384186,
+      "domContentLoadedMs": 1143.199999988079,
+      "loadEventMs": 1147.9000000357628,
+      "transferSizeBytes": 14334
+    },
+    {
+      "route": "/gestor",
+      "label": "Gestor (painel)",
+      "iteration": 4,
+      "ttfbMs": 266.10000002384186,
+      "domContentLoadedMs": 1363.9000000357628,
+      "loadEventMs": 1363.9000000357628,
+      "transferSizeBytes": 14334
+    },
+    {
+      "route": "/gestor",
+      "label": "Gestor (painel)",
+      "iteration": 5,
+      "ttfbMs": 261.4000000357628,
+      "domContentLoadedMs": 1158.199999988079,
+      "loadEventMs": 1160.9000000357628,
+      "transferSizeBytes": 14334
+    },
+    {
+      "route": "/gestor",
+      "label": "Gestor (painel)",
+      "iteration": 6,
+      "ttfbMs": 273.5,
+      "domContentLoadedMs": 1161.5999999642372,
+      "loadEventMs": 1161.699999988079,
+      "transferSizeBytes": 14334
+    },
+    {
+      "route": "/gestor",
+      "label": "Gestor (painel)",
+      "iteration": 7,
+      "ttfbMs": 211.20000004768372,
+      "domContentLoadedMs": 1021.3000000119209,
+      "loadEventMs": 1023.4000000357628,
+      "transferSizeBytes": 14334
+    },
+    {
+      "route": "/gestor/inteligencia",
+      "label": "Gestor > Inteligência",
+      "iteration": 0,
+      "ttfbMs": 270.60000002384186,
+      "domContentLoadedMs": 623.2000000476837,
+      "loadEventMs": 624.1000000238419,
+      "transferSizeBytes": 15320
+    },
+    {
+      "route": "/gestor/inteligencia",
+      "label": "Gestor > Inteligência",
+      "iteration": 1,
+      "ttfbMs": 224.5999999642372,
+      "domContentLoadedMs": 628,
+      "loadEventMs": 628.0999999642372,
+      "transferSizeBytes": 15320
+    },
+    {
+      "route": "/gestor/inteligencia",
+      "label": "Gestor > Inteligência",
+      "iteration": 2,
+      "ttfbMs": 301.60000002384186,
+      "domContentLoadedMs": 745.3999999761581,
+      "loadEventMs": 745.5,
+      "transferSizeBytes": 15320
+    },
+    {
+      "route": "/gestor/inteligencia",
+      "label": "Gestor > Inteligência",
+      "iteration": 3,
+      "ttfbMs": 253.30000001192093,
+      "domContentLoadedMs": 568.5,
+      "loadEventMs": 569.1000000238419,
+      "transferSizeBytes": 15320
+    },
+    {
+      "route": "/gestor/inteligencia",
+      "label": "Gestor > Inteligência",
+      "iteration": 4,
+      "ttfbMs": 242.5999999642372,
+      "domContentLoadedMs": 535.3000000119209,
+      "loadEventMs": 535.5,
+      "transferSizeBytes": 15320
+    },
+    {
+      "route": "/gestor/inteligencia",
+      "label": "Gestor > Inteligência",
+      "iteration": 5,
+      "ttfbMs": 243.5,
+      "domContentLoadedMs": 538.2000000476837,
+      "loadEventMs": 538.3000000119209,
+      "transferSizeBytes": 15320
+    },
+    {
+      "route": "/gestor/inteligencia",
+      "label": "Gestor > Inteligência",
+      "iteration": 6,
+      "ttfbMs": 232.29999995231628,
+      "domContentLoadedMs": 513.0999999642372,
+      "loadEventMs": 513.0999999642372,
+      "transferSizeBytes": 15320
+    },
+    {
+      "route": "/gestor/inteligencia",
+      "label": "Gestor > Inteligência",
+      "iteration": 7,
+      "ttfbMs": 268,
+      "domContentLoadedMs": 644.3000000119209,
+      "loadEventMs": 644.3999999761581,
+      "transferSizeBytes": 15320
+    },
+    {
+      "route": "/gestor/financeiro",
+      "label": "Gestor > Financeiro",
+      "iteration": 0,
+      "ttfbMs": 222,
+      "domContentLoadedMs": 957.1999999880791,
+      "loadEventMs": 959.6999999880791,
+      "transferSizeBytes": 11658
+    },
+    {
+      "route": "/gestor/financeiro",
+      "label": "Gestor > Financeiro",
+      "iteration": 1,
+      "ttfbMs": 226.19999998807907,
+      "domContentLoadedMs": 869.1000000238419,
+      "loadEventMs": 869.3000000119209,
+      "transferSizeBytes": 11658
+    },
+    {
+      "route": "/gestor/financeiro",
+      "label": "Gestor > Financeiro",
+      "iteration": 2,
+      "ttfbMs": 243.60000002384186,
+      "domContentLoadedMs": 985,
+      "loadEventMs": 985.1999999880791,
+      "transferSizeBytes": 11658
+    },
+    {
+      "route": "/gestor/financeiro",
+      "label": "Gestor > Financeiro",
+      "iteration": 3,
+      "ttfbMs": 211.39999997615814,
+      "domContentLoadedMs": 1057.7999999523163,
+      "loadEventMs": 1058.699999988079,
+      "transferSizeBytes": 11658
+    },
+    {
+      "route": "/gestor/financeiro",
+      "label": "Gestor > Financeiro",
+      "iteration": 4,
+      "ttfbMs": 298.69999998807907,
+      "domContentLoadedMs": 1077.699999988079,
+      "loadEventMs": 1077.699999988079,
+      "transferSizeBytes": 11658
+    },
+    {
+      "route": "/gestor/financeiro",
+      "label": "Gestor > Financeiro",
+      "iteration": 5,
+      "ttfbMs": 252,
+      "domContentLoadedMs": 1023.8000000119209,
+      "loadEventMs": 1025.8999999761581,
+      "transferSizeBytes": 11658
+    },
+    {
+      "route": "/gestor/financeiro",
+      "label": "Gestor > Financeiro",
+      "iteration": 6,
+      "ttfbMs": 342.10000002384186,
+      "domContentLoadedMs": 989.3999999761581,
+      "loadEventMs": 989.3999999761581,
+      "transferSizeBytes": 11658
+    },
+    {
+      "route": "/gestor/financeiro",
+      "label": "Gestor > Financeiro",
+      "iteration": 7,
+      "ttfbMs": 243.5,
+      "domContentLoadedMs": 868.1999999880791,
+      "loadEventMs": 868.5,
+      "transferSizeBytes": 11658
+    },
+    {
+      "route": "/recepcao",
+      "label": "Recepção (agenda do dia)",
+      "iteration": 0,
+      "ttfbMs": 253.39999997615814,
+      "domContentLoadedMs": 943.0999999642372,
+      "loadEventMs": 943.5,
+      "transferSizeBytes": 16971
+    },
+    {
+      "route": "/recepcao",
+      "label": "Recepção (agenda do dia)",
+      "iteration": 1,
+      "ttfbMs": 237.39999997615814,
+      "domContentLoadedMs": 978.1999999880791,
+      "loadEventMs": 981.6999999880791,
+      "transferSizeBytes": 16971
+    },
+    {
+      "route": "/recepcao",
+      "label": "Recepção (agenda do dia)",
+      "iteration": 2,
+      "ttfbMs": 233,
+      "domContentLoadedMs": 924.3000000119209,
+      "loadEventMs": 926.5999999642372,
+      "transferSizeBytes": 16943
+    },
+    {
+      "route": "/recepcao",
+      "label": "Recepção (agenda do dia)",
+      "iteration": 3,
+      "ttfbMs": 235.30000001192093,
+      "domContentLoadedMs": 992.8000000119209,
+      "loadEventMs": 999.6999999880791,
+      "transferSizeBytes": 16971
+    },
+    {
+      "route": "/recepcao",
+      "label": "Recepção (agenda do dia)",
+      "iteration": 4,
+      "ttfbMs": 223.30000001192093,
+      "domContentLoadedMs": 904.8999999761581,
+      "loadEventMs": 905.3999999761581,
+      "transferSizeBytes": 16971
+    },
+    {
+      "route": "/recepcao",
+      "label": "Recepção (agenda do dia)",
+      "iteration": 5,
+      "ttfbMs": 218,
+      "domContentLoadedMs": 919.0999999642372,
+      "loadEventMs": 919.2999999523163,
+      "transferSizeBytes": 16971
+    },
+    {
+      "route": "/recepcao",
+      "label": "Recepção (agenda do dia)",
+      "iteration": 6,
+      "ttfbMs": 224.9000000357628,
+      "domContentLoadedMs": 1070.1000000238419,
+      "loadEventMs": 1070.300000011921,
+      "transferSizeBytes": 16971
+    },
+    {
+      "route": "/recepcao",
+      "label": "Recepção (agenda do dia)",
+      "iteration": 7,
+      "ttfbMs": 220,
+      "domContentLoadedMs": 1053.300000011921,
+      "loadEventMs": 1053.6000000238419,
+      "transferSizeBytes": 16971
+    },
+    {
+      "route": "/recepcao/pacientes",
+      "label": "Recepção > Pacientes",
+      "iteration": 0,
+      "ttfbMs": 238.0999999642372,
+      "domContentLoadedMs": 476.5,
+      "loadEventMs": 476.69999998807907,
+      "transferSizeBytes": 12159
+    },
+    {
+      "route": "/recepcao/pacientes",
+      "label": "Recepção > Pacientes",
+      "iteration": 1,
+      "ttfbMs": 237.29999995231628,
+      "domContentLoadedMs": 528.1999999880791,
+      "loadEventMs": 529.5999999642372,
+      "transferSizeBytes": 12117
+    },
+    {
+      "route": "/recepcao/pacientes",
+      "label": "Recepção > Pacientes",
+      "iteration": 2,
+      "ttfbMs": 257.89999997615814,
+      "domContentLoadedMs": 450.69999998807907,
+      "loadEventMs": 451,
+      "transferSizeBytes": 12764
+    },
+    {
+      "route": "/recepcao/pacientes",
+      "label": "Recepção > Pacientes",
+      "iteration": 3,
+      "ttfbMs": 224,
+      "domContentLoadedMs": 445.5,
+      "loadEventMs": 445.69999998807907,
+      "transferSizeBytes": 12159
+    },
+    {
+      "route": "/recepcao/pacientes",
+      "label": "Recepção > Pacientes",
+      "iteration": 4,
+      "ttfbMs": 238.69999998807907,
+      "domContentLoadedMs": 436.39999997615814,
+      "loadEventMs": 436.5999999642372,
+      "transferSizeBytes": 12159
+    },
+    {
+      "route": "/recepcao/pacientes",
+      "label": "Recepção > Pacientes",
+      "iteration": 5,
+      "ttfbMs": 238.4000000357628,
+      "domContentLoadedMs": 455.5,
+      "loadEventMs": 455.7000000476837,
+      "transferSizeBytes": 12159
+    },
+    {
+      "route": "/recepcao/pacientes",
+      "label": "Recepção > Pacientes",
+      "iteration": 6,
+      "ttfbMs": 216.5999999642372,
+      "domContentLoadedMs": 453.39999997615814,
+      "loadEventMs": 455,
+      "transferSizeBytes": 12117
+    },
+    {
+      "route": "/recepcao/pacientes",
+      "label": "Recepção > Pacientes",
+      "iteration": 7,
+      "ttfbMs": 367.19999998807907,
+      "domContentLoadedMs": 577,
+      "loadEventMs": 577.1000000238419,
+      "transferSizeBytes": 12159
+    },
+    {
+      "route": "/supervisao",
+      "label": "Supervisão (Coordenação)",
+      "iteration": 0,
+      "ttfbMs": 250.19999998807907,
+      "domContentLoadedMs": 593.3000000119209,
+      "loadEventMs": 593.3999999761581,
+      "transferSizeBytes": 11167
+    },
+    {
+      "route": "/supervisao",
+      "label": "Supervisão (Coordenação)",
+      "iteration": 1,
+      "ttfbMs": 254.89999997615814,
+      "domContentLoadedMs": 647.3000000119209,
+      "loadEventMs": 647.3999999761581,
+      "transferSizeBytes": 11167
+    },
+    {
+      "route": "/supervisao",
+      "label": "Supervisão (Coordenação)",
+      "iteration": 2,
+      "ttfbMs": 278.69999998807907,
+      "domContentLoadedMs": 662.8999999761581,
+      "loadEventMs": 663,
+      "transferSizeBytes": 11167
+    },
+    {
+      "route": "/supervisao",
+      "label": "Supervisão (Coordenação)",
+      "iteration": 3,
+      "ttfbMs": 253.19999998807907,
+      "domContentLoadedMs": 545.0999999642372,
+      "loadEventMs": 545.1999999880791,
+      "transferSizeBytes": 11167
+    },
+    {
+      "route": "/supervisao",
+      "label": "Supervisão (Coordenação)",
+      "iteration": 4,
+      "ttfbMs": 247.69999998807907,
+      "domContentLoadedMs": 617.1000000238419,
+      "loadEventMs": 617.1999999880791,
+      "transferSizeBytes": 11167
+    },
+    {
+      "route": "/supervisao",
+      "label": "Supervisão (Coordenação)",
+      "iteration": 5,
+      "ttfbMs": 230.5,
+      "domContentLoadedMs": 494.10000002384186,
+      "loadEventMs": 494.19999998807907,
+      "transferSizeBytes": 11167
+    },
+    {
+      "route": "/supervisao",
+      "label": "Supervisão (Coordenação)",
+      "iteration": 6,
+      "ttfbMs": 242.5,
+      "domContentLoadedMs": 679.8999999761581,
+      "loadEventMs": 680,
+      "transferSizeBytes": 11167
+    },
+    {
+      "route": "/supervisao",
+      "label": "Supervisão (Coordenação)",
+      "iteration": 7,
+      "ttfbMs": 239.5,
+      "domContentLoadedMs": 681,
+      "loadEventMs": 681.1999999880791,
+      "transferSizeBytes": 11167
+    },
+    {
+      "route": "/terapeuta",
+      "label": "Terapeuta (agenda)",
+      "iteration": 0,
+      "ttfbMs": 257.80000001192093,
+      "domContentLoadedMs": 896.6000000238419,
+      "loadEventMs": 918.5,
+      "transferSizeBytes": 11548
+    },
+    {
+      "route": "/terapeuta",
+      "label": "Terapeuta (agenda)",
+      "iteration": 1,
+      "ttfbMs": 229.0999999642372,
+      "domContentLoadedMs": 857.5,
+      "loadEventMs": 861.0999999642372,
+      "transferSizeBytes": 11546
+    },
+    {
+      "route": "/terapeuta",
+      "label": "Terapeuta (agenda)",
+      "iteration": 2,
+      "ttfbMs": 215.5999999642372,
+      "domContentLoadedMs": 834.5,
+      "loadEventMs": 840.7999999523163,
+      "transferSizeBytes": 11546
+    },
+    {
+      "route": "/terapeuta",
+      "label": "Terapeuta (agenda)",
+      "iteration": 3,
+      "ttfbMs": 223.60000002384186,
+      "domContentLoadedMs": 880.8999999761581,
+      "loadEventMs": 883.3999999761581,
+      "transferSizeBytes": 11546
+    },
+    {
+      "route": "/terapeuta",
+      "label": "Terapeuta (agenda)",
+      "iteration": 4,
+      "ttfbMs": 215.5,
+      "domContentLoadedMs": 908.1000000238419,
+      "loadEventMs": 910.3999999761581,
+      "transferSizeBytes": 11546
+    },
+    {
+      "route": "/terapeuta",
+      "label": "Terapeuta (agenda)",
+      "iteration": 5,
+      "ttfbMs": 236.10000002384186,
+      "domContentLoadedMs": 904.6000000238419,
+      "loadEventMs": 906.8000000119209,
+      "transferSizeBytes": 11546
+    },
+    {
+      "route": "/terapeuta",
+      "label": "Terapeuta (agenda)",
+      "iteration": 6,
+      "ttfbMs": 225.30000001192093,
+      "domContentLoadedMs": 875.6999999880791,
+      "loadEventMs": 883.8999999761581,
+      "transferSizeBytes": 11546
+    },
+    {
+      "route": "/terapeuta",
+      "label": "Terapeuta (agenda)",
+      "iteration": 7,
+      "ttfbMs": 215.5999999642372,
+      "domContentLoadedMs": 865,
+      "loadEventMs": 867,
+      "transferSizeBytes": 11546
+    },
+    {
+      "route": "/faturamento",
+      "label": "Faturamento",
+      "iteration": 0,
+      "ttfbMs": 231.89999997615814,
+      "domContentLoadedMs": 932.0999999642372,
+      "loadEventMs": 934.5999999642372,
+      "transferSizeBytes": 10624
+    },
+    {
+      "route": "/faturamento",
+      "label": "Faturamento",
+      "iteration": 1,
+      "ttfbMs": 262.19999998807907,
+      "domContentLoadedMs": 919.8000000119209,
+      "loadEventMs": 920.9000000357628,
+      "transferSizeBytes": 10624
+    },
+    {
+      "route": "/faturamento",
+      "label": "Faturamento",
+      "iteration": 2,
+      "ttfbMs": 253.79999995231628,
+      "domContentLoadedMs": 884.1999999880791,
+      "loadEventMs": 884.1999999880791,
+      "transferSizeBytes": 10624
+    },
+    {
+      "route": "/faturamento",
+      "label": "Faturamento",
+      "iteration": 3,
+      "ttfbMs": 239.5,
+      "domContentLoadedMs": 882.2000000476837,
+      "loadEventMs": 883.2000000476837,
+      "transferSizeBytes": 10624
+    },
+    {
+      "route": "/faturamento",
+      "label": "Faturamento",
+      "iteration": 4,
+      "ttfbMs": 217.30000001192093,
+      "domContentLoadedMs": 854.0999999642372,
+      "loadEventMs": 855,
+      "transferSizeBytes": 10624
+    },
+    {
+      "route": "/faturamento",
+      "label": "Faturamento",
+      "iteration": 5,
+      "ttfbMs": 258.9000000357628,
+      "domContentLoadedMs": 877.4000000357628,
+      "loadEventMs": 878.9000000357628,
+      "transferSizeBytes": 10624
+    },
+    {
+      "route": "/faturamento",
+      "label": "Faturamento",
+      "iteration": 6,
+      "ttfbMs": 220.10000002384186,
+      "domContentLoadedMs": 879.8000000119209,
+      "loadEventMs": 879.9000000357628,
+      "transferSizeBytes": 10624
+    },
+    {
+      "route": "/faturamento",
+      "label": "Faturamento",
+      "iteration": 7,
+      "ttfbMs": 229.20000004768372,
+      "domContentLoadedMs": 871.3000000119209,
+      "loadEventMs": 872.4000000357628,
+      "transferSizeBytes": 10624
+    }
+  ],
+  "clickRows": [
+    {
+      "from": "/gestor",
+      "to": "/gestor/inteligencia",
+      "iteration": 0,
+      "clickToVisibleMs": 880
+    },
+    {
+      "from": "/gestor",
+      "to": "/gestor/inteligencia",
+      "iteration": 1,
+      "clickToVisibleMs": 370
+    },
+    {
+      "from": "/gestor",
+      "to": "/gestor/inteligencia",
+      "iteration": 2,
+      "clickToVisibleMs": 358
+    },
+    {
+      "from": "/gestor",
+      "to": "/gestor/inteligencia",
+      "iteration": 3,
+      "clickToVisibleMs": 82
+    },
+    {
+      "from": "/gestor",
+      "to": "/gestor/inteligencia",
+      "iteration": 4,
+      "clickToVisibleMs": 382
+    },
+    {
+      "from": "/gestor",
+      "to": "/gestor/inteligencia",
+      "iteration": 5,
+      "clickToVisibleMs": 872
+    },
+    {
+      "from": "/gestor",
+      "to": "/gestor/inteligencia",
+      "iteration": 6,
+      "clickToVisibleMs": 376
+    },
+    {
+      "from": "/gestor",
+      "to": "/gestor/inteligencia",
+      "iteration": 7,
+      "clickToVisibleMs": 378
+    }
+  ]
+}

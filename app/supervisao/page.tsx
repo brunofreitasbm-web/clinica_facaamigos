@@ -20,7 +20,9 @@ import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingRep
 import type { NpsAlertRow } from "./nps-alerts-panel";
 import { SupervisaoShell } from "./supervisao-shell";
 import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
+import { Suspense } from "react";
 import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-panel";
+import { WhatsappLeadsPanel } from "@/components/whatsapp-leads-panel";
 import { AcolhimentosPanel, type BatchRow } from "./acolhimentos-panel";
 import type { LeadRow, LeadFileRow } from "./acolhimento-lead-drawer";
 import { AgendaAvaliacoesPanel } from "./agenda-avaliacoes-panel";
@@ -462,7 +464,14 @@ export default async function SupervisaoPage() {
           pool={evaluationPool}
           therapists={(therapists ?? []).filter((t) => t.is_evaluator).map((t) => ({ id: t.id, name: t.full_name }))}
           rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
-          triagensPanel={<AnamnesisValidationPanel />}
+          triagensPanel={
+            <div className="flex flex-col gap-10">
+              <Suspense fallback={<p className="text-xs text-ink-faint">Carregando leads do WhatsApp…</p>}>
+                <WhatsappLeadsPanel />
+              </Suspense>
+              <AnamnesisValidationPanel />
+            </div>
+          }
           acolhimentosPanel={
             <AcolhimentosPanel
               batches={intakeBatches}

@@ -8,6 +8,8 @@ import { PatientContextPanel } from "./patient-context-panel";
 import { LeadContextPanel } from "./lead-context-panel";
 import { formatConversationPhone } from "./format-phone";
 import { ChatbotPanel } from "./chatbot/chatbot-panel";
+import { ChatLayout } from "@/src/components/Reception/Chat/ChatLayout";
+import { assignConversation } from "./actions";
 import type { ChatbotDashboardStats } from "./chatbot/dashboard-panel";
 import type { FaqRow } from "./chatbot/faq-manager";
 import type { QuickResponseRow } from "./chatbot/quick-responses-manager";
@@ -17,8 +19,6 @@ import type { DeliveryHistoryRow } from "./chatbot/chatbot-panel";
 
 export type ConversationRow = {
   id: string;
-  /** Nulo em conversa de lead — número que ainda não casa com nenhum
-   * responsável cadastrado (ver migration 20260909100000). */
   patientId: string | null;
   guardianId: string | null;
   phoneNumber: string;
@@ -28,18 +28,18 @@ export type ConversationRow = {
   lastMessageAt: string | null;
   kind: "patient" | "lead";
   escalationReason: string | null;
-  /** Quem da equipe assumiu a conversa (botão "Assumir" no cabeçalho). */
   assignedTo: string | null;
-  /** Nome informado pelo contato ou editado pela recepção — só é o rótulo
-   * principal quando não há paciente vinculado. */
   contactName: string | null;
   displayName: string;
   guardianName: string | null;
-  /** Convênio/plano do paciente vinculado — nulo em lead ou paciente particular. */
   planName: string | null;
   planColor: string | null;
+  /** Convênio cadastrado que o chatbot identificou (só conta quando a conversa não tem plano de cadastro). */
+  insurerId: string | null;
   lastMessagePreview?: string | null;
 };
+
+export type InsurerPill = { name: string; color: string | null };
 
 export type ConversationPatch = Partial<Omit<ConversationRow, "id">>;
 
@@ -83,13 +83,13 @@ export function AtendimentoShell({
   chatbotAdmin,
   currentUserId,
   staffNames,
+  insurerById,
 }: {
   initialConversations: ConversationRow[];
-  /** Só vem preenchido quando o usuário logado é supervisor ou gestor — ver
-   * app/recepcao/atendimento/page.tsx. Recepção não vê a aba Chatbot. */
   chatbotAdmin: ChatbotAdminData | null;
   currentUserId: string | null;
   staffNames: Record<string, string>;
+  insurerById: Record<string, InsurerPill>;
 }) {
   const [conversations, setConversations] = useState<ConversationRow[]>(initialConversations);
   const [selectedId, setSelectedId] = useState<string | null>(initialConversations[0]?.id ?? null);
@@ -119,7 +119,10 @@ export function AtendimentoShell({
             contact_name: string | null;
             escalation_reason: string | null;
             assigned_to: string | null;
+            insurer_id: string | null;
           };
+          // Plano identificado pelo bot durante a conversa (a linha do realtime só traz ids).
+          const detected: InsurerPill | null = row.insurer_id ? (insurerById[row.insurer_id] ?? null) : null;
           setConversations((prev) => {
             const existing = prev.find((c) => c.id === row.id);
             const updated: ConversationRow = existing
@@ -135,11 +138,14 @@ export function AtendimentoShell({
                   escalationReason: row.escalation_reason,
                   assignedTo: row.assigned_to,
                   contactName: row.contact_name,
-                  // Sem paciente, o rótulo acompanha o nome editado; com
-                  // paciente, o payload não traz o join e o nome atual fica.
                   displayName: row.patient_id
                     ? existing.displayName
                     : (row.contact_name ?? formatConversationPhone(row.phone_number)),
+                  insurerId: row.insurer_id,
+                  // Com paciente, o plano do cadastro (carregado no servidor) prevalece.
+                  ...(!row.patient_id || !existing.planName
+                    ? { planName: detected?.name ?? null, planColor: detected?.color ?? null }
+                    : {}),
                 }
               : {
                   id: row.id,
@@ -154,14 +160,11 @@ export function AtendimentoShell({
                   escalationReason: row.escalation_reason,
                   assignedTo: row.assigned_to,
                   contactName: row.contact_name,
-                  // O payload do Realtime não traz o join com `patients`;
-                  // sem recarregar, o telefone é o melhor rótulo disponível.
                   displayName: row.contact_name ?? formatConversationPhone(row.phone_number),
                   guardianName: null,
-                  // Idem: convênio vem só do carregamento inicial (join com
-                  // `patient_insurance`/`insurers`), não do payload do Realtime.
-                  planName: null,
-                  planColor: null,
+                  planName: detected?.name ?? null,
+                  planColor: detected?.color ?? null,
+                  insurerId: row.insurer_id,
                 };
             const rest = prev.filter((c) => c.id !== row.id);
             return [updated, ...rest].sort((a, b) => {
@@ -177,7 +180,7 @@ export function AtendimentoShell({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [insurerById]);
 
   const patchConversation = (id: string, patch: ConversationPatch) => {
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
@@ -207,90 +210,111 @@ export function AtendimentoShell({
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
+  const handleAssignActiveConversation = async () => {
+    if (!selected) return;
+    const isMine = Boolean(currentUserId) && selected.assignedTo === currentUserId;
+    const shouldAssign = !isMine;
+    patchConversation(selected.id, {
+      assignedTo: shouldAssign ? currentUserId : null,
+      isBotActive: shouldAssign ? false : selected.isBotActive,
+    });
+    await assignConversation(selected.id, shouldAssign);
+  };
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {chatbotAdmin && (
-        <div className="flex gap-1 border-b border-paper-line-strong bg-paper px-4 pt-2">
-          {(
-            [
-              { key: "conversas", label: "Conversas" },
-              { key: "chatbot", label: "Chatbot" },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`rounded-t-md px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === tab.key ? "border-b-2 border-accent text-ink" : "text-ink-faint hover:text-ink"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {activeTab === "chatbot" && chatbotAdmin ? (
-        <ChatbotPanel
-          clinicId={chatbotAdmin.clinicId}
-          stats={chatbotAdmin.stats}
-          faqs={chatbotAdmin.faqs}
-          quickResponses={chatbotAdmin.quickResponses}
-          templates={chatbotAdmin.templates}
-          deliveryHistory={chatbotAdmin.deliveryHistory}
-          settings={chatbotAdmin.settings}
-        />
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          <div className="w-full border-b border-paper-line-strong md:w-80 md:border-b-0 md:border-r">
-            <ConversationList
-              conversations={visibleConversations}
-              selectedId={selectedId}
-              filter={filter}
-              counts={counts}
-              search={search}
-              staffNames={staffNames}
-              currentUserId={currentUserId}
-              onFilterChange={setFilter}
-              onSearchChange={setSearch}
-              onSelect={(id) => {
-                setSelectedId(id);
-                patchConversation(id, { unreadCount: 0 });
-              }}
-            />
+    <ChatLayout
+      conversations={visibleConversations}
+      selectedId={selectedId}
+      onSelectConversation={(id) => {
+        setSelectedId(id);
+        patchConversation(id, { unreadCount: 0 });
+      }}
+      onAssignActiveConversation={handleAssignActiveConversation}
+    >
+      <div className="flex min-h-0 flex-1 flex-col">
+        {chatbotAdmin && (
+          <div className="flex gap-1 border-b border-paper-line-strong bg-paper px-4 pt-2">
+            {(
+              [
+                { key: "conversas", label: "Conversas" },
+                { key: "chatbot", label: "Chatbot" },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-t-md px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === tab.key ? "border-b-2 border-accent text-ink" : "text-ink-faint hover:text-ink"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
+        )}
 
-          <div className="flex min-h-[60vh] flex-1 flex-col md:min-h-0">
-            {selected ? (
-              <ChatWindow
-                conversation={selected}
-                currentUserId={currentUserId}
+        {activeTab === "chatbot" && chatbotAdmin ? (
+          <ChatbotPanel
+            clinicId={chatbotAdmin.clinicId}
+            stats={chatbotAdmin.stats}
+            faqs={chatbotAdmin.faqs}
+            quickResponses={chatbotAdmin.quickResponses}
+            templates={chatbotAdmin.templates}
+            deliveryHistory={chatbotAdmin.deliveryHistory}
+            settings={chatbotAdmin.settings}
+          />
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+            <div className="w-full border-b border-paper-line-strong md:w-80 md:border-b-0 md:border-r">
+              <ConversationList
+                conversations={visibleConversations}
+                selectedId={selectedId}
+                filter={filter}
+                counts={counts}
+                search={search}
                 staffNames={staffNames}
-                onPatch={(patch) => patchConversation(selected.id, patch)}
+                currentUserId={currentUserId}
+                onFilterChange={setFilter}
+                onSearchChange={setSearch}
+                onSelect={(id) => {
+                  setSelectedId(id);
+                  patchConversation(id, { unreadCount: 0 });
+                }}
               />
-            ) : (
-              <div className="flex flex-1 items-center justify-center text-sm text-ink-faint">
-                Selecione uma conversa para começar.
+            </div>
+
+            <div className="flex min-h-[60vh] flex-1 flex-col md:min-h-0">
+              {selected ? (
+                <ChatWindow
+                  conversation={selected}
+                  currentUserId={currentUserId}
+                  staffNames={staffNames}
+                  onPatch={(patch) => patchConversation(selected.id, patch)}
+                />
+              ) : (
+                <div className="flex flex-1 items-center justify-center text-sm text-ink-faint">
+                  Selecione uma conversa para começar.
+                </div>
+              )}
+            </div>
+
+            {selected && (
+              <div className="w-full border-t border-paper-line-strong md:w-80 md:border-t-0 md:border-l">
+                {selected.patientId ? (
+                  <PatientContextPanel key={selected.id} conversation={selected} />
+                ) : (
+                  <LeadContextPanel
+                    key={selected.id}
+                    conversation={selected}
+                    onPatch={(patch) => patchConversation(selected.id, patch)}
+                  />
+                )}
               </div>
             )}
           </div>
-
-          {selected && (
-            <div className="w-full border-t border-paper-line-strong md:w-80 md:border-t-0 md:border-l">
-              {selected.patientId ? (
-                <PatientContextPanel key={selected.id} conversation={selected} />
-              ) : (
-                <LeadContextPanel
-                  key={selected.id}
-                  conversation={selected}
-                  onPatch={(patch) => patchConversation(selected.id, patch)}
-                />
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </ChatLayout>
   );
 }

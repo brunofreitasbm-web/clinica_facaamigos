@@ -1,11 +1,26 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatE164Phone } from "@/lib/twilio";
+import { runAfterResponse } from "@/lib/after-response";
+import { enrichLeadFromDocuments, registerLeadMedia, upsertWhatsappLead } from "@/lib/whatsapp-lead";
+import { normalizeEmail, normalizeFullName, type LeadDocKind } from "@/lib/whatsapp-lead-pure";
+import { decideGuardianEmailStep, parseFullNameAnswer } from "@/lib/anamnesis-bot-pure";
+import {
+  PARTIAL_UNSUPPORTED_NOTE,
+  RETRY_MEDIA_REPLY,
+  UNSUPPORTED_MEDIA_REPLY,
+  collectMediaItems,
+  splitCardPointers,
+  summarizeMediaSave,
+  type MediaItem,
+} from "@/lib/whatsapp-media-pure";
 
 export interface TwilioIncomingParams {
   from: string;
   body: string;
   mediaUrl0?: string;
   mediaContentType0?: string;
+  /** Todos os anexos da mensagem; sem ele vale só `mediaUrl0`. */
+  media?: MediaItem[];
 }
 
 /**
@@ -48,66 +63,103 @@ function parseBrazilianDate(raw: string): string | null {
 }
 
 /**
- * Faz download do arquivo PDF do Twilio e insere no Supabase Storage (bucket `patient-documents`)
+ * Guarda TODOS os anexos da mensagem da etapa de mídia como documentos do
+ * lead (bucket privado `clinic-documents`, via lib/whatsapp-lead.ts) e devolve
+ * os ponteiros `storage://clinic-documents/<path>` no lugar da URL do arquivo
+ * — nunca a URL crua do Twilio (exige autenticação e some). Sem nenhum arquivo
+ * salvo NÃO se avança de etapa: `reply` pede o reenvio. O lead nasce (ou é
+ * reaproveitado) aqui, com o nome/nascimento já coletados; o id fica em
+ * `data.lead_patient_id` para a requisição não duplicar o paciente.
  */
-async function uploadTwilioMediaToStorage(mediaUrl: string, filename: string): Promise<string | null> {
-  try {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
+async function saveStepMedia(
+  params: TwilioIncomingParams,
+  phone: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
+  kind: LeadDocKind,
+  missingReply: string,
+): Promise<{ ok: true; pointers: string[]; note: string } | { ok: false; reply: string }> {
+  const media = collectMediaItems(params);
+  if (media.length === 0) return { ok: false, reply: missingReply };
 
-    const headers: Record<string, string> = {};
-    if (accountSid && authToken) {
-      const authHeader = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
-      headers["Authorization"] = `Basic ${authHeader}`;
+  const result = await registerLeadMedia({
+    identity: {
+      phone,
+      childName: data.child_name,
+      childBirthDate: data.child_birth_date,
+      guardianName: data.guardian_name,
+      guardianCpf: data.guardian_cpf,
+      guardianEmail: data.guardian_email,
+    },
+    media,
+    kind,
+  });
+
+  const summary = summarizeMediaSave(result);
+  if (summary.status === "unsupported") return { ok: false, reply: UNSUPPORTED_MEDIA_REPLY };
+  if (summary.status === "retry") return { ok: false, reply: RETRY_MEDIA_REPLY };
+
+  // Reentrega do Twilio (mesma MediaUrl) de um arquivo de etapa ANTERIOR: o
+  // registro de mídia devolve o documento já salvo (duplicata), e sem esta
+  // guarda a Guia reentregue viraria a "frente da carteirinha". Ponteiro já
+  // gravado em `data` = replay; a resposta da primeira entrega já saiu, então
+  // silêncio e nenhuma mudança de etapa. (Se a primeira entrega caiu ANTES de
+  // gravar a etapa, o ponteiro ainda não está em `data` e o fluxo avança.)
+  const knownPointers = new Set(
+    [data.laudo_pdf_url, data.guia_pdf_url, data.carteirinha_frente_url, data.carteirinha_verso_url].filter(Boolean),
+  );
+  if (summary.pointers.some((p) => knownPointers.has(p))) return { ok: false, reply: "" };
+
+  const patientId = result.patientId;
+  if (patientId) {
+    data.lead_patient_id = patientId;
+    if (result.saved > 0 || result.adopted > 0) {
+      // IA completa o cadastro do lead em segundo plano (só campos em branco).
+      runAfterResponse("enriquecer lead (anamnese)", () => enrichLeadFromDocuments(patientId));
     }
-
-    const res = await fetch(mediaUrl, { headers });
-    if (!res.ok) {
-      console.error(`[Storage Upload] Falha ao baixar mídia Twilio: ${res.status} ${res.statusText}`);
-      return null;
-    }
-
-    const arrayBuffer = await res.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const supabase = createAdminClient();
-
-    // Assegura que o bucket privado `patient-documents` exista
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const hasBucket = buckets?.some((b) => b.name === "patient-documents");
-    if (!hasBucket) {
-      await supabase.storage.createBucket("patient-documents", { public: true });
-    }
-
-    const storagePath = `anamnese-laudos-guias/${Date.now()}_${filename}`;
-    const { data, error } = await supabase.storage
-      .from("patient-documents")
-      .upload(storagePath, buffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
-
-    if (error) {
-      console.error("[Storage Upload Error]:", error.message);
-      return null;
-    }
-
-    const { data: publicUrlData } = supabase.storage
-      .from("patient-documents")
-      .getPublicUrl(data.path);
-
-    return publicUrlData.publicUrl;
-  } catch (err) {
-    console.error("[Storage Upload Exception]:", err);
-    return null;
   }
+  return { ok: true, pointers: summary.pointers, note: summary.unsupportedNote ? PARTIAL_UNSUPPORTED_NOTE : "" };
 }
 
 /**
- * Insere a requisição na fila de aprovação do supervisor com Laudo, Guia e
- * Carteirinha já anexados, e coloca a sessão em `pending_supervisor` — chamado
- * tanto após o verso da carteirinha quanto direto após um PDF único que já
- * cobre as duas páginas.
+ * Depois da carteirinha (fotos ou PDF único), pede o número do cartão — todo
+ * atendimento por convênio precisa dele além da imagem, pro faturamento.
+ */
+async function askCardNumber(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  phone: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
+  intro: string,
+): Promise<{ handled: boolean; replyMessage: string }> {
+  await supabase
+    .from("chatbot_sessions")
+    .update({
+      current_step: "awaiting_card_number",
+      collected_data: data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("phone_number", phone);
+
+  return {
+    handled: true,
+    replyMessage: `${intro}\n\nPor último, digite o *número do cartão* (número da carteirinha) do plano:`,
+  };
+}
+
+/**
+ * Mensagem única enviada ao lead de convênio após receber documentos e
+ * informações. O prazo de 7 dias é o da devolutiva da autorização do plano.
+ */
+const CONVENIO_DOCS_RECEIVED_MESSAGE =
+  "Tudo certo! 🎉 A nossa supervisão recepcionou os documentos e as informações, irá analisá-los e iniciar o processo de autorização junto ao plano.\n\n" +
+  "No prazo de até *7 dias*, daremos uma devolutiva (um retorno acerca do processo) para então agendarmos a avaliação. 💙";
+
+/**
+ * Insere a requisição na fila de aprovação do supervisor com Laudo, Carteirinha
+ * e número do cartão (e a Guia, quando o responsável já a tem — é opcional:
+ * sem ela, a clínica autoriza), e coloca a sessão em `pending_supervisor`.
  */
 async function finalizeAnamnesisRequest(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -116,6 +168,23 @@ async function finalizeAnamnesisRequest(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any>,
 ): Promise<{ handled: boolean; replyMessage: string }> {
+  // Paciente-lead já criado a partir dos documentos (ou o do telefone/criança):
+  // a requisição precisa carregá-lo, senão `book_anamnesis_slot_atomic` cria um
+  // paciente NOVO quando `patient_id` é nulo e o lead fica duplicado.
+  let leadPatientId: string | null = data.lead_patient_id ?? null;
+  if (!leadPatientId) {
+    const lead = await upsertWhatsappLead({
+      phone,
+      childName: data.child_name,
+      childBirthDate: data.child_birth_date,
+      guardianName: data.guardian_name,
+      guardianCpf: data.guardian_cpf,
+      guardianEmail: data.guardian_email,
+    });
+    leadPatientId = lead?.patientId ?? null;
+    if (leadPatientId) data.lead_patient_id = leadPatientId;
+  }
+
   const { data: reqData, error: reqErr } = await supabase
     .from("anamnesis_scheduling_requests")
     .insert({
@@ -128,16 +197,37 @@ async function finalizeAnamnesisRequest(
       guia_pdf_url: data.guia_pdf_url,
       carteirinha_frente_url: data.carteirinha_frente_url,
       carteirinha_verso_url: data.carteirinha_verso_url,
+      card_number: data.card_number,
+      is_private: data.is_private === true,
+      patient_id: leadPatientId,
       status: "pendente_supervisor",
     })
     .select("id")
     .single();
 
-  if (reqErr) {
-    console.error("[Anamnesis Request Insert Error]:", reqErr.message);
+  if (reqErr || !reqData) {
+    // Os documentos e o lead já estão salvos (a supervisão os enxerga no painel
+    // de leads), então não fingimos que a solicitação entrou na fila de
+    // validação: avisamos que a equipe entra em contato e liberamos a sessão.
+    console.error("[Anamnesis Request Insert Error]:", reqErr?.message);
+    await supabase
+      .from("chatbot_sessions")
+      .update({
+        current_step: "idle",
+        collected_data: {},
+        updated_at: new Date().toISOString(),
+      })
+      .eq("phone_number", phone);
+
+    return {
+      handled: true,
+      replyMessage:
+        "Recebemos os seus documentos e informações! 💙 Tivemos um contratempo para concluir o pedido de agendamento por aqui, " +
+        "mas a nossa equipe já tem tudo em mãos e entrará em contato em breve para seguir com a avaliação.",
+    };
   }
 
-  data.request_id = reqData?.id;
+  data.request_id = reqData.id;
 
   await supabase
     .from("chatbot_sessions")
@@ -148,12 +238,16 @@ async function finalizeAnamnesisRequest(
     })
     .eq("phone_number", phone);
 
-  return {
-    handled: true,
-    replyMessage:
-      "Tudo certo! 🎉 Recebemos as informações e documentos (Laudo, Guia e Carteirinha).\n\n" +
-      "Nosso supervisor fará a validação rápida. Assim que aprovado, enviaremos os horários disponíveis por aqui para você escolher! 🧩💙",
-  };
+  if (data.is_private === true) {
+    return {
+      handled: true,
+      replyMessage:
+        "Tudo certo! 🎉 Recebemos as informações do atendimento *particular*.\n\n" +
+        "Nosso supervisor fará a validação rápida. Assim que aprovado, enviaremos os horários disponíveis por aqui para você escolher! 🧩💙",
+    };
+  }
+
+  return { handled: true, replyMessage: CONVENIO_DOCS_RECEIVED_MESSAGE };
 }
 
 /**
@@ -221,7 +315,7 @@ export async function processAnamnesisChatbotStep(
         handled: true,
         replyMessage:
           "Olá! 💙 Boas-vindas ao *FaçaAmigos*! 🧩\n\n" +
-          "Vou te ajudar no agendamento da avaliação pelo plano de saúde.\n\n" +
+          "Vou te ajudar no agendamento da avaliação.\n\n" +
           "Para começar, qual o seu *Nome Completo* (Responsável)?",
       };
     }
@@ -229,16 +323,18 @@ export async function processAnamnesisChatbotStep(
     return { handled: false, replyMessage: "" };
   }
 
-  // 3. Etapa: Aguardando Nome do Responsável
+  // 3. Etapa: Aguardando Nome do Responsável (nome completo, com sobrenome —
+  // sem isso o lead/responsável não pode ser criado).
   if (currentStep === "awaiting_guardian_name") {
-    if (rawBody.trim().length < 3) {
+    const guardianName = parseFullNameAnswer(rawBody, normalizeFullName);
+    if (!guardianName) {
       return {
         handled: true,
-        replyMessage: "Por favor, me informe o seu nome completo:",
+        replyMessage: "Preciso do seu nome completo, com sobrenome. Por favor, me informe:",
       };
     }
 
-    data.guardian_name = rawBody.trim();
+    data.guardian_name = guardianName;
     await supabase
       .from("chatbot_sessions")
       .update({
@@ -268,6 +364,54 @@ export async function processAnamnesisChatbotStep(
     await supabase
       .from("chatbot_sessions")
       .update({
+        current_step: "awaiting_guardian_email",
+        collected_data: data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("phone_number", phone);
+
+    return {
+      handled: true,
+      replyMessage: "Perfeito! 🤝 Qual o seu *e-mail* (do responsável)? Vamos usá-lo para enviar comunicados e documentos.",
+    };
+  }
+
+  // 4b. Etapa: Aguardando E-mail do Responsável. O cliente quer o e-mail de
+  // todos os responsáveis: a primeira recusa ("não tenho"/"pular") é
+  // contestada uma vez; só a segunda é aceita e segue com o e-mail vazio.
+  if (currentStep === "awaiting_guardian_email") {
+    const decision = decideGuardianEmailStep(rawBody, data.guardian_email_asked_again === true, normalizeEmail);
+
+    if (decision.action === "invalid") {
+      return {
+        handled: true,
+        replyMessage: "E-mail inválido. Digite um e-mail no formato *nome@exemplo.com* (ou responda *NÃO TENHO*):",
+      };
+    }
+
+    if (decision.action === "reask") {
+      data.guardian_email_asked_again = true;
+      await supabase
+        .from("chatbot_sessions")
+        .update({
+          collected_data: data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("phone_number", phone);
+
+      return {
+        handled: true,
+        replyMessage:
+          "Entendo! 💙 Mas o e-mail é importante para a clínica manter contato e enviar documentos. " +
+          "Se tiver algum (o seu ou de outro responsável), digite aqui. Se realmente não tiver, responda *NÃO TENHO* novamente.",
+      };
+    }
+
+    data.guardian_email = decision.action === "save" ? decision.email : "";
+    delete data.guardian_email_asked_again;
+    await supabase
+      .from("chatbot_sessions")
+      .update({
         current_step: "awaiting_child_name",
         collected_data: data,
         updated_at: new Date().toISOString(),
@@ -276,20 +420,23 @@ export async function processAnamnesisChatbotStep(
 
     return {
       handled: true,
-      replyMessage: "Perfeito! 🤝 Qual o *Nome Completo da Criança ou Adolescente* que fará a avaliação?",
+      replyMessage:
+        (decision.action === "save" ? "E-mail anotado! ✅\n\n" : "Tudo bem, seguimos sem e-mail por enquanto. 👍\n\n") +
+        "Qual o *Nome Completo da Criança ou Adolescente* que fará a avaliação?",
     };
   }
 
-  // 5. Etapa: Aguardando Nome da Criança/Adolescente
+  // 5. Etapa: Aguardando Nome da Criança/Adolescente (nome completo)
   if (currentStep === "awaiting_child_name") {
-    if (rawBody.trim().length < 2) {
+    const childName = parseFullNameAnswer(rawBody, normalizeFullName);
+    if (!childName) {
       return {
         handled: true,
-        replyMessage: "Por favor, me informe o nome completo da criança ou adolescente:",
+        replyMessage: "Preciso do nome completo da criança ou adolescente, com sobrenome. Por favor, me informe:",
       };
     }
 
-    data.child_name = rawBody.trim();
+    data.child_name = childName;
     await supabase
       .from("chatbot_sessions")
       .update({
@@ -319,7 +466,7 @@ export async function processAnamnesisChatbotStep(
     await supabase
       .from("chatbot_sessions")
       .update({
-        current_step: "awaiting_has_laudo",
+        current_step: "awaiting_payment_mode",
         collected_data: data,
         updated_at: new Date().toISOString(),
       })
@@ -328,8 +475,41 @@ export async function processAnamnesisChatbotStep(
     return {
       handled: true,
       replyMessage:
-        `Perfeito! 🧩 ${data.child_name} já possui *Laudo Médico*?\n\n` +
-        "Responda *SIM* ou *NÃO*.",
+        "Anotado! 🧩 O atendimento será por *plano de saúde (convênio)* ou *particular*?\n\n" +
+        "Responda *CONVÊNIO* ou *PARTICULAR*.",
+    };
+  }
+
+  // 5c. Etapa: Convênio ou Particular. Particular não tem laudo, guia,
+  // carteirinha nem número de cartão — vai direto pra validação do supervisor.
+  if (currentStep === "awaiting_payment_mode") {
+    if (normBody.includes("particular")) {
+      data.is_private = true;
+      return finalizeAnamnesisRequest(supabase, phone, data);
+    }
+
+    if (normBody.includes("convenio") || normBody.includes("plano") || normBody.includes("saude")) {
+      data.is_private = false;
+      await supabase
+        .from("chatbot_sessions")
+        .update({
+          current_step: "awaiting_has_laudo",
+          collected_data: data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("phone_number", phone);
+
+      return {
+        handled: true,
+        replyMessage:
+          `Perfeito! 🧩 ${data.child_name} já possui *Laudo Médico*?\n\n` +
+          "Responda *SIM* ou *NÃO*.",
+      };
+    }
+
+    return {
+      handled: true,
+      replyMessage: "Por favor, responda *CONVÊNIO* (plano de saúde) ou *PARTICULAR*.",
     };
   }
 
@@ -379,19 +559,16 @@ export async function processAnamnesisChatbotStep(
 
   // 7. Etapa: Upload do PDF do Laudo
   if (currentStep === "awaiting_laudo_pdf") {
-    const isPdf = params.mediaContentType0?.includes("pdf") || rawBody.toLowerCase().endsWith(".pdf");
-    
-    if (!params.mediaUrl0 && !isPdf) {
-      return {
-        handled: true,
-        replyMessage: "Arquivo não identificado. Por favor, envie o PDF ou foto do Laudo Médico por aqui.",
-      };
-    }
+    const saved = await saveStepMedia(
+      params,
+      phone,
+      data,
+      "laudo",
+      "Arquivo não identificado. Por favor, envie o PDF ou foto do Laudo Médico por aqui.",
+    );
+    if (!saved.ok) return { handled: true, replyMessage: saved.reply };
 
-    const mediaUrl = params.mediaUrl0 || "";
-    const laudoUrl = await uploadTwilioMediaToStorage(mediaUrl, `laudo_${phone}.pdf`);
-
-    data.laudo_pdf_url = laudoUrl || mediaUrl;
+    data.laudo_pdf_url = saved.pointers[0];
     await supabase
       .from("chatbot_sessions")
       .update({
@@ -405,19 +582,22 @@ export async function processAnamnesisChatbotStep(
       handled: true,
       replyMessage:
         "Laudo recebido! ✅\n\n" +
-        "Já possui a *Guia de Autorização* liberada pelo plano?\n\n" +
-        "Responda *SIM* ou *NÃO*.",
+        "Já possui a *Guia de Autorização* liberada pelo plano? (Não é obrigatória — se ainda não tiver, a gente autoriza aqui na clínica.)\n\n" +
+        "Responda *SIM* ou *NÃO*." +
+        saved.note,
     };
   }
 
-  // 8. Etapa: Confirmação de Guia de Autorização
+  // 8. Etapa: Confirmação de Guia de Autorização (opcional)
   if (currentStep === "awaiting_has_guia") {
     if (normBody.includes("nao") || normBody === "n") {
+      // Sem guia não trava o agendamento: a clínica autoriza depois. Segue
+      // direto pra carteirinha.
       await supabase
         .from("chatbot_sessions")
         .update({
-          current_step: "idle",
-          collected_data: {},
+          current_step: "awaiting_carteirinha_frente",
+          collected_data: data,
           updated_at: new Date().toISOString(),
         })
         .eq("phone_number", phone);
@@ -425,8 +605,9 @@ export async function processAnamnesisChatbotStep(
       return {
         handled: true,
         replyMessage:
-          "Entendido! 💙 A *Guia de Autorização* do plano é necessária para o agendamento.\n\n" +
-          "Solicite a emissão no seu plano de saúde e nos avise assim que tiver em mãos!",
+          "Tudo bem! 💙 A guia não é obrigatória — a autorização a gente faz aqui na clínica.\n\n" +
+          "Agora envie a foto da *Carteirinha do Plano* — frente e verso (duas fotos), ou um único PDF com as duas páginas.\n\n" +
+          "Pode mandar a *frente* primeiro.",
       };
     }
 
@@ -454,19 +635,16 @@ export async function processAnamnesisChatbotStep(
 
   // 9. Etapa: Upload do PDF da Guia de Autorização
   if (currentStep === "awaiting_guia_pdf") {
-    const isPdf = params.mediaContentType0?.includes("pdf") || rawBody.toLowerCase().endsWith(".pdf");
+    const saved = await saveStepMedia(
+      params,
+      phone,
+      data,
+      "guia",
+      "Arquivo não identificado. Por favor, envie a foto ou PDF da Guia de Autorização.",
+    );
+    if (!saved.ok) return { handled: true, replyMessage: saved.reply };
 
-    if (!params.mediaUrl0 && !isPdf) {
-      return {
-        handled: true,
-        replyMessage: "Arquivo não identificado. Por favor, envie a foto ou PDF da Guia de Autorização.",
-      };
-    }
-
-    const mediaUrl = params.mediaUrl0 || "";
-    const guiaUrl = await uploadTwilioMediaToStorage(mediaUrl, `guia_${phone}.pdf`);
-    data.guia_pdf_url = guiaUrl || mediaUrl;
-
+    data.guia_pdf_url = saved.pointers[0];
     await supabase
       .from("chatbot_sessions")
       .update({
@@ -481,29 +659,29 @@ export async function processAnamnesisChatbotStep(
       replyMessage:
         "Guia recebida! ✅\n\n" +
         "Agora envie a foto da *Carteirinha do Plano* — frente e verso (duas fotos), ou um único PDF com as duas páginas.\n\n" +
-        "Pode mandar a *frente* primeiro.",
+        "Pode mandar a *frente* primeiro." +
+        saved.note,
     };
   }
 
   // 9b. Etapa: Upload da foto/PDF da frente da Carteirinha do Plano
   if (currentStep === "awaiting_carteirinha_frente") {
-    const isPdf = params.mediaContentType0?.includes("pdf") || rawBody.toLowerCase().endsWith(".pdf");
+    const saved = await saveStepMedia(
+      params,
+      phone,
+      data,
+      "carteirinha",
+      "Arquivo não identificado. Por favor, envie a foto ou PDF da Carteirinha do Plano.",
+    );
+    if (!saved.ok) return { handled: true, replyMessage: saved.reply };
 
-    if (!params.mediaUrl0 && !isPdf) {
-      return {
-        handled: true,
-        replyMessage: "Arquivo não identificado. Por favor, envie a foto ou PDF da Carteirinha do Plano.",
-      };
-    }
-
-    const mediaUrl = params.mediaUrl0 || "";
-    const carteirinhaUrl = await uploadTwilioMediaToStorage(mediaUrl, `carteirinha_frente_${phone}.pdf`);
-    data.carteirinha_frente_url = carteirinhaUrl || mediaUrl;
-
-    // PDF único já cobre frente e verso — não precisa pedir a segunda foto.
-    if (isPdf) {
-      data.carteirinha_verso_url = data.carteirinha_frente_url;
-      return finalizeAnamnesisRequest(supabase, phone, data);
+    // PDF único cobre frente e verso, e duas fotos na mesma mensagem já são
+    // frente+verso — nesses casos não precisa pedir a segunda foto.
+    const { front, back } = splitCardPointers(saved.pointers);
+    data.carteirinha_frente_url = front;
+    if (back) {
+      data.carteirinha_verso_url = back;
+      return askCardNumber(supabase, phone, data, `Carteirinha recebida! ✅${saved.note}`);
     }
 
     await supabase
@@ -517,34 +695,55 @@ export async function processAnamnesisChatbotStep(
 
     return {
       handled: true,
-      replyMessage: "Frente recebida! ✅\n\nAgora envie a foto do *verso* da Carteirinha do Plano.",
+      replyMessage: `Frente recebida! ✅\n\nAgora envie a foto do *verso* da Carteirinha do Plano.${saved.note}`,
     };
   }
 
-  // 9c. Etapa: Upload da foto do verso da Carteirinha do Plano & Criação da Requisição de Validação
+  // 9c. Etapa: Upload da foto do verso da Carteirinha do Plano
   if (currentStep === "awaiting_carteirinha_verso") {
-    const isPdf = params.mediaContentType0?.includes("pdf") || rawBody.toLowerCase().endsWith(".pdf");
+    const saved = await saveStepMedia(
+      params,
+      phone,
+      data,
+      "carteirinha",
+      "Arquivo não identificado. Por favor, envie a foto ou PDF do verso da Carteirinha do Plano.",
+    );
+    if (!saved.ok) return { handled: true, replyMessage: saved.reply };
 
-    if (!params.mediaUrl0 && !isPdf) {
+    data.carteirinha_verso_url = saved.pointers[0];
+    return askCardNumber(supabase, phone, data, `Verso recebido! ✅${saved.note}`);
+  }
+
+  // 9d. Etapa: Número do cartão do plano (texto) & Criação da Requisição de Validação
+  if (currentStep === "awaiting_card_number") {
+    // Só o número importa: aceita "0 123 456789 00-1" mas exige um mínimo de
+    // caracteres alfanuméricos (carteirinhas variam de 8 a 20 dígitos/letras).
+    const cardNumber = rawBody.replace(/[^A-Za-z0-9]/g, "");
+    if (cardNumber.length < 6) {
       return {
         handled: true,
-        replyMessage: "Arquivo não identificado. Por favor, envie a foto ou PDF do verso da Carteirinha do Plano.",
+        replyMessage: "Não consegui identificar o número. Digite o *número do cartão* (número da carteirinha) do plano, exatamente como está impresso:",
       };
     }
 
-    const mediaUrl = params.mediaUrl0 || "";
-    const carteirinhaUrl = await uploadTwilioMediaToStorage(mediaUrl, `carteirinha_verso_${phone}.pdf`);
-    data.carteirinha_verso_url = carteirinhaUrl || mediaUrl;
-
+    data.card_number = cardNumber;
     return finalizeAnamnesisRequest(supabase, phone, data);
   }
 
   // 10. Etapa: Aguardando Aprovação do Supervisor
   if (currentStep === "pending_supervisor") {
+    if (data.is_private !== true) {
+      return {
+        handled: true,
+        replyMessage:
+          "Olá! Sua solicitação está em análise pela supervisão. 💙\n\n" +
+          "No prazo de até *7 dias* daremos uma devolutiva sobre o processo de autorização junto ao plano, para então agendarmos a avaliação.",
+      };
+    }
     return {
       handled: true,
       replyMessage:
-        "Olá! Seus documentos (Laudo, Guia e Carteirinha) estão em análise pela supervisão. 💙\n\n" +
+        "Olá! Sua solicitação está em análise pela supervisão. 💙\n\n" +
         "Assim que validados, enviaremos os horários disponíveis por aqui!",
     };
   }

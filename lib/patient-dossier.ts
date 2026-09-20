@@ -17,7 +17,49 @@ export type DocumentRow = {
   uploadedAt: string;
   validUntil: string | null;
   sharedWithFamily: boolean;
+  /** Nome do arquivo como foi enviado (WhatsApp/portal); null em documentos antigos. */
+  originalName: string | null;
+  mimeType: string | null;
+  /** De onde veio o arquivo: 'whatsapp' | 'portal' | 'upload' | null (documentos antigos). */
+  source: string | null;
+  note: string | null;
 };
+
+/** Colunas de `documents` que a aba Documentos precisa — usar com `mapDocumentRows`. */
+export const DOCUMENT_ROW_COLUMNS =
+  "id, category, uploaded_at, valid_until, shared_with_family, original_name, mime_type, source, note";
+
+type DocumentDbRow = {
+  id: string;
+  category: string;
+  uploaded_at: string;
+  valid_until: string | null;
+  shared_with_family: boolean;
+  original_name: string | null;
+  mime_type: string | null;
+  source: string | null;
+  note: string | null;
+};
+
+/**
+ * Converte o resultado de `select(DOCUMENT_ROW_COLUMNS)`. Recebe `unknown`
+ * porque lib/database.types.ts ainda não conhece `original_name`/`mime_type`/
+ * `source` (colunas adicionadas depois da última geração dos tipos) — o
+ * select tipado por string literal viraria SelectQueryError.
+ */
+export function mapDocumentRows(raw: unknown): DocumentRow[] {
+  return ((raw ?? []) as DocumentDbRow[]).map((d) => ({
+    id: d.id,
+    category: d.category,
+    uploadedAt: d.uploaded_at,
+    validUntil: d.valid_until,
+    sharedWithFamily: d.shared_with_family,
+    originalName: d.original_name,
+    mimeType: d.mime_type,
+    source: d.source,
+    note: d.note,
+  }));
+}
 
 export type UpcomingAppointment = {
   id: string;
@@ -85,7 +127,7 @@ export async function getPatientDossier(
       .is("revoked_at", null),
     supabase
       .from("documents")
-      .select("id, category, uploaded_at, valid_until, shared_with_family")
+      .select(DOCUMENT_ROW_COLUMNS)
       .eq("patient_id", patientId)
       .order("uploaded_at", { ascending: false }),
     supabase
@@ -154,13 +196,7 @@ export async function getPatientDossier(
     appointmentId: n.appointment_id,
   }));
 
-  const documents: DocumentRow[] = (documentsRaw ?? []).map((d) => ({
-    id: d.id,
-    category: d.category,
-    uploadedAt: d.uploaded_at,
-    validUntil: d.valid_until,
-    sharedWithFamily: d.shared_with_family,
-  }));
+  const documents: DocumentRow[] = mapDocumentRows(documentsRaw);
 
   const teamText = (teamAccess ?? []).map((t) => {
     const profile = Array.isArray(t.profiles) ? t.profiles[0] : t.profiles;

@@ -9,7 +9,7 @@
 // lib/document-extraction.ts: inlineData + responseMimeType "application/
 // json", temperature baixa, parse defensivo, "sem fallback fabricado" — uma
 // falha de rede/parse/chave ausente devolve { success: false, error }.
-import { GEMINI_BASE_URL, isGeminiConfigured } from "@/lib/gemini";
+import { geminiFetch, isGeminiConfigured } from "@/lib/gemini";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
@@ -140,11 +140,7 @@ export async function extractLaudoDocument(
   };
 
   try {
-    const url = `${GEMINI_BASE_URL}?key=${apiKey.trim()}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    const res = await geminiFetch("extracao_laudo", payload, {
       signal: AbortSignal.timeout(opts?.timeoutMs ?? 45_000),
     });
 

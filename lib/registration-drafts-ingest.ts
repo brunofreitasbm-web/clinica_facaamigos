@@ -3,8 +3,10 @@
 // portal da família) que alimentam a mesma fila de rascunhos
 // (`registration_drafts`/`registration_draft_files`). Este módulo só baixa e
 // guarda arquivos — a extração de verdade (chamada ao Gemini) acontece
-// depois, via cron (lib/registration-drafts-process.ts), pra não segurar a
-// resposta do webhook do Twilio além dos ~15s que a Twilio tolera.
+// depois (lib/registration-drafts-process.ts) — em segundo plano logo após o
+// webhook responder (lib/whatsapp-cold-media.ts) e, como rede de segurança,
+// pelo cron — pra não segurar a resposta do webhook além dos ~15s que a Twilio
+// tolera.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatE164Phone, resolvePatientFromPhone } from "@/lib/twilio";
@@ -41,11 +43,8 @@ export function extensionFor(mime: string): string {
 
 /**
  * Baixa uma mídia do Twilio (URL temporária, exige Basic Auth com as
- * credenciais da conta) — mesmo mecanismo de
- * lib/twilio-anamnesis-bot.ts:uploadTwilioMediaToStorage, mas devolvendo o
- * buffer em memória em vez de já subir pro Storage (aqui o destino é sempre
- * o bucket privado `clinic-documents`, nunca o `patient-documents` público
- * usado por aquele fluxo).
+ * credenciais da conta), devolvendo o buffer em memória — quem chama decide
+ * o destino (sempre o bucket privado `clinic-documents`).
  */
 export async function downloadTwilioMedia(url: string, contentTypeHint?: string): Promise<{ buffer: Buffer; mime: string } | null> {
   try {
@@ -109,7 +108,14 @@ async function findOpenDraft(
   return { id: data.id, files_count: filesCount };
 }
 
-export type WhatsappIngestResult = { replyMessage: string };
+export type WhatsappIngestResult = {
+  replyMessage: string;
+  /** Rascunho que recebeu os arquivos (null quando nada foi salvo). */
+  draftId?: string | null;
+  /** `last_file_at` gravado nesta remessa — quem dispara a extração usa para saber se chegou arquivo mais novo. */
+  lastFileAt?: string | null;
+  savedCount?: number;
+};
 
 /**
  * Recebe as mídias de uma mensagem do WhatsApp, baixa cada uma e anexa (ou
@@ -153,6 +159,7 @@ export async function ingestWhatsappMedia(params: {
 
   if (existingFileCount >= MAX_FILES_PER_DRAFT) {
     return {
+      draftId,
       replyMessage:
         "Já recebemos documentos suficientes nesta conversa. 🙏 A recepção vai conferir tudo em breve — se precisar enviar mais algum, aguarde a confirmação do cadastro.",
     };
@@ -211,10 +218,11 @@ export async function ingestWhatsappMedia(params: {
   }
 
   const guardianNote = (params.body || "").trim();
+  const lastFileAt = new Date().toISOString();
   await admin
     .from("registration_drafts")
     .update({
-      last_file_at: new Date().toISOString(),
+      last_file_at: lastFileAt,
       status: "pending",
       attempts: 0,
       extracted: null,
@@ -225,14 +233,19 @@ export async function ingestWhatsappMedia(params: {
   const totalFiles = existingFileCount + savedCount;
   if (existingFileCount === 0) {
     const base =
-      "Documento recebido! 📄 Pode enviar os demais (RG, CPF, comprovante, carteirinha, guia e laudo) por aqui. Avisaremos assim que conferido.";
+      "Documento recebido! 📄 Pode enviar os demais (RG, CPF, comprovante, laudo e carteirinha do plano com o número do cartão) por aqui — a guia autorizada é opcional. Avisaremos assim que conferido.";
     const knownPatientNote = resolved
       ? ""
       : "\n\nSe puder, envie também o *nome da criança* e o *seu nome*.";
-    return { replyMessage: `${base}${knownPatientNote}` };
+    return { replyMessage: `${base}${knownPatientNote}`, draftId, lastFileAt, savedCount };
   }
 
-  return { replyMessage: `Recebido! (*${totalFiles} documentos* no total). 👍 Quando terminar, é só aguardar a nossa confirmação!` };
+  return {
+    replyMessage: `Recebido! (*${totalFiles} documentos* no total). 👍 Quando terminar, é só aguardar a nossa confirmação!`,
+    draftId,
+    lastFileAt,
+    savedCount,
+  };
 }
 
 /**

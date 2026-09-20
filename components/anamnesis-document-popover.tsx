@@ -102,7 +102,7 @@ export function AnamnesisDocumentPopover({
           <div className="grid grid-cols-1 gap-2 border-t border-paper-line pt-2.5">
             {request.laudo_pdf_url ? (
               <a
-                href={request.laudo_pdf_url}
+                href={`/api/arquivos/anamnese/${request.id}/laudo`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -121,7 +121,7 @@ export function AnamnesisDocumentPopover({
             )}
             {request.guia_pdf_url ? (
               <a
-                href={request.guia_pdf_url}
+                href={`/api/arquivos/anamnese/${request.id}/guia`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -135,12 +135,12 @@ export function AnamnesisDocumentPopover({
             ) : (
               <div className="flex items-center gap-2 rounded-md border border-paper-line px-2.5 py-2 text-xs text-ink-faint">
                 <FileText className="h-4 w-4 shrink-0" />
-                <span>Sem guia</span>
+                <span>Sem guia (autorizar na clínica)</span>
               </div>
             )}
             {request.carteirinha_frente_url ? (
               <a
-                href={request.carteirinha_frente_url}
+                href={`/api/arquivos/anamnese/${request.id}/carteirinha_frente`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -159,7 +159,7 @@ export function AnamnesisDocumentPopover({
             )}
             {request.carteirinha_verso_url && request.carteirinha_verso_url !== request.carteirinha_frente_url ? (
               <a
-                href={request.carteirinha_verso_url}
+                href={`/api/arquivos/anamnese/${request.id}/carteirinha_verso`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -172,6 +172,18 @@ export function AnamnesisDocumentPopover({
               </a>
             ) : null}
           </div>
+          {request.is_private ? (
+            <p className="text-xs font-medium text-ink-soft">Atendimento particular — sem laudo, guia ou carteirinha.</p>
+          ) : (
+            <p className="text-xs text-ink-soft">
+              Nº do cartão:{" "}
+              {request.card_number ? (
+                <span className="font-mono text-ink">{request.card_number}</span>
+              ) : (
+                <span className="text-ink-faint">não informado</span>
+              )}
+            </p>
+          )}
 
           {error && <p className="text-xs text-status-negative-text">{error}</p>}
 

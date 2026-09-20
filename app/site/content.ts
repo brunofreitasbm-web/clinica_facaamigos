@@ -29,11 +29,11 @@ export const CONTATO = {
   whatsappE164: "5591991782027",
   whatsappVisivel: "(91) 99178-2027",
   telefoneVisivel: "(91) 99178-2027",
-  email: "contato@clinicafacaamigos.com.br",
+  email: "institutofacaamigos@gmail.com",
   endereco: {
     linha1: "Rua Boaventura da Silva, 1573",
     linha2: "Umarizal — Belém/PA",
-    cep: "66060-060",
+    cep: "66060-147",
   },
   // Horário real de funcionamento da clínica.
   horario: [
@@ -41,11 +41,11 @@ export const CONTATO = {
     { dias: "Sábado", horas: "08h às 12h" },
   ],
   redes: [
-    { nome: "Instagram", url: "https://www.instagram.com/facaamigos" },
+    { nome: "Instagram", url: "https://www.instagram.com/facaamigos.belem" },
     { nome: "Playground Inclusivo", url: "https://institutofacaamigos.com.br/" },
   ],
   /** Usado no <iframe> do mapa no rodapé. */
-  mapaBusca: "Rua Boaventura da Silva, 1573, Umarizal, Belém, PA, 66060-060",
+  mapaBusca: "Rua Boaventura da Silva, 1573, Umarizal, Belém, PA, 66060-147",
 };
 
 /**
