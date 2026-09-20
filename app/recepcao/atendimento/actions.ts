@@ -1,7 +1,9 @@
-"use server";
-
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { DEV_CLINIC_ID } from "@/lib/constants";
+import { downloadTwilioMedia, extensionFor } from "@/lib/registration-drafts-ingest";
 import { sendTwilioWhatsApp } from "@/lib/twilio";
 import { createInteressadoAction, type CreateInteressadoInput } from "../actions";
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
@@ -218,11 +220,203 @@ export async function saveConversationNote(conversationId: string, note: string)
 }
 
 /**
+ * Transfere todos os arquivos (PDFs e imagens) enviados pelo responsável na conversa,
+ * rascunhos de cadastro e acolhimentos para a tabela `documents` (Prontuário do Paciente).
+ */
+export async function transferConversationMediaToPatientDocuments(
+  conversationId: string,
+  patientId: string,
+  actorId?: string | null,
+) {
+  try {
+    const admin = createAdminClient();
+
+    // 1. Telefone da conversa
+    const { data: conversation } = await admin
+      .from("twilio_conversations")
+      .select("phone_number")
+      .eq("id", conversationId)
+      .maybeSingle();
+
+    const rawPhone = conversation?.phone_number || "";
+
+    // 2. Transfere mídias das mensagens da conversa
+    const { data: messages } = await admin
+      .from("messages")
+      .select("id, body, media_url, sent_at")
+      .eq("conversation_id", conversationId)
+      .not("media_url", "is", null);
+
+    for (const msg of messages ?? []) {
+      if (!msg.media_url) continue;
+      const mediaUrls = msg.media_url.split(/[\s,]+/).filter(Boolean);
+
+      for (const url of mediaUrls) {
+        try {
+          if (url.startsWith("http://") || url.startsWith("https://")) {
+            const downloaded = await downloadTwilioMedia(url);
+            if (downloaded) {
+              const docId = randomUUID();
+              const ext = extensionFor(downloaded.mime);
+              const fileName = `whatsapp_${msg.id}_${Date.now()}.${ext}`;
+              const storagePath = `${patientId}/${docId}/${fileName}`;
+
+              const { error: uploadErr } = await admin.storage
+                .from("clinic-documents")
+                .upload(storagePath, downloaded.buffer, {
+                  contentType: downloaded.mime,
+                  upsert: false,
+                });
+
+              if (!uploadErr) {
+                const bodyLower = (msg.body || "").toLowerCase();
+                let category = "outro";
+                if (bodyLower.includes("laudo") || bodyLower.includes("diagnostico") || bodyLower.includes("relatorio")) category = "laudo";
+                else if (bodyLower.includes("pedido") || bodyLower.includes("encaminhamento") || bodyLower.includes("medico")) category = "pedido_medico";
+                else if (bodyLower.includes("carteirinha") || bodyLower.includes("cartao") || bodyLower.includes("plano")) category = "carteirinha";
+                else if (bodyLower.includes("termo") || bodyLower.includes("lgpd")) category = "termo";
+                else if (downloaded.mime === "application/pdf") category = "laudo";
+
+                await admin.from("documents").insert({
+                  id: docId,
+                  patient_id: patientId,
+                  category,
+                  storage_path: storagePath,
+                  uploaded_by: actorId || DEV_CLINIC_ID,
+                  uploaded_at: msg.sent_at || new Date().toISOString(),
+                  shared_with_family: false,
+                  note: "Anexo enviado pelo responsável no WhatsApp",
+                });
+              }
+            }
+          }
+        } catch (mediaErr) {
+          console.error("Erro ao transferir mídia da mensagem:", mediaErr);
+        }
+      }
+    }
+
+    // 3. Rascunhos de cadastro (registration_draft_files)
+    if (rawPhone) {
+      const cleanPhone = rawPhone.replace("whatsapp:", "").replace(/\D/g, "");
+      const last8 = cleanPhone.slice(-8);
+
+      if (last8.length >= 8) {
+        const { data: drafts } = await admin
+          .from("registration_drafts")
+          .select("id")
+          .or(`source_phone.ilike.%${last8}%,patient_id.eq.${patientId}`);
+
+        const draftIds = (drafts ?? []).map((d) => d.id);
+        if (draftIds.length > 0) {
+          const { data: draftFiles } = await admin
+            .from("registration_draft_files")
+            .select("id, storage_path, mime_type, detected_type, document_id")
+            .in("draft_id", draftIds);
+
+          for (const file of draftFiles ?? []) {
+            if (file.document_id) continue;
+
+            const docId = randomUUID();
+            const baseName = file.storage_path.split("/").pop() ?? `draft_${Date.now()}`;
+            const destPath = `${patientId}/${docId}/${baseName}`;
+
+            const { error: copyErr } = await admin.storage
+              .from("clinic-documents")
+              .copy(file.storage_path, destPath);
+
+            if (!copyErr) {
+              const category = file.detected_type || (file.mime_type === "application/pdf" ? "laudo" : "outro");
+              const { error: insertErr } = await admin.from("documents").insert({
+                id: docId,
+                patient_id: patientId,
+                category,
+                storage_path: destPath,
+                uploaded_by: actorId || DEV_CLINIC_ID,
+                shared_with_family: false,
+                note: "Enviado no rascunho de cadastro assistido por IA",
+              });
+
+              if (!insertErr) {
+                await admin
+                  .from("registration_draft_files")
+                  .update({ document_id: docId })
+                  .eq("id", file.id);
+              }
+            }
+          }
+
+          await admin
+            .from("registration_drafts")
+            .update({ status: "validated", patient_id: patientId })
+            .in("id", draftIds);
+        }
+      }
+    }
+
+    // 4. Arquivos do Acolhimento de Plano de Saúde (insurance_intake_lead_files)
+    if (rawPhone) {
+      const cleanPhone = rawPhone.replace("whatsapp:", "").replace(/\D/g, "");
+      const last8 = cleanPhone.slice(-8);
+
+      if (last8.length >= 8) {
+        const { data: intakeLeads } = await admin
+          .from("insurance_intake_leads")
+          .select("id")
+          .or(`phone_e164.ilike.%${last8}%,patient_id.eq.${patientId}`);
+
+        const leadIds = (intakeLeads ?? []).map((l) => l.id);
+        if (leadIds.length > 0) {
+          const { data: intakeFiles } = await admin
+            .from("insurance_intake_lead_files")
+            .select("id, storage_path, file_type, document_id")
+            .in("lead_id", leadIds);
+
+          for (const file of intakeFiles ?? []) {
+            if (file.document_id) continue;
+
+            const docId = randomUUID();
+            const baseName = file.storage_path.split("/").pop() ?? `intake_${Date.now()}`;
+            const destPath = `${patientId}/${docId}/${baseName}`;
+
+            const { error: copyErr } = await admin.storage
+              .from("clinic-documents")
+              .copy(file.storage_path, destPath);
+
+            if (!copyErr) {
+              const category = file.file_type || "laudo";
+              const { error: insertErr } = await admin.from("documents").insert({
+                id: docId,
+                patient_id: patientId,
+                category,
+                storage_path: destPath,
+                uploaded_by: actorId || DEV_CLINIC_ID,
+                shared_with_family: false,
+                note: "Enviado no acolhimento de plano de saúde",
+              });
+
+              if (!insertErr) {
+                await admin
+                  .from("insurance_intake_lead_files")
+                  .update({ document_id: docId })
+                  .eq("id", file.id);
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Exceção ao transferir mídias da conversa para o prontuário do paciente:", err);
+  }
+}
+
+/**
  * Cadastro rápido de interessado a partir de uma conversa de lead. Diferente
  * de cadastrar pela home da recepção, aqui a conversa é vinculada na hora —
  * o webhook só promoveria o lead na PRÓXIMA mensagem que o contato mandasse.
  * As mensagens já trocadas também ganham o patient_id, para aparecerem no
- * histórico do paciente.
+ * histórico do paciente, e todos os PDFs/imagens enviados são copiados para o prontuário.
  */
 export async function registerLeadAsInteressado(conversationId: string, input: CreateInteressadoInput) {
   const result = await createInteressadoAction(input);
@@ -231,6 +425,10 @@ export async function registerLeadAsInteressado(conversationId: string, input: C
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { data: guardian } = await supabase
     .from("guardians")
     .select("id, full_name")
@@ -261,7 +459,11 @@ export async function registerLeadAsInteressado(conversationId: string, input: C
     .eq("conversation_id", conversationId)
     .is("patient_id", null);
 
+  // Transfere todos os arquivos da conversa (PDFs/imagens) para a tabela `documents` (Prontuário do Paciente)
+  await transferConversationMediaToPatientDocuments(conversationId, result.patientId, user?.id ?? null);
+
   revalidatePath("/recepcao/atendimento");
+  revalidatePath(`/recepcao/pacientes/${result.patientId}`);
   return {
     success: true as const,
     patientId: result.patientId,

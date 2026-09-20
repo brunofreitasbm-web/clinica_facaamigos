@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createInteressadoAction } from "./actions";
-import { extractLeadInfoFromChat } from "./atendimento/actions";
+import { extractLeadInfoFromChat, registerLeadAsInteressado } from "./atendimento/actions";
 import { Sparkles, Loader2 } from "lucide-react";
 
 export function InteressadoRapidoDialog({
@@ -70,7 +70,7 @@ export function InteressadoRapidoDialog({
     setLoading(true);
     setError(null);
 
-    const res = await createInteressadoAction({
+    const input = {
       fullName,
       birthDate,
       guardianName,
@@ -78,7 +78,11 @@ export function InteressadoRapidoDialog({
       guardianRelationship,
       origin,
       chiefComplaint: chiefComplaint || undefined,
-    });
+    };
+
+    const res = conversationId
+      ? await registerLeadAsInteressado(conversationId, input)
+      : await createInteressadoAction(input);
 
     setLoading(false);
 

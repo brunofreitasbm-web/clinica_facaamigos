@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Check, Copy, Pencil, Sparkles, Loader2 } from "lucide-react";
 import { registerLeadAsInteressado, updateConversationContactName, extractLeadInfoFromChat } from "./actions";
@@ -77,9 +77,16 @@ export function LeadContextPanel({
     }
   }, [conversation.id, conversation.contactName]);
 
+  // Pré-extrai automaticamente os dados da conversa assim que a conversa é selecionada
+  useEffect(() => {
+    handleExtractFromChat();
+  }, [conversation.id, handleExtractFromChat]);
+
   const handleOpenForm = () => {
     setShowForm(true);
-    handleExtractFromChat();
+    if (!extractionDone && !isExtracting) {
+      handleExtractFromChat();
+    }
   };
 
   const saveName = () => {
