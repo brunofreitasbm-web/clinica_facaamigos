@@ -42,6 +42,12 @@ export type PendingQueueItem = {
   /** Só preenchido em cadastro_assistido_ia — id do registration_drafts pra abrir a tela de validação. */
   draftId?: string;
   /**
+   * Só preenchido em cadastro_assistido_ia — arquivos, dados extraídos e
+   * últimas mensagens da conversa, pra fila resolver o contato sem abrir o
+   * módulo de Atendimento.
+   */
+  draft?: PendingRegistrationDraft;
+  /**
    * Dono + prazo (pending_queue_assignments) — preenchido por
    * attachQueueAssignments logo abaixo, depois que todas as categorias já
    * empurraram seus itens em `items`. Opcionais aqui de propósito: cada
@@ -104,7 +110,7 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   remarcacao_solicitada: "Pedido de remarcação",
   documento_familia_novo: "Documento enviado pela família",
   renovacao_solicitada: "Renovação de guia solicitada",
-  cadastro_assistido_ia: "Documentos para conferir (IA)",
+  cadastro_assistido_ia: "Contatos com documentos recebidos",
   chegada_nao_confirmada: "Chegada aguardando confirmação",
 };
 
@@ -478,38 +484,202 @@ async function getAuthorizationRenewalRequests(supabase: Supa, clinicId: string)
   return result;
 }
 
+export type PendingDraftFile = {
+  id: string;
+  name: string;
+  mimeType: string;
+  /** Tipo de documento que a IA reconheceu (carteirinha, laudo…), quando reconheceu. */
+  detectedType: string | null;
+};
+
+/** Par rótulo/valor já pronto pra exibição — a fila não devolve o JSON cru da extração. */
+export type PendingDraftFact = { label: string; value: string };
+
+export type PendingDraftMessage = {
+  direction: "inbound" | "outbound";
+  body: string;
+  sentAt: string;
+  hasMedia: boolean;
+};
+
 export type PendingRegistrationDraft = {
   id: string;
   patientId: string | null;
   patientName: string | null;
   sourcePhone: string | null;
-  status: "extracted" | "failed";
+  source: "whatsapp" | "portal";
+  status: "pending" | "processing" | "extracted" | "failed";
   createdAt: string;
+  /** Texto que veio junto com os arquivos (legenda da mídia no WhatsApp / observação do portal). */
+  guardianMessage: string | null;
+  files: PendingDraftFile[];
+  facts: PendingDraftFact[];
+  warnings: string[];
+  error: string | null;
+  /** Últimas mensagens da conversa de WhatsApp do mesmo telefone. */
+  messages: PendingDraftMessage[];
 };
+
+const DRAFT_FACT_LABELS: { section: string; field: string; label: string }[] = [
+  { section: "patient", field: "full_name", label: "Criança" },
+  { section: "patient", field: "birth_date", label: "Nascimento" },
+  { section: "patient", field: "cpf", label: "CPF da criança" },
+  { section: "patient", field: "cid", label: "CID" },
+  { section: "patient", field: "complaint_hint", label: "Queixa" },
+  { section: "guardian", field: "full_name", label: "Responsável" },
+  { section: "guardian", field: "relationship", label: "Vínculo" },
+  { section: "guardian", field: "phone", label: "Telefone" },
+  { section: "guardian", field: "email", label: "E-mail" },
+  { section: "guardian", field: "cpf", label: "CPF do responsável" },
+  { section: "insurance", field: "insurer_name", label: "Plano de saúde" },
+  { section: "insurance", field: "card_number", label: "Carteirinha" },
+  { section: "insurance", field: "plan_name", label: "Plano" },
+  { section: "authorization", field: "guide_number", label: "Guia" },
+  { section: "authorization", field: "sessions_authorized", label: "Sessões autorizadas" },
+  { section: "authorization", field: "valid_to", label: "Guia válida até" },
+];
+
+/**
+ * Achata o JSON da extração nos pares que a recepção precisa ler de relance,
+ * pulando o que veio vazio. Só leitura — a edição continua na tela de
+ * validação do rascunho.
+ */
+function draftFacts(extracted: unknown): PendingDraftFact[] {
+  if (!extracted || typeof extracted !== "object") return [];
+  const root = extracted as Record<string, unknown>;
+  const facts: PendingDraftFact[] = [];
+  for (const { section, field, label } of DRAFT_FACT_LABELS) {
+    const block = root[section];
+    if (!block || typeof block !== "object") continue;
+    const raw = (block as Record<string, unknown>)[field];
+    if (raw === null || raw === undefined || raw === "") continue;
+    facts.push({ label, value: String(raw) });
+  }
+  return facts;
+}
+
+/**
+ * Resumo de uma linha do item na fila. Sempre começa pelo que já está em mãos
+ * (arquivos e dados), nunca por "aguardando IA": o estado da extração é um
+ * detalhe no fim, porque o trabalho da recepção não depende dela.
+ */
+function draftDetail(d: PendingRegistrationDraft): string {
+  const parts: string[] = [];
+  parts.push(d.source === "whatsapp" ? "WhatsApp" : "Portal da família");
+  if (d.sourcePhone) parts.push(d.sourcePhone);
+  parts.push(`${d.files.length} arquivo(s)`);
+  if (d.facts.length > 0) parts.push(`${d.facts.length} dado(s) já lidos`);
+  if (d.status === "failed") parts.push("leitura automática falhou — conferir manualmente");
+  else if (d.status === "pending" || d.status === "processing") parts.push("leitura automática em andamento");
+  return parts.join(" · ");
+}
+
+/** Quantas mensagens da conversa acompanham cada rascunho na fila. */
+const DRAFT_TRANSCRIPT_LIMIT = 12;
+
+/**
+ * Últimas mensagens trocadas com cada telefone que mandou rascunho, pra fila
+ * de pendências mostrar o contexto da conversa sem obrigar a recepção a abrir
+ * o módulo de Atendimento. Uma consulta por tabela (conversas, mensagens) —
+ * não uma por rascunho.
+ */
+async function getDraftConversationMessages(
+  supabase: Supa,
+  phones: string[],
+): Promise<Map<string, PendingDraftMessage[]>> {
+  const byPhone = new Map<string, PendingDraftMessage[]>();
+  if (phones.length === 0) return byPhone;
+
+  const { data: conversations } = await supabase
+    .from("twilio_conversations")
+    .select("id, phone_number")
+    .in("phone_number", phones);
+  if (!conversations || conversations.length === 0) return byPhone;
+
+  const phoneByConversation = new Map(conversations.map((c) => [c.id, c.phone_number]));
+
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("conversation_id, direction, body, media_url, sent_at")
+    .in("conversation_id", [...phoneByConversation.keys()])
+    .order("sent_at", { ascending: false })
+    .limit(DRAFT_TRANSCRIPT_LIMIT * phoneByConversation.size);
+
+  for (const m of messages ?? []) {
+    // sent_at é nullable no schema; sem data a mensagem não tem como ser
+    // situada na conversa, então fica de fora.
+    if (!m.conversation_id || !m.sent_at) continue;
+    const phone = phoneByConversation.get(m.conversation_id);
+    if (!phone) continue;
+    const list = byPhone.get(phone) ?? [];
+    byPhone.set(phone, list);
+    // Vem em ordem decrescente: empilha até o teto e inverte no fim.
+    if (list.length >= DRAFT_TRANSCRIPT_LIMIT) continue;
+    list.push({
+      direction: m.direction === "inbound" ? "inbound" : "outbound",
+      body: m.body ?? "",
+      sentAt: m.sent_at,
+      hasMedia: Boolean(m.media_url),
+    });
+  }
+
+  for (const list of byPhone.values()) list.reverse();
+  return byPhone;
+}
 
 /**
  * Rascunhos do "cadastro assistido por IA" (registration_drafts,
- * 20260907000001) já extraídos (ou com falha de extração) esperando a
- * recepção conferir/confirmar. 'pending'/'processing' ficam de fora — ainda
- * não há nada pra humano revisar enquanto a IA está lendo.
+ * 20260907000001) ainda não validados nem rejeitados — inclusive os que a IA
+ * ainda não leu (pending/processing) e os que ela não conseguiu ler (failed).
+ * A extração automática é só um acelerador: o que a família mandou (arquivos,
+ * legenda e a conversa do WhatsApp) já basta pra recepção trabalhar o
+ * contato, então o item entra na fila desde o primeiro arquivo, sem esperar
+ * a IA.
  */
 async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): Promise<PendingRegistrationDraft[]> {
   const { data } = await supabase
     .from("registration_drafts")
-    .select("id, patient_id, source_phone, status, created_at, patients(full_name)")
+    .select(
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, patients(full_name), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+    )
     .eq("clinic_id", clinicId)
-    .in("status", ["extracted", "failed"])
+    .in("status", ["pending", "processing", "extracted", "failed"])
     .order("created_at", { ascending: true });
 
-  return (data ?? []).map((d) => {
+  const rows = data ?? [];
+  const phones = [...new Set(rows.map((d) => d.source_phone).filter((p): p is string => Boolean(p)))];
+  const messagesByPhone = await getDraftConversationMessages(supabase, phones);
+
+  return rows.map((d) => {
     const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;
+    const files = (d.registration_draft_files ?? []) as {
+      id: string;
+      original_name: string | null;
+      mime_type: string;
+      detected_type: string | null;
+      created_at: string;
+    }[];
     return {
       id: d.id,
       patientId: d.patient_id,
       patientName: patient?.full_name ?? null,
       sourcePhone: d.source_phone,
-      status: d.status as "extracted" | "failed",
+      source: d.source as "whatsapp" | "portal",
+      status: d.status as PendingRegistrationDraft["status"],
       createdAt: d.created_at,
+      guardianMessage: d.guardian_message,
+      files: [...files]
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .map((f) => ({
+          id: f.id,
+          name: f.original_name ?? "arquivo",
+          mimeType: f.mime_type,
+          detectedType: f.detected_type,
+        })),
+      facts: draftFacts(d.extracted),
+      warnings: d.warnings ?? [],
+      error: d.error,
+      messages: (d.source_phone ? messagesByPhone.get(d.source_phone) : undefined) ?? [],
     };
   });
 }
@@ -823,10 +993,11 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       categoryLabel: CATEGORY_LABEL.cadastro_assistido_ia,
       patientId: d.patientId,
       patientName: d.patientName ?? `Pré-cadastro · ${d.sourcePhone ?? "número novo"}`,
-      detail: d.status === "failed" ? "Extração falhou — reprocessar ou preencher manualmente" : "Pronto para conferir",
+      detail: draftDetail(d),
       urgencyLabel: new Date(d.createdAt).toLocaleDateString("pt-BR"),
       href: `/recepcao/pre-cadastros/${d.id}`,
       draftId: d.id,
+      draft: d,
     });
   }
 

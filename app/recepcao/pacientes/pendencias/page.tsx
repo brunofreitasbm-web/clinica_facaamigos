@@ -11,11 +11,16 @@ import { ResolveRenewalRequestButton } from "./resolve-renewal-request-button";
 import { ReassignOwnerButton } from "./reassign-owner-button";
 import { resolveRescheduleRequest, reviewFamilyDocument } from "./actions";
 import { AutorizacaoWizard } from "./autorizacao-wizard";
+import { DraftIntakeCard } from "./draft-intake-card";
 import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
 
 const CATEGORY_ORDER: PendingQueueCategory[] = [
+  // Primeiro da fila de propósito: é o que chega pelo WhatsApp fora do
+  // expediente e é o ponto de partida de quem abre a clínica (20/09/2026,
+  // quando a aba "Cadastro IA" foi retirada da navegação da recepção).
+  "cadastro_assistido_ia",
   "guia_vencendo",
   "guia_poucas_sessoes",
   "cadastro_incompleto",
@@ -57,7 +62,7 @@ export default async function PendenciasPage() {
       <PageHeader
         axisLabel="Recepção"
         title="Fila de pendências"
-        description="Guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
+        description="Ponto de partida do expediente: contatos que mandaram documentos pelo WhatsApp ou pelo portal (com os arquivos, os dados já recebidos e a conversa aqui mesmo), guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
       />
       <PageContainer className="gap-8">
         <AutorizacaoWizard initialItems={authorizations} />
@@ -78,84 +83,89 @@ export default async function PendenciasPage() {
                   return (
                     <div
                       key={item.id}
-                      className={`flex items-center justify-between gap-3 rounded-md border px-4 py-3 text-sm ${
+                      className={`rounded-md border px-4 py-3 text-sm ${
                         isEscalated
                           ? "border-status-negative-text bg-status-negative-text/5"
                           : "border-paper-line-strong bg-paper/60"
                       }`}
                     >
-                      {item.patientId ? (
-                        <Link href={item.href} className="min-w-0 flex-1 no-underline">
-                          <p className="font-medium text-ink">{item.patientName}</p>
-                          <p className="text-ink-faint">{item.detail}</p>
-                        </Link>
-                      ) : (
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-ink">{item.patientName}</p>
-                          <p className="text-ink-faint">{item.detail}</p>
-                        </div>
-                      )}
-                      <div className="flex flex-col items-end gap-1">
-                        {category === "interessado_sem_retorno" && item.patientId ? (
-                          <RegisterContactButton patientId={item.patientId} />
-                        ) : category === "falta_sem_motivo" && item.appointmentId ? (
-                          <ResolveAutoFaltaButton appointmentId={item.appointmentId} />
-                        ) : category === "remarcacao_solicitada" && item.rescheduleRequestId ? (
-                          <ResolveSimpleButton
-                            id={item.rescheduleRequestId}
-                            label="Marcar como concluído"
-                            doneLabel="Concluído"
-                            action={resolveRescheduleRequest}
-                          />
-                        ) : category === "documento_familia_novo" && item.documentId ? (
-                          <ResolveSimpleButton
-                            id={item.documentId}
-                            label="Marcar como revisado"
-                            doneLabel="Revisado"
-                            action={reviewFamilyDocument}
-                          />
-                        ) : category === "renovacao_solicitada" && item.renewalRequestId ? (
-                          <ResolveRenewalRequestButton requestId={item.renewalRequestId} />
+                      <div className="flex items-center justify-between gap-3">
+                        {item.patientId ? (
+                          <Link href={item.href} className="min-w-0 flex-1 no-underline">
+                            <p className="font-medium text-ink">{item.patientName}</p>
+                            <p className="text-ink-faint">{item.detail}</p>
+                          </Link>
                         ) : (
-                          <span className="tabular-figure whitespace-nowrap text-status-negative-text">
-                            {item.urgencyLabel}
-                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-ink">{item.patientName}</p>
+                            <p className="text-ink-faint">{item.detail}</p>
+                          </div>
                         )}
-                        {/* Dono + prazo (§9.1) — attachQueueAssignments em lib/reception-queue.ts
-                            garante que todo item chega aqui com assignment (ou null durante uma
-                            corrida rara entre duas cargas concorrentes da fila). */}
-                        <p className="whitespace-nowrap text-[11px] text-ink-faint">
-                          {item.assignedToName ?? "Sem dono"}
-                          {item.dueAt && (
-                            <>
-                              {" · "}
-                              {isEscalated ? (
-                                <span className="font-semibold text-status-negative-text">
-                                  escalado{" "}
-                                  {fmtDateTime(item.escalatedAt as string, CLINIC_TIMEZONE)}
-                                </span>
-                              ) : item.overdue ? (
-                                <span className="font-semibold text-status-negative-text">
-                                  atrasado desde{" "}
-                                  {fmtDateTime(item.dueAt, CLINIC_TIMEZONE)}
-                                </span>
-                              ) : (
-                                <>
-                                  prazo{" "}
-                                  {fmtDateTime(item.dueAt, CLINIC_TIMEZONE)}
-                                </>
-                              )}
-                            </>
+                        <div className="flex flex-col items-end gap-1">
+                          {category === "interessado_sem_retorno" && item.patientId ? (
+                            <RegisterContactButton patientId={item.patientId} />
+                          ) : category === "falta_sem_motivo" && item.appointmentId ? (
+                            <ResolveAutoFaltaButton appointmentId={item.appointmentId} />
+                          ) : category === "remarcacao_solicitada" && item.rescheduleRequestId ? (
+                            <ResolveSimpleButton
+                              id={item.rescheduleRequestId}
+                              label="Marcar como concluído"
+                              doneLabel="Concluído"
+                              action={resolveRescheduleRequest}
+                            />
+                          ) : category === "documento_familia_novo" && item.documentId ? (
+                            <ResolveSimpleButton
+                              id={item.documentId}
+                              label="Marcar como revisado"
+                              doneLabel="Revisado"
+                              action={reviewFamilyDocument}
+                            />
+                          ) : category === "renovacao_solicitada" && item.renewalRequestId ? (
+                            <ResolveRenewalRequestButton requestId={item.renewalRequestId} />
+                          ) : (
+                            <span className="tabular-figure whitespace-nowrap text-status-negative-text">
+                              {item.urgencyLabel}
+                            </span>
                           )}
-                        </p>
-                        {reassignCandidates && reassignCandidates.length > 0 && (
-                          <ReassignOwnerButton
-                            itemId={item.id}
-                            currentAssigneeId={item.assignedToId ?? null}
-                            candidates={reassignCandidates}
-                          />
-                        )}
+                          {/* Dono + prazo (§9.1) — attachQueueAssignments em lib/reception-queue.ts
+                              garante que todo item chega aqui com assignment (ou null durante uma
+                              corrida rara entre duas cargas concorrentes da fila). */}
+                          <p className="whitespace-nowrap text-[11px] text-ink-faint">
+                            {item.assignedToName ?? "Sem dono"}
+                            {item.dueAt && (
+                              <>
+                                {" · "}
+                                {isEscalated ? (
+                                  <span className="font-semibold text-status-negative-text">
+                                    escalado{" "}
+                                    {fmtDateTime(item.escalatedAt as string, CLINIC_TIMEZONE)}
+                                  </span>
+                                ) : item.overdue ? (
+                                  <span className="font-semibold text-status-negative-text">
+                                    atrasado desde{" "}
+                                    {fmtDateTime(item.dueAt, CLINIC_TIMEZONE)}
+                                  </span>
+                                ) : (
+                                  <>
+                                    prazo{" "}
+                                    {fmtDateTime(item.dueAt, CLINIC_TIMEZONE)}
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </p>
+                          {reassignCandidates && reassignCandidates.length > 0 && (
+                            <ReassignOwnerButton
+                              itemId={item.id}
+                              currentAssigneeId={item.assignedToId ?? null}
+                              candidates={reassignCandidates}
+                            />
+                          )}
+                        </div>
                       </div>
+                      {/* Cadastro assistido por IA: a linha resume, o cartão
+                          entrega arquivos, dados e conversa sem sair da fila. */}
+                      {item.draft && <DraftIntakeCard draft={item.draft} />}
                     </div>
                   );
                 })}
