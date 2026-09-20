@@ -15,6 +15,7 @@ type MessageRow = {
   body: string | null;
   sentAt: string | null;
   deliveryStatus: string | null;
+  mediaUrl: string | null;
 };
 
 export function ChatWindow({
@@ -38,7 +39,7 @@ export function ChatWindow({
 
     supabase
       .from("messages")
-      .select("id, sender_type, direction, body, sent_at, delivery_status")
+      .select("id, sender_type, direction, body, sent_at, delivery_status, media_url")
       .eq("conversation_id", conversation.id)
       .order("sent_at", { ascending: true })
       .then(({ data }) => {
@@ -51,6 +52,7 @@ export function ChatWindow({
             body: m.body,
             sentAt: m.sent_at,
             deliveryStatus: m.delivery_status,
+            mediaUrl: m.media_url,
           })),
         );
       });
@@ -68,6 +70,7 @@ export function ChatWindow({
             body: string | null;
             sent_at: string | null;
             delivery_status: string | null;
+            media_url: string | null;
           };
           if (!m || !m.id) return;
 
@@ -82,6 +85,7 @@ export function ChatWindow({
                 body: m.body,
                 sentAt: m.sent_at,
                 deliveryStatus: m.delivery_status,
+                mediaUrl: m.media_url,
               };
               return updated;
             }
@@ -94,6 +98,7 @@ export function ChatWindow({
                 body: m.body,
                 sentAt: m.sent_at,
                 deliveryStatus: m.delivery_status,
+                mediaUrl: m.media_url,
               },
             ];
           });

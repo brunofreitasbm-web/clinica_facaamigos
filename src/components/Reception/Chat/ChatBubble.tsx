@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, Info, RefreshCw } from "lucide-react";
+import { AlertTriangle, Info, Paperclip, RefreshCw } from "lucide-react";
 
 export interface ChatMessage {
   id: string;
@@ -10,6 +10,10 @@ export interface ChatMessage {
   body: string | null;
   sentAt: string | null;
   deliveryStatus: string | null;
+  /** URL crua do Twilio (`messages.media_url`) — nunca usada direto no href:
+   *  exige Basic Auth. Serve só de sinalizador de que a mensagem tem anexo;
+   *  quem entrega o arquivo é /api/arquivos/mensagem/[id]. */
+  mediaUrl?: string | null;
 }
 
 interface ChatBubbleProps {
@@ -51,6 +55,30 @@ function renderFormattedBody(text: string | null, isOutbound: boolean) {
   });
 }
 
+/**
+ * Anexo recebido por WhatsApp. O arquivo já está no nosso Storage (ingestão
+ * do webhook); a rota resolve a URL do Twilio para a cópia guardada e devolve
+ * 302 assinado. `<a target="_blank">` comum — sem window.open pós-await, que
+ * o navegador bloqueia como pop-up.
+ */
+function MediaAttachment({ messageId, isOutbound }: { messageId: string; isOutbound: boolean }) {
+  return (
+    <a
+      href={`/api/arquivos/mensagem/${messageId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`mt-1 mb-1.5 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium underline underline-offset-2 transition-colors focus-visible:outline-2 ${
+        isOutbound
+          ? "border-white/30 bg-white/10 text-white hover:bg-white/20 focus-visible:outline-white"
+          : "border-slate-300 bg-white text-teal-800 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-teal-300 dark:hover:bg-slate-800"
+      }`}
+    >
+      <Paperclip size={13} className="shrink-0" aria-hidden />
+      <span>Abrir anexo recebido</span>
+    </a>
+  );
+}
+
 export const ChatBubble = React.memo(function ChatBubble({
   message,
   isPending,
@@ -73,9 +101,17 @@ export const ChatBubble = React.memo(function ChatBubble({
             : "bg-slate-100 text-slate-900 border border-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
         }`}
       >
-        <p className="whitespace-pre-wrap leading-relaxed break-words">
-          {renderFormattedBody(message.body, isOutbound)}
-        </p>
+        {message.mediaUrl && <MediaAttachment messageId={message.id} isOutbound={isOutbound} />}
+
+        {message.body && message.body.trim().length > 0 ? (
+          <p className="whitespace-pre-wrap leading-relaxed break-words">
+            {renderFormattedBody(message.body, isOutbound)}
+          </p>
+        ) : (
+          // Mensagem só com anexo chegava como bolha vazia — sem nenhum
+          // indício de que a família tinha mandado arquivo.
+          !message.mediaUrl && <p className="whitespace-pre-wrap leading-relaxed break-words" />
+        )}
 
         <div
           className={`mt-1.5 flex items-center justify-between gap-2 text-[11px] ${

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition, useCallback, useEffect } from "react";
+import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Check, Copy, Pencil, Sparkles, Loader2 } from "lucide-react";
+import { Check, Copy, FileText, ImageIcon, Paperclip, Pencil, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
-import { registerLeadAsInteressado, updateConversationContactName, extractLeadInfoFromChat } from "./actions";
+import { registerLeadAsInteressado, updateConversationContactName, extractLeadInfoFromChat, type LeadDraftInfo } from "./actions";
 import { formatConversationPhone } from "./format-phone";
 import { ConversationNote } from "./conversation-note";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
@@ -17,6 +17,68 @@ const ESCALATION_LABELS: Record<string, string> = {
 };
 
 const ORIGINS = ["WhatsApp", "Instagram", "Google", "Indicação", "Plano de Saúde", "Outro"];
+
+const DOCUMENT_KIND_LABEL: Record<string, string> = {
+  laudo: "Laudo",
+  guia: "Guia",
+  carteirinha: "Carteirinha",
+  rg: "RG",
+  cpf: "CPF",
+  certidao: "Certidão",
+  comprovante_residencia: "Comprovante de residência",
+  pedido_medico: "Pedido médico",
+  outro: "Documento",
+};
+
+/**
+ * Arquivos que a família já mandou por WhatsApp para este telefone. Ficavam
+ * visíveis só em /recepcao/pre-cadastros — quem estava na conversa não tinha
+ * como abri-los nem sabia que existiam.
+ */
+function DraftAttachments({ draft }: { draft: LeadDraftInfo | null }) {
+  if (!draft || draft.files.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md border border-paper-line-strong bg-paper-2 p-2">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink">
+        <Paperclip size={12} className="shrink-0" aria-hidden />
+        <span>
+          {draft.files.length} {draft.files.length === 1 ? "documento recebido" : "documentos recebidos"} por WhatsApp
+        </span>
+      </div>
+
+      {draft.files.map((file) => {
+        const isImage = (file.mimeType ?? "").startsWith("image/");
+        const label =
+          (file.detectedType && DOCUMENT_KIND_LABEL[file.detectedType]) ||
+          file.originalName ||
+          (isImage ? "Foto" : "Documento");
+        return (
+          <a
+            key={file.id}
+            href={`/api/arquivos/rascunho/${file.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-[11px] text-accent underline underline-offset-2 hover:opacity-80"
+          >
+            {isImage ? <ImageIcon size={12} className="shrink-0" aria-hidden /> : <FileText size={12} className="shrink-0" aria-hidden />}
+            <span className="truncate">{label}</span>
+          </a>
+        );
+      })}
+
+      {draft.awaitingExtraction && (
+        <p className="text-[10px] text-ink-faint">
+          A IA ainda não conseguiu ler estes arquivos — abra cada um para conferir os dados.
+        </p>
+      )}
+
+      <Link href={`/recepcao/pre-cadastros/${draft.id}`} className="text-[11px] text-accent underline underline-offset-2">
+        Abrir no cadastro assistido
+      </Link>
+    </div>
+  );
+}
 
 /**
  * Painel lateral para conversas sem paciente vinculado. O painel normal
@@ -42,6 +104,10 @@ export function LeadContextPanel({
   const [showForm, setShowForm] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionDone, setExtractionDone] = useState(false);
+  const [draft, setDraft] = useState<LeadDraftInfo | null>(null);
+  // Só afirmamos "preenchido via IA" quando algo realmente foi preenchido —
+  // antes a mensagem aparecia mesmo com o formulário inteiro em branco.
+  const [filledByAi, setFilledByAi] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -57,21 +123,33 @@ export function LeadContextPanel({
   });
   const setField = (key: keyof typeof form) => (value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  // `conversation.contactName` muda quando a recepção renomeia o contato.
+  // Lido por ref para que isso NÃO entre nas dependências de
+  // handleExtractFromChat — senão renomear dispara uma extração nova (e paga).
+  const contactNameRef = useRef(conversation.contactName);
+  useEffect(() => {
+    contactNameRef.current = conversation.contactName;
+  }, [conversation.contactName]);
+
   const handleExtractFromChat = useCallback(async () => {
     setIsExtracting(true);
     setExtractionDone(false);
     try {
       const res = await extractLeadInfoFromChat(conversation.id);
+      if (res.success) {
+        setDraft(res.draft ?? null);
+      }
       if (res.success && res.data) {
         setForm({
           fullName: res.data.fullName || "",
           birthDate: res.data.birthDate || "",
-          guardianName: res.data.guardianName || conversation.contactName || "",
+          guardianName: res.data.guardianName || contactNameRef.current || "",
           guardianEmail: res.data.guardianEmail || "",
           guardianRelationship: res.data.guardianRelationship || "Mãe",
           origin: res.data.origin || "WhatsApp",
           chiefComplaint: res.data.chiefComplaint || "",
         });
+        setFilledByAi(Boolean(res.data.fullName || res.data.birthDate || res.data.chiefComplaint));
         setExtractionDone(true);
       }
     } catch (err) {
@@ -79,11 +157,20 @@ export function LeadContextPanel({
     } finally {
       setIsExtracting(false);
     }
-  }, [conversation.id, conversation.contactName]);
+  }, [conversation.id]);
 
-  // Pré-extrai automaticamente os dados da conversa assim que a conversa é selecionada
+  // Pré-extrai automaticamente ao abrir a conversa — uma vez por conversa.
+  // A extração chama a IA e, quando o pré-cadastro ainda está `pending`, roda
+  // a leitura dos anexos no servidor: repetir isso a cada re-render custaria
+  // dinheiro e tempo. O `queueMicrotask` mantém o corpo do efeito livre de
+  // setState síncrono (react-hooks/set-state-in-effect).
+  const autoExtractedFor = useRef<string | null>(null);
   useEffect(() => {
-    handleExtractFromChat();
+    if (autoExtractedFor.current === conversation.id) return;
+    autoExtractedFor.current = conversation.id;
+    queueMicrotask(() => {
+      void handleExtractFromChat();
+    });
   }, [conversation.id, handleExtractFromChat]);
 
   const handleOpenForm = () => {
@@ -219,12 +306,24 @@ export function LeadContextPanel({
               </div>
             )}
 
-            {!isExtracting && extractionDone && (
+            {!isExtracting && extractionDone && filledByAi && (
               <div className="flex items-center gap-1.5 rounded bg-teal-50 p-2 text-[11px] text-teal-800 dark:bg-teal-950/40 dark:text-teal-200">
                 <Sparkles size={13} className="shrink-0 text-teal-600 dark:text-teal-400" />
-                <span>Campos preenchidos via IA a partir do chat</span>
+                <span>Campos preenchidos via IA a partir do chat e dos anexos</span>
               </div>
             )}
+
+            {!isExtracting && extractionDone && !filledByAi && (
+              <div className="flex items-center gap-1.5 rounded bg-amber-50 p-2 text-[11px] text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                <Sparkles size={13} className="shrink-0" />
+                <span>
+                  A IA não encontrou nome nem data de nascimento
+                  {draft && draft.files.length > 0 ? " — confira os anexos abaixo e preencha à mão." : " na conversa."}
+                </span>
+              </div>
+            )}
+
+            <DraftAttachments draft={draft} />
 
             <input
               required
@@ -292,6 +391,7 @@ export function LeadContextPanel({
           </form>
         ) : (
           <div className="flex flex-col gap-2">
+            <DraftAttachments draft={draft} />
             <button
               type="button"
               className="btn btn-primary w-full justify-center text-sm"
@@ -299,8 +399,8 @@ export function LeadContextPanel({
             >
               Cadastrar interessado
             </button>
-            <Link href="/recepcao/pre-cadastros" className="btn btn-secondary w-full justify-center text-sm">
-              Abrir cadastro assistido
+            <Link href="/recepcao/pacientes/pendencias" className="btn btn-secondary w-full justify-center text-sm">
+              Ver documentos recebidos
             </Link>
             <p className="text-xs text-ink-faint">
               O cadastro rápido vincula esta conversa ao paciente na hora, com o histórico já trocado.
