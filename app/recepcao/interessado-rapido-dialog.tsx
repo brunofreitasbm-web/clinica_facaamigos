@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createInteressadoAction } from "./actions";
 import { extractLeadInfoFromChat, registerLeadAsInteressado } from "./atendimento/actions";
 import { Sparkles, Loader2 } from "lucide-react";
+import { useToast } from "@/components/toast-provider";
 
 export function InteressadoRapidoDialog({
   isOpen: externalOpen,
@@ -18,6 +19,7 @@ export function InteressadoRapidoDialog({
   conversationId?: string | null;
 } = {}) {
   const router = useRouter();
+  const { toast } = useToast();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = (val: boolean) => {
@@ -33,6 +35,7 @@ export function InteressadoRapidoDialog({
   const [birthDate, setBirthDate] = useState("");
   const [guardianName, setGuardianName] = useState("");
   const [guardianPhone, setGuardianPhone] = useState("");
+  const [guardianEmail, setGuardianEmail] = useState("");
   const [guardianRelationship, setGuardianRelationship] = useState("Mãe");
   const [origin, setOrigin] = useState("WhatsApp");
   const [chiefComplaint, setChiefComplaint] = useState("");
@@ -47,6 +50,7 @@ export function InteressadoRapidoDialog({
         if (res.data.birthDate) setBirthDate(res.data.birthDate);
         if (res.data.guardianName) setGuardianName(res.data.guardianName);
         if (res.data.guardianPhone) setGuardianPhone(res.data.guardianPhone);
+        if (res.data.guardianEmail) setGuardianEmail(res.data.guardianEmail);
         if (res.data.guardianRelationship) setGuardianRelationship(res.data.guardianRelationship);
         if (res.data.origin) setOrigin(res.data.origin);
         if (res.data.chiefComplaint) setChiefComplaint(res.data.chiefComplaint);
@@ -75,6 +79,7 @@ export function InteressadoRapidoDialog({
       birthDate,
       guardianName,
       guardianPhone,
+      guardianEmail,
       guardianRelationship,
       origin,
       chiefComplaint: chiefComplaint || undefined,
@@ -91,11 +96,20 @@ export function InteressadoRapidoDialog({
       return;
     }
 
+    if ("documentsTransferred" in res) {
+      const { warning, documentsTransferred } = res as unknown as { warning: string | null; documentsTransferred: number };
+      if (warning) toast(warning, "info");
+      else if (documentsTransferred > 0) {
+        toast(`${documentsTransferred} arquivo(s) da conversa anexado(s) ao prontuário.`, "success");
+      }
+    }
+
     // Limpar formulário e fechar modal
     setFullName("");
     setBirthDate("");
     setGuardianName("");
     setGuardianPhone("");
+    setGuardianEmail("");
     setChiefComplaint("");
     setOpen(false);
 
@@ -257,6 +271,17 @@ export function InteressadoRapidoDialog({
                     className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-neutral-700">E-mail do Responsável</label>
+                <input
+                  type="email"
+                  placeholder="responsavel@email.com"
+                  value={guardianEmail}
+                  onChange={(e) => setGuardianEmail(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                />
               </div>
 
               <div>

@@ -10,12 +10,14 @@ import { createInteressadoAction, type CreateInteressadoInput } from "../actions
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
 import { formatConversationPhone } from "./format-phone";
 import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
+import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 
 export type ExtractedLeadInfo = {
   fullName: string;
   birthDate: string;
   guardianName: string;
   guardianPhone: string;
+  guardianEmail: string;
   guardianRelationship: string;
   origin: string;
   chiefComplaint: string;
@@ -220,15 +222,39 @@ export async function saveConversationNote(conversationId: string, note: string)
   return { success: true as const };
 }
 
+const VALID_DOCUMENT_CATEGORIES = new Set<string>(DOCUMENT_CATEGORIES.map((c) => c.value));
+
+/**
+ * `documents.category` tem CHECK constraint: um valor fora da lista faz o
+ * insert falhar e o arquivo (já copiado no Storage) some do prontuário. As
+ * fontes aqui usam vocabulários próprios — `insurance_intake_lead_files.kind`
+ * tem 'guia', que na tabela de documentos se chama 'autorizacao'.
+ */
+function toDocumentCategory(raw: string | null | undefined, mime: string): string {
+  if (raw === "guia") return "autorizacao";
+  if (raw && VALID_DOCUMENT_CATEGORIES.has(raw)) return raw;
+  return mime === "application/pdf" ? "laudo" : "outro";
+}
+
+export type MediaTransferSummary = { transferred: number; failed: number };
+
 /**
  * Transfere todos os arquivos (PDFs e imagens) enviados pelo responsável na conversa,
  * rascunhos de cadastro e acolhimentos para a tabela `documents` (Prontuário do Paciente).
+ *
+ * Rascunhos e acolhimento vêm primeiro: o mesmo arquivo que o bot recebeu por
+ * WhatsApp existe também em `messages.media_url`, e sem esse cuidado ele
+ * entrava duas vezes no prontuário. Esses registros guardam `twilio_media_url`,
+ * então as mensagens só baixam o que ainda não foi coberto.
  */
 export async function transferConversationMediaToPatientDocuments(
   conversationId: string,
   patientId: string,
   actorId?: string | null,
-) {
+): Promise<MediaTransferSummary> {
+  const summary: MediaTransferSummary = { transferred: 0, failed: 0 };
+  const coveredUrls = new Set<string>();
+
   try {
     const admin = createAdminClient();
 
@@ -240,177 +266,185 @@ export async function transferConversationMediaToPatientDocuments(
       .maybeSingle();
 
     const rawPhone = conversation?.phone_number || "";
+    const last8 = rawPhone.replace(/\D/g, "").slice(-8);
     const { downloadTwilioMedia, extensionFor } = await import("@/lib/registration-drafts-ingest");
 
-    // 2. Transfere mídias das mensagens da conversa
+    const copyToPatient = async (
+      sourcePath: string,
+      category: string,
+      note: string,
+    ): Promise<string | null> => {
+      const docId = randomUUID();
+      const baseName = sourcePath.split("/").pop() ?? `arquivo_${Date.now()}`;
+      const destPath = `${patientId}/${docId}/${baseName}`;
+
+      const { error: copyErr } = await admin.storage.from("clinic-documents").copy(sourcePath, destPath);
+      if (copyErr) {
+        console.error("Erro ao copiar arquivo para o prontuário:", copyErr.message);
+        return null;
+      }
+
+      const { error: insertErr } = await admin.from("documents").insert({
+        id: docId,
+        patient_id: patientId,
+        category,
+        storage_path: destPath,
+        uploaded_by: actorId || DEV_CLINIC_ID,
+        shared_with_family: false,
+        note,
+      });
+      if (insertErr) {
+        console.error("Erro ao registrar documento no prontuário:", insertErr.message);
+        // Não deixa o arquivo órfão no Storage sem linha em `documents`.
+        await admin.storage.from("clinic-documents").remove([destPath]);
+        return null;
+      }
+      return docId;
+    };
+
+    // 2. Rascunhos de cadastro (registration_draft_files)
+    if (last8.length >= 8) {
+      const { data: drafts } = await admin
+        .from("registration_drafts")
+        .select("id")
+        .or(`source_phone.ilike.%${last8}%,patient_id.eq.${patientId}`);
+
+      const draftIds = (drafts ?? []).map((d) => d.id);
+      if (draftIds.length > 0) {
+        const { data: draftFiles } = await admin
+          .from("registration_draft_files")
+          .select("id, storage_path, mime_type, detected_type, document_id, twilio_media_url")
+          .in("draft_id", draftIds);
+
+        for (const file of draftFiles ?? []) {
+          if (file.twilio_media_url) coveredUrls.add(file.twilio_media_url);
+          if (file.document_id) continue;
+
+          const docId = await copyToPatient(
+            file.storage_path,
+            toDocumentCategory(file.detected_type, file.mime_type),
+            "Enviado no rascunho de cadastro assistido por IA",
+          );
+          if (!docId) {
+            summary.failed += 1;
+            continue;
+          }
+          summary.transferred += 1;
+          await admin.from("registration_draft_files").update({ document_id: docId }).eq("id", file.id);
+        }
+
+        await admin
+          .from("registration_drafts")
+          .update({ status: "validated", patient_id: patientId })
+          .in("id", draftIds);
+      }
+    }
+
+    // 3. Arquivos do Acolhimento de Plano de Saúde (insurance_intake_lead_files)
+    if (last8.length >= 8) {
+      const { data: intakeLeads } = await admin
+        .from("insurance_intake_leads")
+        .select("id")
+        .or(`phone_e164.ilike.%${last8}%,patient_id.eq.${patientId}`);
+
+      const leadIds = (intakeLeads ?? []).map((l) => l.id);
+      if (leadIds.length > 0) {
+        const { data: intakeFiles } = await admin
+          .from("insurance_intake_lead_files")
+          .select("id, storage_path, kind, mime_type, document_id, twilio_media_url")
+          .in("lead_id", leadIds);
+
+        for (const file of intakeFiles ?? []) {
+          if (file.twilio_media_url) coveredUrls.add(file.twilio_media_url);
+          if (file.document_id) continue;
+
+          const docId = await copyToPatient(
+            file.storage_path,
+            toDocumentCategory(file.kind, file.mime_type),
+            "Enviado no acolhimento de plano de saúde",
+          );
+          if (!docId) {
+            summary.failed += 1;
+            continue;
+          }
+          summary.transferred += 1;
+          await admin.from("insurance_intake_lead_files").update({ document_id: docId }).eq("id", file.id);
+        }
+      }
+    }
+
+    // 4. Mídias das mensagens da conversa que nenhum fluxo acima já guardou
     const { data: messages } = await admin
       .from("messages")
       .select("id, body, media_url, sent_at")
       .eq("conversation_id", conversationId)
-      .not("media_url", "is", null);
+      .not("media_url", "is", null)
+      .order("sent_at", { ascending: true });
 
     for (const msg of messages ?? []) {
       if (!msg.media_url) continue;
-      const mediaUrls = msg.media_url.split(/[\s,]+/).filter(Boolean);
+      const mediaUrls = msg.media_url.split(/[\s,]+/).filter((u) => /^https?:\/\//.test(u));
 
       for (const url of mediaUrls) {
+        if (coveredUrls.has(url)) continue;
+        coveredUrls.add(url);
+
         try {
-          if (url.startsWith("http://") || url.startsWith("https://")) {
-            const downloaded = await downloadTwilioMedia(url);
-            if (downloaded) {
-              const docId = randomUUID();
-              const ext = extensionFor(downloaded.mime);
-              const fileName = `whatsapp_${msg.id}_${Date.now()}.${ext}`;
-              const storagePath = `${patientId}/${docId}/${fileName}`;
-
-              const { error: uploadErr } = await admin.storage
-                .from("clinic-documents")
-                .upload(storagePath, downloaded.buffer, {
-                  contentType: downloaded.mime,
-                  upsert: false,
-                });
-
-              if (!uploadErr) {
-                const bodyLower = (msg.body || "").toLowerCase();
-                let category = "outro";
-                if (bodyLower.includes("laudo") || bodyLower.includes("diagnostico") || bodyLower.includes("relatorio")) category = "laudo";
-                else if (bodyLower.includes("pedido") || bodyLower.includes("encaminhamento") || bodyLower.includes("medico")) category = "pedido_medico";
-                else if (bodyLower.includes("carteirinha") || bodyLower.includes("cartao") || bodyLower.includes("plano")) category = "carteirinha";
-                else if (bodyLower.includes("termo") || bodyLower.includes("lgpd")) category = "termo";
-                else if (downloaded.mime === "application/pdf") category = "laudo";
-
-                await admin.from("documents").insert({
-                  id: docId,
-                  patient_id: patientId,
-                  category,
-                  storage_path: storagePath,
-                  uploaded_by: actorId || DEV_CLINIC_ID,
-                  uploaded_at: msg.sent_at || new Date().toISOString(),
-                  shared_with_family: false,
-                  note: "Anexo enviado pelo responsável no WhatsApp",
-                });
-              }
-            }
+          const downloaded = await downloadTwilioMedia(url);
+          if (!downloaded) {
+            summary.failed += 1;
+            continue;
           }
+
+          const docId = randomUUID();
+          const fileName = `whatsapp_${msg.id}_${Date.now()}.${extensionFor(downloaded.mime)}`;
+          const storagePath = `${patientId}/${docId}/${fileName}`;
+
+          const { error: uploadErr } = await admin.storage
+            .from("clinic-documents")
+            .upload(storagePath, downloaded.buffer, { contentType: downloaded.mime, upsert: false });
+          if (uploadErr) {
+            console.error("Erro ao subir mídia da conversa:", uploadErr.message);
+            summary.failed += 1;
+            continue;
+          }
+
+          const bodyLower = (msg.body || "").toLowerCase();
+          let category = toDocumentCategory(null, downloaded.mime);
+          if (bodyLower.includes("laudo") || bodyLower.includes("diagnostico") || bodyLower.includes("relatorio")) category = "laudo";
+          else if (bodyLower.includes("pedido") || bodyLower.includes("encaminhamento") || bodyLower.includes("medico")) category = "pedido_medico";
+          else if (bodyLower.includes("carteirinha") || bodyLower.includes("cartao") || bodyLower.includes("plano")) category = "carteirinha";
+          else if (bodyLower.includes("termo") || bodyLower.includes("lgpd")) category = "termo";
+
+          const { error: insertErr } = await admin.from("documents").insert({
+            id: docId,
+            patient_id: patientId,
+            category,
+            storage_path: storagePath,
+            uploaded_by: actorId || DEV_CLINIC_ID,
+            uploaded_at: msg.sent_at || new Date().toISOString(),
+            shared_with_family: false,
+            note: "Anexo enviado pelo responsável no WhatsApp",
+          });
+          if (insertErr) {
+            console.error("Erro ao registrar mídia da conversa no prontuário:", insertErr.message);
+            await admin.storage.from("clinic-documents").remove([storagePath]);
+            summary.failed += 1;
+            continue;
+          }
+          summary.transferred += 1;
         } catch (mediaErr) {
           console.error("Erro ao transferir mídia da mensagem:", mediaErr);
-        }
-      }
-    }
-
-    // 3. Rascunhos de cadastro (registration_draft_files)
-    if (rawPhone) {
-      const cleanPhone = rawPhone.replace("whatsapp:", "").replace(/\D/g, "");
-      const last8 = cleanPhone.slice(-8);
-
-      if (last8.length >= 8) {
-        const { data: drafts } = await admin
-          .from("registration_drafts")
-          .select("id")
-          .or(`source_phone.ilike.%${last8}%,patient_id.eq.${patientId}`);
-
-        const draftIds = (drafts ?? []).map((d) => d.id);
-        if (draftIds.length > 0) {
-          const { data: draftFiles } = await admin
-            .from("registration_draft_files")
-            .select("id, storage_path, mime_type, detected_type, document_id")
-            .in("draft_id", draftIds);
-
-          for (const file of draftFiles ?? []) {
-            if (file.document_id) continue;
-
-            const docId = randomUUID();
-            const baseName = file.storage_path.split("/").pop() ?? `draft_${Date.now()}`;
-            const destPath = `${patientId}/${docId}/${baseName}`;
-
-            const { error: copyErr } = await admin.storage
-              .from("clinic-documents")
-              .copy(file.storage_path, destPath);
-
-            if (!copyErr) {
-              const category = file.detected_type || (file.mime_type === "application/pdf" ? "laudo" : "outro");
-              const { error: insertErr } = await admin.from("documents").insert({
-                id: docId,
-                patient_id: patientId,
-                category,
-                storage_path: destPath,
-                uploaded_by: actorId || DEV_CLINIC_ID,
-                shared_with_family: false,
-                note: "Enviado no rascunho de cadastro assistido por IA",
-              });
-
-              if (!insertErr) {
-                await admin
-                  .from("registration_draft_files")
-                  .update({ document_id: docId })
-                  .eq("id", file.id);
-              }
-            }
-          }
-
-          await admin
-            .from("registration_drafts")
-            .update({ status: "validated", patient_id: patientId })
-            .in("id", draftIds);
-        }
-      }
-    }
-
-    // 4. Arquivos do Acolhimento de Plano de Saúde (insurance_intake_lead_files)
-    if (rawPhone) {
-      const cleanPhone = rawPhone.replace("whatsapp:", "").replace(/\D/g, "");
-      const last8 = cleanPhone.slice(-8);
-
-      if (last8.length >= 8) {
-        const { data: intakeLeads } = await admin
-          .from("insurance_intake_leads")
-          .select("id")
-          .or(`phone_e164.ilike.%${last8}%,patient_id.eq.${patientId}`);
-
-        const leadIds = (intakeLeads ?? []).map((l) => l.id);
-        if (leadIds.length > 0) {
-          const { data: intakeFiles } = await admin
-            .from("insurance_intake_lead_files")
-            .select("id, storage_path, kind, document_id")
-            .in("lead_id", leadIds);
-
-          for (const file of intakeFiles ?? []) {
-            if (file.document_id) continue;
-
-            const docId = randomUUID();
-            const baseName = file.storage_path.split("/").pop() ?? `intake_${Date.now()}`;
-            const destPath = `${patientId}/${docId}/${baseName}`;
-
-            const { error: copyErr } = await admin.storage
-              .from("clinic-documents")
-              .copy(file.storage_path, destPath);
-
-            if (!copyErr) {
-              const category = file.kind || "laudo";
-              const { error: insertErr } = await admin.from("documents").insert({
-                id: docId,
-                patient_id: patientId,
-                category,
-                storage_path: destPath,
-                uploaded_by: actorId || DEV_CLINIC_ID,
-                shared_with_family: false,
-                note: "Enviado no acolhimento de plano de saúde",
-              });
-
-              if (!insertErr) {
-                await admin
-                  .from("insurance_intake_lead_files")
-                  .update({ document_id: docId })
-                  .eq("id", file.id);
-              }
-            }
-          }
+          summary.failed += 1;
         }
       }
     }
   } catch (err) {
     console.error("Exceção ao transferir mídias da conversa para o prontuário do paciente:", err);
+    summary.failed += 1;
   }
+
+  return summary;
 }
 
 /**
@@ -462,7 +496,7 @@ export async function registerLeadAsInteressado(conversationId: string, input: C
     .is("patient_id", null);
 
   // Transfere todos os arquivos da conversa (PDFs/imagens) para a tabela `documents` (Prontuário do Paciente)
-  await transferConversationMediaToPatientDocuments(conversationId, result.patientId, user?.id ?? null);
+  const media = await transferConversationMediaToPatientDocuments(conversationId, result.patientId, user?.id ?? null);
 
   revalidatePath("/recepcao/atendimento");
   revalidatePath(`/recepcao/pacientes/${result.patientId}`);
@@ -472,7 +506,12 @@ export async function registerLeadAsInteressado(conversationId: string, input: C
     guardianId: guardian?.id ?? null,
     patientName: input.fullName.trim(),
     guardianName: guardian?.full_name ?? null,
-    warning: result.error ?? null,
+    documentsTransferred: media.transferred,
+    warning:
+      result.error ??
+      (media.failed > 0
+        ? `${media.failed} arquivo(s) da conversa não foram anexados ao prontuário — envie-os pela ficha do paciente.`
+        : null),
   };
 }
 
@@ -547,19 +586,23 @@ export async function extractLeadInfoFromChat(conversationId: string) {
     birthDate: "",
     guardianName: conversation.contact_name || "",
     guardianPhone: phoneFormatted,
+    guardianEmail: "",
     guardianRelationship: "Mãe",
     origin: "WhatsApp",
     chiefComplaint: "",
   };
 
-  const { data: messages } = await supabase
+  // Últimas mensagens (não as primeiras): numa conversa longa é no fim que a
+  // família confirma nome e idade da criança.
+  const { data: latestMessages } = await supabase
     .from("messages")
-    .select("sender_type, direction, body, sent_at")
+    .select("sender_type, direction, body, media_url, sent_at")
     .eq("conversation_id", conversationId)
-    .order("sent_at", { ascending: true })
-    .limit(50);
+    .order("sent_at", { ascending: false })
+    .limit(80);
+  const messages = (latestMessages ?? []).reverse();
 
-  if (!messages || messages.length === 0 || !isGeminiConfigured()) {
+  if (messages.length === 0 || !isGeminiConfigured()) {
     return { success: true as const, data: fallbackData };
   }
 
@@ -568,12 +611,11 @@ export async function extractLeadInfoFromChat(conversationId: string) {
     .map((m) => `[${m.direction === "inbound" ? "Contato/Responsável" : "Atendente/Bot"}]: ${m.body}`)
     .join("\n");
 
-  if (!transcript) {
-    return { success: true as const, data: fallbackData };
-  }
+  let data = fallbackData;
 
-  const currentDate = new Date().toISOString().slice(0, 10);
-  const systemInstruction = `Você é um assistente de IA especialista da recepção de uma clínica de desenvolvimento infantil (terapias de neurodesenvolvimento, ABA, psicologia, fonoaudiologia, terapia ocupacional).
+  if (transcript) {
+    const currentDate = new Date().toISOString().slice(0, 10);
+    const systemInstruction = `Você é um assistente de IA especialista da recepção de uma clínica de desenvolvimento infantil (terapias de neurodesenvolvimento, ABA, psicologia, fonoaudiologia, terapia ocupacional).
 Analise o histórico de mensagens trocadas via WhatsApp e extraia com precisão os dados para o cadastro do paciente interessado.
 
 Retorne um JSON estrito no seguinte formato:
@@ -582,65 +624,142 @@ Retorne um JSON estrito no seguinte formato:
   "birthDate": "<Data de nascimento da criança no formato YYYY-MM-DD se informada, ou calculada se dada a idade (ex: se o chat fala que a criança tem 3 anos e a data atual é ${currentDate}, calcule o ano de nascimento aproximado como YYYY-01-01), senão null>",
   "guardianName": "<Nome completo ou primeiro nome do responsável (mãe, pai, etc.) se informado, senão null>",
   "guardianPhone": "<Telefone/WhatsApp do responsável, ou null>",
+  "guardianEmail": "<E-mail do responsável se informado no chat, senão null>",
   "guardianRelationship": "<Um destes exatamente: 'Mãe', 'Pai', 'Avó/Avô', 'Tio(a)', 'Responsável'>",
   "origin": "<Um destes exatamente: 'WhatsApp', 'Instagram', 'Google', 'Indicação', 'Plano de Saúde', 'Outro'>",
   "chiefComplaint": "<Resumo de 1 a 2 frases da queixa principal ou motivo de procura da família (ex: suspeita de TEA, atraso na fala, indicação médica, agendamento de avaliação), senão null>"
 }`;
 
-  const prompt = `Contato WhatsApp Registrado: ${conversation.contact_name || "Desconhecido"}
+    const prompt = `Contato WhatsApp Registrado: ${conversation.contact_name || "Desconhecido"}
 Telefone: ${conversation.phone_number}
 
 Histórico da Conversa:
 ${transcript}`;
 
-  try {
-    const aiRes = await generateGeminiChatResponse({
-      prompt,
-      systemInstruction,
-      temperature: 0.1,
-      jsonMode: true,
-      feature: "pre_cadastro_conversa",
-    });
+    try {
+      const aiRes = await generateGeminiChatResponse({
+        prompt,
+        systemInstruction,
+        temperature: 0.1,
+        jsonMode: true,
+        feature: "pre_cadastro_conversa",
+      });
 
-    if (aiRes.success && aiRes.text) {
-      let parsed: Record<string, unknown> = {};
-      try {
-        parsed = JSON.parse(aiRes.text);
-      } catch {
-        const jsonMatch = aiRes.text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+      if (aiRes.success && aiRes.text) {
+        let parsed: Record<string, unknown> = {};
+        try {
+          parsed = JSON.parse(aiRes.text);
+        } catch {
+          const jsonMatch = aiRes.text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+        }
+
+        data = {
+          fullName: typeof parsed.fullName === "string" ? parsed.fullName.trim() : "",
+          birthDate: ISO_DATE.test(String(parsed.birthDate ?? "").trim()) ? String(parsed.birthDate).trim() : "",
+          guardianName:
+            typeof parsed.guardianName === "string" && parsed.guardianName.trim()
+              ? parsed.guardianName.trim()
+              : conversation.contact_name || "",
+          guardianPhone:
+            typeof parsed.guardianPhone === "string" && parsed.guardianPhone.trim()
+              ? parsed.guardianPhone.trim()
+              : phoneFormatted,
+          guardianEmail: EMAIL_RE.test(String(parsed.guardianEmail ?? "").trim())
+            ? String(parsed.guardianEmail).trim().toLowerCase()
+            : "",
+          guardianRelationship: ["Mãe", "Pai", "Avó/Avô", "Tio(a)", "Responsável"].includes(
+            String(parsed.guardianRelationship),
+          )
+            ? String(parsed.guardianRelationship)
+            : "Mãe",
+          origin: ["WhatsApp", "Instagram", "Google", "Indicação", "Plano de Saúde", "Outro"].includes(
+            String(parsed.origin),
+          )
+            ? String(parsed.origin)
+            : "WhatsApp",
+          chiefComplaint: typeof parsed.chiefComplaint === "string" ? parsed.chiefComplaint.trim() : "",
+        };
       }
-
-      const extracted: ExtractedLeadInfo = {
-        fullName: typeof parsed.fullName === "string" ? parsed.fullName.trim() : "",
-        birthDate: typeof parsed.birthDate === "string" ? parsed.birthDate.trim() : "",
-        guardianName:
-          typeof parsed.guardianName === "string" && parsed.guardianName.trim()
-            ? parsed.guardianName.trim()
-            : conversation.contact_name || "",
-        guardianPhone:
-          typeof parsed.guardianPhone === "string" && parsed.guardianPhone.trim()
-            ? parsed.guardianPhone.trim()
-            : phoneFormatted,
-        guardianRelationship: ["Mãe", "Pai", "Avó/Avô", "Tio(a)", "Responsável"].includes(
-          String(parsed.guardianRelationship),
-        )
-          ? String(parsed.guardianRelationship)
-          : "Mãe",
-        origin: ["WhatsApp", "Instagram", "Google", "Indicação", "Plano de Saúde", "Outro"].includes(
-          String(parsed.origin),
-        )
-          ? String(parsed.origin)
-          : "WhatsApp",
-        chiefComplaint: typeof parsed.chiefComplaint === "string" ? parsed.chiefComplaint.trim() : "",
-      };
-
-      return { success: true as const, data: extracted };
+    } catch (e) {
+      console.error("Erro ao extrair dados do chat com Gemini:", e);
     }
-  } catch (e) {
-    console.error("Erro ao extrair dados do chat com Gemini:", e);
   }
 
-  return { success: true as const, data: fallbackData };
+  // PDFs/imagens enviados na conversa (certidão, RG, laudo, carteirinha...)
+  // completam o que o texto não trouxe — e, para nome e nascimento, o
+  // documento é mais confiável que a frase digitada no chat.
+  const fromFiles = await extractFromConversationFiles(messages, transcript);
+  if (fromFiles) data = mergeDocumentIntoLead(data, fromFiles);
+
+  return { success: true as const, data };
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const ATTACHMENT_MIMES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
+const MAX_ATTACHMENTS_FOR_EXTRACTION = 5;
+
+/**
+ * Baixa as mídias mais recentes da conversa e as envia numa única chamada
+ * multimodal (mesmo motor do cadastro assistido por IA). Devolve null se não
+ * há arquivo legível ou se a extração falhar — nunca um dado inventado.
+ */
+async function extractFromConversationFiles(
+  messages: { media_url: string | null; direction: string; body: string | null }[],
+  transcript: string,
+) {
+  const urls = messages
+    .flatMap((m) => (m.media_url ?? "").split(/[\s,]+/).filter((u) => /^https?:\/\//.test(u)))
+    .slice(-MAX_ATTACHMENTS_FOR_EXTRACTION);
+  if (urls.length === 0) return null;
+
+  try {
+    const { downloadTwilioMedia } = await import("@/lib/registration-drafts-ingest");
+    const { extractRegistrationFromFiles } = await import("@/lib/document-extraction");
+
+    const downloads = await Promise.all(urls.map((u) => downloadTwilioMedia(u)));
+    const files = downloads
+      .filter((d): d is { buffer: Buffer; mime: string } => Boolean(d) && ATTACHMENT_MIMES.has(d!.mime))
+      .map((d, index) => ({ base64: d.buffer.toString("base64"), mimeType: d.mime, index }));
+    if (files.length === 0) return null;
+
+    const outcome = await extractRegistrationFromFiles(files, [], {
+      guardianMessage: transcript.slice(-1500) || undefined,
+    });
+    return outcome.success ? outcome.result : null;
+  } catch (e) {
+    console.error("Erro ao extrair dados dos anexos da conversa:", e);
+    return null;
+  }
+}
+
+const GUARDIAN_RELATIONSHIP_LABEL: Record<string, string> = {
+  mae: "Mãe",
+  pai: "Pai",
+  avo: "Avó/Avô",
+  tutor: "Responsável",
+  outro: "Responsável",
+};
+
+function mergeDocumentIntoLead(
+  chat: ExtractedLeadInfo,
+  doc: import("@/lib/document-extraction").DocumentExtraction,
+): ExtractedLeadInfo {
+  const guardianFromDoc = doc.guardian.full_name;
+  return {
+    ...chat,
+    fullName: doc.patient.full_name ?? chat.fullName,
+    birthDate: doc.patient.birth_date && ISO_DATE.test(doc.patient.birth_date) ? doc.patient.birth_date : chat.birthDate,
+    guardianName: chat.guardianName || guardianFromDoc || "",
+    guardianEmail:
+      chat.guardianEmail || (doc.guardian.email && EMAIL_RE.test(doc.guardian.email) ? doc.guardian.email.toLowerCase() : ""),
+    guardianRelationship:
+      !chat.guardianName && doc.guardian.relationship
+        ? GUARDIAN_RELATIONSHIP_LABEL[doc.guardian.relationship]
+        : chat.guardianRelationship,
+    chiefComplaint: chat.chiefComplaint || doc.patient.complaint_hint || "",
+  };
 }
 

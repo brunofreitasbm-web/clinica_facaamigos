@@ -10,6 +10,7 @@ export type CreateInteressadoInput = {
   birthDate: string;
   guardianName: string;
   guardianPhone: string;
+  guardianEmail?: string;
   guardianRelationship?: string;
   origin?: string;
   chiefComplaint?: string;
@@ -38,6 +39,11 @@ export async function createInteressadoAction(input: CreateInteressadoInput): Pr
       return { success: false, error: "Data de nascimento é obrigatória." };
     }
 
+    const guardianEmail = input.guardianEmail?.trim().toLowerCase() || null;
+    if (guardianEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)) {
+      return { success: false, error: "E-mail do responsável inválido." };
+    }
+
     // 1. Inserir paciente em status 'interessado'
     const { data: patient, error: patientErr } = await supabase
       .from("patients")
@@ -62,6 +68,7 @@ export async function createInteressadoAction(input: CreateInteressadoInput): Pr
       patient_id: patient.id,
       full_name: input.guardianName.trim() || `Responsável de ${input.fullName.trim()}`,
       phone: input.guardianPhone.trim(),
+      email: guardianEmail,
       relationship: input.guardianRelationship || "Responsável",
       is_emergency_contact: true,
       is_financial: true,

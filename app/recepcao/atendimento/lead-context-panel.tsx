@@ -3,6 +3,7 @@
 import { useState, useTransition, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Check, Copy, Pencil, Sparkles, Loader2 } from "lucide-react";
+import { useToast } from "@/components/toast-provider";
 import { registerLeadAsInteressado, updateConversationContactName, extractLeadInfoFromChat } from "./actions";
 import { formatConversationPhone } from "./format-phone";
 import { ConversationNote } from "./conversation-note";
@@ -43,11 +44,13 @@ export function LeadContextPanel({
   const [extractionDone, setExtractionDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
   const [form, setForm] = useState({
     fullName: "",
     birthDate: "",
     guardianName: conversation.contactName ?? "",
+    guardianEmail: "",
     guardianRelationship: "Mãe",
     origin: "WhatsApp",
     chiefComplaint: "",
@@ -64,6 +67,7 @@ export function LeadContextPanel({
           fullName: res.data.fullName || "",
           birthDate: res.data.birthDate || "",
           guardianName: res.data.guardianName || conversation.contactName || "",
+          guardianEmail: res.data.guardianEmail || "",
           guardianRelationship: res.data.guardianRelationship || "Mãe",
           origin: res.data.origin || "WhatsApp",
           chiefComplaint: res.data.chiefComplaint || "",
@@ -108,6 +112,10 @@ export function LeadContextPanel({
       if (!result.success) {
         setError(result.error);
         return;
+      }
+      if (result.warning) toast(result.warning, "info");
+      else if (result.documentsTransferred > 0) {
+        toast(`${result.documentsTransferred} arquivo(s) da conversa anexado(s) ao prontuário.`, "success");
       }
       // O painel troca sozinho para o de paciente assim que patientId chega.
       onPatch({
@@ -241,6 +249,13 @@ export function LeadContextPanel({
               placeholder="Nome do responsável *"
               value={form.guardianName}
               onChange={(e) => setField("guardianName")(e.target.value)}
+            />
+            <input
+              type="email"
+              className="input text-sm"
+              placeholder="E-mail do responsável"
+              value={form.guardianEmail}
+              onChange={(e) => setField("guardianEmail")(e.target.value)}
             />
             <div className="grid grid-cols-2 gap-2">
               <select
