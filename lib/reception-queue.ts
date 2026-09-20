@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import {
+  TEMPLATE_KEY_PREFIX,
+  parseTemplateKey,
+  type MissingDocumentKey,
+} from "@/lib/document-request-templates";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { civilDateInTimeZone } from "@/lib/timezone";
 import { getPendingPatients } from "@/lib/patient-stage";
@@ -518,6 +523,18 @@ export type PendingRegistrationDraft = {
   error: string | null;
   /** Últimas mensagens da conversa de WhatsApp do mesmo telefone. */
   messages: PendingDraftMessage[];
+  /**
+   * Cobranças de documento pendente já disparadas para este telefone
+   * (messages.template_key = documento_pendente:<key>) — o cartão usa isso
+   * para mostrar "já cobrado em …" e evitar a família receber a mesma
+   * cobrança de novo a cada troca de plantão.
+   */
+  documentRequests: PendingDraftDocumentRequest[];
+};
+
+export type PendingDraftDocumentRequest = {
+  key: MissingDocumentKey;
+  sentAt: string;
 };
 
 const DRAFT_FACT_LABELS: { section: string; field: string; label: string }[] = [
@@ -628,6 +645,53 @@ async function getDraftConversationMessages(
 }
 
 /**
+ * Cobranças de documento pendente já enviadas para cada telefone
+ * (app/recepcao/pacientes/pendencias/document-request-actions.ts grava
+ * `messages.template_key = documento_pendente:<key>`). Consulta separada da
+ * do histórico de conversa de propósito: o transcrito é cortado nas últimas
+ * DRAFT_TRANSCRIPT_LIMIT mensagens, e uma cobrança de três dias atrás — que é
+ * exatamente a que interessa saber antes de cobrar de novo — já teria caído
+ * fora dele.
+ */
+async function getDraftDocumentRequests(
+  supabase: Supa,
+  phones: string[],
+): Promise<Map<string, PendingDraftDocumentRequest[]>> {
+  const byPhone = new Map<string, PendingDraftDocumentRequest[]>();
+  if (phones.length === 0) return byPhone;
+
+  const { data: conversations } = await supabase
+    .from("twilio_conversations")
+    .select("id, phone_number")
+    .in("phone_number", phones);
+  if (!conversations || conversations.length === 0) return byPhone;
+
+  const phoneByConversation = new Map(conversations.map((c) => [c.id, c.phone_number]));
+
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("conversation_id, template_key, sent_at")
+    .in("conversation_id", [...phoneByConversation.keys()])
+    .like("template_key", `${TEMPLATE_KEY_PREFIX}%`)
+    .order("sent_at", { ascending: false });
+
+  for (const m of messages ?? []) {
+    if (!m.conversation_id || !m.sent_at) continue;
+    const phone = phoneByConversation.get(m.conversation_id);
+    if (!phone) continue;
+    const key = parseTemplateKey(m.template_key);
+    if (!key) continue;
+    const list = byPhone.get(phone) ?? [];
+    byPhone.set(phone, list);
+    // Vem em ordem decrescente: a primeira de cada tipo é a mais recente.
+    if (list.some((r) => r.key === key)) continue;
+    list.push({ key, sentAt: m.sent_at });
+  }
+
+  return byPhone;
+}
+
+/**
  * Rascunhos do "cadastro assistido por IA" (registration_drafts,
  * 20260907000001) ainda não validados nem rejeitados — inclusive os que a IA
  * ainda não leu (pending/processing) e os que ela não conseguiu ler (failed).
@@ -648,7 +712,10 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
 
   const rows = data ?? [];
   const phones = [...new Set(rows.map((d) => d.source_phone).filter((p): p is string => Boolean(p)))];
-  const messagesByPhone = await getDraftConversationMessages(supabase, phones);
+  const [messagesByPhone, requestsByPhone] = await Promise.all([
+    getDraftConversationMessages(supabase, phones),
+    getDraftDocumentRequests(supabase, phones),
+  ]);
 
   return rows.map((d) => {
     const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;
@@ -680,6 +747,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       warnings: d.warnings ?? [],
       error: d.error,
       messages: (d.source_phone ? messagesByPhone.get(d.source_phone) : undefined) ?? [],
+      documentRequests: (d.source_phone ? requestsByPhone.get(d.source_phone) : undefined) ?? [],
     };
   });
 }

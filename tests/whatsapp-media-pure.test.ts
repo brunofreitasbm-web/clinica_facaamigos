@@ -10,6 +10,7 @@ import {
   coldPatientReply,
   collectMediaItems,
   filterIngestibleMedia,
+  isAudioOnlyMessage,
   isPdfPointer,
   planColdMedia,
   splitCardPointers,
@@ -157,4 +158,18 @@ test("coldPatientReply: confirma quando salvou; pede reenvio quando não", () =>
   assert.match(coldPatientReply({ saved: 1, duplicates: 0, unsupported: 0 }), /Recebido/);
   assert.equal(coldPatientReply({ saved: 0, duplicates: 0, unsupported: 1 }), UNSUPPORTED_MEDIA_REPLY);
   assert.equal(coldPatientReply({ saved: 0, duplicates: 0, unsupported: 0 }), RETRY_MEDIA_REPLY);
+});
+
+test("nota de voz sozinha é identificada como mensagem de áudio", () => {
+  assert.equal(isAudioOnlyMessage([{ url: "u", contentType: "audio/ogg; codecs=opus" }], ""), true);
+  assert.equal(isAudioOnlyMessage([{ url: "u", contentType: "audio/mpeg" }], "   "), true);
+});
+
+test("áudio com legenda de texto ou junto de outra mídia segue o fluxo normal", () => {
+  assert.equal(isAudioOnlyMessage([{ url: "u", contentType: "audio/ogg" }], "segue o áudio"), false);
+  assert.equal(
+    isAudioOnlyMessage([{ url: "a", contentType: "audio/ogg" }, { url: "b", contentType: "image/jpeg" }], ""),
+    false,
+  );
+  assert.equal(isAudioOnlyMessage([], ""), false);
 });

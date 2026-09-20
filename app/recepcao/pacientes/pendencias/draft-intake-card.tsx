@@ -2,6 +2,7 @@ import Link from "next/link";
 import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
+import { DocumentRequestButtons } from "./document-request-buttons";
 
 /**
  * Cartão da categoria "cadastro_assistido_ia" na fila de pendências.
@@ -31,103 +32,119 @@ function fileLabel(file: PendingRegistrationDraft["files"][number]): string {
 
 export function DraftIntakeCard({ draft }: { draft: PendingRegistrationDraft }) {
   return (
-    <div className="mt-3 flex flex-col gap-3 border-t border-paper-line-strong pt-3 text-sm">
-      {draft.guardianMessage && (
-        <p className="rounded-md bg-paper-line/40 px-3 py-2 text-ink">
-          <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Mensagem da família: </span>
-          {draft.guardianMessage}
-        </p>
-      )}
+    // Retrátil e recolhido por padrão: com vários contatos na fila ao mesmo
+    // tempo, o cartão aberto empurrava as outras pendências para fora da
+    // tela. A linha de cima (nome + resumo) continua sempre visível, e a
+    // cobrança de documento fica a um clique de distância aqui dentro.
+    <details className="mt-3 border-t border-paper-line-strong pt-3 text-sm">
+      <summary className="cursor-pointer list-item text-xs font-semibold uppercase tracking-wide text-ink-soft">
+        Detalhes do contato · {draft.files.length} arquivo(s) · {draft.facts.length} dado(s) · cobrar documento
+      </summary>
+      <div className="mt-3 flex flex-col gap-3">
+        {draft.guardianMessage && (
+          <p className="rounded-md bg-paper-line/40 px-3 py-2 text-ink">
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Mensagem da família: </span>
+            {draft.guardianMessage}
+          </p>
+        )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
-            Arquivos recebidos ({draft.files.length})
-          </h3>
-          {draft.files.length === 0 ? (
-            <p className="text-ink-faint">Nenhum arquivo anexado a este contato.</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {draft.files.map((file) => (
-                <li key={file.id}>
-                  <a
-                    href={`/api/arquivos/rascunho/${file.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[13px] font-medium no-underline"
-                    style={{ color: "var(--color-accent)" }}
-                  >
-                    {fileLabel(file)}
-                  </a>
+        <div className="grid gap-4 md:grid-cols-2">
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+              Arquivos recebidos ({draft.files.length})
+            </h3>
+            {draft.files.length === 0 ? (
+              <p className="text-ink-faint">Nenhum arquivo anexado a este contato.</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {draft.files.map((file) => (
+                  <li key={file.id}>
+                    <a
+                      href={`/api/arquivos/rascunho/${file.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[13px] font-medium no-underline"
+                      style={{ color: "var(--color-accent)" }}
+                    >
+                      {fileLabel(file)}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+              Dados já recebidos ({draft.facts.length})
+            </h3>
+            {draft.facts.length === 0 ? (
+              <p className="text-ink-faint">
+                Nada lido automaticamente ainda — abra os arquivos acima e a conversa ao lado para conferir.
+              </p>
+            ) : (
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                {draft.facts.map((fact) => (
+                  <div key={fact.label} className="contents">
+                    <dt className="text-xs uppercase tracking-wide text-ink-soft">{fact.label}</dt>
+                    <dd className="text-ink">{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </section>
+        </div>
+
+        {draft.messages.length > 0 && (
+          <details className="rounded-md border border-paper-line-strong bg-paper/40 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-ink-soft">
+              Conversa ({draft.messages.length} últimas mensagens)
+            </summary>
+            <ul className="mt-2 flex flex-col gap-1">
+              {draft.messages.map((message, index) => (
+                <li key={`${message.sentAt}-${index}`} className="text-[13px]">
+                  <span className="text-ink-soft">
+                    {message.direction === "inbound" ? "Família" : "Clínica"} ·{" "}
+                    {fmtDateTime(message.sentAt, CLINIC_TIMEZONE)}:
+                  </span>{" "}
+                  <span className="text-ink">{message.body || (message.hasMedia ? "(arquivo enviado)" : "—")}</span>
                 </li>
               ))}
             </ul>
-          )}
-        </section>
+          </details>
+        )}
 
-        <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
-            Dados já recebidos ({draft.facts.length})
-          </h3>
-          {draft.facts.length === 0 ? (
-            <p className="text-ink-faint">
-              Nada lido automaticamente ainda — abra os arquivos acima e a conversa ao lado para conferir.
-            </p>
-          ) : (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-              {draft.facts.map((fact) => (
-                <div key={fact.label} className="contents">
-                  <dt className="text-xs uppercase tracking-wide text-ink-soft">{fact.label}</dt>
-                  <dd className="text-ink">{fact.value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </section>
-      </div>
-
-      {draft.messages.length > 0 && (
-        <details className="rounded-md border border-paper-line-strong bg-paper/40 px-3 py-2">
-          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-ink-soft">
-            Conversa ({draft.messages.length} últimas mensagens)
-          </summary>
-          <ul className="mt-2 flex flex-col gap-1">
-            {draft.messages.map((message, index) => (
-              <li key={`${message.sentAt}-${index}`} className="text-[13px]">
-                <span className="text-ink-soft">
-                  {message.direction === "inbound" ? "Família" : "Clínica"} ·{" "}
-                  {fmtDateTime(message.sentAt, CLINIC_TIMEZONE)}:
-                </span>{" "}
-                <span className="text-ink">{message.body || (message.hasMedia ? "(arquivo enviado)" : "—")}</span>
-              </li>
+        {(draft.warnings.length > 0 || draft.error) && (
+          <ul className="flex flex-col gap-1 text-[13px] text-status-negative-text">
+            {draft.error && <li>Leitura automática falhou: {draft.error}</li>}
+            {draft.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
             ))}
           </ul>
-        </details>
-      )}
-
-      {(draft.warnings.length > 0 || draft.error) && (
-        <ul className="flex flex-col gap-1 text-[13px] text-status-negative-text">
-          {draft.error && <li>Leitura automática falhou: {draft.error}</li>}
-          {draft.warnings.map((warning) => (
-            <li key={warning}>{warning}</li>
-          ))}
-        </ul>
-      )}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href={`/recepcao/pre-cadastros/${draft.id}`}
-          className="text-[13px] font-semibold no-underline"
-          style={{ color: "var(--color-accent)" }}
-        >
-          Conferir e cadastrar →
-        </Link>
-        {draft.patientId && (
-          <Link href={`/recepcao/pacientes/${draft.patientId}`} className="text-[13px] no-underline text-ink-soft">
-            Abrir prontuário
-          </Link>
         )}
+
+        <DocumentRequestButtons
+          draftId={draft.id}
+          patientName={draft.patientName}
+          hasPhone={Boolean(draft.sourcePhone)}
+          requests={draft.documentRequests}
+        />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href={`/recepcao/pre-cadastros/${draft.id}`}
+            className="text-[13px] font-semibold no-underline"
+            style={{ color: "var(--color-accent)" }}
+          >
+            Conferir e cadastrar →
+          </Link>
+          {draft.patientId && (
+            <Link href={`/recepcao/pacientes/${draft.patientId}`} className="text-[13px] no-underline text-ink-soft">
+              Abrir prontuário
+            </Link>
+          )}
+        </div>
       </div>
-    </div>
+    </details>
   );
 }

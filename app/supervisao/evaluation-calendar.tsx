@@ -16,7 +16,8 @@ import {
 } from "./evaluation-calendar-actions";
 import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationPoolItem } from "@/lib/evaluation-agenda";
 import { AnamnesisDocumentPopover } from "@/components/anamnesis-document-popover";
-import { AlertTriangle, FileCheck2 } from "lucide-react";
+import { EvaluationQuickViewPanel } from "./evaluation-quick-view";
+import { AlertTriangle, Eye, FileCheck2 } from "lucide-react";
 
 /**
  * Calendário semanal de 1ª avaliação — visão única, independente de onde o
@@ -150,6 +151,14 @@ export function EvaluationCalendar({
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TherapistAvailabilityBlock[]>([]);
   const [openDocPopoverId, setOpenDocPopoverId] = useState<string | null>(null);
+  // Janela flutuante de consulta rápida (laudo/guia/contato) do card clicado
+  // na fila — guarda o retângulo do card pra ancorar a janela ao lado dele.
+  const [quickView, setQuickView] = useState<{ item: EvaluationPoolItem; rect: DOMRect } | null>(null);
+
+  function openQuickView(item: EvaluationPoolItem, target: HTMLElement) {
+    setOpenDocPopoverId(null);
+    setQuickView({ item, rect: target.getBoundingClientRect() });
+  }
 
   const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
   const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
@@ -390,13 +399,15 @@ export function EvaluationCalendar({
       <div className="flex gap-4">
         {/* Fila lateral */}
         <aside className="w-64 shrink-0">
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-soft">Aguardando agendamento ({pool.length})</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">Aguardando agendamento ({pool.length})</h3>
+          <p className="mb-2 mt-0.5 text-[10px] text-ink-faint">Clique num paciente para ver laudo, guia e contato sem sair da agenda.</p>
           <div className="flex flex-col gap-2">
             {readyPool.map((item) => (
               <div
                 key={item.id}
                 draggable={hasEvaluators}
-                tabIndex={hasEvaluators ? 0 : undefined}
+                role="button"
+                tabIndex={0}
                 onDragStart={(e) => {
                   if (!hasEvaluators) {
                     e.preventDefault();
@@ -404,10 +415,21 @@ export function EvaluationCalendar({
                   }
                   e.dataTransfer.setData("application/json", JSON.stringify({ kind: "pool", poolItemId: item.id } satisfies DragPayload));
                 }}
-                className={`grid-cell-focusable rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm ${
-                  hasEvaluators ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-50"
+                onClick={(e) => openQuickView(item, e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openQuickView(item, e.currentTarget);
+                  }
+                }}
+                className={`grid-cell-focusable rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm hover:border-[var(--color-accent)] ${
+                  hasEvaluators ? "cursor-grab active:cursor-grabbing" : "cursor-pointer opacity-70"
                 }`}
-                title={hasEvaluators ? "Arraste para uma célula do calendário" : "Cadastre um terapeuta avaliador para liberar o agendamento"}
+                title={
+                  hasEvaluators
+                    ? "Clique para consulta rápida (laudo, guia, contato) · arraste para uma célula do calendário para agendar"
+                    : "Clique para consulta rápida — cadastre um terapeuta avaliador para liberar o agendamento"
+                }
               >
                 <p className="text-xs font-semibold text-ink">{item.patientName}</p>
                 <span className={`tag-status mt-1 inline-block ${ORIGIN_TAG[item.origin]}`}>{ORIGIN_LABEL[item.origin]}</span>
@@ -419,22 +441,20 @@ export function EvaluationCalendar({
               return (
                 <div
                   key={item.id}
-                  role={anamnesisRequestId ? "button" : undefined}
-                  tabIndex={anamnesisRequestId ? 0 : undefined}
-                  onClick={anamnesisRequestId ? () => setOpenDocPopoverId((id) => (id === item.id ? null : item.id)) : undefined}
-                  onKeyDown={
+                  role="button"
+                  tabIndex={0}
+                  onClick={
                     anamnesisRequestId
-                      ? (e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setOpenDocPopoverId((id) => (id === item.id ? null : item.id));
-                          }
-                        }
-                      : undefined
+                      ? () => setOpenDocPopoverId((id) => (id === item.id ? null : item.id))
+                      : (e) => openQuickView(item, e.currentTarget)
                   }
-                  className={`relative rounded-md border border-dashed border-paper-line-strong bg-paper p-2.5 ${
-                    anamnesisRequestId ? "cursor-pointer hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]" : ""
-                  }`}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    if (anamnesisRequestId) setOpenDocPopoverId((id) => (id === item.id ? null : item.id));
+                    else openQuickView(item, e.currentTarget);
+                  }}
+                  className="relative cursor-pointer rounded-md border border-dashed border-paper-line-strong bg-paper p-2.5 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
                 >
                   <p className="text-xs font-semibold text-ink">{item.patientName}</p>
                   <span className={`tag-status mt-1 inline-block ${ORIGIN_TAG[item.origin]}`}>{ORIGIN_LABEL[item.origin]}</span>
@@ -448,18 +468,31 @@ export function EvaluationCalendar({
                   </div>
                   <p className="mt-1 text-[11px] text-ink-faint">{item.statusLabel} — aprove antes de agendar.</p>
                   {anamnesisRequestId && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenDocPopoverId((id) => (id === item.id ? null : item.id));
-                      }}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border-2 px-2.5 py-1 text-[11px] font-bold hover:opacity-80"
-                      style={{ borderColor: "var(--color-accent)", color: "var(--color-accent)" }}
-                    >
-                      <FileCheck2 size={12} aria-hidden />
-                      Validar Documentos
-                    </button>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenDocPopoverId((id) => (id === item.id ? null : item.id));
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-full border-2 px-2.5 py-1 text-[11px] font-bold hover:opacity-80"
+                        style={{ borderColor: "var(--color-accent)", color: "var(--color-accent)" }}
+                      >
+                        <FileCheck2 size={12} aria-hidden />
+                        Validar Documentos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openQuickView(item, e.currentTarget);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-paper-line-strong px-2.5 py-1 text-[11px] font-semibold text-ink-soft hover:bg-white"
+                      >
+                        <Eye size={12} aria-hidden />
+                        Consulta rápida
+                      </button>
+                    </div>
                   )}
                   {anamnesisRequestId && openDocPopoverId === item.id && (
                     <>
@@ -480,6 +513,15 @@ export function EvaluationCalendar({
             {pool.length === 0 && <p className="text-xs text-ink-faint">Nenhum paciente aguardando 1ª avaliação.</p>}
           </div>
         </aside>
+
+        {quickView && (
+          <EvaluationQuickViewPanel
+            key={quickView.item.id}
+            item={quickView.item}
+            anchorRect={quickView.rect}
+            onClose={() => setQuickView(null)}
+          />
+        )}
 
         {/* Grade semanal */}
         <div className={`relative flex-1 overflow-x-auto ${hasEvaluators ? "" : "pointer-events-none opacity-50"}`} aria-disabled={!hasEvaluators}>
