@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { logRecordAccess } from "@/lib/record-access-log";
 import type { DocumentExtraction } from "@/lib/document-extraction";
 import { DraftReviewForm } from "./draft-review-form";
+import { DraftProcessingPoller } from "./draft-processing-poller";
 import { PageContainer } from "@/components/page-container";
+import { claimAndProcessDrafts } from "@/lib/registration-drafts-process";
 
 export const dynamic = "force-dynamic";
 
@@ -13,13 +15,30 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
   const { draftId } = await params;
   const supabase = await createClient();
 
-  const { data: draft } = await supabase
+  let { data: draft } = await supabase
     .from("registration_drafts")
     .select("id, source, source_phone, status, patient_id, guardian_id, extracted, warnings, reject_reason, error")
     .eq("id", draftId)
     .maybeSingle();
 
   if (!draft) notFound();
+
+  // Se o rascunho estiver pendente ao abrir a página, dispara o processamento da IA imediatamente
+  if (draft.status === "pending") {
+    try {
+      await claimAndProcessDrafts({ draftId: draft.id });
+      const { data: updatedDraft } = await supabase
+        .from("registration_drafts")
+        .select("id, source, source_phone, status, patient_id, guardian_id, extracted, warnings, reject_reason, error")
+        .eq("id", draftId)
+        .maybeSingle();
+      if (updatedDraft) {
+        draft = updatedDraft;
+      }
+    } catch (err) {
+      console.error("[DraftReviewPage] Erro ao disparar processamento inicial:", err);
+    }
+  }
 
   const { data: files } = await supabase
     .from("registration_draft_files")
@@ -67,7 +86,7 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
         </Link>
 
         {draft.status === "pending" || draft.status === "processing" ? (
-          <p className="text-sm text-ink-faint">A IA ainda está lendo os documentos. Atualize a página em instantes.</p>
+          <DraftProcessingPoller draftId={draft.id} status={draft.status} />
         ) : draft.status === "validated" ? (
           <p className="text-sm text-ink-faint">Este rascunho já foi validado.</p>
         ) : draft.status === "rejected" ? (
@@ -89,3 +108,4 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
     </main>
   );
 }
+
