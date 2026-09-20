@@ -3,16 +3,15 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { PatientTabs } from "@/components/prontuario/patient-tabs";
-import { DocumentViewButton } from "@/components/prontuario/document-view-button";
+import { DocumentsTable } from "@/components/prontuario/documents-table";
 import { DocumentUploadForm } from "@/components/prontuario/document-upload-form";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
-import { fmtDate as fmtDateShared, fmtDateTime } from "@/lib/format";
+import { fmtDateTime } from "@/lib/format";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { getPatientDossier } from "@/lib/patient-dossier";
 import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
-import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { canConductFirstAssessment } from "@/lib/anamnese-access";
 import { getEnabledInstrumentKeys } from "@/lib/clinic-instruments";
@@ -21,7 +20,6 @@ import { PROTOCOL_LABEL, getEnabledProtocolsForClinic } from "@/lib/protocol-cat
 
 import { checkHasPendingPtsNotice } from "@/components/prontuario/notify-pts-actions";
 
-const fmtDate = (iso: string | null | undefined) => fmtDateShared(iso, CLINIC_TIMEZONE);
 
 // Ficha do terapeuta expõe upload/visualização só destas categorias
 // clínicas — PRD §9.5 dá ao terapeuta anexo de relatório/laudo/reavaliação,
@@ -139,46 +137,7 @@ export default async function TerapeutaFichaPacientePage({
   const documentsContent = (
     <>
       <div className="overflow-x-auto">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Documento</th>
-              <th>Data</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {clinicalDocuments.map((doc) => {
-              const validityBadge = getValidityBadge(doc.validUntil);
-              return (
-                <tr key={doc.id}>
-                  <td className="font-semibold">
-                    {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
-                    {validityBadge && (
-                      <span className={`tag-status ml-2 ${validityBadge.label === "Vencido" ? "st-falta" : "st-agendada"}`}>
-                        {validityBadge.label}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    {fmtDate(doc.uploadedAt)}
-                    {doc.validUntil && ` · válido até ${fmtDate(`${doc.validUntil}T00:00:00`)}`}
-                  </td>
-                  <td className="text-right">
-                    <DocumentViewButton documentId={doc.id} />
-                  </td>
-                </tr>
-              );
-            })}
-            {clinicalDocuments.length === 0 && (
-              <tr>
-                <td colSpan={3} className="text-ink-faint">
-                  Nenhum documento clínico anexado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <DocumentsTable documents={clinicalDocuments} />
       </div>
       <div className="mt-4">
         <DocumentUploadForm patientId={patient.id} allowedCategories={THERAPIST_DOCUMENT_CATEGORIES} />

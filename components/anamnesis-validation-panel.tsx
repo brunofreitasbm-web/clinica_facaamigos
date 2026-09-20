@@ -207,7 +207,7 @@ export function AnamnesisValidationPanel() {
                 <div className="grid grid-cols-2 gap-2 border-t border-paper-line pt-3">
                   {req.laudo_pdf_url ? (
                     <a
-                      href={req.laudo_pdf_url}
+                      href={`/api/arquivos/anamnese/${req.id}/laudo`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -227,7 +227,7 @@ export function AnamnesisValidationPanel() {
 
                   {req.guia_pdf_url ? (
                     <a
-                      href={req.guia_pdf_url}
+                      href={`/api/arquivos/anamnese/${req.id}/guia`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -247,7 +247,7 @@ export function AnamnesisValidationPanel() {
 
                   {req.carteirinha_frente_url ? (
                     <a
-                      href={req.carteirinha_frente_url}
+                      href={`/api/arquivos/anamnese/${req.id}/carteirinha_frente`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -267,7 +267,7 @@ export function AnamnesisValidationPanel() {
 
                   {req.carteirinha_verso_url && req.carteirinha_verso_url !== req.carteirinha_frente_url ? (
                     <a
-                      href={req.carteirinha_verso_url}
+                      href={`/api/arquivos/anamnese/${req.id}/carteirinha_verso`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"

@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { ShieldCheck, FileCheck, Search, Lock } from "lucide-react";
 import Link from "next/link";
-import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
+import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
 import { logProntuarioAccess } from "./actions";
 import { PrintButton } from "./print-button";
 import { ShareFamilyButton } from "./share-family-button";
@@ -10,7 +10,7 @@ import { PageContainer } from "@/components/page-container";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { SearchAsYouTypeInput } from "@/components/search-as-you-type-input";
 import { PatientTabs } from "@/components/prontuario/patient-tabs";
-import { DocumentViewButton } from "@/components/prontuario/document-view-button";
+import { DocumentsTable } from "@/components/prontuario/documents-table";
 import { DocumentUploadForm } from "@/components/prontuario/document-upload-form";
 import { checkHasPendingPtsNotice } from "@/components/prontuario/notify-pts-actions";
 import { getPatientDossier } from "@/lib/patient-dossier";
@@ -69,7 +69,19 @@ export default async function ProntuarioUnificadoPage({
 
   const { data: patientRows } = await patientQuery;
   const patientList = patientRows ?? [];
-  const selectedPatient = selectedPatientId ? patientList.find((p) => p.id === selectedPatientId) ?? null : null;
+  let selectedPatient = selectedPatientId ? patientList.find((p) => p.id === selectedPatientId) ?? null : null;
+  // A lista da esquerda traz só 30 pacientes (ordem alfabética): o link direto
+  // `?p=<id>` do painel de leads do WhatsApp ("Abrir prontuário") não pode
+  // depender de o paciente estar entre os 30 primeiros.
+  if (selectedPatientId && !selectedPatient) {
+    const { data: byId } = await supabase
+      .from("patients")
+      .select("id, full_name, cpf, birth_date, status")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .eq("id", selectedPatientId)
+      .maybeSingle();
+    selectedPatient = byId ?? null;
+  }
 
   let timeline: TimelineItem[] = [];
   let signedNotesCount = 0;
@@ -411,48 +423,7 @@ export default async function ProntuarioUnificadoPage({
                       documentsContent={
                         <>
                           <div className="overflow-x-auto">
-                            <table className="table">
-                              <thead>
-                                <tr>
-                                  <th>Documento</th>
-                                  <th>Data</th>
-                                  <th>Visível à família</th>
-                                  <th></th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {dossier.documents.map((doc) => {
-                                  const validityBadge = getValidityBadge(doc.validUntil);
-                                  return (
-                                    <tr key={doc.id}>
-                                      <td className="font-semibold">
-                                        {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
-                                        {validityBadge && (
-                                          <span className={`tag-status ml-2 ${validityBadge.label === "Vencido" ? "st-falta" : "st-agendada"}`}>
-                                            {validityBadge.label}
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td>
-                                        {fmt(doc.uploadedAt)}
-                                        {doc.validUntil && ` · válido até ${fmt(`${doc.validUntil}T00:00:00`)}`}
-                                      </td>
-                                      <td>{doc.sharedWithFamily ? "Sim" : "Não"}</td>
-                                      <td className="text-right">
-                                        <DocumentViewButton documentId={doc.id} />
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                                {dossier.documents.length === 0 && (
-                                  <tr>
-                                    <td colSpan={4} className="text-ink-faint">
-                                      Nenhum documento anexado.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
+                            <DocumentsTable documents={dossier.documents} />
                           </div>
                           <div className="mt-4">
                             <DocumentUploadForm patientId={selectedPatient.id} />

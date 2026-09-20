@@ -5,10 +5,13 @@
 // atômica via a função SQL `claim_registration_drafts` (migration
 // 20260907000001) evita que duas execuções do cron processem o mesmo
 // rascunho ao mesmo tempo. Usado por app/api/extractions/process/route.ts
-// (cron, em lote) e por app/recepcao/pre-cadastros/actions.ts
-// (reprocessDraft, um rascunho específico).
+// (cron, em lote), por app/recepcao/pre-cadastros/actions.ts (reprocessDraft,
+// um rascunho específico) e, em segundo plano logo após o webhook do WhatsApp,
+// por lib/whatsapp-cold-media.ts (extração imediata, sem esperar o cron).
+// Toda extração bem-sucedida promove o rascunho a lead (promoteDraftToLead).
 import { createAdminClient } from "@/lib/supabase/admin";
 import { extractRegistrationFromFiles, applyNormalization } from "@/lib/document-extraction";
+import { promoteDraftToLead } from "@/lib/whatsapp-lead";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
 // Teto prático de payload inline pro Gemini (base64 de 25MB de arquivos vira
@@ -132,6 +135,16 @@ async function runExtractionForDraft(
     clinic_id: draft.clinic_id,
     after: { warnings: normalized.warnings.length, files: downloaded.length },
   });
+
+  // Cadastro automático de lead: qualquer caminho que termina em "extracted"
+  // (cron, reprocessamento, execução imediata) promove o rascunho do WhatsApp a
+  // paciente-lead. Falha aqui não desfaz a extração — o rascunho segue na fila
+  // da recepção e o botão "Reprocessar" tenta de novo.
+  try {
+    await promoteDraftToLead(draft.id);
+  } catch (err) {
+    console.error("[Registration Draft] Falha ao promover rascunho a lead:", err);
+  }
 
   return { draftId: draft.id, status: "extracted" };
 }

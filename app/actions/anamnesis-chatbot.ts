@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatE164Phone, sendTwilioWhatsApp } from "@/lib/twilio";
+import { buildStoragePointer } from "@/lib/whatsapp-media-pure";
 import { revalidatePath } from "next/cache";
 
 export interface AnamnesisRequestItem {
@@ -53,6 +54,17 @@ export async function getPendingAnamnesisRequestsAction(): Promise<{
   }
 }
 
+// PDF mínimo (uma página em branco) para o mock: mesmo formato de ponteiro que o
+// bot grava de verdade (`storage://clinic-documents/<path>`), sem depender de
+// URL externa. Um único objeto fixo, regravado a cada chamada (upsert).
+const MOCK_PDF_PATH = "mock/anamnese-teste.pdf";
+const MOCK_PDF_BYTES = Buffer.from(
+  "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n" +
+    "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n" +
+    "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\n" +
+    "trailer<</Root 1 0 R/Size 4>>\n%%EOF\n",
+);
+
 /**
  * Cria uma solicitação de paciente fictício vindo do WhatsApp para testes na fila de validação.
  */
@@ -69,6 +81,12 @@ export async function createMockWhatsAppAnamnesisRequestAction(): Promise<{
     const mockGuardian = "Mariana Santana";
     const mockCpf = "123.456.789-00";
 
+    // Sem o arquivo no Storage o ponteiro não abriria — nesse caso fica sem anexo.
+    const { error: mockUploadError } = await supabase.storage
+      .from("clinic-documents")
+      .upload(MOCK_PDF_PATH, MOCK_PDF_BYTES, { contentType: "application/pdf", upsert: true });
+    const mockPointer = mockUploadError ? null : buildStoragePointer(MOCK_PDF_PATH);
+
     const { data: inserted, error } = await supabase
       .from("anamnesis_scheduling_requests")
       .insert({
@@ -77,10 +95,10 @@ export async function createMockWhatsAppAnamnesisRequestAction(): Promise<{
         guardian_cpf: mockCpf,
         child_name: mockChild,
         status: "pendente_supervisor",
-        laudo_pdf_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-        guia_pdf_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-        carteirinha_frente_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-        carteirinha_verso_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        laudo_pdf_url: mockPointer,
+        guia_pdf_url: mockPointer,
+        carteirinha_frente_url: mockPointer,
+        carteirinha_verso_url: mockPointer,
         card_number: "0088123456789001",
         created_at: new Date().toISOString(),
       })
@@ -297,12 +315,40 @@ export async function rejectAnamnesisDocumentAction(
 
     const formattedPhone = formatE164Phone(req.guardian_phone);
 
-    // Resetar sessão do chatbot para re-tentativa
+    // Resetar sessão do chatbot para re-tentativa. Descarta só o que será
+    // reenviado (documentos, cartão, requisição); preserva a identidade
+    // coletada e o `lead_patient_id`, para o reenvio cair no MESMO paciente-lead
+    // em vez de depender de heurística por telefone/nome.
+    const { data: session } = await supabase
+      .from("chatbot_sessions")
+      .select("collected_data")
+      .eq("phone_number", formattedPhone)
+      .maybeSingle();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const previous = (session?.collected_data as Record<string, any>) || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const preserved: Record<string, any> = {};
+    const identityKeys = [
+      "guardian_name",
+      "guardian_cpf",
+      "guardian_email",
+      "child_name",
+      "child_birth_date",
+      "started_at",
+    ];
+    for (const key of identityKeys) {
+      if (previous[key] !== undefined && previous[key] !== null) preserved[key] = previous[key];
+    }
+    const leadPatientId = previous.lead_patient_id ?? req.patient_id ?? null;
+    if (leadPatientId) preserved.lead_patient_id = leadPatientId;
+    // O reenvio é sempre de documentos de convênio.
+    preserved.is_private = false;
+
     await supabase
       .from("chatbot_sessions")
       .update({
         current_step: "awaiting_has_laudo",
-        collected_data: {},
+        collected_data: preserved,
         updated_at: new Date().toISOString(),
       })
       .eq("phone_number", formattedPhone);

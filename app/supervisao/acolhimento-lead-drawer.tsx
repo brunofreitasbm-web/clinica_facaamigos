@@ -12,7 +12,6 @@ import {
   rejectIntakeLeadAppointment,
   cancelIntakeLead,
   retryIntakeLead,
-  getIntakeFileUrl,
   reprocessLaudoExtraction,
 } from "./acolhimento-actions";
 import { getValidityBadge } from "@/lib/document-categories";
@@ -221,14 +220,6 @@ export function AcolhimentoLeadDrawer({
     });
   }
 
-  function handleViewFile(fileId: string) {
-    startTransition(async () => {
-      const res = await getIntakeFileUrl(fileId);
-      if (res.success) window.open(res.url, "_blank", "noopener,noreferrer");
-      else setFeedback({ type: "error", text: res.error });
-    });
-  }
-
   function handleStartContact() {
     startTransition(async () => {
       const res = await approveIntakeLeadsAndStartContact([lead.id]);
@@ -401,9 +392,9 @@ export function AcolhimentoLeadDrawer({
               {lead.files.map((file) => (
                 <div key={file.id} className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper/40 p-2 text-xs">
-                    <button type="button" onClick={() => handleViewFile(file.id)} className="truncate text-left text-chart hover:underline">
+                    <a href={`/api/arquivos/acolhimento/${file.id}`} target="_blank" rel="noopener noreferrer" className="truncate text-left text-chart hover:underline">
                       {file.original_name || "arquivo"}
-                    </button>
+                    </a>
                     <div className="flex items-center gap-1.5">
                       <select
                         defaultValue={file.kind ?? ""}

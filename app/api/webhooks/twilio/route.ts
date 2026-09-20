@@ -4,6 +4,12 @@ import { handleTwilioIncomingMessage, sendTwilioWhatsApp, sendTwilioSMS, formatE
 import { createAdminClient } from "@/lib/supabase/admin";
 import { closeAttendanceResolvedByBot } from "@/lib/conversation-attendance";
 
+// Segmento de rota (Next 16): teto de execução da função na Vercel. O trabalho
+// agendado com `after()` (extração de documentos por IA, enriquecimento do lead
+// — lib/whatsapp-cold-media.ts, lib/twilio-anamnesis-bot.ts) roda DEPOIS da
+// resposta ao Twilio, mas ainda dentro deste limite.
+export const maxDuration = 60;
+
 const EMPTY_TWIML = `<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>`;
 
 /**
@@ -45,10 +51,10 @@ export async function POST(req: NextRequest) {
     let mediaContentType0 = "";
     // NumMedia + MediaUrl{i}/MediaContentType{i}: Twilio manda o total de
     // anexos da mensagem (o WhatsApp normalmente entrega 1 por mensagem, mas
-    // o formato suporta mais). Usado pelo fluxo de "cadastro assistido por
-    // IA" (lib/registration-drafts-ingest.ts) — mediaUrl0/mediaContentType0
-    // continuam existindo à parte pra não quebrar o bot de anamnese, que só
-    // olha o primeiro anexo.
+    // o formato suporta mais). Usado pela ingestão de documentos
+    // (lib/whatsapp-cold-media.ts) e pelo bot de anamnese, que guarda todos os
+    // anexos da etapa — mediaUrl0/mediaContentType0 continuam existindo à
+    // parte por compatibilidade.
     let media: { url: string; contentType?: string }[] = [];
 
     function collectMedia(get: (key: string) => string | null): { url: string; contentType?: string }[] {

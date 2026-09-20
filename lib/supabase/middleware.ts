@@ -42,6 +42,17 @@ const PUBLIC_PREFIXES = [
   "/api/twilio",
 ];
 
+// Rotas que só exigem sessão válida, sem o guard de papel abaixo: os links de
+// "abrir arquivo" (/api/arquivos/*) aparecem em telas de vários papéis
+// (prontuário do terapeuta, ficha da recepção, acolhimento da supervisão...)
+// e nenhum prefixo de ROLE_ALLOWED_PREFIXES cobre todos. A decisão de acesso
+// de verdade é do próprio route handler (RLS via client de sessão).
+const SESSION_ONLY_PREFIXES = ["/api/arquivos"];
+
+function isSessionOnlyPath(pathname: string): boolean {
+  return SESSION_ONLY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 function isPublicRequestPath(pathname: string): boolean {
   return (
     pathname === LOGIN_PATH ||
@@ -108,7 +119,7 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(new URL("/", request.url));
       }
 
-      if (pathname !== "/" && pathname !== CHANGE_PASSWORD_PATH) {
+      if (pathname !== "/" && pathname !== CHANGE_PASSWORD_PATH && !isSessionOnlyPath(pathname)) {
         const role = profile?.role as Role | undefined;
         const home = role ? ROLE_HOME[role] : undefined;
 

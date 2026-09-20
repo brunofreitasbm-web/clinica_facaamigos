@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
-import { DOCUMENT_CATEGORY_LABEL, getValidityBadge } from "@/lib/document-categories";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { buildWhatsappLink } from "@/lib/whatsapp-message";
 import { logRecordAccess } from "@/lib/record-access-log";
 import { fmtDate as fmtDateShared } from "@/lib/format";
-import { DocumentViewButton } from "@/components/prontuario/document-view-button";
+import { DocumentsTable } from "@/components/prontuario/documents-table";
+import { DOCUMENT_ROW_COLUMNS, mapDocumentRows } from "@/lib/patient-dossier";
 import {
   PatientManagementPanel,
   type AppointmentRow,
@@ -84,7 +84,7 @@ export default async function GestaoPacientePage({
       .limit(30),
     supabase
       .from("documents")
-      .select("id, category, uploaded_at, valid_until, shared_with_family")
+      .select(DOCUMENT_ROW_COLUMNS)
       .eq("patient_id", id)
       .order("uploaded_at", { ascending: false }),
   ]);
@@ -162,52 +162,7 @@ export default async function GestaoPacientePage({
   });
 
   const documentsContent = (
-    <table className="table">
-      <thead>
-        <tr>
-          <th>Documento</th>
-          <th>Categoria</th>
-          <th>Data</th>
-          <th>Visível à família</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {(documents ?? []).map((doc) => {
-          const validityBadge = getValidityBadge(doc.valid_until);
-          return (
-            <tr key={doc.id}>
-              <td className="font-semibold">
-                {DOCUMENT_CATEGORY_LABEL[doc.category] ?? doc.category}
-                {validityBadge && (
-                  <span
-                    className={`tag-status ml-2 ${validityBadge.label === "Vencido" ? "st-falta" : "st-agendada"}`}
-                  >
-                    {validityBadge.label}
-                  </span>
-                )}
-              </td>
-              <td>{doc.category}</td>
-              <td>
-                {fmtDate(doc.uploaded_at)}
-                {doc.valid_until && ` · válido até ${fmtDate(`${doc.valid_until}T00:00:00`)}`}
-              </td>
-              <td>{doc.shared_with_family ? "Sim" : "Não"}</td>
-              <td className="text-right">
-                <DocumentViewButton documentId={doc.id} />
-              </td>
-            </tr>
-          );
-        })}
-        {(documents ?? []).length === 0 && (
-          <tr>
-            <td colSpan={5} className="text-ink-faint">
-              Nenhum documento anexado.
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+    <DocumentsTable documents={mapDocumentRows(documents)} />
   );
 
   const whatsappHref = primaryGuardian?.phone

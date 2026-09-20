@@ -391,29 +391,12 @@ export async function resolvePatientFromPhone(phone: string): Promise<{ patientI
 }
 
 // Etapas de chatbot_sessions em que outro bot já está esperando um anexo
-// (PDF/foto) do telefone — se estiver numa delas, a ingestão de "cadastro
-// assistido por IA" (passo 0.7) não deve interceptar a mensagem, senão o
-// anexo nunca chega ao fluxo que o pediu. `awaiting_laudo_pdf`/
-// `awaiting_guia_pdf` são do bot de anamnese (lib/twilio-anamnesis-bot.ts);
-// os steps `intake_*` (bot de acolhimento de plano de saúde,
-// lib/twilio-intake-bot.ts) já são tratados antes disso no passo 0.6, mas o
-const SCHEDULING_FLOW_STEPS = new Set([
-  "awaiting_guardian_name",
-  "awaiting_guardian_cpf",
-  "awaiting_child_name",
-  "awaiting_child_birth_date",
-  "awaiting_payment_mode",
-  "awaiting_has_laudo",
-  "awaiting_laudo_pdf",
-  "awaiting_has_guia",
-  "awaiting_guia_pdf",
-  "awaiting_carteirinha_frente",
-  "awaiting_carteirinha_verso",
-  "awaiting_card_number",
-  "pending_supervisor",
-  "awaiting_slot_selection",
-]);
-
+// (PDF/foto) do telefone — se estiver numa delas, a ingestão de mídia "a frio"
+// (passo 0.7) não deve interceptar a mensagem, senão o anexo nunca chega ao
+// fluxo que o pediu. As etapas abaixo são do bot de anamnese
+// (lib/twilio-anamnesis-bot.ts); os steps `intake_*` (bot de acolhimento de
+// plano de saúde, lib/twilio-intake-bot.ts) já são tratados antes, no passo
+// 0.6, mas também entram aqui como rede de segurança.
 const ANAMNESIS_AWAITING_ATTACHMENT_STEPS = new Set([
   "awaiting_laudo_pdf",
   "awaiting_guia_pdf",
@@ -424,7 +407,7 @@ const ANAMNESIS_AWAITING_ATTACHMENT_STEPS = new Set([
   "awaiting_card_number",
 ]);
 
-async function checkSchedulingFlowStatus(phone: string): Promise<{ inSchedulingFlow: boolean; awaitingAttachmentDirectly: boolean }> {
+async function checkAwaitingAttachmentDirectly(phone: string): Promise<boolean> {
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
@@ -434,13 +417,9 @@ async function checkSchedulingFlowStatus(phone: string): Promise<{ inSchedulingF
       .eq("phone_number", phone)
       .maybeSingle();
     const step = data?.current_step ?? "";
-    const inSchedulingFlow = SCHEDULING_FLOW_STEPS.has(step);
-    const awaitingAttachmentDirectly = Boolean(
-      data && (ANAMNESIS_AWAITING_ATTACHMENT_STEPS.has(step) || step.startsWith("intake_"))
-    );
-    return { inSchedulingFlow, awaitingAttachmentDirectly };
+    return Boolean(data && (ANAMNESIS_AWAITING_ATTACHMENT_STEPS.has(step) || step.startsWith("intake_")));
   } catch {
-    return { inSchedulingFlow: false, awaitingAttachmentDirectly: false };
+    return false;
   }
 }
 
@@ -453,9 +432,9 @@ export async function handleTwilioIncomingMessage(params: {
   mediaUrl0?: string;
   mediaContentType0?: string;
   /** Todos os anexos da mensagem (NumMedia/MediaUrl{i}), não só o primeiro —
-   * usado pela ingestão de documentos do "cadastro assistido por IA" (ver
-   * passo 0.7 abaixo). Opcional: quem chama sem media (ex.: o painel de
-   * teste do chatbot) simplesmente não aciona esse fluxo. */
+   * usado pela mídia "a frio" (passo 0.7) e pelo bot de anamnese, que guarda
+   * todos os anexos da etapa. Opcional: quem chama sem media (ex.: o painel
+   * de teste do chatbot) simplesmente não aciona esse fluxo. */
   media?: { url: string; contentType?: string }[];
 }): Promise<{ replyMessage: string; intent: string; concluded?: boolean }> {
   const { from, body, mediaUrl0, mediaContentType0, media } = params;
@@ -531,25 +510,29 @@ export async function handleTwilioIncomingMessage(params: {
       console.error("[Twilio Intake Bot Error]:", err);
     }
 
-    // 0.7 Ingestão de documentos do "cadastro assistido por IA" — roda
-    // exclusivamente se a conversa estiver no fluxo de agendamento de
-    // anamnese e com o atendimento automático ativo. Não intercepta envios
-    // em conversas com a recepção humana nem em outros fluxos (FAQ, falta, etc.).
-    if (media && media.length > 0 && conversation.is_bot_active) {
-      const { inSchedulingFlow: inSessionFlow, awaitingAttachmentDirectly } = await checkSchedulingFlowStatus(phone);
-      const normBody = (body || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      const triggers = ["agendar", "anamnese", "marcar avaliacao", "marcar avaliação", "marcar consulta"];
-      const isStartingScheduling = triggers.some((t) => normBody.includes(t));
-      const inSchedulingFlow = inSessionFlow || isStartingScheduling;
-
-      if (inSchedulingFlow && !awaitingAttachmentDirectly) {
-        try {
-          const { ingestWhatsappMedia } = await import("./registration-drafts-ingest");
-          const ingestResult = await ingestWhatsappMedia({ from, media, body });
-          return { intent: "cadastro_documentos", replyMessage: ingestResult.replyMessage };
-        } catch (err) {
-          console.error("[Twilio Registration Draft Ingest Error]:", err);
-        }
+    // 0.7 Mídia "a frio": TODA foto/PDF que chega e que nenhum bot está
+    // esperando é guardada — não depende de fluxo de agendamento nem de
+    // palavra-gatilho, e também roda com a conversa assumida por um humano
+    // (aí em silêncio: o documento entra igual, sem resposta do bot). Se o
+    // responsável já é cadastrado, o arquivo vai direto ao paciente; se o
+    // telefone é desconhecido, vira rascunho e a extração por IA roda em
+    // segundo plano (lib/whatsapp-cold-media.ts). As etapas em que outro bot
+    // espera o anexo (anamnese/acolhimento) seguem para o bot dono.
+    if (media && media.length > 0) {
+      try {
+        const awaitingAttachmentDirectly = await checkAwaitingAttachmentDirectly(phone);
+        const { handleColdWhatsappMedia } = await import("./whatsapp-cold-media");
+        const cold = await handleColdWhatsappMedia({
+          from,
+          body,
+          media,
+          botActive: conversation.is_bot_active,
+          awaitingAttachmentDirectly,
+          knownPatient: Boolean(patientId),
+        });
+        if (cold) return { intent: "cadastro_documentos", replyMessage: cold.replyMessage };
+      } catch (err) {
+        console.error("[Twilio Cold Media Ingest Error]:", err);
       }
     }
 
@@ -618,6 +601,7 @@ export async function handleTwilioIncomingMessage(params: {
       body,
       mediaUrl0,
       mediaContentType0,
+      media,
     });
 
     if (anamnesisResult.handled) {

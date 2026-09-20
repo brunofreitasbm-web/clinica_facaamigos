@@ -102,7 +102,7 @@ export function AnamnesisDocumentPopover({
           <div className="grid grid-cols-1 gap-2 border-t border-paper-line pt-2.5">
             {request.laudo_pdf_url ? (
               <a
-                href={request.laudo_pdf_url}
+                href={`/api/arquivos/anamnese/${request.id}/laudo`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -121,7 +121,7 @@ export function AnamnesisDocumentPopover({
             )}
             {request.guia_pdf_url ? (
               <a
-                href={request.guia_pdf_url}
+                href={`/api/arquivos/anamnese/${request.id}/guia`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -140,7 +140,7 @@ export function AnamnesisDocumentPopover({
             )}
             {request.carteirinha_frente_url ? (
               <a
-                href={request.carteirinha_frente_url}
+                href={`/api/arquivos/anamnese/${request.id}/carteirinha_frente`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
@@ -159,7 +159,7 @@ export function AnamnesisDocumentPopover({
             )}
             {request.carteirinha_verso_url && request.carteirinha_verso_url !== request.carteirinha_frente_url ? (
               <a
-                href={request.carteirinha_verso_url}
+                href={`/api/arquivos/anamnese/${request.id}/carteirinha_verso`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex items-center justify-between gap-2 rounded-md border border-paper-line-strong bg-paper px-2.5 py-2 text-xs font-medium text-accent no-underline"
