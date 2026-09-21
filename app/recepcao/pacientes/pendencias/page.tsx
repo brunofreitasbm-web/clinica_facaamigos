@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { getReceptionQueue, getAuthorizationWizardItems, type PendingQueueCategory } from "@/lib/reception-queue";
-import { fmtDateTime } from "@/lib/format";
+import { fmtDueShort } from "@/lib/format";
 import { RegisterContactButton } from "./register-contact-button";
 import { ResolveAutoFaltaButton } from "./resolve-auto-falta-button";
 import { ResolveSimpleButton } from "./resolve-simple-button";
@@ -14,7 +14,7 @@ import { AutorizacaoWizard } from "./autorizacao-wizard";
 import { DraftIntakeCard } from "./draft-intake-card";
 import { CollapsibleQueueRow } from "./collapsible-queue-row";
 import { DraftPipelineMini } from "./draft-pipeline";
-import { PendencyPills } from "./pendency-pills";
+import { PendencyPills, SummaryChip } from "./pendency-pills";
 import { extractDraftOnDemand } from "./draft-pipeline-actions";
 import { PageContainer } from "@/components/page-container";
 
@@ -91,9 +91,19 @@ export default async function PendenciasPage() {
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-soft">
                 {items[0].categoryLabel} ({items.length})
               </h2>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 {items.map((item) => {
                   const isEscalated = Boolean(item.escalatedAt);
+                  // Barra de severidade na borda esquerda; sempre acompanhada de chip/texto
+                  // (nunca só cor). Só cadastro-IA tem "falta N", então o resto só marca atraso.
+                  const severityBar =
+                    isEscalated || item.overdue
+                      ? "border-l-[3px] border-l-status-negative-text"
+                      : item.draft
+                        ? item.draft.pendencies.missingCount > 0
+                          ? "border-l-[3px] border-l-status-pending-text"
+                          : "border-l-[3px] border-l-status-positive-text"
+                        : "";
                   const aside = (
                         <div className="flex flex-col items-end gap-1">
                           {category === "interessado_sem_retorno" && item.patientId ? (
@@ -117,7 +127,11 @@ export default async function PendenciasPage() {
                           ) : category === "renovacao_solicitada" && item.renewalRequestId ? (
                             <ResolveRenewalRequestButton requestId={item.renewalRequestId} />
                           ) : (
-                            <span className="tabular-figure whitespace-nowrap text-status-negative-text">
+                            <span
+                              className={`tabular-figure whitespace-nowrap ${
+                                isEscalated || item.overdue ? "text-status-negative-text" : "text-ink-soft"
+                              }`}
+                            >
                               {item.urgencyLabel}
                             </span>
                           )}
@@ -125,24 +139,26 @@ export default async function PendenciasPage() {
                               garante que todo item chega aqui com assignment (ou null durante uma
                               corrida rara entre duas cargas concorrentes da fila). */}
                           <p className="whitespace-nowrap text-[11px] text-ink-faint">
-                            {item.assignedToName ?? "Sem dono"}
+                            <span title={item.assignedToName ?? undefined}>
+                              {item.assignedToName ? item.assignedToName.split(" ")[0] : "Sem dono"}
+                            </span>
                             {item.dueAt && (
                               <>
                                 {" · "}
                                 {isEscalated ? (
                                   <span className="font-semibold text-status-negative-text">
                                     escalado{" "}
-                                    {fmtDateTime(item.escalatedAt as string, CLINIC_TIMEZONE)}
+                                    {fmtDueShort(item.escalatedAt as string, CLINIC_TIMEZONE)}
                                   </span>
                                 ) : item.overdue ? (
                                   <span className="font-semibold text-status-negative-text">
                                     atrasado desde{" "}
-                                    {fmtDateTime(item.dueAt, CLINIC_TIMEZONE)}
+                                    {fmtDueShort(item.dueAt, CLINIC_TIMEZONE)}
                                   </span>
                                 ) : (
                                   <>
                                     prazo{" "}
-                                    {fmtDateTime(item.dueAt, CLINIC_TIMEZONE)}
+                                    {fmtDueShort(item.dueAt, CLINIC_TIMEZONE)}
                                   </>
                                 )}
                               </>
@@ -160,11 +176,11 @@ export default async function PendenciasPage() {
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-md border px-4 py-3 text-sm ${
+                      className={`group rounded-md border px-4 py-2.5 text-sm ${
                         isEscalated
                           ? "border-status-negative-text bg-status-negative-text/5"
                           : "border-paper-line-strong bg-paper/60"
-                      }`}
+                      } ${severityBar}`}
                     >
                       {item.draft ? (
                         // Cadastro assistido por IA: a linha resume e é o gatilho;
@@ -173,9 +189,15 @@ export default async function PendenciasPage() {
                           title={item.patientName}
                           subtitle={
                             <>
-                              {item.detail}
+                              <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                                <SummaryChip pendencies={item.draft.pendencies} />
+                                <DraftPipelineMini pipeline={item.draft.pipeline} />
+                                <span className="whitespace-nowrap rounded-full bg-paper-subtle px-2 py-0.5 text-[11px] font-medium text-ink-soft">
+                                  Pré-cadastro
+                                </span>
+                              </span>
+                              <span className="mt-1 block text-[12px]">{item.detail}</span>
                               <PendencyPills pendencies={item.draft.pendencies} />
-                              <DraftPipelineMini pipeline={item.draft.pipeline} />
                             </>
                           }
                           aside={aside}

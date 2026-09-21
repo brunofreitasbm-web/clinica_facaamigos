@@ -10,6 +10,7 @@ import { civilDateInTimeZone } from "@/lib/timezone";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
 import { computeLeadPendencies, type LeadPendencies } from "@/lib/lead-pendencies";
+import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
 
 type Supa = SupabaseClient<Database>;
 
@@ -617,17 +618,18 @@ function draftFacts(extracted: unknown): PendingDraftFact[] {
  * Resumo de uma linha do item na fila. Sempre começa pelo que já está em mãos
  * (arquivos e dados), nunca por "aguardando IA": o estado da extração é um
  * detalhe no fim, porque o trabalho da recepção não depende dela.
+ *
+ * Sem o telefone (vai no título quando não há nome) e sem o "Faltam N: ..."
+ * (o chip e as pílulas da linha já dizem o que falta — repetir aqui era ruído).
  */
 function draftDetail(d: PendingRegistrationDraft): string {
   const parts: string[] = [];
   parts.push(d.source === "whatsapp" ? "WhatsApp" : "Portal da família");
-  if (d.sourcePhone) parts.push(d.sourcePhone);
-  parts.push(`${d.files.length} arquivo(s)`);
-  if (d.facts.length > 0) parts.push(`${d.facts.length} dado(s) já lidos`);
+  parts.push(d.files.length === 1 ? "1 arquivo" : `${d.files.length} arquivos`);
+  if (d.facts.length > 0) parts.push(d.facts.length === 1 ? "1 dado já lido" : `${d.facts.length} dados já lidos`);
   if (d.status === "validated") parts.push("cadastro conferido");
   else if (d.status === "failed") parts.push("leitura automática falhou — conferir manualmente");
   else if (d.status === "pending" || d.status === "processing") parts.push("leitura automática em andamento");
-  parts.push(d.pendencies.summary);
   return parts.join(" · ");
 }
 
@@ -1222,7 +1224,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       category: "cadastro_assistido_ia",
       categoryLabel: CATEGORY_LABEL.cadastro_assistido_ia,
       patientId: d.patientId,
-      patientName: d.patientName ?? `Pré-cadastro · ${d.sourcePhone ?? "número novo"}`,
+      patientName: d.patientName ?? (d.sourcePhone ? formatPhoneDisplay(d.sourcePhone) : "Número novo"),
       detail: draftDetail(d),
       urgencyLabel: new Date(d.createdAt).toLocaleDateString("pt-BR"),
       href: `/recepcao/pre-cadastros/${d.id}`,

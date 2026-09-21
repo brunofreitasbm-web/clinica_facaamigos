@@ -30,7 +30,7 @@ export function ReassignOwnerButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-[11px] font-medium text-ink-faint underline decoration-dotted hover:text-ink"
+        className="text-[11px] font-medium text-ink-faint underline decoration-dotted opacity-70 transition-opacity hover:text-ink hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
       >
         Reatribuir
       </button>

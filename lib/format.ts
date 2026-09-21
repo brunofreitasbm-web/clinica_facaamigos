@@ -56,3 +56,28 @@ export function formatDateBR(dateStr: string | null | undefined): string {
   return `${day}/${month}/${year}`;
 }
 
+/**
+ * Prazo/horário curto para listas densas: "hoje 19:43", "amanhã 19:43",
+ * "ontem 19:43" ou "21/09 19:43" — sem segundos e sempre no fuso da clínica
+ * (o dia é comparado no `timeZone`, não no do servidor).
+ */
+export function fmtDueShort(iso: string | null | undefined, timeZone: string, now: Date = new Date()): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "—";
+
+  const dayNumber = (d: Date): number => {
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+      .formatToParts(d)
+      .reduce<Record<string, string>>((acc, p) => ({ ...acc, [p.type]: p.value }), {});
+    return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) / 86_400_000;
+  };
+
+  const time = date.toLocaleTimeString("pt-BR", { timeZone, hour: "2-digit", minute: "2-digit" });
+  const diff = dayNumber(date) - dayNumber(now);
+  if (diff === 0) return `hoje ${time}`;
+  if (diff === 1) return `amanhã ${time}`;
+  if (diff === -1) return `ontem ${time}`;
+  const day = date.toLocaleDateString("pt-BR", { timeZone, day: "2-digit", month: "2-digit" });
+  return `${day} ${time}`;
+}

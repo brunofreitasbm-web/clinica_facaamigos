@@ -46,37 +46,30 @@ function fmtDate(iso: string | null): string {
 }
 
 /**
- * Resumo de uma linha para a linha retrátil da fila: mostra em que etapa cada
- * contato está sem precisar abrir o cartão.
+ * Resumo da linha retrátil da fila: UM chip com a etapa em que o contato está
+ * (a trilha inteira vai no title/aria-label). O passo 1 é sempre "done" e quase
+ * todos os contatos estão na mesma etapa, então três pílulas repetidas em cada
+ * linha eram só ruído — a linha do tempo completa, com as ações, fica no cartão.
  */
 export function DraftPipelineMini({ pipeline }: { pipeline: PendingRegistrationDraft["pipeline"] }) {
   const states = stepStates(pipeline);
+  const currentIndex = states.findIndex((state) => state === "current");
+  const allDone = currentIndex === -1;
+
+  const trail = STEP_TITLE.map((title, index) => {
+    const state = states[index];
+    return `${title}${state === "done" ? " ✓" : state === "current" ? " (atual)" : " (bloqueado)"}`;
+  }).join(" · ");
+
   return (
-    <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-      {STEP_TITLE.map((title, index) => {
-        const state = states[index];
-        return (
-          <span key={title} className="flex items-center gap-1.5">
-            {index > 0 && (
-              <span aria-hidden="true" className="text-ink-faint">
-                →
-              </span>
-            )}
-            <span
-              className={`whitespace-nowrap rounded-full border px-2 py-0.5 font-medium ${
-                state === "done"
-                  ? "border-status-positive-text/60 text-status-positive-text"
-                  : state === "current"
-                    ? "border-[var(--color-accent)] text-ink"
-                    : "border-dashed border-paper-line-strong text-ink-faint"
-              }`}
-            >
-              {state === "done" ? "✓ " : ""}
-              {index + 1}. {title}
-            </span>
-          </span>
-        );
-      })}
+    <span
+      title={trail}
+      aria-label={trail}
+      className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+        allDone ? "border-status-positive-text/60 text-status-positive-text" : "border-[var(--color-accent)] text-ink"
+      }`}
+    >
+      {allDone ? `✓ ${STEP_TITLE[2]}` : `Etapa ${currentIndex + 1}/3 · ${STEP_TITLE[currentIndex]}`}
     </span>
   );
 }
