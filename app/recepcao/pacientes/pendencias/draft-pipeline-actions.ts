@@ -43,6 +43,40 @@ function refresh() {
   revalidatePath("/supervisao");
 }
 
+/** Teto de tentativas da leitura sob demanda — abrir a linha várias vezes não pode virar N chamadas ao Gemini. */
+const MAX_ON_DEMAND_ATTEMPTS = 3;
+
+/**
+ * Lê com IA os arquivos de um contato que a recepção acabou de abrir na fila
+ * (o cron de extração nunca rodou em produção; ver loadOpenDraftForPhone em
+ * app/recepcao/atendimento/actions.ts). Só rascunhos parados em pending/failed,
+ * com pelo menos um arquivo e tentativas sobrando; a reivindicação é atômica
+ * (`claim_registration_drafts`), então dois cliques não processam duas vezes.
+ */
+export async function extractDraftOnDemand(draftId: string): Promise<ActionResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+
+  const { data: draft } = await supabase
+    .from("registration_drafts")
+    .select("id, status, attempts, registration_draft_files(count)")
+    .eq("id", draftId)
+    .maybeSingle();
+  if (!draft) return { success: false, error: "Contato não encontrado." };
+
+  const filesCount = Array.isArray(draft.registration_draft_files)
+    ? ((draft.registration_draft_files[0] as { count: number } | undefined)?.count ?? 0)
+    : 0;
+  if ((draft.status !== "pending" && draft.status !== "failed") || filesCount === 0 || draft.attempts >= MAX_ON_DEMAND_ATTEMPTS) {
+    return { success: true };
+  }
+
+  const { claimAndProcessDrafts } = await import("@/lib/registration-drafts-process");
+  await claimAndProcessDrafts({ draftId });
+  refresh();
+  return { success: true };
+}
+
 /** Marca a etapa 2 como concluída registrando a guia que o plano autorizou. */
 export async function registerAuthorizedGuide(draftId: string, input: AuthorizedGuideInput): Promise<ActionResult> {
   const { supabase, user } = await requireUser();

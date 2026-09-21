@@ -4,6 +4,8 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
 import { DocumentRequestButtons } from "./document-request-buttons";
 import { DraftPipelineColumns } from "./draft-pipeline";
+import { PendencyGrid } from "./pendency-pills";
+import { missingChaseKeys } from "@/lib/lead-pendencies";
 
 /**
  * Cartão da categoria "cadastro_assistido_ia" na fila de pendências.
@@ -44,6 +46,8 @@ export function DraftIntakeCard({ draft }: { draft: PendingRegistrationDraft }) 
             {draft.guardianMessage}
           </p>
         )}
+
+        <PendencyGrid pendencies={draft.pendencies} />
 
         {/* Linha do tempo: documentos → autorização do plano → habilitado para
             agendamento. A coluna 1 é o que antes era o cartão inteiro. */}
@@ -132,6 +136,7 @@ export function DraftIntakeCard({ draft }: { draft: PendingRegistrationDraft }) 
           patientName={draft.patientName}
           hasPhone={Boolean(draft.sourcePhone)}
           requests={draft.documentRequests}
+          missingKeys={missingChaseKeys(draft.pendencies)}
         />
 
         <div className="flex flex-wrap items-center gap-3">

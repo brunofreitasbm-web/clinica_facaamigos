@@ -10,10 +10,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatE164Phone, resolvePatientFromPhone } from "@/lib/twilio";
+import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const OPEN_DRAFT_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h — agrupa fotos mandadas aos poucos numa mesma remessa
+const OPEN_DRAFT_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h — agrupa uploads do portal feitos aos poucos numa mesma remessa
 const MAX_FILES_PER_DRAFT = 10;
 
 // Reaproveitado por lib/twilio-intake-bot.ts (acolhimento de plano de saúde)
@@ -82,6 +83,9 @@ type OpenDraftLookup = { phone?: string; patientId?: string };
  * origem — WhatsApp identifica pelo telefone, portal pelo paciente — desde
  * que a última mídia tenha chegado há menos de 2h. Fora dessa janela, um
  * rascunho novo é criado (evita misturar duas remessas separadas no tempo).
+ * O WhatsApp NÃO usa mais essa janela: há um único rascunho aberto por
+ * telefone (findOrCreateOpenWhatsappDraft, lib/registration-drafts-bot.ts),
+ * compartilhado com o bot de agendamento — só o portal chega aqui.
  */
 async function findOpenDraft(
   admin: ReturnType<typeof createAdminClient>,
@@ -132,29 +136,23 @@ export async function ingestWhatsappMedia(params: {
 
   const resolved = await resolvePatientFromPhone(phone);
 
-  const open = await findOpenDraft(admin, "whatsapp", { phone });
-  let draftId = open?.id ?? null;
-  const existingFileCount = open?.files_count ?? 0;
+  const open = await findOrCreateOpenWhatsappDraft(admin, phone, {
+    patientId: resolved?.patientId ?? null,
+    guardianId: resolved?.guardianId ?? null,
+    status: "pending",
+  });
+  if (!open) {
+    return { replyMessage: "Não conseguimos salvar o arquivo agora. Tente enviar de novo em alguns minutos." };
+  }
+  const draftId = open.id;
 
-  if (!draftId) {
-    const { data: created, error } = await admin
-      .from("registration_drafts")
-      .insert({
-        clinic_id: DEV_CLINIC_ID,
-        patient_id: resolved?.patientId ?? null,
-        guardian_id: resolved?.guardianId ?? null,
-        source: "whatsapp",
-        source_phone: phone,
-        status: "pending",
-      })
-      .select("id")
-      .single();
-
-    if (error || !created) {
-      console.error("[Registration Draft] Falha ao criar rascunho:", error?.message);
-      return { replyMessage: "Não conseguimos salvar o arquivo agora. Tente enviar de novo em alguns minutos." };
-    }
-    draftId = created.id;
+  let existingFileCount = 0;
+  if (!open.created) {
+    const { count } = await admin
+      .from("registration_draft_files")
+      .select("id", { count: "exact", head: true })
+      .eq("draft_id", draftId);
+    existingFileCount = count ?? 0;
   }
 
   if (existingFileCount >= MAX_FILES_PER_DRAFT) {

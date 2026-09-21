@@ -4,6 +4,7 @@ import { runAfterResponse } from "@/lib/after-response";
 import { enrichLeadFromDocuments, registerLeadMedia, upsertWhatsappLead } from "@/lib/whatsapp-lead";
 import { normalizeEmail, normalizeFullName, type LeadDocKind } from "@/lib/whatsapp-lead-pure";
 import { decideGuardianEmailStep, parseFullNameAnswer } from "@/lib/anamnesis-bot-pure";
+import { registerBotDraftFiles, syncBotDraft } from "@/lib/registration-drafts-bot";
 import {
   PARTIAL_UNSUPPORTED_NOTE,
   RETRY_MEDIA_REPLY,
@@ -63,6 +64,30 @@ function parseBrazilianDate(raw: string): string | null {
 }
 
 /**
+ * Grava a etapa e os dados coletados na sessão do bot e espelha no rascunho da
+ * fila de Pendências da recepção (lib/registration-drafts-bot.ts) — é o que faz
+ * todo lead que já deu algum dado aparecer lá, mesmo se abandonar o fluxo.
+ */
+async function persistStep(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  phone: string,
+  step: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
+): Promise<void> {
+  await supabase
+    .from("chatbot_sessions")
+    .update({
+      current_step: step,
+      collected_data: data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("phone_number", phone);
+  await syncBotDraft({ phone, data, step });
+}
+
+/**
  * Guarda TODOS os anexos da mensagem da etapa de mídia como documentos do
  * lead (bucket privado `clinic-documents`, via lib/whatsapp-lead.ts) e devolve
  * os ponteiros `storage://clinic-documents/<path>` no lugar da URL do arquivo
@@ -113,6 +138,9 @@ async function saveStepMedia(
   const patientId = result.patientId;
   if (patientId) {
     data.lead_patient_id = patientId;
+    // Anexa os documentos ao rascunho da fila de Pendências (a recepção vê os
+    // arquivos e a pílula acende sem abrir a conversa).
+    await registerBotDraftFiles({ phone, documentIds: result.documentIds });
     if (result.saved > 0 || result.adopted > 0) {
       // IA completa o cadastro do lead em segundo plano (só campos em branco).
       runAfterResponse("enriquecer lead (anamnese)", () => enrichLeadFromDocuments(patientId));
@@ -133,14 +161,7 @@ async function askCardNumber(
   data: Record<string, any>,
   intro: string,
 ): Promise<{ handled: boolean; replyMessage: string }> {
-  await supabase
-    .from("chatbot_sessions")
-    .update({
-      current_step: "awaiting_card_number",
-      collected_data: data,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("phone_number", phone);
+  await persistStep(supabase, phone, "awaiting_card_number", data);
 
   return {
     handled: true,
@@ -210,6 +231,9 @@ async function finalizeAnamnesisRequest(
     // de leads), então não fingimos que a solicitação entrou na fila de
     // validação: avisamos que a equipe entra em contato e liberamos a sessão.
     console.error("[Anamnesis Request Insert Error]:", reqErr?.message);
+    // A sessão é zerada logo abaixo: antes disso o rascunho da fila de
+    // Pendências guarda o que o responsável já informou.
+    await syncBotDraft({ phone, data, step: "pending_supervisor" });
     await supabase
       .from("chatbot_sessions")
       .update({
@@ -229,14 +253,7 @@ async function finalizeAnamnesisRequest(
 
   data.request_id = reqData.id;
 
-  await supabase
-    .from("chatbot_sessions")
-    .update({
-      current_step: "pending_supervisor",
-      collected_data: data,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("phone_number", phone);
+  await persistStep(supabase, phone, "pending_supervisor", data);
 
   if (data.is_private === true) {
     return {
@@ -335,14 +352,7 @@ export async function processAnamnesisChatbotStep(
     }
 
     data.guardian_name = guardianName;
-    await supabase
-      .from("chatbot_sessions")
-      .update({
-        current_step: "awaiting_guardian_cpf",
-        collected_data: data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("phone_number", phone);
+    await persistStep(supabase, phone, "awaiting_guardian_cpf", data);
 
     return {
       handled: true,
@@ -361,14 +371,7 @@ export async function processAnamnesisChatbotStep(
     }
 
     data.guardian_cpf = cpfDigits;
-    await supabase
-      .from("chatbot_sessions")
-      .update({
-        current_step: "awaiting_guardian_email",
-        collected_data: data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("phone_number", phone);
+    await persistStep(supabase, phone, "awaiting_guardian_email", data);
 
     return {
       handled: true,
@@ -391,13 +394,7 @@ export async function processAnamnesisChatbotStep(
 
     if (decision.action === "reask") {
       data.guardian_email_asked_again = true;
-      await supabase
-        .from("chatbot_sessions")
-        .update({
-          collected_data: data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("phone_number", phone);
+      await persistStep(supabase, phone, "awaiting_guardian_email", data);
 
       return {
         handled: true,
@@ -409,14 +406,7 @@ export async function processAnamnesisChatbotStep(
 
     data.guardian_email = decision.action === "save" ? decision.email : "";
     delete data.guardian_email_asked_again;
-    await supabase
-      .from("chatbot_sessions")
-      .update({
-        current_step: "awaiting_child_name",
-        collected_data: data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("phone_number", phone);
+    await persistStep(supabase, phone, "awaiting_child_name", data);
 
     return {
       handled: true,
@@ -437,14 +427,7 @@ export async function processAnamnesisChatbotStep(
     }
 
     data.child_name = childName;
-    await supabase
-      .from("chatbot_sessions")
-      .update({
-        current_step: "awaiting_child_birth_date",
-        collected_data: data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("phone_number", phone);
+    await persistStep(supabase, phone, "awaiting_child_birth_date", data);
 
     return {
       handled: true,
@@ -463,14 +446,7 @@ export async function processAnamnesisChatbotStep(
     }
 
     data.child_birth_date = isoDate;
-    await supabase
-      .from("chatbot_sessions")
-      .update({
-        current_step: "awaiting_payment_mode",
-        collected_data: data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("phone_number", phone);
+    await persistStep(supabase, phone, "awaiting_payment_mode", data);
 
     return {
       handled: true,
@@ -490,14 +466,7 @@ export async function processAnamnesisChatbotStep(
 
     if (normBody.includes("convenio") || normBody.includes("plano") || normBody.includes("saude")) {
       data.is_private = false;
-      await supabase
-        .from("chatbot_sessions")
-        .update({
-          current_step: "awaiting_has_laudo",
-          collected_data: data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("phone_number", phone);
+      await persistStep(supabase, phone, "awaiting_has_laudo", data);
 
       return {
         handled: true,
@@ -516,7 +485,11 @@ export async function processAnamnesisChatbotStep(
   // 6. Etapa: Confirmação de Laudo Médico
   if (currentStep === "awaiting_has_laudo") {
     if (normBody.includes("nao") || normBody === "n") {
-      // Contorno educado quando não possui laudo
+      // Contorno educado quando não possui laudo. A sessão é zerada, mas o lead
+      // já deu dados: o rascunho da fila de Pendências guarda tudo (e o
+      // "não tenho laudo") para a recepção acompanhar e cobrar depois.
+      data.has_laudo = false;
+      await syncBotDraft({ phone, data, step: "awaiting_has_laudo" });
       await supabase
         .from("chatbot_sessions")
         .update({
@@ -535,14 +508,7 @@ export async function processAnamnesisChatbotStep(
     }
 
     if (normBody.includes("sim") || normBody === "s") {
-      await supabase
-        .from("chatbot_sessions")
-        .update({
-          current_step: "awaiting_laudo_pdf",
-          collected_data: data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("phone_number", phone);
+      await persistStep(supabase, phone, "awaiting_laudo_pdf", data);
 
       return {
         handled: true,
@@ -569,14 +535,7 @@ export async function processAnamnesisChatbotStep(
     if (!saved.ok) return { handled: true, replyMessage: saved.reply };
 
     data.laudo_pdf_url = saved.pointers[0];
-    await supabase
-      .from("chatbot_sessions")
-      .update({
-        current_step: "awaiting_has_guia",
-        collected_data: data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("phone_number", phone);
+    await persistStep(supabase, phone, "awaiting_has_guia", data);
 
     return {
       handled: true,
@@ -593,14 +552,7 @@ export async function processAnamnesisChatbotStep(
     if (normBody.includes("nao") || normBody === "n") {
       // Sem guia não trava o agendamento: a clínica autoriza depois. Segue
       // direto pra carteirinha.
-      await supabase
-        .from("chatbot_sessions")
-        .update({
-          current_step: "awaiting_carteirinha_frente",
-          collected_data: data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("phone_number", phone);
+      await persistStep(supabase, phone, "awaiting_carteirinha_frente", data);
 
       return {
         handled: true,
@@ -612,14 +564,7 @@ export async function processAnamnesisChatbotStep(
     }
 
     if (normBody.includes("sim") || normBody === "s") {
-      await supabase
-        .from("chatbot_sessions")
-        .update({
-          current_step: "awaiting_guia_pdf",
-          collected_data: data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("phone_number", phone);
+      await persistStep(supabase, phone, "awaiting_guia_pdf", data);
 
       return {
         handled: true,
@@ -645,14 +590,7 @@ export async function processAnamnesisChatbotStep(
     if (!saved.ok) return { handled: true, replyMessage: saved.reply };
 
     data.guia_pdf_url = saved.pointers[0];
-    await supabase
-      .from("chatbot_sessions")
-      .update({
-        current_step: "awaiting_carteirinha_frente",
-        collected_data: data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("phone_number", phone);
+    await persistStep(supabase, phone, "awaiting_carteirinha_frente", data);
 
     return {
       handled: true,
@@ -684,14 +622,7 @@ export async function processAnamnesisChatbotStep(
       return askCardNumber(supabase, phone, data, `Carteirinha recebida! ✅${saved.note}`);
     }
 
-    await supabase
-      .from("chatbot_sessions")
-      .update({
-        current_step: "awaiting_carteirinha_verso",
-        collected_data: data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("phone_number", phone);
+    await persistStep(supabase, phone, "awaiting_carteirinha_verso", data);
 
     return {
       handled: true,
