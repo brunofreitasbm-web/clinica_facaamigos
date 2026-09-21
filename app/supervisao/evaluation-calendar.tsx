@@ -15,8 +15,8 @@ import {
   type TherapistAvailabilityBlock,
 } from "./evaluation-calendar-actions";
 import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationPoolItem } from "@/lib/evaluation-agenda";
-import { AnamnesisDocumentPopover } from "@/components/anamnesis-document-popover";
-import { AlertTriangle, FileCheck2 } from "lucide-react";
+import { EvaluationQuickViewPanel } from "./evaluation-quick-view";
+import { AlertTriangle } from "lucide-react";
 
 /**
  * Calendário semanal de 1ª avaliação — visão única, independente de onde o
@@ -149,7 +149,14 @@ export function EvaluationCalendar({
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TherapistAvailabilityBlock[]>([]);
-  const [openDocPopoverId, setOpenDocPopoverId] = useState<string | null>(null);
+  // Janela flutuante do card clicado na fila (laudo/guia/contato + aprovar,
+  // rejeitar e mensagem) — guarda o retângulo do card pra ancorar a janela
+  // ao lado dele.
+  const [quickView, setQuickView] = useState<{ item: EvaluationPoolItem; rect: DOMRect } | null>(null);
+
+  function openQuickView(item: EvaluationPoolItem, target: HTMLElement) {
+    setQuickView({ item, rect: target.getBoundingClientRect() });
+  }
 
   const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
   const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
@@ -217,6 +224,12 @@ export function EvaluationCalendar({
       cancelled = true;
     };
   }, [therapistId]);
+
+  const quickViewScheduleLabel = (() => {
+    const therapist = availableTherapists.find((t) => t.id === therapistId)?.name;
+    const room = rooms.find((r) => r.id === roomId)?.name;
+    return therapist && room ? `${therapist} · ${room}` : null;
+  })();
 
   const readyPool = pool.filter((p) => p.ready);
   const waitingPool = pool.filter((p) => !p.ready);
@@ -390,13 +403,15 @@ export function EvaluationCalendar({
       <div className="flex gap-4">
         {/* Fila lateral */}
         <aside className="w-64 shrink-0">
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-soft">Aguardando agendamento ({pool.length})</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">Aguardando agendamento ({pool.length})</h3>
+          <p className="mb-2 mt-0.5 text-[10px] text-ink-faint">Clique num paciente para ver os documentos e aprovar, rejeitar ou enviar mensagem sem sair da agenda.</p>
           <div className="flex flex-col gap-2">
             {readyPool.map((item) => (
               <div
                 key={item.id}
                 draggable={hasEvaluators}
-                tabIndex={hasEvaluators ? 0 : undefined}
+                role="button"
+                tabIndex={0}
                 onDragStart={(e) => {
                   if (!hasEvaluators) {
                     e.preventDefault();
@@ -404,82 +419,93 @@ export function EvaluationCalendar({
                   }
                   e.dataTransfer.setData("application/json", JSON.stringify({ kind: "pool", poolItemId: item.id } satisfies DragPayload));
                 }}
-                className={`grid-cell-focusable rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm ${
-                  hasEvaluators ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-50"
+                onClick={(e) => openQuickView(item, e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openQuickView(item, e.currentTarget);
+                  }
+                }}
+                className={`grid-cell-focusable rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm hover:border-[var(--color-accent)] ${
+                  hasEvaluators ? "cursor-grab active:cursor-grabbing" : "cursor-pointer opacity-70"
                 }`}
-                title={hasEvaluators ? "Arraste para uma célula do calendário" : "Cadastre um terapeuta avaliador para liberar o agendamento"}
+                title={
+                  hasEvaluators
+                    ? "Clique para consulta rápida (laudo, guia, contato) · arraste para uma célula do calendário para agendar"
+                    : "Clique para consulta rápida — cadastre um terapeuta avaliador para liberar o agendamento"
+                }
               >
                 <p className="text-xs font-semibold text-ink">{item.patientName}</p>
-                <span className={`tag-status mt-1 inline-block ${ORIGIN_TAG[item.origin]}`}>{ORIGIN_LABEL[item.origin]}</span>
+                <span className={`tag-status mt-1 inline-block ${item.gate ? "st-agendada" : ORIGIN_TAG[item.origin]}`}>
+                  {item.gate ? "Docs · Recepção" : ORIGIN_LABEL[item.origin]}
+                </span>
+                {item.gate === "habilitado" && (
+                  <span
+                    className="tag-status st-confirmada ml-1 mt-1 inline-block"
+                    title="A Recepção conferiu os documentos, o plano autorizou e o agendamento foi habilitado"
+                  >
+                    ✓ OK da Recepção
+                  </span>
+                )}
                 <p className="mt-1 text-[11px] text-ink-faint">{item.detail}</p>
               </div>
             ))}
-            {waitingPool.map((item) => {
-              const anamnesisRequestId = item.bookInput.origin === "whatsapp_anamnese" ? item.bookInput.requestId : null;
-              return (
-                <div
-                  key={item.id}
-                  role={anamnesisRequestId ? "button" : undefined}
-                  tabIndex={anamnesisRequestId ? 0 : undefined}
-                  onClick={anamnesisRequestId ? () => setOpenDocPopoverId((id) => (id === item.id ? null : item.id)) : undefined}
-                  onKeyDown={
-                    anamnesisRequestId
-                      ? (e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setOpenDocPopoverId((id) => (id === item.id ? null : item.id));
-                          }
-                        }
-                      : undefined
-                  }
-                  className={`relative rounded-md border border-dashed border-paper-line-strong bg-paper p-2.5 ${
-                    anamnesisRequestId ? "cursor-pointer hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]" : ""
-                  }`}
-                >
-                  <p className="text-xs font-semibold text-ink">{item.patientName}</p>
-                  <span className={`tag-status mt-1 inline-block ${ORIGIN_TAG[item.origin]}`}>{ORIGIN_LABEL[item.origin]}</span>
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <span
-                      className="tag-status st-agendada"
-                      aria-label="Documentação pendente de aprovação"
-                    >
-                      Aguardando Aprovação
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[11px] text-ink-faint">{item.statusLabel} — aprove antes de agendar.</p>
-                  {anamnesisRequestId && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenDocPopoverId((id) => (id === item.id ? null : item.id));
-                      }}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border-2 px-2.5 py-1 text-[11px] font-bold hover:opacity-80"
-                      style={{ borderColor: "var(--color-accent)", color: "var(--color-accent)" }}
-                    >
-                      <FileCheck2 size={12} aria-hidden />
-                      Validar Documentos
-                    </button>
-                  )}
-                  {anamnesisRequestId && openDocPopoverId === item.id && (
-                    <>
-                      <div className="fixed inset-0 z-10" onClick={() => setOpenDocPopoverId(null)} />
-                      <AnamnesisDocumentPopover
-                        requestId={anamnesisRequestId}
-                        onClose={() => setOpenDocPopoverId(null)}
-                        onResolved={() => {
-                          setOpenDocPopoverId(null);
-                          fetchPool();
-                        }}
-                      />
-                    </>
-                  )}
+            {waitingPool.map((item) => (
+              <div
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                onClick={(e) => openQuickView(item, e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  openQuickView(item, e.currentTarget);
+                }}
+                className="cursor-pointer rounded-md border border-dashed border-paper-line-strong bg-paper p-2.5 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+                title={
+                  item.gate
+                    ? "Clique para ver os documentos — a Recepção libera o agendamento na Fila de pendências"
+                    : "Clique para ver os documentos e aprovar, rejeitar ou enviar mensagem"
+                }
+              >
+                <p className="text-xs font-semibold text-ink">{item.patientName}</p>
+                <span className={`tag-status mt-1 inline-block ${item.gate ? "st-agendada" : ORIGIN_TAG[item.origin]}`}>
+                  {item.gate ? "Docs · Recepção" : ORIGIN_LABEL[item.origin]}
+                </span>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span
+                    className="tag-status st-agendada"
+                    aria-label={item.gate ? "Aguardando o ok da Recepção" : "Documentação pendente de aprovação"}
+                  >
+                    {item.gate ? "Aguardando OK da Recepção" : "Aguardando Aprovação"}
+                  </span>
                 </div>
-              );
-            })}
+                <p className="mt-1 text-[11px] text-ink-faint">
+                  {item.gate ? `${item.statusLabel} — a Recepção libera antes de agendar.` : `${item.statusLabel} — aprove antes de agendar.`}
+                </p>
+              </div>
+            ))}
             {pool.length === 0 && <p className="text-xs text-ink-faint">Nenhum paciente aguardando 1ª avaliação.</p>}
           </div>
         </aside>
+
+        {quickView && (
+          <EvaluationQuickViewPanel
+            key={quickView.item.id}
+            item={quickView.item}
+            anchorRect={quickView.rect}
+            therapistId={therapistId}
+            roomId={roomId}
+            scheduleLabel={quickViewScheduleLabel}
+            onClose={() => setQuickView(null)}
+            onResolved={(text) => {
+              setQuickView(null);
+              setFeedback({ type: "success", text });
+              fetchPool();
+            }}
+            onChanged={fetchPool}
+          />
+        )}
 
         {/* Grade semanal */}
         <div className={`relative flex-1 overflow-x-auto ${hasEvaluators ? "" : "pointer-events-none opacity-50"}`} aria-disabled={!hasEvaluators}>

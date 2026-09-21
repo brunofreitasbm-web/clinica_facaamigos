@@ -20,6 +20,13 @@
  *   takeover em lib/twilio.ts cala o bot a partir daí, até a recepção assumir
  *   ou religar o bot pelo toggle da Central.
  *
+ * Currículo/vaga de EMPREGO (não confundir com vaga na agenda — a
+ * desambiguação está em lib/job-inquiry-pure.ts) é o único assunto com saída
+ * própria: o bot manda
+ * a mensagem do "Trabalhe Conosco" do site e DESLIGA o atendimento automático
+ * da conversa (`is_bot_active=false`, `status='closed'`) sem escalar — não é
+ * caso de recepção, e nenhuma mensagem seguinte desse contato é respondida.
+ *
  * A regra "nunca invente" é o ponto mais importante do prompt: perguntas sem
  * resposta na base (endereço, horário etc., enquanto o gestor não preencher)
  * viram atendimento humano em vez de alucinação. Valor particular é exceção
@@ -29,6 +36,8 @@
  */
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { formatBusinessHours } from "@/lib/business-hours-pure";
+import { hasExplicitJobSignal } from "@/lib/job-inquiry-pure";
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
 
 /** Quantas mensagens da thread vão como contexto (~6 turnos). */
@@ -125,7 +134,7 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
-  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes, particularPricesRes] = await Promise.all([
+  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes, particularPricesRes, hoursRes] = await Promise.all([
     supabase
       .from("clinic_faq")
       .select("question, answer, keywords, category")
@@ -161,6 +170,14 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
       .eq("insurers.active", true)
       .ilike("insurers.name", PARTICULAR_INSURER_NAME)
       .order("procedure_name"),
+    // Horário comercial da recepção (clinic_business_hours, migration
+    // 20260920000000) — é o mesmo relógio que mede o tempo de resposta
+    // humana, então o que o bot promete e o que o KPI cobra não divergem.
+    supabase
+      .from("clinic_business_hours")
+      .select("day_of_week, open_time, close_time")
+      .eq("clinic_id", clinicId)
+      .order("day_of_week"),
   ]);
 
   const faqBlock = (faqRes.data ?? [])
@@ -187,6 +204,8 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     .map((tp) => `${tp.full_name} (${tp.role})`)
     .join(", ");
 
+  const businessHoursBlock = formatBusinessHours(hoursRes.data ?? []);
+
   const priceFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
   const today = new Date().toISOString().slice(0, 10);
   const particularPricesBlock = (particularPricesRes.data ?? [])
@@ -209,6 +228,9 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     "",
     "=== VALORES PARTICULAR (sem convênio), por terapia ===",
     particularPricesBlock || "(nenhum valor particular cadastrado — escale pra equipe humana se perguntarem)",
+    "",
+    "=== HORÁRIO COMERCIAL DA RECEPÇÃO (atendimento humano) ===",
+    businessHoursBlock || "(não cadastrado — não prometa horário nenhum)",
     "",
     "=== SALAS DE ATENDIMENTO E AVALIAÇÃO ===",
     roomsBlock || "(nenhuma sala cadastrada)",
@@ -239,6 +261,10 @@ REGRAS OBRIGATÓRIAS:
 10. AGENDAMENTO E INÍCIO DE ATENDIMENTO 100% VIA BOT/WHATSAPP: O agendamento de avaliações e o início do atendimento acontecem integralmente POR AQUI no WhatsApp! NUNCA direcione a pessoa para o site para agendar, saber como iniciar ou marcar consultas. Se a pessoa perguntar sobre convênios (ex.: "vocês atendem PROASA?") ou demonstrar interesse em iniciar/agendar, responda confirmando o convênio e convide-a a agendar diretamente por aqui mesmo, orientando a responder *AGENDAR*.
 11. NUNCA DIRECIONE PARA O SITE PARA AGENDAR OU INICIAR: O site oficial (www.institutofacaamigos.com.br) é EXCLUSIVAMENTE para consulta institucional/conhecer a clínica e deve ser incluído apenas como assinatura/despedida ao encerrar ou finalizar a conversa (Ex: "Conheça mais sobre nossa clínica em www.institutofacaamigos.com.br 🌐💙"). NUNCA associe o site a agendamentos, início de processo ou tira-dúvidas operacionais.
 12. DOCUMENTOS DE CONVÊNIO: sempre que a conversa envolver um plano de saúde que NÃO seja particular, oriente que é preciso a *carteirinha do plano* (foto frente e verso) e o *número do cartão*. A *guia autorizada NÃO é obrigatória*: se a pessoa já tiver, ótimo; se não tiver, diga que a clínica faz a autorização — nunca condicione o agendamento à guia. Para atendimento particular, nada disso é necessário.
+13. CURRÍCULO E VAGA DE EMPREGO (cuidado: "vaga" é palavra ambígua, leia o item 13.1 antes de usar): quando a pessoa fala de TRABALHO — quer enviar currículo, pergunta se a clínica está contratando, procura estágio ou oportunidade de emprego —, responda UMA ÚNICA mensagem, com "intent": "emprego" e "escalar": false, dizendo que não recebemos currículos nem tratamos de vagas de trabalho por aqui e que ela deve acessar www.institutofacaamigos.com.br e procurar *Trabalhe Conosco*. Essa mensagem ENCERRA o assunto: não faça perguntas, não ofereça ajuda extra, não chame a equipe humana e NUNCA peça que o currículo seja enviado por este WhatsApp — depois dela o atendimento automático é desligado e nada mais é respondido. Esta é a ÚNICA situação em que o site pode ser indicado como caminho para resolver algo (a regra 11 continua valendo para tudo o mais).
+13.1 VAGA DE EMPREGO ≠ VAGA NA AGENDA: a maioria das pessoas que escreve "vaga" está perguntando por HORÁRIO DISPONÍVEL para atendimento do filho — isso é agendamento (regra 10), NUNCA "emprego". Exemplos que são AGENDAMENTO ("intent": "agendamento" ou "horarios", nunca "emprego"): "vocês têm vaga para avaliação?", "tem vaga essa semana?", "abriu vaga na terça de manhã?", "estão com vaga para fono?", "tem vaga pelo plano?", "quando abre vaga para ABA?". Exemplos que são EMPREGO: "vocês têm vaga de emprego?", "estão contratando psicóloga?", "posso mandar meu currículo?", "tem vaga para estágio?", "sou fonoaudióloga recém-formada, tem oportunidade de trabalho aí?". Só use "emprego" quando a mensagem disser com todas as letras que é trabalho/currículo/estágio/contratação — a palavra "vaga" sozinha NUNCA basta. Se ficar genuinamente em dúvida (ex.: "vocês têm vaga?" e o histórico não esclarece), NÃO use "emprego": pergunte em uma frase curta se é vaga na nossa agenda de atendimento ou vaga de trabalho ("intent": "outro", "escalar": false) e siga a resposta da pessoa.
+14. MENSAGENS DE ÁUDIO: este contato não recebe mensagens de áudio — ninguém ouve notas de voz por aqui. Se a pessoa mandar áudio ou disser que vai mandar, peça com carinho que escreva a dúvida em texto. Nunca diga que vai ouvir depois nem que a equipe vai escutar o áudio.
+15. HORÁRIO DO ATENDIMENTO HUMANO: sempre que avisar que a equipe/recepção vai responder (qualquer escalonamento, inclusive pedido de relatório), diga que o retorno acontece em horário comercial, citando exatamente a grade da seção "HORÁRIO COMERCIAL DA RECEPÇÃO" acima. Se a seção estiver vazia, diga apenas "em horário comercial", sem inventar horários. Você (assistente virtual) continua respondendo a qualquer hora — o horário vale para a resposta humana.
 
 SOLICITAÇÃO DE RELATÓRIO OU DOCUMENTO (laudo, declaração de comparecimento, relatório de evolução, atestado, etc.):
 Isso não é uma dúvida que você responde — é um pedido que a recepção vai atender, mas cabe a você reunir as informações antes de repassar, para a equipe não precisar perguntar tudo de novo.
@@ -260,7 +286,7 @@ Responda SEMPRE em JSON válido, exatamente neste formato:
 {"resposta": "texto para enviar no WhatsApp", "escalar": false, "motivo": null, "intent": "planos", "convenio": null, "relatorio_dados": null, "concluido": false}
 
 "motivo" é null quando escalar for false, senão um de: "fora_da_base", "clinico", "pediu_humano", "relatorio".
-"intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "relatorio", "outro".
+"intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "relatorio", "emprego", "outro". Use "emprego" APENAS para currículo/contratação/estágio (regras 13 e 13.1) — é sempre a última mensagem do bot naquela conversa; pergunta sobre vaga/horário disponível para atendimento é "agendamento" ou "horarios".
 "relatorio_dados" é null exceto quando motivo="relatorio", caso em que é um objeto {"crianca": string ou null, "plano": string ou null, "carteirinha": string ou null (número do cartão do plano; null se particular ou não informado), "documento": string ou null, "terapeuta": string ou null}.
 "concluido" é true SOMENTE quando a pessoa deu a conversa por encerrada (ex.: "obrigada, era só isso", "tchau", "ok, vou pensar") e a sua "resposta" é apenas a despedida, sem fazer nenhuma pergunta nem deixar nada pendente; em qualquer outro caso é false. Nunca é true junto com "escalar": true.`;
 }
@@ -494,6 +520,24 @@ async function escalateConversation(conversationId: string, reason: FaqEscalatio
     .eq("id", conversationId);
 }
 
+/**
+ * Assunto que o bot responde de uma vez e ENCERRA (hoje: currículo/vagas —
+ * regra 13 do prompt). Diferente de escalar: ninguém é chamado, a conversa
+ * não vai para a fila de pendências da recepção; o atendimento automático é
+ * só desligado (`is_bot_active=false`) para que nenhuma outra mensagem desse
+ * contato seja respondida. Se for engano (uma família de verdade que só
+ * perguntou de vaga), a recepção religa o bot pelo toggle da Central.
+ */
+async function closeConversationAfterFinalReply(conversationId: string): Promise<void> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  await supabase
+    .from("twilio_conversations")
+    .update({ is_bot_active: false, status: "closed" })
+    .eq("id", conversationId);
+}
+
 export async function processFaqBotStep(params: {
   phone: string;
   body: string;
@@ -538,6 +582,24 @@ export async function processFaqBotStep(params: {
 
   if (conversationId && typeof parsed.convenio === "string" && parsed.convenio.trim()) {
     await saveDetectedPlan(conversationId, DEV_CLINIC_ID, parsed.convenio);
+  }
+
+  // Currículo/emprego: resposta única e fim do assunto — vale mesmo que o
+  // modelo tenha marcado "escalar", que aqui seria só ruído para a recepção.
+  //
+  // A trava de `hasExplicitJobSignal` existe porque "vaga" em português é a
+  // mesma palavra para emprego e para horário livre na agenda: se o modelo
+  // confundir "tem vaga pra avaliação?" com candidatura, uma família levaria
+  // a mensagem do Trabalhe Conosco e ficaria sem bot. Sem marca explícita de
+  // trabalho na mensagem, a resposta é descartada e o fluxo segue para o
+  // fallback de atendimento (AGENDAR/CONVÊNIOS) em lib/twilio.ts.
+  if (parsed.intent === "emprego") {
+    if (!hasExplicitJobSignal(body)) {
+      console.warn("[Twilio FAQ Bot] intent=emprego sem marca de trabalho na mensagem — tratado como atendimento.");
+      return notHandled;
+    }
+    if (conversationId) await closeConversationAfterFinalReply(conversationId);
+    return { handled: true, replyMessage: reply, intent: "faq_emprego", escalated: false, concluded: true };
   }
 
   const shouldEscalate = parsed.escalar === true;

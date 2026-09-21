@@ -40,7 +40,7 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
 
   const { data: draft } = await supabase
     .from("registration_drafts")
-    .select("id, patient_id, guardian_id, source_phone, clinic_id")
+    .select("id, patient_id, guardian_id, source_phone, clinic_id, authorization_id")
     .eq("id", draftId)
     .maybeSingle();
   if (!draft) return { success: false, error: "Rascunho não encontrado." };
@@ -177,6 +177,7 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
   }
 
   // --- Convênio ---------------------------------------------------------
+  let authorizationId: string | null = null;
   const insurerId = str(formData, "insurer_id");
   if (formData.get("apply_insurance") === "on" && insurerId) {
     const cardNumber = str(formData, "insurance_card_number") || null;
@@ -227,8 +228,11 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
       const validFrom = parseBrDate(str(formData, "authorization_valid_from")) || str(formData, "authorization_valid_from");
       const validTo = parseBrDate(str(formData, "authorization_valid_to")) || str(formData, "authorization_valid_to");
 
-      if (procedureCode && sessionsAuthorized > 0 && validFrom && validTo) {
-        const { error } = await supabase.from("authorizations").insert({
+      if (draft.authorization_id) {
+        // A guia já foi gravada na etapa "autorização do plano" da fila de
+        // pendências (draft-pipeline-actions.ts) — inserir de novo duplicaria.
+      } else if (procedureCode && sessionsAuthorized > 0 && validFrom && validTo) {
+        const { data: createdAuthorization, error } = await supabase.from("authorizations").insert({
           patient_insurance_id: patientInsuranceId,
           guide_number: str(formData, "authorization_guide_number") || null,
           procedure_code: procedureCode,
@@ -238,8 +242,12 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
           status: "ativa",
           authorization_password: str(formData, "authorization_password") || null,
           password_valid_until: parseBrDate(str(formData, "authorization_password_valid_until")),
-        });
-        if (error) warnings.push("Plano de saúde vinculado, mas não foi possível registrar a guia de autorização.");
+        }).select("id").single();
+        if (error || !createdAuthorization) {
+          warnings.push("Plano de saúde vinculado, mas não foi possível registrar a guia de autorização.");
+        } else {
+          authorizationId = createdAuthorization.id;
+        }
       } else {
         warnings.push("Guia não cadastrada: faltou procedimento, sessões autorizadas ou vigência.");
       }
@@ -296,7 +304,14 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
 
   await admin
     .from("registration_drafts")
-    .update({ status: "validated", validated_at: new Date().toISOString(), validated_by: user.id, patient_id: patientId, guardian_id: guardianId })
+    .update({
+      status: "validated",
+      validated_at: new Date().toISOString(),
+      validated_by: user.id,
+      patient_id: patientId,
+      guardian_id: guardianId,
+      ...(authorizationId ? { authorization_id: authorizationId } : {}),
+    })
     .eq("id", draftId);
 
   await admin.from("audit_log").insert({

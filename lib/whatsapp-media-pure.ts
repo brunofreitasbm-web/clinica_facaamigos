@@ -55,6 +55,19 @@ export function filterIngestibleMedia(media: MediaItem[]): MediaItem[] {
   });
 }
 
+/**
+ * Mensagem que é só áudio (nota de voz do WhatsApp) — nenhum bot transcreve
+ * áudio, e antes ela caía no FAQ com `body` vazio e morria em silêncio, sem a
+ * família saber que ninguém ia ouvir. Detecta por `contentType` (audio/ogg,
+ * audio/mpeg...); uma legenda de texto junto conta como mensagem escrita e
+ * segue o fluxo normal.
+ */
+export function isAudioOnlyMessage(media: MediaItem[], body: string): boolean {
+  if (body.trim().length > 0) return false;
+  if (media.length === 0) return false;
+  return media.every((m) => (m.contentType ?? "").split(";")[0].trim().toLowerCase().startsWith("audio/"));
+}
+
 export type ColdMediaPlan =
   | { action: "skip" }
   | {
@@ -115,6 +128,11 @@ export function summarizeMediaSave(counts: MediaSaveCounts): MediaSaveSummary {
   const pointers = (own.length > 0 ? own : counts.storagePaths).map(buildStoragePointer);
   return { status: "saved", pointers, unsupportedNote: counts.unsupported > 0 };
 }
+
+/** Resposta única para nota de voz: a clínica não ouve áudios neste canal. */
+export const AUDIO_NOT_SUPPORTED_REPLY =
+  "Por aqui não conseguimos ouvir mensagens de áudio 🎧🙏 Pode escrever sua dúvida em texto, por favor? " +
+  "Assim conseguimos te responder bem mais rápido. 💙";
 
 export const UNSUPPORTED_MEDIA_REPLY =
   "Só conseguimos ler fotos (JPG/PNG) e PDF. 🙏 Pode reenviar nesse formato?";

@@ -1,6 +1,11 @@
 import twilio from "twilio";
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import {
+  AUDIO_NOT_SUPPORTED_REPLY,
+  collectMediaItems,
+  isAudioOnlyMessage,
+} from "@/lib/whatsapp-media-pure";
 
 /**
  * Cliente Twilio configurado via variáveis de ambiente.
@@ -550,6 +555,14 @@ export async function handleTwilioIncomingMessage(params: {
     const settings = await getChatbotSettings(DEV_CLINIC_ID);
     if (!settings.botEnabled) {
       return { replyMessage: "", intent: "human_handled" };
+    }
+
+    // 0.8 Nota de voz: nenhum canal nosso transcreve áudio, então a mensagem
+    // seguiria para o FAQ com `body` vazio e morreria em silêncio. Avisa em
+    // texto (uma única resposta) e deixa a conversa na fila da recepção.
+    const audioItems = collectMediaItems({ media, mediaUrl0, mediaContentType0 });
+    if (isAudioOnlyMessage(audioItems, body)) {
+      return { intent: "audio_nao_suportado", replyMessage: AUDIO_NOT_SUPPORTED_REPLY };
     }
   } catch (err) {
     console.error("[Twilio Central Multicanal Error]:", err);

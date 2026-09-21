@@ -17,7 +17,7 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
 
   let { data: draft } = await supabase
     .from("registration_drafts")
-    .select("id, source, source_phone, status, patient_id, guardian_id, extracted, warnings, reject_reason, error")
+    .select("id, source, source_phone, status, patient_id, guardian_id, extracted, warnings, reject_reason, error, authorized_guide, authorization_id")
     .eq("id", draftId)
     .maybeSingle();
 
@@ -29,7 +29,7 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
       await claimAndProcessDrafts({ draftId: draft.id });
       const { data: updatedDraft } = await supabase
         .from("registration_drafts")
-        .select("id, source, source_phone, status, patient_id, guardian_id, extracted, warnings, reject_reason, error")
+        .select("id, source, source_phone, status, patient_id, guardian_id, extracted, warnings, reject_reason, error, authorized_guide, authorization_id")
         .eq("id", draftId)
         .maybeSingle();
       if (updatedDraft) {
@@ -59,7 +59,13 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
   // extraído bate com um paciente já existente — evita cadastrar a mesma
   // criança duas vezes quando ela já tinha ficha e só o telefone é novo.
   let duplicateCandidates: { id: string; full_name: string; birth_date: string }[] = [];
-  const extracted = draft.extracted as DocumentExtraction | null;
+  let extracted = draft.extracted as DocumentExtraction | null;
+  // A guia que o plano autorizou (etapa 2 da fila de pendências) vale mais que a
+  // leitura da IA: pré-preenche o bloco de guia com ela.
+  const authorizedGuide = draft.authorized_guide as Partial<DocumentExtraction["authorization"]> | null;
+  if (extracted && authorizedGuide) {
+    extracted = { ...extracted, authorization: { ...extracted.authorization, ...authorizedGuide } };
+  }
   if (!draft.patient_id && extracted?.patient.full_name) {
     const { data } = await supabase
       .from("patients")

@@ -12,6 +12,8 @@ import { ReassignOwnerButton } from "./reassign-owner-button";
 import { resolveRescheduleRequest, reviewFamilyDocument } from "./actions";
 import { AutorizacaoWizard } from "./autorizacao-wizard";
 import { DraftIntakeCard } from "./draft-intake-card";
+import { CollapsibleQueueRow } from "./collapsible-queue-row";
+import { DraftPipelineMini } from "./draft-pipeline";
 import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
@@ -72,7 +74,7 @@ export default async function PendenciasPage() {
       <PageHeader
         axisLabel="Recepção"
         title="Fila de pendências"
-        description="Ponto de partida do expediente: contatos que mandaram documentos pelo WhatsApp ou pelo portal (com os arquivos, os dados já recebidos e a conversa aqui mesmo), guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
+        description="Ponto de partida do expediente: contatos que mandaram documentos pelo WhatsApp ou pelo portal, cada um numa linha do tempo (documentos recebidos → autorização junto ao plano → habilitado para agendamento) com os arquivos, os dados já recebidos e a conversa aqui mesmo, guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
       />
       <PageContainer className="gap-8">
         <AutorizacaoWizard initialItems={authorizations} />
@@ -90,27 +92,7 @@ export default async function PendenciasPage() {
               <div className="flex flex-col gap-2">
                 {items.map((item) => {
                   const isEscalated = Boolean(item.escalatedAt);
-                  return (
-                    <div
-                      key={item.id}
-                      className={`rounded-md border px-4 py-3 text-sm ${
-                        isEscalated
-                          ? "border-status-negative-text bg-status-negative-text/5"
-                          : "border-paper-line-strong bg-paper/60"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        {item.patientId ? (
-                          <Link href={item.href} className="min-w-0 flex-1 no-underline">
-                            <p className="font-medium text-ink">{item.patientName}</p>
-                            <p className="text-ink-faint">{item.detail}</p>
-                          </Link>
-                        ) : (
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-ink">{item.patientName}</p>
-                            <p className="text-ink-faint">{item.detail}</p>
-                          </div>
-                        )}
+                  const aside = (
                         <div className="flex flex-col items-end gap-1">
                           {category === "interessado_sem_retorno" && item.patientId ? (
                             <RegisterContactButton patientId={item.patientId} />
@@ -172,10 +154,47 @@ export default async function PendenciasPage() {
                             />
                           )}
                         </div>
-                      </div>
-                      {/* Cadastro assistido por IA: a linha resume, o cartão
-                          entrega arquivos, dados e conversa sem sair da fila. */}
-                      {item.draft && <DraftIntakeCard draft={item.draft} />}
+                  );
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-md border px-4 py-3 text-sm ${
+                        isEscalated
+                          ? "border-status-negative-text bg-status-negative-text/5"
+                          : "border-paper-line-strong bg-paper/60"
+                      }`}
+                    >
+                      {item.draft ? (
+                        // Cadastro assistido por IA: a linha resume e é o gatilho;
+                        // o cartão entrega arquivos, dados e conversa sem sair da fila.
+                        <CollapsibleQueueRow
+                          title={item.patientName}
+                          subtitle={
+                            <>
+                              {item.detail}
+                              <DraftPipelineMini pipeline={item.draft.pipeline} />
+                            </>
+                          }
+                          aside={aside}
+                        >
+                          <DraftIntakeCard draft={item.draft} />
+                        </CollapsibleQueueRow>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          {item.patientId ? (
+                            <Link href={item.href} className="min-w-0 flex-1 no-underline">
+                              <p className="font-medium text-ink">{item.patientName}</p>
+                              <p className="text-ink-faint">{item.detail}</p>
+                            </Link>
+                          ) : (
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-ink">{item.patientName}</p>
+                              <p className="text-ink-faint">{item.detail}</p>
+                            </div>
+                          )}
+                          {aside}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -16,6 +16,7 @@ import { computeAbaTrainingSlots } from "@/lib/aba-training-slots";
 import { startIntakeConversation, pushIntakeUpdate, setIntakeAwaitingSlot } from "@/lib/twilio-intake-bot";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { runLaudoExtraction } from "@/lib/laudo-extraction";
+import { REJECT_REASON_LABEL, isRejectReasonCode } from "@/lib/intake-reject-reasons";
 
 type SimpleResult = { success: true } | { success: false; error: string };
 type UrlResult = { success: true; url: string } | { success: false; error: string };
@@ -24,14 +25,6 @@ type LeadOutcome = { leadId: string; success: boolean; error?: string };
 const DOCUMENTS_BUCKET = "clinic-documents";
 const SIGNED_URL_TTL_SECONDS = 900;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
-
-const REJECT_REASON_LABEL: Record<string, string> = {
-  ilegivel: "os documentos ficaram ilegíveis (imagem borrada ou muito escura)",
-  incompleto: "faltou parte do documento (página ou verso)",
-  vencido: "a carteirinha/guia enviada está vencida",
-  documento_errado: "o documento enviado não corresponde ao que pedimos",
-  outro: "precisamos que você reenvie os documentos",
-};
 
 async function requireSupervisor(): Promise<{ userId: string } | { error: string }> {
   const supabase = await createClient();
@@ -752,7 +745,7 @@ export async function approveIntakeLeadDocuments(
   return warnings.length > 0 ? { success: false, error: warnings.join(" ") } : { success: true };
 }
 
-export async function rejectIntakeLeadDocuments(leadId: string, reasonCode: string): Promise<SimpleResult> {
+export async function rejectIntakeLeadDocuments(leadId: string, reasonCode: string, detail?: string): Promise<SimpleResult> {
   const auth = await requireSupervisor();
   if ("error" in auth) return { success: false, error: auth.error };
 
@@ -784,10 +777,12 @@ export async function rejectIntakeLeadDocuments(leadId: string, reasonCode: stri
     })
     .eq("id", leadId);
 
-  const reasonText = REJECT_REASON_LABEL[reasonCode] ?? REJECT_REASON_LABEL.outro;
+  const reasonText = REJECT_REASON_LABEL[isRejectReasonCode(reasonCode) ? reasonCode : "outro"];
+  // Observação livre da Supervisão (ex.: "falta o verso da carteirinha") vai junto do motivo padrão.
+  const extra = detail?.trim().slice(0, 300);
   const pushResult = await pushIntakeUpdate(
     leadId,
-    `Olá! Sobre os documentos de *${lead.patient_full_name ?? "seu(sua) filho(a)"}*: ${reasonText}. Pode enviar novamente por aqui? 🙏`,
+    `Olá! Sobre os documentos de *${lead.patient_full_name ?? "seu(sua) filho(a)"}*: ${reasonText}.${extra ? ` ${extra}` : ""} Pode enviar novamente por aqui? 🙏`,
   );
 
   await admin.from("audit_log").insert({

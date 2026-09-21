@@ -7,6 +7,7 @@ import { zonedDateTimeToUtc, nextCalendarDay } from "@/lib/timezone";
 import {
   getEvaluationCalendarAppointments,
   getEvaluationPool,
+  getSchedulingGates,
   type EvaluationBookInput,
   type EvaluationCalendarAppointment,
   type EvaluationPoolItem,
@@ -96,6 +97,14 @@ export async function scheduleFromPoolAction(
   const endsAt = new Date(startsAt.getTime() + EVALUATION_DURATION_MINUTES * 60_000);
 
   if (bookInput.origin === "presencial") {
+    // Paciente que veio de contato de documentos só agenda com o "ok" da
+    // Recepção (linha do tempo da Fila de pendências) — a fila lateral já
+    // esconde o arraste, mas quem manda é o servidor.
+    const gate = (await getSchedulingGates(await createClient(), [bookInput.patientId])).get(bookInput.patientId);
+    if (gate && gate !== "habilitado") {
+      return { success: false, error: "A Recepção ainda não habilitou este paciente para agendamento (autorização do plano pendente)." };
+    }
+
     const formData = new FormData();
     formData.set("therapist_id", therapistId);
     formData.set("room_id", roomId);
