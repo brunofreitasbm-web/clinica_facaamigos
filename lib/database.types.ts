@@ -6952,6 +6952,13 @@ export type Database = {
           validated_at: string | null
           validated_by: string | null
           warnings: string[]
+          authorization_id: string | null
+          authorization_waived: boolean
+          authorized_guide: Json | null
+          plan_authorized_at: string | null
+          plan_authorized_by: string | null
+          scheduling_enabled_at: string | null
+          scheduling_enabled_by: string | null
         }
         Insert: {
           attempts?: number
@@ -6979,6 +6986,13 @@ export type Database = {
           validated_at?: string | null
           validated_by?: string | null
           warnings?: string[]
+          authorization_id?: string | null
+          authorization_waived?: boolean
+          authorized_guide?: Json | null
+          plan_authorized_at?: string | null
+          plan_authorized_by?: string | null
+          scheduling_enabled_at?: string | null
+          scheduling_enabled_by?: string | null
         }
         Update: {
           attempts?: number
@@ -7006,6 +7020,13 @@ export type Database = {
           validated_at?: string | null
           validated_by?: string | null
           warnings?: string[]
+          authorization_id?: string | null
+          authorization_waived?: boolean
+          authorized_guide?: Json | null
+          plan_authorized_at?: string | null
+          plan_authorized_by?: string | null
+          scheduling_enabled_at?: string | null
+          scheduling_enabled_by?: string | null
         }
         Relationships: [
           {

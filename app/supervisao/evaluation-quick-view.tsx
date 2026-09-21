@@ -4,18 +4,30 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  CheckCircle2,
   CreditCard,
   ExternalLink,
   FileText,
   Mail,
   MessageCircle,
   Phone,
+  Send,
   Stethoscope,
   User,
   X,
+  XCircle,
 } from "lucide-react";
 import type { EvaluationPoolItem } from "@/lib/evaluation-agenda";
-import { getEvaluationQuickViewAction, type EvaluationQuickView, type QuickViewFile } from "./evaluation-quick-view-actions";
+import { REJECT_REASON_OPTIONS, type IntakeRejectReasonCode } from "@/lib/intake-reject-reasons";
+import {
+  approveEvaluationDocsAction,
+  getEvaluationQuickViewAction,
+  rejectEvaluationDocsAction,
+  sendEvaluationMessageAction,
+  type EvaluationDocActionResult,
+  type EvaluationQuickView,
+  type QuickViewFile,
+} from "./evaluation-quick-view-actions";
 
 const PANEL_WIDTH = 360;
 const VIEWPORT_MARGIN = 12;
@@ -73,23 +85,285 @@ function FileLink({ file }: { file: QuickViewFile }) {
   );
 }
 
+/** Atalhos de texto pra pendência de documento — a Supervisão edita antes de enviar. */
+function messageTemplates(view: EvaluationQuickView): { label: string; text: string }[] {
+  const greeting = view.guardianName ? `Olá, ${view.guardianName}!` : "Olá!";
+  const child = view.patientName;
+  return [
+    {
+      label: "Falta o laudo",
+      text: `${greeting} Para agendar a avaliação de ${child}, ainda precisamos do laudo médico. Pode enviar a foto ou o PDF por aqui? 💙`,
+    },
+    {
+      label: "Falta a carteirinha",
+      text: `${greeting} Para agendar a avaliação de ${child}, precisamos da foto da carteirinha do plano (frente e verso). Pode enviar por aqui? 💙`,
+    },
+    {
+      label: "Falta a guia",
+      text: `${greeting} Para agendar a avaliação de ${child}, precisamos da guia/autorização do plano. Se ainda não tiver, é só avisar que a autorização é feita aqui na clínica. 💙`,
+    },
+    {
+      label: "Documento ilegível",
+      text: `${greeting} O documento de ${child} chegou com a imagem difícil de ler. Pode enviar uma nova foto, bem iluminada e sem cortes? 💙`,
+    },
+  ];
+}
+
+type ActionMode = "idle" | "reject" | "message";
+
 /**
- * Janela flutuante de consulta rápida de um paciente da fila "Aguardando
- * agendamento" do calendário de 1ª avaliação. Abre no clique do card e só
- * lê: laudo, guia e carteirinha em um clique, contato do responsável e os
- * dados de convênio/autorização que a Supervisão confere antes de escolher
- * o horário. Agendar continua sendo arrastar o card pro calendário — por
- * isso a janela é ancorada ao lado da fila, e não um modal que tampa a
- * grade.
+ * Ações rápidas da Supervisão sobre a documentação: aprovar (libera os
+ * horários por WhatsApp), rejeitar com motivo e mandar mensagem manual com a
+ * pendência. Aprovar/rejeitar fecham a janela (o card muda de fila);
+ * mensagem só confirma o envio e deixa a janela aberta.
+ */
+function ReviewActions({
+  view,
+  item,
+  scheduleLabel,
+  therapistId,
+  roomId,
+  onResolved,
+  onChanged,
+}: {
+  view: EvaluationQuickView;
+  item: EvaluationPoolItem;
+  scheduleLabel: string | null;
+  therapistId: string;
+  roomId: string;
+  onResolved: (text: string) => void;
+  onChanged: () => void;
+}) {
+  const [mode, setMode] = useState<ActionMode>("idle");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sentNotice, setSentNotice] = useState<string | null>(null);
+  const [reason, setReason] = useState<IntakeRejectReasonCode>("ilegivel");
+  const [detail, setDetail] = useState("");
+  const [text, setText] = useState("");
+
+  const isLead = item.bookInput.origin === "convenio_pdf";
+  const needsSchedule = isLead && (!therapistId || !roomId);
+
+  async function run(action: () => Promise<EvaluationDocActionResult>, onSuccess: () => void) {
+    setBusy(true);
+    setError(null);
+    setSentNotice(null);
+    const res = await action();
+    setBusy(false);
+    if (res.success) {
+      onSuccess();
+    } else {
+      setError(res.error);
+      // A ação pode ter avançado o status mesmo devolvendo aviso (ex.: aprovou,
+      // mas o WhatsApp falhou) — a fila precisa refletir o que mudou.
+      onChanged();
+    }
+  }
+
+  const approve = () =>
+    run(
+      () => approveEvaluationDocsAction(item.bookInput, therapistId, roomId),
+      () => onResolved(`Documentação de ${item.patientName} aprovada — horários enviados ao responsável por WhatsApp.`),
+    );
+
+  const reject = () =>
+    run(
+      () => rejectEvaluationDocsAction(item.bookInput, reason, detail),
+      () => onResolved(`Documentação de ${item.patientName} rejeitada — o responsável foi avisado por WhatsApp.`),
+    );
+
+  const sendMessage = () =>
+    run(
+      () => sendEvaluationMessageAction(item.bookInput, text),
+      () => {
+        setSentNotice("Mensagem enviada por WhatsApp.");
+        setText("");
+        setMode("idle");
+      },
+    );
+
+  if (!view.canReview && !view.canMessage && !view.reviewNote) return null;
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-paper-line pt-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-ink-soft">Ações rápidas</p>
+
+      {view.reviewNote && !view.canReview && <p className="text-[11px] text-ink-faint">{view.reviewNote}</p>}
+
+      {mode === "idle" && (
+        <div className="flex flex-col gap-1.5">
+          {view.canReview && (
+            <>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={approve}
+                  disabled={busy || needsSchedule}
+                  className="btn btn-primary flex-1 py-2 text-xs"
+                >
+                  <CheckCircle2 size={14} aria-hidden />
+                  {busy ? "Enviando…" : "Aprovar e liberar horários"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setMode("reject");
+                  }}
+                  disabled={busy}
+                  className="btn btn-secondary py-2 text-xs"
+                >
+                  <XCircle size={14} aria-hidden />
+                  Rejeitar
+                </button>
+              </div>
+              {isLead && !needsSchedule && scheduleLabel && (
+                <p className="text-[10px] text-ink-faint">Horários oferecidos ao responsável: {scheduleLabel}.</p>
+              )}
+              {needsSchedule && <p className="text-[10px] text-ink-faint">Selecione terapeuta e sala no topo do calendário para aprovar.</p>}
+            </>
+          )}
+          {view.canMessage && (
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setSentNotice(null);
+                setMode("message");
+              }}
+              disabled={busy}
+              className="btn btn-ghost justify-center border border-paper-line-strong py-2 text-xs"
+            >
+              <MessageCircle size={14} aria-hidden />
+              Enviar mensagem sobre a pendência
+            </button>
+          )}
+        </div>
+      )}
+
+      {mode === "reject" && (
+        <div className="flex flex-col gap-2 rounded-md border border-red-300 bg-red-50 p-2.5">
+          <label className="text-[11px] font-semibold text-red-700" htmlFor={`reject-reason-${item.id}`}>
+            Motivo da rejeição
+          </label>
+          <select
+            id={`reject-reason-${item.id}`}
+            value={reason}
+            onChange={(e) => setReason(e.target.value as IntakeRejectReasonCode)}
+            className="input text-xs"
+          >
+            {REJECT_REASON_OPTIONS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <textarea
+            rows={2}
+            maxLength={300}
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            placeholder={
+              reason === "outro"
+                ? "Descreva o que precisa ser corrigido…"
+                : "Observação para o responsável (opcional) — ex.: falta o verso da carteirinha"
+            }
+            className="input text-xs"
+            aria-label="Observação sobre a rejeição"
+          />
+          <p className="text-[10px] text-red-700/80">O responsável recebe o motivo por WhatsApp e pode reenviar os documentos.</p>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setMode("idle")} disabled={busy} className="btn btn-ghost px-2.5 py-1 text-xs">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={reject}
+              disabled={busy || (reason === "outro" && !detail.trim())}
+              className="btn bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700"
+            >
+              {busy ? "Enviando…" : "Confirmar rejeição"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === "message" && (
+        <div className="flex flex-col gap-2 rounded-md border border-paper-line-strong bg-paper/40 p-2.5">
+          <div className="flex flex-wrap gap-1">
+            {messageTemplates(view).map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                onClick={() => setText(t.text)}
+                className="rounded-full border border-paper-line-strong bg-white px-2 py-0.5 text-[10px] font-semibold text-ink-soft hover:border-[var(--color-accent)]"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <textarea
+            rows={4}
+            maxLength={1000}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Escolha um atalho acima ou escreva qual é a pendência do documento…"
+            className="input text-xs"
+            aria-label="Mensagem para o responsável"
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setMode("idle")} disabled={busy} className="btn btn-ghost px-2.5 py-1 text-xs">
+              Cancelar
+            </button>
+            <button type="button" onClick={sendMessage} disabled={busy || !text.trim()} className="btn btn-primary px-3 py-1 text-xs">
+              <Send size={12} aria-hidden />
+              {busy ? "Enviando…" : "Enviar WhatsApp"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {sentNotice && <p className="text-[11px] font-semibold text-status-positive-text">{sentNotice}</p>}
+      {error && (
+        <p role="alert" className="text-[11px] text-status-negative-text">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Janela flutuante de um paciente da fila "Aguardando agendamento" do
+ * calendário de 1ª avaliação. Abre no clique do card: laudo, guia e
+ * carteirinha em um clique, contato do responsável, dados de convênio e —
+ * quando a documentação espera a Supervisão — as ações rápidas de aprovar,
+ * rejeitar ou mandar uma mensagem manual com a pendência. Agendar continua
+ * sendo arrastar o card pro calendário — por isso a janela é ancorada ao
+ * lado da fila, e não um modal que tampa a grade.
  */
 export function EvaluationQuickViewPanel({
   item,
   anchorRect,
+  therapistId,
+  roomId,
+  scheduleLabel,
   onClose,
+  onResolved,
+  onChanged,
 }: {
   item: EvaluationPoolItem;
   anchorRect: DOMRect | null;
+  /** Avaliador/sala escolhidos no calendário — definem os horários oferecidos ao aprovar um acolhimento de PDF. */
+  therapistId: string;
+  roomId: string;
+  scheduleLabel: string | null;
   onClose: () => void;
+  /** Aprovou/rejeitou: o pai fecha a janela e recarrega a fila. */
+  onResolved: (text: string) => void;
+  /** Algo mudou no servidor mas a janela continua útil (ex.: aprovou, WhatsApp falhou). */
+  onChanged: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<EvaluationQuickView | null>(null);
@@ -122,14 +396,27 @@ export function EvaluationQuickViewPanel({
 
   // Posição fixa calculada a partir do card clicado: ao lado da fila, e
   // deslocada pra cima quando o card está no fim da lista — senão a janela
-  // nasceria abaixo da dobra e o supervisor teria que rolar a página.
+  // nasceria abaixo da dobra e o supervisor teria que rolar a página. A
+  // altura muda quando os dados chegam e quando o formulário de rejeição/
+  // mensagem abre, por isso reposiciona a cada mudança de tamanho.
   useLayoutEffect(() => {
     if (!anchorRect) return;
-    const height = panelRef.current?.offsetHeight ?? 320;
-    const left = Math.min(anchorRect.right + 8, window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN);
-    const top = Math.max(VIEWPORT_MARGIN, Math.min(anchorRect.top, window.innerHeight - height - VIEWPORT_MARGIN));
-    setPosition({ left: Math.max(VIEWPORT_MARGIN, left), top });
-  }, [anchorRect, loading, view]);
+    const panel = panelRef.current;
+    function reposition() {
+      const height = panel?.offsetHeight ?? 320;
+      const left = Math.min(anchorRect!.right + 8, window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN);
+      const top = Math.max(VIEWPORT_MARGIN, Math.min(anchorRect!.top, window.innerHeight - height - VIEWPORT_MARGIN));
+      setPosition((prev) => {
+        const next = { left: Math.max(VIEWPORT_MARGIN, left), top };
+        return prev && prev.left === next.left && prev.top === next.top ? prev : next;
+      });
+    }
+    reposition();
+    if (!panel || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(reposition);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [anchorRect]);
 
   const files = view ? [...view.files].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind]) : [];
   const waHref = whatsappHref(view?.guardianPhone ?? null);
@@ -227,6 +514,16 @@ export function EvaluationQuickViewPanel({
                   ))}
                 </ul>
               )}
+
+              <ReviewActions
+                view={view}
+                item={item}
+                scheduleLabel={scheduleLabel}
+                therapistId={therapistId}
+                roomId={roomId}
+                onResolved={onResolved}
+                onChanged={onChanged}
+              />
             </>
           )}
         </div>

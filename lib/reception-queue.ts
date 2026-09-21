@@ -507,13 +507,48 @@ export type PendingDraftMessage = {
   hasMedia: boolean;
 };
 
+/** Guia que o plano autorizou, como a recepção registrou na etapa 2 da linha do tempo. */
+export type DraftAuthorizedGuide = {
+  guide_number: string | null;
+  procedure_code: string | null;
+  sessions_authorized: number | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  authorization_password: string | null;
+  password_valid_until: string | null;
+};
+
+/**
+ * Linha do tempo de um contato: documentos recebidos → autorização junto ao
+ * plano → habilitado para agendamento. A etapa 1 é sempre "feita" (o contato só
+ * existe porque mandou arquivos); as duas seguintes são checadas à mão pela
+ * recepção. `schedulingEnabledAt` é o "ok" que a Agenda 1ª Avaliação da
+ * Supervisão exige antes de deixar marcar.
+ */
+export type DraftPipeline = {
+  authorization: "pendente" | "autorizada" | "dispensada";
+  authorizedAt: string | null;
+  authorizedGuide: DraftAuthorizedGuide | null;
+  /** Guia já gravada em `authorizations` (só possível quando o paciente e o plano já existem). */
+  authorizationId: string | null;
+  schedulingEnabledAt: string | null;
+  /**
+   * Guia que a IA leu nos arquivos enviados (extracted.authorization) —
+   * só sugestão para pré-preencher o formulário da etapa 2, a recepção confere.
+   */
+  suggestedGuide: DraftAuthorizedGuide | null;
+  /** Cadastro conferido — existe paciente no sistema e a Supervisão consegue achá-lo na agenda. */
+  registered: boolean;
+};
+
 export type PendingRegistrationDraft = {
   id: string;
   patientId: string | null;
   patientName: string | null;
   sourcePhone: string | null;
   source: "whatsapp" | "portal";
-  status: "pending" | "processing" | "extracted" | "failed";
+  status: "pending" | "processing" | "extracted" | "failed" | "validated";
+  pipeline: DraftPipeline;
   createdAt: string;
   /** Texto que veio junto com os arquivos (legenda da mídia no WhatsApp / observação do portal). */
   guardianMessage: string | null;
@@ -586,7 +621,8 @@ function draftDetail(d: PendingRegistrationDraft): string {
   if (d.sourcePhone) parts.push(d.sourcePhone);
   parts.push(`${d.files.length} arquivo(s)`);
   if (d.facts.length > 0) parts.push(`${d.facts.length} dado(s) já lidos`);
-  if (d.status === "failed") parts.push("leitura automática falhou — conferir manualmente");
+  if (d.status === "validated") parts.push("cadastro conferido");
+  else if (d.status === "failed") parts.push("leitura automática falhou — conferir manualmente");
   else if (d.status === "pending" || d.status === "processing") parts.push("leitura automática em andamento");
   return parts.join(" · ");
 }
@@ -691,10 +727,37 @@ async function getDraftDocumentRequests(
   return byPhone;
 }
 
+function parseAuthorizedGuide(raw: unknown): DraftAuthorizedGuide | null {
+  if (!raw || typeof raw !== "object") return null;
+  const g = raw as Record<string, unknown>;
+  const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const sessions = Number(g.sessions_authorized);
+  return {
+    guide_number: text(g.guide_number),
+    procedure_code: text(g.procedure_code),
+    sessions_authorized: Number.isFinite(sessions) && sessions > 0 ? sessions : null,
+    valid_from: text(g.valid_from),
+    valid_to: text(g.valid_to),
+    authorization_password: text(g.authorization_password),
+    password_valid_until: text(g.password_valid_until),
+  };
+}
+
+function suggestedGuideFromExtraction(extracted: unknown): DraftAuthorizedGuide | null {
+  if (!extracted || typeof extracted !== "object") return null;
+  const guide = parseAuthorizedGuide((extracted as Record<string, unknown>).authorization);
+  if (!guide) return null;
+  return Object.values(guide).some((v) => v !== null) ? guide : null;
+}
+
 /**
  * Rascunhos do "cadastro assistido por IA" (registration_drafts,
- * 20260907000001) ainda não validados nem rejeitados — inclusive os que a IA
- * ainda não leu (pending/processing) e os que ela não conseguiu ler (failed).
+ * 20260907000001) que ainda têm trabalho da recepção: os não validados nem
+ * rejeitados — inclusive os que a IA ainda não leu (pending/processing) e os
+ * que ela não conseguiu ler (failed) — e os já validados que ainda não foram
+ * habilitados para agendamento (etapa 3 da linha do tempo, 20260921050000).
+ * O contato só sai da fila quando o cadastro está conferido E a Supervisão
+ * já pode agendar.
  * A extração automática é só um acelerador: o que a família mandou (arquivos,
  * legenda e a conversa do WhatsApp) já basta pra recepção trabalhar o
  * contato, então o item entra na fila desde o primeiro arquivo, sem esperar
@@ -704,10 +767,10 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   const { data } = await supabase
     .from("registration_drafts")
     .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, patients(full_name), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, plan_authorized_at, authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("clinic_id", clinicId)
-    .in("status", ["pending", "processing", "extracted", "failed"])
+    .or("status.in.(pending,processing,extracted,failed),and(status.eq.validated,scheduling_enabled_at.is.null)")
     .order("created_at", { ascending: true });
 
   const rows = data ?? [];
@@ -733,6 +796,15 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       sourcePhone: d.source_phone,
       source: d.source as "whatsapp" | "portal",
       status: d.status as PendingRegistrationDraft["status"],
+      pipeline: {
+        authorization: d.plan_authorized_at ? "autorizada" : d.authorization_waived ? "dispensada" : "pendente",
+        authorizedAt: d.plan_authorized_at,
+        authorizedGuide: parseAuthorizedGuide(d.authorized_guide),
+        authorizationId: d.authorization_id,
+        schedulingEnabledAt: d.scheduling_enabled_at,
+        suggestedGuide: suggestedGuideFromExtraction(d.extracted),
+        registered: d.status === "validated" && Boolean(d.patient_id),
+      },
       createdAt: d.created_at,
       guardianMessage: d.guardian_message,
       files: [...files]

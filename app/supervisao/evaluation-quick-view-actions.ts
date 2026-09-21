@@ -6,6 +6,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { EvaluationBookInput } from "@/lib/evaluation-agenda";
 import type { LaudoExtraction } from "@/lib/laudo-extraction";
 import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
+import { REJECT_REASON_LABEL, isRejectReasonCode } from "@/lib/intake-reject-reasons";
+import { sendTwilioWhatsApp } from "@/lib/twilio";
+import { pushIntakeUpdate } from "@/lib/twilio-intake-bot";
+import { approveAnamnesisDocumentAction, rejectAnamnesisDocumentAction } from "@/app/actions/anamnesis-chatbot";
+import { approveIntakeLeadDocuments, rejectIntakeLeadDocuments } from "./acolhimento-actions";
 
 /** Um documento abrível a partir da janela de consulta rápida (laudo, guia, carteirinha…). */
 export type QuickViewFile = {
@@ -43,9 +48,17 @@ export type EvaluationQuickView = {
   warnings: string[];
   /** Link pro prontuário completo, se o paciente já existe em `patients`. */
   patientHref: string | null;
+  /** true = a documentação está esperando o aprovar/rejeitar da Supervisão. */
+  canReview: boolean;
+  /** true = existe um canal de WhatsApp da clínica com o responsável (bot de anamnese ou de acolhimento). */
+  canMessage: boolean;
+  /** Onde o acolhimento está quando ainda não dá pra aprovar (ex.: "aguardando os documentos"). */
+  reviewNote: string | null;
 };
 
 type QuickViewResult = { success: true; view: EvaluationQuickView } | { success: false; error: string };
+
+export type EvaluationDocActionResult = { success: true } | { success: false; error: string };
 
 const GENERIC_ERROR = "Não foi possível carregar os dados deste paciente.";
 
@@ -125,6 +138,9 @@ async function anamnesisQuickView(requestId: string): Promise<QuickViewResult> {
       files,
       warnings,
       patientHref: request.patient_id ? `/recepcao/pacientes/${request.patient_id}` : null,
+      canReview: request.status === "pendente_supervisor",
+      canMessage: Boolean(request.guardian_phone),
+      reviewNote: request.status === "rejeitado" ? "Documentação rejeitada — aguardando o responsável reenviar." : null,
     },
   };
 }
@@ -147,7 +163,7 @@ async function intakeLeadQuickView(leadId: string): Promise<QuickViewResult> {
   const { data: lead } = await supabase
     .from("insurance_intake_leads")
     .select(
-      "id, patient_full_name, patient_birth_date, patient_cid, patient_id, guardian_full_name, guardian_email, phone_e164, guardian_phone_raw, plan_name, card_number, card_valid_until, guide_number, procedure_code, sessions_authorized, valid_from, valid_to, authorization_password, warnings, extra, insurers(name)",
+      "id, status, patient_full_name, patient_birth_date, patient_cid, patient_id, guardian_full_name, guardian_email, phone_e164, guardian_phone_raw, plan_name, card_number, card_valid_until, guide_number, procedure_code, sessions_authorized, valid_from, valid_to, authorization_password, warnings, extra, insurers(name)",
     )
     .eq("id", leadId)
     .maybeSingle();
@@ -204,9 +220,20 @@ async function intakeLeadQuickView(leadId: string): Promise<QuickViewResult> {
       files,
       warnings: lead.warnings ?? [],
       patientHref: lead.patient_id ? `/recepcao/pacientes/${lead.patient_id}` : null,
+      canReview: !isPresencial && lead.status === "pending_supervisor",
+      canMessage: !isPresencial && Boolean(lead.phone_e164 && lead.patient_id),
+      reviewNote: isPresencial ? null : (LEAD_REVIEW_NOTE[lead.status] ?? null),
     },
   };
 }
+
+/** Por que um acolhimento de PDF ainda não pode ser aprovado — mostrado no lugar dos botões. */
+const LEAD_REVIEW_NOTE: Record<string, string> = {
+  extracted: "Acolhimento ainda não iniciado — revise e inicie o contato na aba Acolhimentos.",
+  approved: "Contato com a família sendo iniciado.",
+  awaiting_documents: "Aguardando o responsável enviar os documentos.",
+  awaiting_slot: "Documentos já aprovados — a família está escolhendo o horário.",
+};
 
 /** Categorias de `documents` que interessam antes da 1ª avaliação — o resto é ruído nesta janela. */
 const RELEVANT_DOCUMENT_CATEGORIES = ["laudo", "autorizacao", "carteirinha", "pedido_medico", "reavaliacao"];
@@ -304,6 +331,9 @@ async function patientQuickView(patientId: string): Promise<QuickViewResult> {
       files,
       warnings,
       patientHref: `/recepcao/pacientes/${patient.id}`,
+      canReview: false,
+      canMessage: false,
+      reviewNote: null,
     },
   };
 }
@@ -324,5 +354,143 @@ export async function getEvaluationQuickViewAction(bookInput: EvaluationBookInpu
     return await patientQuickView(bookInput.patientId);
   } catch {
     return { success: false, error: GENERIC_ERROR };
+  }
+}
+
+/**
+ * Portão das ações que MUDAM estado (aprovar, rejeitar, mandar WhatsApp): só
+ * Supervisão/Gestão. A consulta acima é aberta a qualquer equipe; disparar
+ * mensagem pra família não é. As actions de anamnese que reaproveitamos aqui
+ * não checam papel por conta própria, então a checagem tem que ficar aqui.
+ */
+async function requireReviewer(): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sessão expirada. Faça login de novo." };
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (profile?.role !== "supervisor" && profile?.role !== "gestor") {
+    return { ok: false, error: "Apenas a Supervisão pode aprovar, rejeitar ou enviar mensagens." };
+  }
+  return { ok: true, userId: user.id };
+}
+
+async function requirePendingAnamnesis(requestId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("anamnesis_scheduling_requests").select("status").eq("id", requestId).maybeSingle();
+  if (!data) return "Solicitação não encontrada.";
+  if (data.status !== "pendente_supervisor") return "Esta documentação já foi analisada — atualize a fila.";
+  return null;
+}
+
+/**
+ * Aprova a documentação e dispara os horários por WhatsApp — o passo que
+ * "libera" o agendamento da criança. Anamnese: usa o mesmo fluxo do painel
+ * de validação. Acolhimento de PDF: marca como aprovados os arquivos ainda
+ * pendentes (a Supervisão acabou de conferi-los na própria janela) e oferece
+ * horários do avaliador/sala escolhidos no calendário.
+ */
+export async function approveEvaluationDocsAction(
+  bookInput: EvaluationBookInput,
+  therapistId: string,
+  roomId: string,
+): Promise<EvaluationDocActionResult> {
+  const auth = await requireReviewer();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  try {
+    if (bookInput.origin === "whatsapp_anamnese") {
+      const blocked = await requirePendingAnamnesis(bookInput.requestId);
+      if (blocked) return { success: false, error: blocked };
+      const res = await approveAnamnesisDocumentAction(bookInput.requestId, auth.userId);
+      return res.success ? { success: true } : { success: false, error: res.error ?? "Erro ao aprovar documentação." };
+    }
+
+    if (bookInput.origin === "convenio_pdf") {
+      const admin = createAdminClient();
+      await admin
+        .from("insurance_intake_lead_files")
+        .update({ review_status: "approved", reviewed_at: new Date().toISOString(), reviewed_by: auth.userId })
+        .eq("lead_id", bookInput.leadId)
+        .eq("review_status", "pending");
+      return await approveIntakeLeadDocuments(bookInput.leadId, therapistId, roomId, "avaliacao");
+    }
+
+    return { success: false, error: "Paciente cadastrado na recepção não tem documentação a aprovar aqui." };
+  } catch {
+    return { success: false, error: "Não foi possível aprovar a documentação." };
+  }
+}
+
+/** Rejeita a documentação com um motivo padrão (+ observação opcional) e avisa o responsável por WhatsApp. */
+export async function rejectEvaluationDocsAction(
+  bookInput: EvaluationBookInput,
+  reasonCode: string,
+  detail: string,
+): Promise<EvaluationDocActionResult> {
+  const auth = await requireReviewer();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const code = isRejectReasonCode(reasonCode) ? reasonCode : "outro";
+  const note = detail.trim().slice(0, 300);
+  if (code === "outro" && !note) return { success: false, error: "Descreva o motivo da rejeição." };
+
+  try {
+    if (bookInput.origin === "whatsapp_anamnese") {
+      const blocked = await requirePendingAnamnesis(bookInput.requestId);
+      if (blocked) return { success: false, error: blocked };
+      const label = REJECT_REASON_LABEL[code];
+      const reason = `${label.charAt(0).toUpperCase()}${label.slice(1)}${note ? `. ${note}` : ""}`;
+      const res = await rejectAnamnesisDocumentAction(bookInput.requestId, reason);
+      return res.success ? { success: true } : { success: false, error: res.error ?? "Erro ao rejeitar documentação." };
+    }
+
+    if (bookInput.origin === "convenio_pdf") {
+      return await rejectIntakeLeadDocuments(bookInput.leadId, code, note);
+    }
+
+    return { success: false, error: "Paciente cadastrado na recepção não tem documentação a rejeitar aqui." };
+  } catch {
+    return { success: false, error: "Não foi possível rejeitar a documentação." };
+  }
+}
+
+/**
+ * Mensagem manual de WhatsApp pro responsável — texto livre da Supervisão
+ * (ex.: qual documento está pendente). Não muda o status da documentação.
+ * No acolhimento passa pelo mesmo caminho do bot (fica no histórico da
+ * conversa); na anamnese vai direto pelo número da solicitação.
+ */
+export async function sendEvaluationMessageAction(bookInput: EvaluationBookInput, text: string): Promise<EvaluationDocActionResult> {
+  const auth = await requireReviewer();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const message = text.trim();
+  if (!message) return { success: false, error: "Escreva a mensagem antes de enviar." };
+  if (message.length > 1000) return { success: false, error: "Mensagem longa demais (máximo de 1000 caracteres)." };
+
+  try {
+    if (bookInput.origin === "whatsapp_anamnese") {
+      const admin = createAdminClient();
+      const { data: request } = await admin
+        .from("anamnesis_scheduling_requests")
+        .select("guardian_phone")
+        .eq("id", bookInput.requestId)
+        .maybeSingle();
+      if (!request?.guardian_phone) return { success: false, error: "Solicitação sem telefone do responsável." };
+      const sent = await sendTwilioWhatsApp({ to: request.guardian_phone, message });
+      return sent.success ? { success: true } : { success: false, error: "Não foi possível enviar o WhatsApp agora." };
+    }
+
+    if (bookInput.origin === "convenio_pdf") {
+      const sent = await pushIntakeUpdate(bookInput.leadId, message);
+      return sent.success ? { success: true } : { success: false, error: "Não foi possível enviar o WhatsApp agora." };
+    }
+
+    return { success: false, error: "Sem canal de WhatsApp da clínica com este responsável — use o botão de WhatsApp da janela." };
+  } catch {
+    return { success: false, error: "Não foi possível enviar o WhatsApp agora." };
   }
 }

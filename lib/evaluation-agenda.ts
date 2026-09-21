@@ -14,6 +14,16 @@ export type EvaluationBookInput =
   | { origin: "convenio_pdf"; leadId: string }
   | { origin: "presencial"; patientId: string };
 
+/**
+ * "Ok" de agendamento vindo da linha do tempo da Fila de pendências da Recepção
+ * (documentos → autorização do plano → habilitado). Só existe para paciente
+ * que entrou por um contato de documentos (registration_drafts):
+ *  - "aguardando_autorizacao": o plano ainda não autorizou (nem foi dispensado);
+ *  - "aguardando_habilitacao": autorizado, falta a Recepção habilitar;
+ *  - "habilitado": a Recepção deu o ok — pode marcar.
+ */
+export type EvaluationSchedulingGate = "aguardando_autorizacao" | "aguardando_habilitacao" | "habilitado";
+
 /** Um paciente ainda sem 1ª avaliação marcada — candidato a ser arrastado pro calendário. */
 export type EvaluationPoolItem = {
   id: string;
@@ -23,6 +33,8 @@ export type EvaluationPoolItem = {
   detail: string;
   /** true = já pode ser arrastado pro calendário agora; false = falta aprovar documentos antes. */
   ready: boolean;
+  /** Preenchido só para contatos de documentos da Recepção; ver EvaluationSchedulingGate. */
+  gate?: EvaluationSchedulingGate;
   bookInput: EvaluationBookInput;
 };
 
@@ -104,26 +116,73 @@ async function getIntakePoolItems(supabase: Supa): Promise<EvaluationPoolItem[]>
 }
 
 /**
+ * Situação, na linha do tempo da Recepção, de cada paciente que veio de um
+ * contato de documentos (registration_drafts). Paciente sem contato aparece
+ * fora do mapa — não tem "ok" a esperar. Havendo mais de um contato para o
+ * mesmo paciente, basta um habilitado para liberar.
+ */
+export async function getSchedulingGates(supabase: Supa, patientIds: string[]): Promise<Map<string, EvaluationSchedulingGate>> {
+  const gates = new Map<string, EvaluationSchedulingGate>();
+  if (patientIds.length === 0) return gates;
+
+  const { data } = await supabase
+    .from("registration_drafts")
+    .select("patient_id, status, plan_authorized_at, authorization_waived, scheduling_enabled_at")
+    .in("patient_id", patientIds)
+    .neq("status", "rejected");
+
+  const rank: Record<EvaluationSchedulingGate, number> = { aguardando_autorizacao: 0, aguardando_habilitacao: 1, habilitado: 2 };
+  for (const d of data ?? []) {
+    if (!d.patient_id) continue;
+    const gate: EvaluationSchedulingGate = d.scheduling_enabled_at
+      ? "habilitado"
+      : d.plan_authorized_at || d.authorization_waived
+        ? "aguardando_habilitacao"
+        : "aguardando_autorizacao";
+    const current = gates.get(d.patient_id);
+    if (!current || rank[gate] > rank[current]) gates.set(d.patient_id, gate);
+  }
+  return gates;
+}
+
+const GATE_STATUS_LABEL: Record<EvaluationSchedulingGate, string> = {
+  aguardando_autorizacao: "Aguardando autorização do plano",
+  aguardando_habilitacao: "Autorizado — aguardando a Recepção habilitar",
+  habilitado: "Habilitado pela Recepção",
+};
+
+/**
  * Pacientes cadastrados presencialmente pela Recepção, sem draft de IA nem
  * origem em anamnese/convênio — identificados via getPendingPatients (mesma
  * regra de estágio usada na aba Fluxos), excluindo quem já apareceu nas
  * outras duas origens pra não contar o mesmo paciente duas vezes. Sempre
- * "ready" — não há aprovação de documentos pendente nesse caminho.
+ * "ready" — não há aprovação de documentos pendente nesse caminho — salvo
+ * quando o paciente veio de um contato de documentos, caso em que só fica
+ * pronto com o "ok" da Recepção (getSchedulingGates).
  */
 async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<string>): Promise<EvaluationPoolItem[]> {
   const pending = await getPendingPatients(supabase, 0);
+  const candidates = pending.filter((p) => p.stage === 1 && !coveredPatientIds.has(p.id));
+  const gates = await getSchedulingGates(
+    supabase,
+    candidates.map((p) => p.id),
+  );
 
-  return pending
-    .filter((p) => p.stage === 1 && !coveredPatientIds.has(p.id))
-    .map((p) => ({
+  return candidates.map((p) => {
+    // Paciente que entrou por contato de documentos só é liberado depois do
+    // "ok" da Recepção (linha do tempo da Fila de pendências).
+    const gate = gates.get(p.id);
+    return {
       id: `presencial-${p.id}`,
       origin: "presencial" as const,
       patientName: p.full_name,
-      statusLabel: "🚨 PRESENCIAL NA CLÍNICA",
-      detail: `Presencial · cadastrado há ${p.daysSinceCreated} dia(s)`,
-      ready: true,
-      bookInput: { origin: "presencial", patientId: p.id },
-    }));
+      statusLabel: gate ? GATE_STATUS_LABEL[gate] : "🚨 PRESENCIAL NA CLÍNICA",
+      detail: gate ? `Documentos por WhatsApp/portal · cadastrado há ${p.daysSinceCreated} dia(s)` : `Presencial · cadastrado há ${p.daysSinceCreated} dia(s)`,
+      ready: !gate || gate === "habilitado",
+      gate,
+      bookInput: { origin: "presencial" as const, patientId: p.id },
+    };
+  });
 }
 
 /**
@@ -143,9 +202,12 @@ export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_C
   const allItems = [...anamnesisItems, ...intakeItems, ...presencialItems];
 
   // Pacientes presenciais (origin === "presencial") sempre sobem pro TOPO da fila com prioridade alta!
+  // Exceto quem veio de contato de documentos (gate): não está na clínica, e enquanto
+  // a Recepção não habilita não pode furar a fila de quem já está pronto.
+  const isPresencialNaClinica = (item: EvaluationPoolItem) => item.origin === "presencial" && !item.gate;
   allItems.sort((a, b) => {
-    if (a.origin === "presencial" && b.origin !== "presencial") return -1;
-    if (a.origin !== "presencial" && b.origin === "presencial") return 1;
+    if (isPresencialNaClinica(a) && !isPresencialNaClinica(b)) return -1;
+    if (!isPresencialNaClinica(a) && isPresencialNaClinica(b)) return 1;
     return 0;
   });
 
