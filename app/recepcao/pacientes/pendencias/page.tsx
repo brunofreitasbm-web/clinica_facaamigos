@@ -14,6 +14,8 @@ import { AutorizacaoWizard } from "./autorizacao-wizard";
 import { DraftIntakeCard } from "./draft-intake-card";
 import { CollapsibleQueueRow } from "./collapsible-queue-row";
 import { DraftPipelineMini } from "./draft-pipeline";
+import { PendencyPills } from "./pendency-pills";
+import { extractDraftOnDemand } from "./draft-pipeline-actions";
 import { PageContainer } from "@/components/page-container";
 
 export const dynamic = "force-dynamic";
@@ -172,10 +174,17 @@ export default async function PendenciasPage() {
                           subtitle={
                             <>
                               {item.detail}
+                              <PendencyPills pendencies={item.draft.pendencies} />
                               <DraftPipelineMini pipeline={item.draft.pipeline} />
                             </>
                           }
                           aside={aside}
+                          // Lê os arquivos com IA só quando alguém abre o contato (nunca ao carregar a fila).
+                          onFirstOpen={
+                            (item.draft.status === "pending" || item.draft.status === "failed") && item.draft.files.length > 0
+                              ? extractDraftOnDemand.bind(null, item.draft.id)
+                              : undefined
+                          }
                         >
                           <DraftIntakeCard draft={item.draft} />
                         </CollapsibleQueueRow>

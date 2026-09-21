@@ -9,6 +9,7 @@ import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { civilDateInTimeZone } from "@/lib/timezone";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
+import { computeLeadPendencies, type LeadPendencies } from "@/lib/lead-pendencies";
 
 type Supa = SupabaseClient<Database>;
 
@@ -115,7 +116,7 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   remarcacao_solicitada: "Pedido de remarcação",
   documento_familia_novo: "Documento enviado pela família",
   renovacao_solicitada: "Renovação de guia solicitada",
-  cadastro_assistido_ia: "Contatos com documentos recebidos",
+  cadastro_assistido_ia: "Contatos do WhatsApp — dados e documentos",
   chegada_nao_confirmada: "Chegada aguardando confirmação",
 };
 
@@ -565,6 +566,8 @@ export type PendingRegistrationDraft = {
    * cobrança de novo a cada troca de plantão.
    */
   documentRequests: PendingDraftDocumentRequest[];
+  /** O que já veio e o que falta (dados + documentos), calculado em lib/lead-pendencies.ts. */
+  pendencies: LeadPendencies;
 };
 
 export type PendingDraftDocumentRequest = {
@@ -624,6 +627,7 @@ function draftDetail(d: PendingRegistrationDraft): string {
   if (d.status === "validated") parts.push("cadastro conferido");
   else if (d.status === "failed") parts.push("leitura automática falhou — conferir manualmente");
   else if (d.status === "pending" || d.status === "processing") parts.push("leitura automática em andamento");
+  parts.push(d.pendencies.summary);
   return parts.join(" · ");
 }
 
@@ -750,6 +754,66 @@ function suggestedGuideFromExtraction(extracted: unknown): DraftAuthorizedGuide 
   return Object.values(guide).some((v) => v !== null) ? guide : null;
 }
 
+type DraftPendencySources = {
+  botByDraft: Map<string, unknown>;
+  docCategoriesByPatient: Map<string, string[]>;
+  insuredPatients: Set<string>;
+  insuredPhones: Set<string>;
+};
+
+/**
+ * Insumos do cálculo de pendências (lib/lead-pendencies.ts) que não vêm na
+ * consulta principal: o que o responsável digitou no bot (`bot_collected`,
+ * migration 20260921060000 — fora de database.types.ts, daí a leitura solta),
+ * as categorias dos documentos do paciente-lead (a mídia mandada depois de uma
+ * cobrança entra em `documents`, não no rascunho) e se já há convênio
+ * identificado (vínculo do paciente ou plano detectado na conversa). Uma
+ * consulta por tabela para todos os rascunhos — nunca uma por rascunho.
+ */
+async function getDraftPendencySources(
+  supabase: Supa,
+  draftIds: string[],
+  patientIds: string[],
+  phones: string[],
+): Promise<DraftPendencySources> {
+  const sources: DraftPendencySources = {
+    botByDraft: new Map(),
+    docCategoriesByPatient: new Map(),
+    insuredPatients: new Set(),
+    insuredPhones: new Set(),
+  };
+
+  const [bot, docs, insurance, conversations] = await Promise.all([
+    draftIds.length > 0
+      ? (supabase as unknown as SupabaseClient).from("registration_drafts").select("id, bot_collected").in("id", draftIds)
+      : null,
+    patientIds.length > 0 ? supabase.from("documents").select("patient_id, category").in("patient_id", patientIds) : null,
+    patientIds.length > 0
+      ? supabase.from("patient_insurance").select("patient_id, insurer_id, is_private").in("patient_id", patientIds)
+      : null,
+    phones.length > 0
+      ? supabase.from("twilio_conversations").select("phone_number, insurer_id").in("phone_number", phones).not("insurer_id", "is", null)
+      : null,
+  ]);
+
+  for (const row of (bot?.data ?? []) as { id: string; bot_collected: unknown }[]) {
+    sources.botByDraft.set(row.id, row.bot_collected);
+  }
+  for (const row of docs?.data ?? []) {
+    if (!row.patient_id || !row.category) continue;
+    const list = sources.docCategoriesByPatient.get(row.patient_id) ?? [];
+    list.push(row.category);
+    sources.docCategoriesByPatient.set(row.patient_id, list);
+  }
+  for (const row of insurance?.data ?? []) {
+    if (row.insurer_id && !row.is_private) sources.insuredPatients.add(row.patient_id);
+  }
+  for (const row of conversations?.data ?? []) {
+    if (row.phone_number) sources.insuredPhones.add(row.phone_number);
+  }
+  return sources;
+}
+
 /**
  * Rascunhos do "cadastro assistido por IA" (registration_drafts,
  * 20260907000001) que ainda têm trabalho da recepção: os não validados nem
@@ -775,12 +839,19 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
 
   const rows = data ?? [];
   const phones = [...new Set(rows.map((d) => d.source_phone).filter((p): p is string => Boolean(p)))];
-  const [messagesByPhone, requestsByPhone] = await Promise.all([
+  const patientIds = [...new Set(rows.map((d) => d.patient_id).filter((p): p is string => Boolean(p)))];
+  const [messagesByPhone, requestsByPhone, pendencySources] = await Promise.all([
     getDraftConversationMessages(supabase, phones),
     getDraftDocumentRequests(supabase, phones),
+    getDraftPendencySources(
+      supabase,
+      rows.map((d) => d.id),
+      patientIds,
+      phones,
+    ),
   ]);
 
-  return rows.map((d) => {
+  const drafts: PendingRegistrationDraft[] = rows.map((d) => {
     const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;
     const files = (d.registration_draft_files ?? []) as {
       id: string;
@@ -789,6 +860,20 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       detected_type: string | null;
       created_at: string;
     }[];
+    const pendencies = computeLeadPendencies({
+      extracted: d.extracted,
+      bot: pendencySources.botByDraft.get(d.id) ?? null,
+      fileTypes: files.map((f) => f.detected_type),
+      patientDocCategories: d.patient_id ? (pendencySources.docCategoriesByPatient.get(d.patient_id) ?? []) : [],
+      insurerKnown:
+        (d.patient_id ? pendencySources.insuredPatients.has(d.patient_id) : false) ||
+        (d.source_phone ? pendencySources.insuredPhones.has(d.source_phone) : false),
+      authorizationWaived: d.authorization_waived,
+      planAuthorizedAt: d.plan_authorized_at,
+      hasAuthorizedGuide: Boolean(d.authorized_guide) || Boolean(d.authorization_id),
+      draftStatus: d.status,
+      filesCount: files.length,
+    });
     return {
       id: d.id,
       patientId: d.patient_id,
@@ -820,8 +905,13 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       error: d.error,
       messages: (d.source_phone ? messagesByPhone.get(d.source_phone) : undefined) ?? [],
       documentRequests: (d.source_phone ? requestsByPhone.get(d.source_phone) : undefined) ?? [],
+      pendencies,
     };
   });
+
+  // Partição estável: quem não tem mais nada faltando (pronto para conferir e
+  // avançar na linha do tempo) sobe; dentro de cada grupo segue o mais antigo primeiro.
+  return [...drafts.filter((d) => d.pendencies.missingCount === 0), ...drafts.filter((d) => d.pendencies.missingCount > 0)];
 }
 
 export type UnconfirmedCheckin = {

@@ -12,6 +12,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { extractRegistrationFromFiles, applyNormalization } from "@/lib/document-extraction";
 import { promoteDraftToLead } from "@/lib/whatsapp-lead";
+import { mergeBotCollectedIntoExtraction } from "@/lib/lead-pendencies";
+import type { Json } from "@/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
 // Teto prático de payload inline pro Gemini (base64 de 25MB de arquivos vira
@@ -45,11 +48,30 @@ async function runExtractionForDraft(
 ): Promise<ProcessDraftOutcome> {
   const { data: files } = await admin
     .from("registration_draft_files")
-    .select("id, storage_path, mime_type, size_bytes")
+    .select("id, storage_path, mime_type, size_bytes, detected_type")
     .eq("draft_id", draft.id)
     .order("created_at", { ascending: true });
 
+  // O que o responsável digitou no bot de agendamento (bot_collected, migration
+  // 20260921060000) — coluna ainda fora de database.types.ts, daí a leitura solta.
+  const { data: botRow } = await (admin as unknown as SupabaseClient)
+    .from("registration_drafts")
+    .select("bot_collected, extracted")
+    .eq("id", draft.id)
+    .maybeSingle();
+  const botCollected = (botRow as { bot_collected: unknown } | null)?.bot_collected ?? null;
+
   if (!files || files.length === 0) {
+    // Rascunho criado pelo bot sem nenhum arquivo: não há o que a IA ler, mas os
+    // dados digitados já bastam — vira "extraído" sem chamar o Gemini.
+    if (botCollected) {
+      const merged = mergeBotCollectedIntoExtraction((botRow as { extracted: unknown }).extracted, botCollected);
+      await admin
+        .from("registration_drafts")
+        .update({ status: "extracted", extracted: merged as Json, error: null, processed_at: new Date().toISOString() })
+        .eq("id", draft.id);
+      return { draftId: draft.id, status: "extracted" };
+    }
     await admin.from("registration_drafts").update({ status: "failed", error: "Rascunho sem arquivos." }).eq("id", draft.id);
     return { draftId: draft.id, status: "failed", error: "Rascunho sem arquivos." };
   }
@@ -110,7 +132,8 @@ async function runExtractionForDraft(
     .from("registration_drafts")
     .update({
       status: "extracted",
-      extracted: normalized,
+      // Resposta digitada no bot vence a leitura da IA.
+      extracted: (botCollected ? mergeBotCollectedIntoExtraction(normalized, botCollected) : normalized) as Json,
       fields_confidence: normalized.confidence,
       warnings: normalized.warnings,
       model: outcome.model,
@@ -120,10 +143,11 @@ async function runExtractionForDraft(
     .eq("id", draft.id);
 
   // Guarda o tipo de documento sugerido em cada arquivo, pra a UI de
-  // validação já pré-selecionar a categoria.
+  // validação já pré-selecionar a categoria. Arquivo que o bot já classificou
+  // (a etapa em que foi enviado — laudo, guia, carteirinha) mantém o tipo.
   for (const doc of normalized.documents) {
     const file = included[doc.index];
-    if (file) {
+    if (file && !file.detected_type) {
       await admin.from("registration_draft_files").update({ detected_type: doc.kind }).eq("id", file.id);
     }
   }
