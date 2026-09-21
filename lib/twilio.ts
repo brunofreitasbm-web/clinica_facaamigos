@@ -6,6 +6,12 @@ import {
   collectMediaItems,
   isAudioOnlyMessage,
 } from "@/lib/whatsapp-media-pure";
+import {
+  GREETING_REPEAT_WINDOW_MS,
+  INITIAL_GREETING_INTENT,
+  INITIAL_GREETING_REPLY,
+  isPureGreeting,
+} from "@/lib/greeting-pure";
 
 /**
  * Cliente Twilio configurado via variáveis de ambiente.
@@ -429,6 +435,25 @@ async function checkAwaitingAttachmentDirectly(phone: string): Promise<boolean> 
 }
 
 /**
+ * A clínica (bot ou atendente) já respondeu nesta conversa dentro da janela de
+ * `GREETING_REPEAT_WINDOW_MS`? Usado para não repetir as boas-vindas.
+ */
+async function hasRecentOutbound(conversationId: string | null): Promise<boolean> {
+  if (!conversationId) return false;
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+  const since = new Date(Date.now() - GREETING_REPEAT_WINDOW_MS).toISOString();
+  const { data } = await supabase
+    .from("messages")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "outbound")
+    .gte("sent_at", since)
+    .limit(1);
+  return (data?.length ?? 0) > 0;
+}
+
+/**
  * Processa a mensagem recebida e retorna a resposta gerada pelo Chatbot.
  */
 export async function handleTwilioIncomingMessage(params: {
@@ -625,6 +650,21 @@ export async function handleTwilioIncomingMessage(params: {
     }
   } catch (err) {
     console.error("[Twilio Anamnesis Bot Error]:", err);
+  }
+
+  // 1.5 Saudação inicial SEM IA (lib/greeting-pure.ts): mensagem que é só
+  // "Oi"/"Bom dia" ou o texto pré-preenchido do botão do site recebe a resposta
+  // padrão na hora — sem Gemini (latência acima do timeout de 15s do webhook) e
+  // sem gastar a cota diária. Roda depois das máquinas de estado, então quem
+  // está no meio de um fluxo nunca é interceptado. Se a clínica já respondeu
+  // nesta conversa há pouco, não repete as boas-vindas: segue para o FAQ, cujo
+  // prompt já considera o histórico.
+  try {
+    if (isPureGreeting(body) && !(await hasRecentOutbound(conversationId))) {
+      return { intent: INITIAL_GREETING_INTENT, replyMessage: INITIAL_GREETING_REPLY };
+    }
+  } catch (err) {
+    console.error("[Twilio Initial Greeting Error]:", err);
   }
 
   // 2. Agente conversacional de FAQ (lib/twilio-faq-bot.ts): responde dúvidas

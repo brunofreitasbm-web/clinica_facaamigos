@@ -54,3 +54,39 @@ export function hasExplicitJobSignal(text: string): boolean {
   const normalized = normalize(text);
   return JOB_PATTERNS.some((pattern) => pattern.test(normalized));
 }
+
+/**
+ * Subconjunto CONSERVADOR de `JOB_PATTERNS`, seguro para responder SEM IA e
+ * desligar o bot da conversa. Ficam de fora as marcas que também aparecem em
+ * frase de família: "quero contratar as sessões", "quero trabalhar a fala do
+ * meu filho", "trabalhar com vocês o desenvolvimento dele", "a estagiária
+ * atende?", "qual o currículo da fono?", "vaga para terapeuta ocupacional"
+ * (horário de atendimento). Essas seguem pelo agente de FAQ, que decide com
+ * o contexto da conversa.
+ */
+const STRONG_JOB_PATTERNS: RegExp[] = [
+  /\bcurriculo?s?\b(?!\s+d[aeo]s?\b)/,
+  /\bcv\b/,
+  /\bemprego?s?\b/,
+  /\bestagios?\b/,
+  /\bcontratando\b/,
+  /\bprocesso seletivo\b|\brecrutamento\b/,
+  /\btrabalhe conosco\b/,
+  /\boportunidade(s)?\b.{0,15}\b(de )?(trabalho|emprego|estagio)\b/,
+  /\bfazer parte d(a|o) (nossa |sua )?(equipe|time)\b/,
+];
+
+/** A mensagem é candidatura/trabalho SEM ambiguidade (ver `STRONG_JOB_PATTERNS`)? */
+export function hasStrongJobSignal(text: string): boolean {
+  const normalized = normalize(text);
+  return STRONG_JOB_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+/** Resposta fixa (sem IA) para currículo/vaga de emprego. Os dois rótulos são
+ * os que existem no site: "Trabalhe Conosco" no menu e "Venha fazer parte do
+ * nosso time" na seção de carreiras. */
+export const JOB_INQUIRY_REPLY =
+  "Olá! 💙 Agradecemos o seu interesse em fazer parte do *FaçaAmigos*!\n\n" +
+  "Por aqui no WhatsApp não recebemos currículos nem tratamos de vagas de trabalho. 🙏\n\n" +
+  "Para se candidatar, acesse www.institutofacaamigos.com.br e clique em *Trabalhe Conosco* " +
+  "(ou em *Venha fazer parte do nosso time*) para enviar seu currículo. Boa sorte! 🌱";

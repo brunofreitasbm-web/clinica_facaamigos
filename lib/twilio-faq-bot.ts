@@ -37,7 +37,7 @@
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
-import { hasExplicitJobSignal } from "@/lib/job-inquiry-pure";
+import { hasExplicitJobSignal, hasStrongJobSignal, JOB_INQUIRY_REPLY } from "@/lib/job-inquiry-pure";
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
 
 /** Quantas mensagens da thread vão como contexto (~6 turnos). */
@@ -549,6 +549,17 @@ export async function processFaqBotStep(params: {
   const notHandled: FaqBotResult = { handled: false, replyMessage: "", intent: "", escalated: false };
 
   if (!body.trim()) return notHandled;
+
+  // Currículo/vaga de emprego SEM ambiguidade: resposta fixa e fim do assunto,
+  // sem IA — o agente deixava a conversa aberta (intent "outro") e a candidata
+  // seguia conversando com o bot. Roda antes do Gemini/cota: funciona mesmo com
+  // a IA fora do ar e não gasta chamada. Marcas ambíguas ("quero trabalhar a
+  // fala do meu filho") NÃO entram aqui — ver `hasStrongJobSignal`.
+  if (hasStrongJobSignal(body)) {
+    if (conversationId) await closeConversationAfterFinalReply(conversationId);
+    return { handled: true, replyMessage: JOB_INQUIRY_REPLY, intent: "faq_emprego", escalated: false, concluded: true };
+  }
+
   if (!isGeminiConfigured()) return notHandled;
 
   const settings = await getChatbotSettings(DEV_CLINIC_ID);
