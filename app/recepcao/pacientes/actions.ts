@@ -1,6 +1,8 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 
@@ -126,6 +128,12 @@ export async function inactivatePatient(
 
 /**
  * Exclui o cadastro do paciente (exclusivo para gestores).
+ *
+ * A exclusão é a função `delete_patient_safely` (migration 20260921070000): o
+ * delete direto na tabela nunca funcionou — `patients` não tem policy de DELETE,
+ * então o RLS apagava 0 linhas sem erro e a tela dizia "sucesso" com o paciente
+ * ainda lá. A função também recusa quem tem histórico assistencial/financeiro
+ * (a saída é Inativar) e devolve os arquivos do Storage para removermos aqui.
  */
 export async function deletePatient(
   patientId: string,
@@ -147,17 +155,35 @@ export async function deletePatient(
     return { success: false, error: "Apenas gestores podem excluir o cadastro de um paciente." };
   }
 
-  const { error } = await supabase.from("patients").delete().eq("id", patientId);
+  // A função ainda não consta em lib/database.types.ts (defasado): rpc solto.
+  const { data, error } = await (supabase as unknown as SupabaseClient).rpc("delete_patient_safely", {
+    p_patient_id: patientId,
+  });
+  const result = data as { success?: boolean; error?: string; storage_paths?: string[] } | null;
 
-  if (error) {
+  if (error || !result?.success) {
     return {
       success: false,
-      error: `Não foi possível excluir o paciente. Verifique se existem consultas ou agendamentos vinculados. (${error.message})`,
+      error: result?.error ?? "Não foi possível excluir o paciente. Tente novamente ou use \"Inativar\".",
     };
   }
 
+  // O cadastro já foi removido; arquivo que sobrar no bucket é só espaço, então
+  // uma falha aqui não desfaz nem esconde a exclusão.
+  const paths = result.storage_paths ?? [];
+  if (paths.length > 0) {
+    try {
+      const { error: removeError } = await createAdminClient().storage.from("clinic-documents").remove(paths);
+      if (removeError) console.error("[deletePatient] Falha ao remover arquivos do Storage:", removeError.message);
+    } catch (err) {
+      console.error("[deletePatient] Exceção ao remover arquivos do Storage:", err);
+    }
+  }
+
+  revalidatePath("/recepcao");
   revalidatePath("/recepcao/pacientes");
+  revalidatePath("/recepcao/pacientes/pendencias");
   revalidatePath("/gestor/cadastros/pacientes");
+  revalidatePath("/supervisao");
   return { success: true };
 }
-
