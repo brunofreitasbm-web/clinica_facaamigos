@@ -31,6 +31,22 @@ export const CLINIC_SUPPORT_EMAIL = "institutofacaamigos@gmail.com";
 export const CLINIC_WEBSITE = "https://clinica.institutofacaamigos.com.br";
 
 /**
+ * Origem de onde ESTE deploy é servido de fato — hoje o domínio do sistema
+ * de gestão. É o que resolve URL relativa em metadata (Open Graph, Twitter,
+ * canonical) fora de `app/site`, que tem metadataBase próprio apontando para
+ * CLINIC_WEBSITE. São coisas diferentes de propósito: CLINIC_WEBSITE é o
+ * endereço público da landing institucional; aqui é onde o app responde.
+ *
+ * Sem isto, o Next resolve as imagens sociais contra http://localhost:3000 —
+ * o build avisa, mas a prévia de link só quebra em produção, em silêncio.
+ */
+export const APP_ORIGIN =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://sistema.institutofacaamigos.com.br");
+
+/**
  * Identidade institucional da clínica para uso em timbre de documento
  * (PDF exportado, tela de impressão, calendário do PTS). Fonte: tabela
  * `clinics` (ver supabase/migrations/20260909120000_clinic_letterhead_identity.sql).

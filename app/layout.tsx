@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { CLINIC_BRAND, CLINIC_NAME } from "@/lib/clinic-identity";
+import { APP_ORIGIN, CLINIC_BRAND, CLINIC_NAME } from "@/lib/clinic-identity";
 import { Nunito, Fredoka } from "next/font/google";
 import { AuthStatus } from "@/components/auth-status";
 import { OfflineBanner } from "@/components/offline-banner";
@@ -19,6 +19,9 @@ const fredoka = Fredoka({
 });
 
 export const metadata: Metadata = {
+  // Base para resolver as URLs relativas de metadata (app/opengraph-image.png,
+  // canonical). app/site sobrescreve com o domínio da landing.
+  metadataBase: new URL(APP_ORIGIN),
   // Aba do navegador mostra só a marca ("FaçaAmigos") — o nome oficial
   // completo (com "Centro de Terapia Comportamental") fica na description,
   // que é onde ele aparece como "subtítulo" (prévia de busca/compartilhamento).
