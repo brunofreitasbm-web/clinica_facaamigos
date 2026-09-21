@@ -161,10 +161,14 @@ export function buildLeadStoragePath(params: {
 // ---------------------------------------------------------------------
 
 /** Nome do responsável quando ainda não sabemos — `guardians.full_name` é NOT NULL. */
-export const GUARDIAN_PLACEHOLDER_NAME = "Responsável (contato WhatsApp)";
+export const GUARDIAN_PLACEHOLDER_NAME = "Responsável";
+
+/** Rótulo antigo, ainda gravado em responsáveis já criados — continua valendo como "sem nome" para ser substituído. */
+const LEGACY_GUARDIAN_PLACEHOLDER_NAME = "Responsável (contato WhatsApp)";
 
 export function isPlaceholderGuardianName(name: string | null | undefined): boolean {
-  return !name || !name.trim() || name.trim() === GUARDIAN_PLACEHOLDER_NAME;
+  const trimmed = name?.trim();
+  return !trimmed || trimmed === GUARDIAN_PLACEHOLDER_NAME || trimmed === LEGACY_GUARDIAN_PLACEHOLDER_NAME;
 }
 
 /** Nome completo plausível: pelo menos 2 palavras com letras. Devolve o nome com espaços normalizados, ou null. */
