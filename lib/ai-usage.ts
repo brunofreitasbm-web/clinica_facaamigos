@@ -1,7 +1,7 @@
 // lib/ai-usage.ts
 // Registro de uso das APIs de IA (Gemini e Anthropic) em `ai_usage_log`
-// (migration 20260921000000). O custo em R$ é calculado nas views do Metabase
-// (`metabase_ai_*`) a partir de `ai_model_prices`, não aqui — este módulo só
+// (migration 20260921000000). O custo em R$ é calculado nas views analíticas de BI
+// (`v_bi_ai_*` / `metabase_ai_*`) a partir de `ai_model_prices`, não aqui — este módulo só
 // grava tokens, status e latência.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";

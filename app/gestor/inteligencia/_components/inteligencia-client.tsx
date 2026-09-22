@@ -132,35 +132,6 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
         </div>
       </div>
 
-      {/* Banner de Integração com Metabase (Diretriz BI do Projeto) */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-900 to-slate-900 p-4 text-white shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-500/30 text-xl font-bold text-indigo-200">
-            📊
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold tracking-tight text-white">Dashboards Analíticos Gerenciais (METABASE)</h2>
-              <span className="rounded-full bg-indigo-500/40 px-2 py-0.5 text-[10px] font-semibold text-indigo-200 border border-indigo-400/30">
-                Self-Hosted BI
-              </span>
-            </div>
-            <p className="text-xs text-indigo-200/80">
-              Views Postgres ativas: <code className="text-indigo-300 font-mono">metabase_monthly_faturamento_kpis</code>, <code className="text-indigo-300 font-mono">metabase_therapist_evolution_kpis</code>, <code className="text-indigo-300 font-mono">metabase_absence_rate_kpis</code>. Custo com IA: <code className="text-indigo-300 font-mono">metabase_ai_cost_kpis</code>, <code className="text-indigo-300 font-mono">metabase_ai_cost_by_feature</code>, <code className="text-indigo-300 font-mono">metabase_ai_usage_detail</code>.
-            </p>
-          </div>
-        </div>
-        <a
-          href={process.env.NEXT_PUBLIC_METABASE_URL || "https://metabase.facaamigos.com.br"}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-500 transition-colors"
-        >
-          <span>Abrir Metabase BI</span>
-          <span>↗</span>
-        </a>
-      </div>
-
       {/* Abas Superiores */}
       <div className="mb-6 flex border-b border-slate-200">
         <button

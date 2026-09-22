@@ -116,7 +116,7 @@ Levantamento de set/2026 (ComportaTUDO, Cliniconect, BlueSmiles, CollectABA).
   ├── WhatsApp Business Cloud API (Meta) ou Z-API   → confirmação, lembrete, portal
   ├── Faturista / sistema TISS externo               → exportação CSV/XLSX de lote + retorno de glosa (importação)
   ├── Emissor NFS-e (Fase 3)                         → repasse PJ / particular
-  ├── Metabase (self-host) ou Looker Studio (Fase 3) → BI sobre views
+  ├── Dashboard Nativo de BI (Next.js)                 → BI sobre views Postgres
   └── Google Calendar (opcional, leitura)            → agenda pessoal do terapeuta
 ```
 
@@ -273,7 +273,7 @@ Critério de corte: **o que impede atender e faturar no dia 1 é Fase 0/1; o res
 | Extrato de PLR (recepção/administrativo CLT) | Semestral, com memória de cálculo exportável para o acordo de PLR |
 | Progressão de faixa (terapeuta PJ) | Trimestral: critérios objetivos (documentação, assiduidade, retenção, progresso clínico validado) → proposta de mudança de faixa para o gestor aprovar; nunca automático |
 | Glosa por motivo/convênio/pessoa | Painel + recurso com prazo |
-| BI | Metabase self-host apontando para views Postgres. Regra fundamental: Dashboards são via Metabase e todo KPI deve obrigatoriamente apresentar comparativo ou métrica de referência (vs. período anterior, meta, etc.). |
+| BI | Dashboards nativos em Next.js apontando para views Postgres. Regra fundamental: todo KPI deve obrigatoriamente apresentar comparativo ou métrica de referência (vs. período anterior, meta, etc.). |
 | NFS-e (opcional) | Integração com emissor para particulares e repasse PJ |
 
 **Aceite:** gestor abre o painel no dia 1 do mês e vê PLR e faixas calculadas sem planilha; toda métrica é auditável até a sessão que a compôs.
@@ -435,7 +435,7 @@ Fluxo de competência: fechar → exportar → registrar envio → importar reto
 | WhatsApp (Meta Cloud API ou Z-API) | 1 | Edge Function; templates aprovados; webhook para respostas |
 | Faturista / sistema TISS | 1 | Exportação CSV/XLSX + importação de retorno; layout acordado |
 | E-mail transacional | 1 | Resend ou similar |
-| BI (Metabase/Looker Studio) | 3 | Conexão direta a views com usuário read-only |
+| Dashboard Nativo de BI | 3 | Conexão direta a views Postgres via Supabase |
 | NFS-e | 3 | API do emissor |
 | Google Calendar | 4 | Leitura para evitar conflito com agenda pessoal |
 | TISS nativo | 4 | Só com decisão explícita |

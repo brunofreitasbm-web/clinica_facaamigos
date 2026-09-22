@@ -61,5 +61,5 @@ Nenhum dado real, screenshot ou asset de marca disponível. Schema Postgres real
 3. Evolução em 2 minutos — campos estruturados primeiro, texto livre por último.
 4. Pais veem progresso, não prontuário — portal nunca expõe evolução bruta.
 5. Nada de dado clínico sensível trafega pra papel sem RLS que autorize.
-6. Dashboards e BI são via METABASE — os relatórios analíticos/gerenciais ficam no Metabase sobre views Postgres. Todo KPI de BI obrigatoriamente inclui comparativo ou referência (vs. mês anterior, vs. meta, etc.).
+6. Dashboards e BI são nativos — os relatórios analíticos/gerenciais são integrados na aplicação web sobre views Postgres. Todo KPI de BI obrigatoriamente inclui comparativo ou referência (vs. mês anterior, vs. meta, etc.).
 
