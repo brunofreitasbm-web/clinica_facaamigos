@@ -117,7 +117,7 @@ export async function syncBotDraft(params: {
       bot_collected: bot,
       extracted: mergeBotCollectedIntoExtraction(current.extracted, bot),
     };
-    // Particular = convênio sem guia: a etapa 2 (autorização do plano) já nasce dispensada.
+    // Particular = convênio sem guia: as etapas 2 e 3 (envio e autorização do plano) já nascem dispensadas.
     if (bot.is_private === true && !current.authorization_waived) update.authorization_waived = true;
     if (leadPatientId && !current.patient_id) update.patient_id = leadPatientId;
 

@@ -6959,6 +6959,8 @@ export type Database = {
           plan_authorized_by: string | null
           scheduling_enabled_at: string | null
           scheduling_enabled_by: string | null
+          guide_sent_at: string | null
+          guide_sent_by: string | null
         }
         Insert: {
           attempts?: number
@@ -6993,6 +6995,8 @@ export type Database = {
           plan_authorized_by?: string | null
           scheduling_enabled_at?: string | null
           scheduling_enabled_by?: string | null
+          guide_sent_at?: string | null
+          guide_sent_by?: string | null
         }
         Update: {
           attempts?: number
@@ -7027,6 +7031,8 @@ export type Database = {
           plan_authorized_by?: string | null
           scheduling_enabled_at?: string | null
           scheduling_enabled_by?: string | null
+          guide_sent_at?: string | null
+          guide_sent_by?: string | null
         }
         Relationships: [
           {
@@ -7048,6 +7054,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_drafts_guide_sent_by_fkey"
+            columns: ["guide_sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {

@@ -141,6 +141,65 @@ export function mergeBotCollectedIntoExtraction(extracted: unknown, bot: unknown
   return { ...base, patient, guardian, insurance };
 }
 
+/** `guardianRelationship` (rótulo do formulário/IA-chat) → código de `DocumentExtraction.guardian.relationship`. */
+const CHAT_RELATIONSHIP_TO_CODE: Record<string, string> = {
+  "Mãe": "mae",
+  "Pai": "pai",
+  "Avó/Avô": "avo",
+  "Tio(a)": "outro",
+  "Responsável": "tutor",
+};
+
+/** O que a IA extraiu conversando com o lead (fora de arquivos) — mesmos campos de `ExtractedLeadInfo` em app/recepcao/atendimento/actions.ts, repetidos aqui como literais porque este módulo não importa "@/". */
+export type ChatExtractedLead = {
+  fullName: string;
+  birthDate: string;
+  guardianName: string;
+  guardianPhone: string;
+  guardianEmail: string;
+  guardianRelationship: string;
+  chiefComplaint: string;
+};
+
+/**
+ * Espelha o que a IA leu na CONVERSA (não em documento) no `extracted` do
+ * rascunho — para que dados só ditos no chat (ex.: "meu filho tem 4 anos, o
+ * nome dele é...") preencham a pendência e a tela de conferência sem
+ * ninguém redigitar. Só entra onde o rascunho ainda está vazio: documento
+ * lido e resposta digitada no bot (`mergeBotCollectedIntoExtraction`) são
+ * sempre mais confiáveis que uma inferência de texto livre.
+ */
+export function mergeChatIntoExtraction(extracted: unknown, chat: ChatExtractedLead): Record<string, unknown> {
+  const base = asRecord(extracted) ?? {};
+  const patient = { ...(asRecord(base.patient) ?? {}) };
+  const guardian = { ...(asRecord(base.guardian) ?? {}) };
+
+  const fullName = asText(chat.fullName);
+  if (!asText(patient.full_name) && fullName) patient.full_name = fullName;
+  const birthDate = asText(chat.birthDate);
+  if (!asText(patient.birth_date) && birthDate) patient.birth_date = birthDate;
+  const complaint = asText(chat.chiefComplaint);
+  if (!asText(patient.complaint_hint) && complaint) patient.complaint_hint = complaint;
+
+  const guardianName = asText(chat.guardianName);
+  if (!asText(guardian.full_name) && guardianName) guardian.full_name = guardianName;
+  const guardianEmail = asText(chat.guardianEmail);
+  if (!asText(guardian.email) && guardianEmail) guardian.email = guardianEmail.toLowerCase();
+  const guardianPhone = asText(chat.guardianPhone);
+  if (!asText(guardian.phone) && guardianPhone) guardian.phone = guardianPhone;
+  const relationshipCode = CHAT_RELATIONSHIP_TO_CODE[chat.guardianRelationship];
+  if (!asText(guardian.relationship) && relationshipCode) guardian.relationship = relationshipCode;
+
+  return { ...base, patient, guardian };
+}
+
+/** Há algo do chat que valha a pena gravar — evita criar/tocar um rascunho por uma extração que não achou nada de novo. */
+export function hasUsefulChatData(chat: ChatExtractedLead, guardianNameFallback: string | null): boolean {
+  if (asText(chat.fullName) || asText(chat.birthDate) || asText(chat.guardianEmail) || asText(chat.chiefComplaint)) return true;
+  const guardianName = asText(chat.guardianName);
+  return Boolean(guardianName && guardianName !== (guardianNameFallback ?? "").trim());
+}
+
 // ---------------------------------------------------------------------
 // Pílulas
 // ---------------------------------------------------------------------
@@ -241,7 +300,7 @@ export function computeLeadPendencies(input: LeadPendenciesInput): LeadPendencie
             label: hasGuia ? "Guia" : "Guia: clínica autoriza",
             group: "documento",
             state: hasGuia ? "ok" : "aviso",
-            detail: hasGuia ? undefined : "a guia é opcional — a clínica pede a autorização ao plano (etapa 2)",
+            detail: hasGuia ? undefined : "a guia é opcional — a clínica envia a autorização ao plano (etapas 2 e 3)",
           },
     );
   }

@@ -5,11 +5,13 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Etapas 2 e 3 da linha do tempo de cada contato da fila de pendências
- * (colunas de registration_drafts criadas em 20260921050000):
- *   2) autorização junto ao plano — a clínica liga para o convênio, e só marca
+ * Etapas 2, 3 e 4 da linha do tempo de cada contato da fila de pendências
+ * (colunas de registration_drafts criadas em 20260921050000 e 20260922010000):
+ *   2) guia enviada ao plano — processo manual fora do sistema (portal,
+ *      e-mail, telefone); a clínica só marca aqui que já enviou;
+ *   3) autorização junto ao plano — o plano respondeu, e a recepção marca
  *      aqui o resultado (guia autorizada, ou "particular / sem guia");
- *   3) habilitado para agendamento — o "ok" que a Agenda 1ª Avaliação da
+ *   4) habilitado para agendamento — o "ok" que a Agenda 1ª Avaliação da
  *      Supervisão exige antes de deixar marcar (lib/evaluation-agenda.ts).
  * Tudo com o client de sessão: a RLS de registration_drafts já restringe o
  * update a recepção/supervisor/gestor da clínica.
@@ -77,7 +79,50 @@ export async function extractDraftOnDemand(draftId: string): Promise<ActionResul
   return { success: true };
 }
 
-/** Marca a etapa 2 como concluída registrando a guia que o plano autorizou. */
+/** Marca a etapa 2 — a clínica enviou a guia de autorização ao plano (processo manual, fora do sistema). */
+export async function markGuideSent(draftId: string): Promise<ActionResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+
+  const { data: updated, error } = await supabase
+    .from("registration_drafts")
+    .update({ guide_sent_at: new Date().toISOString(), guide_sent_by: user.id })
+    .eq("id", draftId)
+    .select("id");
+  if (error || !updated || updated.length === 0) {
+    return { success: false, error: "Não foi possível registrar o envio da guia. Tente de novo." };
+  }
+
+  refresh();
+  return { success: true };
+}
+
+/** Desfaz a etapa 2 (marcou por engano) — só antes do plano responder. */
+export async function undoGuideSent(draftId: string): Promise<ActionResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+
+  const { data: draft } = await supabase
+    .from("registration_drafts")
+    .select("id, plan_authorized_at, authorization_waived")
+    .eq("id", draftId)
+    .maybeSingle();
+  if (!draft) return { success: false, error: "Contato não encontrado." };
+  if (draft.plan_authorized_at || draft.authorization_waived) {
+    return { success: false, error: "Desfaça a autorização do plano antes de desfazer o envio da guia." };
+  }
+
+  const { error } = await supabase
+    .from("registration_drafts")
+    .update({ guide_sent_at: null, guide_sent_by: null })
+    .eq("id", draftId);
+  if (error) return { success: false, error: "Não foi possível desfazer. Tente de novo." };
+
+  refresh();
+  return { success: true };
+}
+
+/** Marca a etapa 3 como concluída registrando a guia que o plano autorizou. */
 export async function registerAuthorizedGuide(draftId: string, input: AuthorizedGuideInput): Promise<ActionResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
@@ -97,7 +142,7 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
 
   const { data: draft } = await supabase
     .from("registration_drafts")
-    .select("id, patient_id, authorization_id, scheduling_enabled_at")
+    .select("id, patient_id, authorization_id, scheduling_enabled_at, guide_sent_at")
     .eq("id", draftId)
     .maybeSingle();
   if (!draft) return { success: false, error: "Contato não encontrado." };
@@ -153,9 +198,13 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
     }
   }
 
+  // A família pode ter mandado a guia já autorizada pelo plano sem passar pela
+  // etapa 2 (o envio foi direto entre plano e responsável) — nesse caso a
+  // etapa 2 é preenchida junto, para a trilha não ficar com um buraco.
   const { data: updated, error } = await supabase
     .from("registration_drafts")
     .update({
+      ...(draft.guide_sent_at ? {} : { guide_sent_at: new Date().toISOString(), guide_sent_by: user.id }),
       plan_authorized_at: new Date().toISOString(),
       plan_authorized_by: user.id,
       authorization_waived: false,
@@ -172,7 +221,7 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
   return { success: true, note };
 }
 
-/** Marca a etapa 2 como dispensada — particular, ou convênio que não exige guia para a 1ª avaliação. */
+/** Marca a etapa 3 como dispensada — particular, ou convênio que não exige guia para a 1ª avaliação. */
 export async function waiveDraftAuthorization(draftId: string): Promise<ActionResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
@@ -196,7 +245,7 @@ export async function waiveDraftAuthorization(draftId: string): Promise<ActionRe
   return { success: true };
 }
 
-/** Volta a etapa 2 para "aguardando o plano" (marcou por engano, ou o plano voltou atrás). */
+/** Volta a etapa 3 para "aguardando o plano" (marcou por engano, ou o plano voltou atrás). Mantém a guia como enviada (etapa 2). */
 export async function undoDraftAuthorization(draftId: string): Promise<ActionResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
@@ -225,7 +274,7 @@ export async function undoDraftAuthorization(draftId: string): Promise<ActionRes
 }
 
 /**
- * Etapa 3: o "ok" para a Supervisão agendar a 1ª avaliação. Só depois da etapa 2
+ * Etapa 4: o "ok" para a Supervisão agendar a 1ª avaliação. Só depois da etapa 3
  * (autorizada ou dispensada) — agendar sem isso é o que gerava atendimento sem guia.
  */
 export async function enableDraftScheduling(draftId: string): Promise<ActionResult> {

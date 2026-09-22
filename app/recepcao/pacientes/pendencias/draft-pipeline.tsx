@@ -5,11 +5,14 @@ import Link from "next/link";
 import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
+import { visiblePills } from "@/lib/lead-pendencies";
 import {
   disableDraftScheduling,
   enableDraftScheduling,
+  markGuideSent,
   registerAuthorizedGuide,
   undoDraftAuthorization,
+  undoGuideSent,
   waiveDraftAuthorization,
 } from "./draft-pipeline-actions";
 
@@ -17,22 +20,36 @@ import {
  * Linha do tempo de um contato da fila de pendências, do recebimento dos
  * arquivos até o agendamento:
  *
- *   ① Documentos recebidos → ② Autorização junto ao plano → ③ Habilitado para agendamento
+ *   ① Documentos recebidos → ② Guia enviada ao plano → ③ Plano autorizou → ④ Habilitado para agendamento
  *
- * ② é processo manual da clínica com o convênio (a recepção só registra o
- * resultado e a guia autorizada); ③ é o "ok" que a Agenda 1ª Avaliação da
- * Supervisão exige antes de deixar marcar (lib/evaluation-agenda.ts).
+ * ② e ③ são processo manual da clínica com o convênio: a recepção/supervisão
+ * marca quando enviou a guia (② — fora do sistema, portal/e-mail/telefone) e
+ * depois registra o resultado e a guia autorizada quando o plano responde
+ * (③). ④ é o "ok" que a Agenda 1ª Avaliação da Supervisão exige antes de
+ * deixar marcar (lib/evaluation-agenda.ts).
  */
 
 type StepState = "done" | "current" | "locked";
 
-function stepStates(pipeline: PendingRegistrationDraft["pipeline"]): [StepState, StepState, StepState] {
-  const authDone = pipeline.authorization !== "pendente";
+function stepStates(pipeline: PendingRegistrationDraft["pipeline"]): [StepState, StepState, StepState, StepState] {
+  const waived = pipeline.authorization === "dispensada";
+  const sentDone = waived || pipeline.authorization !== "pendente";
+  const authDone = waived || pipeline.authorization === "autorizada";
   const enabled = Boolean(pipeline.schedulingEnabledAt);
-  return ["done", authDone ? "done" : "current", enabled ? "done" : authDone ? "current" : "locked"];
+  return [
+    "done",
+    sentDone ? "done" : "current",
+    authDone ? "done" : sentDone ? "current" : "locked",
+    enabled ? "done" : authDone ? "current" : "locked",
+  ];
 }
 
-const STEP_TITLE = ["Documentos recebidos", "Autorização do plano", "Habilitado p/ agendamento"] as const;
+const STEP_TITLE = [
+  "Documentos recebidos",
+  "Guia enviada ao plano",
+  "Plano autorizou",
+  "Habilitado p/ agendamento",
+] as const;
 
 const STATE_STYLE: Record<StepState, string> = {
   done: "border-status-positive-text/60 bg-status-positive-text/5",
@@ -69,7 +86,7 @@ export function DraftPipelineMini({ pipeline }: { pipeline: PendingRegistrationD
         allDone ? "border-status-positive-text/60 text-status-positive-text" : "border-[var(--color-accent)] text-ink"
       }`}
     >
-      {allDone ? `✓ ${STEP_TITLE[2]}` : `Etapa ${currentIndex + 1}/3 · ${STEP_TITLE[currentIndex]}`}
+      {allDone ? `✓ ${STEP_TITLE[3]}` : `Etapa ${currentIndex + 1}/4 · ${STEP_TITLE[currentIndex]}`}
     </span>
   );
 }
@@ -186,10 +203,21 @@ export function DraftPipelineColumns({
   documents: ReactNode;
 }) {
   const { pipeline } = draft;
-  const [docState, authState, schedState] = stepStates(pipeline);
+  const [docState, sentState, authState, schedState] = stepStates(pipeline);
   const [showGuideForm, setShowGuideForm] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: "error" | "note"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const missingLabels = visiblePills(draft.pendencies)
+    .filter((p) => p.state === "faltando")
+    .map((p) => p.label);
+
+  const handleMarkGuideSent = () => {
+    if (missingLabels.length > 0 && !window.confirm(`Ainda falta: ${missingLabels.join(", ")}. Marcar como enviada mesmo assim?`)) {
+      return;
+    }
+    run(() => markGuideSent(draft.id));
+  };
 
   const run = (action: () => Promise<{ success: true; note?: string } | { success: false; error: string }>, after?: () => void) => {
     setFeedback(null);
@@ -228,12 +256,21 @@ export function DraftPipelineColumns({
     );
   };
 
+  const sentStatus =
+    pipeline.authorization === "dispensada"
+      ? "Dispensada — particular / sem guia"
+      : pipeline.guideSentAt
+        ? `Enviada em ${fmtDateTime(pipeline.guideSentAt, CLINIC_TIMEZONE)}${pipeline.guideSentByName ? ` por ${pipeline.guideSentByName}` : ""}`
+        : "Aguardando o envio";
+
   const authStatus =
     pipeline.authorization === "autorizada"
-      ? `Autorizada${pipeline.authorizedAt ? ` em ${fmtDateTime(pipeline.authorizedAt, CLINIC_TIMEZONE)}` : ""}`
+      ? `Autorizada${pipeline.authorizedAt ? ` em ${fmtDateTime(pipeline.authorizedAt, CLINIC_TIMEZONE)}` : ""}${pipeline.authorizedByName ? ` por ${pipeline.authorizedByName}` : ""}`
       : pipeline.authorization === "dispensada"
         ? "Dispensada — particular / sem guia"
-        : "Aguardando o plano";
+        : sentState === "done"
+          ? "Aguardando retorno do plano"
+          : "Depende do envio da guia";
 
   const schedStatus = pipeline.schedulingEnabledAt
     ? `Habilitado em ${fmtDateTime(pipeline.schedulingEnabledAt, CLINIC_TIMEZONE)}`
@@ -242,15 +279,56 @@ export function DraftPipelineColumns({
       : "Pronto para habilitar";
 
   return (
-    <div className="grid gap-2 md:grid-cols-[1fr_auto_1fr_auto_1fr]">
+    <div className="grid gap-2 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr]">
       <StepShell index={1} state={docState} status={`${draft.files.length} arquivo(s) · ${draft.facts.length} dado(s) lido(s)`}>
         {documents}
       </StepShell>
 
       <Arrow />
 
-      <StepShell index={2} state={authState} status={authStatus}>
+      <StepShell index={2} state={sentState} status={sentStatus}>
         {pipeline.authorization === "pendente" && (
+          <>
+            <p className="m-0 text-[12px] text-ink-faint">
+              Envie a guia de autorização ao plano (portal, e-mail ou telefone) e marque aqui.
+            </p>
+            {missingLabels.length > 0 && (
+              <p className="m-0 text-[12px] text-status-pending-text">Ainda falta: {missingLabels.join(", ")}.</p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <StepButton primary onClick={handleMarkGuideSent} disabled={isPending}>
+                Guia enviada ao plano
+              </StepButton>
+              <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
+                Particular / sem guia
+              </StepButton>
+            </div>
+          </>
+        )}
+
+        {pipeline.authorization === "enviada" && (
+          <div>
+            <StepButton onClick={() => run(() => undoGuideSent(draft.id))} disabled={isPending}>
+              Desfazer
+            </StepButton>
+          </div>
+        )}
+
+        {(pipeline.authorization === "autorizada" || pipeline.authorization === "dispensada") && (
+          <p className="m-0 text-[12px] text-ink-faint">
+            {pipeline.authorization === "autorizada" ? "Concluída — o plano já respondeu." : "Não se aplica a este atendimento."}
+          </p>
+        )}
+      </StepShell>
+
+      <Arrow />
+
+      <StepShell index={3} state={authState} status={authStatus}>
+        {sentState === "locked" && !suggestion && (
+          <p className="m-0 text-[12px] text-ink-faint">Aguardando o envio da guia ao plano (etapa 2).</p>
+        )}
+
+        {(pipeline.authorization === "enviada" || (pipeline.authorization === "pendente" && suggestion)) && (
           <>
             <p className="m-0 text-[12px] text-ink-faint">
               Confira a autorização junto ao plano (portal ou telefone). Quando o plano autorizar, registre a guia aqui.
@@ -349,7 +427,7 @@ export function DraftPipelineColumns({
 
       <Arrow />
 
-      <StepShell index={3} state={schedState} status={schedStatus}>
+      <StepShell index={4} state={schedState} status={schedStatus}>
         {schedState === "locked" && (
           <p className="m-0 text-[12px] text-ink-faint">
             Só libera depois que o plano autorizar (ou a autorização for dispensada).
@@ -397,7 +475,7 @@ export function DraftPipelineColumns({
       {feedback && (
         <p
           role={feedback.tone === "error" ? "alert" : "status"}
-          className={`m-0 text-[12px] md:col-span-5 ${feedback.tone === "error" ? "text-status-negative-text" : "text-ink-soft"}`}
+          className={`m-0 text-[12px] md:col-span-7 ${feedback.tone === "error" ? "text-status-negative-text" : "text-ink-soft"}`}
         >
           {feedback.text}
         </p>

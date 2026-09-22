@@ -33,12 +33,14 @@ function fileLabel(file: PendingRegistrationDraft["files"][number]): string {
   return detected ? `${detected} · ${file.name}` : file.name;
 }
 
-export function DraftIntakeCard({ draft }: { draft: PendingRegistrationDraft }) {
+export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegistrationDraft; focus?: boolean }) {
   return (
     // Quem recolhe/expande é a linha do contato (CollapsibleQueueRow, em
     // page.tsx): com vários contatos na fila ao mesmo tempo, o cartão aberto
-    // empurrava as outras pendências para fora da tela.
-    <div className="mt-3 border-t border-paper-line-strong pt-3 text-sm">
+    // empurrava as outras pendências para fora da tela. Com `focus` (painel
+    // flutuante do lead, lead-focus-dialog.tsx) o cartão já É a tela — sem
+    // borda de encaixe.
+    <div className={focus ? "text-sm" : "mt-3 border-t border-paper-line-strong pt-3 text-sm"}>
       <div className="flex flex-col gap-3">
         {draft.guardianMessage && (
           <p className="rounded-md bg-paper-line/40 px-3 py-2 text-ink">
@@ -104,7 +106,7 @@ export function DraftIntakeCard({ draft }: { draft: PendingRegistrationDraft }) 
         />
 
         {draft.messages.length > 0 && (
-          <details className="rounded-md border border-paper-line-strong bg-paper/40 px-3 py-2">
+          <details open={focus} className="rounded-md border border-paper-line-strong bg-paper/40 px-3 py-2">
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-ink-soft">
               Conversa ({draft.messages.length} últimas mensagens)
             </summary>

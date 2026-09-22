@@ -509,7 +509,7 @@ export type PendingDraftMessage = {
   hasMedia: boolean;
 };
 
-/** Guia que o plano autorizou, como a recepção registrou na etapa 2 da linha do tempo. */
+/** Guia que o plano autorizou, como a recepção registrou na etapa 3 da linha do tempo. */
 export type DraftAuthorizedGuide = {
   guide_number: string | null;
   procedure_code: string | null;
@@ -521,22 +521,26 @@ export type DraftAuthorizedGuide = {
 };
 
 /**
- * Linha do tempo de um contato: documentos recebidos → autorização junto ao
- * plano → habilitado para agendamento. A etapa 1 é sempre "feita" (o contato só
- * existe porque mandou arquivos); as duas seguintes são checadas à mão pela
- * recepção. `schedulingEnabledAt` é o "ok" que a Agenda 1ª Avaliação da
- * Supervisão exige antes de deixar marcar.
+ * Linha do tempo de um contato: documentos recebidos → guia enviada ao plano →
+ * plano autorizou → habilitado para agendamento. A etapa 1 é sempre "feita" (o
+ * contato só existe porque mandou arquivos); as três seguintes são checadas à
+ * mão pela recepção/supervisão. `schedulingEnabledAt` é o "ok" que a Agenda 1ª
+ * Avaliação da Supervisão exige antes de deixar marcar.
  */
 export type DraftPipeline = {
-  authorization: "pendente" | "autorizada" | "dispensada";
+  /** "enviada" = a clínica já mandou a guia ao plano, ainda sem resposta. */
+  authorization: "pendente" | "enviada" | "autorizada" | "dispensada";
+  guideSentAt: string | null;
+  guideSentByName: string | null;
   authorizedAt: string | null;
+  authorizedByName: string | null;
   authorizedGuide: DraftAuthorizedGuide | null;
   /** Guia já gravada em `authorizations` (só possível quando o paciente e o plano já existem). */
   authorizationId: string | null;
   schedulingEnabledAt: string | null;
   /**
    * Guia que a IA leu nos arquivos enviados (extracted.authorization) —
-   * só sugestão para pré-preencher o formulário da etapa 2, a recepção confere.
+   * só sugestão para pré-preencher o formulário da etapa 3, a recepção confere.
    */
   suggestedGuide: DraftAuthorizedGuide | null;
   /** Cadastro conferido — existe paciente no sistema e a Supervisão consegue achá-lo na agenda. */
@@ -833,7 +837,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   const { data } = await supabase
     .from("registration_drafts")
     .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, plan_authorized_at, authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("clinic_id", clinicId)
     .or("status.in.(pending,processing,extracted,failed),and(status.eq.validated,scheduling_enabled_at.is.null)")
@@ -855,6 +859,8 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
 
   const drafts: PendingRegistrationDraft[] = rows.map((d) => {
     const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;
+    const sentBy = Array.isArray(d.sent_by) ? d.sent_by[0] : d.sent_by;
+    const authorizedBy = Array.isArray(d.authorized_by) ? d.authorized_by[0] : d.authorized_by;
     const files = (d.registration_draft_files ?? []) as {
       id: string;
       original_name: string | null;
@@ -884,8 +890,17 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       source: d.source as "whatsapp" | "portal",
       status: d.status as PendingRegistrationDraft["status"],
       pipeline: {
-        authorization: d.plan_authorized_at ? "autorizada" : d.authorization_waived ? "dispensada" : "pendente",
+        authorization: d.plan_authorized_at
+          ? "autorizada"
+          : d.authorization_waived
+            ? "dispensada"
+            : d.guide_sent_at
+              ? "enviada"
+              : "pendente",
+        guideSentAt: d.guide_sent_at,
+        guideSentByName: sentBy?.full_name ?? null,
         authorizedAt: d.plan_authorized_at,
+        authorizedByName: authorizedBy?.full_name ?? null,
         authorizedGuide: parseAuthorizedGuide(d.authorized_guide),
         authorizationId: d.authorization_id,
         schedulingEnabledAt: d.scheduling_enabled_at,

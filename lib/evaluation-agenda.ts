@@ -16,13 +16,18 @@ export type EvaluationBookInput =
 
 /**
  * "Ok" de agendamento vindo da linha do tempo da Fila de pendências da Recepção
- * (documentos → autorização do plano → habilitado). Só existe para paciente
- * que entrou por um contato de documentos (registration_drafts):
- *  - "aguardando_autorizacao": o plano ainda não autorizou (nem foi dispensado);
+ * (documentos → guia enviada ao plano → autorização do plano → habilitado). Só
+ * existe para paciente que entrou por um contato de documentos (registration_drafts):
+ *  - "aguardando_envio_guia": a clínica ainda não enviou a guia ao plano (nem foi dispensada);
+ *  - "aguardando_autorizacao": a guia foi enviada, o plano ainda não respondeu;
  *  - "aguardando_habilitacao": autorizado, falta a Recepção habilitar;
  *  - "habilitado": a Recepção deu o ok — pode marcar.
  */
-export type EvaluationSchedulingGate = "aguardando_autorizacao" | "aguardando_habilitacao" | "habilitado";
+export type EvaluationSchedulingGate =
+  | "aguardando_envio_guia"
+  | "aguardando_autorizacao"
+  | "aguardando_habilitacao"
+  | "habilitado";
 
 /** Um paciente ainda sem 1ª avaliação marcada — candidato a ser arrastado pro calendário. */
 export type EvaluationPoolItem = {
@@ -127,18 +132,25 @@ export async function getSchedulingGates(supabase: Supa, patientIds: string[]): 
 
   const { data } = await supabase
     .from("registration_drafts")
-    .select("patient_id, status, plan_authorized_at, authorization_waived, scheduling_enabled_at")
+    .select("patient_id, status, guide_sent_at, plan_authorized_at, authorization_waived, scheduling_enabled_at")
     .in("patient_id", patientIds)
     .neq("status", "rejected");
 
-  const rank: Record<EvaluationSchedulingGate, number> = { aguardando_autorizacao: 0, aguardando_habilitacao: 1, habilitado: 2 };
+  const rank: Record<EvaluationSchedulingGate, number> = {
+    aguardando_envio_guia: 0,
+    aguardando_autorizacao: 1,
+    aguardando_habilitacao: 2,
+    habilitado: 3,
+  };
   for (const d of data ?? []) {
     if (!d.patient_id) continue;
     const gate: EvaluationSchedulingGate = d.scheduling_enabled_at
       ? "habilitado"
       : d.plan_authorized_at || d.authorization_waived
         ? "aguardando_habilitacao"
-        : "aguardando_autorizacao";
+        : d.guide_sent_at
+          ? "aguardando_autorizacao"
+          : "aguardando_envio_guia";
     const current = gates.get(d.patient_id);
     if (!current || rank[gate] > rank[current]) gates.set(d.patient_id, gate);
   }
@@ -146,7 +158,8 @@ export async function getSchedulingGates(supabase: Supa, patientIds: string[]): 
 }
 
 const GATE_STATUS_LABEL: Record<EvaluationSchedulingGate, string> = {
-  aguardando_autorizacao: "Aguardando autorização do plano",
+  aguardando_envio_guia: "Aguardando envio da guia ao plano",
+  aguardando_autorizacao: "Guia enviada — aguardando o plano",
   aguardando_habilitacao: "Autorizado — aguardando a Recepção habilitar",
   habilitado: "Habilitado pela Recepção",
 };

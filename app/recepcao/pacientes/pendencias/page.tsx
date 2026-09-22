@@ -17,6 +17,7 @@ import { DraftPipelineMini } from "./draft-pipeline";
 import { PendencyPills, SummaryChip } from "./pendency-pills";
 import { extractDraftOnDemand } from "./draft-pipeline-actions";
 import { PageContainer } from "@/components/page-container";
+import { LeadFocusDialog } from "./lead-focus-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,12 @@ const CATEGORY_ORDER: PendingQueueCategory[] = [
   "renovacao_solicitada",
 ];
 
-export default async function PendenciasPage() {
+export default async function PendenciasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lead?: string }>;
+}) {
+  const { lead } = await searchParams;
   const supabase = await createClient();
   const queue = await getReceptionQueue(supabase);
   const authorizations = await getAuthorizationWizardItems(supabase, DEV_CLINIC_ID);
@@ -71,6 +77,12 @@ export default async function PendenciasPage() {
     byCategory.set(item.category, list);
   }
 
+  // Painel flutuante (?lead=<draftId>) — chegada pelo botão "Resolver pendências"
+  // do Atendimento (app/recepcao/atendimento/lead-context-panel.tsx). O item
+  // pode não estar mais na fila (pendência já resolvida entre o clique e a
+  // navegação) — nesse caso só avisamos, sem quebrar a página.
+  const focusedItem = lead ? queue.find((item) => item.draft?.id === lead) : undefined;
+
   return (
     <main className="flex flex-1 flex-col">
       <PageHeader
@@ -78,8 +90,18 @@ export default async function PendenciasPage() {
         title="Fila de pendências"
         description="Ponto de partida do expediente: contatos que mandaram documentos pelo WhatsApp ou pelo portal, cada um numa linha do tempo (documentos recebidos → autorização junto ao plano → habilitado para agendamento) com os arquivos, os dados já recebidos e a conversa aqui mesmo, guia vencendo, guia com poucas sessões, cadastro incompleto, evolução pendente > 24h, documento vencido, interessado sem retorno, falta automática sem motivo, pedido de remarcação, documento da família e renovação de guia já solicitada — tudo numa fila só, por urgência, com dono e prazo."
       />
+      {lead && focusedItem?.draft && (
+        <LeadFocusDialog draft={focusedItem.draft}>
+          <DraftIntakeCard draft={focusedItem.draft} focus />
+        </LeadFocusDialog>
+      )}
       <PageContainer className="gap-8">
         <AutorizacaoWizard initialItems={authorizations} />
+        {lead && !focusedItem?.draft && (
+          <p className="rounded-md border border-paper-line-strong bg-paper/60 px-4 py-2.5 text-sm text-ink-faint">
+            Este contato não tem mais pendências abertas.
+          </p>
+        )}
         {queue.length === 0 && (
           <p className="text-sm text-ink-faint">Nenhuma pendência no momento. 🎉</p>
         )}
@@ -176,11 +198,14 @@ export default async function PendenciasPage() {
                   return (
                     <div
                       key={item.id}
+                      id={item.draft ? `lead-${item.draft.id}` : undefined}
                       className={`group rounded-md border px-4 py-2.5 text-sm ${
                         isEscalated
                           ? "border-status-negative-text bg-status-negative-text/5"
                           : "border-paper-line-strong bg-paper/60"
-                      } ${severityBar}`}
+                      } ${severityBar} ${
+                        item.draft && item.draft.id === lead ? "ring-2 ring-[var(--color-accent)] ring-offset-2" : ""
+                      }`}
                     >
                       {item.draft ? (
                         // Cadastro assistido por IA: a linha resume e é o gatilho;

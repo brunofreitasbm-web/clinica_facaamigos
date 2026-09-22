@@ -7,11 +7,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   computeLeadPendencies,
+  hasUsefulChatData,
   isBotDatumPresent,
   mergeBotCollectedIntoExtraction,
+  mergeChatIntoExtraction,
   missingChaseKeys,
   pickBotCollected,
   visiblePills,
+  type ChatExtractedLead,
   type LeadPendenciesInput,
 } from "../lib/lead-pendencies.ts";
 import { computeCompleteness } from "../lib/whatsapp-leads-view.ts";
@@ -68,6 +71,45 @@ test("mergeBotCollectedIntoExtraction: digitado vence a IA, vazio não apaga", (
   assert.equal(merged.guardian.email, "ia@leu.com");
   assert.equal(merged.insurance.card_number, "999888");
   assert.deepEqual((merged as unknown as { warnings: string[] }).warnings, ["x"]);
+});
+
+const emptyChat: ChatExtractedLead = {
+  fullName: "",
+  birthDate: "",
+  guardianName: "",
+  guardianPhone: "",
+  guardianEmail: "",
+  guardianRelationship: "",
+  chiefComplaint: "",
+};
+
+test("mergeChatIntoExtraction: só preenche o que o rascunho ainda não tem", () => {
+  const merged = mergeChatIntoExtraction(
+    { patient: { full_name: "João Silva" }, guardian: {} },
+    { ...emptyChat, fullName: "Outro Nome", birthDate: "2018-03-15", guardianName: "Maria Silva", guardianRelationship: "Mãe" },
+  ) as Record<string, Record<string, unknown>>;
+  // Documento já leu o nome da criança — o chat não sobrescreve.
+  assert.equal(merged.patient.full_name, "João Silva");
+  assert.equal(merged.patient.birth_date, "2018-03-15");
+  assert.equal(merged.guardian.full_name, "Maria Silva");
+  assert.equal(merged.guardian.relationship, "mae");
+});
+
+test("mergeChatIntoExtraction: sem nada de novo, extracted não ganha campos vazios", () => {
+  const merged = mergeChatIntoExtraction({ patient: { full_name: "João Silva" }, guardian: {} }, emptyChat) as Record<
+    string,
+    Record<string, unknown>
+  >;
+  assert.equal(merged.patient.full_name, "João Silva");
+  assert.equal(merged.patient.birth_date, undefined);
+  assert.equal(merged.guardian.full_name, undefined);
+});
+
+test("hasUsefulChatData: nome do contato repetido como responsável não conta como dado novo", () => {
+  assert.equal(hasUsefulChatData(emptyChat, "Maria Silva"), false);
+  assert.equal(hasUsefulChatData({ ...emptyChat, guardianName: "Maria Silva" }, "Maria Silva"), false);
+  assert.equal(hasUsefulChatData({ ...emptyChat, guardianName: "Outra Pessoa" }, "Maria Silva"), true);
+  assert.equal(hasUsefulChatData({ ...emptyChat, fullName: "João" }, null), true);
 });
 
 test("lead sem nada: todos os dados e documentos de convênio faltam; guia é só aviso", () => {

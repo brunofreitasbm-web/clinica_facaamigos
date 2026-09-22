@@ -11,6 +11,9 @@ import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
 import { formatConversationPhone } from "./format-phone";
 import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
+import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
+import { hasUsefulChatData, mergeChatIntoExtraction } from "@/lib/lead-pendencies";
+import type { Json } from "@/lib/database.types";
 
 export type ExtractedLeadInfo = {
   fullName: string;
@@ -629,6 +632,7 @@ export async function extractLeadInfoFromChat(conversationId: string) {
 
   if (messages.length === 0 || !isGeminiConfigured()) {
     const data = draft?.extraction ? mergeDocumentIntoLead(fallbackData, draft.extraction) : fallbackData;
+    await persistChatExtractionToDraft(conversation.phone_number, draft?.info.id ?? null, data, conversation.contact_name);
     return { success: true as const, data, draft: draft?.info ?? null };
   }
 
@@ -726,7 +730,73 @@ ${transcript}`;
     if (fromFiles) data = mergeDocumentIntoLead(data, fromFiles);
   }
 
+  await persistChatExtractionToDraft(conversation.phone_number, draft?.info.id ?? null, data, conversation.contact_name);
   return { success: true as const, data, draft: draft?.info ?? null };
+}
+
+/**
+ * Grava o que a IA leu na conversa (nome, nascimento, responsável, e-mail,
+ * queixa) no `extracted` do rascunho de pendências do telefone — sem isso o
+ * dado ficava preso no formulário descartável do painel do Atendimento e a
+ * recepção redigitava tudo de novo em "Conferir e cadastrar". Cria o
+ * rascunho se o lead ainda não tem um (mesmo caminho do bot, ver
+ * lib/registration-drafts-bot.ts), mas só quando há algo de fato extraído —
+ * abrir uma conversa vazia não deve gerar item na fila de pendências.
+ * Documento lido e resposta digitada no bot sempre vencem (mergeChatIntoExtraction
+ * só preenche o que ainda está vazio); falha aqui nunca derruba a resposta ao painel.
+ */
+async function persistChatExtractionToDraft(
+  phone: string,
+  existingDraftId: string | null,
+  chat: ExtractedLeadInfo,
+  contactName: string | null,
+): Promise<void> {
+  try {
+    if (!hasUsefulChatData(chat, contactName)) return;
+
+    const admin = createAdminClient();
+    let draftId = existingDraftId;
+    if (!draftId) {
+      const draft = await findOrCreateOpenWhatsappDraft(admin, phone, { status: "extracted" });
+      if (!draft) return;
+      draftId = draft.id;
+    }
+
+    const { data: row } = await admin.from("registration_drafts").select("extracted").eq("id", draftId).maybeSingle();
+    const merged = mergeChatIntoExtraction((row as { extracted: unknown } | null)?.extracted ?? null, chat);
+    const { error } = await admin.from("registration_drafts").update({ extracted: merged as Json }).eq("id", draftId);
+    if (error) console.error("[Lead] Falha ao gravar extração da conversa no rascunho:", error.message);
+    else revalidatePath("/recepcao/pacientes/pendencias");
+  } catch (err) {
+    console.error("[Lead] Exceção ao gravar extração da conversa no rascunho:", err);
+  }
+}
+
+/**
+ * Garante que o contato tem um rascunho na fila de Pendências e devolve o id
+ * dele — chamado pelo botão "Resolver pendências" do painel do Atendimento.
+ * Todo lead clicado deve aparecer na fila, mesmo quem nunca falou com o bot
+ * de agendamento nem mandou documento ainda: aqui é só o dado de contato que
+ * falta (nome/telefone) — a extração de conversa e de documentos já roda
+ * antes (ao abrir o painel) e ao focar o cartão na fila.
+ */
+export async function openLeadPendency(conversationId: string) {
+  const supabase = await createClient();
+
+  const { data: conversation } = await supabase
+    .from("twilio_conversations")
+    .select("id, phone_number")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (!conversation) return { success: false as const, error: "Conversa não encontrada." };
+  if (!conversation.phone_number) return { success: false as const, error: "Contato sem telefone." };
+
+  const admin = createAdminClient();
+  const draft = await findOrCreateOpenWhatsappDraft(admin, conversation.phone_number, { status: "pending" });
+  if (!draft) return { success: false as const, error: "Não foi possível abrir a pendência deste contato." };
+
+  revalidatePath("/recepcao/pacientes/pendencias");
+  return { success: true as const, draftId: draft.id };
 }
 
 /**

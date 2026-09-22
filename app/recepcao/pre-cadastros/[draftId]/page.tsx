@@ -60,7 +60,7 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
   // criança duas vezes quando ela já tinha ficha e só o telefone é novo.
   let duplicateCandidates: { id: string; full_name: string; birth_date: string }[] = [];
   let extracted = draft.extracted as DocumentExtraction | null;
-  // A guia que o plano autorizou (etapa 2 da fila de pendências) vale mais que a
+  // A guia que o plano autorizou (etapa 3 da fila de pendências) vale mais que a
   // leitura da IA: pré-preenche o bloco de guia com ela.
   const authorizedGuide = draft.authorized_guide as Partial<DocumentExtraction["authorization"]> | null;
   if (extracted && authorizedGuide) {
