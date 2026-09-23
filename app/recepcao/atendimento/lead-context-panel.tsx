@@ -106,6 +106,10 @@ export function LeadContextPanel({
   // Só afirmamos "dados lidos" quando algo realmente foi extraído — antes a
   // mensagem aparecia mesmo com a conversa inteira em branco.
   const [filledByAi, setFilledByAi] = useState(false);
+  // Currículo/vaga de emprego: o bot já resolveu sozinho, sem IA — nada aqui
+  // é lead de matrícula (ver hasStrongJobSignal em actions.ts). Evita mostrar
+  // "Analisando..." por um assunto que nunca vai virar dado de cadastro.
+  const [notApplicable, setNotApplicable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -115,6 +119,10 @@ export function LeadContextPanel({
     try {
       const res = await extractLeadInfoFromChat(conversation.id);
       if (res.success) {
+        if (res.notApplicable) {
+          setNotApplicable(true);
+          return;
+        }
         setDraft(res.draft ?? null);
         setFilledByAi(Boolean(res.data?.fullName || res.data?.birthDate || res.data?.chiefComplaint));
         setExtractionDone(true);
@@ -232,14 +240,20 @@ export function LeadContextPanel({
         </h6>
 
         <div className="flex flex-col gap-2">
-          {isExtracting && (
+          {isExtracting && !notApplicable && (
             <div className="flex items-center gap-1.5 rounded bg-indigo-50 p-2 text-[11px] text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
               <Loader2 size={13} className="animate-spin shrink-0" />
               <span>Analisando conversa e documentos com IA...</span>
             </div>
           )}
 
-          {!isExtracting && extractionDone && filledByAi && (
+          {notApplicable && (
+            <p className="text-xs text-ink-faint">
+              Assunto de currículo/vaga — o bot já respondeu, não é cadastro de paciente.
+            </p>
+          )}
+
+          {!isExtracting && !notApplicable && extractionDone && filledByAi && (
             <div className="flex items-center gap-1.5 rounded bg-teal-50 p-2 text-[11px] text-teal-800 dark:bg-teal-950/40 dark:text-teal-200">
               <Sparkles size={13} className="shrink-0 text-teal-600 dark:text-teal-400" />
               <span>Dados lidos e guardados na pendência deste contato</span>

@@ -13,6 +13,7 @@ import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
 import { hasUsefulChatData, mergeChatIntoExtraction } from "@/lib/lead-pendencies";
+import { hasStrongJobSignal } from "@/lib/job-inquiry-pure";
 import type { Json } from "@/lib/database.types";
 
 export type ExtractedLeadInfo = {
@@ -602,6 +603,29 @@ export async function extractLeadInfoFromChat(conversationId: string) {
 
   const phoneFormatted = formatConversationPhone(conversation.phone_number);
 
+  // Últimas mensagens (não as primeiras): numa conversa longa é no fim que a
+  // família confirma nome e idade da criança.
+  const { data: latestMessages } = await supabase
+    .from("messages")
+    .select("sender_type, direction, body, media_url, sent_at")
+    .eq("conversation_id", conversationId)
+    .order("sent_at", { ascending: false })
+    .limit(80);
+  const messages = (latestMessages ?? []).reverse();
+
+  // Currículo/vaga de emprego: o bot (lib/twilio-faq-bot.ts) já responde e
+  // encerra sozinho, sem IA — não é lead de matrícula e não tem nada pra
+  // extrair. Reprocessar aqui com Gemini duplica o trabalho do bot e deixa a
+  // recepção esperando uma análise que não serve pra nada; a mesma marca
+  // conservadora do bot (hasStrongJobSignal) decide sem chamar IA nenhuma.
+  const inboundText = messages
+    .filter((m) => m.direction === "inbound" && m.body)
+    .map((m) => m.body)
+    .join(" ");
+  if (inboundText && hasStrongJobSignal(inboundText)) {
+    return { success: true as const, notApplicable: "emprego" as const, data: undefined, draft: null };
+  }
+
   // Pré-cadastro aberto para este telefone: é onde os arquivos que a família
   // mandou por WhatsApp já estão guardados, com a extração da IA em
   // `extracted`. Consultar isso ANTES de reprocessar tudo do zero evita
@@ -619,16 +643,6 @@ export async function extractLeadInfoFromChat(conversationId: string) {
     origin: "WhatsApp",
     chiefComplaint: "",
   };
-
-  // Últimas mensagens (não as primeiras): numa conversa longa é no fim que a
-  // família confirma nome e idade da criança.
-  const { data: latestMessages } = await supabase
-    .from("messages")
-    .select("sender_type, direction, body, media_url, sent_at")
-    .eq("conversation_id", conversationId)
-    .order("sent_at", { ascending: false })
-    .limit(80);
-  const messages = (latestMessages ?? []).reverse();
 
   if (messages.length === 0 || !isGeminiConfigured()) {
     const data = draft?.extraction ? mergeDocumentIntoLead(fallbackData, draft.extraction) : fallbackData;
