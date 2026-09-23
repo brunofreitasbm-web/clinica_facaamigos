@@ -100,7 +100,12 @@ export async function sendManualMessage(conversationId: string, body: string) {
   if (isKycOrAccountPending) {
     await supabase
       .from("twilio_conversations")
-      .update({ last_message_at: new Date().toISOString(), status: "open", escalation_reason: null })
+      .update({
+        last_message_at: new Date().toISOString(),
+        status: "open",
+        escalation_reason: null,
+        is_bot_active: false,
+      })
       .eq("id", conversationId);
 
     revalidatePath("/recepcao/atendimento");
@@ -118,10 +123,17 @@ export async function sendManualMessage(conversationId: string, body: string) {
     };
   }
 
-  // Um humano respondeu: a conversa sai da fila de escalação do bot
+  // Um humano respondeu: a conversa sai da fila de escalação do bot e a IA
+  // para de responder a partir daqui, sem precisar de um clique separado no
+  // toggle "Humano no controle".
   await supabase
     .from("twilio_conversations")
-    .update({ last_message_at: new Date().toISOString(), status: "open", escalation_reason: null })
+    .update({
+      last_message_at: new Date().toISOString(),
+      status: "open",
+      escalation_reason: null,
+      is_bot_active: false,
+    })
     .eq("id", conversationId);
 
   revalidatePath("/recepcao/atendimento");
