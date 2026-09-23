@@ -4,10 +4,13 @@ import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClipboardList, Check, Copy, FileText, ImageIcon, Paperclip, Pencil, Sparkles, Loader2 } from "lucide-react";
-import { openLeadPendency, updateConversationContactName, extractLeadInfoFromChat, type LeadDraftInfo } from "./actions";
+import { openLeadPendency, getLeadDraftByConversationId, updateConversationContactName, extractLeadInfoFromChat, type LeadDraftInfo } from "./actions";
 import { formatConversationPhone } from "./format-phone";
 import { ConversationNote } from "./conversation-note";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
+import { LeadFocusDialog } from "../pacientes/pendencias/lead-focus-dialog";
+import { DraftIntakeCard } from "../pacientes/pendencias/draft-intake-card";
+import type { PendingRegistrationDraft } from "@/lib/reception-queue";
 
 const ESCALATION_LABELS: Record<string, string> = {
   fora_da_base: "A dúvida não está na base de conhecimento do bot.",
@@ -113,6 +116,9 @@ export function LeadContextPanel({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const [focusDraft, setFocusDraft] = useState<PendingRegistrationDraft | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const handleExtractFromChat = useCallback(async () => {
     setIsExtracting(true);
     setExtractionDone(false);
@@ -161,13 +167,14 @@ export function LeadContextPanel({
 
   const handleResolverPendencias = () => {
     setError(null);
+    setIsModalOpen(true);
     startTransition(async () => {
-      const result = await openLeadPendency(conversation.id);
-      if (!result.success) {
-        setError(result.error);
-        return;
+      const res = await getLeadDraftByConversationId(conversation.id);
+      if (res.success && res.draft) {
+        setFocusDraft(res.draft);
+      } else {
+        setError(res.error || "Não foi possível carregar as pendências.");
       }
-      router.push(`/recepcao/pacientes/pendencias?lead=${result.draftId}`);
     });
   };
 
@@ -279,6 +286,12 @@ export function LeadContextPanel({
       </div>
 
       <ConversationNote conversationId={conversation.id} />
+
+      {isModalOpen && (
+        <LeadFocusDialog draft={focusDraft} onClose={() => setIsModalOpen(false)}>
+          {focusDraft && <DraftIntakeCard draft={focusDraft} focus />}
+        </LeadFocusDialog>
+      )}
     </div>
   );
 }

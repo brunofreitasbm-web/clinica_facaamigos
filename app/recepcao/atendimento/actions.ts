@@ -12,6 +12,7 @@ import { formatConversationPhone } from "./format-phone";
 import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
+import { getSingleRegistrationDraft } from "@/lib/reception-queue";
 import { hasUsefulChatData, mergeChatIntoExtraction } from "@/lib/lead-pendencies";
 import { hasStrongJobSignal } from "@/lib/job-inquiry-pure";
 import type { Json } from "@/lib/database.types";
@@ -823,6 +824,32 @@ export async function openLeadPendency(conversationId: string) {
 
   revalidatePath("/recepcao/pacientes/pendencias");
   return { success: true as const, draftId: draft.id };
+}
+
+/**
+ * Busca os dados completos do rascunho de pendência de um ÚNICO contato de conversa.
+ * Usado para abrir a janela modal de pendência instantaneamente em ~30-50ms no Atendimento.
+ */
+export async function getLeadDraftByConversationId(conversationId: string) {
+  const supabase = await createClient();
+
+  const { data: conversation } = await supabase
+    .from("twilio_conversations")
+    .select("id, phone_number")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (!conversation) return { success: false as const, error: "Conversa não encontrada." };
+  if (!conversation.phone_number) return { success: false as const, error: "Contato sem telefone." };
+
+  const admin = createAdminClient();
+  const draftRecord = await findOrCreateOpenWhatsappDraft(admin, conversation.phone_number, { status: "pending" });
+  if (!draftRecord) return { success: false as const, error: "Não foi possível abrir a pendência deste contato." };
+
+  const draft = await getSingleRegistrationDraft(supabase, draftRecord.id, DEV_CLINIC_ID);
+  if (!draft) return { success: false as const, error: "Não foi possível carregar as pendências do contato." };
+
+  return { success: true as const, draft };
 }
 
 /**

@@ -931,6 +931,105 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   return [...drafts.filter((d) => d.pendencies.missingCount === 0), ...drafts.filter((d) => d.pendencies.missingCount > 0)];
 }
 
+/**
+ * Busca e mapeia um ÚNICO rascunho de cadastramento por ID para carregamento instantâneo.
+ */
+export async function getSingleRegistrationDraft(
+  supabase: Supa,
+  draftId: string,
+  clinicId: string = DEV_CLINIC_ID,
+): Promise<PendingRegistrationDraft | null> {
+  const { data: d } = await supabase
+    .from("registration_drafts")
+    .select(
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+    )
+    .eq("id", draftId)
+    .maybeSingle();
+
+  if (!d) return null;
+
+  const phone = d.source_phone;
+  const patientId = d.patient_id;
+  const phones = phone ? [phone] : [];
+  const patientIds = patientId ? [patientId] : [];
+
+  const [messagesByPhone, requestsByPhone, pendencySources] = await Promise.all([
+    getDraftConversationMessages(supabase, phones),
+    getDraftDocumentRequests(supabase, phones),
+    getDraftPendencySources(supabase, [d.id], patientIds, phones),
+  ]);
+
+  const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;
+  const sentBy = Array.isArray(d.sent_by) ? d.sent_by[0] : d.sent_by;
+  const authorizedBy = Array.isArray(d.authorized_by) ? d.authorized_by[0] : d.authorized_by;
+  const files = (d.registration_draft_files ?? []) as {
+    id: string;
+    original_name: string | null;
+    mime_type: string;
+    detected_type: string | null;
+    created_at: string;
+  }[];
+
+  const pendencies = computeLeadPendencies({
+    extracted: d.extracted,
+    bot: pendencySources.botByDraft.get(d.id) ?? null,
+    fileTypes: files.map((f) => f.detected_type),
+    patientDocCategories: d.patient_id ? (pendencySources.docCategoriesByPatient.get(d.patient_id) ?? []) : [],
+    insurerKnown:
+      (d.patient_id ? pendencySources.insuredPatients.has(d.patient_id) : false) ||
+      (d.source_phone ? pendencySources.insuredPhones.has(d.source_phone) : false),
+    authorizationWaived: d.authorization_waived,
+    planAuthorizedAt: d.plan_authorized_at,
+    hasAuthorizedGuide: Boolean(d.authorized_guide) || Boolean(d.authorization_id),
+    draftStatus: d.status,
+    filesCount: files.length,
+  });
+
+  return {
+    id: d.id,
+    patientId: d.patient_id,
+    patientName: patient?.full_name ?? null,
+    sourcePhone: d.source_phone,
+    source: d.source as "whatsapp" | "portal",
+    status: d.status as PendingRegistrationDraft["status"],
+    pipeline: {
+      authorization: d.plan_authorized_at
+        ? "autorizada"
+        : d.authorization_waived
+          ? "dispensada"
+          : d.guide_sent_at
+            ? "enviada"
+            : "pendente",
+      guideSentAt: d.guide_sent_at,
+      guideSentByName: sentBy?.full_name ?? null,
+      authorizedAt: d.plan_authorized_at,
+      authorizedByName: authorizedBy?.full_name ?? null,
+      authorizedGuide: parseAuthorizedGuide(d.authorized_guide),
+      authorizationId: d.authorization_id,
+      schedulingEnabledAt: d.scheduling_enabled_at,
+      suggestedGuide: suggestedGuideFromExtraction(d.extracted),
+      registered: d.status === "validated" && Boolean(d.patient_id),
+    },
+    createdAt: d.created_at,
+    guardianMessage: d.guardian_message,
+    files: [...files]
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((f) => ({
+        id: f.id,
+        name: f.original_name ?? "arquivo",
+        mimeType: f.mime_type,
+        detectedType: f.detected_type,
+      })),
+    facts: draftFacts(d.extracted),
+    warnings: d.warnings ?? [],
+    error: d.error,
+    messages: (d.source_phone ? messagesByPhone.get(d.source_phone) : undefined) ?? [],
+    documentRequests: (d.source_phone ? requestsByPhone.get(d.source_phone) : undefined) ?? [],
+    pendencies,
+  };
+}
+
 export type UnconfirmedCheckin = {
   id: string;
   patientId: string | null;
