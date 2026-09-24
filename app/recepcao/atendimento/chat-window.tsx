@@ -121,6 +121,10 @@ export function ChatWindow({
       const body = textToSend.trim();
       if (!body) return { success: false, error: "Mensagem vazia." };
 
+      // Humano respondendo manualmente: pausa a IA na hora, sem esperar o
+      // round-trip do servidor nem um clique separado no toggle.
+      onPatch({ isBotActive: false });
+
       return new Promise((resolve) => {
         startTransition(async () => {
           const result = await sendManualMessage(conversation.id, body);
@@ -132,7 +136,7 @@ export function ChatWindow({
         });
       });
     },
-    [conversation.id],
+    [conversation.id, onPatch],
   );
 
   return (
