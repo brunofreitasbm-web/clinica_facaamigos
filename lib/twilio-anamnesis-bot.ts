@@ -131,7 +131,13 @@ async function saveStepMedia(
   // silêncio e nenhuma mudança de etapa. (Se a primeira entrega caiu ANTES de
   // gravar a etapa, o ponteiro ainda não está em `data` e o fluxo avança.)
   const knownPointers = new Set(
-    [data.laudo_pdf_url, data.guia_pdf_url, data.carteirinha_frente_url, data.carteirinha_verso_url].filter(Boolean),
+    [
+      data.laudo_pdf_url,
+      data.guia_pdf_url,
+      data.carteirinha_frente_url,
+      data.carteirinha_verso_url,
+      data.documento_identidade_url,
+    ].filter(Boolean),
   );
   if (summary.pointers.some((p) => knownPointers.has(p))) return { ok: false, reply: "" };
 
@@ -150,8 +156,33 @@ async function saveStepMedia(
 }
 
 /**
- * Depois da carteirinha (fotos ou PDF único), pede o número do cartão — todo
- * atendimento por convênio precisa dele além da imagem, pro faturamento.
+ * Depois da carteirinha (fotos ou PDF único), pede o Documento de Identidade
+ * (RG) do responsável. Junto com a carteirinha, é o que permite a recepção
+ * validar a elegibilidade junto ao plano ANTES da família chegar na clínica —
+ * sem esperar o dia da consulta pra descobrir alguma divergência de dados.
+ */
+async function askDocumentoIdentidade(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  phone: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
+  intro: string,
+): Promise<{ handled: boolean; replyMessage: string }> {
+  await persistStep(supabase, phone, "awaiting_documento_identidade", data);
+
+  return {
+    handled: true,
+    replyMessage:
+      `${intro}\n\nAgora envie uma foto do *Documento de Identidade (RG) do responsável*.\n\n` +
+      "Com ele, nossa equipe já consegue validar a elegibilidade junto ao plano antes da consulta. 📄",
+  };
+}
+
+/**
+ * Depois da carteirinha e do Documento de Identidade, pede o número do
+ * cartão — todo atendimento por convênio precisa dele além da imagem, pro
+ * faturamento.
  */
 async function askCardNumber(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -619,7 +650,7 @@ export async function processAnamnesisChatbotStep(
     data.carteirinha_frente_url = front;
     if (back) {
       data.carteirinha_verso_url = back;
-      return askCardNumber(supabase, phone, data, `Carteirinha recebida! ✅${saved.note}`);
+      return askDocumentoIdentidade(supabase, phone, data, `Carteirinha recebida! ✅${saved.note}`);
     }
 
     await persistStep(supabase, phone, "awaiting_carteirinha_verso", data);
@@ -642,10 +673,25 @@ export async function processAnamnesisChatbotStep(
     if (!saved.ok) return { handled: true, replyMessage: saved.reply };
 
     data.carteirinha_verso_url = saved.pointers[0];
-    return askCardNumber(supabase, phone, data, `Verso recebido! ✅${saved.note}`);
+    return askDocumentoIdentidade(supabase, phone, data, `Verso recebido! ✅${saved.note}`);
   }
 
-  // 9d. Etapa: Número do cartão do plano (texto) & Criação da Requisição de Validação
+  // 9d. Etapa: Upload da foto do Documento de Identidade (RG) do responsável
+  if (currentStep === "awaiting_documento_identidade") {
+    const saved = await saveStepMedia(
+      params,
+      phone,
+      data,
+      "documento_identidade",
+      "Arquivo não identificado. Por favor, envie a foto do Documento de Identidade (RG) do responsável.",
+    );
+    if (!saved.ok) return { handled: true, replyMessage: saved.reply };
+
+    data.documento_identidade_url = saved.pointers[0];
+    return askCardNumber(supabase, phone, data, `Documento recebido! ✅${saved.note}`);
+  }
+
+  // 9e. Etapa: Número do cartão do plano (texto) & Criação da Requisição de Validação
   if (currentStep === "awaiting_card_number") {
     // Só o número importa: aceita "0 123 456789 00-1" mas exige um mínimo de
     // caracteres alfanuméricos (carteirinhas variam de 8 a 20 dígitos/letras).

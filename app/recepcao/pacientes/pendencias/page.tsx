@@ -18,6 +18,8 @@ import { PendencyPills, SummaryChip } from "./pendency-pills";
 import { extractDraftOnDemand } from "./draft-pipeline-actions";
 import { PageContainer } from "@/components/page-container";
 import { LeadFocusDialog } from "./lead-focus-dialog";
+import { QueueFilters, type QueueStage } from "./queue-filters";
+import { normalizeSearch } from "./queue-filters-pure";
 
 export const dynamic = "force-dynamic";
 
@@ -70,12 +72,9 @@ export default async function PendenciasPage({
     .in("role", ["recepcao", "supervisor", "gestor"])
     .order("full_name", { ascending: true });
 
-  const byCategory = new Map<PendingQueueCategory, typeof queue>();
-  for (const item of queue) {
-    const list = byCategory.get(item.category) ?? [];
-    list.push(item);
-    byCategory.set(item.category, list);
-  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // Painel flutuante (?lead=<draftId>) — chegada pelo botão "Resolver pendências"
   // do Atendimento (app/recepcao/atendimento/lead-context-panel.tsx). O item
@@ -105,16 +104,11 @@ export default async function PendenciasPage({
         {queue.length === 0 && (
           <p className="text-sm text-ink-faint">Nenhuma pendência no momento. 🎉</p>
         )}
-        {CATEGORY_ORDER.map((category) => {
-          const items = byCategory.get(category);
-          if (!items || items.length === 0) return null;
-          return (
-            <section key={category}>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                {items[0].categoryLabel} ({items.length})
-              </h2>
-              <div className="flex flex-col gap-1.5">
-                {items.map((item) => {
+        {queue.length > 0 && (
+          <QueueFilters
+            categoryOrder={CATEGORY_ORDER}
+            items={queue.map((item) => {
+                  const category = item.category;
                   const isEscalated = Boolean(item.escalatedAt);
                   // Barra de severidade na borda esquerda; sempre acompanhada de chip/texto
                   // (nunca só cor). Só cadastro-IA tem "falta N", então o resto só marca atraso.
@@ -195,7 +189,17 @@ export default async function PendenciasPage({
                           )}
                         </div>
                   );
-                  return (
+                  const pipeline = item.draft?.pipeline;
+                  const stage: QueueStage | null = !item.draft
+                    ? null
+                    : item.draft.pendencies.missingCount > 0
+                      ? "docs"
+                      : pipeline?.schedulingEnabledAt
+                        ? "liberado"
+                        : pipeline?.authorization === "autorizada" || pipeline?.authorization === "dispensada"
+                          ? "agendar"
+                          : "autorizacao";
+                  const node = (
                     <div
                       key={item.id}
                       id={item.draft ? `lead-${item.draft.id}` : undefined}
@@ -253,11 +257,23 @@ export default async function PendenciasPage({
                       )}
                     </div>
                   );
+                  return {
+                    id: item.id,
+                    category,
+                    categoryLabel: item.categoryLabel,
+                    haystack: normalizeSearch(
+                      [item.patientName, item.detail, item.draft?.sourcePhone, item.assignedToName].filter(Boolean).join(" "),
+                    ),
+                    stage,
+                    overdue: isEscalated || Boolean(item.overdue),
+                    escalated: isEscalated,
+                    dueAt: item.dueAt ?? null,
+                    mine: Boolean(user && item.assignedToId === user.id),
+                    node,
+                  };
                 })}
-              </div>
-            </section>
-          );
-        })}
+          />
+        )}
       </PageContainer>
     </main>
   );
