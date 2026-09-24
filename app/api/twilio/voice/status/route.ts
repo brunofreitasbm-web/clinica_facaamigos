@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createEmergencyVoiceCall, sendEmergencyFallback } from "@/lib/twilio-voice";
+import { isValidTwilioSignature } from "@/lib/twilio";
 
 const MAX_ATTEMPTS = 2;
 
@@ -44,6 +45,15 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
+    const signatureParams: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      signatureParams[key] = value.toString();
+    }
+    if (!isValidTwilioSignature(req, signatureParams)) {
+      console.error("[Twilio Voice Status Signature Error]: assinatura inválida ou ausente — requisição rejeitada.");
+      return new NextResponse(null, { status: 403 });
+    }
+
     const twilioStatus = formData.get("CallStatus")?.toString() ?? "";
     const callSid = formData.get("CallSid")?.toString() ?? null;
 

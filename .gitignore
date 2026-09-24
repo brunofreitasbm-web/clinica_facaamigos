@@ -11,3 +11,7 @@ next-env.d.ts
 supabase/.temp/
 .env*
 scripts/out/
+
+# Segredos Twilio - nunca commitar (ver plano de segurança)
+twilio_2FA_recovery_code.txt
+twilio/api keys.png

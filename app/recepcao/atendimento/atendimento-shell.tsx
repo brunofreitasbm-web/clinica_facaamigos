@@ -9,7 +9,7 @@ import { LeadContextPanel } from "./lead-context-panel";
 import { formatConversationPhone } from "./format-phone";
 import { ChatbotPanel } from "./chatbot/chatbot-panel";
 import { ChatLayout } from "@/src/components/Reception/Chat/ChatLayout";
-import { assignConversation } from "./actions";
+import { assignConversation, markConversationRead } from "./actions";
 import type { ChatbotDashboardStats } from "./chatbot/dashboard-panel";
 import type { FaqRow } from "./chatbot/faq-manager";
 import type { QuickResponseRow } from "./chatbot/quick-responses-manager";
@@ -228,6 +228,10 @@ export function AtendimentoShell({
       onSelectConversation={(id) => {
         setSelectedId(id);
         patchConversation(id, { unreadCount: 0 });
+        // Persiste no banco — sem isto o contador de não lidas voltava ao
+        // recarregar a página, porque só o estado local em memória era
+        // zerado (markConversationRead nunca era chamada).
+        void markConversationRead(id);
       }}
       onAssignActiveConversation={handleAssignActiveConversation}
     >
@@ -280,6 +284,7 @@ export function AtendimentoShell({
                 onSelect={(id) => {
                   setSelectedId(id);
                   patchConversation(id, { unreadCount: 0 });
+                  void markConversationRead(id);
                 }}
               />
             </div>

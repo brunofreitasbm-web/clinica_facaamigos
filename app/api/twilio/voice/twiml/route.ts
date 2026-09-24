@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildEmergencyMessage } from "@/lib/twilio-voice";
+import { isValidTwilioSignature } from "@/lib/twilio";
 
 /**
  * Escape caracteres especiais para segurança no TwiML XML.
@@ -21,7 +22,12 @@ function escapeXml(unsafe: string): string {
  * aqui — só serve para correlação em logs, já que não há acesso a banco
  * nesta rota.
  */
-function buildTwiml(req: NextRequest): NextResponse {
+async function buildTwiml(req: NextRequest, signatureParams: Record<string, string>): Promise<NextResponse> {
+  if (!isValidTwilioSignature(req, signatureParams)) {
+    console.error("[Twilio Voice TwiML Signature Error]: assinatura inválida ou ausente — requisição rejeitada.");
+    return new NextResponse("Assinatura inválida.", { status: 403 });
+  }
+
   const { searchParams } = new URL(req.url);
   const patientName = searchParams.get("patientName") ?? "";
   const time = searchParams.get("time") ?? "";
@@ -39,9 +45,15 @@ function buildTwiml(req: NextRequest): NextResponse {
 }
 
 export async function GET(req: NextRequest) {
-  return buildTwiml(req);
+  // A Twilio assina requisições GET sem corpo — só a URL entra na assinatura.
+  return buildTwiml(req, {});
 }
 
 export async function POST(req: NextRequest) {
-  return buildTwiml(req);
+  const formData = await req.formData();
+  const signatureParams: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    signatureParams[key] = value.toString();
+  }
+  return buildTwiml(req, signatureParams);
 }

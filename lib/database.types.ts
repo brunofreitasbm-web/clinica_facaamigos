@@ -5106,6 +5106,7 @@ export type Database = {
           delivered_at: string | null
           delivery_status: string | null
           direction: string
+          error_code: string | null
           guardian_id: string | null
           id: string
           intent: string | null
@@ -5125,6 +5126,7 @@ export type Database = {
           delivered_at?: string | null
           delivery_status?: string | null
           direction: string
+          error_code?: string | null
           guardian_id?: string | null
           id?: string
           intent?: string | null
@@ -5144,6 +5146,7 @@ export type Database = {
           delivered_at?: string | null
           delivery_status?: string | null
           direction?: string
+          error_code?: string | null
           guardian_id?: string | null
           id?: string
           intent?: string | null
@@ -8763,6 +8766,10 @@ export type Database = {
       _table_privs: { Args: never; Returns: unknown[] }
       _temptypes: { Args: { "": string }; Returns: string }
       _todo: { Args: never; Returns: string }
+      increment_conversation_unread: {
+        Args: { p_conversation_id: string }
+        Returns: undefined
+      }
       aba_training_balance: {
         Args: { p_on_date?: string; p_patient_id: string }
         Returns: {
