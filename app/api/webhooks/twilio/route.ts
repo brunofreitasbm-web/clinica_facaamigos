@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import twilio from "twilio";
-import { handleTwilioIncomingMessage, sendTwilioWhatsApp, sendTwilioSMS, formatE164Phone } from "@/lib/twilio";
+import {
+  handleTwilioIncomingMessage,
+  sendTwilioWhatsApp,
+  sendTwilioSMS,
+  formatE164Phone,
+  isValidTwilioSignature,
+  buildMessagePreview,
+} from "@/lib/twilio";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { closeAttendanceResolvedByBot } from "@/lib/conversation-attendance";
 
@@ -11,27 +17,6 @@ import { closeAttendanceResolvedByBot } from "@/lib/conversation-attendance";
 export const maxDuration = 60;
 
 const EMPTY_TWIML = `<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>`;
-
-/**
- * Confere a assinatura X-Twilio-Signature contra o Auth Token da conta —
- * sem isso qualquer pessoa pode POSTar neste endpoint se passando pelo
- * Twilio (nenhuma rota deste projeto validava isso). `TWILIO_WEBHOOK_URL`
- * cobre o caso comum de dev atrás de proxy/túnel (ngrok etc.), onde a URL
- * pública configurada no console Twilio difere de `req.url`; em produção,
- * deixe a variável vazia e a própria URL da requisição é usada.
- * `TWILIO_SKIP_SIGNATURE_VALIDATION=true` existe só para dev local sem
- * túnel (o Twilio nunca alcança localhost pra assinar de verdade).
- */
-function isValidTwilioSignature(req: NextRequest, params: Record<string, string>): boolean {
-  if (process.env.TWILIO_SKIP_SIGNATURE_VALIDATION === "true") return true;
-
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const signature = req.headers.get("x-twilio-signature");
-  if (!authToken || !signature) return false;
-
-  const publicUrl = process.env.TWILIO_WEBHOOK_URL || req.url;
-  return twilio.validateRequest(authToken, signature, publicUrl, params);
-}
 
 export async function GET() {
   return NextResponse.json({
@@ -46,6 +31,7 @@ export async function POST(req: NextRequest) {
     let from = "";
     let bodyText = "";
     let to = "";
+    let messageSid = "";
 
     let mediaUrl0 = "";
     let mediaContentType0 = "";
@@ -79,6 +65,7 @@ export async function POST(req: NextRequest) {
       from = formData.get("From")?.toString() || "";
       bodyText = formData.get("Body")?.toString() || "";
       to = formData.get("To")?.toString() || "";
+      messageSid = formData.get("MessageSid")?.toString() || formData.get("SmsSid")?.toString() || "";
       mediaUrl0 = formData.get("MediaUrl0")?.toString() || "";
       mediaContentType0 = formData.get("MediaContentType0")?.toString() || "";
       media = collectMedia((key) => formData.get(key)?.toString() ?? null);
@@ -90,6 +77,7 @@ export async function POST(req: NextRequest) {
       from = json.From || json.from || "";
       bodyText = json.Body || json.body || json.message || "";
       to = json.To || json.to || "";
+      messageSid = json.MessageSid || json.SmsSid || "";
       mediaUrl0 = json.MediaUrl0 || json.mediaUrl0 || "";
       mediaContentType0 = json.MediaContentType0 || json.mediaContentType0 || "";
       media = collectMedia((key) => (json[key] ?? null) as string | null);
@@ -100,6 +88,7 @@ export async function POST(req: NextRequest) {
         from = formData.get("From")?.toString() || "";
         bodyText = formData.get("Body")?.toString() || "";
         to = formData.get("To")?.toString() || "";
+        messageSid = formData.get("MessageSid")?.toString() || formData.get("SmsSid")?.toString() || "";
         mediaUrl0 = formData.get("MediaUrl0")?.toString() || "";
         mediaContentType0 = formData.get("MediaContentType0")?.toString() || "";
         media = collectMedia((key) => formData.get(key)?.toString() ?? null);
@@ -112,6 +101,7 @@ export async function POST(req: NextRequest) {
         from = params.get("From") || "";
         bodyText = params.get("Body") || "";
         to = params.get("To") || "";
+        messageSid = params.get("MessageSid") || params.get("SmsSid") || "";
         mediaUrl0 = params.get("MediaUrl0") || "";
         mediaContentType0 = params.get("MediaContentType0") || "";
         media = collectMedia((key) => params.get(key));
@@ -132,6 +122,7 @@ export async function POST(req: NextRequest) {
       mediaUrl0,
       mediaContentType0,
       media,
+      messageSid: messageSid || undefined,
     });
 
     // Se for mensagem vinda do WhatsApp ou se o número possuir o prefixo 'whatsapp:'
@@ -185,6 +176,11 @@ export async function POST(req: NextRequest) {
             delivery_status: sendResult?.success ? "sent" : "failed",
             intent: result.intent,
           });
+
+          await supabase
+            .from("twilio_conversations")
+            .update({ last_message_preview: buildMessagePreview(result.replyMessage) })
+            .eq("id", conversation.id);
 
           // Depois de gravar a resposta: o trigger de `messages` só carimba o
           // atendimento enquanto ele está aberto.

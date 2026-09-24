@@ -22,7 +22,7 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
     supabase
       .from("twilio_conversations")
       .select(
-        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, kind, contact_name, escalation_reason, assigned_to, insurer_id, patients(full_name), guardians(full_name)",
+        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, last_inbound_at, last_message_preview, kind, contact_name, escalation_reason, assigned_to, insurer_id, patients(full_name), guardians(full_name)",
       )
       .order("last_message_at", { ascending: false, nullsFirst: false }),
     // Nomes de quem pode assumir conversa — para mostrar "com Fulana" na fila.
@@ -84,6 +84,8 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
       planName: plan?.name ?? null,
       planColor: plan?.color ?? null,
       insurerId: c.insurer_id,
+      lastInboundAt: c.last_inbound_at,
+      lastMessagePreview: c.last_message_preview,
     };
   });
 

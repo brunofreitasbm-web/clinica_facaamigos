@@ -48,7 +48,7 @@ async function loadChatbotAdminData(
       .limit(30),
     supabase
       .from("chatbot_settings")
-      .select("bot_enabled, daily_reply_limit, greeting_fallback")
+      .select("bot_enabled, daily_reply_limit, greeting_fallback, bot_auto_resume_hours")
       .eq("clinic_id", DEV_CLINIC_ID)
       .maybeSingle(),
   ]);
@@ -114,6 +114,7 @@ async function loadChatbotAdminData(
       botEnabled: settingsRes.data?.bot_enabled ?? true,
       dailyReplyLimit: settingsRes.data?.daily_reply_limit ?? 20,
       greetingFallback: settingsRes.data?.greeting_fallback ?? null,
+      botAutoResumeHours: settingsRes.data?.bot_auto_resume_hours ?? null,
     },
   };
 }

@@ -521,6 +521,41 @@ async function escalateConversation(conversationId: string, reason: FaqEscalatio
 }
 
 /**
+ * true quando "agora" cai dentro da grade de `clinic_business_hours` —
+ * reusa `business_minutes_between` (mesma migration 20260920000000 que mede
+ * o tempo de resposta humana) em vez de duplicar a lógica de dia-da-semana
+ * em TS, então o que o bot informa e o que o KPI cobra nunca divergem.
+ */
+async function isWithinBusinessHoursNow(clinicId: string): Promise<boolean> {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+    const now = new Date();
+    const oneMinuteLater = new Date(now.getTime() + 60_000);
+    const { data, error } = await supabase.rpc("business_minutes_between", {
+      p_clinic_id: clinicId,
+      p_from: now.toISOString(),
+      p_to: oneMinuteLater.toISOString(),
+    });
+    if (error) throw error;
+    return Number(data ?? 0) > 0;
+  } catch (err) {
+    console.error("[Twilio FAQ Bot] Falha ao checar horário comercial:", err);
+    // Sem saber, não afirma nada sobre horário — melhor omitir o aviso do
+    // que dizer "estamos fora do expediente" errado.
+    return true;
+  }
+}
+
+// Escalonamento fora do expediente: a resposta do Gemini já avisa que a
+// equipe foi chamada, mas não sabe que ninguém vai ler antes do próximo
+// expediente — sem isto a família ficava esperando resposta imediata à
+// noite/fim de semana. Fixo (não depende do modelo) para nunca prometer
+// hora errada.
+const OUT_OF_HOURS_ESCALATION_SUFFIX =
+  "\n\nEstamos fora do horário de atendimento da recepção agora — a equipe responde no próximo expediente. 💛";
+
+/**
  * Assunto que o bot responde de uma vez e ENCERRA (hoje: currículo/vagas —
  * regra 13 do prompt). Diferente de escalar: ninguém é chamado, a conversa
  * não vai para a fila de pendências da recepção; o atendimento automático é
@@ -632,9 +667,17 @@ export async function processFaqBotStep(params: {
     });
   }
 
+  // "pediu_humano"/"clinico"/"fora_da_base" são pedidos de resposta
+  // imediata do humano — "relatorio" já é um resumo de pendência, não uma
+  // promessa de resposta agora, então não leva o aviso de horário.
+  let finalReply = reply;
+  if (shouldEscalate && reason !== "relatorio" && !(await isWithinBusinessHoursNow(DEV_CLINIC_ID))) {
+    finalReply = `${reply}${OUT_OF_HOURS_ESCALATION_SUFFIX}`;
+  }
+
   return {
     handled: true,
-    replyMessage: reply,
+    replyMessage: finalReply,
     intent: shouldEscalate ? `escalado_${reason}` : `faq_${parsed.intent ?? "outro"}`,
     escalated: shouldEscalate,
     concluded: parsed.concluido === true && !shouldEscalate,

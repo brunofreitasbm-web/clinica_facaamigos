@@ -60,6 +60,8 @@ export function MobileShell({
             escalation_reason: string | null;
             assigned_to: string | null;
             insurer_id: string | null;
+            last_inbound_at: string | null;
+            last_message_preview: string | null;
           };
           const detected: InsurerPill | null = row.insurer_id ? (insurerById[row.insurer_id] ?? null) : null;
           setConversations((prev) => {
@@ -81,6 +83,8 @@ export function MobileShell({
                     ? existing.displayName
                     : (row.contact_name ?? formatConversationPhone(row.phone_number)),
                   insurerId: row.insurer_id,
+                  lastInboundAt: row.last_inbound_at,
+                  lastMessagePreview: row.last_message_preview,
                   ...(!row.patient_id || !existing.planName
                     ? { planName: detected?.name ?? null, planColor: detected?.color ?? null }
                     : {}),
@@ -103,6 +107,8 @@ export function MobileShell({
                   planName: detected?.name ?? null,
                   planColor: detected?.color ?? null,
                   insurerId: row.insurer_id,
+                  lastInboundAt: row.last_inbound_at,
+                  lastMessagePreview: row.last_message_preview,
                 };
             const rest = prev.filter((c) => c.id !== row.id);
             return [updated, ...rest].sort((a, b) => {

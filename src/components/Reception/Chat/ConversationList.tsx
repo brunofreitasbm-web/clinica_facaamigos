@@ -113,7 +113,7 @@ const ConversationItem = React.memo(function ConversationItem({
           {c.planName && <HealthPlanBadge name={c.planName} color={c.planColor} size="sm" />}
         </span>
         <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-          {c.guardianName ?? c.phoneNumber}
+          {c.lastMessagePreview || c.guardianName || c.phoneNumber}
         </span>
         {(waitMinutes !== null || assigneeName) && (
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">

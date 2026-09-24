@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { Send, AlertCircle, RefreshCw } from "lucide-react";
+import { Send, AlertCircle, RefreshCw, Lock } from "lucide-react";
 import { useDraftMessage } from "@/src/hooks/useDraftMessage";
 import { QuickResponsesPopover } from "@/app/recepcao/atendimento/quick-responses-popover";
+import { TemplateSendPicker } from "@/app/recepcao/atendimento/template-send-picker";
 
 interface MessageInputProps {
   conversationId: string;
@@ -11,6 +12,10 @@ interface MessageInputProps {
   onSend: (text: string, isRetry?: boolean) => Promise<{ success: boolean; error?: string; warning?: string }>;
   contactName?: string | null;
   guardianName?: string | null;
+  /** Janela de serviço de 24h do WhatsApp fechada — mensagem livre é
+   * rejeitada pela Twilio (erro 63016/63024); só um modelo aprovado reabre
+   * a conversa. Ver isWhatsappWindowClosed em atendimento-shell.tsx. */
+  windowClosed?: boolean;
 }
 
 export function MessageInput({
@@ -19,6 +24,7 @@ export function MessageInput({
   onSend,
   contactName,
   guardianName,
+  windowClosed = false,
 }: MessageInputProps) {
   const { draft, setDraft, clearDraft } = useDraftMessage(conversationId, "chat");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -110,6 +116,20 @@ export function MessageInput({
         </div>
       )}
 
+      {windowClosed && (
+        <div className="mb-2 flex items-center gap-2 rounded-md bg-slate-100 border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
+          <Lock size={14} className="shrink-0" />
+          <span>
+            Essa conversa está fora da janela de 24h do WhatsApp — mensagem livre não é entregue. Envie um modelo
+            aprovado abaixo, ou espere a família escrever de novo.
+          </span>
+        </div>
+      )}
+
+      {windowClosed ? (
+        <TemplateSendPicker conversationId={conversationId} guardianName={guardianName} contactName={contactName} />
+      ) : (
+        <>
       {/* Popover de Respostas Rápidas com filtro do rascunho */}
       {showQuickResponses && (
         <QuickResponsesPopover
@@ -147,6 +167,8 @@ export function MessageInput({
           <Send size={16} />
         </button>
       </div>
+        </>
+      )}
     </div>
   );
 }

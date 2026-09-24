@@ -1,4 +1,5 @@
 import twilio from "twilio";
+import type { NextRequest } from "next/server";
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import {
@@ -52,6 +53,52 @@ export function isTwilioConfigured(): boolean {
 }
 
 /**
+ * Confere a assinatura X-Twilio-Signature contra o Auth Token da conta —
+ * sem isso qualquer pessoa pode POSTar num webhook Twilio se passando pelo
+ * Twilio. Compartilhado por todos os webhooks (mensagens, status de entrega,
+ * voz): nenhum deles deve processar uma requisição sem essa checagem.
+ *
+ * `TWILIO_WEBHOOK_URL` cobre o caso comum de dev atrás de proxy/túnel (ngrok
+ * etc.), onde a URL pública configurada no console Twilio difere de
+ * `req.url`; em produção, deixe a variável vazia e a própria URL da
+ * requisição é usada.
+ *
+ * `TWILIO_SKIP_SIGNATURE_VALIDATION=true` existe só para dev local sem túnel
+ * (o Twilio nunca alcança localhost pra assinar de verdade) — nunca deve
+ * valer "true" em produção.
+ */
+export function isValidTwilioSignature(req: NextRequest, params: Record<string, string>): boolean {
+  if (process.env.TWILIO_SKIP_SIGNATURE_VALIDATION === "true") {
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[Twilio Signature] TWILIO_SKIP_SIGNATURE_VALIDATION=true ignorado em produção — validando assinatura normalmente.",
+      );
+    } else {
+      return true;
+    }
+  }
+
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const signature = req.headers.get("x-twilio-signature");
+  if (!authToken || !signature) return false;
+
+  const publicUrl = process.env.TWILIO_WEBHOOK_URL || req.url;
+  return twilio.validateRequest(authToken, signature, publicUrl, params);
+}
+
+/**
+ * Recorte para `twilio_conversations.last_message_preview` — texto puro
+ * (sem quebras de linha) truncado, usado pela lista de conversas da inbox
+ * pra não precisar reconsultar `messages`. `[mídia]` cobre o caso comum de
+ * anexo sem legenda, que senão apareceria como prévia vazia.
+ */
+export function buildMessagePreview(body: string | null | undefined, hasMedia = false): string {
+  const trimmed = (body ?? "").replace(/\s+/g, " ").trim();
+  if (!trimmed) return hasMedia ? "[mídia]" : "";
+  return trimmed.length > 120 ? `${trimmed.slice(0, 120)}…` : trimmed;
+}
+
+/**
  * Formata número de telefone para o padrão E.164 (ex: +5511999999999)
  */
 export function formatE164Phone(rawPhone: string): string {
@@ -88,8 +135,17 @@ export interface SendMessageResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  /** Código de erro da Twilio (ex.: 63016 = fora da janela de 24h do
+   * WhatsApp) — a RestException do SDK expõe isso em `.code`, mais
+   * confiável que tentar casar substring na mensagem. */
+  errorCode?: number;
   channel: "sms" | "whatsapp";
 }
+
+/** 63016/63024: mensagem livre bloqueada por estar fora da janela de 24h de
+ * serviço do WhatsApp — só um template aprovado (Content API) pode reabrir a
+ * conversa. */
+export const WHATSAPP_WINDOW_CLOSED_ERROR_CODES = [63016, 63024];
 
 /**
  * Mapeia a categoria do fluxo de comunicação para a variável de ambiente do Content SID correspondente na Twilio/Meta.
@@ -157,6 +213,7 @@ export async function sendTwilioSMS(options: SendMessageOptions): Promise<SendMe
       from: fromNumber,
       to: formattedTo,
       mediaUrl: options.mediaUrl,
+      ...(process.env.APP_URL ? { statusCallback: `${process.env.APP_URL}/api/webhooks/twilio/status` } : {}),
     });
 
     return {
@@ -224,6 +281,7 @@ export async function sendTwilioWhatsApp(options: SendMessageOptions): Promise<S
       ...(options.contentSid
         ? { contentSid: options.contentSid, contentVariables: JSON.stringify(options.contentVariables ?? {}) }
         : { body: options.message }),
+      ...(process.env.APP_URL ? { statusCallback: `${process.env.APP_URL}/api/webhooks/twilio/status` } : {}),
     });
 
     return {
@@ -233,11 +291,13 @@ export async function sendTwilioWhatsApp(options: SendMessageOptions): Promise<S
     };
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : String(error);
+    const errCode = typeof (error as { code?: unknown })?.code === "number" ? (error as { code: number }).code : undefined;
     console.error("[Twilio WhatsApp Error]:", errMessage);
     return {
       success: false,
       channel: "whatsapp",
       error: errMessage,
+      errorCode: errCode,
     };
   }
 }
@@ -466,8 +526,14 @@ export async function handleTwilioIncomingMessage(params: {
    * todos os anexos da etapa. Opcional: quem chama sem media (ex.: o painel
    * de teste do chatbot) simplesmente não aciona esse fluxo. */
   media?: { url: string; contentType?: string }[];
+  /** SID da mensagem (MessageSid) que a Twilio manda no webhook — usado para
+   * deduplicar reentregas: quando o processamento (Gemini incluso) passa dos
+   * ~15s de timeout do webhook, a Twilio reenvia a MESMA mensagem, e sem
+   * dedupe ela era processada (e respondida) duas vezes. Opcional: quem
+   * chama sem SID (painel de teste) não passa pela checagem. */
+  messageSid?: string;
 }): Promise<{ replyMessage: string; intent: string; concluded?: boolean }> {
-  const { from, body, mediaUrl0, mediaContentType0, media } = params;
+  const { from, body, mediaUrl0, mediaContentType0, media, messageSid } = params;
   const phone = formatE164Phone(from.replace("whatsapp:", ""));
 
   // 0. Central Multicanal: resolve/cria a conversa e, se um humano já assumiu
@@ -498,19 +564,12 @@ export async function handleTwilioIncomingMessage(params: {
     });
     conversationId = conversation.id;
 
-    await supabase
-      .from("twilio_conversations")
-      .update({
-        last_message_at: new Date().toISOString(),
-        unread_count: (conversation.unread_count ?? 0) + 1,
-        // Conversa encerrada pela Central volta para a fila quando o contato
-        // escreve de novo — senão a mensagem ficaria escondida no filtro
-        // "Encerradas".
-        ...(conversation.status === "closed" ? { status: "open" } : {}),
-      })
-      .eq("id", conversation.id);
-
-    await supabase.from("messages").insert({
+    // Dedupe: grava a mensagem ANTES de qualquer outra coisa, com o SID da
+    // Twilio (índice único parcial idx_messages_twilio_sid). Se a Twilio já
+    // entregou este SID (reenvio por timeout), o insert cai numa violação de
+    // unicidade — aborta o processamento sem tocar unread_count nem rodar
+    // nenhum bot de novo, mas ainda responde 200 (evita nova reentrega).
+    const { error: insertError } = await supabase.from("messages").insert({
       patient_id: resolved?.patientId ?? null,
       guardian_id: resolved?.guardianId ?? null,
       conversation_id: conversation.id,
@@ -520,7 +579,36 @@ export async function handleTwilioIncomingMessage(params: {
       body,
       media_url: mediaUrl0 || null,
       sent_at: new Date().toISOString(),
+      twilio_sid: messageSid || null,
     });
+
+    if (insertError) {
+      // 23505 = unique_violation (Postgres) — reentrega da mesma mensagem.
+      if (insertError.code === "23505") {
+        return { replyMessage: "", intent: "duplicate_delivery" };
+      }
+      throw insertError;
+    }
+
+    const nowIso = new Date().toISOString();
+    await supabase
+      .from("twilio_conversations")
+      .update({
+        last_message_at: nowIso,
+        // Só mensagem do CONTATO conta pra janela de serviço de 24h do
+        // WhatsApp — respostas do bot/agente não reabrem a janela.
+        last_inbound_at: nowIso,
+        last_message_preview: buildMessagePreview(body, Boolean(mediaUrl0 || (media && media.length > 0))),
+        // Conversa encerrada pela Central volta para a fila quando o contato
+        // escreve de novo — senão a mensagem ficaria escondida no filtro
+        // "Encerradas".
+        ...(conversation.status === "closed" ? { status: "open" } : {}),
+      })
+      .eq("id", conversation.id);
+    // Incremento atômico — ver increment_conversation_unread (migration
+    // 20260924000000): ler e escrever unread_count em dois passos perdia
+    // incrementos quando duas mensagens chegavam quase juntas.
+    await supabase.rpc("increment_conversation_unread", { p_conversation_id: conversation.id });
 
     // 0.6 Máquina de estados do bot de ACOLHIMENTO DE PLANO DE SAÚDE
     // (lib/twilio-intake-bot.ts) — roda antes da ingestão genérica de
@@ -591,6 +679,13 @@ export async function handleTwilioIncomingMessage(params: {
     }
   } catch (err) {
     console.error("[Twilio Central Multicanal Error]:", err);
+    // Fail-closed: se a Central (passo 0) falhou, o gate humano
+    // (`is_bot_active`) e a chave-geral do bot (`chatbot_settings.bot_enabled`)
+    // não puderam ser checados. Sem essa garantia, deixar os bots abaixo
+    // responderem arriscaria o bot falar por cima de um humano que já
+    // assumiu a conversa — melhor não responder nada e deixar para
+    // investigação/reenvio da Twilio do que responder errado.
+    return { replyMessage: "", intent: "pipeline_error" };
   }
 
   // 0.4 Tentar processar via Máquina de Estados de Faltas (Remarcação Automática)

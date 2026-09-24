@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { sendTwilioWhatsApp } from "@/lib/twilio";
+import {
+  sendTwilioWhatsApp,
+  buildMessagePreview,
+  getTwilioContentSidForCategory,
+  WHATSAPP_WINDOW_CLOSED_ERROR_CODES,
+} from "@/lib/twilio";
 import { createInteressadoAction, type CreateInteressadoInput } from "../actions";
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
 import { formatConversationPhone } from "./format-phone";
@@ -118,6 +123,17 @@ export async function sendManualMessage(conversationId: string, body: string) {
   }
 
   if (!sendResult.success) {
+    // Erro 63016/63024: mensagem livre bloqueada por estar fora da janela
+    // de 24h de serviço do WhatsApp — só um template aprovado reabre a
+    // conversa (ver sendTemplateMessage). Sem essa distinção a recepção via
+    // só "Falha ao enviar" e não sabia que precisava de um template.
+    if (sendResult.errorCode && WHATSAPP_WINDOW_CLOSED_ERROR_CODES.includes(sendResult.errorCode)) {
+      return {
+        success: false as const,
+        error: "Essa conversa está fora da janela de 24h do WhatsApp — envie um modelo aprovado para reabri-la.",
+        windowClosed: true as const,
+      };
+    }
     return {
       success: false as const,
       error: sendResult.error || "Falha ao enviar mensagem pelo Twilio WhatsApp.",
@@ -131,6 +147,82 @@ export async function sendManualMessage(conversationId: string, body: string) {
     .from("twilio_conversations")
     .update({
       last_message_at: new Date().toISOString(),
+      last_message_preview: buildMessagePreview(trimmed),
+      status: "open",
+      escalation_reason: null,
+      is_bot_active: false,
+    })
+    .eq("id", conversationId);
+
+  revalidatePath("/recepcao/atendimento");
+  return { success: true as const };
+}
+
+/**
+ * Envia um modelo (Content API) aprovado pela Meta pra reabrir uma conversa
+ * fora da janela de 24h — mesma categoria/ContentSid usados pelos bots
+ * (getTwilioContentSidForCategory, lib/twilio.ts), agora também disponíveis
+ * pra recepção mandar manualmente. `variables` preenche o template
+ * (contentVariables da Content API); `previewText` é só o que fica salvo em
+ * messages.body pra o histórico ficar legível.
+ */
+export async function sendTemplateMessage(
+  conversationId: string,
+  category: string,
+  previewText: string,
+  variables: Record<string, string> = {},
+) {
+  const contentSid = getTwilioContentSidForCategory(category);
+  if (!contentSid) {
+    return { success: false as const, error: "Nenhum modelo aprovado configurado para esta categoria." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: conversation, error: convError } = await supabase
+    .from("twilio_conversations")
+    .select("id, phone_number, patient_id, guardian_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (convError || !conversation) {
+    return { success: false as const, error: "Conversa não encontrada." };
+  }
+
+  const sendResult = await sendTwilioWhatsApp({
+    to: conversation.phone_number,
+    message: previewText,
+    contentSid,
+    contentVariables: variables,
+  });
+
+  const { error: insertError } = await supabase.from("messages").insert({
+    patient_id: conversation.patient_id,
+    guardian_id: conversation.guardian_id,
+    conversation_id: conversation.id,
+    sender_type: "agent",
+    channel: "whatsapp",
+    direction: "outbound",
+    body: previewText,
+    sent_at: new Date().toISOString(),
+    twilio_sid: sendResult.messageId ?? null,
+    delivery_status: sendResult.success ? "sent" : "failed",
+    template_key: category,
+  });
+
+  if (insertError) {
+    return { success: false as const, error: insertError.message };
+  }
+
+  if (!sendResult.success) {
+    return { success: false as const, error: sendResult.error || "Falha ao enviar o modelo pelo Twilio." };
+  }
+
+  await supabase
+    .from("twilio_conversations")
+    .update({
+      last_message_at: new Date().toISOString(),
+      last_message_preview: buildMessagePreview(previewText),
       status: "open",
       escalation_reason: null,
       is_bot_active: false,

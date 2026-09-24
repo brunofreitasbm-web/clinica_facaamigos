@@ -1,12 +1,33 @@
 "use server";
 
 import { handleTwilioIncomingMessage, getAcceptedInsurersFormatted } from "@/lib/twilio";
+import { createClient } from "@/lib/supabase/server";
 
 export interface ChatbotTestResult {
   success: boolean;
   intent: string;
   replyMessage: string;
   error?: string;
+}
+
+// Só supervisor/gestor pode disparar o pipeline real do chatbot a partir do
+// testador — sem isso, qualquer pessoa com a URL da action conseguia injetar
+// mensagens "inbound" em conversas reais (inclusive de um número/lead já em
+// andamento), gastar quota do Gemini e disparar escalonamento.
+async function assertCanManageChatbot(): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return "Não autorizado.";
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (profile?.role !== "supervisor" && profile?.role !== "gestor") {
+    return "Não autorizado.";
+  }
+
+  return null;
 }
 
 export async function testTwilioChatbotResponseAction(
@@ -19,6 +40,11 @@ export async function testTwilioChatbotResponseAction(
   // idêntico ao anterior.
   from?: string,
 ): Promise<ChatbotTestResult> {
+  const authError = await assertCanManageChatbot();
+  if (authError) {
+    return { success: false, intent: "error", replyMessage: "", error: authError };
+  }
+
   try {
     if ((!simulatedMessage || simulatedMessage.trim().length === 0) && !mediaUrl) {
       return {
@@ -56,5 +82,7 @@ export async function testTwilioChatbotResponseAction(
 }
 
 export async function getTwilioChatbotInsurersAction(): Promise<string> {
+  const authError = await assertCanManageChatbot();
+  if (authError) throw new Error(authError);
   return await getAcceptedInsurersFormatted();
 }

@@ -25,6 +25,10 @@ export type ConversationRow = {
   /** Convênio cadastrado que o chatbot identificou (só conta quando a conversa não tem plano de cadastro). */
   insurerId: string | null;
   lastMessagePreview?: string | null;
+  /** Última mensagem RECEBIDA do contato — usado para saber se a janela de
+   * serviço de 24h do WhatsApp está fechada (ver isWhatsappWindowClosed em
+   * app/recepcao/atendimento/atendimento-shell.tsx). */
+  lastInboundAt: string | null;
 };
 
 export type InsurerPill = { name: string; color: string | null };
