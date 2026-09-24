@@ -61,23 +61,44 @@ export function formatDateBR(dateStr: string | null | undefined): string {
  * "ontem 19:43" ou "21/09 19:43" — sem segundos e sempre no fuso da clínica
  * (o dia é comparado no `timeZone`, não no do servidor).
  */
+// Criar um Intl.DateTimeFormat é caro (~0,1 ms cada) e fmtDueShort roda por
+// linha da Fila de pendências — os formatadores são reaproveitados por fuso.
+type DueFormatters = { ymd: Intl.DateTimeFormat; time: Intl.DateTimeFormat; dayMonth: Intl.DateTimeFormat };
+const dueFormatters = new Map<string, DueFormatters>();
+
+function getDueFormatters(timeZone: string): DueFormatters {
+  let f = dueFormatters.get(timeZone);
+  if (!f) {
+    f = {
+      ymd: new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }),
+      time: new Intl.DateTimeFormat("pt-BR", { timeZone, hour: "2-digit", minute: "2-digit" }),
+      dayMonth: new Intl.DateTimeFormat("pt-BR", { timeZone, day: "2-digit", month: "2-digit" }),
+    };
+    dueFormatters.set(timeZone, f);
+  }
+  return f;
+}
+
 export function fmtDueShort(iso: string | null | undefined, timeZone: string, now: Date = new Date()): string {
   if (!iso) return "—";
   const date = new Date(iso);
   if (isNaN(date.getTime())) return "—";
 
+  const f = getDueFormatters(timeZone);
   const dayNumber = (d: Date): number => {
-    const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
-      .formatToParts(d)
-      .reduce<Record<string, string>>((acc, p) => ({ ...acc, [p.type]: p.value }), {});
-    return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) / 86_400_000;
+    let year = 0, month = 0, day = 0;
+    for (const p of f.ymd.formatToParts(d)) {
+      if (p.type === "year") year = Number(p.value);
+      else if (p.type === "month") month = Number(p.value);
+      else if (p.type === "day") day = Number(p.value);
+    }
+    return Date.UTC(year, month - 1, day) / 86_400_000;
   };
 
-  const time = date.toLocaleTimeString("pt-BR", { timeZone, hour: "2-digit", minute: "2-digit" });
+  const time = f.time.format(date);
   const diff = dayNumber(date) - dayNumber(now);
   if (diff === 0) return `hoje ${time}`;
   if (diff === 1) return `amanhã ${time}`;
   if (diff === -1) return `ontem ${time}`;
-  const day = date.toLocaleDateString("pt-BR", { timeZone, day: "2-digit", month: "2-digit" });
-  return `${day} ${time}`;
+  return `${f.dayMonth.format(date)} ${time}`;
 }

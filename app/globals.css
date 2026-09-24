@@ -40,6 +40,10 @@
 
   --color-bg: #f7f5f2;
   --color-surface: #ffffff;
+  /* fundo do painel de mensagens do Atendimento mobile (app/m/atendimento) —
+     tom quente ligeiramente mais escuro que --color-bg, pra destacar as
+     bolhas brancas/teal por cima. */
+  --color-chat-bg: #f3efe8;
   --color-text: var(--color-dark);
   --text-secondary: #595959;
   --color-text-secondary: #595959;

@@ -17,7 +17,9 @@ import { formatConversationPhone } from "./format-phone";
 import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
+import { getSingleRegistrationDraft } from "@/lib/reception-queue";
 import { hasUsefulChatData, mergeChatIntoExtraction } from "@/lib/lead-pendencies";
+import { hasStrongJobSignal } from "@/lib/job-inquiry-pure";
 import type { Json } from "@/lib/database.types";
 
 export type ExtractedLeadInfo = {
@@ -104,7 +106,12 @@ export async function sendManualMessage(conversationId: string, body: string) {
   if (isKycOrAccountPending) {
     await supabase
       .from("twilio_conversations")
-      .update({ last_message_at: new Date().toISOString(), status: "open", escalation_reason: null })
+      .update({
+        last_message_at: new Date().toISOString(),
+        status: "open",
+        escalation_reason: null,
+        is_bot_active: false,
+      })
       .eq("id", conversationId);
 
     revalidatePath("/recepcao/atendimento");
@@ -133,7 +140,9 @@ export async function sendManualMessage(conversationId: string, body: string) {
     };
   }
 
-  // Um humano respondeu: a conversa sai da fila de escalação do bot
+  // Um humano respondeu: a conversa sai da fila de escalação do bot e a IA
+  // para de responder a partir daqui, sem precisar de um clique separado no
+  // toggle "Humano no controle".
   await supabase
     .from("twilio_conversations")
     .update({
@@ -141,6 +150,7 @@ export async function sendManualMessage(conversationId: string, body: string) {
       last_message_preview: buildMessagePreview(trimmed),
       status: "open",
       escalation_reason: null,
+      is_bot_active: false,
     })
     .eq("id", conversationId);
 
@@ -215,6 +225,7 @@ export async function sendTemplateMessage(
       last_message_preview: buildMessagePreview(previewText),
       status: "open",
       escalation_reason: null,
+      is_bot_active: false,
     })
     .eq("id", conversationId);
 
@@ -697,6 +708,29 @@ export async function extractLeadInfoFromChat(conversationId: string) {
 
   const phoneFormatted = formatConversationPhone(conversation.phone_number);
 
+  // Últimas mensagens (não as primeiras): numa conversa longa é no fim que a
+  // família confirma nome e idade da criança.
+  const { data: latestMessages } = await supabase
+    .from("messages")
+    .select("sender_type, direction, body, media_url, sent_at")
+    .eq("conversation_id", conversationId)
+    .order("sent_at", { ascending: false })
+    .limit(80);
+  const messages = (latestMessages ?? []).reverse();
+
+  // Currículo/vaga de emprego: o bot (lib/twilio-faq-bot.ts) já responde e
+  // encerra sozinho, sem IA — não é lead de matrícula e não tem nada pra
+  // extrair. Reprocessar aqui com Gemini duplica o trabalho do bot e deixa a
+  // recepção esperando uma análise que não serve pra nada; a mesma marca
+  // conservadora do bot (hasStrongJobSignal) decide sem chamar IA nenhuma.
+  const inboundText = messages
+    .filter((m) => m.direction === "inbound" && m.body)
+    .map((m) => m.body)
+    .join(" ");
+  if (inboundText && hasStrongJobSignal(inboundText)) {
+    return { success: true as const, notApplicable: "emprego" as const, data: undefined, draft: null };
+  }
+
   // Pré-cadastro aberto para este telefone: é onde os arquivos que a família
   // mandou por WhatsApp já estão guardados, com a extração da IA em
   // `extracted`. Consultar isso ANTES de reprocessar tudo do zero evita
@@ -714,16 +748,6 @@ export async function extractLeadInfoFromChat(conversationId: string) {
     origin: "WhatsApp",
     chiefComplaint: "",
   };
-
-  // Últimas mensagens (não as primeiras): numa conversa longa é no fim que a
-  // família confirma nome e idade da criança.
-  const { data: latestMessages } = await supabase
-    .from("messages")
-    .select("sender_type, direction, body, media_url, sent_at")
-    .eq("conversation_id", conversationId)
-    .order("sent_at", { ascending: false })
-    .limit(80);
-  const messages = (latestMessages ?? []).reverse();
 
   if (messages.length === 0 || !isGeminiConfigured()) {
     const data = draft?.extraction ? mergeDocumentIntoLead(fallbackData, draft.extraction) : fallbackData;
@@ -892,6 +916,32 @@ export async function openLeadPendency(conversationId: string) {
 
   revalidatePath("/recepcao/pacientes/pendencias");
   return { success: true as const, draftId: draft.id };
+}
+
+/**
+ * Busca os dados completos do rascunho de pendência de um ÚNICO contato de conversa.
+ * Usado para abrir a janela modal de pendência instantaneamente em ~30-50ms no Atendimento.
+ */
+export async function getLeadDraftByConversationId(conversationId: string) {
+  const supabase = await createClient();
+
+  const { data: conversation } = await supabase
+    .from("twilio_conversations")
+    .select("id, phone_number")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (!conversation) return { success: false as const, error: "Conversa não encontrada." };
+  if (!conversation.phone_number) return { success: false as const, error: "Contato sem telefone." };
+
+  const admin = createAdminClient();
+  const draftRecord = await findOrCreateOpenWhatsappDraft(admin, conversation.phone_number, { status: "pending" });
+  if (!draftRecord) return { success: false as const, error: "Não foi possível abrir a pendência deste contato." };
+
+  const draft = await getSingleRegistrationDraft(supabase, draftRecord.id, DEV_CLINIC_ID);
+  if (!draft) return { success: false as const, error: "Não foi possível carregar as pendências do contato." };
+
+  return { success: true as const, draft };
 }
 
 /**

@@ -57,12 +57,18 @@ export const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
     // Acompanha o Acompanhamento Terapêutico (AT) do mesmo jeito que já
     // acompanha o restante do atendimento clínico.
     "/at",
+    // Versão mobile (PWA) da Central de Atendimento — mesma tela que já
+    // acompanha em /recepcao, só que pensada pra caber no celular.
+    "/m/atendimento",
   ],
   // Todo terapeuta pode abrir /at — quem não tem `is_at_professional` é
   // redirecionado pelo próprio app/at/layout.tsx, não pelo middleware (a
   // flag é por perfil, não por papel).
   terapeuta: ["/terapeuta", "/at"],
-  recepcao: ["/recepcao"],
+  // /m/atendimento é a versão mobile (PWA) da Central de Atendimento de
+  // /recepcao/atendimento — mesmo papel, mesma tela, só que fora da home
+  // "/recepcao" (o middleware só libera por prefixo).
+  recepcao: ["/recepcao", "/m/atendimento"],
   faturamento: ["/faturamento", "/gestor/cadastros/convenios", "/recepcao/pacientes"],
   responsavel: ["/familia"],
 };
