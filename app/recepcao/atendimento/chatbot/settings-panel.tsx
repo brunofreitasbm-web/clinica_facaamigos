@@ -7,6 +7,7 @@ export type ChatbotSettingsRow = {
   botEnabled: boolean;
   dailyReplyLimit: number;
   greetingFallback: string | null;
+  botAutoResumeHours: number | null;
 };
 
 export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
@@ -84,6 +85,21 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
           <span className="text-xs font-normal text-ink-faint">
             Mensagem enviada quando nenhum outro fluxo do bot reconhece o pedido (ex.: Gemini indisponível ou teto
             diário atingido). Em branco, usa o texto padrão do sistema.
+          </span>
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
+          Retomada automática do bot em conversas escaladas (horas)
+          <input
+            type="number"
+            name="botAutoResumeHours"
+            min={0}
+            defaultValue={settings.botAutoResumeHours ?? 0}
+            className="input max-w-[160px]"
+          />
+          <span className="text-xs font-normal text-ink-faint">
+            Quando uma conversa é escalada para um humano e ninguém responde nesse prazo, o bot volta a atender
+            sozinho (rodado a cada hora). 0 = desligado — a conversa só reabre manualmente pela recepção, como hoje.
           </span>
         </label>
 

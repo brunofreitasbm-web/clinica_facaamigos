@@ -5,6 +5,7 @@ import {
   sendTwilioSMS,
   formatE164Phone,
   isValidTwilioSignature,
+  buildMessagePreview,
 } from "@/lib/twilio";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { closeAttendanceResolvedByBot } from "@/lib/conversation-attendance";
@@ -175,6 +176,11 @@ export async function POST(req: NextRequest) {
             delivery_status: sendResult?.success ? "sent" : "failed",
             intent: result.intent,
           });
+
+          await supabase
+            .from("twilio_conversations")
+            .update({ last_message_preview: buildMessagePreview(result.replyMessage) })
+            .eq("id", conversation.id);
 
           // Depois de gravar a resposta: o trigger de `messages` só carimba o
           // atendimento enquanto ele está aberto.

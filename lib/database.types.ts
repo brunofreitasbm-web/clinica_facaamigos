@@ -1513,6 +1513,7 @@ export type Database = {
       }
       chatbot_settings: {
         Row: {
+          bot_auto_resume_hours: number | null
           bot_enabled: boolean
           clinic_id: string
           daily_reply_limit: number
@@ -1521,6 +1522,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          bot_auto_resume_hours?: number | null
           bot_enabled?: boolean
           clinic_id: string
           daily_reply_limit?: number
@@ -1529,6 +1531,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          bot_auto_resume_hours?: number | null
           bot_enabled?: boolean
           clinic_id?: string
           daily_reply_limit?: number
@@ -8022,7 +8025,9 @@ export type Database = {
           internal_note_updated_at: string | null
           is_bot_active: boolean
           kind: string
+          last_inbound_at: string | null
           last_message_at: string | null
+          last_message_preview: string | null
           patient_id: string | null
           phone_number: string
           status: string
@@ -8043,7 +8048,9 @@ export type Database = {
           internal_note_updated_at?: string | null
           is_bot_active?: boolean
           kind?: string
+          last_inbound_at?: string | null
           last_message_at?: string | null
+          last_message_preview?: string | null
           patient_id?: string | null
           phone_number: string
           status?: string
@@ -8064,7 +8071,9 @@ export type Database = {
           internal_note_updated_at?: string | null
           is_bot_active?: boolean
           kind?: string
+          last_inbound_at?: string | null
           last_message_at?: string | null
+          last_message_preview?: string | null
           patient_id?: string | null
           phone_number?: string
           status?: string
@@ -8769,6 +8778,10 @@ export type Database = {
       increment_conversation_unread: {
         Args: { p_conversation_id: string }
         Returns: undefined
+      }
+      business_minutes_between: {
+        Args: { p_clinic_id: string; p_from: string; p_to: string }
+        Returns: number
       }
       aba_training_balance: {
         Args: { p_on_date?: string; p_patient_id: string }

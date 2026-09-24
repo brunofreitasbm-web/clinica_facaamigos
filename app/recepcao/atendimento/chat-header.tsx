@@ -5,6 +5,7 @@ import Link from "next/link";
 import { assignConversation, setConversationClosed, toggleBotActive } from "./actions";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
 import { HealthPlanBadge } from "@/components/health-plan-badge";
+import { isWhatsappWindowClosed } from "./atendimento-shell";
 import { ChatActions } from "@/src/components/Reception/Chat/ChatActions";
 import type { AttendanceManualOutcome } from "@/lib/conversation-attendance";
 
@@ -106,6 +107,14 @@ export function ChatHeader({
             )}
             {conversation.planName && (
               <HealthPlanBadge name={conversation.planName} color={conversation.planColor} size="md" className="shrink-0" />
+            )}
+            {isWhatsappWindowClosed(conversation) && (
+              <span
+                className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                title="Mais de 24h desde a última mensagem do contato — mensagem livre não é entregue pela Twilio."
+              >
+                Janela fechada
+              </span>
             )}
           </div>
           <p className="truncate text-xs text-slate-500 dark:text-slate-400">

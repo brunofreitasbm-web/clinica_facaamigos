@@ -87,6 +87,18 @@ export function isValidTwilioSignature(req: NextRequest, params: Record<string, 
 }
 
 /**
+ * Recorte para `twilio_conversations.last_message_preview` — texto puro
+ * (sem quebras de linha) truncado, usado pela lista de conversas da inbox
+ * pra não precisar reconsultar `messages`. `[mídia]` cobre o caso comum de
+ * anexo sem legenda, que senão apareceria como prévia vazia.
+ */
+export function buildMessagePreview(body: string | null | undefined, hasMedia = false): string {
+  const trimmed = (body ?? "").replace(/\s+/g, " ").trim();
+  if (!trimmed) return hasMedia ? "[mídia]" : "";
+  return trimmed.length > 120 ? `${trimmed.slice(0, 120)}…` : trimmed;
+}
+
+/**
  * Formata número de telefone para o padrão E.164 (ex: +5511999999999)
  */
 export function formatE164Phone(rawPhone: string): string {
@@ -123,8 +135,17 @@ export interface SendMessageResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  /** Código de erro da Twilio (ex.: 63016 = fora da janela de 24h do
+   * WhatsApp) — a RestException do SDK expõe isso em `.code`, mais
+   * confiável que tentar casar substring na mensagem. */
+  errorCode?: number;
   channel: "sms" | "whatsapp";
 }
+
+/** 63016/63024: mensagem livre bloqueada por estar fora da janela de 24h de
+ * serviço do WhatsApp — só um template aprovado (Content API) pode reabrir a
+ * conversa. */
+export const WHATSAPP_WINDOW_CLOSED_ERROR_CODES = [63016, 63024];
 
 /**
  * Mapeia a categoria do fluxo de comunicação para a variável de ambiente do Content SID correspondente na Twilio/Meta.
@@ -270,11 +291,13 @@ export async function sendTwilioWhatsApp(options: SendMessageOptions): Promise<S
     };
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : String(error);
+    const errCode = typeof (error as { code?: unknown })?.code === "number" ? (error as { code: number }).code : undefined;
     console.error("[Twilio WhatsApp Error]:", errMessage);
     return {
       success: false,
       channel: "whatsapp",
       error: errMessage,
+      errorCode: errCode,
     };
   }
 }
@@ -567,10 +590,15 @@ export async function handleTwilioIncomingMessage(params: {
       throw insertError;
     }
 
+    const nowIso = new Date().toISOString();
     await supabase
       .from("twilio_conversations")
       .update({
-        last_message_at: new Date().toISOString(),
+        last_message_at: nowIso,
+        // Só mensagem do CONTATO conta pra janela de serviço de 24h do
+        // WhatsApp — respostas do bot/agente não reabrem a janela.
+        last_inbound_at: nowIso,
+        last_message_preview: buildMessagePreview(body, Boolean(mediaUrl0 || (media && media.length > 0))),
         // Conversa encerrada pela Central volta para a fila quando o contato
         // escreve de novo — senão a mensagem ficaria escondida no filtro
         // "Encerradas".

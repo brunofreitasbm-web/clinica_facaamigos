@@ -14,6 +14,11 @@ export interface ChatMessage {
    *  exige Basic Auth. Serve só de sinalizador de que a mensagem tem anexo;
    *  quem entrega o arquivo é /api/arquivos/mensagem/[id]. */
   mediaUrl?: string | null;
+  /** 'portal' = nota interna do portal da família (submit_nps_response,
+   * confirmação de presença etc.), não uma mensagem de WhatsApp — sem essa
+   * distinção ela aparecia misturada no chat como se a família tivesse
+   * escrito pelo WhatsApp. */
+  channel?: string | null;
 }
 
 interface ChatBubbleProps {
@@ -87,6 +92,7 @@ export const ChatBubble = React.memo(function ChatBubble({
   const isOutbound = message.direction === "outbound";
   const isFailed = message.deliveryStatus === "failed";
   const isSimulated = message.deliveryStatus === "simulated_dev";
+  const isPortal = message.channel === "portal";
 
   return (
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"} my-1.5`}>
@@ -125,6 +131,9 @@ export const ChatBubble = React.memo(function ChatBubble({
                   minute: "2-digit",
                 })
               : ""}
+            {isPortal && (
+              <span className="inline-flex items-center gap-0.5 italic opacity-80">· via portal da família</span>
+            )}
             {isOutbound && message.deliveryStatus && (
               <span className="inline-flex items-center gap-1">
                 ·{" "}

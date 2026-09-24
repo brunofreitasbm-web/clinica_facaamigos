@@ -48,7 +48,7 @@ async function loadChatbotAdminData(
       .limit(30),
     supabase
       .from("chatbot_settings")
-      .select("bot_enabled, daily_reply_limit, greeting_fallback")
+      .select("bot_enabled, daily_reply_limit, greeting_fallback, bot_auto_resume_hours")
       .eq("clinic_id", DEV_CLINIC_ID)
       .maybeSingle(),
   ]);
@@ -114,6 +114,7 @@ async function loadChatbotAdminData(
       botEnabled: settingsRes.data?.bot_enabled ?? true,
       dailyReplyLimit: settingsRes.data?.daily_reply_limit ?? 20,
       greetingFallback: settingsRes.data?.greeting_fallback ?? null,
+      botAutoResumeHours: settingsRes.data?.bot_auto_resume_hours ?? null,
     },
   };
 }
@@ -135,7 +136,7 @@ export default async function AtendimentoPage() {
     supabase
       .from("twilio_conversations")
       .select(
-        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, kind, contact_name, escalation_reason, assigned_to, insurer_id, patients(full_name), guardians(full_name)",
+        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, last_inbound_at, last_message_preview, kind, contact_name, escalation_reason, assigned_to, insurer_id, patients(full_name), guardians(full_name)",
       )
       .order("last_message_at", { ascending: false, nullsFirst: false }),
     canManageChatbot ? loadChatbotAdminData(supabase) : Promise.resolve(null),
@@ -198,6 +199,8 @@ export default async function AtendimentoPage() {
       planName: plan?.name ?? null,
       planColor: plan?.color ?? null,
       insurerId: c.insurer_id,
+      lastInboundAt: c.last_inbound_at,
+      lastMessagePreview: c.last_message_preview,
     };
   });
 

@@ -16,10 +16,16 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
   const botEnabled = formData.get("botEnabled") === "on";
   const dailyReplyLimitRaw = String(formData.get("dailyReplyLimit") ?? "").trim();
   const greetingFallback = String(formData.get("greetingFallback") ?? "").trim();
+  const botAutoResumeHoursRaw = String(formData.get("botAutoResumeHours") ?? "0").trim();
 
   const dailyReplyLimit = Number(dailyReplyLimitRaw);
   if (!Number.isInteger(dailyReplyLimit) || dailyReplyLimit < 1) {
     return { success: false, error: "O teto diário de respostas deve ser um número inteiro maior que zero." };
+  }
+
+  const botAutoResumeHours = Number(botAutoResumeHoursRaw);
+  if (!Number.isInteger(botAutoResumeHours) || botAutoResumeHours < 0) {
+    return { success: false, error: "A retomada automática deve ser um número inteiro de horas (0 = desligado)." };
   }
 
   const supabase = await createClient();
@@ -33,6 +39,7 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
       bot_enabled: botEnabled,
       daily_reply_limit: dailyReplyLimit,
       greeting_fallback: greetingFallback || null,
+      bot_auto_resume_hours: botAutoResumeHours || null,
       updated_at: new Date().toISOString(),
       updated_by: user?.id ?? null,
     },

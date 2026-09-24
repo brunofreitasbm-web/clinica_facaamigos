@@ -37,7 +37,20 @@ export type ConversationRow = {
   /** Convênio cadastrado que o chatbot identificou (só conta quando a conversa não tem plano de cadastro). */
   insurerId: string | null;
   lastMessagePreview?: string | null;
+  /** Última mensagem RECEBIDA do contato — usado para saber se a janela de
+   * serviço de 24h do WhatsApp está fechada (ver WINDOW_CLOSED_MS abaixo). */
+  lastInboundAt: string | null;
 };
+
+const WHATSAPP_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** true quando a janela de 24h do WhatsApp já fechou (ou nunca esteve
+ * aberta — contato sem mensagem inbound registrada) e só um template
+ * aprovado consegue reabrir a conversa. */
+export function isWhatsappWindowClosed(conversation: Pick<ConversationRow, "lastInboundAt">): boolean {
+  if (!conversation.lastInboundAt) return true;
+  return Date.now() - new Date(conversation.lastInboundAt).getTime() > WHATSAPP_SERVICE_WINDOW_MS;
+}
 
 export type InsurerPill = { name: string; color: string | null };
 
@@ -120,6 +133,8 @@ export function AtendimentoShell({
             escalation_reason: string | null;
             assigned_to: string | null;
             insurer_id: string | null;
+            last_inbound_at: string | null;
+            last_message_preview: string | null;
           };
           // Plano identificado pelo bot durante a conversa (a linha do realtime só traz ids).
           const detected: InsurerPill | null = row.insurer_id ? (insurerById[row.insurer_id] ?? null) : null;
@@ -142,6 +157,8 @@ export function AtendimentoShell({
                     ? existing.displayName
                     : (row.contact_name ?? formatConversationPhone(row.phone_number)),
                   insurerId: row.insurer_id,
+                  lastInboundAt: row.last_inbound_at,
+                  lastMessagePreview: row.last_message_preview,
                   // Com paciente, o plano do cadastro (carregado no servidor) prevalece.
                   ...(!row.patient_id || !existing.planName
                     ? { planName: detected?.name ?? null, planColor: detected?.color ?? null }
@@ -165,6 +182,8 @@ export function AtendimentoShell({
                   planName: detected?.name ?? null,
                   planColor: detected?.color ?? null,
                   insurerId: row.insurer_id,
+                  lastInboundAt: row.last_inbound_at,
+                  lastMessagePreview: row.last_message_preview,
                 };
             const rest = prev.filter((c) => c.id !== row.id);
             return [updated, ...rest].sort((a, b) => {
@@ -214,11 +233,19 @@ export function AtendimentoShell({
     if (!selected) return;
     const isMine = Boolean(currentUserId) && selected.assignedTo === currentUserId;
     const shouldAssign = !isMine;
+    const previous = { assignedTo: selected.assignedTo, isBotActive: selected.isBotActive };
     patchConversation(selected.id, {
       assignedTo: shouldAssign ? currentUserId : null,
       isBotActive: shouldAssign ? false : selected.isBotActive,
     });
-    await assignConversation(selected.id, shouldAssign);
+    const result = await assignConversation(selected.id, shouldAssign);
+    // Atalho Alt+A não mostrava nada em erro (sessão expirada, RLS) — a
+    // recepção via a conversa marcada como "com Fulana" mesmo sem ter
+    // gravado no banco. Desfaz o otimismo e avisa.
+    if (!result.success) {
+      patchConversation(selected.id, previous);
+      window.alert(result.error || "Não foi possível assumir/liberar a conversa.");
+    }
   };
 
   return (
