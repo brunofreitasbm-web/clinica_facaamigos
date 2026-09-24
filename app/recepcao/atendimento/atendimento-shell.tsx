@@ -10,6 +10,7 @@ import { formatConversationPhone } from "./format-phone";
 import { ChatbotPanel } from "./chatbot/chatbot-panel";
 import { ChatLayout } from "@/src/components/Reception/Chat/ChatLayout";
 import { assignConversation } from "./actions";
+import { matchesFilter, matchesSearch } from "@/lib/atendimento/filters";
 import type { ChatbotDashboardStats } from "./chatbot/dashboard-panel";
 import type { FaqRow } from "./chatbot/faq-manager";
 import type { QuickResponseRow } from "./chatbot/quick-responses-manager";
@@ -17,31 +18,8 @@ import type { TemplateRow } from "./chatbot/templates-manager";
 import type { ChatbotSettingsRow } from "./chatbot/settings-panel";
 import type { DeliveryHistoryRow } from "./chatbot/chatbot-panel";
 
-export type ConversationRow = {
-  id: string;
-  patientId: string | null;
-  guardianId: string | null;
-  phoneNumber: string;
-  isBotActive: boolean;
-  status: string;
-  unreadCount: number;
-  lastMessageAt: string | null;
-  kind: "patient" | "lead";
-  escalationReason: string | null;
-  assignedTo: string | null;
-  contactName: string | null;
-  displayName: string;
-  guardianName: string | null;
-  planName: string | null;
-  planColor: string | null;
-  /** Convênio cadastrado que o chatbot identificou (só conta quando a conversa não tem plano de cadastro). */
-  insurerId: string | null;
-  lastMessagePreview?: string | null;
-};
-
-export type InsurerPill = { name: string; color: string | null };
-
-export type ConversationPatch = Partial<Omit<ConversationRow, "id">>;
+export type { ConversationRow, InsurerPill, ConversationPatch } from "@/lib/atendimento/types";
+import type { ConversationRow, ConversationPatch, InsurerPill } from "@/lib/atendimento/types";
 
 export type ChatbotAdminData = {
   clinicId: string;
@@ -52,31 +30,6 @@ export type ChatbotAdminData = {
   deliveryHistory: DeliveryHistoryRow[];
   settings: ChatbotSettingsRow;
 };
-
-function matchesFilter(c: ConversationRow, filter: ConversationFilter, currentUserId: string | null): boolean {
-  if (filter === "encerradas") return c.status === "closed";
-  if (c.status === "closed") return false;
-  switch (filter) {
-    case "aguardando":
-      return c.status === "pending";
-    case "nao_lidas":
-      return c.unreadCount > 0;
-    case "leads":
-      return c.kind === "lead";
-    case "minhas":
-      return Boolean(currentUserId) && c.assignedTo === currentUserId;
-    default:
-      return true;
-  }
-}
-
-function matchesSearch(c: ConversationRow, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const digits = q.replace(/\D/g, "");
-  if (digits.length >= 3 && c.phoneNumber.replace(/\D/g, "").includes(digits)) return true;
-  return [c.displayName, c.guardianName, c.contactName].some((v) => v?.toLowerCase().includes(q));
-}
 
 export function AtendimentoShell({
   initialConversations,
