@@ -163,17 +163,18 @@ export function EvolutionForm({
   const [pinSetupError, setPinSetupError] = useState<string | null>(null);
   const [isSettingUpPin, startPinSetupTransition] = useTransition();
   const [signaturePin, setSignaturePinInput] = useState("");
-  // Lazy initializer em vez de efeito: ler localStorage síncrono no mount
-  // não precisa de "sincronizar com sistema externo" — só precisa rodar uma
-  // vez antes da primeira renderização.
-  const [resumingPendingSignature] = useState(() => {
-    if (editing) return false;
-    try {
-      return !!localStorage.getItem(`pending_sign_${appointmentId}`);
-    } catch {
-      return false;
+  const [resumingPendingSignature, setResumingPendingSignature] = useState(false);
+  useEffect(() => {
+    if (!editing) {
+      try {
+        if (localStorage.getItem(`pending_sign_${appointmentId}`)) {
+          setResumingPendingSignature(true);
+        }
+      } catch {
+        // Ignora erro de leitura do localStorage
+      }
     }
-  });
+  }, [editing, appointmentId]);
 
   function handleSetupPin() {
     setPinSetupError(null);

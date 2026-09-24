@@ -39,8 +39,9 @@ function relativeTime(iso: string | null): string {
 }
 
 function useNowTick(): number | null {
-  const [now, setNow] = useState<number | null>(() => (typeof window === "undefined" ? null : Date.now()));
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
