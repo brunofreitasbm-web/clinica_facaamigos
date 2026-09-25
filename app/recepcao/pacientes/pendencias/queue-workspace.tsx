@@ -269,7 +269,7 @@ export function QueueWorkspace({
   };
 
   const selectClass =
-    "h-11 min-w-0 max-w-[230px] rounded-md border border-paper-line-strong bg-surface px-3 text-[15px] text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]";
+    "h-11 min-w-0 max-w-[230px] rounded-md border border-paper-line-strong bg-paper-surface px-3 text-[15px] text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]";
 
   return (
     <div className="flex flex-col gap-4">
@@ -284,7 +284,7 @@ export function QueueWorkspace({
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={onSearchKeyDown}
             placeholder="Buscar nome, telefone, responsável, plano ou “falta laudo”"
-            className="h-11 w-full rounded-md border border-paper-line-strong bg-surface pl-11 pr-12 text-base text-ink placeholder:text-ink-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+            className="h-11 w-full rounded-md border border-paper-line-strong bg-paper-surface pl-11 pr-12 text-base text-ink placeholder:text-ink-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
             aria-label="Buscar na fila de pendências"
             aria-keyshortcuts="/ Control+K"
             autoComplete="off"
@@ -303,7 +303,7 @@ export function QueueWorkspace({
           className={`h-11 rounded-full border px-4 text-[15px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
             meus
               ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
-              : "border-paper-line-strong bg-surface text-ink hover:bg-[var(--color-accent-100)]"
+              : "border-paper-line-strong bg-paper-surface text-ink hover:bg-[var(--color-accent-100)]"
           }`}
         >
           Meus <span className="tabular-figure">{mineCount}</span>
@@ -361,7 +361,7 @@ export function QueueWorkspace({
         {/* Lista */}
         <div onKeyDown={onListKeyDown} className="flex min-w-0 flex-col gap-4">
           {visible.length === 0 && (
-            <div className="rounded-lg bg-surface px-5 py-8 text-center shadow-sm">
+            <div className="rounded-lg bg-paper-surface px-5 py-8 text-center shadow-sm">
               <p className="m-0 text-base text-ink">Nada encontrado com esses filtros.</p>
               <button type="button" onClick={clearFilters} className="btn btn-ghost mt-2">
                 Limpar busca e filtros
@@ -372,7 +372,7 @@ export function QueueWorkspace({
             if (list.length === 0) return null;
             const open = bandIsOpen(band);
             return (
-              <section key={band} aria-labelledby={`band-${band}`} className="overflow-hidden rounded-lg bg-surface shadow-sm">
+              <section key={band} aria-labelledby={`band-${band}`} className="overflow-hidden rounded-lg bg-paper-surface shadow-sm">
                 <h2 id={`band-${band}`} className="m-0">
                   <button
                     type="button"
@@ -429,7 +429,7 @@ export function QueueWorkspace({
           }}
           className={
             selected
-              ? "fixed inset-0 z-50 overflow-y-auto bg-paper p-4 xl:z-auto xl:sticky xl:top-[84px] xl:max-h-[calc(100dvh-100px)] xl:rounded-lg xl:bg-surface xl:p-6 xl:shadow-sm"
+              ? "fixed inset-0 z-50 overflow-y-auto bg-paper p-4 xl:z-auto xl:sticky xl:top-[84px] xl:max-h-[calc(100dvh-100px)] xl:rounded-lg xl:bg-paper-surface xl:p-6 xl:shadow-sm"
               : "hidden xl:sticky xl:top-[84px] xl:block"
           }
           role={selected ? "region" : undefined}
@@ -474,7 +474,7 @@ export function QueueWorkspace({
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded border border-paper-line-strong bg-surface px-1.5 py-0.5 text-sm font-semibold text-ink">{children}</kbd>
+    <kbd className="rounded border border-paper-line-strong bg-paper-surface px-1.5 py-0.5 text-sm font-semibold text-ink">{children}</kbd>
   );
 }
 

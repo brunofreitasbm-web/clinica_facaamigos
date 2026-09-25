@@ -126,8 +126,10 @@ export default async function PendenciasPage({
   const requestedItem = params.item && queue.some((item) => item.id === params.item) ? params.item : null;
 
   const now = new Date();
-  const critical = authorizations.filter((a) => a.status === "critical").length;
-  const attention = authorizations.filter((a) => a.status === "attention").length;
+  // Guia com renovação já pedida não conta como crítica: está aguardando o plano.
+  const critical = authorizations.filter((a) => a.status === "critical" && !a.renewal).length;
+  const attention = authorizations.filter((a) => a.status === "attention" && !a.renewal).length;
+  const awaitingInsurer = authorizations.filter((a) => a.renewal).length;
 
   const items: WorkspaceItem[] = queue.map((item) => {
     const draft = item.draft;
@@ -240,7 +242,7 @@ export default async function PendenciasPage({
       />
       <PageContainer className="gap-5">
         {authorizations.length > 0 && (
-          <details className="group rounded-lg bg-surface shadow-sm">
+          <details className="group rounded-lg bg-paper-surface shadow-sm">
             <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-5 py-4 text-base focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] [&::-webkit-details-marker]:hidden">
               <ChevronRight className="h-5 w-5 text-ink-soft transition-transform group-open:rotate-90" aria-hidden="true" />
               <span className="font-bold text-ink">Pacotes de horas autorizadas</span>
@@ -254,7 +256,12 @@ export default async function PendenciasPage({
                   {attention} em atenção
                 </span>
               )}
-              {critical === 0 && attention === 0 && (
+              {awaitingInsurer > 0 && (
+                <span className="rounded-full bg-paper px-3 py-0.5 text-sm font-bold text-ink-soft">
+                  {awaitingInsurer} aguardando o plano
+                </span>
+              )}
+              {critical === 0 && attention === 0 && awaitingInsurer === 0 && (
                 <span className="rounded-full bg-status-positive-soft px-3 py-0.5 text-sm font-bold text-status-positive-text">
                   em dia
                 </span>
@@ -269,12 +276,12 @@ export default async function PendenciasPage({
           </details>
         )}
         {params.lead && !leadItem && (
-          <p className="m-0 rounded-md bg-surface px-4 py-3 text-[15px] text-ink shadow-sm">
+          <p className="m-0 rounded-md bg-paper-surface px-4 py-3 text-[15px] text-ink shadow-sm">
             Este contato não tem mais pendências abertas.
           </p>
         )}
         {queue.length === 0 ? (
-          <div className="rounded-lg bg-surface px-6 py-10 text-center shadow-sm">
+          <div className="rounded-lg bg-paper-surface px-6 py-10 text-center shadow-sm">
             <p className="m-0 text-lg font-bold text-ink">Nenhuma pendência no momento.</p>
             <p className="m-0 mt-1 text-[15px] text-ink-soft">Quando algo precisar da recepção, aparece aqui por ordem de urgência.</p>
           </div>
