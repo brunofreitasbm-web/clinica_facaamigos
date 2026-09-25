@@ -90,7 +90,7 @@ export function LeadFocusDialog({
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 <SummaryChip pendencies={draft.pendencies} />
                 <DraftPipelineMini pipeline={draft.pipeline} />
-                <span className="whitespace-nowrap rounded-full bg-paper-subtle px-2 py-0.5 text-[11px] font-medium text-ink-soft">
+                <span className="whitespace-nowrap rounded-full bg-paper-subtle px-2 py-0.5 text-[13px] font-medium text-ink-soft">
                   {draft.source === "whatsapp" ? "WhatsApp" : "Portal da família"}
                 </span>
               </div>
@@ -115,7 +115,7 @@ export function LeadFocusDialog({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
-          {reading && <p className="m-0 mb-3 text-[12px] text-ink-faint">Lendo os documentos com IA…</p>}
+          {reading && <p className="m-0 mb-3 text-sm text-ink-faint">Lendo os documentos com IA…</p>}
           {draft ? (
             children
           ) : (

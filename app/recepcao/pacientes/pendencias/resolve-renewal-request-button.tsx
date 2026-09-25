@@ -15,7 +15,7 @@ export function ResolveRenewalRequestButton({ requestId }: { requestId: string }
   const [isPending, startTransition] = useTransition();
 
   if (done) {
-    return <span className="text-xs font-medium text-status-positive-text">✓ Guia renovada</span>;
+    return <span className="text-[13px] font-medium text-status-positive-text">✓ Guia renovada</span>;
   }
 
   return (
@@ -31,11 +31,11 @@ export function ResolveRenewalRequestButton({ requestId }: { requestId: string }
             else setError(result.error ?? "Erro ao registrar.");
           });
         }}
-        className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
+        className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-[13px] font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
       >
         {isPending ? "Salvando…" : "Guia nova já cadastrada"}
       </button>
-      {error && <p className="text-[11px] text-status-negative-text">{error}</p>}
+      {error && <p className="text-[13px] text-status-negative-text">{error}</p>}
     </div>
   );
 }

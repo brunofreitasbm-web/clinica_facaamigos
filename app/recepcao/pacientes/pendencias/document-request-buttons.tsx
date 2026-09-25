@@ -75,7 +75,7 @@ export function DocumentRequestButtons({
         disabled={isPending || !hasPhone}
         onClick={() => send(template.key)}
         title={buildMissingDocumentMessage(template, patientName)}
-        className={`rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+        className={`rounded-md px-3 py-1.5 text-[13px] font-semibold disabled:opacity-50 ${
           primary
             ? "border-0 text-white"
             : "border border-paper-line-strong bg-paper text-ink hover:bg-paper-subtle"
@@ -94,16 +94,16 @@ export function DocumentRequestButtons({
 
   return (
     <section className="rounded-md border border-paper-line-strong bg-paper/40 px-3 py-3">
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+      <h3 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
         Cobrar documento pelo WhatsApp
       </h3>
-      <p className="m-0 mb-2 text-[12px] text-ink-faint">
+      <p className="m-0 mb-2 text-sm text-ink-faint">
         Um clique envia a mensagem para a família explicando qual documento falta e que a autorização
         junto ao plano fica parada até ele chegar.
       </p>
 
       {missing.length === 0 ? (
-        <p className="m-0 mb-1 text-[12px] text-status-positive-text">
+        <p className="m-0 mb-1 text-sm text-status-positive-text">
           ✓ Nenhum documento pendente de cobrança neste contato.
         </p>
       ) : (
@@ -112,20 +112,20 @@ export function DocumentRequestButtons({
 
       {others.length > 0 && (
         <details className="mt-2">
-          <summary className="cursor-pointer text-[12px] text-ink-soft">Cobrar outro documento</summary>
+          <summary className="cursor-pointer text-sm text-ink-soft">Cobrar outro documento</summary>
           <div className="mt-2 flex flex-wrap gap-2">{others.map((template) => renderButton(template, false))}</div>
         </details>
       )}
 
       {!hasPhone && (
-        <p className="m-0 mt-2 text-[12px] text-ink-faint">
+        <p className="m-0 mt-2 text-sm text-ink-faint">
           Contato sem telefone de WhatsApp — a cobrança precisa ser feita pelo canal por onde ele chegou.
         </p>
       )}
 
       {feedback && (
         <p
-          className={`m-0 mt-2 text-[12px] ${
+          className={`m-0 mt-2 text-sm ${
             feedback.tone === "error"
               ? "text-status-negative-text"
               : feedback.tone === "warn"
@@ -139,8 +139,8 @@ export function DocumentRequestButtons({
       )}
 
       <details className="mt-2">
-        <summary className="cursor-pointer text-[12px] text-ink-soft">Ver a mensagem que será enviada</summary>
-        <pre className="mt-1 whitespace-pre-wrap rounded-md bg-paper px-3 py-2 font-sans text-[12px] text-ink">
+        <summary className="cursor-pointer text-sm text-ink-soft">Ver a mensagem que será enviada</summary>
+        <pre className="mt-1 whitespace-pre-wrap rounded-md bg-paper px-3 py-2 font-sans text-sm text-ink">
           {buildMissingDocumentMessage(missing[0] ?? MISSING_DOCUMENT_TEMPLATES[0], patientName)}
         </pre>
       </details>
