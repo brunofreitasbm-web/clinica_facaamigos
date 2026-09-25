@@ -82,7 +82,7 @@ export function DraftPipelineMini({ pipeline }: { pipeline: PendingRegistrationD
     <span
       title={trail}
       aria-label={trail}
-      className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+      className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[13px] font-medium ${
         allDone ? "border-status-positive-text/60 text-status-positive-text" : "border-[var(--color-accent)] text-ink"
       }`}
     >
@@ -107,16 +107,16 @@ function StepShell({
       <header className="flex items-start gap-2">
         <span
           aria-hidden="true"
-          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${
             state === "done" ? "bg-status-positive-text text-white" : "border border-paper-line-strong text-ink-soft"
           }`}
         >
           {state === "done" ? "✓" : index + 1}
         </span>
         <div className="min-w-0">
-          <h3 className="m-0 text-xs font-semibold uppercase tracking-wide text-ink-soft">{STEP_TITLE[index - 1]}</h3>
+          <h3 className="m-0 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">{STEP_TITLE[index - 1]}</h3>
           <p
-            className={`m-0 text-[12px] ${
+            className={`m-0 text-sm ${
               state === "done" ? "text-status-positive-text" : state === "current" ? "text-ink" : "text-ink-faint"
             }`}
           >
@@ -154,7 +154,7 @@ function StepButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+      className={`rounded-md px-3 py-1.5 text-[13px] font-semibold disabled:opacity-50 ${
         primary
           ? "border-0 text-white"
           : "border border-paper-line-strong bg-paper text-ink hover:bg-paper-subtle"
@@ -180,7 +180,7 @@ function GuideField({
   required?: boolean;
 }) {
   return (
-    <label className="flex flex-col gap-0.5 text-[11px] font-medium uppercase tracking-wide text-ink-soft">
+    <label className="flex flex-col gap-0.5 text-[13px] font-medium uppercase tracking-wide text-ink-soft">
       {label}
       <input
         name={name}
@@ -289,11 +289,11 @@ export function DraftPipelineColumns({
       <StepShell index={2} state={sentState} status={sentStatus}>
         {pipeline.authorization === "pendente" && (
           <>
-            <p className="m-0 text-[12px] text-ink-faint">
+            <p className="m-0 text-sm text-ink-faint">
               Envie a guia de autorização ao plano (portal, e-mail ou telefone) e marque aqui.
             </p>
             {missingLabels.length > 0 && (
-              <p className="m-0 text-[12px] text-status-pending-text">Ainda falta: {missingLabels.join(", ")}.</p>
+              <p className="m-0 text-sm text-status-pending-text">Ainda falta: {missingLabels.join(", ")}.</p>
             )}
             <div className="flex flex-wrap gap-2">
               <StepButton primary onClick={handleMarkGuideSent} disabled={isPending}>
@@ -315,7 +315,7 @@ export function DraftPipelineColumns({
         )}
 
         {(pipeline.authorization === "autorizada" || pipeline.authorization === "dispensada") && (
-          <p className="m-0 text-[12px] text-ink-faint">
+          <p className="m-0 text-sm text-ink-faint">
             {pipeline.authorization === "autorizada" ? "Concluída — o plano já respondeu." : "Não se aplica a este atendimento."}
           </p>
         )}
@@ -325,18 +325,18 @@ export function DraftPipelineColumns({
 
       <StepShell index={3} state={authState} status={authStatus}>
         {sentState === "locked" && !suggestion && (
-          <p className="m-0 text-[12px] text-ink-faint">Aguardando o envio da guia ao plano (etapa 2).</p>
+          <p className="m-0 text-sm text-ink-faint">Aguardando o envio da guia ao plano (etapa 2).</p>
         )}
 
         {(pipeline.authorization === "enviada" || (pipeline.authorization === "pendente" && suggestion)) && (
           <>
-            <p className="m-0 text-[12px] text-ink-faint">
+            <p className="m-0 text-sm text-ink-faint">
               Confira a autorização junto ao plano (portal ou telefone). Quando o plano autorizar, registre a guia aqui.
             </p>
             {showGuideForm ? (
               <form onSubmit={onSubmitGuide} className="flex flex-col gap-2">
                 {suggestion && (
-                  <p className="m-0 text-[11px] text-ink-faint">Preenchido com o que foi lido nos arquivos — confira com a guia do plano.</p>
+                  <p className="m-0 text-[13px] text-ink-faint">Preenchido com o que foi lido nos arquivos — confira com a guia do plano.</p>
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   <GuideField label="Nº da guia" name="guide_number" defaultValue={suggestion?.guide_number ?? ""} required />
@@ -362,7 +362,7 @@ export function DraftPipelineColumns({
                   <button
                     type="submit"
                     disabled={isPending}
-                    className="rounded-md border-0 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                    className="rounded-md border-0 px-3 py-1.5 text-[13px] font-semibold text-white disabled:opacity-50"
                     style={{ backgroundColor: "var(--color-accent)" }}
                   >
                     {isPending ? "Salvando…" : "Autorizada — salvar guia"}
@@ -389,19 +389,19 @@ export function DraftPipelineColumns({
           <>
             {guide && (
               <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[13px]">
-                <dt className="text-xs uppercase tracking-wide text-ink-soft">Guia</dt>
+                <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Guia</dt>
                 <dd className="m-0 text-ink">{guide.guide_number ?? "—"}</dd>
-                <dt className="text-xs uppercase tracking-wide text-ink-soft">Procedimento</dt>
+                <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Procedimento</dt>
                 <dd className="m-0 text-ink">{guide.procedure_code ?? "—"}</dd>
-                <dt className="text-xs uppercase tracking-wide text-ink-soft">Sessões</dt>
+                <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Sessões</dt>
                 <dd className="m-0 text-ink">{guide.sessions_authorized ?? "—"}</dd>
-                <dt className="text-xs uppercase tracking-wide text-ink-soft">Vigência</dt>
+                <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Vigência</dt>
                 <dd className="m-0 text-ink">
                   {fmtDate(guide.valid_from)} a {fmtDate(guide.valid_to)}
                 </dd>
               </dl>
             )}
-            <p className="m-0 text-[12px] text-ink-faint">
+            <p className="m-0 text-sm text-ink-faint">
               {pipeline.authorizationId
                 ? "Guia gravada no prontuário do paciente."
                 : "Guia guardada no contato — entra no cadastro quando você conferir os dados."}
@@ -429,14 +429,14 @@ export function DraftPipelineColumns({
 
       <StepShell index={4} state={schedState} status={schedStatus}>
         {schedState === "locked" && (
-          <p className="m-0 text-[12px] text-ink-faint">
+          <p className="m-0 text-sm text-ink-faint">
             Só libera depois que o plano autorizar (ou a autorização for dispensada).
           </p>
         )}
 
         {schedState === "current" && (
           <>
-            <p className="m-0 text-[12px] text-ink-faint">
+            <p className="m-0 text-sm text-ink-faint">
               Ao habilitar, a Supervisão passa a ver o “ok” na Agenda 1ª Avaliação e pode marcar.
             </p>
             <div>
@@ -449,7 +449,7 @@ export function DraftPipelineColumns({
 
         {schedState === "done" && (
           <>
-            <p className="m-0 text-[12px] text-ink-faint">A Supervisão já vê o “ok” na Agenda 1ª Avaliação.</p>
+            <p className="m-0 text-sm text-ink-faint">A Supervisão já vê o “ok” na Agenda 1ª Avaliação.</p>
             <div>
               <StepButton onClick={() => run(() => disableDraftScheduling(draft.id))} disabled={isPending}>
                 Retirar habilitação
@@ -459,7 +459,7 @@ export function DraftPipelineColumns({
         )}
 
         {schedState !== "locked" && !pipeline.registered && (
-          <p className="m-0 text-[12px] text-ink-soft">
+          <p className="m-0 text-sm text-ink-soft">
             O paciente só aparece na agenda depois que o cadastro for conferido.{" "}
             <Link
               href={`/recepcao/pre-cadastros/${draft.id}`}
@@ -475,7 +475,7 @@ export function DraftPipelineColumns({
       {feedback && (
         <p
           role={feedback.tone === "error" ? "alert" : "status"}
-          className={`m-0 text-[12px] md:col-span-7 ${feedback.tone === "error" ? "text-status-negative-text" : "text-ink-soft"}`}
+          className={`m-0 text-sm md:col-span-7 ${feedback.tone === "error" ? "text-status-negative-text" : "text-ink-soft"}`}
         >
           {feedback.text}
         </p>

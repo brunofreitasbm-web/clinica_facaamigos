@@ -1,292 +1,415 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Check, Copy, X } from "lucide-react";
+import type { AuthorizationWizardItem } from "@/lib/reception-queue";
+import { registerAuthorizationRenewalResponse, requestAuthorizationRenewal } from "./authorization-renewal-actions";
+import { suggestedRenewalPeriod, validateRenewalPeriod } from "./authorization-renewal-pure";
 
-export interface AuthorizationItem {
-  id: string;
-  patientName: string;
-  insurerName: string;
-  specialty: string;
-  authorizedHours: number;
-  consumedHours: number;
-  expiresAt: string;
-  status: "regular" | "attention" | "critical";
-  protocolNumber: string;
+export type AuthorizationItem = AuthorizationWizardItem;
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  const day = iso.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return "—";
+  return `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
 }
 
+type Dialog =
+  | { kind: "request"; item: AuthorizationItem }
+  | { kind: "response"; item: AuthorizationItem };
+
+/**
+ * Pacotes de sessões autorizadas pelo plano, com o saldo de cada guia ativa.
+ *
+ * A renovação tem dois passos, os dois gravados no banco
+ * (authorization-renewal-actions.ts):
+ *   1. "Pedir renovação" — grava a guia nova como pendente, ligada à atual;
+ *   2. "Registrar resposta do plano" — autorizada (número, sessões, vigência)
+ *      ou negada.
+ */
 export function AutorizacaoWizard({ initialItems = [] }: { initialItems?: AuthorizationItem[] }) {
-  const [items, setItems] = useState<AuthorizationItem[]>(initialItems);
-  const [selectedItem, setSelectedItem] = useState<AuthorizationItem | null>(null);
-  const [wizardStep, setWizardStep] = useState<number>(1);
-  const [justificationText, setJustificationText] = useState("");
-  const [successToast, setSuccessToast] = useState(false);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const openRenewalModal = (item: AuthorizationItem) => {
-    setSelectedItem(item);
-    setWizardStep(1);
-    setJustificationText(
-      `Solicitação de renovação do pacote de ${item.specialty} para o paciente ${item.patientName}. Progresso terapêutico satisfatório registrado nas evoluções recentes.`
-    );
-  };
-
-  const closeModal = () => {
-    setSelectedItem(null);
-    setWizardStep(1);
-  };
-
-  const handleCompleteRenewal = () => {
-    if (!selectedItem) return;
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === selectedItem.id
-          ? {
-              ...i,
-              authorizedHours: i.authorizedHours + 40,
-              consumedHours: 0,
-              status: "regular",
-              expiresAt: "2026-12-31",
-            }
-          : i
-      )
-    );
-    setSuccessToast(true);
-    closeModal();
-    setTimeout(() => setSuccessToast(false), 4000);
+  const done = (message: string) => {
+    setDialog(null);
+    setNotice(message);
+    setTimeout(() => setNotice(null), 5000);
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* TOAST DE SUCESSO */}
-      {successToast && (
-        <div className="rounded-lg bg-emerald-600 text-white p-4 shadow-lg flex items-center justify-between transition-all">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">✅</span>
-            <div>
-              <p className="m-0 font-bold text-sm">Solicitação de Renovação Enviada com Sucesso!</p>
-              <p className="m-0 text-xs text-emerald-100">
-                O pacote de horas foi renovado e os relatórios clínicos foram anexados ao lote TISS.
-              </p>
-            </div>
-          </div>
-          <button onClick={() => setSuccessToast(false)} className="text-white bg-transparent border-0 font-bold cursor-pointer">
-            ✕
+    <div className="flex flex-col gap-4">
+      {notice && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-md bg-status-positive-soft px-4 py-3 text-[15px] text-status-positive-text">
+          <span className="flex items-center gap-2 font-semibold">
+            <Check className="h-4 w-4" aria-hidden="true" /> {notice}
+          </span>
+          <button type="button" onClick={() => setNotice(null)} aria-label="Fechar aviso" className="text-status-positive-text">
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       )}
 
-      {/* CABEÇALHO COM EXP EXPLICAÇÃO ANTI-ERRO */}
-      <div className="rounded-xl border bg-surface p-6 shadow-sm" style={{ borderColor: "var(--color-divider)" }}>
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div>
-            <h3 className="m-0 text-lg font-bold text-ink">Pacotes de Horas Autorizadas & Saldo TISS / Liminares</h3>
-            <p className="m-0 text-xs text-ink-soft mt-1">
-              Monitore o consumo em tempo real de cada paciente por especialidade. O sistema impede agendamentos quando o saldo atinge zero.
-            </p>
-          </div>
-          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 border border-blue-200">
-            🔒 Saldo Verificado Via Smart Validation
+      <p className="m-0 text-[15px] text-ink-soft">
+        Saldo de cada guia ativa. O agendamento é bloqueado quando as sessões autorizadas acabam.
+      </p>
+
+      {initialItems.length === 0 ? (
+        <p className="m-0 text-[15px] text-ink-soft">Nenhuma guia ativa no momento.</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-3 p-0">
+          {initialItems.map((item) => (
+            <AuthorizationRow key={item.id} item={item} onOpen={setDialog} />
+          ))}
+        </ul>
+      )}
+
+      {dialog?.kind === "request" && (
+        <RequestRenewalDialog item={dialog.item} onClose={() => setDialog(null)} onDone={() => done("Pedido de renovação registrado. Falta registrar a resposta do plano.")} />
+      )}
+      {dialog?.kind === "response" && (
+        <RenewalResponseDialog item={dialog.item} onClose={() => setDialog(null)} onDone={done} />
+      )}
+    </div>
+  );
+}
+
+function AuthorizationRow({ item, onOpen }: { item: AuthorizationItem; onOpen: (d: Dialog) => void }) {
+  const pct = item.authorizedHours > 0 ? Math.min(100, Math.round((item.consumedHours / item.authorizedHours) * 100)) : 0;
+  const remaining = item.authorizedHours - item.consumedHours;
+  const tone = item.renewal ? "neutral" : item.status === "critical" ? "negative" : item.status === "attention" ? "pending" : "positive";
+  const toneText = {
+    negative: "text-status-negative-text",
+    pending: "text-status-pending-text",
+    positive: "text-status-positive-text",
+    neutral: "text-ink-soft",
+  }[tone];
+  const toneBar = {
+    negative: "bg-status-negative",
+    pending: "bg-status-pending",
+    positive: "bg-status-positive",
+    neutral: "bg-ink-soft",
+  }[tone];
+
+  return (
+    <li
+      className={`flex flex-col gap-4 rounded-md border p-4 md:flex-row md:items-center md:justify-between ${
+        tone === "negative" ? "border-status-negative-text/40 bg-status-negative-soft/40" : "border-paper-line-strong bg-paper-surface"
+      }`}
+    >
+      <div className="flex min-w-[260px] flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-base font-bold text-ink">{item.patientName}</span>
+          <span className="rounded bg-paper px-1.5 py-0.5 text-[13px] tabular-figure text-ink-soft">{item.protocolNumber}</span>
+        </span>
+        <span className="text-sm text-ink-soft">
+          {item.insurerName} · {item.specialty}
+        </span>
+      </div>
+
+      <div className="max-w-md flex-1">
+        <div className="mb-1 flex items-center justify-between text-sm">
+          <span className="text-ink-soft">
+            <strong className="text-ink tabular-figure">{item.consumedHours}</strong> de{" "}
+            <span className="tabular-figure">{item.authorizedHours}</span> sessões usadas
           </span>
+          <span className={`font-bold tabular-figure ${toneText}`}>{pct}%</span>
         </div>
-
-        {/* LISTA DE PACIENTES E SALDOS */}
-        <div className="flex flex-col gap-3">
-          {items.length === 0 ? (
-            <p className="py-2 text-xs text-ink-faint">Nenhum pacote de horas ou autorização ativa no momento.</p>
-          ) : (
-            items.map((item) => {
-              const pct = Math.min(100, Math.round((item.consumedHours / item.authorizedHours) * 100));
-              const isCritical = item.status === "critical" || pct >= 90;
-              const isAttention = item.status === "attention" || (pct >= 70 && pct < 90);
-
-            return (
-              <div
-                key={item.id}
-                className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg border p-4 transition-all hover:border-blue-300"
-                style={{
-                  borderColor: isCritical ? "rgba(239, 68, 68, 0.4)" : isAttention ? "rgba(245, 158, 11, 0.4)" : "var(--color-divider)",
-                  backgroundColor: isCritical ? "rgba(239, 68, 68, 0.02)" : isAttention ? "rgba(245, 158, 11, 0.02)" : "var(--color-surface)",
-                }}
-              >
-                <div className="flex flex-col gap-1 min-w-[280px]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-ink">{item.patientName}</span>
-                    <span className="text-[11px] font-mono text-ink-faint bg-paper px-1.5 py-0.5 rounded">
-                      {item.protocolNumber}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-ink-soft">
-                    <span>🏥 {item.insurerName}</span>
-                    <span>•</span>
-                    <span className="font-medium text-blue-700">{item.specialty}</span>
-                  </div>
-                </div>
-
-                {/* BARRA DE PROGRESSO DO CONSUMO DE SESSÕES */}
-                <div className="flex-1 max-w-md">
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-semibold text-ink-soft">
-                      Sessões Consumidas: <strong className="text-ink">{item.consumedHours}</strong> de {item.authorizedHours}h
-                    </span>
-                    <span
-                      className={`font-bold ${
-                        isCritical ? "text-red-700" : isAttention ? "text-amber-700" : "text-emerald-700"
-                      }`}
-                    >
-                      {pct}% consumido
-                    </span>
-                  </div>
-                  <div className="w-full bg-paper-line rounded-full h-2.5 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        isCritical ? "bg-red-600" : isAttention ? "bg-amber-500" : "bg-emerald-500"
-                      }`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="text-[11px] text-ink-faint mt-1 flex justify-between">
-                    <span>Validade da Guia: {item.expiresAt}</span>
-                    {isCritical && <span className="font-bold text-red-700">🚨 Restam apenas {item.authorizedHours - item.consumedHours}h!</span>}
-                  </div>
-                </div>
-
-                {/* BOTÃO DE AÇÃO GUIADA */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => openRenewalModal(item)}
-                    className={`px-4 py-2 text-xs font-bold rounded-lg border-0 cursor-pointer shadow-sm transition-all ${
-                      isCritical
-                        ? "bg-red-600 text-white hover:bg-red-700"
-                        : isAttention
-                        ? "bg-amber-600 text-white hover:bg-amber-700"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
-                    }`}
-                  >
-                    Renovar Autorização (1 Clique)
-                  </button>
-                </div>
-              </div>
-            );
-          }))}
+        <div className="h-2.5 w-full overflow-hidden rounded-full bg-paper-line">
+          <div className={`h-full rounded-full ${toneBar}`} style={{ width: `${pct}%` }} />
+        </div>
+        <div className="mt-1 flex justify-between gap-3 text-[13px] text-ink-soft">
+          <span>Vale até {fmtDate(item.expiresAt)}</span>
+          {item.status === "critical" && !item.renewal && (
+            <span className="font-bold text-status-negative-text">
+              {remaining === 1 ? "Resta 1 sessão" : `Restam ${remaining} sessões`}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* MODAL WIZARD PASSO A PASSO "ANTI-BURRO" */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-xl rounded-xl border bg-surface p-6 shadow-xl" style={{ borderColor: "var(--color-divider)" }}>
-            <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: "var(--color-divider)" }}>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Wizard de Guia · Passo {wizardStep} de 3</span>
-                <h3 className="m-0 text-base font-bold text-ink">Renovação de Autorização TISS</h3>
-              </div>
-              <button onClick={closeModal} className="border-0 bg-transparent text-gray-500 hover:text-gray-800 text-lg cursor-pointer">
-                ✕
+      <div className="flex flex-col items-start gap-1 md:items-end">
+        {item.renewal ? (
+          <>
+            <span className="text-sm text-ink-soft">
+              {item.renewal.requestedAt ? `Renovação pedida em ${fmtDate(item.renewal.requestedAt)}` : "Renovação pedida"} ·{" "}
+              {item.renewal.sessionsRequested} sessões
+            </span>
+            <button type="button" onClick={() => onOpen({ kind: "response", item })} className="btn btn-primary">
+              Registrar resposta do plano
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpen({ kind: "request", item })}
+            className={`btn ${item.status === "critical" ? "btn-primary" : "btn-secondary"}`}
+          >
+            Pedir renovação
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function DialogShell({ title, step, onClose, children }: { title: string; step?: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onKeyDown={(e) => e.key === "Escape" && onClose()}
+    >
+      <div role="dialog" aria-modal="true" aria-label={title} className="w-full max-w-xl rounded-lg bg-paper-surface p-6 shadow-lg">
+        <div className="mb-4 flex items-start justify-between gap-3 border-b border-paper-line pb-3">
+          <div>
+            {step && <p className="m-0 text-sm font-semibold text-ink-soft">{step}</p>}
+            <h3 className="m-0 text-lg font-bold text-ink">{title}</h3>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="text-ink-soft hover:text-ink">
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const inputClass =
+  "h-11 w-full rounded-md border border-paper-line-strong bg-paper-surface px-3 text-[15px] text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]";
+
+function PeriodFields({
+  sessions,
+  validFrom,
+  validTo,
+  onChange,
+  sessionsLabel,
+}: {
+  sessions: string;
+  validFrom: string;
+  validTo: string;
+  onChange: (patch: Partial<{ sessions: string; validFrom: string; validTo: string }>) => void;
+  sessionsLabel: string;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <label className="flex flex-col gap-1 text-sm font-semibold text-ink">
+        {sessionsLabel}
+        <input type="number" min={1} step={1} inputMode="numeric" value={sessions} onChange={(e) => onChange({ sessions: e.target.value })} className={inputClass} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-semibold text-ink">
+        Vigência: início
+        <input type="date" value={validFrom} onChange={(e) => onChange({ validFrom: e.target.value })} className={inputClass} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-semibold text-ink">
+        Vigência: fim
+        <input type="date" value={validTo} onChange={(e) => onChange({ validTo: e.target.value })} className={inputClass} />
+      </label>
+    </div>
+  );
+}
+
+function RequestRenewalDialog({ item, onClose, onDone }: { item: AuthorizationItem; onClose: () => void; onDone: () => void }) {
+  const router = useRouter();
+  const suggested = suggestedRenewalPeriod(item.validFrom, item.expiresAt);
+  const [step, setStep] = useState<1 | 2>(1);
+  const [form, setForm] = useState({ sessions: String(item.authorizedHours), validFrom: suggested.validFrom, validTo: suggested.validTo });
+  const [justification, setJustification] = useState(
+    `Solicitamos a renovação da autorização de ${item.specialty} para ${item.patientName}, com continuidade do plano terapêutico em andamento.`,
+  );
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const remaining = item.authorizedHours - item.consumedHours;
+
+  const submit = () => {
+    const input = { sessions: Number(form.sessions), validFrom: form.validFrom, validTo: form.validTo };
+    const invalid = validateRenewalPeriod(input);
+    if (invalid) return setError(invalid);
+    setError(null);
+    startTransition(async () => {
+      const result = await requestAuthorizationRenewal(item.id, input);
+      if (!result.success) return setError(result.error);
+      router.refresh();
+      onDone();
+    });
+  };
+
+  return (
+    <DialogShell title="Pedir renovação da guia" step={`Passo ${step} de 2`} onClose={onClose}>
+      {step === 1 ? (
+        <div className="flex flex-col gap-4">
+          <div className="rounded-md bg-paper p-4">
+            <p className="m-0 text-base font-bold text-ink">{item.patientName}</p>
+            <p className="m-0 mt-1 text-sm text-ink-soft">
+              {item.insurerName} · {item.specialty} · guia {item.protocolNumber}
+            </p>
+          </div>
+          <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-[15px]">
+            <dt className="text-ink-soft">Sessões autorizadas</dt>
+            <dd className="m-0 text-right font-semibold tabular-figure text-ink">{item.authorizedHours}</dd>
+            <dt className="text-ink-soft">Sessões já usadas</dt>
+            <dd className="m-0 text-right font-semibold tabular-figure text-ink">{item.consumedHours}</dd>
+            <dt className="font-semibold text-ink">Saldo</dt>
+            <dd className="m-0 text-right font-bold tabular-figure text-status-negative-text">{remaining}</dd>
+            <dt className="text-ink-soft">Vale até</dt>
+            <dd className="m-0 text-right font-semibold text-ink">{fmtDate(item.expiresAt)}</dd>
+          </dl>
+          <div className="flex justify-end gap-3 border-t border-paper-line pt-4">
+            <button type="button" onClick={onClose} className="btn btn-ghost">
+              Cancelar
+            </button>
+            <button type="button" onClick={() => setStep(2)} className="btn btn-primary">
+              Continuar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <PeriodFields {...form} sessionsLabel="Sessões pedidas" onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="renewal-justification" className="text-sm font-semibold text-ink">
+              Texto para o pedido ao plano
+            </label>
+            <textarea
+              id="renewal-justification"
+              rows={4}
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+              className="w-full rounded-md border border-paper-line-strong bg-paper-surface p-3 text-[15px] text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+            />
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[13px] text-ink-soft">Não fica salvo aqui: copie e cole no portal ou e-mail do plano.</span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(justification).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
+                className="btn btn-ghost shrink-0"
+              >
+                {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+                {copied ? "Copiado" : "Copiar texto"}
               </button>
             </div>
-
-            {/* PASSO 1: CONFIRMAÇÃO DOS DADOS DO PACIENTE */}
-            {wizardStep === 1 && (
-              <div className="flex flex-col gap-4">
-                <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
-                  <p className="m-0 text-xs font-bold text-blue-900">Paciente Selecionado:</p>
-                  <h4 className="m-0 text-sm font-bold text-blue-950 mt-0.5">{selectedItem.patientName}</h4>
-                  <p className="m-0 text-xs text-blue-800 mt-1">
-                    Plano de Saúde: <strong>{selectedItem.insurerName}</strong> | Especialidade: <strong>{selectedItem.specialty}</strong>
-                  </p>
-                </div>
-
-                <div className="rounded-lg border p-4 text-xs text-ink-soft space-y-2 bg-paper/40">
-                  <div className="flex justify-between">
-                    <span>Pacote Atual:</span>
-                    <strong className="text-ink">{selectedItem.authorizedHours} horas</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Sessões já realizadas e registradas:</span>
-                    <strong className="text-ink">{selectedItem.consumedHours} horas</strong>
-                  </div>
-                  <div className="flex justify-between text-red-700 font-bold">
-                    <span>Saldo Restante:</span>
-                    <span>{selectedItem.authorizedHours - selectedItem.consumedHours} horas</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 mt-4 border-t pt-3">
-                  <button onClick={closeModal} className="px-4 py-2 text-xs font-semibold text-ink-soft bg-paper rounded-lg border">
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={() => setWizardStep(2)}
-                    className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg border-0 cursor-pointer"
-                  >
-                    Avançar para Relatórios Clinicos →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* PASSO 2: ANEXAR EVOLUÇÕES E JUSTIFICATIVA */}
-            {wizardStep === 2 && (
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-ink mb-1">
-                    Justificativa Clínica e Plano Terapêutico (Compilado Automático):
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={justificationText}
-                    onChange={(e) => setJustificationText(e.target.value)}
-                    className="w-full rounded-lg border p-3 text-xs text-ink font-sans bg-surface focus:outline-none focus:border-blue-500"
-                  />
-                  <span className="text-[11px] text-ink-faint mt-1 block">
-                    Os relatórios de evolução das últimas 12 sessões serão anexados ao arquivo XML TISS automaticamente.
-                  </span>
-                </div>
-
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900 flex items-center gap-2">
-                  <span>✅</span>
-                  <span><strong>Checklist de Segurança:</strong> CID-10 validado, laudo médico ativo e equipe cadastrada.</span>
-                </div>
-
-                <div className="flex justify-between gap-3 mt-4 border-t pt-3">
-                  <button onClick={() => setWizardStep(1)} className="px-4 py-2 text-xs font-semibold text-ink-soft bg-paper rounded-lg border">
-                    ← Voltar
-                  </button>
-                  <button
-                    onClick={() => setWizardStep(3)}
-                    className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg border-0 cursor-pointer"
-                  >
-                    Avançar para Confirmação Final →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* PASSO 3: CONFIRMAÇÃO E RENOVAÇÃO FINAL */}
-            {wizardStep === 3 && (
-              <div className="flex flex-col gap-4">
-                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900">
-                  <h4 className="m-0 text-sm font-bold text-amber-950 mb-1">Confirmar Novo Pacote de Sessões</h4>
-                  <p className="m-0">
-                    Ao confirmar, uma nova autorização de <strong>40 horas</strong> será adicionada para {selectedItem.patientName} e o saldo será resetado.
-                  </p>
-                </div>
-
-                <div className="flex justify-between gap-3 mt-4 border-t pt-3">
-                  <button onClick={() => setWizardStep(2)} className="px-4 py-2 text-xs font-semibold text-ink-soft bg-paper rounded-lg border">
-                    ← Voltar
-                  </button>
-                  <button
-                    onClick={handleCompleteRenewal}
-                    className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg border-0 cursor-pointer shadow-md"
-                  >
-                    🚀 Finalizar e Enviar Autorização
-                  </button>
-                </div>
-              </div>
-            )}
+          </div>
+          <p className="m-0 rounded-md bg-status-pending-soft px-4 py-3 text-sm text-status-pending-text">
+            Isto registra que a clínica pediu a renovação. As sessões novas só entram quando você registrar a resposta do plano.
+          </p>
+          {error && (
+            <p role="alert" className="m-0 text-sm font-semibold text-status-negative-text">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-between gap-3 border-t border-paper-line pt-4">
+            <button type="button" onClick={() => setStep(1)} className="btn btn-ghost" disabled={isPending}>
+              Voltar
+            </button>
+            <button type="button" onClick={submit} className="btn btn-primary" disabled={isPending}>
+              {isPending ? "Registrando…" : "Registrar pedido de renovação"}
+            </button>
           </div>
         </div>
       )}
-    </div>
+    </DialogShell>
+  );
+}
+
+function RenewalResponseDialog({
+  item,
+  onClose,
+  onDone,
+}: {
+  item: AuthorizationItem;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const router = useRouter();
+  const renewal = item.renewal!;
+  const [outcome, setOutcome] = useState<"autorizada" | "negada">("autorizada");
+  const [guideNumber, setGuideNumber] = useState("");
+  const [form, setForm] = useState({ sessions: String(renewal.sessionsRequested), validFrom: renewal.validFrom, validTo: renewal.validTo });
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const submit = () => {
+    const input =
+      outcome === "negada"
+        ? ({ outcome: "negada" } as const)
+        : ({ outcome: "autorizada", guideNumber, sessions: Number(form.sessions), validFrom: form.validFrom, validTo: form.validTo } as const);
+    if (input.outcome === "autorizada") {
+      if (!guideNumber.trim()) return setError("Informe o número da guia autorizada.");
+      const invalid = validateRenewalPeriod(input);
+      if (invalid) return setError(invalid);
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await registerAuthorizationRenewalResponse(renewal.id, input);
+      if (!result.success) return setError(result.error);
+      router.refresh();
+      onDone(outcome === "autorizada" ? "Guia nova registrada e ativa." : "Negativa do plano registrada.");
+    });
+  };
+
+  return (
+    <DialogShell title="Resposta do plano" onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <div className="rounded-md bg-paper p-4">
+          <p className="m-0 text-base font-bold text-ink">{item.patientName}</p>
+          <p className="m-0 mt-1 text-sm text-ink-soft">
+            {item.insurerName} · {item.specialty} · pedido{renewal.requestedAt ? ` em ${fmtDate(renewal.requestedAt)}` : ""} de{" "}
+            {renewal.sessionsRequested} sessões
+          </p>
+        </div>
+
+        <fieldset className="m-0 flex flex-wrap gap-3 border-0 p-0">
+          <legend className="mb-2 text-sm font-semibold text-ink">O plano…</legend>
+          {(["autorizada", "negada"] as const).map((value) => (
+            <label
+              key={value}
+              className={`flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-[15px] font-semibold ${
+                outcome === value ? "border-[var(--color-accent)] bg-[var(--color-accent-100)] text-ink" : "border-paper-line-strong text-ink-soft"
+              }`}
+            >
+              <input type="radio" name="renewal-outcome" value={value} checked={outcome === value} onChange={() => setOutcome(value)} className="accent-[var(--color-accent)]" />
+              {value === "autorizada" ? "Autorizou" : "Negou"}
+            </label>
+          ))}
+        </fieldset>
+
+        {outcome === "autorizada" ? (
+          <>
+            <label className="flex flex-col gap-1 text-sm font-semibold text-ink">
+              Número da guia autorizada
+              <input value={guideNumber} onChange={(e) => setGuideNumber(e.target.value)} className={inputClass} autoComplete="off" />
+            </label>
+            <PeriodFields {...form} sessionsLabel="Sessões autorizadas" onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
+          </>
+        ) : (
+          <p className="m-0 rounded-md bg-status-negative-soft px-4 py-3 text-sm text-status-negative-text">
+            O pedido fica registrado como negado. O alerta de renovação continua na fila de pendências até entrar uma guia nova.
+          </p>
+        )}
+
+        {error && (
+          <p role="alert" className="m-0 text-sm font-semibold text-status-negative-text">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-3 border-t border-paper-line pt-4">
+          <button type="button" onClick={onClose} className="btn btn-ghost" disabled={isPending}>
+            Cancelar
+          </button>
+          <button type="button" onClick={submit} className="btn btn-primary" disabled={isPending}>
+            {isPending ? "Registrando…" : outcome === "autorizada" ? "Registrar guia autorizada" : "Registrar negativa"}
+          </button>
+        </div>
+      </div>
+    </DialogShell>
   );
 }

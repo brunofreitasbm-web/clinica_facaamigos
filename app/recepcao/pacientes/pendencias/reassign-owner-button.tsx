@@ -30,7 +30,7 @@ export function ReassignOwnerButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-[11px] font-medium text-ink-faint underline decoration-dotted opacity-70 transition-opacity hover:text-ink hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
+        className="text-[13px] font-medium text-ink-faint underline decoration-dotted opacity-70 transition-opacity hover:text-ink hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
       >
         Reatribuir
       </button>
@@ -43,7 +43,7 @@ export function ReassignOwnerButton({
         <select
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className="rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-xs"
+          className="rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-[13px]"
         >
           <option value="" disabled>
             Selecione…
@@ -65,19 +65,19 @@ export function ReassignOwnerButton({
               else setError(result.error);
             });
           }}
-          className="rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-xs font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
+          className="rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-[13px] font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
         >
           {isPending ? "Salvando…" : "Salvar"}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="text-[11px] text-ink-faint hover:text-ink"
+          className="text-[13px] text-ink-faint hover:text-ink"
         >
           Cancelar
         </button>
       </div>
-      {error && <p className="text-[11px] text-status-negative-text">{error}</p>}
+      {error && <p className="text-[13px] text-status-negative-text">{error}</p>}
     </div>
   );
 }

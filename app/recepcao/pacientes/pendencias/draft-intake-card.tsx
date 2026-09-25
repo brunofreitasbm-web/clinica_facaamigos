@@ -44,7 +44,7 @@ export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegist
       <div className="flex flex-col gap-3">
         {draft.guardianMessage && (
           <p className="rounded-md bg-paper-line/40 px-3 py-2 text-ink">
-            <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Mensagem da família: </span>
+            <span className="text-[13px] font-semibold uppercase tracking-wide text-ink-soft">Mensagem da família: </span>
             {draft.guardianMessage}
           </p>
         )}
@@ -58,7 +58,7 @@ export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegist
           documents={
             <div className="flex flex-col gap-3">
               <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+                <h4 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
                   Arquivos recebidos ({draft.files.length})
                 </h4>
                 {draft.files.length === 0 ? (
@@ -83,7 +83,7 @@ export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegist
               </div>
 
               <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+                <h4 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
                   Dados já recebidos ({draft.facts.length})
                 </h4>
                 {draft.facts.length === 0 ? (
@@ -94,7 +94,7 @@ export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegist
                   <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                     {draft.facts.map((fact) => (
                       <div key={fact.label} className="contents">
-                        <dt className="text-xs uppercase tracking-wide text-ink-soft">{fact.label}</dt>
+                        <dt className="text-[13px] uppercase tracking-wide text-ink-soft">{fact.label}</dt>
                         <dd className="m-0 text-ink">{fact.value}</dd>
                       </div>
                     ))}
@@ -107,7 +107,7 @@ export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegist
 
         {draft.messages.length > 0 && (
           <details open={focus} className="rounded-md border border-paper-line-strong bg-paper/40 px-3 py-2">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-ink-soft">
+            <summary className="cursor-pointer text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
               Conversa ({draft.messages.length} últimas mensagens)
             </summary>
             <ul className="mt-2 flex flex-col gap-1">

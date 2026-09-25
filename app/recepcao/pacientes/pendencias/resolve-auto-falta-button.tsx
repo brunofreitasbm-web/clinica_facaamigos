@@ -20,10 +20,10 @@ export function ResolveAutoFaltaButton({ appointmentId }: { appointmentId: strin
   const [isPending, startTransition] = useTransition();
 
   if (done === "motivo") {
-    return <span className="text-xs font-medium text-status-positive-text">✓ Motivo registrado</span>;
+    return <span className="text-[13px] font-medium text-status-positive-text">✓ Motivo registrado</span>;
   }
   if (done === "desfeita") {
-    return <span className="text-xs font-medium text-status-positive-text">✓ Falta desfeita</span>;
+    return <span className="text-[13px] font-medium text-status-positive-text">✓ Falta desfeita</span>;
   }
 
   if (mode === "reason") {
@@ -47,7 +47,7 @@ export function ResolveAutoFaltaButton({ appointmentId }: { appointmentId: strin
           <select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-xs"
+            className="rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-[13px]"
           >
             {CANCEL_REASONS.map((r) => (
               <option key={r.value} value={r.value}>
@@ -58,7 +58,7 @@ export function ResolveAutoFaltaButton({ appointmentId }: { appointmentId: strin
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
+            className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-[13px] font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
           >
             {isPending ? "Salvando…" : "Salvar"}
           </button>
@@ -68,10 +68,10 @@ export function ResolveAutoFaltaButton({ appointmentId }: { appointmentId: strin
             value={reasonOther}
             onChange={(e) => setReasonOther(e.target.value)}
             placeholder="Descreva o motivo"
-            className="w-full rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-xs"
+            className="w-full rounded-md border border-paper-line-strong bg-paper px-2 py-1 text-[13px]"
           />
         )}
-        {error && <p className="text-[11px] text-status-negative-text">{error}</p>}
+        {error && <p className="text-[13px] text-status-negative-text">{error}</p>}
       </form>
     );
   }
@@ -82,7 +82,7 @@ export function ResolveAutoFaltaButton({ appointmentId }: { appointmentId: strin
         <button
           type="button"
           onClick={() => setMode("reason")}
-          className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:bg-paper-subtle"
+          className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-[13px] font-medium text-ink hover:bg-paper-subtle"
         >
           Definir motivo
         </button>
@@ -97,12 +97,12 @@ export function ResolveAutoFaltaButton({ appointmentId }: { appointmentId: strin
               else setError(result.error ?? "Erro ao desfazer.");
             });
           }}
-          className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
+          className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-[13px] font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
         >
           {isPending ? "Desfazendo…" : "Desfazer falta"}
         </button>
       </div>
-      {error && <p className="text-[11px] text-status-negative-text">{error}</p>}
+      {error && <p className="text-[13px] text-status-negative-text">{error}</p>}
     </div>
   );
 }

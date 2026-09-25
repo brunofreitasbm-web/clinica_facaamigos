@@ -194,6 +194,20 @@ export type AuthorizationWizardItem = {
   expiresAt: string;
   status: "regular" | "attention" | "critical";
   protocolNumber: string;
+  validFrom: string;
+  /**
+   * Renovação já pedida ao plano: nova linha em `authorizations` com
+   * status "pendente" e previous_authorization_id apontando para esta guia
+   * (ver requestAuthorizationRenewal em
+   * app/recepcao/pacientes/pendencias/authorization-renewal-actions.ts).
+   */
+  renewal: {
+    id: string;
+    requestedAt: string | null;
+    sessionsRequested: number;
+    validFrom: string;
+    validTo: string;
+  } | null;
 };
 
 /**
@@ -223,12 +237,28 @@ export async function getAuthorizationWizardItems(
 
   const { data: auths } = await supabase
     .from("authorizations")
-    .select("id, patient_insurance_id, guide_number, procedure_code, sessions_authorized, sessions_used, valid_to, status")
+    .select(
+      "id, patient_insurance_id, guide_number, procedure_code, sessions_authorized, sessions_used, valid_from, valid_to, status, requested_at, previous_authorization_id",
+    )
     .in("patient_insurance_id", insuranceIds)
     .in("status", ["ativa", "pendente"]);
 
+  // Renovação pedida (pendente com guia anterior) aparece dentro da guia
+  // anterior, não como pacote próprio; guia que já tem sucessora ativa sai da
+  // lista — a renovação já foi resolvida.
+  const pendingRenewalByPrevious = new Map<string, NonNullable<typeof auths>[number]>();
+  const renewedIds = new Set<string>();
+  for (const auth of auths ?? []) {
+    if (!auth.previous_authorization_id) continue;
+    if (auth.status === "pendente") pendingRenewalByPrevious.set(auth.previous_authorization_id, auth);
+    else renewedIds.add(auth.previous_authorization_id);
+  }
+
   const items: AuthorizationWizardItem[] = [];
   for (const auth of auths ?? []) {
+    if (auth.status === "pendente" && auth.previous_authorization_id) continue;
+    if (renewedIds.has(auth.id)) continue;
+    const renewal = pendingRenewalByPrevious.get(auth.id);
     const insurance = insuranceById.get(auth.patient_insurance_id);
     if (!insurance) continue;
     const patient = patientById.get(insurance.patient_id);
@@ -260,6 +290,16 @@ export async function getAuthorizationWizardItems(
       expiresAt: auth.valid_to,
       status: itemStatus,
       protocolNumber: auth.guide_number || `AUT-${auth.id.slice(0, 8)}`,
+      validFrom: auth.valid_from,
+      renewal: renewal
+        ? {
+            id: renewal.id,
+            requestedAt: renewal.requested_at,
+            sessionsRequested: renewal.sessions_authorized,
+            validFrom: renewal.valid_from,
+            validTo: renewal.valid_to,
+          }
+        : null,
     });
   }
 

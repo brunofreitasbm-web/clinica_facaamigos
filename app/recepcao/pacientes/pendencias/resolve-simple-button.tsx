@@ -26,7 +26,7 @@ export function ResolveSimpleButton({
   const [isPending, startTransition] = useTransition();
 
   if (done) {
-    return <span className="text-xs font-medium text-status-positive-text">✓ {doneLabel}</span>;
+    return <span className="text-[13px] font-medium text-status-positive-text">✓ {doneLabel}</span>;
   }
 
   return (
@@ -42,11 +42,11 @@ export function ResolveSimpleButton({
             else setError(result.error);
           });
         }}
-        className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
+        className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-[13px] font-medium text-ink hover:bg-paper-subtle disabled:opacity-50"
       >
         {isPending ? "Salvando…" : label}
       </button>
-      {error && <p className="text-[11px] text-status-negative-text">{error}</p>}
+      {error && <p className="text-[13px] text-status-negative-text">{error}</p>}
     </div>
   );
 }
