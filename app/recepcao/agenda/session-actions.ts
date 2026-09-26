@@ -301,6 +301,15 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
     return { success: false, error: mapAuthorizationGuardError(error.message ?? "") };
   }
 
+  if (appointment.is_evaluation && appointment.patient_id) {
+    try {
+      const { dispatchAnamneseNps } = await import("@/lib/nps-dispatch");
+      await dispatchAnamneseNps(appointment.patient_id, appointmentId);
+    } catch (npsErr) {
+      console.error("[Session Checkout NPS Dispatch Warning]:", npsErr);
+    }
+  }
+
   revalidateAgendaViews();
   return { success: true };
 }

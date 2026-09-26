@@ -133,6 +133,14 @@ export async function saveAnamnese(patientId: string, formData: FormData): Promi
     await supabase.from("patients").update(patientClinicalUpdate).eq("id", patientId);
   }
 
+  // Envia a NPS via WhatsApp (Twilio) para o responsável após a conclusão da Anamnese/1ª avaliação
+  try {
+    const { dispatchAnamneseNps } = await import("@/lib/nps-dispatch");
+    await dispatchAnamneseNps(patientId);
+  } catch (npsErr) {
+    console.error("[Anamnese NPS Dispatch Warning]:", npsErr);
+  }
+
   revalidatePath(`/recepcao/pacientes/${patientId}`);
   revalidatePath(`/recepcao/pacientes/${patientId}/gestao`);
   revalidatePath(`/supervisao/pacientes/${patientId}/anamnese`);
@@ -141,3 +149,4 @@ export async function saveAnamnese(patientId: string, formData: FormData): Promi
   revalidatePath("/supervisao");
   return { success: true };
 }
+
