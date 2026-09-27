@@ -1,4 +1,4 @@
-import { CLINIC_WEBSITE } from "./clinic-identity.ts";
+import { CLINIC_WEBSITE } from "./clinic-identity";
 
 /**
  * Constrói a mensagem e URL da pesquisa NPS de 1ª Avaliação / Anamnese.

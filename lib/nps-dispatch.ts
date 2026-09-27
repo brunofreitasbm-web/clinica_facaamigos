@@ -65,8 +65,8 @@ export async function dispatchAnamneseNps(
   }
 
   if (!alreadyExists) {
-    const { data: existingPatientEval } = await admin
-      .from("nps_surveys")
+    const { data: existingPatientEval } = await (admin
+      .from("nps_surveys") as any)
       .select("id")
       .eq("patient_id", patientId)
       .eq("trigger_type", "evaluation")
