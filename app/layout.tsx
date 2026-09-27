@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { APP_ORIGIN, CLINIC_BRAND, CLINIC_NAME } from "@/lib/clinic-identity";
 import { Nunito, Fredoka } from "next/font/google";
 import { AuthStatus } from "@/components/auth-status";
+import { HideOnRoutes } from "@/components/hide-on-routes";
 import { OfflineBanner } from "@/components/offline-banner";
 import "./globals.css";
 
@@ -62,7 +63,10 @@ export default function RootLayout({
           </Suspense>
           <OfflineBanner />
           <Suspense fallback={null}>
-            <AuthStatus />
+            {/* Tela de atendimento (chat mobile) ocupa a altura toda — sem a barra global */}
+            <HideOnRoutes prefixes={["/recepcao/atendimento"]}>
+              <AuthStatus />
+            </HideOnRoutes>
           </Suspense>
           {children}
         </ToastProvider>
