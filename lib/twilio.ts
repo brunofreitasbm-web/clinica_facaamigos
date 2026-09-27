@@ -108,8 +108,9 @@ export function getTwilioContentSidForCategory(category: string): string | undef
       return process.env.TWILIO_NPS_TEMPLATE_CONTENT_SID;
     case "renovacao_guia":
       return process.env.TWILIO_RENEWAL_TEMPLATE_CONTENT_SID;
-    case "cobranca":
-      return process.env.TWILIO_BILLING_TEMPLATE_CONTENT_SID;
+    case "reabertura_atendimento":
+    case "reabertura_24h":
+      return process.env.TWILIO_REOPEN_TEMPLATE_CONTENT_SID;
     case "reuniao_responsavel":
       return process.env.TWILIO_MEETING_TEMPLATE_CONTENT_SID;
     case "devolutiva_paciente":

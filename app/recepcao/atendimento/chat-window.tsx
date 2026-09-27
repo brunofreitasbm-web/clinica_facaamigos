@@ -168,6 +168,7 @@ export function ChatWindow({
         onSend={handleSendText}
         contactName={conversation.contactName}
         guardianName={conversation.guardianName}
+        lastMessageAt={conversation.lastMessageAt}
       />
     </div>
   );

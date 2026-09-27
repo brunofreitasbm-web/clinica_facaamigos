@@ -11,6 +11,7 @@ interface MessageInputProps {
   onSend: (text: string, isRetry?: boolean) => Promise<{ success: boolean; error?: string; warning?: string }>;
   contactName?: string | null;
   guardianName?: string | null;
+  lastMessageAt?: string | null;
 }
 
 export function MessageInput({
@@ -19,6 +20,7 @@ export function MessageInput({
   onSend,
   contactName,
   guardianName,
+  lastMessageAt,
 }: MessageInputProps) {
   const { draft, setDraft, clearDraft } = useDraftMessage(conversationId, "chat");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -73,8 +75,34 @@ export function MessageInput({
     setShowQuickResponses(draft.startsWith("/"));
   }, [draft]);
 
+  const isOver24h = lastMessageAt
+    ? Date.now() - new Date(lastMessageAt).getTime() > 24 * 60 * 60 * 1000
+    : false;
+
   return (
     <div className="relative border-t border-paper-line-strong p-3 bg-white dark:bg-slate-900">
+      {/* Banner de Reabertura (>24h) */}
+      {isOver24h && (
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-teal-50 border border-teal-200 px-3 py-2 text-xs text-teal-900 dark:bg-teal-950/50 dark:border-teal-800 dark:text-teal-200">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold">⏱️ Janela de 24h inativa:</span>
+            <span>Envie a mensagem de continuidade para retomar a conversa.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const firstName = (guardianName ?? contactName)?.trim().split(/\s+/)[0];
+              const salutation = firstName ? `Olá, ${firstName}! ` : "Olá! ";
+              setDraft(`${salutation}Podemos dar continuidade no seu atendimento?`);
+              inputRef.current?.focus();
+            }}
+            className="rounded-md bg-teal-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-teal-700 transition-colors shrink-0"
+          >
+            Inserir modelo: &quot;Podemos dar continuidade no seu atendimento?&quot;
+          </button>
+        </div>
+      )}
+
       {/* Alerta de Aviso de Envio */}
       {warningMessage && (
         <div className="mb-2 flex items-center justify-between rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">

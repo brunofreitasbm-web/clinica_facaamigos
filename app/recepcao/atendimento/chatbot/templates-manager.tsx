@@ -18,9 +18,10 @@ export type TemplateRow = {
 const CATEGORY_LABEL: Record<string, string> = {
   confirmacao_d1: "Confirmação D-1",
   falta: "Alerta de Falta",
-  cobranca: "Cobrança",
+  reabertura_atendimento: "Reabertura (>24h) - Continuidade",
   aniversario: "Aniversário",
   renovacao_guia: "Renovação de Guia",
+  reuniao_responsavel: "Reunião de Responsável",
   outro: "Outro",
 };
 

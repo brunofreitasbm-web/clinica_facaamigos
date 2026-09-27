@@ -42,11 +42,13 @@ export function TwilioSendModal({
 
   if (!isOpen) return null;
 
-  const applyTemplate = (templateType: "reminder" | "absence" | "general") => {
+  const applyTemplate = (templateType: "reminder" | "absence" | "reopen" | "general") => {
     if (templateType === "reminder") {
       setMessage(`Olá ${guardianName}! 💙 Confirmamos a sessão de ${patientName} agendada para amanhã. Por favor, responda 1 para CONFIRMAR ou 2 para REAGENDAR. FaçaAmigos - Centro de Terapia Comportamental. 🧩✨`);
     } else if (templateType === "absence") {
       setMessage(`Olá ${guardianName}! 💙 Sentimos falta de ${patientName} na sessão de hoje. Entre em contato com a nossa recepção para reagendamento ou justificativa. Estamos à disposição! FaçaAmigos - Centro de Terapia Comportamental. 🌱`);
+    } else if (templateType === "reopen") {
+      setMessage(`Olá ${guardianName}! 💙 Podemos dar continuidade no seu atendimento?`);
     } else {
       setMessage(`Olá ${guardianName}! 💙 Comunicamos um aviso importante sobre o acompanhamento de ${patientName}. Qualquer dúvida, nossa equipe está aqui por vocês! FaçaAmigos - Centro de Terapia Comportamental. 🤝✨`);
     }
@@ -189,6 +191,13 @@ export function TwilioSendModal({
               <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Modelos de Mensagem
             </label>
             <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => applyTemplate("reopen")}
+                className="rounded-lg bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 hover:bg-teal-100 dark:bg-teal-950/40 dark:text-teal-300 dark:hover:bg-teal-900 border border-teal-200/60 dark:border-teal-800/60"
+              >
+                Reabertura (&gt;24h)
+              </button>
               <button
                 type="button"
                 onClick={() => applyTemplate("absence")}
