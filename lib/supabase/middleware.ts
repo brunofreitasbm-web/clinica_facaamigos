@@ -48,6 +48,9 @@ const PUBLIC_PREFIXES = [
   // devolvem 401 sem o header, então abrir aqui é seguro.
   "/api/extractions",
   "/api/intake",
+  // Porta de entrada do Hub de Gestão (app/auth/sso): chega sem sessão por
+  // definição — é ela que cria a sessão a partir do token de uso único.
+  "/auth/sso",
 ];
 
 // Rotas que só exigem sessão válida, sem o guard de papel abaixo: os links de
