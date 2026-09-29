@@ -8605,6 +8605,90 @@ export type Database = {
       }
     }
     Views: {
+      metabase_ux_friction_by_element: {
+        Row: {
+          clinic_id: string | null
+          semana: string | null
+          tela: string | null
+          elemento: string | null
+          tipo: string | null
+          usuarios_distintos: number | null
+          ocorrencias_atual: number | null
+          ocorrencias_semana_anterior: number | null
+          variacao_absoluta: number | null
+          meta_max_ocorrencias: number | null
+          leitura: string | null
+        }
+        Relationships: []
+      }
+      metabase_ux_friction_by_page: {
+        Row: {
+          clinic_id: string | null
+          semana: string | null
+          tela: string | null
+          papeis: string | null
+          usuarios_distintos: number | null
+          visualizacoes: number | null
+          cliques_repetidos: number | null
+          cliques_sem_resposta: number | null
+          erros_formulario: number | null
+          erros_sistema: number | null
+          sinais: number | null
+          prioridade: number | null
+          sinais_por_100_atual: number | null
+          sinais_por_100_semana_anterior: number | null
+          variacao_sinais_pp: number | null
+          meta_max_sinais_por_100: number | null
+          pct_saidas_rapidas_atual: number | null
+          pct_saidas_rapidas_semana_anterior: number | null
+          meta_max_pct_saidas_rapidas: number | null
+          ttfa_mediano_atual_s: number | null
+          ttfa_mediano_semana_anterior_s: number | null
+          meta_max_ttfa_s: number | null
+          permanencia_mediana_s: number | null
+          leitura: string | null
+        }
+        Relationships: []
+      }
+      metabase_ux_friction_kpis: {
+        Row: {
+          clinic_id: string | null
+          semana: string | null
+          semana_em_andamento: boolean | null
+          papel: string | null
+          usuarios_ativos: number | null
+          sessoes: number | null
+          telas_vistas: number | null
+          sessoes_com_friccao: number | null
+          pct_sessoes_com_friccao_atual: number | null
+          pct_sessoes_com_friccao_semana_anterior: number | null
+          variacao_pp: number | null
+          meta_max_pct_sessoes_com_friccao: number | null
+          sinais_por_100_telas_atual: number | null
+          sinais_por_100_telas_semana_anterior: number | null
+          meta_max_sinais_por_100_telas: number | null
+          ttfa_mediano_atual_s: number | null
+          ttfa_mediano_semana_anterior_s: number | null
+          meta_max_ttfa_s: number | null
+          leitura: string | null
+        }
+        Relationships: []
+      }
+      metabase_ux_navigation_loops: {
+        Row: {
+          clinic_id: string | null
+          semana: string | null
+          tela_de_origem: string | null
+          tela_visitada: string | null
+          usuarios_distintos: number | null
+          idas_e_voltas_atual: number | null
+          idas_e_voltas_semana_anterior: number | null
+          variacao_absoluta: number | null
+          meta_max_idas_e_voltas: number | null
+          leitura: string | null
+        }
+        Relationships: []
+      }
       authorization_documentation_risk: {
         Row: {
           authorization_document_attached: boolean | null

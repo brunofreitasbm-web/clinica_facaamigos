@@ -14,6 +14,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
    - Todo e qualquer KPI/indicador de Business Intelligence (BI) DEVE SEMPRE possuir algum tipo de comparativo ou métrica de referência (ex.: *vs. Mês Anterior*, *vs. Período Anterior*, *vs. Meta/Target*, *% de Atingimento do Orçamento*, *Variação YoY*).
    - Métricas isoladas sem contexto comparativo não são consideradas KPIs válidos no sistema.
 
-2. **Dashboards Exclusivamente via METABASE:**
-   - A criação, exibição e gestão de Dashboards de BI e relatórios analíticos gerenciais DEVEM SER realizadas via **METABASE** (self-hosted apontando para as Views/Materialized Views read-only do Postgres/Supabase).
-
+2. **Dashboards de BI dentro do sistema, sem ferramenta paga:**
+   - Dashboards e relatórios analíticos gerenciais são páginas do próprio sistema (área do gestor), lendo Views/Materialized Views read-only do Postgres/Supabase protegidas por RLS. Metabase **não** é usado (custo); não introduzir ferramenta de BI paga sem decisão explícita do dono do projeto.
+   - As Views antigas com prefixo `metabase_` continuam valendo como camada de dados (o prefixo é só herança de nome).

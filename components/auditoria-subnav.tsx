@@ -1,12 +1,13 @@
 import Link from "next/link";
 
 interface AuditoriaSubnavProps {
-  activeTab: "lgpd" | "ouvidoria";
+  activeTab: "lgpd" | "ouvidoria" | "uso";
 }
 
 const ITEMS = [
   { key: "lgpd", label: "Acesso a Prontuários (LGPD)", href: "/gestor/auditoria" },
   { key: "ouvidoria", label: "Ouvidoria & Incidentes", href: "/gestor/ouvidoria" },
+  { key: "uso", label: "Facilidade de uso", href: "/gestor/facilidade-de-uso" },
 ] as const;
 
 export function AuditoriaSubnav({ activeTab }: AuditoriaSubnavProps) {
