@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
+import { reportUxError } from "@/components/friction-tracker";
 
 export type ToastType = "success" | "error" | "info";
 
@@ -30,6 +31,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const toast = useCallback(
     (text: string, type: ToastType = "success", undoAction?: () => void, durationMs = 4000) => {
       const id = Math.random().toString(36).substring(2, 9);
+      if (type === "error") reportUxError("toast", text);
       setToasts((prev) => [...prev, { id, text, type, undoAction }]);
 
       setTimeout(() => {

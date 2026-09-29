@@ -552,6 +552,45 @@ export type Database = {
           },
         ]
       }
+      ux_events: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          detail: Json
+          event_type: string
+          id: string
+          profile_id: string | null
+          role: string
+          route: string
+          session_id: string
+          target: string | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          detail?: Json
+          event_type: string
+          id?: string
+          profile_id?: string | null
+          role: string
+          route: string
+          session_id: string
+          target?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          detail?: Json
+          event_type?: string
+          id?: string
+          profile_id?: string | null
+          role?: string
+          route?: string
+          session_id?: string
+          target?: string | null
+        }
+        Relationships: []
+      }
       ai_usage_log: {
         Row: {
           audio_input_tokens: number
