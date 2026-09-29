@@ -55,7 +55,7 @@ const PUBLIC_PREFIXES = [
 // (prontuário do terapeuta, ficha da recepção, acolhimento da supervisão...)
 // e nenhum prefixo de ROLE_ALLOWED_PREFIXES cobre todos. A decisão de acesso
 // de verdade é do próprio route handler (RLS via client de sessão).
-const SESSION_ONLY_PREFIXES = ["/api/arquivos"];
+const SESSION_ONLY_PREFIXES = ["/api/arquivos", "/api/ux-events"];
 
 function isSessionOnlyPath(pathname: string): boolean {
   return SESSION_ONLY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

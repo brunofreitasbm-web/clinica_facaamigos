@@ -41,6 +41,7 @@ import { ToastProvider } from "@/components/toast-provider";
 import { RouteProgressBar } from "@/components/route-progress-bar";
 import { NavHistoryTracker } from "@/components/nav-history-tracker";
 import { AuthSessionManager } from "@/components/auth-session-manager";
+import { FrictionTracker } from "@/components/friction-tracker";
 import { Suspense } from "react";
 
 export default function RootLayout({
@@ -55,6 +56,7 @@ export default function RootLayout({
       <body className="h-full flex flex-col" suppressHydrationWarning>
         <ToastProvider>
           <AuthSessionManager />
+          <FrictionTracker />
           <Suspense fallback={null}>
             <NavHistoryTracker />
           </Suspense>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { reportUxError } from "@/components/friction-tracker";
 
 export default function Error({
   error,
@@ -11,6 +12,7 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error("Erro na página:", error);
+    reportUxError("crash");
     if (error?.digest) {
       console.error("Digest do erro de servidor:", error.digest);
     }
