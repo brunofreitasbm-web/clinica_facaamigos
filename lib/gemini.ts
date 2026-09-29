@@ -26,16 +26,6 @@ export interface GeminiChatOptions {
   feature: AiFeature;
 }
 
-export interface DocumentAnalysisResult {
-  success: boolean;
-  patientName?: string;
-  cpf?: string;
-  insurerName?: string;
-  documentType?: "laudo" | "guia" | "carteirinha" | "outro";
-  rawSummary?: string;
-  error?: string;
-}
-
 /**
  * Resultado cru da transcrição + estruturação de evolução clínica por voz.
  * Os campos espelham `SessionNoteStructured` (lib/session-note-fields.ts)
@@ -231,115 +221,6 @@ export async function generateGeminiChatResponse(options: GeminiChatOptions): Pr
     return {
       success: false,
       error: errMsg,
-    };
-  }
-}
-
-/**
- * Classifica a intenção da mensagem do usuário usando o Gemini AI.
- */
-export async function classifyUserIntentWithGemini(userMessage: string): Promise<string> {
-  if (!isGeminiConfigured()) {
-    return "desconhecido";
-  }
-
-  const systemInstruction = `Você é o classificador de intenções da clínica de desenvolvimento infantil.
-Dada a mensagem do usuário via WhatsApp, classifique em EXATAMENTE uma das seguintes categorias:
-- AGENDAMENTO (para pedidos de agendar avaliação, consulta, anamnese, marcar horário)
-- PLANOS_SAUDE (para perguntas sobre convênios aceitos, reembolsos, cobertura)
-- ENVIO_DOCUMENTO (para mensagens que mencionam envio de laudo, guia, receita, documento)
-- DUVIDA_GERAL (para perguntas sobre localização, funcionamento, terapias, ABA, valores ou atendimento humano)
-
-Responda APENAS com a palavra da categoria em maiúsculas (ex: AGENDAMENTO).`;
-
-  const res = await generateGeminiChatResponse({
-    prompt: userMessage,
-    systemInstruction,
-    temperature: 0.1,
-    feature: "classificacao_intencao",
-  });
-
-  if (!res.success || !res.text) return "DUVIDA_GERAL";
-
-  const upper = res.text.trim().toUpperCase();
-  if (upper.includes("AGENDAMENTO")) return "AGENDAMENTO";
-  if (upper.includes("PLANOS_SAUDE")) return "PLANOS_SAUDE";
-  if (upper.includes("ENVIO_DOCUMENTO")) return "ENVIO_DOCUMENTO";
-  return "DUVIDA_GERAL";
-}
-
-/**
- * Analisa e extrai dados de laudos, guias ou carteirinhas usando visão/multimodal do Gemini.
- */
-export async function analyzeMedicalDocumentWithGemini(
-  base64Data: string,
-  mimeType: string
-): Promise<DocumentAnalysisResult> {
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey || !isGeminiConfigured()) {
-    return {
-      success: false,
-      error: "GEMINI_API_KEY não configurada.",
-    };
-  }
-
-  try {
-    const prompt = `Analise a imagem/documento médico anexo e extraia os seguintes dados em formato JSON estrito:
-{
-  "patientName": "Nome completo do paciente se encontrado ou null",
-  "cpf": "CPF se encontrado ou null",
-  "insurerName": "Nome do plano de saúde se encontrado ou null",
-  "documentType": "laudo" | "guia" | "carteirinha" | "outro",
-  "rawSummary": "Resumo em 1 frase curta do conteúdo"
-}
-Responda APENAS o JSON válido sem nenhum texto adicional.`;
-
-    const payload = {
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: mimeType || "image/jpeg",
-                data: base64Data,
-              },
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: "application/json",
-      },
-    };
-
-    const res = await geminiFetch("analise_documento", payload);
-
-    if (!res.ok) {
-      return { success: false, error: `Erro na análise visual Gemini: ${res.status}` };
-    }
-
-    const data = await res.json();
-    const jsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const parsed = JSON.parse(jsonText);
-
-    return {
-      success: true,
-      patientName: parsed.patientName || undefined,
-      cpf: parsed.cpf || undefined,
-      insurerName: parsed.insurerName || undefined,
-      documentType: parsed.documentType || "outro",
-      rawSummary: parsed.rawSummary || "Documento analisado.",
-    };
-  } catch (err: unknown) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    console.error("[Gemini Document Analysis Error]:", errMessage);
-    return {
-      success: false,
-      error: errMessage,
     };
   }
 }

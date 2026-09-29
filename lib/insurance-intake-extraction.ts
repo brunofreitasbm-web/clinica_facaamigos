@@ -171,6 +171,52 @@ function coerceIntakeExtraction(raw: unknown): IntakeExtraction {
 export type IntakeFileInput = { base64: string; mimeType: string };
 
 import { extractText } from "unpdf";
+import { parseNauRows, type NauParseResult } from "@/lib/insurance-intake-nau-parser";
+
+/** Converte as linhas do parser determinístico NAU/Porto no formato comum do pipeline. */
+function nauToIntakeExtraction(parsed: NauParseResult, insurerNames: string[]): IntakeExtraction {
+  const insurer = insurerNames.find((i) => /unimed/i.test(i)) ?? "Unimed";
+  const generalWarnings = ["Lido pelo parser determinístico da planilha NAU/Porto (sem IA) — confira antes de aprovar."];
+  if (parsed.missingSeqs.length > 0) {
+    generalWarnings.push(`Numeração (SEQ.) com lacunas: ${parsed.missingSeqs.join(", ")} — linhas possivelmente não lidas.`);
+  }
+  return {
+    detected_insurer_name: insurer,
+    truncated: false,
+    warnings: generalWarnings,
+    rows: parsed.rows.map((r) => {
+      const warnings: string[] = [];
+      if (r.therapies.length === 0) {
+        warnings.push("Terapias não identificadas (célula quebrada em várias linhas no PDF) — confira no documento.");
+      }
+      if (!r.phone) warnings.push("Telefone não encontrado nesta linha.");
+      return {
+        patient_full_name: r.name,
+        patient_birth_date: r.birthDate,
+        patient_cpf: null,
+        patient_sexo: null,
+        patient_cid: null,
+        guardian_full_name: null,
+        guardian_cpf: null,
+        guardian_relationship: null,
+        guardian_email: null,
+        guardian_phones: r.phone ? [r.phone] : [],
+        card_number: r.card,
+        plan_name: insurer,
+        card_valid_until: null,
+        guide_number: r.guide,
+        procedure_code: r.therapies.join(", ") || null,
+        sessions_authorized: null,
+        valid_from: null,
+        valid_to: null,
+        authorization_password: r.password,
+        extra: { source: "native_nau", seq: r.seq, age: r.age, therapies_list: r.therapies.join("; ") || null },
+        confidence: {},
+        warnings,
+      };
+    }),
+  };
+}
 
 /**
  * Tenta extrair nativamente via texto e Regex os beneficiários do PDF digital da Unimed.
@@ -187,6 +233,10 @@ async function tryNativePdfRegexExtraction(
     if (!fullText || fullText.trim().length < 20) {
       return null; // PDF é imagem ou scanned (sem texto extraível)
     }
+
+    // Layout conhecido (NAU/Porto): parser dedicado, com guia/senha/cartão nas colunas certas.
+    const nau = parseNauRows(fullText);
+    if (nau.rows.length > 0) return nauToIntakeExtraction(nau, insurerNames);
 
     const rows: IntakeRow[] = [];
     const lines = fullText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -310,7 +360,7 @@ export async function extractIntakeRowsFromPdf(
   // 1ª Tentativa: Parser Nativo com Regex (Super Rápido, 0ms latency, sem custo de API)
   const nativeResult = await tryNativePdfRegexExtraction(file.base64, insurerNames);
   if (nativeResult && nativeResult.rows.length > 0) {
-    return { success: true, result: nativeResult, model: "native-regex" };
+    return { success: true, result: nativeResult, model: nativeResult.rows[0]?.extra.source === "native_nau" ? "native-nau" : "native-regex" };
   }
 
   // 2ª Tentativa: Chamada IA Gemini (Fallback para PDFs escaneados / imagens)
