@@ -20,6 +20,7 @@ import type { DeliveryHistoryRow } from "./chatbot/chatbot-panel";
 
 export type { ConversationRow, InsurerPill, ConversationPatch } from "@/lib/atendimento/types";
 import type { ConversationRow, ConversationPatch, InsurerPill } from "@/lib/atendimento/types";
+import { toLastMessageSender } from "@/lib/atendimento/types";
 
 const WHATSAPP_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -85,6 +86,7 @@ export function AtendimentoShell({
             insurer_id: string | null;
             last_inbound_at: string | null;
             last_message_preview: string | null;
+            last_message_sender: string | null;
           };
           // Plano identificado pelo bot durante a conversa (a linha do realtime só traz ids).
           const detected: InsurerPill | null = row.insurer_id ? (insurerById[row.insurer_id] ?? null) : null;
@@ -109,6 +111,7 @@ export function AtendimentoShell({
                   insurerId: row.insurer_id,
                   lastInboundAt: row.last_inbound_at,
                   lastMessagePreview: row.last_message_preview,
+                  lastMessageSender: toLastMessageSender(row.last_message_sender),
                   // Com paciente, o plano do cadastro (carregado no servidor) prevalece.
                   ...(!row.patient_id || !existing.planName
                     ? { planName: detected?.name ?? null, planColor: detected?.color ?? null }
@@ -134,6 +137,7 @@ export function AtendimentoShell({
                   insurerId: row.insurer_id,
                   lastInboundAt: row.last_inbound_at,
                   lastMessagePreview: row.last_message_preview,
+                  lastMessageSender: toLastMessageSender(row.last_message_sender),
                 };
             const rest = prev.filter((c) => c.id !== row.id);
             return [updated, ...rest].sort((a, b) => {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { sendTwilioWhatsApp } from "@/lib/twilio";
+import { buildMessagePreview, sendTwilioWhatsApp } from "@/lib/twilio";
 import {
   buildMissingDocumentMessage,
   findMissingDocumentTemplate,
@@ -109,7 +109,7 @@ export async function requestMissingDocument(
   // Um humano falou com a família: a conversa sai da fila de escalação do bot.
   await supabase
     .from("twilio_conversations")
-    .update({ last_message_at: sentAt, status: "open", escalation_reason: null })
+    .update({ last_message_at: sentAt, last_message_preview: buildMessagePreview(body), status: "open", escalation_reason: null })
     .eq("id", conversation.id);
 
   revalidatePath("/recepcao/pacientes/pendencias");

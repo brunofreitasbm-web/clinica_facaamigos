@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
 import { matchesFilter, matchesSearch, type ConversationFilter } from "@/lib/atendimento/filters";
 import type { ConversationPatch, ConversationRow, InsurerPill } from "@/lib/atendimento/types";
+import { toLastMessageSender } from "@/lib/atendimento/types";
 import { MobileQueue, type MobileTab } from "./mobile-queue";
 import { MobileChat } from "./mobile-chat";
 
@@ -62,6 +63,7 @@ export function MobileShell({
             insurer_id: string | null;
             last_inbound_at: string | null;
             last_message_preview: string | null;
+            last_message_sender: string | null;
           };
           const detected: InsurerPill | null = row.insurer_id ? (insurerById[row.insurer_id] ?? null) : null;
           setConversations((prev) => {
@@ -85,6 +87,7 @@ export function MobileShell({
                   insurerId: row.insurer_id,
                   lastInboundAt: row.last_inbound_at,
                   lastMessagePreview: row.last_message_preview,
+                  lastMessageSender: toLastMessageSender(row.last_message_sender),
                   ...(!row.patient_id || !existing.planName
                     ? { planName: detected?.name ?? null, planColor: detected?.color ?? null }
                     : {}),
@@ -109,6 +112,7 @@ export function MobileShell({
                   insurerId: row.insurer_id,
                   lastInboundAt: row.last_inbound_at,
                   lastMessagePreview: row.last_message_preview,
+                  lastMessageSender: toLastMessageSender(row.last_message_sender),
                 };
             const rest = prev.filter((c) => c.id !== row.id);
             return [updated, ...rest].sort((a, b) => {

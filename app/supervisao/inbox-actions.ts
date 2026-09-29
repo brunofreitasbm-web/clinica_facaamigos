@@ -51,6 +51,7 @@ export async function sendReply(
   const { error: insertError } = await supabase.from("messages").insert({
     patient_id: patientId,
     guardian_id: guardianId,
+    sender_type: "agent",
     channel: "portal",
     direction: "outbound",
     body: text,

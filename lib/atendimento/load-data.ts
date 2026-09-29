@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
-import type { ConversationRow, InsurerPill } from "./types";
+import { toLastMessageSender, type ConversationRow, type InsurerPill } from "./types";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -22,7 +22,7 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
     supabase
       .from("twilio_conversations")
       .select(
-        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, last_inbound_at, last_message_preview, kind, contact_name, escalation_reason, assigned_to, insurer_id, patients(full_name), guardians(full_name)",
+        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, last_inbound_at, last_message_preview, last_message_sender, kind, contact_name, escalation_reason, assigned_to, insurer_id, patients(full_name), guardians(full_name)",
       )
       .order("last_message_at", { ascending: false, nullsFirst: false }),
     // Nomes de quem pode assumir conversa — para mostrar "com Fulana" na fila.
@@ -86,6 +86,7 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
       insurerId: c.insurer_id,
       lastInboundAt: c.last_inbound_at,
       lastMessagePreview: c.last_message_preview,
+      lastMessageSender: toLastMessageSender(c.last_message_sender),
     };
   });
 

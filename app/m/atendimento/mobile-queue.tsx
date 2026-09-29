@@ -6,6 +6,8 @@ import { Logo } from "@/components/brand/logo";
 import { HealthPlanBadge } from "@/components/health-plan-badge";
 import type { ConversationFilter } from "@/lib/atendimento/filters";
 import type { ConversationRow } from "@/lib/atendimento/types";
+import { waitingSince } from "@/lib/atendimento/waiting";
+import { LastSenderIndicator } from "@/components/atendimento/last-sender-indicator";
 
 export type MobileTab = "conversas" | "leads" | "encerradas";
 
@@ -292,7 +294,8 @@ export function MobileQueue({
           </p>
         ) : (
           conversations.map((c) => {
-            const waitMinutes = now !== null && c.status === "pending" ? minutesSince(c.lastMessageAt) : null;
+            const waitStart = waitingSince(c);
+            const waitMinutes = now !== null && waitStart ? minutesSince(waitStart) : null;
             const waitAlert = waitMinutes !== null && waitMinutes >= WAIT_ALERT_MINUTES;
             const assigneeName = c.assignedTo
               ? c.assignedTo === currentUserId
@@ -338,13 +341,20 @@ export function MobileQueue({
                         Lead
                       </span>
                     )}
+                    {c.isBotActive && (
+                      <Bot
+                        size={13}
+                        className="shrink-0"
+                        style={{ color: "var(--color-neutral-400)" }}
+                        aria-label="Bot ativo nesta conversa"
+                      />
+                    )}
                     {c.planName && <HealthPlanBadge name={c.planName} color={c.planColor} size="sm" />}
                   </span>
                   <span
                     className="mt-0.5 flex items-center gap-1.5 truncate text-[13px]"
                     style={{ color: "var(--color-neutral-500)" }}
                   >
-                    {c.isBotActive && <Bot size={13} className="shrink-0" style={{ color: "var(--color-neutral-400)" }} />}
                     {waitMinutes !== null && (
                       <span
                         className="shrink-0 rounded-full text-[10px] font-extrabold"
@@ -354,10 +364,14 @@ export function MobileQueue({
                           color: waitAlert ? "#fff" : "var(--color-accent-700)",
                         }}
                       >
-                        Aguardando · {waitMinutes < 1 ? "agora" : relativeTime(c.lastMessageAt)}
+                        Aguardando · {waitMinutes < 1 ? "agora" : relativeTime(waitStart)}
                       </span>
                     )}
-                    <span className="truncate">
+                    <LastSenderIndicator sender={c.lastMessageSender} />
+                    <span
+                      className="truncate"
+                      style={c.lastMessageSender === "contact" ? { color: "var(--color-text)", fontWeight: 600 } : undefined}
+                    >
                       {c.lastMessagePreview
                         ? c.lastMessagePreview
                         : (c.guardianName ?? c.phoneNumber)}

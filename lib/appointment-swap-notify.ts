@@ -70,6 +70,7 @@ export async function notifyAppointmentSwap(
 
       await supabase.from("messages").insert({
         patient_id: oldRow.patient_id,
+        sender_type: "system",
         channel: "portal",
         direction: "outbound",
         template_key: "troca_paciente_sessao",
