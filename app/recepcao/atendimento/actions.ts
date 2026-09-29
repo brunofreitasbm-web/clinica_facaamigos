@@ -762,7 +762,18 @@ export async function extractLeadInfoFromChat(conversationId: string) {
 
   let data = fallbackData;
 
-  if (transcript) {
+  // Se os documentos já entregaram nome E nascimento da criança, a IA sobre o chat só
+  // acrescentaria queixa/origem — e o documento vence o chat nesses dois campos de
+  // qualquer forma (mergeDocumentIntoLead). Pula a chamada e pega só o e-mail por regex;
+  // a queixa vem do `complaint_hint` do documento, se houver.
+  const docIdentity = draft?.extraction?.patient;
+  const documentsHaveIdentity = Boolean(docIdentity?.full_name && docIdentity.birth_date && ISO_DATE.test(docIdentity.birth_date));
+  if (documentsHaveIdentity) {
+    const inboundEmail = inboundText.match(/[^\s@,;:<>()]+@[^\s@,;:<>()]+\.[^\s@,;:<>()]+/)?.[0];
+    if (inboundEmail && EMAIL_RE.test(inboundEmail)) data = { ...data, guardianEmail: inboundEmail.toLowerCase() };
+  }
+
+  if (transcript && !documentsHaveIdentity) {
     const currentDate = new Date().toISOString().slice(0, 10);
     const systemInstruction = `Você é um assistente de IA especialista da recepção de uma clínica de desenvolvimento infantil (terapias de neurodesenvolvimento, ABA, psicologia, fonoaudiologia, terapia ocupacional).
 Analise o histórico de mensagens trocadas via WhatsApp e extraia com precisão os dados para o cadastro do paciente interessado.

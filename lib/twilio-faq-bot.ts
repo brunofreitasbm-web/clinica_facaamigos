@@ -39,6 +39,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
 import { hasExplicitJobSignal, hasStrongJobSignal, JOB_INQUIRY_REPLY } from "@/lib/job-inquiry-pure";
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
+import { matchFaqRule, type FaqRuleData } from "@/lib/faq-rules-pure";
 
 /** Quantas mensagens da thread vão como contexto (~6 turnos). */
 const HISTORY_LIMIT = 12;
@@ -106,7 +107,7 @@ export interface FaqBotResult {
   concluded?: boolean;
 }
 
-type KnowledgeCacheEntry = { text: string; expiresAt: number };
+type KnowledgeCacheEntry = { text: string; rules: FaqRuleData; expiresAt: number };
 const knowledgeCache = new Map<string, KnowledgeCacheEntry>();
 
 /**
@@ -127,9 +128,9 @@ export function invalidateKnowledgeCache(clinicId?: string): void {
  * Monta o bloco de conhecimento do prompt a partir do banco. Em cache por
  * clínica com invalidação imediata quando o banco é editado.
  */
-async function buildFaqKnowledge(clinicId: string): Promise<string> {
+async function loadFaqKnowledge(clinicId: string): Promise<{ text: string; rules: FaqRuleData }> {
   const cached = knowledgeCache.get(clinicId);
-  if (cached && cached.expiresAt > Date.now()) return cached.text;
+  if (cached && cached.expiresAt > Date.now()) return cached;
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
@@ -239,8 +240,25 @@ async function buildFaqKnowledge(clinicId: string): Promise<string> {
     therapistsBlock || "(nenhum terapeuta cadastrado)",
   ].join("\n");
 
-  knowledgeCache.set(clinicId, { text, expiresAt: Date.now() + KNOWLEDGE_TTL_MS });
-  return text;
+  // Mesmos dados do prompt, em forma estruturada, para a camada de regras sem IA (lib/faq-rules-pure.ts).
+  const rules: FaqRuleData = {
+    insurers: (insurersRes.data ?? [])
+      .map((i) => i.name.trim())
+      .filter((name) => name && name.toLowerCase() !== PARTICULAR_INSURER_NAME),
+    faq: (faqRes.data ?? []).map((row) => ({
+      question: row.question,
+      answer: row.answer,
+      keywords: row.keywords ?? [],
+    })),
+  };
+
+  const entry = { text, rules, expiresAt: Date.now() + KNOWLEDGE_TTL_MS };
+  knowledgeCache.set(clinicId, entry);
+  return entry;
+}
+
+async function buildFaqKnowledge(clinicId: string): Promise<string> {
+  return (await loadFaqKnowledge(clinicId)).text;
 }
 
 function buildSystemInstruction(knowledge: string): string {
@@ -593,6 +611,22 @@ export async function processFaqBotStep(params: {
   if (hasStrongJobSignal(body)) {
     if (conversationId) await closeConversationAfterFinalReply(conversationId);
     return { handled: true, replyMessage: JOB_INQUIRY_REPLY, intent: "faq_emprego", escalated: false, concluded: true };
+  }
+
+  // Regras sem IA (lib/faq-rules-pure.ts): pergunta simples de convênio ou palavra-chave
+  // do `clinic_faq` é respondida direto do banco — sem Gemini, sem cota diária, e funciona
+  // com a IA fora do ar. Tudo que for ambíguo cai no agente abaixo. FAQ_RULES_DISABLED=1
+  // desliga a camada (volta ao comportamento anterior, 100% IA).
+  if (process.env.FAQ_RULES_DISABLED !== "1") {
+    try {
+      const { rules } = await loadFaqKnowledge(DEV_CLINIC_ID);
+      const ruleMatch = matchFaqRule(body, rules);
+      if (ruleMatch) {
+        return { handled: true, replyMessage: ruleMatch.reply, intent: ruleMatch.intent, escalated: false };
+      }
+    } catch (err) {
+      console.error("[Twilio FAQ Bot] Falha na camada de regras — seguindo para a IA:", err);
+    }
   }
 
   if (!isGeminiConfigured()) return notHandled;
