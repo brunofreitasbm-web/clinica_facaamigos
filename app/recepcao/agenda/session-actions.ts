@@ -266,7 +266,7 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
 
   const { data: appointment } = await supabase
     .from("appointments")
-    .select("id, checkin_at, checkout_at, is_evaluation, is_provisional")
+    .select("id, patient_id, checkin_at, checkout_at, is_evaluation, is_provisional")
     .eq("id", appointmentId)
     .maybeSingle();
 
