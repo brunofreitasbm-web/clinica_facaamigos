@@ -84,7 +84,7 @@ export async function dispatchAnamneseNps(
   }
 
   // 4. Cria o registro pendente em nps_surveys
-  const { data: survey, error: insertErr } = await (admin as any)
+  const { data: survey, error: insertErr } = await admin
     .from("nps_surveys")
     .insert({
       patient_id: patientId,
