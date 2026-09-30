@@ -70,9 +70,9 @@ export const metadata: Metadata = {
     "terapia ocupacional infantil",
   ],
   alternates: { canonical: "/site" },
-  // Explícito para não depender de nenhum default herdado: esta é a única
-  // página do domínio que DEVE ser indexada (ver app/robots.ts).
-  robots: { index: true, follow: true },
+  // Decisão de 30/09/2026: nem a landing /site aparece em buscador (ver app/robots.ts).
+  // Explícito para não depender de nenhum default herdado.
+  robots: { index: false, follow: false },
   openGraph: {
     title: CLINIC_NAME,
     description: DESCRICAO_SEO,

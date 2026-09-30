@@ -26,15 +26,30 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Sistema de gestão da clínica (prontuário, agenda, faturamento) E a página /site:
+      // nada disto aparece em buscador (decisão de 30/09/2026, sem exceção).
       {
         source: "/:path*",
         headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=()" },
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
         ],
+      },
+    ];
+  },
+  async redirects() {
+    return [
+      // Endereço curto do site da clínica: clinica.institutofacaamigos.com.br -> página /site.
+      // (Next aplica redirects antes do proxy/middleware de login, então não pede senha.)
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "clinica.institutofacaamigos.com.br" }],
+        destination: "https://sistema.institutofacaamigos.com.br/site",
+        permanent: false,
       },
     ];
   },

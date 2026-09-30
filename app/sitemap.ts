@@ -1,18 +1,10 @@
 import type { MetadataRoute } from "next";
-import { CLINIC_WEBSITE } from "@/lib/clinic-identity";
 
 /**
- * Uma única URL: a landing (app/site) é a única página pública indexável do
- * domínio (ver app/robots.ts). Quando o site ganhar mais páginas de
- * conteúdo (ex.: /site/blog), acrescente aqui.
+ * Vazio de propósito: desde 30/09/2026 nenhuma página deste domínio é indexável
+ * (ver app/robots.ts). Se a landing /site voltar a ser pública nos buscadores,
+ * liste-a aqui de novo (`${CLINIC_WEBSITE}/site`) e reverta robots.ts/next.config.ts.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    {
-      url: `${CLINIC_WEBSITE}/site`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 1,
-    },
-  ];
+  return [];
 }

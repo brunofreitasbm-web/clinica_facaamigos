@@ -31,6 +31,8 @@ export const metadata: Metadata = {
     template: `%s · ${CLINIC_BRAND}`,
   },
   description: `${CLINIC_NAME} — sistema de gestão clínica (TEA/TDAH).`,
+  // Sistema com dado de saúde atrás de login: fora dos buscadores. app/site sobrescreve (index: true).
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
