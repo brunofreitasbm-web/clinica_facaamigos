@@ -5239,9 +5239,11 @@ export type Database = {
           id: string
           meeting_id: string | null
           patient_id: string
+          period: string | null
           phone_number: string
           responded_at: string | null
           score: number | null
+          trigger_type: string
         }
         Insert: {
           alert_status?: string
@@ -5255,9 +5257,11 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id: string
+          period?: string | null
           phone_number: string
           responded_at?: string | null
           score?: number | null
+          trigger_type?: string
         }
         Update: {
           alert_status?: string
@@ -5271,9 +5275,11 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           patient_id?: string
+          period?: string | null
           phone_number?: string
           responded_at?: string | null
           score?: number | null
+          trigger_type?: string
         }
         Relationships: [
           {
