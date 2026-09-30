@@ -72,7 +72,7 @@ export function SiteHeader() {
       <header className="sticky top-0 z-40 border-b border-[var(--color-paper-line)] bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
         <a href="#inicio" className="shrink-0" aria-label="FaçaAmigos — início">
-          <Logo variant="horizontal-compacto" height={32} />
+          <Logo variant="horizontal" height={40} />
         </a>
 
         <nav className="hidden items-center gap-7 md:flex" aria-label="Navegação principal">
