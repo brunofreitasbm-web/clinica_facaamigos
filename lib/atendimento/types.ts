@@ -29,7 +29,16 @@ export type ConversationRow = {
    * serviço de 24h do WhatsApp está fechada (ver isWhatsappWindowClosed em
    * app/recepcao/atendimento/atendimento-shell.tsx). */
   lastInboundAt: string | null;
+  /** Quem mandou a última mensagem de WhatsApp (trigger
+   * trg_conversation_last_sender). `contact` = a bola está com a clínica. */
+  lastMessageSender: LastMessageSender | null;
 };
+
+export type LastMessageSender = "contact" | "agent" | "bot" | "automation";
+
+export function toLastMessageSender(value: string | null | undefined): LastMessageSender | null {
+  return value === "contact" || value === "agent" || value === "bot" || value === "automation" ? value : null;
+}
 
 export type InsurerPill = { name: string; color: string | null };
 

@@ -6,6 +6,8 @@ import { Bot, Search, User } from "lucide-react";
 import { HealthPlanBadge } from "@/components/health-plan-badge";
 import { SubNavBadges, ConversationFilter } from "@/src/components/Reception/Navigation/SubNavBadges";
 import type { ConversationRow } from "@/app/recepcao/atendimento/atendimento-shell";
+import { LastSenderIndicator } from "@/components/atendimento/last-sender-indicator";
+import { waitingSince } from "@/lib/atendimento/waiting";
 
 const WAIT_ALERT_MINUTES = 15;
 
@@ -65,7 +67,8 @@ const ConversationItem = React.memo(function ConversationItem({
   currentUserId,
   onSelect,
 }: ConversationItemProps) {
-  const waitMinutes = now !== null && c.status === "pending" ? minutesSince(c.lastMessageAt) : null;
+  const waitStart = waitingSince(c);
+  const waitMinutes = now !== null && waitStart ? minutesSince(waitStart) : null;
   const waitAlert = waitMinutes !== null && waitMinutes >= WAIT_ALERT_MINUTES;
   const assigneeName = c.assignedTo
     ? c.assignedTo === currentUserId
@@ -113,8 +116,15 @@ const ConversationItem = React.memo(function ConversationItem({
           )}
           {c.planName && <HealthPlanBadge name={c.planName} color={c.planColor} size="sm" />}
         </span>
-        <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-          {c.lastMessagePreview || c.guardianName || c.phoneNumber}
+        <span
+          className={`flex min-w-0 items-center gap-1 text-xs ${
+            c.lastMessageSender === "contact"
+              ? "font-medium text-slate-800 dark:text-slate-200"
+              : "text-slate-500 dark:text-slate-400"
+          }`}
+        >
+          <LastSenderIndicator sender={c.lastMessageSender} />
+          <span className="truncate">{c.lastMessagePreview || c.guardianName || c.phoneNumber}</span>
         </span>
         {(waitMinutes !== null || assigneeName) && (
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
@@ -126,7 +136,7 @@ const ConversationItem = React.memo(function ConversationItem({
                     : "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300"
                 }`}
               >
-                Aguardando · {waitMinutes < 1 ? "agora" : relativeTime(c.lastMessageAt)}
+                Aguardando · {waitMinutes < 1 ? "agora" : relativeTime(waitStart)}
               </span>
             )}
             {assigneeName && <span className="text-slate-500 dark:text-slate-400">com {assigneeName}</span>}

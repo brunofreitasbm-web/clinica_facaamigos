@@ -89,6 +89,7 @@ export async function sendManualWhatsAppAction(params: {
   await supabase.from("messages").insert({
     patient_id: params.patientId,
     guardian_id: params.guardianId,
+    sender_type: "agent",
     channel: "whatsapp",
     direction: "outbound",
     body: text,
@@ -129,6 +130,7 @@ export async function sendTemplateWhatsAppAction(params: {
   await supabase.from("messages").insert({
     patient_id: params.patientId,
     guardian_id: params.guardianId,
+    sender_type: "agent",
     channel: "whatsapp",
     direction: "outbound",
     body: fallbackBody,

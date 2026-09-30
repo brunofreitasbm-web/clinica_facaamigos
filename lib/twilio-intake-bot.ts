@@ -10,7 +10,7 @@
 // `flow`/`lead_id` (migration 20260907170006) pra não colidir com os outros
 // bots que também usam chatbot_sessions.
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatE164Phone, sendTwilioWhatsApp, findOrCreateConversation } from "@/lib/twilio";
+import { buildMessagePreview, formatE164Phone, sendTwilioWhatsApp, findOrCreateConversation } from "@/lib/twilio";
 import { downloadTwilioMedia, ALLOWED_MIME_TYPES, sanitizeFileName, extensionFor, MAX_FILE_BYTES } from "@/lib/registration-drafts-ingest";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { runLaudoExtraction } from "@/lib/laudo-extraction";
@@ -119,7 +119,10 @@ async function sendIntakeMessage(
       twilio_sid: send.messageId ?? null,
       delivery_status: send.success ? "sent" : "failed",
     });
-    await admin.from("twilio_conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversationId);
+    await admin
+      .from("twilio_conversations")
+      .update({ last_message_at: new Date().toISOString(), last_message_preview: buildMessagePreview(params.text) })
+      .eq("id", conversationId);
   }
 
   return send.success ? { success: true } : { success: false, error: send.error };
@@ -202,6 +205,11 @@ export async function startIntakeConversation(leadId: string): Promise<{ success
       twilio_sid: send.messageId ?? null,
       delivery_status: "sent",
     });
+    // last_message_at/last_message_sender vêm do trigger trg_conversation_last_sender.
+    await admin
+      .from("twilio_conversations")
+      .update({ last_message_preview: buildMessagePreview(text) })
+      .eq("id", conversationId);
   }
 
   await admin.from("chatbot_sessions").upsert(

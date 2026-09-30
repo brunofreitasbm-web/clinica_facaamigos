@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
       await db.from("messages").insert({
         patient_id: alert.patient_id,
         guardian_id: guardian.id,
+        sender_type: "system",
         channel: "whatsapp",
         direction: "outbound",
         template_key: "aviso_faltas",

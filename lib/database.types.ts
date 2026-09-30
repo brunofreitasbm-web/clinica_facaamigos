@@ -8073,6 +8073,7 @@ export type Database = {
           last_inbound_at: string | null
           last_message_at: string | null
           last_message_preview: string | null
+          last_message_sender: string | null
           patient_id: string | null
           phone_number: string
           status: string
@@ -8096,6 +8097,7 @@ export type Database = {
           last_inbound_at?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
+          last_message_sender?: string | null
           patient_id?: string | null
           phone_number: string
           status?: string
@@ -8119,6 +8121,7 @@ export type Database = {
           last_inbound_at?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
+          last_message_sender?: string | null
           patient_id?: string | null
           phone_number?: string
           status?: string
