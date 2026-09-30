@@ -1,10 +1,17 @@
 import type { MetadataRoute } from "next";
+import { CLINIC_WEBSITE } from "@/lib/clinic-identity";
 
 /**
- * Vazio de propósito: desde 30/09/2026 nenhuma página deste domínio é indexável
- * (ver app/robots.ts). Se a landing /site voltar a ser pública nos buscadores,
- * liste-a aqui de novo (`${CLINIC_WEBSITE}/site`) e reverta robots.ts/next.config.ts.
+ * Só a landing pública entra: o sistema de gestão nunca é listado (ver
+ * app/robots.ts e proxy.ts). A landing é servida na raiz do domínio da clínica.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [];
+  return [
+    {
+      url: `${CLINIC_WEBSITE}/`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 1,
+    },
+  ];
 }

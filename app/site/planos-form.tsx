@@ -169,7 +169,7 @@ export function PlanosForm({
           inputMode="tel"
           autoComplete="tel"
           className="input"
-          placeholder="(91) 90000-0000"
+          placeholder="(91) 99999-9999"
         />
       </div>
 

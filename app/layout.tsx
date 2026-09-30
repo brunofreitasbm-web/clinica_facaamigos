@@ -67,8 +67,8 @@ export default function RootLayout({
           </Suspense>
           <OfflineBanner />
           <Suspense fallback={null}>
-            {/* Tela de atendimento (chat mobile) ocupa a altura toda — sem a barra global */}
-            <HideOnRoutes prefixes={["/recepcao/atendimento"]}>
+            {/* Sem a barra global: chat mobile (altura toda) e landing pública /site (visitante não tem elo com o sistema) */}
+            <HideOnRoutes prefixes={["/recepcao/atendimento", "/site"]}>
               <AuthStatus />
             </HideOnRoutes>
           </Suspense>

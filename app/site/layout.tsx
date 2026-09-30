@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CLINIC_WEBSITE } from "@/lib/clinic-identity";
 import { SiteAnalytics, SiteAnalyticsNoScript } from "./analytics";
+import { SiteEngagement } from "./engagement";
 
 /**
  * Layout de app/site — só resolve URL absoluta (metadataBase) e injeta as
@@ -16,6 +17,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
     <>
       <SiteAnalyticsNoScript />
       <SiteAnalytics />
+      <SiteEngagement />
       {children}
     </>
   );

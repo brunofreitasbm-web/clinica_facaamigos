@@ -5,21 +5,15 @@
  * ou depoimento mexe SÓ neste arquivo, sem tocar em JSX. Cada bloco abaixo
  * corresponde a uma seção da página, na mesma ordem em que aparecem.
  *
- * O que é dado real (veio da tabela `clinics` e de `specialties`) está
- * marcado; o que ainda depende da clínica está sob CONTEUDO_PENDENTE.
+ * Fonte do texto: o hub institucional (institutofacaamigos.com.br, páginas
+ * /servicos e bloco #clinica), para a clínica falar a mesma coisa nos dois
+ * lugares. Estrutura da página: PROMESSA (hero + empatia), CONFIANÇA
+ * (responsável técnica, convênios, como funciona, FAQ) e OFERTA (lista de
+ * espera, mapeamento gratuito, convênios/particular).
+ *
+ * Regra editorial herdada do hub: vender alívio e clareza, nunca cura nem
+ * prazo de resultado.
  */
-
-// ─────────────────────────────────────────────────────────────────────────
-// Trava de publicação
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Enquanto `true`, a página mostra um aviso no topo tratando números e
- * depoimentos como exemplo. Vire para `false` só depois de substituir
- * NUMEROS e DEPOIMENTOS por dados reais — publicar "+500 famílias" sem ter
- * contado 500 famílias é propaganda enganosa, não copy.
- */
-export const CONTEUDO_PENDENTE = true;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Contato — dados reais (fonte: tabela `clinics`)
@@ -33,9 +27,9 @@ export const CONTATO = {
   endereco: {
     linha1: "Rua Boaventura da Silva, 1573",
     linha2: "Umarizal — Belém/PA",
-    cep: "66060-147",
+    cep: "66060-060",
   },
-  // Horário real de funcionamento da clínica.
+  // Horário de funcionamento da clínica após a inauguração.
   horario: [
     { dias: "Segunda a sexta", horas: "08h às 18h" },
     { dias: "Sábado", horas: "08h às 12h" },
@@ -45,17 +39,29 @@ export const CONTATO = {
     { nome: "Playground Inclusivo", url: "https://institutofacaamigos.com.br/" },
   ],
   /** Usado no <iframe> do mapa no rodapé. */
-  mapaBusca: "Rua Boaventura da Silva, 1573, Umarizal, Belém, PA, 66060-147",
+  mapaBusca: "Rua Boaventura da Silva, 1573, Umarizal, Belém, PA, 66060-060",
 };
 
-/**
- * Mensagem já digitada quando a família abre o WhatsApp — tira a fricção do
- * "e agora, o que eu escrevo?", que é onde muita conversa morre antes de
- * começar.
- */
-export function linkWhatsApp(
-  assunto = "Olá! Vim pelo site do FaçaAmigos e gostaria de tirar uma dúvida.",
-) {
+/** Razão social e CNPJ que assinam a clínica (mesmos do rodapé do hub). */
+export const EMPRESA = {
+  razaoSocial: "Instituto Faça Amigos Ltda",
+  cnpj: "22.161.197/0001-83",
+};
+
+/** Links do ecossistema (hub). */
+export const HUB = {
+  mapeamento:
+    "https://institutofacaamigos.com.br/teste?utm_source=clinica&utm_medium=site&utm_campaign=mapeamento",
+  guias:
+    "https://institutofacaamigos.com.br/aprender?utm_source=clinica&utm_medium=site&utm_campaign=guias",
+  playground: "https://institutofacaamigos.com.br/playground",
+};
+
+/** Mensagem já digitada quando a família abre o WhatsApp. */
+export const MENSAGEM_LISTA_ESPERA =
+  "Olá! Quero entrar na lista de espera da Clínica FaçaAmigos - Centro de Terapia Comportamental (vim pelo site).";
+
+export function linkWhatsApp(assunto = MENSAGEM_LISTA_ESPERA) {
   return `https://wa.me/${CONTATO.whatsappE164}?text=${encodeURIComponent(assunto)}`;
 }
 
@@ -65,63 +71,56 @@ export function linkWhatsApp(
 
 export const MENU = [
   { rotulo: "Início", href: "#inicio" },
-  { rotulo: "Sobre", href: "#ecossistema" },
   { rotulo: "Serviços", href: "#servicos" },
-  { rotulo: "Planos", href: "#planos" },
+  { rotulo: "Quem cuida", href: "#quem-cuida" },
+  { rotulo: "Convênios", href: "#planos" },
   { rotulo: "Dúvidas", href: "#duvidas" },
   { rotulo: "Contato", href: "#agendar" },
 ];
 
 /**
- * A porta de entrada da página é o WhatsApp, não um agendamento.
- *
- * Quem chega aqui pela primeira vez quase nunca quer marcar avaliação de
- * cara — quer saber se o plano dele é atendido (ver PLANOS abaixo e
- * lib/twilio-faq-bot.ts, onde essa é a pergunta campeã). Botão principal que
- * pede compromisso antes de responder a dúvida derruba conversão; por isso o
- * CTA primário abre a conversa e o secundário leva à consulta de convênio.
+ * A porta de entrada é a lista de espera pelo WhatsApp (gratuita): a clínica
+ * ainda não abriu, então "agendar" seria prometer o que não existe. O
+ * secundário leva à pergunta que mais chega — se o convênio é atendido.
  */
 export const CTA = {
-  principal: "Falar no WhatsApp",
-  principalApoio: "A gente responde no horário de funcionamento",
-  secundario: "Ver planos atendidos",
+  principal: "Entrar na lista de espera",
+  principalApoio: "Sem custo · você é avisada assim que abrirmos",
+  secundario: "Ver convênios",
 };
 
 // ─────────────────────────────────────────────────────────────────────────
-// Hero
+// Hero — PROMESSA
 // ─────────────────────────────────────────────────────────────────────────
 
 export const HERO = {
-  chapeu: "Belém · Umarizal",
-  titulo: "Cada criança é um universo — e cada família merece um caminho.",
+  chapeu: "Umarizal · Belém · Inauguração em breve",
+  titulo: "Se você sente que algo está diferente, aqui você vai ser ouvida.",
   subtitulo:
-    "Centro de terapia comportamental para crianças autistas e em desenvolvimento, com equipe multidisciplinar, plano individual e prática baseada em evidências.",
+    "Equipe multidisciplinar, terapia comportamental e um plano que faz sentido para a sua família, com ciência, acolhimento e afeto. Com ou sem laudo.",
   selos: [
+    "Convênios IASEP e PROASA",
     "Equipe multidisciplinar",
-    "Abordagem ABA",
-    "Ambiente inclusivo",
-    "Acolhimento à família",
+    "Psicóloga responsável · CRP 10/4727",
+    "Com ou sem laudo",
   ],
   imagem: {
-    slot: "FOTO HERO — criança sorrindo em atendimento ou no playground inclusivo, luz natural e quente, sem cara de banco de imagem",
-    alt: "Criança brincando com uma terapeuta em sala de atendimento do FaçaAmigos",
+    src: "/site/atendimento.webp",
+    largura: 1500,
+    altura: 2000,
+    alt: "Terapeuta e criança desenhando juntos numa mesa, ao lado da piscina de bolinhas do FaçaAmigos",
   },
 };
 
 // ─────────────────────────────────────────────────────────────────────────
-// Prova social rápida — SUBSTITUIR por números reais
+// Fatos rápidos — só o que é verificável (nada de contagem de famílias)
 // ─────────────────────────────────────────────────────────────────────────
 
-/**
- * Exemplos. Troque por números que a clínica consiga comprovar e então vire
- * CONTEUDO_PENDENTE para `false`. Lista vazia esconde a seção — publicar sem
- * números é melhor do que publicar números inventados.
- */
 export const NUMEROS = [
-  { valor: "7", rotulo: "especialidades na mesma equipe" },
-  { valor: "—", rotulo: "famílias acompanhadas" },
-  { valor: "—", rotulo: "avaliação média das famílias" },
-  { valor: "1:1", rotulo: "terapeuta por criança na sessão" },
+  { valor: "2", rotulo: "convênios: IASEP e PROASA" },
+  { valor: "7", rotulo: "áreas de cuidado na mesma equipe" },
+  { valor: "R$ 0", rotulo: "para entrar na lista de espera" },
+  { valor: "5 min", rotulo: "mapeamento comportamental gratuito" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -129,130 +128,170 @@ export const NUMEROS = [
 // ─────────────────────────────────────────────────────────────────────────
 
 export const EMPATIA = {
-  titulo: "A gente sabe o peso da espera.",
+  titulo: "Ninguém deveria passar por isso sem ser ouvida.",
   paragrafos: [
-    "A fila para uma avaliação é longa. As respostas vêm picadas, de um profissional de cada vez, e nenhuma delas conversa com a outra. No meio disso, você tenta entender o que seu filho precisa — e ainda segura a casa, o trabalho e a própria cabeça.",
-    "Aqui, a primeira conversa não é um encaixe de agenda: é o começo de um plano. Seu filho é avaliado por uma equipe completa, não por um único profissional, e você sai sabendo qual é o próximo passo.",
+    "Você percebe que algo está diferente e ninguém explica direito. As respostas vêm picadas, um profissional de cada vez, e nenhuma conversa com a outra. No meio disso, você ainda segura a casa, o trabalho e a própria cabeça.",
+    "Aqui, a primeira conversa não é um encaixe de agenda: é a hora de você ser ouvida. Sem rótulo e sem pressa. A gente entende a rotina da sua família, não só um sintoma, e monta com você um caminho possível.",
   ],
-  cta: "Conhecer nossa abordagem",
+  sinaisTitulo: "Sinais que valem uma conversa",
+  sinais: [
+    "Birras que não passam, ou que pioram com o tempo.",
+    "Seu filho não olha nos olhos ou não responde quando é chamado.",
+    "A escola já te chamou mais de uma vez pela mesma queixa.",
+    "A fala demora a aparecer, ou é difícil de entender.",
+    "Sons, luzes ou texturas comuns incomodam demais o seu filho.",
+  ],
+  sinaisNota: "Nenhum desses é um rótulo. É um motivo para conversar.",
+  cta: "Conhecer o que a clínica oferece",
 };
 
 // ─────────────────────────────────────────────────────────────────────────
-// Diferenciais
+// Diferenciais — CONFIANÇA
 // ─────────────────────────────────────────────────────────────────────────
 
 export const DIFERENCIAIS = [
   {
-    icone: "equipe" as const,
-    titulo: "Avaliação por equipe, não por um profissional",
+    icone: "familia" as const,
+    titulo: "Você é ouvida antes de qualquer coisa",
     texto:
-      "Psicologia, fono, terapia ocupacional e as demais áreas olham a mesma criança e fecham um plano único. Nada de laudos que se contradizem.",
+      "A conversa de acolhimento vem primeiro. A gente escuta a rotina da sua família antes de falar em diagnóstico, terapia ou frequência.",
+  },
+  {
+    icone: "equipe" as const,
+    titulo: "Uma equipe, um plano só",
+    texto:
+      "Psicologia, fonoaudiologia, terapia ocupacional e psicopedagogia olham a mesma criança e conversam entre si, em vez de entregar respostas soltas.",
   },
   {
     icone: "plano" as const,
-    titulo: "Plano terapêutico individual",
+    titulo: "Um plano que cabe na sua rotina",
     texto:
-      "Objetivos escritos para o seu filho, com metas claras e revisão periódica. Você sabe o que está sendo trabalhado e por quê.",
-  },
-  {
-    icone: "playground" as const,
-    titulo: "Terapia que encontra a vida real",
-    texto:
-      "A integração com o Playground Inclusivo leva o que foi treinado na sessão para a brincadeira com outras crianças — que é onde a habilidade social de fato acontece.",
+      "Sem prazo fechado e sem promessa de resultado: um caminho possível, ajustado com você, com menos “apagar incêndio” e mais entender o porquê.",
   },
   {
     icone: "relatorio" as const,
-    titulo: "Relatórios de evolução transparentes",
+    titulo: "Com ou sem laudo",
     texto:
-      "A família recebe o registro do que foi feito e do que mudou, sessão a sessão. Evolução aqui é dado, não impressão.",
+      "Atendemos crianças típicas e atípicas. A avaliação inicial serve justamente para entender o caso, com ou sem diagnóstico prévio.",
   },
   {
     icone: "espaco" as const,
-    titulo: "Espaço pensado para crianças neurodivergentes",
+    titulo: "Ciência, acolhimento e afeto",
     texto:
-      "Salas com controle de estímulo, materiais adaptados e rotina previsível, para a criança entrar sem sobrecarga sensorial.",
+      "Terapia comportamental apoiada em Análise do Comportamento, com repetição afetuosa: a criança aprende novas habilidades sem perder o vínculo.",
   },
   {
-    icone: "familia" as const,
-    titulo: "Cuidado também com pais e cuidadores",
+    icone: "playground" as const,
+    titulo: "Apoio que vai além da sessão",
     texto:
-      "Orientação parental e canal aberto com a equipe. O que funciona na sessão precisa funcionar em casa — e isso se ensina.",
+      "Orientação para pais e escola, mapeamento comportamental gratuito e guias escritos pela nossa psicóloga, para você não sair sozinha da reunião nem sozinha em casa.",
   },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
-// Método
+// Como funciona — CONFIANÇA (baixo atrito)
 // ─────────────────────────────────────────────────────────────────────────
 
 export const METODO = {
-  titulo: "Como funciona, do primeiro contato à evolução",
-  subtitulo:
-    "Sem etapa surpresa e sem espera sem explicação. Estes são os quatro passos de toda família que chega aqui.",
+  titulo: "Como vai funcionar o primeiro contato",
+  subtitulo: "Sem formulário longo e sem espera confusa. Três passos, no seu tempo.",
   passos: [
     {
-      titulo: "Avaliação inicial detalhada",
-      texto:
-        "Escuta da família, observação da criança e aplicação dos instrumentos indicados para a idade. É daqui que sai tudo o que vem depois.",
+      titulo: "Você chama no WhatsApp",
+      texto: "Conta em poucas palavras o que está acontecendo. Sem burocracia.",
     },
     {
-      titulo: "Plano terapêutico individual",
+      titulo: "Conversa de acolhimento, sem rótulo",
       texto:
-        "A equipe se reúne, define objetivos e frequência e apresenta o plano para vocês em linguagem clara — com espaço para vocês discordarem.",
+        "Você é ouvida antes de qualquer coisa. A gente entende a rotina da sua família, não só um sintoma.",
     },
     {
-      titulo: "Sessões com a equipe especializada",
+      titulo: "Um plano que cabe na sua rotina",
       texto:
-        "Atendimento individualizado nas áreas indicadas, com registro de cada sessão e prática das habilidades no playground.",
-    },
-    {
-      titulo: "Acompanhamento e revisão contínua",
-      texto:
-        "Metas revisadas periodicamente com a família. O plano muda quando a criança muda — não quando o calendário vira.",
+        "Sem prazo fechado, sem promessa de resultado. Um caminho possível, ajustado com você.",
     },
   ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────
-// Serviços — fonte: tabela `specialties` da clínica
+// Serviços — mesma lista do hub (/servicos)
 // ─────────────────────────────────────────────────────────────────────────
 
 export const SERVICOS = [
   {
-    titulo: "Psicologia ABA",
+    titulo: "Avaliação inicial e acolhimento",
     texto:
-      "Análise do comportamento aplicada ao desenvolvimento de linguagem, autonomia e convivência, com metas mensuráveis.",
+      "Para toda família que quer entender melhor o que está acontecendo, com ou sem laudo. Uma conversa e observação, sem pressa: você sai com um primeiro plano, não com uma lista de exames.",
+  },
+  {
+    titulo: "Psicologia e terapia comportamental",
+    texto:
+      "Para crianças com birras frequentes, dificuldade de comunicação ou comportamentos que preocupam a família. Sessões que ensinam novas habilidades, apoiadas em Análise do Comportamento.",
   },
   {
     titulo: "Fonoaudiologia",
     texto:
-      "Comunicação, fala, linguagem e alimentação — incluindo comunicação alternativa quando a fala ainda não é o caminho.",
+      "Para fala atrasada, difícil de entender ou seletividade alimentar. Estímulo à fala, à linguagem e, quando necessário, à alimentação: mais formas de se entender com o seu filho.",
   },
   {
     titulo: "Terapia Ocupacional",
     texto:
-      "Integração sensorial, coordenação e autonomia nas atividades do dia a dia: vestir, comer, brincar, participar.",
-  },
-  {
-    titulo: "Fisioterapia",
-    texto:
-      "Postura, força e coordenação motora global, com trabalho lúdico que a criança encara como brincadeira.",
-  },
-  {
-    titulo: "Musicoterapia",
-    texto:
-      "A música como via de contato e regulação — especialmente potente para crianças que ainda não se comunicam por palavras.",
+      "Para dificuldade de coordenação, autonomia nas tarefas do dia ou hipersensibilidade a som, luz e toque. Integração sensorial para vestir, comer e escovar os dentes serem menos batalha.",
   },
   {
     titulo: "Psicopedagogia",
     texto:
-      "Aprendizagem, atenção e organização escolar, com ponte direta entre a clínica e a escola da criança.",
+      "Para dificuldade de aprendizagem em leitura, escrita ou matemática. Estratégias criadas para o jeito de aprender do seu filho, não o contrário.",
   },
   {
-    titulo: "Nutrição",
+    titulo: "Avaliação neuropsicológica",
     texto:
-      "Seletividade alimentar e rotina de refeições, tratadas junto com a terapia ocupacional e a fono, não isoladamente.",
+      "Para dúvidas sobre memória, atenção, foco ou desenvolvimento cognitivo. Testes que mapeiam essas funções e orientam escola e terapia.",
+  },
+  {
+    titulo: "Orientação a pais e escola",
+    texto:
+      "Sessões só com você para ajustar a rotina em casa e apoio na conversa com a coordenação pedagógica, quando fizer sentido.",
   },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────
+// Quem cuida — CONFIANÇA (responsável técnica com registro)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Só entra aqui quem tem registro profissional confirmado — nome sem registro
+ * enfraquece a página. Novos profissionais entram na lista quando forem
+ * confirmados; com um único item o layout vira o bloco de destaque.
+ */
+export const EQUIPE: Array<{
+  nome: string;
+  especialidade: string;
+  registro: string;
+  bio: string;
+  foto: { src: string; largura: number; altura: number; alt: string };
+  chips: string[];
+}> = [
+  {
+    nome: "Isabella Gonçalves Freitas",
+    especialidade: "Psicóloga infantil",
+    registro: "CRP 10/4727",
+    bio: "Idealizadora do FaçaAmigos e autora dos e-books O Brincar com Propósito e O Código do Desenvolvimento Infantil. Acredita que entender o comportamento de uma criança é sempre o primeiro passo para acolhê-la.",
+    foto: {
+      src: "/site/isabella.jpg",
+      largura: 800,
+      altura: 1067,
+      alt: "Isabella Gonçalves Freitas, psicóloga infantil e idealizadora do FaçaAmigos, sorrindo ao lado de um cachorro",
+    },
+    chips: ["Desenvolvimento infantil", "Terapia comportamental", "Inclusão"],
+  },
+];
+
+export const QUEM_CUIDA = {
+  chapeu: "Quem cuida",
+  titulo: "Uma psicóloga à frente, uma equipe ao lado.",
+  nota: "Os demais profissionais serão apresentados aqui, com o registro de cada um, na abertura.",
+};
 
 // ─────────────────────────────────────────────────────────────────────────
 // Ecossistema
@@ -260,91 +299,60 @@ export const SERVICOS = [
 
 export const ECOSSISTEMA = {
   chapeu: "Ecossistema FaçaAmigos",
-  titulo: "Onde a terapia encontra a brincadeira de verdade",
+  titulo: "Enquanto a clínica não abre, você já pode começar.",
   paragrafos: [
-    "O Centro de Terapia Comportamental faz parte do FaçaAmigos Playground Inclusivo — um espaço onde crianças de todas as habilidades brincam juntas, no mesmo lugar, ao mesmo tempo.",
-    "Na prática, isso muda o resultado: a habilidade treinada na sessão não fica presa na sala. Ela é usada com outras crianças, num ambiente supervisionado, que é onde a socialização deixa de ser exercício e vira vida.",
+    "O Centro de Terapia Comportamental faz parte do FaçaAmigos: um ecossistema infantil inclusivo de Belém que também tem Playground Inclusivo e Circuito de carrinhos elétricos, no Parque Shopping.",
+    "Sem esperar a abertura, você pode fazer o mapeamento comportamental gratuito (cerca de 5 minutos) e ler os guias escritos pela nossa psicóloga sobre birra, rotina e laudo.",
   ],
   cta: {
-    rotulo: "Conhecer o Playground Inclusivo",
-    href: "https://institutofacaamigos.com.br/",
+    rotulo: "Fazer o mapeamento grátis",
+    href: HUB.mapeamento,
+  },
+  ctaSecundario: {
+    rotulo: "Ler os guias",
+    href: HUB.guias,
   },
   imagem: {
-    slot: "FOTO PLAYGROUND — crianças brincando juntas no playground inclusivo, plano aberto",
-    alt: "Crianças brincando juntas no FaçaAmigos Playground Inclusivo",
+    src: "/site/playground.webp",
+    largura: 784,
+    altura: 803,
+    alt: "Piscina de bolinhas, casinha de madeira e escorregador do FaçaAmigos Playground Inclusivo",
   },
 };
 
 // ─────────────────────────────────────────────────────────────────────────
-// Depoimentos — PLACEHOLDER, substituir por depoimentos reais autorizados
+// Depoimentos — vazio de propósito
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Exemplos de escrita, não depoimentos reais. Substitua por textos que as
- * famílias tenham autorizado por escrito (é dado de saúde de criança:
- * autorização verbal não basta). Lista vazia esconde a seção.
+ * A clínica ainda não abriu: não há depoimento real. Quando houver, só entra
+ * texto que a família tenha autorizado POR ESCRITO (é dado de saúde de
+ * criança; autorização verbal não basta). Lista vazia esconde a seção.
  */
-export const DEPOIMENTOS = [
-  {
-    texto:
-      "Chegamos sem saber nem que perguntas fazer. Saímos da avaliação com um plano escrito e, pela primeira vez, com a sensação de que alguém tinha olhado o Theo inteiro.",
-    autor: "[EXEMPLO] Mariana",
-    contexto: "mãe do Theo, 4 anos",
-  },
-  {
-    texto:
-      "O que mudou pra gente foi o relatório. Toda semana eu sei o que foi trabalhado e o que ele conseguiu. Parou de ser fé, virou acompanhamento.",
-    autor: "[EXEMPLO] Rafael",
-    contexto: "pai da Alice, 6 anos",
-  },
-  {
-    texto:
-      "Ver meu filho brincando com outras crianças no playground, depois de tanto tempo sozinho, foi o dia em que eu entendi por que este lugar é diferente.",
-    autor: "[EXEMPLO] Juliana",
-    contexto: "mãe do Bento, 5 anos",
-  },
-];
+export const DEPOIMENTOS: Array<{ texto: string; autor: string; contexto: string }> = [];
 
 // ─────────────────────────────────────────────────────────────────────────
-// Equipe — PLACEHOLDER
+// Convênios e atendimento particular — OFERTA
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Lista vazia esconde a seção. Preencha com a equipe real e o registro
- * profissional de cada um (CRP/CRFa/CREFITO) — é o que sustenta a autoridade
- * da página; nome sem registro tem o efeito contrário.
+ * Convênios que a clínica anunciou no hub. Só aparecem aqui enquanto a tabela
+ * `insurers` não tiver nenhum convênio ativo (page.tsx): depois do
+ * credenciamento no sistema, a lista real passa a valer e esta some.
  */
-export const EQUIPE: Array<{
-  nome: string;
-  especialidade: string;
-  registro: string;
-  frase: string;
-}> = [];
+export const CONVENIOS_NA_ABERTURA = ["IASEP", "PROASA"];
 
-// ─────────────────────────────────────────────────────────────────────────
-// Planos de saúde — a pergunta mais frequente da clínica
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * A lista de convênios NÃO é escrita aqui: ela é lida da tabela `insurers`
- * (só os `active`) em page.tsx, a mesma fonte que o bot de WhatsApp já usa em
- * `getAcceptedInsurersFormatted` (lib/twilio.ts). Credenciou um convênio no
- * sistema, ele aparece no site; descredenciou, some. Manter uma segunda lista
- * em texto aqui é o caminho garantido para o site prometer o que a clínica
- * não atende mais.
- *
- * O que fica neste arquivo é só a moldura de texto em volta da lista.
- */
 export const PLANOS = {
-  chapeu: "Planos de Saúde",
-  titulo: "Seu plano de saúde é atendido aqui?",
+  chapeu: "Como pagar",
+  titulo: "Convênios e atendimento particular",
   subtitulo:
-    "É a pergunta que mais chega pra gente — então ela vem antes de qualquer agendamento. A lista abaixo sai direto do cadastro da clínica: se o seu plano está nela, está credenciado hoje.",
+    "A pergunta que mais chega é se o plano é atendido. Os convênios valem a partir da inauguração; deixe seu contato e a recepção confirma a cobertura e explica o que é a guia, antes de qualquer compromisso.",
   /** Mostrado quando não há nenhum convênio ativo cadastrado. */
   semLista:
-    "No momento o atendimento é particular. Emitimos nota fiscal e relatórios da equipe para você solicitar reembolso ao seu plano — e a recepção te ajuda a montar essa documentação.",
+    "Vamos atender os convênios IASEP e PROASA assim que a clínica abrir, além do atendimento particular. Os detalhes de cada convênio são confirmados na abertura.",
+  aberturaRotulo: "na abertura",
   reembolso:
-    "Não encontrou o seu? Emitimos nota fiscal e relatório para reembolso, e todo plano perguntado aqui entra na nossa fila de novos credenciamentos.",
+    "Não encontrou o seu? Emitimos nota fiscal e relatório para você pedir reembolso, e a recepção ajuda a montar essa documentação.",
   formulario: {
     titulo: "Consultar meu plano",
     subtitulo:
@@ -368,9 +376,8 @@ export const PLANOS = {
   },
   /**
    * A bifurcação que a recepção precisa ANTES de ligar: com guia em mãos já
-   * se agenda; sem guia, o contato é para orientar como conseguir. "Não sei o
-   * que é" é a resposta mais comum de quem está começando agora — e é a que
-   * mais precisa de uma pessoa do outro lado.
+   * se agenda; sem guia, o contato é para orientar como conseguir. "Não sei
+   * o que é" é a resposta mais comum de quem está começando agora.
    */
   guia: {
     pergunta: "Você já tem o pedido médico (guia) em mãos?",
@@ -383,68 +390,59 @@ export const PLANOS = {
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────
-// FAQ
+// FAQ — mesmas respostas do hub (/servicos)
 // ─────────────────────────────────────────────────────────────────────────
 
 export const FAQ = [
   {
-    pergunta: "A partir de qual idade vocês atendem?",
+    pergunta: "Já dá para agendar uma consulta na clínica?",
     resposta:
-      "Atendemos crianças a partir de 1 ano. Quanto mais cedo a intervenção começa, maior o ganho — mas nunca é tarde: se seu filho tem 8, 10 ou 12 anos, o plano é outro, e ele existe.",
+      "Ainda não. A clínica FaçaAmigos está em fase final de preparação. Você pode entrar na lista de espera pelo WhatsApp, sem custo, e é a primeira pessoa avisada assim que abrirmos.",
   },
   {
-    pergunta: "Preciso de laudo ou encaminhamento médico para marcar?",
+    pergunta: "A clínica atende só crianças autistas?",
     resposta:
-      "Não. Você pode agendar a avaliação inicial mesmo sem diagnóstico fechado ou encaminhamento. Se já tiver laudos, relatórios da escola ou exames, traga — ajuda a equipe a chegar mais rápido no que importa.",
+      "Não. Atendemos crianças típicas e atípicas, com ou sem laudo, sempre que a família sente que precisa de apoio: birra frequente, atraso de fala, dificuldade na escola, entre outros motivos.",
   },
   {
-    pergunta: "Vocês atendem por plano de saúde?",
+    pergunta: "Preciso ter laudo para ser atendido?",
     resposta:
-      "Sim, além do atendimento particular. A lista de planos de saúde credenciados fica logo acima, na seção “Planos de saúde”, e sai direto do cadastro da clínica — se o seu plano estiver lá, está credenciado hoje. Não achou o seu? Consulte pelo formulário dessa seção: a recepção confirma a cobertura e explica o caminho do reembolso.",
+      "Não é obrigatório. A avaliação inicial e o acolhimento servem justamente para entender o caso, com ou sem laudo prévio.",
   },
   {
-    pergunta: "Como funciona a primeira avaliação?",
+    pergunta: "A clínica atende convênio?",
     resposta:
-      "É uma conversa com a família e uma observação da criança, conduzidas pela equipe multidisciplinar. Ao final, vocês recebem a devolutiva do que foi observado e a proposta de plano terapêutico, com objetivos, áreas indicadas e frequência.",
+      "Vamos atender os convênios IASEP e PROASA assim que abrirmos, além do atendimento particular. Os detalhes de cada convênio são confirmados na abertura. Se o seu plano for outro, a recepção explica como funciona o reembolso.",
   },
   {
-    pergunta: "As sessões são individuais ou em grupo?",
+    pergunta: "A partir de que idade a clínica atende?",
     resposta:
-      "A base é individual, um terapeuta por criança. Atividades em grupo entram quando o plano indica trabalho de habilidades sociais, e acontecem no espaço do playground inclusivo, sempre supervisionadas.",
+      "O acompanhamento é voltado para crianças; a idade exata de cada caso é conversada na avaliação inicial, de acordo com o serviço.",
   },
   {
-    pergunta: "Os pais podem participar ou assistir?",
+    pergunta: "A avaliação é um diagnóstico?",
     resposta:
-      "Sim. A participação da família é parte do tratamento: há orientação parental e momentos de sessão acompanhada. O que funciona aqui precisa funcionar em casa, e isso se combina com vocês.",
-  },
-  {
-    pergunta: "Qual a frequência recomendada?",
-    resposta:
-      "Depende do plano de cada criança — varia de uma a várias sessões por semana, por área. A avaliação inicial é justamente o que define isso; não existe pacote padrão.",
-  },
-  {
-    pergunta: "O que diferencia o FaçaAmigos de outras clínicas?",
-    resposta:
-      "Três coisas: seu filho é avaliado por uma equipe inteira, e não por um profissional isolado; o plano e a evolução ficam registrados e são apresentados à família; e a terapia se estende ao Playground Inclusivo, onde a criança pratica com outras crianças o que aprendeu.",
+      "Não. A avaliação inicial e o acompanhamento são um apoio educativo e terapêutico. Eles não substituem, quando necessário, uma avaliação médica ou neuropsicológica formal.",
   },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
-// CTA final e rodapé
+// CTA final e rodapé — OFERTA
 // ─────────────────────────────────────────────────────────────────────────
 
 export const FECHAMENTO = {
-  titulo: "Comece pela dúvida que você tem hoje.",
+  titulo: "Entre na lista de espera. Você é avisada assim que abrirmos.",
   subtitulo:
-    "Não precisa decidir nada agora. Descubra primeiro se o seu plano é atendido — a recepção confirma a cobertura, explica o que é a guia e, só então, se fizer sentido, marca a primeira avaliação.",
+    "Não precisa decidir nada agora. Conte em poucas palavras o que está acontecendo, sem formulário longo: a recepção responde, confirma se o seu convênio é atendido e explica o próximo passo no seu tempo.",
   reforco:
-    "Cada criança tem seu terapeuta na sessão, então a agenda é limitada. Quanto antes a gente conversar, mais cedo dá para reservar um horário.",
-  garantia:
-    "Nenhum dado seu vira cobrança: a consulta de plano é só uma resposta, no seu tempo.",
+    "Enquanto isso, o mapeamento comportamental gratuito (5 minutos) já te dá um primeiro retrato do dia a dia do seu filho.",
+  garantia: "Sem custo para entrar na lista e sem compromisso de agendar.",
 };
 
 export const RODAPE = {
   frase: "Feito com cuidado para todas as famílias.",
+  aviso:
+    "Conteúdo educativo. Não constitui diagnóstico e não substitui a avaliação e o acompanhamento de profissionais de saúde.",
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -457,4 +455,3 @@ export const DESCRICAO_CLINICA_500 = {
     "A Clínica Faça Amigos é especializada no desenvolvimento infantil integrativo, com foco no atendimento a crianças com Transtorno do Espectro Autista (TEA) e TDAH. Nossa equipe multidisciplinar atua com a Ciência ABA, Fonoaudiologia, Terapia Ocupacional e Psicopedagogia, oferecendo um ambiente acolhedor, seguro e estruturado. Unimos ciência, afeto e tecnologia para promover autonomia, inclusão e qualidade de vida para a criança e sua família, transformando cada etapa do desenvolvimento em conquistas reais.",
   caracteres: 494,
 };
-
