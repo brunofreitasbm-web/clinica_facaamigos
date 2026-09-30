@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
       // Sistema de gestão da clínica (prontuário, agenda, faturamento): nunca em buscador.
       // Única exceção: /site, a landing institucional feita para ser indexada (app/robots.ts).
       {
-        source: "/:path((?!site$|site/|sitemap\.xml$|robots\.txt$).*)",
+        source: "/:path((?!site$|site/|sitemap\\.xml$|robots\\.txt$).*)",
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet" }],
       },
       {
