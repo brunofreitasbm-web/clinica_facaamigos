@@ -78,6 +78,7 @@ export const metadata: Metadata = {
   // aqui é obrigatório. A landing é servida na raiz de clinica.institutofacaamigos.com.br.
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-snippet": -1, "max-image-preview": "large" } },
   openGraph: {
+    images: [{ url: "/site/og-clinica.png", width: 1200, height: 630, alt: CLINIC_NAME }],
     title: CLINIC_NAME,
     description: DESCRICAO_SEO,
     url: "/",
@@ -89,6 +90,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: CLINIC_NAME,
     description: DESCRICAO_SEO,
+    images: ["/site/og-clinica.png"],
   },
   // Preenchidos só se a variável existir — sem o código de verificação a
   // meta tag correspondente nem é gerada. Pegue o valor em cada ferramenta:
@@ -468,6 +470,14 @@ export default async function SiteLandingPage() {
                 className="btn w-fit border border-white/40 text-white"
               >
                 {ECOSSISTEMA.ctaSecundario.rotulo}
+              </a>
+              <a
+                href={ECOSSISTEMA.ctaHub.href}
+                target="_blank"
+                rel="noreferrer"
+                className="w-fit text-sm font-semibold text-white/90 underline underline-offset-4 hover:text-white"
+              >
+                {ECOSSISTEMA.ctaHub.rotulo}
               </a>
             </div>
           </div>

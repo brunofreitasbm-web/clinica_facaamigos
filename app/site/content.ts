@@ -36,7 +36,7 @@ export const CONTATO = {
   ],
   redes: [
     { nome: "Instagram", url: "https://www.instagram.com/facaamigos.belem" },
-    { nome: "Playground Inclusivo", url: "https://institutofacaamigos.com.br/" },
+    { nome: "Site do FaçaAmigos", url: "https://institutofacaamigos.com.br/" },
   ],
   /** Usado no <iframe> do mapa no rodapé. */
   mapaBusca: "Rua Boaventura da Silva, 1573, Umarizal, Belém, PA, 66060-060",
@@ -55,6 +55,8 @@ export const HUB = {
   guias:
     "https://institutofacaamigos.com.br/aprender?utm_source=clinica&utm_medium=site&utm_campaign=guias",
   playground: "https://institutofacaamigos.com.br/playground",
+  /** Página principal do ecossistema — o "voltar" da clínica para o hub. */
+  home: "https://institutofacaamigos.com.br/?utm_source=clinica&utm_medium=site&utm_campaign=ecossistema",
 };
 
 /** Mensagem já digitada quando a família abre o WhatsApp. */
@@ -311,6 +313,11 @@ export const ECOSSISTEMA = {
   ctaSecundario: {
     rotulo: "Ler os guias",
     href: HUB.guias,
+  },
+  /** Link para a página principal do FaçaAmigos (hub). */
+  ctaHub: {
+    rotulo: "Conhecer o site do FaçaAmigos",
+    href: HUB.home,
   },
   imagem: {
     src: "/site/playground.webp",
