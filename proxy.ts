@@ -33,9 +33,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(`https://${HOST_SISTEMA}${pathname}${search}`, 308);
   }
 
-  // No domínio do sistema, a landing tem um único endereço indexável: o da clínica.
-  if (host === HOST_SISTEMA && pathname === "/site") {
-    return NextResponse.redirect(`${CLINIC_WEBSITE}/${search}`, 308);
+  // No domínio do sistema a landing não existe: /site responde 404 (a landing
+  // mora só em clinica.…). Reescreve para um caminho sem rota, que cai no
+  // not-found do Next com status 404 e noindex.
+  if (pathname === "/site" || pathname.startsWith("/site/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/__nao-existe";
+    const response = NextResponse.rewrite(url);
+    response.headers.set("X-Robots-Tag", NOINDEX);
+    return response;
   }
 
   const response = await updateSession(request);

@@ -38,7 +38,7 @@ Nenhum evento envia o que a pessoa digita.
 Desde 30/09/2026 (revertendo a decisão anterior), a landing é indexável e o sistema não:
 
 - `clinica.institutofacaamigos.com.br/` serve a landing (rewrite de `/site` em `proxy.ts`); é o único endereço indexável, com canonical e sitemap próprios.
-- No mesmo host, qualquer outro caminho redireciona para `sistema.institutofacaamigos.com.br`; no sistema, `/site` redireciona para a clínica.
+- No mesmo host, qualquer outro caminho redireciona para `sistema.institutofacaamigos.com.br`; no sistema, `/site` responde 404 (a landing não existe lá).
 - `robots.txt` depende do host: na clínica libera só `/`, `/_next/` e `/site/`; no sistema bloqueia tudo.
 - Todo o sistema responde com `X-Robots-Tag: noindex` (posto em `proxy.ts`).
 
