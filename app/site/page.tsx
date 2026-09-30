@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import {
   ShieldCheck,
   HeartHandshake,
@@ -36,7 +37,6 @@ import { TrackedWhatsAppLink } from "./tracked-link";
 import { WaveDivider } from "./wave-divider";
 import { Blob } from "./blob";
 import {
-  CONTEUDO_PENDENTE,
   CONTATO,
   CTA,
   HERO,
@@ -52,14 +52,17 @@ import {
   FECHAMENTO,
   PLANOS,
   RODAPE,
+  EMPRESA,
+  QUEM_CUIDA,
+  CONVENIOS_NA_ABERTURA,
   linkWhatsApp,
 } from "./content";
 
 const DESCRICAO_SEO =
-  "Centro especializado em desenvolvimento infantil e autismo em Belém/PA. Equipe multidisciplinar, abordagem ABA e playground inclusivo. Agende uma avaliação.";
+  "Centro de terapia comportamental infantil no Umarizal, Belém/PA. Equipe multidisciplinar, psicóloga responsável CRP 10/4727 e convênios IASEP e PROASA. Entre na lista de espera.";
 
 export const metadata: Metadata = {
-  title: "Centro de Terapia Comportamental para Crianças Autistas",
+  title: "Centro de Terapia Comportamental Infantil em Belém",
   description: DESCRICAO_SEO,
   keywords: [
     "terapia aba belém",
@@ -69,14 +72,15 @@ export const metadata: Metadata = {
     "fonoaudiologia infantil belém",
     "terapia ocupacional infantil",
   ],
-  alternates: { canonical: "/site" },
-  // Decisão de 30/09/2026: nem a landing /site aparece em buscador (ver app/robots.ts).
-  // Explícito para não depender de nenhum default herdado.
-  robots: { index: false, follow: false },
+  alternates: { canonical: "/" },
+  // Esta é a única página do domínio feita para ser indexada (ver app/robots.ts
+  // e proxy.ts). O layout raiz declara noindex para o sistema, então o override
+  // aqui é obrigatório. A landing é servida na raiz de clinica.institutofacaamigos.com.br.
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-snippet": -1, "max-image-preview": "large" } },
   openGraph: {
     title: CLINIC_NAME,
     description: DESCRICAO_SEO,
-    url: "/site",
+    url: "/",
     siteName: CLINIC_NAME,
     type: "website",
     locale: "pt_BR",
@@ -115,6 +119,7 @@ async function listarConvenios(): Promise<Array<{ id: string; name: string }>> {
       .from("insurers")
       .select("id, name")
       .eq("active", true)
+      .neq("name", "Particular") // "Particular" é opção própria do formulário, não convênio
       .order("name");
     if (error) {
       console.error("[site/planos] Erro ao listar convênios:", error);
@@ -160,8 +165,28 @@ export default async function SiteLandingPage() {
     "@type": "MedicalBusiness",
     name: "FaçaAmigos — Centro de Terapia Comportamental",
     description:
-      "Centro de terapia comportamental especializado em crianças autistas e desenvolvimento infantil, em Belém/PA.",
-    url: `${CLINIC_WEBSITE}/site`,
+      "Centro de terapia comportamental e desenvolvimento infantil, com equipe multidisciplinar, no Umarizal, em Belém/PA.",
+    "@id": `${CLINIC_WEBSITE}/#clinica`,
+    url: `${CLINIC_WEBSITE}/`,
+    image: `${CLINIC_WEBSITE}/site/atendimento.webp`,
+    legalName: EMPRESA.razaoSocial,
+    taxID: EMPRESA.cnpj,
+    founder: {
+      "@type": "Person",
+      name: EQUIPE[0]?.nome,
+      jobTitle: EQUIPE[0]?.especialidade,
+      identifier: EQUIPE[0]?.registro,
+    },
+    sameAs: CONTATO.redes.map((r) => r.url),
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        opens: "08:00",
+        closes: "18:00",
+      },
+      { "@type": "OpeningHoursSpecification", dayOfWeek: "Saturday", opens: "08:00", closes: "12:00" },
+    ],
     telephone: CONTATO.telefoneVisivel,
     email: CONTATO.email,
     address: {
@@ -195,13 +220,6 @@ export default async function SiteLandingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFaq).replace(/</g, "\\u003c") }}
       />
-
-      {CONTEUDO_PENDENTE && (
-        <div className="bg-[var(--color-dark)] px-4 py-2 text-center text-xs font-semibold text-white">
-          Rascunho de trabalho — números e depoimentos abaixo são exemplo e precisam ser
-          substituídos por dados reais antes de publicar.
-        </div>
-      )}
 
       <SiteHeader />
 
@@ -267,10 +285,16 @@ export default async function SiteLandingPage() {
               color="var(--color-accent-2)"
               className="absolute -top-8 -right-8 hidden aspect-square w-[105%] opacity-90 sm:block"
             />
-            <div className="relative flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 rounded-[32px] border-2 border-dashed border-[var(--color-neutral-300)] bg-white p-8 text-center shadow-lg sm:aspect-[5/4] lg:aspect-[4/5]">
-              <Sparkles className="h-8 w-8 text-[var(--color-accent-2)]" aria-hidden />
-              <p className="text-sm font-semibold text-[var(--color-neutral-500)]">[{HERO.imagem.slot}]</p>
-              <p className="sr-only">{HERO.imagem.alt}</p>
+            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[32px] bg-white shadow-lg sm:aspect-[5/4] lg:aspect-[4/5]">
+              <Image
+                src={HERO.imagem.src}
+                alt={HERO.imagem.alt}
+                width={HERO.imagem.largura}
+                height={HERO.imagem.altura}
+                priority
+                sizes="(min-width: 1024px) 45vw, 100vw"
+                className="h-full w-full object-cover"
+              />
             </div>
             <div
               aria-hidden
@@ -309,6 +333,18 @@ export default async function SiteLandingPage() {
               <p key={i}>{p}</p>
             ))}
           </div>
+          <div className="mx-auto mt-8 max-w-xl rounded-3xl bg-white p-6 text-left shadow-sm">
+            <p className="m-0 text-base font-bold text-[var(--color-dark)]">{EMPATIA.sinaisTitulo}</p>
+            <ul className="mt-3 flex list-none flex-col gap-2 p-0">
+              {EMPATIA.sinais.map((sinal) => (
+                <li key={sinal} className="flex items-start gap-2 text-[15px] text-[var(--text-secondary)]">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-teal)]" aria-hidden />
+                  {sinal}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-sm font-semibold text-[var(--color-teal-800)]">{EMPATIA.sinaisNota}</p>
+          </div>
           <a href="#servicos" className="btn btn-ghost mt-6">
             {EMPATIA.cta}
             <ArrowRight className="h-4 w-4" aria-hidden />
@@ -321,7 +357,7 @@ export default async function SiteLandingPage() {
         <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
           <div className="mx-auto mb-12 max-w-2xl text-center">
             <h2 className="text-3xl font-extrabold text-[var(--color-dark)] sm:text-4xl">
-              Por que famílias escolhem o FaçaAmigos
+              O que você encontra aqui
             </h2>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -353,7 +389,7 @@ export default async function SiteLandingPage() {
             <p className="mt-3 text-[17px] text-[var(--text-secondary)]">{METODO.subtitulo}</p>
           </div>
 
-          <ol className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <ol className="grid gap-8 sm:grid-cols-3">
             {METODO.passos.map((passo, i) => (
               <li key={passo.titulo} className="relative flex flex-col gap-2">
                 <span className="tabular-figure flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-pink)] text-base font-extrabold text-white">
@@ -415,21 +451,36 @@ export default async function SiteLandingPage() {
                 <p key={i}>{p}</p>
               ))}
             </div>
-            <a
-              href={ECOSSISTEMA.cta.href}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-gold w-fit"
-            >
-              {ECOSSISTEMA.cta.rotulo}
-              <ArrowRight className="h-4 w-4" aria-hidden />
-            </a>
+            <div className="flex flex-wrap gap-3">
+              <a
+                href={ECOSSISTEMA.cta.href}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-gold w-fit"
+              >
+                {ECOSSISTEMA.cta.rotulo}
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </a>
+              <a
+                href={ECOSSISTEMA.ctaSecundario.href}
+                target="_blank"
+                rel="noreferrer"
+                className="btn w-fit border border-white/40 text-white"
+              >
+                {ECOSSISTEMA.ctaSecundario.rotulo}
+              </a>
+            </div>
           </div>
           <div className="order-1 lg:order-2">
-            <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-3 rounded-[32px] border-2 border-dashed border-white/25 bg-white/5 p-8 text-center">
-              <Puzzle className="h-8 w-8 text-white/70" aria-hidden />
-              <p className="text-sm font-semibold text-white/70">[{ECOSSISTEMA.imagem.slot}]</p>
-              <p className="sr-only">{ECOSSISTEMA.imagem.alt}</p>
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[32px]">
+              <Image
+                src={ECOSSISTEMA.imagem.src}
+                alt={ECOSSISTEMA.imagem.alt}
+                width={ECOSSISTEMA.imagem.largura}
+                height={ECOSSISTEMA.imagem.altura}
+                sizes="(min-width: 1024px) 45vw, 100vw"
+                className="h-full w-full object-cover"
+              />
             </div>
           </div>
         </div>
@@ -468,26 +519,49 @@ export default async function SiteLandingPage() {
         </section>
       )}
 
-      {/* ── Equipe ───────────────────────────────────────────────────── */}
+      {/* ── Quem cuida ───────────────────────────────────────────────── */}
       {EQUIPE.length > 0 && (
-        <section className="bg-white">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
-            <div className="mx-auto mb-12 max-w-2xl text-center">
-              <h2 className="text-3xl font-extrabold text-[var(--color-dark)] sm:text-4xl">Nossa equipe</h2>
+        <section id="quem-cuida" className="bg-[var(--color-bg)]">
+          <div className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
+            <div className="mx-auto mb-10 max-w-2xl text-center">
+              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--color-teal-100)] px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[var(--color-teal-800)]">
+                <HeartHandshake className="h-3.5 w-3.5" aria-hidden />
+                {QUEM_CUIDA.chapeu}
+              </span>
+              <h2 className="mt-4 text-3xl font-extrabold text-[var(--color-dark)] sm:text-4xl">{QUEM_CUIDA.titulo}</h2>
             </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-10">
               {EQUIPE.map((p) => (
-                <div key={p.nome} className="flex flex-col items-center gap-2 text-center">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-dashed border-[var(--color-neutral-300)] bg-[var(--color-bg)] text-xs text-[var(--color-neutral-500)]">
-                    foto
+                <div key={p.nome} className="grid items-center gap-8 md:grid-cols-[0.8fr_1.2fr]">
+                  <div className="relative mx-auto aspect-[3/4] w-full max-w-sm overflow-hidden rounded-[32px] shadow-lg">
+                    <Image
+                      src={p.foto.src}
+                      alt={p.foto.alt}
+                      width={p.foto.largura}
+                      height={p.foto.altura}
+                      sizes="(min-width: 768px) 30vw, 90vw"
+                      className="h-full w-full object-cover"
+                      style={{ objectPosition: "50% 28%" }}
+                    />
                   </div>
-                  <p className="m-0 text-base font-bold text-[var(--color-dark)]">{p.nome}</p>
-                  <p className="m-0 text-sm font-semibold text-[var(--color-pink)]">{p.especialidade}</p>
-                  <p className="m-0 text-xs text-[var(--text-secondary)]">{p.registro}</p>
-                  <p className="mt-1 text-sm italic text-[var(--text-secondary)]">“{p.frase}”</p>
+                  <div className="flex flex-col gap-3">
+                    <h3 className="m-0 text-2xl font-extrabold text-[var(--color-dark)]">{p.nome}</h3>
+                    <p className="m-0 text-base font-semibold text-[var(--color-pink)]">
+                      {p.especialidade} · {p.registro}
+                    </p>
+                    <p className="m-0 text-[17px] leading-relaxed text-[var(--text-secondary)]">{p.bio}</p>
+                    <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+                      {p.chips.map((c) => (
+                        <li key={c} className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-[var(--color-dark)] shadow-sm">
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               ))}
             </div>
+            <p className="mt-8 text-center text-sm text-[var(--text-secondary)]">{QUEM_CUIDA.nota}</p>
           </div>
         </section>
       )}
@@ -519,9 +593,24 @@ export default async function SiteLandingPage() {
                 <p className="m-0 text-[15px] leading-relaxed text-[var(--text-secondary)]">{PLANOS.reembolso}</p>
               </>
             ) : (
-              <p className="m-0 rounded-2xl bg-[var(--color-teal-100)] p-4 text-[15px] leading-relaxed font-medium text-[var(--color-teal-800)]">
-                {PLANOS.semLista}
-              </p>
+              <>
+                <ul className="m-0 grid list-none grid-cols-1 gap-2 p-0 sm:grid-cols-2">
+                  {CONVENIOS_NA_ABERTURA.map((nome) => (
+                    <li
+                      key={nome}
+                      className="flex items-center gap-2 rounded-2xl bg-[var(--color-bg)] px-4 py-3 text-[15px] font-semibold text-[var(--color-dark)]"
+                    >
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--color-teal)]" aria-hidden />
+                      {nome}
+                      <span className="text-xs font-medium text-[var(--text-secondary)]">{PLANOS.aberturaRotulo}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="m-0 rounded-2xl bg-[var(--color-teal-100)] p-4 text-[15px] leading-relaxed font-medium text-[var(--color-teal-800)]">
+                  {PLANOS.semLista}
+                </p>
+                <p className="m-0 text-[15px] leading-relaxed text-[var(--text-secondary)]">{PLANOS.reembolso}</p>
+              </>
             )}
 
             <TrackedWhatsAppLink
@@ -592,6 +681,7 @@ export default async function SiteLandingPage() {
           <div className="flex flex-col gap-3">
             <Logo variant="horizontal" height={40} />
             <p className="text-sm text-[var(--text-secondary)]">{RODAPE.frase}</p>
+            <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{RODAPE.aviso}</p>
             <div className="mt-1 flex gap-3">
               {CONTATO.redes.map((r) => (
                 <a key={r.nome} href={r.url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-[var(--color-pink)]">
@@ -630,7 +720,7 @@ export default async function SiteLandingPage() {
           <div className="flex flex-col gap-2.5 text-sm text-[var(--color-dark)]">
             <p className="m-0 flex items-center gap-2 font-bold">
               <Clock className="h-4 w-4" aria-hidden />
-              Horário de funcionamento
+              Horário após a inauguração
             </p>
             {CONTATO.horario.map((h) => (
               <p key={h.dias} className="m-0 text-[var(--text-secondary)]">
@@ -647,7 +737,7 @@ export default async function SiteLandingPage() {
         </div>
 
         <div className="border-t border-[var(--color-paper-line)] px-5 py-5 text-center text-xs text-[var(--text-secondary)] sm:px-8">
-          © {new Date().getFullYear()} {CLINIC_NAME}. Todos os direitos reservados.
+          © {new Date().getFullYear()} {CLINIC_NAME}. Todos os direitos reservados. {EMPRESA.razaoSocial} · CNPJ {EMPRESA.cnpj}.
         </div>
       </footer>
     </div>
