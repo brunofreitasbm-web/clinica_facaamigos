@@ -110,10 +110,6 @@ export function SiteHeader() {
             </span>
             <span className="text-[10px] font-medium opacity-85">{CTA.principalApoio}</span>
           </a>
-          <a href="/login" className="btn btn-ghost !min-h-0 !py-2.5 text-sm gap-1.5 ml-1">
-            <User className="h-4 w-4" aria-hidden />
-            <span>Entrar</span>
-          </a>
         </div>
 
         {/*
