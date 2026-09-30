@@ -34,7 +34,7 @@ const NAV_ITEMS = [
   { key: "equipe", label: "Pessoas & Desempenho", href: "/gestor/bonificacao", match: ["/gestor/bonificacao", "/gestor/metas"] },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro", match: ["/gestor/financeiro", "/gestor/contratos"] },
-  { key: "auditoria", label: "Auditoria (LGPD)", href: "/gestor/auditoria", match: ["/gestor/auditoria", "/gestor/ouvidoria"] },
+  { key: "auditoria", label: "Auditoria (LGPD)", href: "/gestor/auditoria", match: ["/gestor/auditoria", "/gestor/ouvidoria", "/gestor/facilidade-de-uso"] },
   { key: "configuracoes", label: "Configurações", href: "/gestor/configuracoes" },
 ] as const;
 

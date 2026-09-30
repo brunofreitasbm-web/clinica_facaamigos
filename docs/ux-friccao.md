@@ -4,9 +4,10 @@ Mede, sem perguntar nada ao operador, **onde o sistema atrapalha**: quem hesita,
 erra, clica sem resposta ou se perde procurando uma ferramenta. Serve para
 decidir o que melhorar primeiro.
 
-Os relatórios ficam no **Metabase** (regra do projeto — ver `AGENTS.md`). Toda
-tabela tem a semana atual, a semana anterior e uma meta, e uma coluna
-**`leitura`** que já explica em português o que o número sugere.
+Os relatórios ficam na tela **Gestão › Auditoria (LGPD) › Facilidade de uso**
+(`/gestor/facilidade-de-uso`, só para o gestor). Metabase não é usado (custo).
+Toda tabela tem a semana atual, a semana anterior e uma meta, e um texto de
+**leitura** que já explica em português o que o número sugere.
 
 ## O que é coletado (e o que nunca é)
 
@@ -34,17 +35,18 @@ Como é monitoramento de equipe, avise os operadores de que o sistema mede
 | **Vai-e-volta** | Tela A → tela B (< 15 s) → volta para A | B não era o que procurava: o nome/lugar do atalho engana |
 | **Tempo até a 1ª ação** | Segundos entre abrir a tela e o primeiro clique/tecla | Alto = hesitação; a tela pode estar carregada de informação |
 
-## Views para o Metabase
+## De onde vêm os números
 
-Todas em `supabase/migrations/20260929000000_ux_friction_events.sql`, com filtro
-por `clinic_id`. Sugestão de painel **"Facilidade de uso"**:
+A tela lê 4 views do banco (`supabase/migrations/20260929000000_ux_friction_events.sql`),
+protegidas para só o gestor da clínica enxergar. Os nomes começam com `metabase_`
+por herança; hoje quem lê é a própria tela.
 
-| View | Pergunta que responde | Cartão sugerido |
+| View | Pergunta que responde | Seção da tela |
 |---|---|---|
-| `metabase_ux_friction_kpis` | "Estamos melhorando ou piorando? Em qual papel?" | Número grande `pct_sessoes_com_friccao_atual` com comparação `..._semana_anterior` e meta 15%; filtro `papel`. Mostrar `leitura`. |
-| `metabase_ux_friction_by_page` | "Qual tela devo consertar primeiro?" | Tabela ordenada por `prioridade`, colunas `tela`, `sinais_por_100_atual`, `..._semana_anterior`, `leitura`. Filtrar `semana` = última. |
-| `metabase_ux_friction_by_element` | "Que botão não funciona?" | Tabela `tela`, `elemento`, `tipo`, `ocorrencias_atual` vs `..._semana_anterior`, `leitura`. |
-| `metabase_ux_navigation_loops` | "O que as pessoas não estão achando?" | Tabela `tela_de_origem` → `tela_visitada`, `idas_e_voltas_atual` vs anterior, `leitura`. |
+| `metabase_ux_friction_kpis` | "Estamos melhorando ou piorando? Em qual área?" | Três cartões, "Por área" e "Evolução semana a semana" |
+| `metabase_ux_friction_by_page` | "Qual tela devo consertar primeiro?" | "O que consertar primeiro" |
+| `metabase_ux_friction_by_element` | "Que botão não funciona?" | "Botões que não respondem" |
+| `metabase_ux_navigation_loops` | "O que as pessoas não estão achando?" | "Onde não estão achando o que procuram" |
 
 Cuidados de leitura:
 
@@ -55,6 +57,7 @@ Cuidados de leitura:
 
 ## Para o desenvolvedor
 
+- Tela: `app/gestor/facilidade-de-uso/` (leitura em `data.ts`); regras de comparativo e textos em `lib/ux-friction-report.ts` + `tests/ux-friction-report.test.ts`.
 - Coletor: `components/friction-tracker.tsx` (montado em `app/layout.tsx`).
 - Regras puras e testes: `lib/ux-friction.ts`, `tests/ux-friction-pure.test.ts`.
 - Gravação: `app/api/ux-events/route.ts` (service role; papel e clínica vêm do perfil no servidor, nunca do navegador; papel `responsavel` não é gravado).

@@ -6,7 +6,7 @@ import { RageClickDetector, normalizeRoute } from "@/lib/ux-friction";
 
 /**
  * Coletor de sinais de fricção de uso (ver lib/ux-friction.ts para as regras e
- * a política de privacidade, e docs/ux-friccao-metabase.md para como ler os
+ * a política de privacidade, e docs/ux-friccao.md para como ler os
  * relatórios). Montado uma vez em app/layout.tsx; não renderiza nada.
  *
  * Sinais coletados:
