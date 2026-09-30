@@ -63,7 +63,7 @@ pipeline sem Twilio.
 | Nota interna do supervisor (`channel='portal'`) vaza pro chat | GET público filtra `channel in ('whatsapp','web')`. |
 | Link encaminhado | Token troca por cookie httpOnly HMAC (`ch_s`, padrão `ck_s` do check-in) e a URL fica limpa; o link vale 7 dias e pode ser reaberto (continuidade em outro aparelho), mas histórico e documentos só aparecem após CPF + nascimento; novo link revoga o anterior; cookie 30 dias. |
 | Push no iPhone exige instalar na tela inicial | Banner "adicionar à tela inicial" no chat; fallback por template WhatsApp cobre quem não instalou. |
-| `chatbot_sessions` com RLS `using (true)` | Restringir a papéis de equipe na mesma migration (só service role escreve). |
+| `chatbot_sessions` com RLS `using (true)` | Restringir a papéis de equipe, mas na migration B separada, depois da semana de teste (ver "Teste antes de produção"); não é necessário para o chat funcionar. |
 | Resposta a um disparo (ex.: "1" para confirmar D-1, horário da remarcação, PDF pedido pela pré-anamnese) chega pelo WhatsApp com `link_only` ligado e seria redirecionada ao chat | O gate `link_only` só age com `chatbot_sessions.current_step='idle'` **e** sem disparo pendente para o telefone nas últimas 72 h (`messages` outbound com `template_key`); qualquer resposta a fluxo iniciado pela clínica é processada no WhatsApp, sem link. Teste unitário cobre a matriz. |
 
 ## Fluxo do desconhecido vindo da landing (caso mais comum)
@@ -192,6 +192,104 @@ usa cards com sombra em tudo):
 - Referências de ritmo: WhatsApp e iMessage (a família já sabe usar), sem copiar a
   identidade visual deles.
 
+## Teste antes de produção (decisão: sem staging, produção atrás de flag e allowlist)
+
+Registro: recomendei um projeto Supabase de staging; a decisão do dono foi testar em
+produção protegida por flag e allowlist, com Twilio em sandbox/subconta e trava no
+código, e 1 semana de equipe interna antes de abrir ao público. Só é seguro com as
+travas abaixo. **Gatilho para revisar:** se algum passo exigir mudança não aditiva em
+tabela viva, criar staging antes.
+
+### Fatos verificados que moldam o teste
+- O preview da Vercel usa a **mesma** `NEXT_PUBLIC_SUPABASE_URL`/`ANON_KEY` da
+  produção (uma variável só, marcada para production e preview): preview = banco real.
+  `SUPABASE_SERVICE_ROLE_KEY` e todas as `TWILIO_*` têm entradas separadas para
+  preview, mas preenchidas (valores ocultos; não dá para confirmar se são as mesmas).
+- Só existem dois projetos Supabase, ambos produção, e o branch `main` do projeto da
+  clínica está em `MIGRATIONS_FAILED`: não contar com Supabase Branching.
+- Não estão no Vercel: `APP_URL`, `TWILIO_WEBHOOK_URL`, `TWILIO_SKIP_SIGNATURE_VALIDATION`,
+  `CHECKIN_HMAC_SECRET`. O chat precisa de URL pública própria (`CHAT_PUBLIC_URL`, com
+  fallback ao host da requisição) e de `CHAT_HMAC_SECRET`/VAPID novos só em produção.
+  Confirmar se a ausência de `APP_URL` significa que `statusCallback` do Twilio não é
+  enviado hoje (`lib/twilio.ts:216,284`).
+- `GEMINI_API_KEY` está como variável legível (alerta `readable-secret`); converter
+  para sensível.
+- CI roda só `typecheck` e `npm test` (módulos puros). Não há teste de
+  `handleTwilioIncomingMessage`, nem e2e (Playwright está instalado, sem config).
+- `getChatbotSettings` cacheia 5 min por instância: o "desligar" do webhook pode levar
+  até 5 min para valer se usar esse caminho.
+
+### Fase 0 — travas antes de qualquer feature (entra em produção sozinha, invisível)
+1. **Testes de caracterização do pipeline atual** (mock de Supabase, Twilio e Gemini)
+   para `handleTwilioIncomingMessage` e para o bloco de envio/log do webhook:
+   saudação, FAQ por regra, FAQ por IA, escalada, passo da anamnese, mídia a frio,
+   dedupe `23505`, bot desligado, `pipeline_error` fail-closed. Rodam no CI. O refactor
+   `deliverBotReply` só começa com eles verdes e entra num PR próprio (mover código sem
+   mudar comportamento).
+2. **Guarda de envio**: em `sendTwilioWhatsApp`/`sendTwilioSMS`, fora de
+   `VERCEL_ENV==='production'` só sai mensagem para números em `TWILIO_TEST_ALLOWLIST`;
+   o resto vira log e `{success:false, error:'blocked_non_production'}`. Preview passa a
+   usar sandbox/subconta Twilio (trocar só as entradas *preview* de `TWILIO_*`; produção
+   intocada). Teste unitário da guarda.
+3. **Flags, sempre desligadas por padrão**, em `chatbot_sessions`-independente
+   `chatbot_settings`: `chat_web_enabled`, `chat_web_allowlist` (telefones e ids da
+   equipe), `whatsapp_mode='full'`. Rotas do chat leem a flag com TTL de 15 s; o gate
+   `link_only` lê direto do banco. Flag desligada → `/chat*` e `/api/chat*` respondem 404,
+   exceto token de quem está na allowlist.
+4. **Migration aditiva em duas partes** (expandir, depois contrair):
+   - **A (aditiva, compatível com o código antigo):** colunas novas nulas ou com default,
+     tabelas novas, CHECK de `messages.channel` ampliado com `NOT VALID` + `VALIDATE`
+     (evita trava longa), `CREATE OR REPLACE` do trigger de último remetente. Sai do
+     caminho crítico: **nada de mexer na RLS de `chatbot_sessions`**.
+   - **B (endurecimento, opcional, separada):** RLS de `chatbot_sessions`, só depois da
+     semana de teste.
+   - Ensaio: rodar a A inteira dentro de `begin; … rollback;` no projeto real para
+     validar contra o esquema verdadeiro, depois aplicar. Rollback (`down`) escrito junto.
+   - Pré-requisito: confirmar backup diário/PITR ativo no projeto `vththexblpxwocbowhsv`
+     (não verificado).
+5. **Dados de teste em tabelas reais:** `is_test boolean default false` em
+   `twilio_conversations` e `chat_access_tokens`. KPIs de lead/atendimento e filas de
+   negócio excluem `is_test` (custo de IA continua contando). Testar só com
+   responsável e paciente fictícios dedicados, nunca com dado de família real. Script
+   de limpeza por `is_test`.
+6. **Observabilidade:** log estruturado por mensagem web (latência por etapa, regra ou
+   IA, erro) e contagem de erros da rota no dashboard do Chatbot.
+7. **Reversão:** flag off (segundos); rollback de deploy na Vercel para o anterior; a
+   migration A não precisa ser revertida porque o código antigo a ignora.
+
+### Sequência de liberação
+| Etapa | O que entra | Saída para a próxima |
+|---|---|---|
+| 0 | Testes de caracterização, guarda de envio, refactor `deliverBotReply`, tudo invisível | WhatsApp idêntico por 48 h (taxa de resposta, erros, distribuição de `intent` antes × depois) |
+| 1 | Migration A + código com flags desligadas | Nenhum erro novo em 24-48 h |
+| 2 | Chat ligado só para allowlist (equipe), 1 semana | Lista de critérios abaixo 100% |
+| 3 | Público gradual: link oculto → QR na recepção → CTA do site; `link_only` por último | Métrica de links enviados × abertos e de conversas escaladas estável 1 semana |
+
+### Testes por camada
+- **Unit (CI):** markdown, cookie HMAC, matriz `link_only`, guarda de envio, chips de FAQ
+  respondidos pela camada de regras, `resumePromptForStep`, `matchIdentity`.
+- **Caracterização (CI):** pipeline e rota do webhook (Fase 0).
+- **SQL:** `supabase/tests/031_web_chat_test.sql` executado em `begin/rollback`.
+- **E2E Playwright** (criar `playwright.config.ts`; roda contra o preview, que aponta
+  para produção, então só com flag, allowlist e dados `is_test`): lead da landing →
+  chips → agendar → anexo; fechar a aba e retomar; handoff humano com duas sessões
+  (chat e Central); CPF + nascimento com 3 tentativas; família com dois filhos.
+- **Aparelho real:** Android de entrada (Xiaomi e Motorola) em 4G: LCP < 2,5 s, INP <
+  200 ms, JS da rota ≤ 80 KB; Lighthouse mobile com CPU 4x mais lenta.
+- **Segurança:** digitar telefone de outra família, token encaminhado, XSS no markdown,
+  upload com mime falsificado, rate limit, nota `channel='portal'` não vaza no GET.
+- **LGPD:** aceite gravado com data e versão; nenhum dado pessoal antes da verificação.
+
+### Critérios para abrir ao público (fim da etapa 2)
+1. Lead da landing conclui FAQ e agendamento sem ajuda, em Android de entrada.
+2. Chip de FAQ responde em menos de 500 ms no servidor, sem chamar Gemini.
+3. Handoff humano: a atendente vê na Central, responde, e a resposta chega no chat em
+   até 3 s; aba fechada recebe push ou template.
+4. Voltar de onde parou funciona em aba fechada, PWA e outro aparelho (paciente).
+5. Nenhuma família consegue ver dado de outra nos testes de segurança.
+6. WhatsApp sem regressão: mesmas taxas de resposta e erro da semana anterior.
+7. Zero mensagens reais fora da allowlist durante os testes (auditado em `messages`).
+
 ## Fase 1 — MVP
 
 Entrega: lead e família conversam em `/chat/c` com ZoeIA (FAQ, agendamento de anamnese,
@@ -216,9 +314,12 @@ responde com o link; Central enxerga o canal.
    `created_at`, `last_error`). RLS: sem acesso de cliente (só service role).
 6. `fn_conversation_last_sender` (migration 20260929000000): guard aceita `web`; ao
    inbound em `('whatsapp','web')` grava `last_channel`.
-7. `chatbot_sessions`: substituir `chatbot_sessions_admin` por
-   `app_current_role() in ('gestor','supervisor','recepcao')`.
+7. `is_test boolean not null default false` em `twilio_conversations` e
+   `chat_access_tokens`; flags `chat_web_enabled` e `chat_web_allowlist` em
+   `chatbot_settings`.
 8. Regenerar `lib/database.types.ts`.
+(Endurecer a RLS de `chatbot_sessions` fica fora desta migration: é a migration B,
+separada, depois da semana de teste.)
 
 ### Módulos puros (novos, testáveis com `node --test`, sem imports `@/`)
 - `lib/chat-reply-pure.ts`: `ChatChannel`, `ChatOption = {label, send}`,
@@ -374,7 +475,8 @@ Mudanças na Central (`app/recepcao/atendimento/*`, reaproveitando tudo que exis
   → QR genérico abre lead sintético e FAQ responde. Playwright smoke em `/chat/[token]`.
 - `npm run lint`, `npm run typecheck`, `npm test`.
 
-Ordem: migration → módulos puros + testes → `downloadTwilioMedia` storage +
+Ordem: **Fase 0 (testes de caracterização, guarda de envio, flags)** → migration A →
+módulos puros + testes → `downloadTwilioMedia` storage +
 `deliverBotReply` (sem mudança visível, pode ir sozinho) → `channel`/gate no pipeline →
 `chat-access` + rotas → UI + LGPD + verificação + multi-filho → push + nudge → Central +
 settings → portal/site/QR/e-mail.
