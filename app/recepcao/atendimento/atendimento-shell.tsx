@@ -48,12 +48,14 @@ export function AtendimentoShell({
   currentUserId,
   staffNames,
   insurerById,
+  loadError = null,
 }: {
   initialConversations: ConversationRow[];
   chatbotAdmin: ChatbotAdminData | null;
   currentUserId: string | null;
   staffNames: Record<string, string>;
   insurerById: Record<string, InsurerPill>;
+  loadError?: string | null;
 }) {
   const [conversations, setConversations] = useState<ConversationRow[]>(initialConversations);
   const [selectedId, setSelectedId] = useState<string | null>(initialConversations[0]?.id ?? null);
@@ -236,6 +238,12 @@ export function AtendimentoShell({
                 {tab.label}
               </button>
             ))}
+          </div>
+        )}
+
+        {loadError && (
+          <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+            Não foi possível carregar as conversas: {loadError}
           </div>
         )}
 

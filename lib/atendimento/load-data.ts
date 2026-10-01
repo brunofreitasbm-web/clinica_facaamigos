@@ -17,8 +17,13 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
   conversations: ConversationRow[];
   staffNames: Record<string, string>;
   insurerById: Record<string, InsurerPill>;
+  loadError: string | null;
 }> {
-  const [{ data: conversationsRaw }, { data: staffRaw }, { data: insurersRaw }] = await Promise.all([
+  const [
+    { data: conversationsRaw, error: conversationsError },
+    { data: staffRaw },
+    { data: insurersRaw },
+  ] = await Promise.all([
     supabase
       .from("twilio_conversations")
       .select(
@@ -30,6 +35,10 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
     // Convênios cadastrados: resolvem o plano que o chatbot identificou na conversa.
     supabase.from("insurers").select("id, name, badge_color").eq("clinic_id", DEV_CLINIC_ID),
   ]);
+
+  // Antes o erro era engolido e a fila aparecia vazia ("Nenhuma conversa"),
+  // sem pista do motivo. Agora vai pro log do servidor e pra tela.
+  if (conversationsError) console.error("[atendimento] falha ao carregar conversas:", conversationsError);
 
   const staffNames: Record<string, string> = {};
   for (const p of staffRaw ?? []) staffNames[p.id] = p.full_name;
@@ -90,7 +99,7 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
     };
   });
 
-  return { conversations, staffNames, insurerById };
+  return { conversations, staffNames, insurerById, loadError: conversationsError?.message ?? null };
 }
 
 const ATENDIMENTO_ROLES = new Set(["recepcao", "supervisor", "gestor"]);
