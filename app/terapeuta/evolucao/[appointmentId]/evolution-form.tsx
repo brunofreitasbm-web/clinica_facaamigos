@@ -17,7 +17,7 @@ import { InterventionLogger } from "@/components/interventions/intervention-logg
 import type { InterventionCatalogItem } from "@/lib/intervention-catalog";
 import { VoiceEvolutionRecorder } from "./voice-evolution-recorder";
 import { uploadSessionNoteMedia } from "./media-actions";
-import { compressImageIfNeeded } from "@/lib/compress-image";
+import { prepareUpload } from "@/lib/compress-image";
 import { saveDraft, loadDraft, clearDraft } from "@/lib/offline-draft";
 
 const PRESENCE_SCALE = [1, 2, 3, 4, 5] as const;
@@ -374,7 +374,7 @@ export function EvolutionForm({
       const uploadId = `${rawFile.name}-${Date.now()}-${Math.random()}`;
       setMediaUploads((prev) => [...prev, { id: uploadId, name: rawFile.name, status: "enviando" }]);
       try {
-        const file = await compressImageIfNeeded(rawFile);
+        const file = await prepareUpload(rawFile, "foto");
         const fd = new FormData();
         fd.set("file", file);
         const result = await uploadSessionNoteMedia(appointmentId, patientId, fd);

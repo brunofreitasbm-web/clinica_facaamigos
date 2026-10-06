@@ -6,6 +6,7 @@ import { GuiaSection } from "./guia-quick-action-modal";
 import { uploadDocument } from "./pacientes/[id]/documents-actions";
 import { checkIn } from "./agenda/session-actions";
 import { printCoupon } from "@/lib/print-coupon";
+import { prepareFormDataFile } from "@/lib/compress-image";
 import type { CouponModel } from "@/lib/checkin-coupon";
 
 /**
@@ -50,6 +51,7 @@ export function ChegadaAvaliacaoModal({
     setLaudoError(null);
     formData.set("category", "laudo");
     startLaudoTransition(async () => {
+      await prepareFormDataFile(formData, "file", "documento");
       const result = await uploadDocument(patientId, formData);
       if (!result.success) {
         setLaudoError(result.error);

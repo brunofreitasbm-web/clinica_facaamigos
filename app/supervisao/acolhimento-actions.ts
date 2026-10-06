@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sanitizeFileName } from "@/lib/file-name";
+import { sniffAllowed } from "@/lib/upload-bytes";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { normalizeCpf, parseBrDate, normalizePhone } from "@/lib/document-extraction";
 import { claimAndProcessIntakeBatches, ingestPreExtractedIntakeBatch } from "@/lib/insurance-intake-process";
@@ -35,12 +37,6 @@ async function requireSupervisor(): Promise<{ userId: string } | { error: string
   return { userId: user.id };
 }
 
-function sanitizeFileName(name: string): string {
-  const trimmed = name.trim().slice(-120);
-  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return cleaned || "arquivo.pdf";
-}
-
 /** Sobe o PDF do lote e agenda a extração (cron pega em até 1min, ou o botão "Reprocessar" força na hora). */
 export async function uploadIntakeBatch(formData: FormData): Promise<{ success: true; batchId: string } | { success: false; error: string }> {
   const auth = await requireSupervisor();
@@ -53,16 +49,19 @@ export async function uploadIntakeBatch(formData: FormData): Promise<{ success: 
   if (!(file instanceof File) || file.size === 0) {
     return { success: false, error: "Selecione o PDF enviado pelo plano de saúde." };
   }
-  if (file.type !== "application/pdf") {
-    return { success: false, error: "Só arquivos PDF são aceitos nesta remessa." };
-  }
   if (file.size > MAX_FILE_BYTES) {
     return { success: false, error: "Arquivo maior que 25MB — não é possível enviar." };
+  }
+  const arrayBuffer = await file.arrayBuffer();
+  // Tipo real pelos bytes (o PDF não é rasterizado nem recomprimido no
+  // servidor: o texto precisa continuar legível para a extração).
+  if (sniffAllowed(new Uint8Array(arrayBuffer), new Set(["application/pdf"]))?.mime !== "application/pdf") {
+    return { success: false, error: "Só arquivos PDF são aceitos nesta remessa." };
   }
 
   const supabase = await createClient();
   const batchId = randomUUID();
-  const storagePath = `intake/batches/${batchId}/${sanitizeFileName(file.name)}`;
+  const storagePath = `intake/batches/${batchId}/${sanitizeFileName(file.name, { fallback: "arquivo.pdf", ext: "pdf" })}`;
 
   const { error: insertError } = await supabase.from("insurance_intake_batches").insert({
     id: batchId,
@@ -80,7 +79,6 @@ export async function uploadIntakeBatch(formData: FormData): Promise<{ success: 
   }
 
   const admin = createAdminClient();
-  const arrayBuffer = await file.arrayBuffer();
   const { error: uploadError } = await admin.storage.from(DOCUMENTS_BUCKET).upload(storagePath, arrayBuffer, {
     contentType: "application/pdf",
     upsert: false,

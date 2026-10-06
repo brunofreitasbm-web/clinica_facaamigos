@@ -4,6 +4,8 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sanitizeFileName } from "@/lib/file-name";
+import { IMAGE_UPLOAD_MIMES, sniffAllowed } from "@/lib/upload-bytes";
 
 type UploadResult = { success: true; mediaId: string } | { success: false; error: string };
 type UrlResult = { success: true; url: string } | { success: false; error: string };
@@ -11,12 +13,6 @@ type UrlResult = { success: true; url: string } | { success: false; error: strin
 // Mesmo teto do bucket `session-note-media` (25MB).
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const SIGNED_URL_TTL_SECONDS = 900;
-
-function sanitizeFileName(name: string): string {
-  const trimmed = name.trim().slice(-120);
-  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return cleaned || "arquivo";
-}
 
 /**
  * Anexo de foto/vídeo à evolução (PRD §9.4 item "anexar foto/vídeo curto").
@@ -46,6 +42,20 @@ export async function uploadSessionNoteMedia(
     return { success: false, error: "Só é possível anexar foto ou vídeo." };
   }
 
+  const arrayBuffer = await file.arrayBuffer();
+  // Foto: tipo/extensão pelos bytes (o cliente já converte para WebP). Vídeo
+  // não é recomprimido nem inspecionado aqui: segue o `file.type` informado.
+  let contentType = file.type;
+  let fileName = sanitizeFileName(file.name);
+  if (file.type.startsWith("image/")) {
+    const sniffed = sniffAllowed(new Uint8Array(arrayBuffer), IMAGE_UPLOAD_MIMES);
+    if (!sniffed) {
+      return { success: false, error: "Formato de imagem não suportado — envie JPG, PNG ou WEBP." };
+    }
+    contentType = sniffed.mime;
+    fileName = sanitizeFileName(file.name, { ext: sniffed.ext });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -56,7 +66,7 @@ export async function uploadSessionNoteMedia(
   }
 
   const mediaId = randomUUID();
-  const storagePath = `${patientId}/${appointmentId}/${mediaId}/${sanitizeFileName(file.name)}`;
+  const storagePath = `${patientId}/${appointmentId}/${mediaId}/${fileName}`;
 
   // 1) INSERT primeiro com o client de sessão: session_note_media_insert
   // (RLS) exige uploaded_by = auth.uid() e que o terapeuta seja o dono do
@@ -71,7 +81,7 @@ export async function uploadSessionNoteMedia(
       patient_id: patientId,
       uploaded_by: user.id,
       storage_path: storagePath,
-      mime_type: file.type,
+      mime_type: contentType,
     })
     .select("id")
     .maybeSingle();
@@ -97,11 +107,10 @@ export async function uploadSessionNoteMedia(
     };
   }
 
-  const arrayBuffer = await file.arrayBuffer();
   const { error: uploadError } = await admin.storage
     .from("session-note-media")
     .upload(storagePath, arrayBuffer, {
-      contentType: file.type,
+      contentType,
       upsert: false,
     });
 

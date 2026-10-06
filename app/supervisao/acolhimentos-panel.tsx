@@ -5,6 +5,7 @@ import { uploadIntakeBatch, uploadIntakeExtractedBatch, reprocessIntakeBatch, ap
 import { AcolhimentoLeadDrawer, type LeadRow } from "./acolhimento-lead-drawer";
 import { IntakeProfileDialog } from "./intake-profile-dialog";
 import { parseIntakeProfile } from "@/lib/insurance-intake-profile";
+import { prepareFormDataFile } from "@/lib/compress-image";
 
 const CONFIDENCE_THRESHOLD = 0.7;
 
@@ -93,6 +94,8 @@ export function AcolhimentosPanel({
     setUploadFeedback(null);
     formData.set("insurer_id", uploadInsurerId);
     startTransition(async () => {
+      // PDF: só as imagens embutidas são recomprimidas (texto intacto p/ extração); assinado/criptografado passa idêntico.
+      await prepareFormDataFile(formData, "file", "documento");
       const res = await uploadIntakeBatch(formData);
       if (res.success) {
         setUploadFeedback({ type: "success", text: "PDF enviado — iniciando extração pela IA..." });

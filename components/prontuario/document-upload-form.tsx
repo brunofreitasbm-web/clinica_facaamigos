@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { uploadDocument } from "@/app/recepcao/pacientes/[id]/documents-actions";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
+import { prepareFormDataFile } from "@/lib/compress-image";
 
 export function DocumentUploadForm({
   patientId,
@@ -38,6 +39,7 @@ export function DocumentUploadForm({
       action={(formData) => {
         setError(null);
         startTransition(async () => {
+          await prepareFormDataFile(formData, "file", "documento");
           const result = await uploadDocument(patientId, formData);
           if (!result.success) {
             setError(result.error);
