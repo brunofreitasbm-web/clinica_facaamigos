@@ -22,8 +22,8 @@ import {
   ALLOWED_MIME_TYPES,
   MAX_FILE_BYTES,
   downloadTwilioMedia,
-  sanitizeFileName,
 } from "@/lib/registration-drafts-ingest";
+import { sanitizeFileName } from "@/lib/file-name";
 import {
   applyNormalization,
   extractRegistrationFromFiles,
