@@ -469,6 +469,15 @@ export async function resolvePatientFromPhone(phone: string): Promise<{ patientI
 // plano de saúde, lib/twilio-intake-bot.ts) já são tratados antes, no passo
 // 0.6, mas também entram aqui como rede de segurança.
 const ANAMNESIS_AWAITING_ATTACHMENT_STEPS = new Set([
+  // Fluxo enxuto (lib/twilio-anamnesis-bot.ts).
+  "awaiting_laudo",
+  "awaiting_carteirinha",
+  // Faltava aqui: a foto do RG caía na ingestão "a frio" ("Recebido! 📄") e o
+  // fluxo nunca avançava — 16 leads travados nesta etapa (auditoria out/2026).
+  "awaiting_documento_identidade",
+  // Etapas do fluxo antigo, para sessões que pararam no meio.
+  "awaiting_has_laudo",
+  "awaiting_has_guia",
   "awaiting_laudo_pdf",
   "awaiting_guia_pdf",
   "awaiting_carteirinha_frente",
@@ -735,9 +744,14 @@ export async function handleTwilioIncomingMessage(params: {
       mediaUrl0,
       mediaContentType0,
       media,
+      conversationId,
     });
 
     if (anamnesisResult.handled) {
+      if (anamnesisResult.escalate && conversationId) {
+        const { escalateConversation } = await import("./twilio-faq-bot");
+        await escalateConversation(conversationId, "pediu_humano");
+      }
       return {
         intent: "agendamento_anamnese",
         replyMessage: anamnesisResult.replyMessage,
@@ -794,16 +808,29 @@ export async function handleTwilioIncomingMessage(params: {
     console.error("[Twilio Greeting Fallback Settings Error]:", err);
   }
 
+  // Quem já conversou com a clínica nas últimas horas não recebe as
+  // boas-vindas de novo: era a saudação repetida em 51 de 81 conversas
+  // (o Gemini devolve 503 em ~12% das chamadas e cada falha caía aqui).
+  // "CONVÊNIOS" saiu: nunca foi um comando reconhecido.
+  try {
+    if (await hasRecentOutbound(conversationId)) {
+      return { intent: "atendimento_geral", replyMessage: FALLBACK_SHORT_REPLY };
+    }
+  } catch (err) {
+    console.error("[Twilio Fallback Recent Outbound Error]:", err);
+  }
+
   return {
     intent: "atendimento_geral",
     replyMessage:
       "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩\n\n" +
-      "Como podemos te ajudar?\n" +
-      "• Digite *AGENDAR* para marcar uma avaliação pelo plano.\n" +
-      "• Digite *CONVÊNIOS* para consultar os planos aceitos.\n\n" +
-      "Ou escreva sua dúvida por aqui! ✨\n\n" +
-      "🌐 Conheça mais sobre nossa clínica: www.institutofacaamigos.com.br",
+      "• Para marcar uma avaliação, responda *AGENDAR*.\n" +
+      "• Para falar com a equipe, responda *ATENDENTE*.\n\n" +
+      "Ou escreva sua dúvida por aqui! ✨",
   };
 }
+
+const FALLBACK_SHORT_REPLY =
+  "Não consegui responder agora. 💙 Para marcar a avaliação, responda *AGENDAR*; para falar com a equipe, responda *ATENDENTE*.";
 
 

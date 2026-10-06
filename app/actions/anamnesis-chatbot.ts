@@ -347,7 +347,7 @@ export async function rejectAnamnesisDocumentAction(
     await supabase
       .from("chatbot_sessions")
       .update({
-        current_step: "awaiting_has_laudo",
+        current_step: "awaiting_laudo",
         collected_data: preserved,
         updated_at: new Date().toISOString(),
       })

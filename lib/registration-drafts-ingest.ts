@@ -231,7 +231,10 @@ export async function ingestWhatsappMedia(params: {
   const totalFiles = existingFileCount + savedCount;
   if (existingFileCount === 0) {
     const base =
-      "Documento recebido! 📄 Pode enviar os demais (RG, CPF, comprovante, laudo e carteirinha do plano com o número do cartão) por aqui — a guia autorizada é opcional. Avisaremos assim que conferido.";
+      // Mesma lista do fluxo AGENDAR (lib/twilio-anamnesis-bot.ts): CPF e
+      // número do cartão a IA lê do RG e da carteirinha, não precisam vir à parte.
+      "Documento recebido! 📄 Para o plano, precisamos de: *laudo* (ou pedido médico), *carteirinha* e *RG ou CNH* do responsável. " +
+      "Pode enviar os que faltarem por aqui — a guia autorizada é opcional.";
     const knownPatientNote = resolved
       ? ""
       : "\n\nSe puder, envie também o *nome da criança* e o *seu nome*.";
