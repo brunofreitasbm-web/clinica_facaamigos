@@ -346,6 +346,9 @@ async function loadHistory(conversationId: string): Promise<Array<{ role: "user"
     .from("messages")
     .select("body, sender_type, sent_at")
     .eq("conversation_id", conversationId)
+    // Só o que foi dito no WhatsApp: avisos internos (ex.: o pedido de
+    // relatório repassado ao supervisor) não podem virar "fala" do modelo.
+    .eq("channel", "whatsapp")
     .not("body", "is", null)
     .order("sent_at", { ascending: false })
     .limit(HISTORY_LIMIT);
@@ -523,7 +526,7 @@ async function saveDetectedPlan(conversationId: string, clinicId: string, rawPla
   }
 }
 
-async function escalateConversation(conversationId: string, reason: FaqEscalationReason) {
+export async function escalateConversation(conversationId: string, reason: FaqEscalationReason) {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
