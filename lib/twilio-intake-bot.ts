@@ -11,7 +11,8 @@
 // bots que também usam chatbot_sessions.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildMessagePreview, formatE164Phone, sendTwilioWhatsApp, findOrCreateConversation } from "@/lib/twilio";
-import { downloadTwilioMedia, ALLOWED_MIME_TYPES, sanitizeFileName, extensionFor, MAX_FILE_BYTES } from "@/lib/registration-drafts-ingest";
+import { downloadTwilioMedia, ALLOWED_MIME_TYPES, extensionFor, MAX_FILE_BYTES } from "@/lib/registration-drafts-ingest";
+import { sanitizeFileName } from "@/lib/file-name";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { runLaudoExtraction } from "@/lib/laudo-extraction";
 

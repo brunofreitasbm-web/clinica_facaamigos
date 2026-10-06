@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { createFeedPost } from "./feed-actions";
-import { compressImageIfNeeded } from "@/lib/compress-image";
+import { prepareUpload } from "@/lib/compress-image";
 
 export function FeedPostForm({ patientId }: { patientId: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export function FeedPostForm({ patientId }: { patientId: string }) {
 
         (async () => {
           setIsCompressing(true);
-          const compressed = await Promise.all(files.map((f) => compressImageIfNeeded(f)));
+          const compressed = await Promise.all(files.map((f) => prepareUpload(f, "foto")));
           setIsCompressing(false);
 
           const submitData = new FormData();

@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
+import { sanitizeFileName } from "@/lib/file-name";
+import { DOCUMENT_UPLOAD_MIMES, sniffAllowed } from "@/lib/upload-bytes";
 
 type ActionResult = { success: true } | { success: false; error: string };
 type UrlResult = { success: true; url: string } | { success: false; error: string };
@@ -14,12 +16,6 @@ type UrlResult = { success: true; url: string } | { success: false; error: strin
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 // Teto do PRD §11 — nunca aumentar.
 const SIGNED_URL_TTL_SECONDS = 900;
-
-function sanitizeFileName(name: string): string {
-  const trimmed = name.trim().slice(-120);
-  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return cleaned || "arquivo";
-}
 
 /**
  * Remove a linha de `documents` criada nesta mesma requisição quando o
@@ -61,6 +57,15 @@ export async function uploadDocument(
     return { success: false, error: "Selecione uma categoria válida." };
   }
 
+  // O tipo vem dos bytes, não de `file.type`/`accept` (controlados pelo
+  // cliente): `documents` não tem coluna de mime — o tipo servido depois sai
+  // da extensão do `storage_path`, que por isso também vem do tipo real.
+  const arrayBuffer = await file.arrayBuffer();
+  const sniffed = sniffAllowed(new Uint8Array(arrayBuffer), DOCUMENT_UPLOAD_MIMES);
+  if (!sniffed) {
+    return { success: false, error: "Formato não suportado — envie PDF, JPG, PNG, WEBP ou HEIC." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -75,7 +80,7 @@ export async function uploadDocument(
   // `storage_path` e inserir tudo de uma vez, sem um UPDATE posterior (que
   // exigiria uma policy de UPDATE que o terapeuta não tem em `documents`).
   const documentId = randomUUID();
-  const storagePath = `${patientId}/${documentId}/${sanitizeFileName(file.name)}`;
+  const storagePath = `${patientId}/${documentId}/${sanitizeFileName(file.name, { ext: sniffed.ext })}`;
 
   // 1) INSERT primeiro, com o client de sessão: a RLS de `documents` é o
   // portão real. Se este usuário não puder anexar documento a este
@@ -110,11 +115,10 @@ export async function uploadDocument(
     };
   }
 
-  const arrayBuffer = await file.arrayBuffer();
   const { error: uploadError } = await admin.storage
     .from("clinic-documents")
     .upload(storagePath, arrayBuffer, {
-      contentType: file.type || "application/octet-stream",
+      contentType: sniffed.mime,
       upsert: false,
     });
 

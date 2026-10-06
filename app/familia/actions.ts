@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ABSENCE_REASON_CATEGORIES } from "@/lib/absence-reasons";
+import { sanitizeFileName } from "@/lib/file-name";
+import { DOCUMENT_UPLOAD_MIMES, IMAGE_UPLOAD_MIMES, sniffAllowed } from "@/lib/upload-bytes";
 import { currentSurveyPeriod } from "@/lib/survey-period";
 import { FEEDBACK_CATEGORIES, FEEDBACK_RATING_VALUES, type FeedbackRatingValue } from "@/lib/family-feedback";
 
@@ -16,12 +18,6 @@ type UrlResult = { success: true; url: string } | { success: false; error: strin
 const SIGNED_URL_TTL_SECONDS = 900;
 // Mesmo teto de tamanho de arquivo usado em documents-actions.ts.
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
-
-function sanitizeFileName(name: string): string {
-  const trimmed = name.trim().slice(-120);
-  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return cleaned || "arquivo";
-}
 
 /**
  * "Fale com a Coordenação" (Familia.dc.html) — grava uma mensagem de
@@ -297,10 +293,21 @@ export async function reportAbsence(appointmentId: string, formData: FormData): 
     return { success: false, error: "Arquivo maior que 25MB." };
   }
 
+  // Tipo real pelos bytes (o `accept` do input e o `file.type` são do cliente).
+  let absenceBytes: ArrayBuffer | null = null;
+  let absenceSniffed: ReturnType<typeof sniffAllowed> = null;
+  if (hasFile) {
+    absenceBytes = await (file as File).arrayBuffer();
+    absenceSniffed = sniffAllowed(new Uint8Array(absenceBytes), DOCUMENT_UPLOAD_MIMES);
+    if (!absenceSniffed) {
+      return { success: false, error: "Formato não suportado — anexe PDF, JPG, PNG, WEBP ou HEIC." };
+    }
+  }
+
   const reportId = randomUUID();
   let storagePath: string | null = null;
 
-  if (hasFile) {
+  if (hasFile && absenceBytes && absenceSniffed) {
     let admin;
     try {
       admin = createAdminClient();
@@ -311,12 +318,11 @@ export async function reportAbsence(appointmentId: string, formData: FormData): 
       };
     }
 
-    storagePath = `${appointmentId}/${reportId}-${sanitizeFileName((file as File).name)}`;
-    const arrayBuffer = await (file as File).arrayBuffer();
+    storagePath = `${appointmentId}/${reportId}-${sanitizeFileName((file as File).name, { ext: absenceSniffed.ext })}`;
     const { error: uploadError } = await admin.storage
       .from("absence-attachments")
-      .upload(storagePath, arrayBuffer, {
-        contentType: (file as File).type || "application/octet-stream",
+      .upload(storagePath, absenceBytes, {
+        contentType: absenceSniffed.mime,
         upsert: false,
       });
 
@@ -502,6 +508,14 @@ export async function uploadFamilyDocument(patientId: string, formData: FormData
     return { success: false, error: "Arquivo maior que 25MB." };
   }
 
+  // Tipo real pelos bytes; a extensão do path (única fonte de tipo de
+  // `documents`) e o content-type saem daqui, não do que o cliente declarou.
+  const arrayBuffer = await file.arrayBuffer();
+  const sniffed = sniffAllowed(new Uint8Array(arrayBuffer), DOCUMENT_UPLOAD_MIMES);
+  if (!sniffed) {
+    return { success: false, error: "Formato não suportado — envie PDF, JPG, PNG, WEBP ou HEIC." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -512,7 +526,7 @@ export async function uploadFamilyDocument(patientId: string, formData: FormData
   }
 
   const documentId = randomUUID();
-  const storagePath = `${patientId}/family_uploads/${documentId}-${sanitizeFileName(file.name)}`;
+  const storagePath = `${patientId}/family_uploads/${documentId}-${sanitizeFileName(file.name, { ext: sniffed.ext })}`;
 
   const { error: insertError } = await supabase.from("documents").insert({
     id: documentId,
@@ -545,11 +559,10 @@ export async function uploadFamilyDocument(patientId: string, formData: FormData
     };
   }
 
-  const arrayBuffer = await file.arrayBuffer();
   const { error: uploadError } = await admin.storage
     .from("clinic-documents")
     .upload(storagePath, arrayBuffer, {
-      contentType: file.type || "application/octet-stream",
+      contentType: sniffed.mime,
       upsert: false,
     });
 
@@ -605,11 +618,15 @@ export async function uploadPatientPhoto(patientId: string, formData: FormData):
   if (!(file instanceof File) || file.size === 0) {
     return { success: false, error: "Selecione uma foto." };
   }
-  if (!file.type.startsWith("image/")) {
-    return { success: false, error: "Envie um arquivo de imagem (JPG, PNG ou similar)." };
-  }
   if (file.size > MAX_PHOTO_BYTES) {
     return { success: false, error: "Imagem maior que 8MB." };
+  }
+  // Tipo real pelos bytes: o path é fixo (sem extensão), então o content-type
+  // gravado no objeto é a única indicação de formato — vem do conteúdo.
+  const photoBytes = await file.arrayBuffer();
+  const photoSniffed = sniffAllowed(new Uint8Array(photoBytes), IMAGE_UPLOAD_MIMES);
+  if (!photoSniffed || photoSniffed.mime === "image/gif") {
+    return { success: false, error: "Envie um arquivo de imagem (JPG, PNG ou WEBP)." };
   }
 
   const supabase = await createClient();
@@ -632,11 +649,10 @@ export async function uploadPatientPhoto(patientId: string, formData: FormData):
   }
 
   const storagePath = `${patientId}/photo`;
-  const arrayBuffer = await file.arrayBuffer();
   const { error: uploadError } = await admin.storage
     .from("patient-photos")
-    .upload(storagePath, arrayBuffer, {
-      contentType: file.type,
+    .upload(storagePath, photoBytes, {
+      contentType: photoSniffed.mime,
       upsert: true,
     });
 

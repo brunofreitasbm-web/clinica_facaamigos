@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { uploadFamilyDocument } from "./actions";
+import { prepareFormDataFile } from "@/lib/compress-image";
 
 /**
  * "Enviar documento" (PRD §3.6) — carteirinha atualizada, pedido médico
@@ -71,6 +72,7 @@ export function UploadDocument({ patientId }: { patientId: string }) {
                   }
                   setError(null);
                   startTransition(async () => {
+                    await prepareFormDataFile(formData, "file", "documento");
                     const result = await uploadFamilyDocument(patientId, formData);
                     if (!result.success) {
                       setError(result.error);

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { ABSENCE_REASON_CATEGORIES } from "@/lib/absence-reasons";
 import { reportAbsence } from "./actions";
+import { prepareFormDataFile } from "@/lib/compress-image";
 
 /**
  * "Informar Falta" (PRD §5) — mesmo padrão de dialog de
@@ -95,6 +96,7 @@ export function ReportAbsence({
                   setError(null);
                   const formData = new FormData(e.currentTarget);
                   startTransition(async () => {
+                    await prepareFormDataFile(formData, "attachment", "documento");
                     const result = await reportAbsence(appointmentId, formData);
                     if (!result.success) {
                       setError(result.error);

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { uploadPatientPhoto } from "./actions";
+import { prepareFormDataFile } from "@/lib/compress-image";
 
 /**
  * "Mural da Família" — card persuasivo convidando o responsável a enviar uma
@@ -126,6 +127,7 @@ export function PatientPhotoUpload({
                   }
                   setError(null);
                   startTransition(async () => {
+                    await prepareFormDataFile(formData, "photo", "avatar");
                     const result = await uploadPatientPhoto(patientId, formData);
                     if (!result.success) {
                       setError(result.error);

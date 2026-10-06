@@ -4,18 +4,14 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sanitizeFileName } from "@/lib/file-name";
+import { IMAGE_UPLOAD_MIMES, sniffAllowed } from "@/lib/upload-bytes";
 
 type ActionResult = { success: true; failedUploads: number } | { success: false; error: string };
 
 const MAX_FILES = 6;
 // Mesmo teto de app/recepcao/pacientes/[id]/documents-actions.ts.
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
-
-function sanitizeFileName(name: string): string {
-  const trimmed = name.trim().slice(-120);
-  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return cleaned || "arquivo";
-}
 
 /**
  * Publica um recado (com fotos opcionais) no mural da família — PRD §4.
@@ -72,24 +68,31 @@ export async function createFeedPost(patientId: string, formData: FormData): Pro
 
   let failedUploads = 0;
   for (const file of files) {
+    // Tipo real pelos bytes (mime_type e extensão não confiam em `file.type`).
+    const arrayBuffer = await file.arrayBuffer();
+    const sniffed = sniffAllowed(new Uint8Array(arrayBuffer), IMAGE_UPLOAD_MIMES);
+    if (!sniffed) {
+      failedUploads += 1;
+      continue;
+    }
+
     const mediaId = randomUUID();
-    const storagePath = `${patientId}/${post.id}/${mediaId}-${sanitizeFileName(file.name)}`;
+    const storagePath = `${patientId}/${post.id}/${mediaId}-${sanitizeFileName(file.name, { ext: sniffed.ext })}`;
 
     const { error: mediaInsertError } = await supabase.from("feed_media").insert({
       id: mediaId,
       post_id: post.id,
       storage_path: storagePath,
-      mime_type: file.type || "application/octet-stream",
+      mime_type: sniffed.mime,
     });
     if (mediaInsertError) {
       failedUploads += 1;
       continue;
     }
 
-    const arrayBuffer = await file.arrayBuffer();
     const { error: uploadError } = await admin.storage
       .from("family-feed-media")
-      .upload(storagePath, arrayBuffer, { contentType: file.type || "application/octet-stream", upsert: false });
+      .upload(storagePath, arrayBuffer, { contentType: sniffed.mime, upsert: false });
 
     if (uploadError) {
       failedUploads += 1;

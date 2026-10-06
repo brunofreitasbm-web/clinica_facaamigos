@@ -11,6 +11,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatE164Phone, resolvePatientFromPhone } from "@/lib/twilio";
 import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
+import { sanitizeFileName } from "@/lib/file-name";
+import { optimizeIncomingImage } from "@/lib/media-optimize";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -27,12 +29,6 @@ export const ALLOWED_MIME_TYPES = new Set([
   "image/heif",
   "application/pdf",
 ]);
-
-export function sanitizeFileName(name: string): string {
-  const trimmed = name.trim().slice(-120);
-  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return cleaned || "arquivo";
-}
 
 export function extensionFor(mime: string): string {
   if (mime === "application/pdf") return "pdf";
@@ -69,7 +65,8 @@ export async function downloadTwilioMedia(url: string, contentTypeHint?: string)
       return null;
     }
 
-    return { buffer: Buffer.from(arrayBuffer), mime };
+    // Único caminho sem navegador: JPEG/PNG/WebP viram WebP aqui (HEIC/PDF intactos).
+    return await optimizeIncomingImage(Buffer.from(arrayBuffer), mime);
   } catch (err) {
     console.error("[Registration Draft] Exceção ao baixar mídia Twilio:", err);
     return null;
