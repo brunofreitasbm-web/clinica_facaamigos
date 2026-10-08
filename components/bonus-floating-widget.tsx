@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Gamepad2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { getMyBonusWidgetSummary, type BonusWidgetSummary } from "@/lib/bonus-widget-actions";
 
-const POLL_MS = 60_000;
+const POLL_MS = 180_000;
 const STORAGE_KEY = "bonus-widget-last-pct";
 
 type Trend = "up" | "down" | "flat" | null;
@@ -71,10 +71,18 @@ export function BonusFloatingWidget() {
     }
 
     refresh();
-    const id = setInterval(refresh, POLL_MS);
+    // Aba oculta não consulta; ao voltar a ficar visível, atualiza uma vez.
+    const id = setInterval(() => {
+      if (!document.hidden) refresh();
+    }, POLL_MS);
+    const onVisibility = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       cancelled = true;
       clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

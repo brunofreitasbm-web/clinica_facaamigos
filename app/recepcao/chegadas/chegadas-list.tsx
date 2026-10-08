@@ -307,6 +307,8 @@ function ChegadaCard({ item }: { item: ChegadaItem }) {
   );
 }
 
+const REALTIME_REFRESH_DEBOUNCE_MS = 5_000;
+
 export function ChegadasList({ initialItems, clinicId }: { initialItems: ChegadaItem[]; clinicId: string }) {
   const router = useRouter();
   const items = initialItems;
@@ -316,6 +318,25 @@ export function ChegadasList({ initialItems, clinicId }: { initialItems: Chegada
   // resolvidos no servidor) + poll de segurança de 60s, porque o painel da
   // recepção pode ficar aberto o dia todo e o websocket cair sem avisar —
   // mesmo raciocínio de components/realtime-appointment-toast.tsx.
+  // Refresh disparado por realtime é agrupado (trailing de 5s): uma rajada de
+  // eventos vira UM router.refresh(), que re-renderiza o layout inteiro da
+  // recepção (dezenas de queries). O som, esse sim, continua imediato.
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimerRef.current) return;
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null;
+      router.refresh();
+    }, REALTIME_REFRESH_DEBOUNCE_MS);
+  }, [router]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    };
+  }, []);
+
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -325,23 +346,26 @@ export function ChegadasList({ initialItems, clinicId }: { initialItems: Chegada
         { event: "INSERT", schema: "public", table: "checkin_requests", filter: `clinic_id=eq.${clinicId}` },
         () => {
           playChime();
-          router.refresh();
+          scheduleRefresh();
         },
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "checkin_requests", filter: `clinic_id=eq.${clinicId}` },
-        () => router.refresh(),
+        () => scheduleRefresh(),
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clinicId, router]);
+  }, [clinicId, scheduleRefresh]);
 
   useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 60_000);
+    // Aba oculta não precisa de poll; ao voltar, o visibilitychange atualiza.
+    const interval = setInterval(() => {
+      if (!document.hidden) router.refresh();
+    }, 60_000);
     const onVisibility = () => {
       if (!document.hidden) router.refresh();
     };

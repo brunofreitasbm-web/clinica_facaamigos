@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { DEV_CLINIC_ID } from "@/lib/constants";
 import { ConversationList, type ConversationFilter } from "./conversation-list";
 import { ChatWindow } from "./chat-window";
 import { PatientContextPanel } from "./patient-context-panel";
@@ -69,7 +70,7 @@ export function AtendimentoShell({
       .channel("atendimento-conversations")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "twilio_conversations" },
+        { event: "*", schema: "public", table: "twilio_conversations", filter: `clinic_id=eq.${DEV_CLINIC_ID}` },
         (payload) => {
           if (payload.eventType === "DELETE") return;
           const row = payload.new as {

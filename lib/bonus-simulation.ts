@@ -80,7 +80,17 @@ export async function simulateBonusRuleSet(
   overrides: Record<string, number> = {},
 ): Promise<SimResult> {
   const results: SimItemResult[] = [];
-  for (const item of items) {
+  // As consultas de cada métrica são independentes: dispara todas em paralelo
+  // (antes eram sequenciais, N idas ao banco em fila). A ordem dos resultados
+  // e a regra de override ficam idênticas.
+  const computedByIndex = await Promise.all(
+    items.map((item) =>
+      Object.prototype.hasOwnProperty.call(overrides, item.metricKey) && Number.isFinite(overrides[item.metricKey])
+        ? Promise.resolve(null)
+        : computeMetricActual(supabase, clinicId, role, item.metricKey, periodStartISO, periodEndISO),
+    ),
+  );
+  for (const [index, item] of items.entries()) {
     const def = findMetricDef(role, item.metricKey);
     const direction = def?.direction ?? "min";
     const unit = def?.unit ?? "pct";
@@ -93,7 +103,7 @@ export async function simulateBonusRuleSet(
       actual = overrides[item.metricKey];
       source = "override";
     } else {
-      const computed = await computeMetricActual(supabase, clinicId, role, item.metricKey, periodStartISO, periodEndISO);
+      const computed = computedByIndex[index]!;
       actual = computed.actual;
       source = computed.source;
     }
