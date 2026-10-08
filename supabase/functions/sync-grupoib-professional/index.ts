@@ -3,7 +3,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const WEBHOOK_SECRET = "289ed0887c3a73ca49b687762b258805dc199f0ff6c9f70328395d739f074e23";
+// Segredo vem da env GRUPOIB_WEBHOOK_SECRET (nunca no código). Sem ela, a função
+// falha fechada (401).
+const WEBHOOK_SECRET = Deno.env.get("GRUPOIB_WEBHOOK_SECRET") ?? "";
 
 const CLINIC_ID = "c0000000-0000-0000-0000-000000000001";
 const TARGET_UNIT_ID = "clinica-a";
@@ -359,7 +361,7 @@ function resolveRoleForEmployee(jobTitle?: string, department?: string) {
 }
 
 Deno.serve(async (req: Request) => {
-  if (!timingSafeEqual(req.headers.get("X-Webhook-Secret") ?? "", WEBHOOK_SECRET)) {
+  if (!WEBHOOK_SECRET || !timingSafeEqual(req.headers.get("X-Webhook-Secret") ?? "", WEBHOOK_SECRET)) {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
   }
 

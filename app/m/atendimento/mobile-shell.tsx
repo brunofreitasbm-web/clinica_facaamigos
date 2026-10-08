@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
 import { matchesFilter, matchesSearch, type ConversationFilter } from "@/lib/atendimento/filters";
 import type { ConversationPatch, ConversationRow, InsurerPill } from "@/lib/atendimento/types";
@@ -44,7 +45,7 @@ export function MobileShell({
       .channel("m-atendimento-conversations")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "twilio_conversations" },
+        { event: "*", schema: "public", table: "twilio_conversations", filter: `clinic_id=eq.${DEV_CLINIC_ID}` },
         (payload) => {
           if (payload.eventType === "DELETE") return;
           const row = payload.new as {

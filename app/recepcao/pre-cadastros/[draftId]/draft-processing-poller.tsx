@@ -5,20 +5,53 @@ import { useRouter } from "next/navigation";
 import { Sparkles, RefreshCw, Loader2, Bot } from "lucide-react";
 import { reprocessRegistrationDraft } from "../actions";
 
+const POLL_BASE_MS = 10_000;
+const POLL_MAX_MS = 30_000;
+
 export function DraftProcessingPoller({ draftId, status }: { draftId: string; status: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    // Poll a cada 3 segundos para atualizar a página automaticamente
-    const interval = setInterval(() => {
+    // Poll com backoff exponencial: 10s, 20s, 30s (teto). Cada router.refresh()
+    // re-renderiza o layout da recepção (dezenas de queries), então a aba
+    // oculta não faz poll; ao voltar a ficar visível, atualiza e reinicia o ritmo.
+    let delay = POLL_BASE_MS;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+
+    const clear = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+
+    const tick = () => {
+      timer = null;
+      if (stopped || document.visibilityState === "hidden") return;
       startTransition(() => {
         router.refresh();
       });
-    }, 3000);
+      delay = Math.min(delay * 2, POLL_MAX_MS);
+      timer = setTimeout(tick, delay);
+    };
 
-    return () => clearInterval(interval);
+    const onVisibility = () => {
+      clear();
+      if (document.visibilityState === "visible") {
+        delay = POLL_BASE_MS;
+        tick();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    if (document.visibilityState === "visible") timer = setTimeout(tick, delay);
+
+    return () => {
+      stopped = true;
+      clear();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [router]);
 
   const handleManualRefresh = () => {
