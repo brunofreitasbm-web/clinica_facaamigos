@@ -52,6 +52,24 @@ type AppointmentRecord = {
   google_event_id: string | null;
 };
 
+const SYNC_STATE_COLUMNS = new Set(["google_event_id"]);
+
+function isSyncStateColumn(key: string): boolean {
+  return key.startsWith("google_calendar_") || SYNC_STATE_COLUMNS.has(key);
+}
+
+/** true se todas as colunas que diferem entre record e old_record são de estado de sincronização. */
+function onlySyncStateChanged(record: object, oldRecord: object): boolean {
+  const a = record as Record<string, unknown>;
+  const b = oldRecord as Record<string, unknown>;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) {
+    if (isSyncStateColumn(key)) continue;
+    if (JSON.stringify(a[key]) !== JSON.stringify(b[key])) return false;
+  }
+  return true;
+}
+
 type Attendee = { email: string; displayName?: string };
 
 function isRealEmail(email: string | null | undefined): email is string {
@@ -195,9 +213,30 @@ Deno.serve(async (req: Request) => {
   let record: AppointmentRecord;
   try {
     const payload = await req.json();
-    const { table, record: rawRecord } = payload as { table: string; record: AppointmentRecord };
+    const { type, table, record: rawRecord, old_record: oldRecord } = payload as {
+      type?: string;
+      table: string;
+      record: AppointmentRecord;
+      old_record?: Record<string, unknown> | null;
+    };
     if (table !== "appointments" || !rawRecord) {
       return new Response(JSON.stringify({ skipped: true, reason: "tabela fora do escopo" }), { status: 200 });
+    }
+    // DELETE (e qualquer outro tipo) não tem o que sincronizar aqui.
+    if (type !== "INSERT" && type !== "UPDATE") {
+      return new Response(JSON.stringify({ skipped: true, reason: "tipo de evento fora do escopo" }), { status: 200 });
+    }
+    // Esta função grava google_event_id/google_calendar_* no próprio
+    // appointment; se o Database Webhook também dispara em UPDATE, cada
+    // sincronização geraria um novo evento e a função chamaria a si mesma
+    // em loop (cada volta = PATCH no Google + UPDATE + audit_log). UPDATE em
+    // que só mudaram colunas de estado de sincronização é eco: ignora.
+    // O reconciliador (app/api/google-calendar/reconcile) envia UPDATE sem
+    // old_record de propósito e continua sendo processado.
+    if (type === "UPDATE" && oldRecord && onlySyncStateChanged(rawRecord, oldRecord)) {
+      return new Response(JSON.stringify({ skipped: true, reason: "apenas estado de sincronização mudou" }), {
+        status: 200,
+      });
     }
     record = rawRecord;
   } catch (err) {
