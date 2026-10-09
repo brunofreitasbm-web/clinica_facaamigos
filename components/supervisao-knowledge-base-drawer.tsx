@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { SUPERVISION_KB_DATA, SupervisionKBArticle } from "@/lib/supervisao-knowledge-base-data";
 import Link from "next/link";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 interface SupervisaoKnowledgeBaseDrawerProps {
   initialOpen?: boolean;
@@ -30,6 +31,10 @@ interface SupervisaoKnowledgeBaseDrawerProps {
 
 export function SupervisaoKnowledgeBaseDrawer({ initialOpen = false }: SupervisaoKnowledgeBaseDrawerProps) {
   const [isOpen, setIsOpen] = useState(initialOpen);
+
+
+  // Botão/gesto voltar do celular fecha o painel em vez de sair da página.
+  useBackLayers([{ active: isOpen, back: () => setIsOpen(false) }]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);

@@ -16,6 +16,7 @@ import type { ConversationPatch, ConversationRow } from "@/lib/atendimento/types
 import { MobileChatMenu } from "./mobile-chat-menu";
 import { ContactSheet } from "./contact-sheet";
 import { CloseDialog } from "./close-dialog";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 type MessageRow = {
   id: string;
@@ -175,6 +176,14 @@ export function MobileChat({
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha a camada aberta (diálogo, ficha do contato, menu) antes de sair da conversa.
+  useBackLayers([
+    { active: closeDialogOpen, back: () => setCloseDialogOpen(false) },
+    { active: sheetOpen, back: () => setSheetOpen(false) },
+    { active: menuOpen, back: () => setMenuOpen(false) },
+  ]);
   const [error, setError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [quickResponses, setQuickResponses] = useState<QuickResponseRow[]>([]);

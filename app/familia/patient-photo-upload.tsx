@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { uploadPatientPhoto } from "./actions";
 import { prepareFormDataFile } from "@/lib/compress-image";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 /**
  * "Mural da Família" — card persuasivo convidando o responsável a enviar uma
@@ -23,6 +24,10 @@ export function PatientPhotoUpload({
   currentPhotoUrl: string | null;
 }) {
   const [open, setOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha o diálogo em vez de sair da página.
+  useBackLayers([{ active: open, back: () => close() }]);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);

@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { sendCoordinationMessage } from "./actions";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 /**
  * Valida o texto da mensagem impedindo envios com lixo semântico,
@@ -47,6 +48,10 @@ export function ContactCoordination({
   guardianId: string | null;
 }) {
   const [open, setOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha o diálogo em vez de sair da página.
+  useBackLayers([{ active: open, back: () => close() }]);
   const [body, setBody] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);

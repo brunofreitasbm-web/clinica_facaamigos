@@ -10,6 +10,7 @@ import type { ConversationPatch, ConversationRow, InsurerPill } from "@/lib/aten
 import { toLastMessageSender } from "@/lib/atendimento/types";
 import { MobileQueue, type MobileTab } from "./mobile-queue";
 import { MobileChat } from "./mobile-chat";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 export function MobileShell({
   initialConversations,
@@ -164,6 +165,26 @@ export function MobileShell({
   }, [conversations, chipFilterForTab, search, currentUserId]);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
+
+  // Botão/gesto voltar do celular: fecha a busca e volta à aba "Conversas" antes de sair (lib/back-handler.ts).
+  // A conversa aberta é rota real (/m/atendimento/[id]); o voltar do navegador já trata essa camada.
+  useBackLayers([
+    {
+      active: !selected && searchOpen,
+      back: () => {
+        setSearchOpen(false);
+        setSearch("");
+      },
+    },
+    {
+      active: !selected && tab !== "conversas",
+      back: () => {
+        setTab("conversas");
+        setSearchOpen(false);
+        setSearch("");
+      },
+    },
+  ]);
 
   const openConversation = (id: string) => {
     patchConversation(id, { unreadCount: 0 });

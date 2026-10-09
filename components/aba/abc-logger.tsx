@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { recordABCEvent, type ABCLog } from "@/lib/aba-actions";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 interface ABCLoggerProps {
   appointmentId: string;
@@ -15,6 +16,10 @@ export function ABCLogger({ appointmentId, initialLogs = [] }: ABCLoggerProps) {
   const [consequence, setConsequence] = useState("");
   const [intensity, setIntensity] = useState<"leve" | "moderada" | "grave">("leve");
   const [isOpen, setIsOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha o painel em vez de sair da página.
+  useBackLayers([{ active: isOpen, back: () => setIsOpen(false) }]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 

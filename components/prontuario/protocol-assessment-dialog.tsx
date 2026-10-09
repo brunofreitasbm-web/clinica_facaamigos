@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 export interface ProtocolScoreItem {
   code: string;
@@ -15,6 +16,10 @@ export function ProtocolAssessmentDialog({
   patientName?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha o diálogo em vez de sair da página.
+  useBackLayers([{ active: isOpen, back: () => setIsOpen(false) }]);
   const [protocol, setProtocol] = useState<"vbmapp" | "ablls_r" | "esdm">("vbmapp");
   const [level, setLevel] = useState<1 | 2 | 3>(1);
   const [items, setItems] = useState<ProtocolScoreItem[]>([

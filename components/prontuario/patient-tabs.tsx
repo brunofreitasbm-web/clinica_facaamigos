@@ -10,6 +10,7 @@ import { AbaLearningCurveChart, type ProgramTrialSummary } from "./aba-learning-
 import { ProtocolAssessmentDialog } from "./protocol-assessment-dialog";
 import { SessionNoteStructuredView } from "./session-note-structured";
 import { NotifyMissingPtsButton } from "./notify-missing-pts-button";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 const BASE_TABS = [
   { key: "visao", label: "Visão geral" },
@@ -101,6 +102,10 @@ export function PatientTabs({
   ];
   const [tab, setTab] = useState<TabKey>("visao");
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(notes[0]?.id ?? null);
+
+
+  // Botão/gesto voltar do celular volta à aba inicial do prontuário antes de sair da página.
+  useBackLayers([{ active: tab !== "visao", back: () => setTab("visao") }]);
   const [noteSearch, setNoteSearch] = useState("");
 
   const filteredNotes = notes.filter(

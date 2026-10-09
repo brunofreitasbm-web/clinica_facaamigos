@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { THERAPIST_KB_DATA, TherapistKBArticle } from "@/lib/therapist-knowledge-base-data";
 import Link from "next/link";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 interface TherapistKnowledgeBaseDrawerProps {
   initialOpen?: boolean;
@@ -30,6 +31,10 @@ interface TherapistKnowledgeBaseDrawerProps {
 
 export function TherapistKnowledgeBaseDrawer({ initialOpen = false }: TherapistKnowledgeBaseDrawerProps) {
   const [isOpen, setIsOpen] = useState(initialOpen);
+
+
+  // Botão/gesto voltar do celular fecha o painel em vez de sair da página.
+  useBackLayers([{ active: isOpen, back: () => setIsOpen(false) }]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);

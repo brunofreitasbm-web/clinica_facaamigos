@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { requestReschedule } from "./actions";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 /**
  * "Pedir remarcação" (PRD §3.4) — mesmo padrão de dialog de
@@ -17,6 +18,10 @@ export function RequestReschedule({
   sessionLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha o diálogo em vez de sair da página.
+  useBackLayers([{ active: open, back: () => close() }]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
