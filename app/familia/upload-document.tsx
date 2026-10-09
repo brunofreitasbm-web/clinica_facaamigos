@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { uploadFamilyDocument } from "./actions";
 import { prepareFormDataFile } from "@/lib/compress-image";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 /**
  * "Enviar documento" (PRD §3.6) — carteirinha atualizada, pedido médico
@@ -12,6 +13,10 @@ import { prepareFormDataFile } from "@/lib/compress-image";
  */
 export function UploadDocument({ patientId }: { patientId: string }) {
   const [open, setOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha o diálogo em vez de sair da página.
+  useBackLayers([{ active: open, back: () => close() }]);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);

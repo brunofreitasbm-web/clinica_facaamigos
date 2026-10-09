@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { uploadDocument } from "@/app/recepcao/pacientes/[id]/documents-actions";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { prepareFormDataFile } from "@/lib/compress-image";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 export function DocumentUploadForm({
   patientId,
@@ -17,6 +18,10 @@ export function DocumentUploadForm({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha o formulário em vez de sair da página.
+  useBackLayers([{ active: open, back: () => setOpen(false) }]);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 

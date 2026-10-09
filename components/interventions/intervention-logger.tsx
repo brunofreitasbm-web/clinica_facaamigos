@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { recordIntervention, type InterventionLog } from "@/lib/intervention-actions";
 import { interventionLabel, type InterventionCatalogItem } from "@/lib/intervention-catalog";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 const RESULTADO_OPTIONS = [
   { value: "sem_resposta", label: "Sem resposta" },
@@ -23,6 +24,10 @@ export function InterventionLogger({ appointmentId, catalog, initialLogs = [], o
   const [description, setDescription] = useState("");
   const [resultado, setResultado] = useState<(typeof RESULTADO_OPTIONS)[number]["value"] | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha o painel em vez de sair da página.
+  useBackLayers([{ active: isOpen, back: () => setIsOpen(false) }]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 

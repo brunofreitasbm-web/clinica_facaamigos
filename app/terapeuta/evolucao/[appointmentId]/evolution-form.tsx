@@ -19,6 +19,7 @@ import { VoiceEvolutionRecorder } from "./voice-evolution-recorder";
 import { uploadSessionNoteMedia } from "./media-actions";
 import { prepareUpload } from "@/lib/compress-image";
 import { saveDraft, loadDraft, clearDraft } from "@/lib/offline-draft";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 const PRESENCE_SCALE = [1, 2, 3, 4, 5] as const;
 
@@ -138,6 +139,10 @@ export function EvolutionForm({
   const [aiElapsedSeconds, setAiElapsedSeconds] = useState(0);
   const [aiError, setAiError] = useState<string | null>(null);
   const [showPin, setShowPin] = useState(false);
+
+
+  // Botão/gesto voltar do celular volta um passo do assistente (mesma ação do botão "Voltar").
+  useBackLayers([{ active: step > 1, back: () => setStep(step === 3 ? 2 : 1) }]);
   const [capsLockActive, setCapsLockActive] = useState(false);
   const isOffline = useOffline();
   const signaturePinInputRef = useRef<HTMLInputElement>(null);

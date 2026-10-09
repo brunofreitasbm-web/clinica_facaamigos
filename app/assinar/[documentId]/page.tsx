@@ -22,6 +22,7 @@ import {
   sendSignedDocumentEmail,
   type DocumentSignatureData,
 } from "./signature-actions";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 export default function DocumentSignaturePage({
   params: paramsPromise,
@@ -41,6 +42,10 @@ export default function DocumentSignaturePage({
 
   // OTP states
   const [otpStep, setOtpStep] = useState<"initial" | "sent" | "confirmed">("initial");
+
+
+  // Botão/gesto voltar do celular volta ao passo inicial do código (mesma ação do botão da tela).
+  useBackLayers([{ active: otpStep === "sent", back: () => setOtpStep("initial") }]);
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);

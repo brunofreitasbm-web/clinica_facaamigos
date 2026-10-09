@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { ABSENCE_REASON_CATEGORIES } from "@/lib/absence-reasons";
 import { reportAbsence } from "./actions";
 import { prepareFormDataFile } from "@/lib/compress-image";
+import { useBackLayers } from "@/lib/use-back-handler";
 
 /**
  * "Informar Falta" (PRD §5) — mesmo padrão de dialog de
@@ -20,6 +21,10 @@ export function ReportAbsence({
   sessionLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
+
+
+  // Botão/gesto voltar do celular fecha o diálogo em vez de sair da página.
+  useBackLayers([{ active: open, back: () => close() }]);
   const [reasonCategory, setReasonCategory] = useState("");
   const [reasonText, setReasonText] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
