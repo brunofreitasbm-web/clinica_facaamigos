@@ -21,12 +21,13 @@ function criarJanela() {
       go(n: number) {
         const alvo = idx + n;
         if (alvo < 0 || alvo >= stack.length) return;
-        setTimeout(() => { idx = alvo; ouvintes.slice().forEach((f) => f({ state: stack[idx].state })); }, 0);
+        setTimeout(() => { idx = alvo; ouvintes.slice().forEach(f => { try { f({ state: stack[idx].state }); } catch (e) { w.errosListener.push(e); } }); }, 0);
       },
       back() { this.go(-1); },
     },
     addEventListener(tipo: string, f: PopListener) { if (tipo === "popstate") ouvintes.push(f); },
     removeEventListener(tipo: string, f: PopListener) { const i = ouvintes.indexOf(f); if (i >= 0) ouvintes.splice(i, 1); },
+    errosListener: [] as unknown[],
     _idx: () => idx,
     _len: () => stack.length,
   };
@@ -93,4 +94,12 @@ test("preserva o state anterior ao empilhar", () => {
   h.sync();
   assert.equal((w.history.state as Record<string, unknown>).outro, 1);
   assert.ok((w.history.state as Record<string, unknown>).__backHandler);
+});
+
+test("onBack que lança erro ainda repõe a entrada (ressincroniza)", async () => {
+  createBackOwner({ getDepth: () => 1, onBack: () => { throw new Error("falhou"); } });
+  w.history.back();
+  await esperar(40);
+  assert.equal(w._idx(), 1, "entrada reposta mesmo com erro");
+  assert.equal(w.errosListener.length, 1);
 });

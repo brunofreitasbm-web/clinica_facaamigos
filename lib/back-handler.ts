@@ -116,10 +116,13 @@ function handlePopState(event: PopStateEvent) {
   if (popCount === 0) return;
   const popped = entries.splice(entries.length - popCount, popCount);
   const handler = [...popped].reverse().find((e) => e.owner)?.owner;
-  if (handler) handler.onBack();
-  else if (dest !== null) window.history.back();
-  // Se o onBack não reduziu o depth, ressincroniza depois que o React aplicar o setState.
-  setTimeout(syncAll, 0);
+  try {
+    if (handler) handler.onBack();
+    else if (dest !== null) window.history.back();
+  } finally {
+    // Se o onBack não reduziu o depth (ou lançou erro), ressincroniza depois que o React aplicar o setState.
+    setTimeout(syncAll, 0);
+  }
 }
 
 export function createBackOwner(opts: { getDepth: () => number; onBack: () => void }) {
