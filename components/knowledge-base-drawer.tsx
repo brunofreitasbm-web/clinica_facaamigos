@@ -18,6 +18,7 @@ import {
   Clock,
   Activity,
   FileText,
+  MessageSquare,
   ExternalLink,
   ChevronRight
 } from "lucide-react";
@@ -68,11 +69,11 @@ export function KnowledgeBaseDrawer({ initialOpen = false }: KnowledgeBaseDrawer
   const categories = [
     { id: "all", label: "Todos os Fluxos", icon: BookOpen },
     { id: "agenda", label: "Agenda do Dia", icon: Calendar },
-    { id: "chegada", label: "Na Chegada", icon: UserCheck },
-    { id: "paciente", label: "Módulo Paciente", icon: Users },
-    { id: "pendencia", label: "Na Pendência", icon: ShieldAlert },
-    { id: "atendimento", label: "No Atendimento", icon: Activity },
-    { id: "documentos", label: "Nos Documentos", icon: FileText },
+    { id: "chegada", label: "Chegada & Cupom", icon: UserCheck },
+    { id: "pendencia", label: "Central Pendências", icon: ShieldAlert },
+    { id: "atendimento", label: "WhatsApp & Chatbot", icon: MessageSquare },
+    { id: "paciente", label: "Leads & Pré-Cadastro", icon: Users },
+    { id: "documentos", label: "Uploads & Segurança", icon: FileText },
   ];
 
   return (
@@ -448,7 +449,7 @@ export function KnowledgeBaseDrawer({ initialOpen = false }: KnowledgeBaseDrawer
               {/* Rodapé do Drawer */}
               <div className="bg-slate-100 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
                 <span className="font-semibold text-slate-600">Clínica FaçaAmigos · Módulo Recepção</span>
-                <span>Base de Conhecimento v1.0</span>
+                <span className="font-medium text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">Base de Conhecimento v2.0 • Atualizada</span>
               </div>
             </div>
           </div>

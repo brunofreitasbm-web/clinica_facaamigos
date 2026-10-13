@@ -18,6 +18,7 @@ import {
   Lock,
   UserCheck,
   TrendingUp,
+  Camera,
   ExternalLink,
   ChevronRight
 } from "lucide-react";
@@ -68,11 +69,12 @@ export function TherapistKnowledgeBaseDrawer({ initialOpen = false }: TherapistK
   const categories = [
     { id: "all", label: "Todos os Fluxos", icon: BookOpen },
     { id: "agenda", label: "Agenda & Início", icon: Calendar },
-    { id: "coleta", label: "Coleta ABA", icon: Activity },
-    { id: "evolucao", label: "Evolução (≤2 min)", icon: PenTool },
+    { id: "coleta", label: "Coleta ABA & ABC", icon: Activity },
+    { id: "evolucao", label: "Evolução & Voz", icon: PenTool },
+    { id: "midias", label: "Mídias & Fotos", icon: Camera },
     { id: "assinatura", label: "PIN & Append-Only", icon: Lock },
-    { id: "prontuario", label: "Consulta ao PEI", icon: UserCheck },
-    { id: "metricas", label: "Repasse & Métricas", icon: TrendingUp },
+    { id: "prontuario", label: "PEI & Supervisão", icon: UserCheck },
+    { id: "metricas", label: "Meta 24h & Repasse", icon: TrendingUp },
   ];
 
   return (
@@ -448,7 +450,7 @@ export function TherapistKnowledgeBaseDrawer({ initialOpen = false }: TherapistK
               {/* Rodapé do Drawer */}
               <div className="bg-slate-100 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
                 <span className="font-semibold text-slate-600">Clínica FaçaAmigos · Portal do Terapeuta</span>
-                <span>Base de Conhecimento v1.0</span>
+                <span className="font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Base de Conhecimento v2.0 • Atualizada</span>
               </div>
             </div>
           </div>
