@@ -65,7 +65,7 @@ function FileLink({ href, label }: { href: string; label: string }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
-      className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-accent px-3 py-1 text-xs font-bold text-accent no-underline hover:bg-accent/10"
+      className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border-2 border-accent px-4 py-2 text-xs font-bold text-accent no-underline transition-all duration-150 active:scale-95 hover:bg-accent/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
       Abrir
       <ExternalLink className="h-3.5 w-3.5" />
@@ -90,9 +90,9 @@ function PhoneLink({ phone }: { phone: string | null }) {
       href={link}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 font-mono text-accent no-underline hover:underline"
+      className="inline-flex min-h-[44px] items-center gap-1.5 font-mono text-sm text-accent no-underline transition-all duration-150 active:scale-95 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
-      <MessageCircle className="h-3.5 w-3.5" />
+      <MessageCircle className="h-4 w-4" />
       {display}
     </a>
   );

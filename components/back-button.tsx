@@ -50,8 +50,8 @@ export function BackButton({
     <button
       type="button"
       onClick={handleClick}
-      className={className}
-      style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", ...style }}
+      className={`inline-flex min-h-[44px] min-w-[44px] items-center transition-transform duration-150 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${className ?? ""}`}
+      style={{ background: "none", border: "none", font: "inherit", cursor: "pointer", ...style }}
     >
       {children}
     </button>

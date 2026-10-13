@@ -134,7 +134,7 @@ export function ModuleHeader({
   });
 
   const itemClass =
-    "flex items-center gap-1.5 rounded-t-md px-3 py-2 text-[13px] font-semibold no-underline transition-all duration-150 active:scale-95 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+    "flex min-h-[44px] items-center gap-1.5 rounded-t-md px-3 py-2 text-[13px] font-semibold no-underline transition-all duration-150 active:scale-95 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
   return (
     <div className="sticky top-0 z-20 shrink-0 print:hidden">
@@ -200,7 +200,7 @@ export function ModuleHeader({
             background: isCurrent ? "var(--color-accent)" : "var(--color-neutral-100)",
             color: isCurrent ? "#fff" : "var(--color-ink)",
           };
-          const cls = "inline-flex items-center min-h-[42px] rounded-full px-3.5 py-1.5 text-xs font-semibold no-underline transition-all duration-150 active:scale-95 shadow-2xs";
+          const cls = "inline-flex items-center justify-center min-h-[44px] rounded-full px-3.5 py-1.5 text-xs font-semibold no-underline transition-all duration-150 active:scale-95 shadow-2xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
 
           return isTab(item) ? (
             <button key={item.key} type="button" onClick={item.onSelect} aria-pressed={isCurrent} className={cls} style={style}>

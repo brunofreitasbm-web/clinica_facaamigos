@@ -48,7 +48,7 @@ export function NavGroupDropdown({ label, icon: Icon, links }: { label: string; 
         onClick={() => setIsOpen((v) => !v)}
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        className="flex items-center gap-1.5 rounded-t-md px-3 py-2 text-[13px] font-semibold transition-all duration-150 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        className="flex min-h-[44px] items-center gap-1.5 rounded-t-md px-3 py-2 text-[13px] font-semibold transition-all duration-150 active:scale-95 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         style={{
           color: hasActive ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
           background: hasActive ? "color-mix(in srgb, var(--color-on-accent) 14%, transparent)" : "transparent",
@@ -57,14 +57,14 @@ export function NavGroupDropdown({ label, icon: Icon, links }: { label: string; 
       >
         {Icon && <Icon size={15} aria-hidden />}
         {label}
-        <ChevronDown size={13} aria-hidden className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown size={13} aria-hidden className={`transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
         <div
           role="menu"
           aria-label={label}
-          className="absolute right-0 top-full z-50 mt-1 flex min-w-[220px] flex-col gap-0.5 rounded-lg border p-1.5 shadow-xl"
+          className="absolute right-0 top-full z-50 mt-1 flex min-w-[220px] flex-col gap-0.5 rounded-lg border p-1.5 shadow-xl animate-fade-in"
           style={{ background: "var(--color-surface)", borderColor: "var(--color-neutral-200)" }}
         >
           {links.map((l) => {
@@ -77,7 +77,7 @@ export function NavGroupDropdown({ label, icon: Icon, links }: { label: string; 
                 role="menuitem"
                 aria-current={isCurrent ? "page" : undefined}
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] font-semibold no-underline transition-colors"
+                className="flex min-h-[44px] items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold no-underline transition-all duration-150 active:scale-[0.98] hover:bg-neutral-100"
                 style={{ color: "var(--color-ink)", background: isCurrent ? "var(--color-neutral-100)" : "transparent" }}
               >
                 {LinkIcon && <LinkIcon size={14} aria-hidden />}

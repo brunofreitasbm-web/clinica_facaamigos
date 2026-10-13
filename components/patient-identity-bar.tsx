@@ -64,14 +64,14 @@ export function PatientIdentityBar({
             {emergencyContact ? (
               <a
                 href={`tel:${emergencyContact.phone}`}
-                className="group flex items-center gap-1.5 font-medium text-ink hover:text-chart"
+                className="group flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-200 bg-surface px-3 py-1.5 text-xs font-semibold text-ink shadow-2xs transition-all duration-150 active:scale-95 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
               >
-                <span>📞</span>
-                <span className="underline underline-offset-2">{emergencyContact.name}</span>
-                <span className="text-xs text-ink-soft">({emergencyContact.phone})</span>
+                <span aria-hidden>📞</span>
+                <span className="truncate">{emergencyContact.name}</span>
+                <span className="text-[11px] font-normal text-ink-soft">({emergencyContact.phone})</span>
               </a>
             ) : (
-              <p className="text-xs font-medium text-status-negative-text">⚠️ Não cadastrado</p>
+              <p className="flex min-h-[44px] items-center text-xs font-medium text-status-negative-text">⚠️ Não cadastrado</p>
             )}
           </div>
         </div>
@@ -80,16 +80,16 @@ export function PatientIdentityBar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-b border-paper-line-strong bg-paper px-6 py-4 sm:px-10">
+    <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-b border-paper-line-strong bg-paper px-6 py-3 sm:px-10">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Paciente</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Paciente</p>
         <div className="flex items-center gap-2.5">
           <p className="text-base font-semibold text-ink">{patientName}</p>
           <HealthPlanBadge name={planName} color={planColor} size="sm" />
         </div>
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Plano de Saúde</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Plano de Saúde</p>
         <div className="mt-0.5 flex items-center gap-2">
           <HealthPlanBadge name={planName} color={planColor} size="sm" />
           {insurance?.cardNumber && (
@@ -98,18 +98,18 @@ export function PatientIdentityBar({
         </div>
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
           Contato de emergência
         </p>
         {emergencyContact ? (
           <a
             href={`tel:${emergencyContact.phone}`}
-            className="text-sm text-ink underline decoration-paper-line-strong underline-offset-2 hover:text-chart"
+            className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-ink underline decoration-paper-line-strong underline-offset-2 transition-colors hover:text-chart active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
-            {emergencyContact.name} · {emergencyContact.phone}
+            <span>📞</span> {emergencyContact.name} · {emergencyContact.phone}
           </a>
         ) : (
-          <p className="text-sm text-status-negative-text">Não cadastrado</p>
+          <p className="inline-flex min-h-[44px] items-center text-sm font-medium text-status-negative-text">⚠️ Não cadastrado</p>
         )}
       </div>
     </div>

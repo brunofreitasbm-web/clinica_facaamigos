@@ -2,6 +2,8 @@
 
 import { useOffline } from "next/offline";
 
+import { WifiOff } from "lucide-react";
+
 /**
  * Banner global de conectividade (PRD §6/§9.4: app do terapeuta precisa ser
  * offline-tolerant). Com `experimental.useOffline` (next.config.ts), o
@@ -17,11 +19,12 @@ export function OfflineBanner() {
   return (
     <div
       role="status"
-      className="flex items-center justify-center gap-2 px-4 py-1.5 text-center text-xs font-medium"
+      aria-live="polite"
+      className="flex min-h-[44px] items-center justify-center gap-2.5 px-4 py-2 text-center text-xs font-semibold shadow-xs animate-fade-in"
       style={{ background: "var(--color-status-negative-soft)", color: "var(--color-status-negative-text)" }}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
-      Sem conexão — o que você preencher fica salvo neste aparelho e é enviado assim que a internet voltar.
+      <WifiOff className="h-4 w-4 shrink-0 animate-pulse text-status-negative" aria-hidden />
+      <span>Sem conexão — o que você preencher fica salvo neste aparelho e é enviado assim que a internet voltar.</span>
     </div>
   );
 }

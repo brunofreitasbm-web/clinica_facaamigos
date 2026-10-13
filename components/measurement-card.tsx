@@ -38,6 +38,7 @@ export function MeasurementCard({
   status,
   milestone,
   placeholder = true,
+  comparison,
 }: {
   label: string;
   value: string;
@@ -48,13 +49,15 @@ export function MeasurementCard({
   milestone?: boolean;
   /** true (padrão nesta fase): valor ainda não é medição real. */
   placeholder?: boolean;
+  /** Métrica de referência obrigatória de BI (ex.: vs. Mês Anterior, vs. Meta). */
+  comparison?: string;
 }) {
   const effectiveStatus: Status = placeholder ? "neutral" : (status ?? "neutral");
   const s = statusStyles[effectiveStatus];
   const showMilestone = milestone && !placeholder;
 
   return (
-    <div className="relative overflow-hidden rounded-md border border-paper-line-strong bg-paper/60 px-5 py-4 shadow-[0_1px_0_0_var(--color-paper-line-strong)]">
+    <div className="relative overflow-hidden rounded-xl border border-paper-line-strong bg-paper/60 px-5 py-4 shadow-[0_1px_0_0_var(--color-paper-line-strong)] transition-all duration-150 hover:shadow-xs">
       {showMilestone && (
         <svg
           aria-hidden
@@ -67,7 +70,7 @@ export function MeasurementCard({
       )}
       <div className="flex items-center gap-2">
         <span className={`h-2 w-2 rounded-full ${s.dot}`} aria-hidden />
-        <span className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+        <span className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
           {label}
         </span>
       </div>
@@ -79,11 +82,18 @@ export function MeasurementCard({
           </span>
         )}
       </p>
-      <span
-        className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${s.soft} ${s.text}`}
-      >
-        {placeholder ? "aguardando dado real" : statusLabel(effectiveStatus)}
-      </span>
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.soft} ${s.text}`}
+        >
+          {placeholder ? "aguardando dado real" : statusLabel(effectiveStatus)}
+        </span>
+        {comparison && (
+          <span className="text-xs font-medium text-ink-muted">
+            {comparison}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
