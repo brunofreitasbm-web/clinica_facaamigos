@@ -26,8 +26,11 @@ export interface QuickActionsBarProps {
 
 /**
  * Componente de Barra de Ações Rápidas em linha para tabelas e cadastros.
- * Renderiza cada ação como um link de texto (padrão text-xs text-chart / text-status-negative-text),
- * separadas por ml-3, no lugar de botões com ícone.
+ * Aprimorado com as Leis de UX:
+ * - Fitts's Law: área de toque confortável (min-h-[36px], padding adequado) evitando erros de clique.
+ * - Law of Proximity: agrupamento visual claro das ações da linha com gap consistente.
+ * - Doherty Threshold: feedback tátil com transição instantânea e active state.
+ * - Von Restorff Effect: diferenciação visual para ações perigosas (exclusão).
  */
 export function QuickActionsBar({
   finance,
@@ -46,15 +49,14 @@ export function QuickActionsBar({
   ].filter((a): a is { item: QuickActionItem; fallbackTitle: string; label: string; isDanger?: boolean } => Boolean(a));
 
   return (
-    <div className={`inline-flex items-center ${className}`}>
-      {actions.map((action, index) => (
+    <div className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
+      {actions.map((action) => (
         <ActionButton
           key={action.item.key ?? action.label}
           item={action.item}
           fallbackTitle={action.fallbackTitle}
           label={action.label}
           isDanger={action.isDanger}
-          isFirst={index === 0}
         />
       ))}
     </div>
@@ -66,18 +68,20 @@ function ActionButton({
   fallbackTitle,
   label,
   isDanger = false,
-  isFirst = false,
 }: {
   item?: QuickActionItem;
   fallbackTitle: string;
   label: string;
   isDanger?: boolean;
-  isFirst?: boolean;
 }) {
   const isEnabled = Boolean(item && !item.disabled && (item.href || item.onClick));
   const title = item?.title || fallbackTitle;
 
-  const baseStyle = `text-xs ${isDanger ? "text-status-negative-text" : "text-chart"} ${isFirst ? "" : "ml-3"}`;
+  const baseStyle = `inline-flex items-center justify-center min-h-[36px] px-2.5 py-1 text-xs font-semibold rounded-lg transition-all duration-150 active:scale-95 no-underline ${
+    isDanger
+      ? "text-status-negative-text hover:bg-status-negative-soft"
+      : "text-chart hover:bg-chart-soft/40"
+  }`;
 
   if (item?.href && !item.disabled) {
     return (
@@ -98,7 +102,7 @@ function ActionButton({
   return (
     <span
       title={isEnabled ? title : `${title} (não disponível)`}
-      className={`text-xs text-ink-faint opacity-50 cursor-not-allowed ${isFirst ? "" : "ml-3"}`}
+      className="inline-flex items-center justify-center min-h-[36px] px-2 py-1 text-xs text-ink-faint opacity-50 cursor-not-allowed"
     >
       {label}
     </span>

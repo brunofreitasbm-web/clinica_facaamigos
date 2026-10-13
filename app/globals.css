@@ -296,9 +296,60 @@ select:focus-visible {
 .nav a,
 .table tbody tr,
 a {
-  transition: background-color 0.15s ease, border-color 0.15s ease,
-    color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease,
-    transform var(--transition-bounce);
+  transition: background-color 0.12s ease, border-color 0.12s ease,
+    color 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease,
+    transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── UX Laws: Fitts's Law (alvo de toque mínimo 44x44px em telas de toque) ── */
+@media (pointer: coarse) {
+  button,
+  .btn,
+  .input,
+  .seg-opt,
+  .seg-btn,
+  a[role="button"],
+  .touch-target-min {
+    min-height: 44px;
+  }
+}
+
+/* ── UX Laws: Doherty Threshold (<400ms feedback instantâneo tátil) ── */
+.btn:active,
+.seg-opt:active,
+.seg-btn:active,
+.clickable-card:active {
+  transform: scale(0.97) !important;
+}
+
+.table tbody tr:active {
+  background-color: color-mix(in srgb, var(--color-accent-100) 80%, var(--color-surface));
+}
+
+/* ── UX Laws: Law of Common Region & Law of Proximity ── */
+.ux-common-region {
+  background: var(--color-surface);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg);
+  padding: calc(var(--space-4) * 1.15);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── UX Laws: Goal-Gradient Effect & Law of Uniform Connectedness ── */
+.ux-stepper-line {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 12px;
+  width: 2px;
+  background: var(--color-neutral-300);
+  transform: translateX(-50%);
+  z-index: 0;
+}
+
+.ux-stepper-line-active {
+  background: var(--color-accent);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -200,7 +200,7 @@ export function ModuleHeader({
             background: isCurrent ? "var(--color-accent)" : "var(--color-neutral-100)",
             color: isCurrent ? "#fff" : "var(--color-ink)",
           };
-          const cls = "rounded-full px-2.5 py-1 text-xs font-semibold no-underline";
+          const cls = "inline-flex items-center min-h-[42px] rounded-full px-3.5 py-1.5 text-xs font-semibold no-underline transition-all duration-150 active:scale-95 shadow-2xs";
 
           return isTab(item) ? (
             <button key={item.key} type="button" onClick={item.onSelect} aria-pressed={isCurrent} className={cls} style={style}>

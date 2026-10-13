@@ -101,22 +101,34 @@ export function TerapeutaBottomNav({ role }: { role?: string | null }) {
       </nav>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t bg-white py-2 text-[10px] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t bg-white/95 backdrop-blur-sm py-1.5 text-xs md:hidden shadow-lg"
         style={{ borderColor: "var(--color-divider)" }}
         aria-label="Navegação do terapeuta"
       >
-        {NAV_ITEMS.map(({ key, href, icon, label }) => (
-          <Link
-            key={key}
-            href={href}
-            prefetch={true}
-            aria-current={active === key ? "page" : undefined}
-            className="flex flex-col items-center gap-1 no-underline"
-            style={{ ...itemStyle(key), minHeight: 44 }}
-          >
-            {icon} {label}
-          </Link>
-        ))}
+        {NAV_ITEMS.map(({ key, href, icon, label }) => {
+          const isCurrent = active === key;
+          return (
+            <Link
+              key={key}
+              href={href}
+              prefetch={true}
+              aria-current={isCurrent ? "page" : undefined}
+              className={`flex flex-col items-center justify-center min-h-[48px] py-1 transition-all duration-150 active:scale-95 no-underline ${
+                isCurrent ? "font-bold text-accent" : "text-neutral-500 font-medium"
+              }`}
+            >
+              <span
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-base transition-all ${
+                  isCurrent ? "bg-accent-100 text-accent" : ""
+                }`}
+                aria-hidden="true"
+              >
+                {icon}
+              </span>
+              <span className="text-[11px] leading-tight tracking-tight mt-0.5">{label}</span>
+            </Link>
+          );
+        })}
       </nav>
     </>
   );

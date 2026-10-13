@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Inbox } from "lucide-react";
+import Link from "next/link";
 
 interface EmptyStateAction {
   label: string;
@@ -15,21 +16,28 @@ interface EmptyStateProps {
   secondaryAction?: EmptyStateAction;
 }
 
+/**
+ * EmptyState aprimorado pelas Leis de UX:
+ * - Fitts's Law: botões com alvo de toque mínimo de 44px e área de clique espaçosa.
+ * - Von Restorff Effect: ação primária ganha destaque visual imediato sobre a secundária.
+ * - Paradox of the Active User: caminho direto para o próximo passo sem manuais.
+ * - Doherty Threshold: feedback tátil com transição rápida e escala sutil.
+ */
 function EmptyStateActionButton({ action, variant }: { action: EmptyStateAction; variant: "primary" | "secondary" }) {
   const className =
     variant === "primary"
-      ? "rounded-full border border-pink-200 bg-pink-50 px-3 py-1 text-[11px] font-semibold text-pink-700 hover:bg-pink-100"
-      : "rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50";
+      ? "inline-flex min-h-[44px] items-center justify-center rounded-full bg-accent px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-all duration-150 hover:bg-accent-600 hover:shadow-md active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      : "inline-flex min-h-[44px] items-center justify-center rounded-full border border-neutral-300 bg-surface px-5 py-2.5 text-xs font-bold text-neutral-700 shadow-2xs transition-all duration-150 hover:bg-neutral-100 hover:text-neutral-900 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
   if (action.href) {
     return (
-      <a href={action.href} className={className}>
+      <Link href={action.href} className={className}>
         {action.label}
-      </a>
+      </Link>
     );
   }
   return (
-    <button onClick={action.onClick} className={className}>
+    <button type="button" onClick={action.onClick} className={className}>
       {action.label}
     </button>
   );
@@ -37,14 +45,14 @@ function EmptyStateActionButton({ action, variant }: { action: EmptyStateAction;
 
 export function EmptyState({ title, description, icon: Icon = Inbox, action, secondaryAction }: EmptyStateProps) {
   return (
-    <div className="my-auto flex flex-col items-center gap-1 py-4 text-center">
-      <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-full bg-pink-50">
-        <Icon className="h-4.5 w-4.5 text-pink-300" strokeWidth={1.75} />
+    <div className="my-auto flex flex-col items-center gap-2 py-8 text-center px-4">
+      <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-accent-100/70 text-accent ring-8 ring-accent-100/30">
+        <Icon className="h-7 w-7" strokeWidth={1.8} />
       </div>
-      <p className="text-xs font-semibold text-slate-700">{title}</p>
-      <p className="max-w-[220px] text-[11px] text-slate-600">{description}</p>
+      <p className="text-base font-bold text-ink">{title}</p>
+      <p className="max-w-[320px] text-xs leading-relaxed text-ink-muted">{description}</p>
       {(action || secondaryAction) && (
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
           {action && <EmptyStateActionButton action={action} variant="primary" />}
           {secondaryAction && <EmptyStateActionButton action={secondaryAction} variant="secondary" />}
         </div>

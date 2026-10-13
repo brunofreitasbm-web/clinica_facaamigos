@@ -48,43 +48,48 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      {/* Container de Toasts flutuantes não-bloqueantes */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none">
+      {/* Container de Toasts flutuantes (Peak-End Rule & Fitts's Law) */}
+      <div className="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 z-50 flex flex-col gap-2.5 sm:max-w-md pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all duration-200 animate-in slide-in-from-bottom-2 ${
+            role="status"
+            aria-live="polite"
+            className={`pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-xl border text-sm font-semibold transition-all duration-150 animate-in slide-in-from-bottom-3 ${
               t.type === "success"
-                ? "bg-emerald-900 text-emerald-50 border-emerald-700 dark:bg-emerald-950 dark:border-emerald-800"
+                ? "bg-emerald-950 text-emerald-50 border-emerald-700/80 shadow-emerald-950/20"
                 : t.type === "error"
-                ? "bg-rose-900 text-rose-50 border-rose-700"
-                : "bg-slate-900 text-slate-50 border-slate-700"
+                ? "bg-rose-950 text-rose-50 border-rose-700/80 shadow-rose-950/20"
+                : "bg-slate-950 text-slate-50 border-slate-700/80 shadow-slate-950/20"
             }`}
           >
-            <div className="flex items-center gap-2.5">
-              {t.type === "success" && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
-              {t.type === "error" && <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />}
-              {t.type === "info" && <Info className="w-4 h-4 text-sky-400 shrink-0" />}
-              <span>{t.text}</span>
+            <div className="flex items-center gap-3">
+              {t.type === "success" && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
+              {t.type === "error" && <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />}
+              {t.type === "info" && <Info className="w-5 h-5 text-sky-400 shrink-0" />}
+              <span className="leading-snug">{t.text}</span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               {t.undoAction && (
                 <button
+                  type="button"
                   onClick={() => {
                     t.undoAction?.();
                     removeToast(t.id);
                   }}
-                  className="text-xs underline font-semibold hover:opacity-80 transition-opacity text-emerald-300"
+                  className="min-h-[36px] px-2.5 py-1 text-xs underline font-bold hover:bg-white/10 rounded-lg transition-colors text-emerald-300 active:scale-95"
                 >
                   Desfazer
                 </button>
               )}
               <button
+                type="button"
                 onClick={() => removeToast(t.id)}
-                className="opacity-70 hover:opacity-100 p-0.5 rounded transition-opacity"
+                aria-label="Fechar notificação"
+                className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-white/80 hover:bg-white/15 hover:text-white active:scale-95 transition-all"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
