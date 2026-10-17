@@ -522,6 +522,12 @@ async function hasRecentOutbound(conversationId: string | null): Promise<boolean
   return (data?.length ?? 0) > 0;
 }
 
+/** Push pra equipe (PWA /m/atendimento). Nunca lança — ver lib/web-push.ts. */
+async function notifyStaff(conversationId: string): Promise<void> {
+  const { notifyStaffOfConversation } = await import("./web-push");
+  await notifyStaffOfConversation(conversationId);
+}
+
 /**
  * Processa a mensagem recebida e retorna a resposta gerada pelo Chatbot.
  */
@@ -664,6 +670,7 @@ export async function handleTwilioIncomingMessage(params: {
     }
 
     if (!conversation.is_bot_active) {
+      await notifyStaff(conversation.id);
       return { replyMessage: "", intent: "human_handled" };
     }
 
@@ -676,6 +683,7 @@ export async function handleTwilioIncomingMessage(params: {
     const { getChatbotSettings } = await import("./twilio-faq-bot");
     const settings = await getChatbotSettings(DEV_CLINIC_ID);
     if (!settings.botEnabled) {
+      await notifyStaff(conversation.id);
       return { replyMessage: "", intent: "human_handled" };
     }
 

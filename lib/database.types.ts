@@ -6405,6 +6405,39 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_success_at: string | null
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_success_at?: string | null
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_success_at?: string | null
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           active: boolean
@@ -8071,6 +8104,7 @@ export type Database = {
           is_bot_active: boolean
           kind: string
           last_inbound_at: string | null
+          last_push_at: string | null
           last_message_at: string | null
           last_message_preview: string | null
           last_message_sender: string | null
@@ -8095,6 +8129,7 @@ export type Database = {
           is_bot_active?: boolean
           kind?: string
           last_inbound_at?: string | null
+          last_push_at?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
           last_message_sender?: string | null
@@ -8119,6 +8154,7 @@ export type Database = {
           is_bot_active?: boolean
           kind?: string
           last_inbound_at?: string | null
+          last_push_at?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
           last_message_sender?: string | null
