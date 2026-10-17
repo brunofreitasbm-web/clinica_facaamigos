@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAtendimentoAccess, loadAtendimentoData } from "@/lib/atendimento/load-data";
 import { MobileShell } from "./mobile-shell";
 import { AddToHomeHint } from "./add-to-home-hint";
+import { PushToggle } from "./push-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function MobileAtendimentoPage() {
 
   return (
     <>
+      <PushToggle />
       <MobileShell
         initialConversations={conversations}
         staffNames={staffNames}
