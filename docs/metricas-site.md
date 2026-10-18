@@ -35,11 +35,11 @@ Nenhum evento envia o que a pessoa digita.
 
 ## Indexação
 
-Desde 30/09/2026 (revertendo a decisão anterior), a landing é indexável e o sistema não:
+Desde 18/10/2026 a página pública da Clínica é **estática e mora no hub** (`institutofacaamigos.com.br/clinica`, arquivo `clinica.html` no repositório `langing_page_faca_amigos`). Este app não serve mais landing:
 
-- `clinica.institutofacaamigos.com.br/` serve a landing (rewrite de `/site` em `proxy.ts`); é o único endereço indexável, com canonical e sitemap próprios.
-- No mesmo host, qualquer outro caminho redireciona para `sistema.institutofacaamigos.com.br`; no sistema, `/site` responde 404 (a landing não existe lá).
-- `robots.txt` depende do host: na clínica libera só `/`, `/_next/` e `/site/`; no sistema bloqueia tudo.
-- Todo o sistema responde com `X-Robots-Tag: noindex` (posto em `proxy.ts`).
+- `clinica.institutofacaamigos.com.br/` e `/site` redirecionam (301) para o hub; qualquer outro caminho desse host vai (308) para `sistema.institutofacaamigos.com.br`. Mantenha o domínio apontado para este projeto, senão os redirects somem.
+- `/site` responde 404 com `noindex` em todos os hosts. O código de `app/site` (formulário de lista de espera, `site_leads`, analytics) ficou sem rota pública e pode ser removido quando não houver mais uso.
+- Todo o sistema responde com `X-Robots-Tag: noindex` (posto em `proxy.ts`) e o `robots.txt` bloqueia tudo, menos no host antigo (que libera tudo para os 301 serem seguidos).
+- Sem sitemap neste app: o sitemap é o do hub.
 
-Depois do deploy: cadastrar a propriedade `clinica.institutofacaamigos.com.br` no Search Console e no Bing Webmaster, enviar `/sitemap.xml` e pedir a indexação da raiz.
+Depois do deploy: manter a propriedade `clinica.…` no Search Console só para acompanhar os 301; pedir a indexação de `/clinica` na propriedade `institutofacaamigos.com.br`.
