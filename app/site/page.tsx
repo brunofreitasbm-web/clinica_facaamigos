@@ -156,7 +156,7 @@ const ICONES_SERVICO = [Brain, MessageSquareText, HandHelping, Activity, Music2,
 const BADGE_CORES = [
   { bg: "var(--color-pink)", fg: "#ffffff" },
   { bg: "var(--color-teal)", fg: "#ffffff" },
-  { bg: "var(--color-accent-2)", fg: "#ffffff" },
+  { bg: "var(--color-yellow)", fg: "var(--color-dark)" },
 ] as const;
 
 export default async function SiteLandingPage() {
@@ -229,7 +229,7 @@ export default async function SiteLandingPage() {
       <section className="relative overflow-hidden bg-[var(--color-bg)]">
         <div className="mx-auto grid max-w-6xl gap-12 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:py-24">
           <div className="flex flex-col gap-6">
-            <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--color-teal-100)] px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[var(--color-teal-800)]">
+            <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--color-petroleo)] px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white">
               <Sparkles className="h-3.5 w-3.5" aria-hidden />
               {HERO.chapeu}
             </span>
@@ -284,7 +284,7 @@ export default async function SiteLandingPage() {
                 aparece por fora (o cartão é opaco e pinta por cima de tudo
                 que estiver embaixo dela). */}
             <Blob
-              color="var(--color-accent-2)"
+              color="var(--color-yellow)"
               className="absolute -top-8 -right-8 hidden aspect-square w-[105%] opacity-90 sm:block"
             />
             <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[32px] bg-white shadow-lg sm:aspect-[5/4] lg:aspect-[4/5]">

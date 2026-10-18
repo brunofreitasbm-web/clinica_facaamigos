@@ -745,3 +745,28 @@ label:has(> input.sr-only:focus-visible) { outline: 2px solid var(--color-accent
 
 
 
+
+/* ══════════════════════════════════════════════════════════════════════
+   Site público da Clínica (app/site) = marca FaçaAmigos do hub, com a
+   Clínica como submarca (petróleo + selo "Clínica"). Escopado em
+   .site-brand: o sistema interno (agenda, prontuário...) continua igual.
+   Hub: fundo creme, Fredoka nos títulos, CTA rosa em pílula, amarelo solar.
+   ══════════════════════════════════════════════════════════════════════ */
+.site-brand {
+  --color-bg: #fff9f1;
+  --color-accent-2: var(--color-yellow);
+  --shadow-sm: 0 4px 10px rgba(26, 63, 53, 0.08);
+  --shadow-lg: 0 18px 40px rgba(26, 63, 53, 0.14);
+  display: contents;
+}
+.site-brand :is(h1, h2, h3) {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  text-wrap: balance;
+}
+.site-brand .btn-primary { background: var(--color-pink); box-shadow: var(--shadow-pink); }
+.site-brand .btn-primary:hover { background: var(--color-pink-hover); box-shadow: var(--shadow-pink); }
+.site-brand .btn-primary:active { background: var(--color-pink-active); }
+.site-brand .btn-secondary { color: var(--color-dark); border-color: var(--color-dark); }
+.site-brand .btn-secondary:hover { background: var(--color-yellow); }
