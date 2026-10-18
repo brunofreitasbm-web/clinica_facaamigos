@@ -10,7 +10,7 @@ import { trackContactClick } from "./analytics-client";
 // glifos genéricos. "@" para a rede social, link externo para o resto.
 const ICONE_REDE = { Instagram: AtSign } as Record<string, typeof AtSign>;
 
-const NAV_ACCENTS = ["var(--color-pink)", "var(--color-teal)", "var(--color-accent-2)"];
+const NAV_ACCENTS = ["var(--color-pink)", "var(--color-teal)", "var(--color-yellow)"];
 
 /**
  * Faixa de contato acima do header (referência de estilo pedida pelo
@@ -72,10 +72,18 @@ export function SiteHeader() {
       <header className="sticky top-0 z-40 border-b border-[var(--color-paper-line)] bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
         <a href="#inicio" className="shrink-0" aria-label="FaçaAmigos — início">
-          <Logo variant="horizontal" height={40} />
+          <span className="flex items-center gap-2.5">
+            <Logo variant="simbolo" height={36} decorative />
+            <span className="font-[var(--font-display)] text-[1.55rem] leading-none text-[var(--color-dark)]">
+              Faça<span className="text-[var(--color-pink)]">Amigos</span>
+            </span>
+            <span className="rounded-full bg-[var(--color-petroleo)] px-2.5 py-1 text-[11px] font-extrabold uppercase leading-none tracking-[0.14em] text-white">
+              Clínica
+            </span>
+          </span>
         </a>
 
-        <nav className="hidden items-center gap-7 md:flex" aria-label="Navegação principal">
+        <nav className="hidden items-center gap-5 whitespace-nowrap md:flex xl:gap-6" aria-label="Navegação principal">
           {MENU.map((item, i) => (
             <a
               key={item.href}
@@ -94,15 +102,17 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <a href="#planos" className="btn btn-secondary !min-h-0 !py-2.5 text-sm">
-            {CTA.secundario}
-          </a>
+          <div className="hidden 2xl:block">
+            <a href="#planos" className="btn btn-secondary !min-h-0 !py-2.5 text-sm whitespace-nowrap">
+              {CTA.secundario}
+            </a>
+          </div>
           <a
             href={linkWhatsApp()}
             target="_blank"
             rel="noreferrer"
             onClick={() => trackContactClick("whatsapp", "header-desktop")}
-            className="btn btn-primary !min-h-0 flex-col !gap-0 !py-2 text-sm leading-tight"
+            className="btn btn-primary !min-h-0 shrink-0 flex-col !gap-0 !py-2 text-sm leading-tight whitespace-nowrap"
           >
             <span className="flex items-center gap-1.5">
               <MessageCircle className="h-4 w-4" aria-hidden />

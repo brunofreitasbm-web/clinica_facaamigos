@@ -18,7 +18,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <SiteAnalyticsNoScript />
       <SiteAnalytics />
       <SiteEngagement />
-      {children}
+      {/* .site-brand (globals.css): tokens e tipografia do hub FaçaAmigos só na landing pública, sem tocar no sistema interno. */}
+      <div className="site-brand">{children}</div>
     </>
   );
 }
