@@ -31,6 +31,22 @@ export const CLINIC_SUPPORT_EMAIL = "institutofacaamigos@gmail.com";
 export const CLINIC_WEBSITE = "https://clinica.institutofacaamigos.com.br";
 
 /**
+ * A landing pública da clínica mora no domínio do hub: institutofacaamigos.com.br/clinica.
+ * O projeto do hub faz rewrite de /clinica e /clinica-static para este deploy (vercel.json do
+ * hub), então canonical, Open Graph e JSON-LD apontam para cá. CLINIC_WEBSITE (clinica.…) ficou só
+ * como host legado: proxy.ts o redireciona (301) para CLINIC_PUBLIC_URL, e NPS/links de portal
+ * continuam usando-o como fallback (cai no sistema por redirect).
+ * CLINIC_STATIC_PREFIX é o prefixo dos assets da landing (JS/CSS, /_next/image, /site/*): precisa
+ * ser o mesmo em next.config.ts (assetPrefix, images.path) e no rewrite do hub.
+ */
+export const CLINIC_PUBLIC_ORIGIN = "https://institutofacaamigos.com.br";
+export const CLINIC_PUBLIC_PATH = "/clinica";
+export const CLINIC_PUBLIC_URL = `${CLINIC_PUBLIC_ORIGIN}${CLINIC_PUBLIC_PATH}`;
+export const CLINIC_STATIC_PREFIX = "/clinica-static";
+/** Imagem de prévia (Open Graph) da landing, já pelo caminho que o hub serve. */
+export const CLINIC_OG_IMAGE = `${CLINIC_PUBLIC_ORIGIN}${CLINIC_STATIC_PREFIX}/site/og-clinica.png`;
+
+/**
  * Origem de onde ESTE deploy é servido de fato — hoje o domínio do sistema
  * de gestão. É o que resolve URL relativa em metadata (Open Graph, Twitter,
  * canonical) fora de `app/site`, que tem metadataBase próprio apontando para

@@ -5,8 +5,8 @@
  * ou depoimento mexe SÓ neste arquivo, sem tocar em JSX. Cada bloco abaixo
  * corresponde a uma seção da página, na mesma ordem em que aparecem.
  *
- * Fonte do texto: o hub institucional (institutofacaamigos.com.br, páginas
- * /servicos e bloco #clinica), para a clínica falar a mesma coisa nos dois
+ * Fonte do texto: o hub institucional (institutofacaamigos.com.br, antiga página
+ * /servicos, hoje fundida aqui, e bloco #clinica), para a clínica falar a mesma coisa nos dois
  * lugares. Estrutura da página: PROMESSA (hero + empatia), CONFIANÇA
  * (responsável técnica, convênios, como funciona, FAQ) e OFERTA (lista de
  * espera, mapeamento gratuito, convênios/particular).
@@ -47,6 +47,8 @@ export const EMPRESA = {
   razaoSocial: "Instituto Faça Amigos Ltda",
   cnpj: "22.161.197/0001-83",
 };
+
+import { CLINIC_PUBLIC_ORIGIN as HUB_ORIGIN } from "@/lib/clinic-identity";
 
 /** Links do ecossistema (hub). */
 export const HUB = {
@@ -221,41 +223,91 @@ export const METODO = {
 
 export const SERVICOS = [
   {
+    id: "avaliacao",
     titulo: "Avaliação inicial e acolhimento",
-    texto:
-      "Para toda família que quer entender melhor o que está acontecendo, com ou sem laudo. Uma conversa e observação, sem pressa: você sai com um primeiro plano, não com uma lista de exames.",
+    paraQuem: "Toda família que quer entender melhor o que está acontecendo, com ou sem laudo.",
+    oQueAcontece: "Uma conversa e observação, sem pressa, para enxergar a rotina completa da criança.",
+    oQueMuda: "Você sai com um primeiro plano, não com uma lista de exames.",
   },
   {
+    id: "psicologia",
     titulo: "Psicologia e terapia comportamental",
-    texto:
-      "Para crianças com birras frequentes, dificuldade de comunicação ou comportamentos que preocupam a família. Sessões que ensinam novas habilidades, apoiadas em Análise do Comportamento.",
+    paraQuem: "Crianças com birras frequentes, dificuldade de comunicação ou comportamentos que preocupam a família.",
+    oQueAcontece: "Sessões que ensinam novas habilidades com repetição afetuosa, apoiadas em Análise do Comportamento.",
+    glossario: { rotulo: "O que é Análise do Comportamento", href: `${HUB_ORIGIN}/glossario#aba` },
+    oQueMuda: 'Menos "apagar incêndio", mais entender o porquê e o que fazer a respeito.',
   },
   {
+    id: "fonoaudiologia",
     titulo: "Fonoaudiologia",
-    texto:
-      "Para fala atrasada, difícil de entender ou seletividade alimentar. Estímulo à fala, à linguagem e, quando necessário, à alimentação: mais formas de se entender com o seu filho.",
+    paraQuem: "Crianças com fala atrasada, difícil de entender, ou seletividade alimentar.",
+    oQueAcontece: "Sessões de estímulo à fala, à linguagem e, quando necessário, à alimentação.",
+    oQueMuda: "Mais formas de se entender com o seu filho, no dia a dia.",
   },
   {
+    id: "to",
     titulo: "Terapia Ocupacional",
-    texto:
-      "Para dificuldade de coordenação, autonomia nas tarefas do dia ou hipersensibilidade a som, luz e toque. Integração sensorial para vestir, comer e escovar os dentes serem menos batalha.",
+    paraQuem: "Crianças com dificuldade de coordenação, autonomia nas tarefas do dia, ou hipersensibilidade a som, luz ou toque.",
+    oQueAcontece: "Atividades que trabalham integração sensorial e autonomia, do jeito de cada criança.",
+    glossario: { rotulo: "O que é integração sensorial", href: `${HUB_ORIGIN}/glossario#integracao-sensorial` },
+    oQueMuda: "Tarefas do dia a dia (vestir, comer, escovar os dentes) ficam menos batalha.",
   },
   {
+    id: "psicopedagogia",
     titulo: "Psicopedagogia",
-    texto:
-      "Para dificuldade de aprendizagem em leitura, escrita ou matemática. Estratégias criadas para o jeito de aprender do seu filho, não o contrário.",
+    paraQuem: "Crianças com dificuldade de aprendizagem: leitura, escrita ou matemática.",
+    oQueAcontece: "Estratégias criadas para o jeito de aprender do seu filho, não o contrário.",
+    oQueMuda: 'Menos "ele não presta atenção", mais um caminho que funciona pra ele.',
   },
   {
+    id: "neuro",
     titulo: "Avaliação neuropsicológica",
-    texto:
-      "Para dúvidas sobre memória, atenção, foco ou desenvolvimento cognitivo. Testes que mapeiam essas funções e orientam escola e terapia.",
+    paraQuem: "Famílias com dúvidas sobre memória, atenção, foco ou desenvolvimento cognitivo.",
+    oQueAcontece: "Testes que mapeiam essas funções e orientam escola e terapia.",
+    oQueMuda: "Um retrato mais completo, para decisões com mais clareza.",
   },
   {
+    id: "orientacao",
     titulo: "Orientação a pais e escola",
-    texto:
-      "Sessões só com você para ajustar a rotina em casa e apoio na conversa com a coordenação pedagógica, quando fizer sentido.",
+    paraQuem: "Toda família em acompanhamento, e também a escola do seu filho, quando fizer sentido.",
+    oQueAcontece: "Sessões só com você para ajustar a rotina em casa, e apoio na conversa com a coordenação pedagógica.",
+    oQueMuda: "Você não sai sozinha da reunião com a escola, nem sozinha em casa.",
   },
-];
+] as Array<{
+  id: string;
+  titulo: string;
+  paraQuem: string;
+  oQueAcontece: string;
+  oQueMuda: string;
+  glossario?: { rotulo: string; href: string };
+}>;
+
+/** Fotos do espaço (vieram da antiga página /servicos do hub, hoje fundida aqui). */
+export const AMBIENTE = {
+  titulo: "Ambiente estruturado para o desenvolvimento real",
+  subtitulo:
+    "Recursos sensoriais e materiais pedagógicos pensados para intervenções que engajam a criança de forma lúdica e afetiva.",
+  itens: [
+    {
+      titulo: "Integração Sensorial",
+      texto: "Painéis táteis e quebra-cabeças em madeira que auxiliam na regulação sensorial e foco.",
+      src: "/site/clinica-painel-sensorial.webp",
+      alt: "Painel sensorial de parede para integração sensorial",
+    },
+    {
+      titulo: "Intervenção Lúdica",
+      texto: "Brinquedos de encaixe e pareamento que desenvolvem motricidade fina e raciocínio lógico no chão.",
+      src: "/site/clinica-atividade-pedagogica.webp",
+      alt: "Atividade pedagógica e motricidade no chão com profissional",
+    },
+    {
+      titulo: "Jogos Estruturados",
+      texto: "Materiais adaptados e jogos de regulação para cada fase do desenvolvimento infantil.",
+      src: "/site/clinica-recursos-terapeuticos.webp",
+      alt: "Recursos terapêuticos e jogos estruturados",
+    },
+  ],
+};
 
 // ─────────────────────────────────────────────────────────────────────────
 // Quem cuida — CONFIANÇA (responsável técnica com registro)

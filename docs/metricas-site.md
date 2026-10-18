@@ -35,11 +35,12 @@ Nenhum evento envia o que a pessoa digita.
 
 ## Indexação
 
-Desde 30/09/2026 (revertendo a decisão anterior), a landing é indexável e o sistema não:
+Desde 18/10/2026 a landing mora no hub, em `institutofacaamigos.com.br/clinica`, e o sistema segue sem indexação:
 
-- `clinica.institutofacaamigos.com.br/` serve a landing (rewrite de `/site` em `proxy.ts`); é o único endereço indexável, com canonical e sitemap próprios.
-- No mesmo host, qualquer outro caminho redireciona para `sistema.institutofacaamigos.com.br`; no sistema, `/site` responde 404 (a landing não existe lá).
-- `robots.txt` depende do host: na clínica libera só `/`, `/_next/` e `/site/`; no sistema bloqueia tudo.
-- Todo o sistema responde com `X-Robots-Tag: noindex` (posto em `proxy.ts`).
+- O projeto do hub (`facaamigos-site`) faz rewrite de `/clinica` e `/clinica-static/*` para este deploy (`vercel.json` do hub). Aqui o `proxy.ts` reescreve `/clinica` para `/site`; JS/CSS e o otimizador de imagens saem sob `/clinica-static` (`assetPrefix` e `images.path` em `next.config.ts`).
+- Canonical, Open Graph e JSON-LD apontam para `https://institutofacaamigos.com.br/clinica` (`CLINIC_PUBLIC_URL` em `lib/clinic-identity.ts`). O sitemap é o do hub.
+- `clinica.institutofacaamigos.com.br` virou host legado: `/` redireciona (301) para `/clinica`, `/site/*` para `/clinica-static/site/*`, o resto (308) para `sistema.…`. Mantenha o domínio apontado para este projeto, senão os redirects somem.
+- No `sistema.…`, `/clinica` e `/site` respondem 404 (a landing não existe lá). Todo o sistema responde com `X-Robots-Tag: noindex` (posto em `proxy.ts`) e o `robots.txt` do host bloqueia tudo.
+- A landing não linka mais para o login (`Área Restrita` saiu do topo e do menu mobile).
 
-Depois do deploy: cadastrar a propriedade `clinica.institutofacaamigos.com.br` no Search Console e no Bing Webmaster, enviar `/sitemap.xml` e pedir a indexação da raiz.
+Depois do deploy: cadastrar a propriedade `institutofacaamigos.com.br` no Search Console e no Bing Webmaster (se ainda não houver), reenviar o sitemap do hub e pedir a indexação de `/clinica`. Manter a propriedade antiga `clinica.…` para acompanhar os 301. Não existe "Mudança de endereço" para subdomínio → pasta; o que transfere o ranking são os 301.

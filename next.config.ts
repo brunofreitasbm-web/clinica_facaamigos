@@ -1,7 +1,18 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
+// Constantes duplicadas de lib/clinic-identity.ts: este arquivo roda antes do alias "@/" existir.
+const STATIC_PREFIX = "/clinica-static";
+
 const nextConfig: NextConfig = {
+  // A landing é exibida em institutofacaamigos.com.br/clinica (o projeto do hub faz rewrite para este
+  // deploy). JS/CSS e o otimizador de imagens saem sob um prefixo próprio para o hub conseguir
+  // roteá-los sem colidir com nada dele; aqui o mesmo prefixo volta para a raiz.
+  assetPrefix: STATIC_PREFIX,
+  images: { path: `${STATIC_PREFIX}/_next/image` },
+  async rewrites() {
+    return [{ source: `${STATIC_PREFIX}/:path*`, destination: "/:path*" }];
+  },
   // Sem isso, o Turbopack sobe a árvore de pastas até achar um lockfile e
   // encontra C:\Users\bruno\package-lock.json (alheio a este projeto),
   // adota a pasta do usuário como raiz do workspace e passa a enxergar
@@ -17,6 +28,9 @@ const nextConfig: NextConfig = {
     // vez de falhar. Ver app/manifest.ts e components/offline-banner.tsx.
     useOffline: true,
     serverActions: {
+      // O formulário de lista de espera é enviado a partir de institutofacaamigos.com.br (rewrite do
+      // hub): sem isto o Next recusa a Server Action por Origin diferente do Host.
+      allowedOrigins: ["institutofacaamigos.com.br"],
       // Default do Next é 1MB — quebra silenciosamente o upload do PDF de
       // acolhimento (uploadIntakeBatch, até 25MB) e também o upload direto
       // de documentos (uploadDocument). 26mb dá folga sobre o teto de 25MB

@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { CLINIC_WEBSITE } from "@/lib/clinic-identity";
+import {
+  CLINIC_PUBLIC_ORIGIN,
+  CLINIC_PUBLIC_PATH,
+  CLINIC_PUBLIC_URL,
+  CLINIC_STATIC_PREFIX,
+  CLINIC_WEBSITE,
+} from "@/lib/clinic-identity";
 
 const HOST_SITE = new URL(CLINIC_WEBSITE).hostname; // clinica.institutofacaamigos.com.br
 const HOST_SISTEMA = "sistema.institutofacaamigos.com.br";
@@ -9,39 +15,45 @@ const HOST_SISTEMA = "sistema.institutofacaamigos.com.br";
 // faturamento, portal da família, check-in, ficha...) recebe noindex em toda
 // resposta, além do Disallow do robots.txt no host do sistema.
 const NOINDEX = "noindex, nofollow, noarchive, nosnippet";
-const ARQUIVOS_DE_CRAWLER = new Set(["/robots.txt", "/sitemap.xml"]);
+const ARQUIVOS_DE_CRAWLER = new Set(["/robots.txt"]);
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const host = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();
 
-  // clinica.institutofacaamigos.com.br é o endereço público da landing: a raiz
-  // serve /site (sem redirecionar, para o buscador indexar ESTE endereço) e
-  // nada mais mora aqui — qualquer outro caminho vai para o sistema.
+  // A landing pública é institutofacaamigos.com.br/clinica: o hub faz rewrite de /clinica para este
+  // deploy e aqui a rota vira /site. Nenhuma outra página deste app é pública.
+  //
+  // clinica.institutofacaamigos.com.br é o endereço ANTIGO da landing: tudo nele redireciona (301,
+  // para o Google transferir o ranking) para o endereço novo, e o resto vai para o sistema.
   if (host === HOST_SITE) {
-    if (pathname === "/") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/site";
-      return NextResponse.rewrite(url);
+    if (pathname === "/robots.txt") return NextResponse.next();
+    if (pathname === "/" || pathname === "/site") {
+      return NextResponse.redirect(`${CLINIC_PUBLIC_URL}${search}`, 301);
     }
-    if (pathname === "/site") {
-      return NextResponse.redirect(new URL(`/${search}`, request.url), 308);
-    }
-    if (pathname.startsWith("/site/") || ARQUIVOS_DE_CRAWLER.has(pathname)) {
-      return NextResponse.next();
+    if (pathname.startsWith("/site/")) {
+      return NextResponse.redirect(`${CLINIC_PUBLIC_ORIGIN}${CLINIC_STATIC_PREFIX}${pathname}${search}`, 301);
     }
     return NextResponse.redirect(`https://${HOST_SISTEMA}${pathname}${search}`, 308);
   }
 
-  // No domínio do sistema a landing não existe: /site responde 404 (a landing
-  // mora só em clinica.…). Reescreve para um caminho sem rota, que cai no
-  // not-found do Next com status 404 e noindex.
-  if (pathname === "/site" || pathname.startsWith("/site/")) {
+  // No domínio do sistema a landing não existe: /clinica e /site respondem 404 (a landing mora só no
+  // hub). Reescreve para um caminho sem rota, que cai no not-found do Next com status 404 e noindex.
+  const caminhoDaLanding =
+    pathname === CLINIC_PUBLIC_PATH || pathname === "/site" || pathname.startsWith("/site/");
+  if (caminhoDaLanding && (host === HOST_SISTEMA || pathname !== CLINIC_PUBLIC_PATH)) {
     const url = request.nextUrl.clone();
     url.pathname = "/__nao-existe";
     const response = NextResponse.rewrite(url);
     response.headers.set("X-Robots-Tag", NOINDEX);
     return response;
+  }
+
+  // Aqui chega o tráfego do hub (host *.vercel.app deste projeto): é a landing, indexável.
+  if (pathname === CLINIC_PUBLIC_PATH) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/site";
+    return NextResponse.rewrite(url);
   }
 
   const response = await updateSession(request);
@@ -59,6 +71,6 @@ export const config = {
      * navegador o lê pra decidir "instalável" mesmo na tela de login).
      * Precisa rodar em toda navegação real pra manter a sessão renovada.
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|clinica-static/_next/static|clinica-static/_next/image|favicon.ico|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -14,6 +14,8 @@
  * layout enquanto o SVG carrega.
  */
 
+import { CLINIC_STATIC_PREFIX } from "@/lib/clinic-identity";
+
 export type LogoVariant =
   | "horizontal"
   | "horizontal-compacto"
@@ -74,7 +76,7 @@ export function Logo({
   }
 
   const { file, ratio, label } = VARIANTS[activeVariant];
-  const src = `/brand/${file}${tone === "branco" ? "-mono-branco" : ""}.svg`;
+  const src = `${CLINIC_STATIC_PREFIX}/brand/${file}${tone === "branco" ? "-mono-branco" : ""}.svg`;
   const width = Math.round(height * ratio);
 
   if (process.env.NODE_ENV !== "production") {

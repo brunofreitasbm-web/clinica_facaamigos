@@ -28,7 +28,7 @@ import {
   Quote,
 } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
-import { CLINIC_NAME, CLINIC_WEBSITE } from "@/lib/clinic-identity";
+import { CLINIC_NAME, CLINIC_OG_IMAGE, CLINIC_PUBLIC_PATH, CLINIC_PUBLIC_URL, CLINIC_PUBLIC_ORIGIN, CLINIC_STATIC_PREFIX } from "@/lib/clinic-identity";
 import { SiteHeader } from "./site-header";
 import { LeadForm } from "./lead-form";
 import { PlanosForm } from "./planos-form";
@@ -45,6 +45,7 @@ import {
   DIFERENCIAIS,
   METODO,
   SERVICOS,
+  AMBIENTE,
   ECOSSISTEMA,
   DEPOIMENTOS,
   EQUIPE,
@@ -72,16 +73,17 @@ export const metadata: Metadata = {
     "fonoaudiologia infantil belém",
     "terapia ocupacional infantil",
   ],
-  alternates: { canonical: "/" },
-  // Esta é a única página do domínio feita para ser indexada (ver app/robots.ts
+  alternates: { canonical: CLINIC_PUBLIC_PATH },
+  // Esta é a única página deste app feita para ser indexada (ver app/robots.ts
   // e proxy.ts). O layout raiz declara noindex para o sistema, então o override
-  // aqui é obrigatório. A landing é servida na raiz de clinica.institutofacaamigos.com.br.
+  // aqui é obrigatório. A landing é servida em institutofacaamigos.com.br/clinica
+  // (rewrite do hub) e o canonical aponta para lá.
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-snippet": -1, "max-image-preview": "large" } },
   openGraph: {
-    images: [{ url: "/site/og-clinica.png", width: 1200, height: 630, alt: CLINIC_NAME }],
+    images: [{ url: CLINIC_OG_IMAGE, width: 1200, height: 630, alt: CLINIC_NAME }],
     title: CLINIC_NAME,
     description: DESCRICAO_SEO,
-    url: "/",
+    url: CLINIC_PUBLIC_PATH,
     siteName: CLINIC_NAME,
     type: "website",
     locale: "pt_BR",
@@ -90,7 +92,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: CLINIC_NAME,
     description: DESCRICAO_SEO,
-    images: ["/site/og-clinica.png"],
+    images: [CLINIC_OG_IMAGE],
   },
   // Preenchidos só se a variável existir — sem o código de verificação a
   // meta tag correspondente nem é gerada. Pegue o valor em cada ferramenta:
@@ -168,9 +170,9 @@ export default async function SiteLandingPage() {
     name: "FaçaAmigos — Centro de Terapia Comportamental",
     description:
       "Centro de terapia comportamental e desenvolvimento infantil, com equipe multidisciplinar, no Umarizal, em Belém/PA.",
-    "@id": `${CLINIC_WEBSITE}/#clinica`,
-    url: `${CLINIC_WEBSITE}/`,
-    image: `${CLINIC_WEBSITE}/site/atendimento.webp`,
+    "@id": `${CLINIC_PUBLIC_ORIGIN}/#clinica`,
+    url: CLINIC_PUBLIC_URL,
+    image: `${CLINIC_PUBLIC_ORIGIN}${CLINIC_STATIC_PREFIX}/site/atendimento.webp`,
     legalName: EMPRESA.razaoSocial,
     taxID: EMPRESA.cnpj,
     founder: {
@@ -418,18 +420,39 @@ export default async function SiteLandingPage() {
             {SERVICOS.map((s, i) => {
               const Icone = ICONES_SERVICO[i % ICONES_SERVICO.length];
               const cor = BADGE_CORES[i % BADGE_CORES.length];
+              const detalhes = [
+                ["Pra quem é", s.paraQuem],
+                ["O que acontece", s.oQueAcontece],
+                ["O que muda pra você", s.oQueMuda],
+              ] as const;
               return (
-                <div key={s.titulo} className="flex items-start gap-4 rounded-2xl border border-[var(--color-paper-line)] p-5">
-                  <span
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-sm"
-                    style={{ background: cor.bg }}
-                  >
-                    <Icone className="h-5 w-5" style={{ color: cor.fg }} aria-hidden strokeWidth={1.75} />
-                  </span>
-                  <div>
-                    <p className="m-0 text-base font-bold text-[var(--color-dark)]">{s.titulo}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{s.texto}</p>
+                <div
+                  key={s.id}
+                  id={s.id}
+                  className="scroll-mt-24 rounded-2xl border border-[var(--color-paper-line)] p-5 last:sm:col-span-2 last:lg:col-span-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-sm"
+                      style={{ background: cor.bg }}
+                    >
+                      <Icone className="h-5 w-5" style={{ color: cor.fg }} aria-hidden strokeWidth={1.75} />
+                    </span>
+                    <h3 className="m-0 text-lg font-bold text-[var(--color-dark)]">{s.titulo}</h3>
                   </div>
+                  <dl className="mt-4 grid gap-3">
+                    {detalhes.map(([rotulo, texto]) => (
+                      <div key={rotulo}>
+                        <dt className="text-xs font-extrabold uppercase tracking-wider text-[var(--color-petroleo)]">{rotulo}</dt>
+                        <dd className="m-0 text-sm leading-relaxed text-[var(--text-secondary)]">{texto}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {s.glossario && (
+                    <a href={s.glossario.href} className="mt-3 inline-block text-sm font-bold text-[var(--color-petroleo)]">
+                      {s.glossario.rotulo} →
+                    </a>
+                  )}
                 </div>
               );
             })}
@@ -437,7 +460,35 @@ export default async function SiteLandingPage() {
         </div>
       </section>
 
-      <WaveDivider from="#ffffff" to="var(--color-dark)" />
+      {/* ── Ambiente (fotos que vieram da antiga /servicos do hub) ───── */}
+      <section id="ambiente" className="bg-[var(--color-bg)]">
+        <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <h2 className="text-3xl font-extrabold text-[var(--color-dark)] sm:text-4xl">{AMBIENTE.titulo}</h2>
+            <p className="mt-3 text-[17px] text-[var(--text-secondary)]">{AMBIENTE.subtitulo}</p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {AMBIENTE.itens.map((item) => (
+              <figure key={item.titulo} className="m-0 overflow-hidden rounded-3xl bg-white shadow-sm">
+                <Image
+                  src={item.src}
+                  alt={item.alt}
+                  width={720}
+                  height={960}
+                  sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                  className="h-64 w-full object-cover"
+                />
+                <figcaption className="p-5">
+                  <p className="m-0 text-lg font-bold text-[var(--color-dark)]">{item.titulo}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{item.texto}</p>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <WaveDivider from="var(--color-bg)" to="var(--color-dark)" />
 
       {/* ── Ecossistema ──────────────────────────────────────────────── */}
       <section id="ecossistema" className="bg-[var(--color-dark)] text-white">
