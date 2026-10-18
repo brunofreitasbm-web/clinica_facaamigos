@@ -37,9 +37,9 @@ Nenhum evento envia o que a pessoa digita.
 
 Desde 18/10/2026 a landing mora no hub, em `institutofacaamigos.com.br/clinica`, e o sistema segue sem indexação:
 
-- O projeto do hub (`facaamigos-site`) faz rewrite de `/clinica` e `/clinica-static/*` para este deploy (`vercel.json` do hub). Aqui o `proxy.ts` reescreve `/clinica` para `/site`; JS/CSS e o otimizador de imagens saem sob `/clinica-static` (`assetPrefix` e `images.path` em `next.config.ts`).
+- O projeto do hub (`facaamigos-site`) faz rewrite de `/clinica` e `/clinica-static/*` para `https://clinica.institutofacaamigos.com.br` (`vercel.json` do hub). A origem é o domínio customizado porque este projeto tem proteção SSO em tudo que não é domínio customizado (o `*.vercel.app` pediria login da Vercel). Aqui o `proxy.ts` reescreve `/clinica` para `/site`; JS/CSS e o otimizador de imagens saem sob `/clinica-static` (`assetPrefix` e `images.path` em `next.config.ts`).
 - Canonical, Open Graph e JSON-LD apontam para `https://institutofacaamigos.com.br/clinica` (`CLINIC_PUBLIC_URL` em `lib/clinic-identity.ts`). O sitemap é o do hub.
-- `clinica.institutofacaamigos.com.br` virou host legado: `/` redireciona (301) para `/clinica`, `/site/*` para `/clinica-static/site/*`, o resto (308) para `sistema.…`. Mantenha o domínio apontado para este projeto, senão os redirects somem.
+- `clinica.institutofacaamigos.com.br` é host legado e origem do rewrite do hub: `/` redireciona (301) para o hub, `/clinica` e `/clinica-static/*` são servidos (o canonical aponta para o hub), o resto vai (308) para `sistema.…`. Mantenha o domínio apontado para este projeto, senão a landing sai do ar.
 - No `sistema.…`, `/clinica` e `/site` respondem 404 (a landing não existe lá). Todo o sistema responde com `X-Robots-Tag: noindex` (posto em `proxy.ts`) e o `robots.txt` do host bloqueia tudo.
 - A landing não linka mais para o login (`Área Restrita` saiu do topo e do menu mobile).
 
