@@ -24,7 +24,7 @@ import { RageClickDetector, normalizeRoute } from "@/lib/ux-friction";
  */
 
 // Telas públicas / de família: não monitoradas (a rota também descarta).
-const IGNORED_PREFIXES = ["/login", "/checkin", "/ficha", "/assinar", "/site", "/trocar-senha", "/familia"];
+const IGNORED_PREFIXES = ["/login", "/checkin", "/ficha", "/assinar", "/trocar-senha", "/familia"];
 
 const INTERACTIVE =
   'button, a[href], [role="button"], [role="tab"], [role="menuitem"], summary, input[type="submit"], input[type="button"]';

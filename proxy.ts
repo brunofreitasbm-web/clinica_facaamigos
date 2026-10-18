@@ -22,20 +22,8 @@ export async function proxy(request: NextRequest) {
     if (pathname === "/" || pathname === "/site") {
       return NextResponse.redirect(`${CLINIC_PUBLIC_URL}${search}`, 301);
     }
-    if (pathname.startsWith("/site/") || ARQUIVOS_DE_CRAWLER.has(pathname)) {
-      return NextResponse.next();
-    }
+    if (ARQUIVOS_DE_CRAWLER.has(pathname)) return NextResponse.next();
     return NextResponse.redirect(`https://${HOST_SISTEMA}${pathname}${search}`, 308);
-  }
-
-  // Este app não serve landing em nenhum host: /site responde 404 com noindex (a rota sem
-  // caminho cai no not-found do Next).
-  if (pathname === "/site" || pathname.startsWith("/site/")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/__nao-existe";
-    const response = NextResponse.rewrite(url);
-    response.headers.set("X-Robots-Tag", NOINDEX);
-    return response;
   }
 
   const response = await updateSession(request);

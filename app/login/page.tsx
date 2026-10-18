@@ -1,6 +1,6 @@
+import { CLINIC_PUBLIC_URL } from "@/lib/clinic-identity";
 import { LoginForm } from "./login-form";
 import { Logo } from "@/components/brand/logo";
-import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Suspense } from "react";
 
@@ -18,13 +18,13 @@ export default function LoginPage() {
         <LoginForm />
       </Suspense>
       <div className="mt-4">
-        <Link
-          href="/site"
+        <a
+          href={CLINIC_PUBLIC_URL}
           className="inline-flex items-center gap-1.5 text-xs text-ink-soft hover:text-ink transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           <span>Voltar ao site público</span>
-        </Link>
+        </a>
       </div>
     </main>
   );
