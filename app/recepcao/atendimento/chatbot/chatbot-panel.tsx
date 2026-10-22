@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { TwilioChatbotTestPanel } from "@/components/twilio-chatbot-test-panel";
 import { DashboardPanel, type ChatbotDashboardStats } from "./dashboard-panel";
-import { FaqManager, type FaqRow } from "./faq-manager";
+import { FaqManager, type FaqRow, type UnansweredQuestionRow } from "./faq-manager";
 import { QuickResponsesManager, type QuickResponseRow } from "./quick-responses-manager";
 import { TemplatesManager, type TemplateRow } from "./templates-manager";
 import { SettingsPanel, type ChatbotSettingsRow } from "./settings-panel";
@@ -42,6 +42,7 @@ export function ChatbotPanel({
   clinicId,
   stats,
   faqs,
+  unanswered,
   quickResponses,
   templates,
   deliveryHistory,
@@ -50,6 +51,7 @@ export function ChatbotPanel({
   clinicId: string;
   stats: ChatbotDashboardStats;
   faqs: FaqRow[];
+  unanswered: UnansweredQuestionRow[];
   quickResponses: QuickResponseRow[];
   templates: TemplateRow[];
   deliveryHistory: DeliveryHistoryRow[];
@@ -79,7 +81,7 @@ export function ChatbotPanel({
       <div className="flex-1 overflow-y-auto p-6 sm:p-8">
         {section === "painel" && <DashboardPanel stats={stats} />}
 
-        {section === "faq" && <FaqManager faqs={faqs} />}
+        {section === "faq" && <FaqManager faqs={faqs} unanswered={unanswered} />}
 
         {section === "respostas-rapidas" && <QuickResponsesManager clinicId={clinicId} responses={quickResponses} />}
 

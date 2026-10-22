@@ -54,6 +54,8 @@ const TOPICAL: RegExp[] = [
   /\b(fono\w*|psico\w*|ocupacional|aba|terapia\w*|fisio\w*|musico\w*|nutri\w*)\b/,
   /\b(agend\w*|marcar|remarc\w*|vaga\w*|horario\w*|disponivel|disponibilidade|consulta\w*|avaliacao)\b/,
 ];
+// Dinheiro e agenda, para a regra 3 (ver matchFaqRule): mesmos termos de TOPICAL[0] e [3].
+const MONEY_AND_SCHEDULE: RegExp[] = [TOPICAL[0], TOPICAL[3]];
 const TIMEBOUND = /\d|\b(hoje|amanha|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|feriado)\b/;
 
 function blockedStrong(normalized: string, rawText: string): boolean {
@@ -71,10 +73,18 @@ function containsPhrase(normalizedText: string, normalizedPhrase: string): boole
 }
 
 const COVERAGE_VERB = /\b(atend\w*|aceit\w*|trabalh\w*|cobr\w*|funciona com)\b/;
+// "Estou a procura pelo plano IASEP", "Plano IASEP": a pessoa diz o plano sem
+// verbo de cobertura — antes caía na FAQ genérica de convênios (regra 3) em
+// vez de confirmar o convênio citado.
+const PLAN_WORD = /\b(pelo|pela|plano|planos|convenio|convenios)\b/;
 // Frase INTEIRA e específica ("quais planos vocês atendem?"). Nada de casar por
 // palavras soltas: "qual o convênio Bradesco?" não pode listar os nossos.
 const LIST_QUESTION = [
   /^(quais|que) (planos|convenios)( de saude)?( voces| a clinica)?( atendem| aceitam| trabalham com)?$/,
+  // Só a palavra ("Planos de saúde", "Convênios") — era o que a família
+  // digitava depois da saudação e recebia a FAQ genérica, com os nomes dos
+  // convênios escritos à mão no texto (desatualizáveis). A lista vem do banco.
+  /^(os )?(planos|convenios)( de saude)?( atendidos| aceitos)?$/,
   /^(voces )?(atendem|aceitam) (quais|que) (planos|convenios)( de saude)?$/,
   /^(quais|que) (planos|convenios)( de saude)? (sao )?(atendidos|aceitos)$/,
 ];
@@ -89,7 +99,7 @@ export function matchFaqRule(text: string, data: FaqRuleData): FaqRuleMatch | nu
   const conveniosAllowed = !blockedTopical(normalized) && !TIMEBOUND.test(normalized);
 
   // 1. "Vocês atendem <convênio>?" — exatamente UM convênio citado.
-  if (conveniosAllowed && COVERAGE_VERB.test(normalized)) {
+  if (conveniosAllowed && (COVERAGE_VERB.test(normalized) || PLAN_WORD.test(normalized))) {
     const named = data.insurers.filter((name) => containsPhrase(normalized, normalizeForRules(name)));
     if (named.length === 1) {
       return {
@@ -117,15 +127,48 @@ export function matchFaqRule(text: string, data: FaqRuleData): FaqRuleMatch | nu
 
   // 3. Palavra-chave cadastrada pelo gestor em `clinic_faq` — só se UMA pergunta casar.
   if (TIMEBOUND.test(normalized)) return null;
-  const hits = data.faq.filter((entry) =>
-    entry.keywords.some((k) => {
-      const nk = normalizeForRules(k);
-      return nk.length >= 5 && containsPhrase(normalized, nk);
-    }),
+  const hits = data.faq.filter(
+    (entry) =>
+      !isPlaceholderAnswer(entry.answer) &&
+      entry.keywords.some((k) => {
+        const nk = normalizeForRules(k);
+        return nk.length >= 5 && containsPhrase(normalized, nk);
+      }),
   );
-  if (hits.length === 1 && hits[0].answer.trim()) {
-    return { intent: "faq_regra_faq", reply: hits[0].answer.trim() };
+  if (hits.length !== 1 || !hits[0].answer.trim()) return null;
+
+  // "Valores de avaliação" casava a keyword "avaliação" da FAQ "Como começa o
+  // atendimento?" e a família recebia o texto errado (06 e 20/10/2026). Dinheiro
+  // e agenda só passam quando a própria keyword cadastrada cobre o termo (ex.:
+  // keyword "pacote mensal" numa pergunta sobre "quanto custa o pacote mensal").
+  const entryKeywords = hits[0].keywords.map(normalizeForRules);
+  for (const re of MONEY_AND_SCHEDULE) {
+    const matches = normalized.match(new RegExp(re.source, "g")) ?? [];
+    const uncovered = matches.some((word) => !entryKeywords.some((k) => containsPhrase(k, word) || k === word));
+    if (uncovered) return null;
   }
 
-  return null;
+  return { intent: "faq_regra_faq", reply: hits[0].answer.trim() };
+}
+
+/**
+ * Troca `{{convenios}}` pelos convênios ativos ("IASEP e PROASA"), para o texto
+ * da FAQ nunca divergir da lista cadastrada. Sem convênios, o token some junto
+ * da frase "Atendemos *…*;" e fica só o aviso de particular/reembolso.
+ */
+export function expandFaqTokens(answer: string, insurers: string[]): string {
+  if (!answer.includes("{{convenios}}")) return answer;
+  if (insurers.length === 0) {
+    return answer.replace(/Atendemos \*\{\{convenios\}\}\*;\s*/g, "").replace(/\{\{convenios\}\}/g, "");
+  }
+  const list =
+    insurers.length === 1 ? insurers[0] : `${insurers.slice(0, -1).join(", ")} e ${insurers[insurers.length - 1]}`;
+  return answer.replace(/\{\{convenios\}\}/g, list);
+}
+
+/** Resposta ainda não preenchida pelo gestor (seed "⚠️ TODO: preencher…").
+ * Em 20/10/2026 esse texto chegou a uma família; nunca mais sai por regra. */
+export function isPlaceholderAnswer(answer: string): boolean {
+  const trimmed = answer.trim();
+  return trimmed.startsWith("⚠️") || /^todo\b/i.test(trimmed) || trimmed.includes("TODO:");
 }

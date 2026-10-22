@@ -10,6 +10,28 @@ export type FaqRow = {
   keywords: string[];
   category: string | null;
   active: boolean;
+  audience: "ambos" | "lead" | "paciente";
+};
+
+/** Pergunta real de família que o bot não soube responder (fallback, IA fora do ar
+ * ou escalonamento "fora da base" nos últimos 30 dias), agrupada por texto. */
+export type UnansweredQuestionRow = {
+  text: string;
+  count: number;
+  lastAt: string | null;
+  intent: string | null;
+};
+
+const AUDIENCE_LABELS: Record<FaqRow["audience"], string> = {
+  ambos: "Leads e pacientes",
+  lead: "Só leads",
+  paciente: "Só pacientes",
+};
+
+const UNANSWERED_REASON: Record<string, string> = {
+  atendimento_geral: "Resposta genérica",
+  ia_indisponivel: "IA fora do ar",
+  escalado_fora_da_base: "Escalada: fora da base",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -29,6 +51,7 @@ function FaqRowView({ faq }: { faq: FaqRow }) {
   const [question, setQuestion] = useState(faq.question);
   const [answer, setAnswer] = useState(faq.answer);
   const [category, setCategory] = useState(faq.category ?? "outro");
+  const [audience, setAudience] = useState<FaqRow["audience"]>(faq.audience);
   const [keywords, setKeywords] = useState(faq.keywords.join(", "));
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -56,6 +79,19 @@ function FaqRowView({ faq }: { faq: FaqRow }) {
                   </option>
                 ))}
               </select>
+              <select
+                className="input"
+                style={{ maxWidth: 200 }}
+                value={audience}
+                onChange={(e) => setAudience(e.target.value as FaqRow["audience"])}
+                aria-label="Quem recebe esta resposta"
+              >
+                {(Object.keys(AUDIENCE_LABELS) as FaqRow["audience"][]).map((a) => (
+                  <option key={a} value={a}>
+                    {AUDIENCE_LABELS[a]}
+                  </option>
+                ))}
+              </select>
               <input
                 className="input flex-1"
                 value={keywords}
@@ -75,6 +111,7 @@ function FaqRowView({ faq }: { faq: FaqRow }) {
                     fd.set("question", question);
                     fd.set("answer", answer);
                     fd.set("category", category);
+                    fd.set("audience", audience);
                     fd.set("keywords", keywords);
                     const result = await updateFaq(faq.id, fd);
                     if (!result.success) {
@@ -106,7 +143,10 @@ function FaqRowView({ faq }: { faq: FaqRow }) {
           {isPlaceholder ? <span className="text-status-negative-text">⚠️ Resposta pendente de preencher</span> : faq.answer}
         </div>
       </td>
-      <td>{CATEGORY_LABELS[faq.category ?? "outro"]}</td>
+      <td>
+        {CATEGORY_LABELS[faq.category ?? "outro"]}
+        {faq.audience !== "ambos" && <div className="text-xs text-ink-faint">{AUDIENCE_LABELS[faq.audience]}</div>}
+      </td>
       <td className="text-ink-faint">
         <span className="text-xs">{faq.keywords.join(", ") || "—"}</span>
       </td>
@@ -147,12 +187,23 @@ function FaqRowView({ faq }: { faq: FaqRow }) {
   );
 }
 
-export function FaqManager({ faqs }: { faqs: FaqRow[] }) {
+export function FaqManager({ faqs, unanswered }: { faqs: FaqRow[]; unanswered: UnansweredQuestionRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
   const pendingCount = faqs.filter((f) => f.answer.startsWith("⚠️")).length;
+
+  // Leva a pergunta real da família para o formulário de nova pergunta.
+  function draftFromQuestion(text: string) {
+    const form = formRef.current;
+    if (!form) return;
+    const field = form.elements.namedItem("question");
+    if (field instanceof HTMLInputElement) field.value = text.slice(0, 200);
+    form.scrollIntoView({ behavior: "smooth", block: "center" });
+    const answer = form.elements.namedItem("answer");
+    if (answer instanceof HTMLTextAreaElement) answer.focus();
+  }
 
   return (
     <div>
@@ -168,6 +219,42 @@ export function FaqManager({ faqs }: { faqs: FaqRow[] }) {
           bot vai escalar essas dúvidas até você completar.
         </p>
       )}
+
+      <section className="mb-8">
+        <h4 className="mb-1 text-sm font-semibold">Perguntas que o bot não soube responder (últimos 30 dias)</h4>
+        <p className="mb-3 text-xs text-ink-faint">
+          Mensagens reais das famílias que caíram em resposta genérica, IA fora do ar ou escalonamento &ldquo;fora da
+          base&rdquo;. As mais repetidas primeiro: cada uma é uma resposta que falta nesta base.
+        </p>
+        {unanswered.length === 0 ? (
+          <p className="text-sm text-ink-faint">Nenhuma pergunta sem resposta nos últimos 30 dias.</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Pergunta da família</th>
+                <th>Vezes</th>
+                <th>O que o bot fez</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {unanswered.map((q) => (
+                <tr key={q.text}>
+                  <td className="max-w-md text-sm">{q.text}</td>
+                  <td className="tabular-figure">{q.count}</td>
+                  <td className="text-xs text-ink-faint">{UNANSWERED_REASON[q.intent ?? ""] ?? q.intent ?? "—"}</td>
+                  <td className="text-right">
+                    <button type="button" className="text-xs text-chart" onClick={() => draftFromQuestion(q.text)}>
+                      Criar resposta
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
       <table className="table mb-6">
         <thead>
@@ -220,6 +307,13 @@ export function FaqManager({ faqs }: { faqs: FaqRow[] }) {
             {CATEGORY_OPTIONS.map((c) => (
               <option key={c} value={c}>
                 {CATEGORY_LABELS[c]}
+              </option>
+            ))}
+          </select>
+          <select name="audience" className="input" style={{ maxWidth: 200 }} defaultValue="ambos" aria-label="Quem recebe esta resposta">
+            {(Object.keys(AUDIENCE_LABELS) as FaqRow["audience"][]).map((a) => (
+              <option key={a} value={a}>
+                {AUDIENCE_LABELS[a]}
               </option>
             ))}
           </select>

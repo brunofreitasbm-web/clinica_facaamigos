@@ -40,6 +40,63 @@ function normalize(text: string): string {
 const SITE_PREFILL =
   /^(ola|oi) (vim pelo site e )?gostaria de (mais )?informacoes sobre (o )?faca ?amigos( centro de terapia comportamental)?$/;
 
+/**
+ * Os OUTROS botões do site (institutofacaamigos.com.br) que abrem o WhatsApp
+ * com texto pronto. Cada um diz o que a pessoa quer antes de ela escrever
+ * qualquer coisa, então a resposta é fixa e sem IA — antes, "Quero entrar na
+ * lista de espera" caía no Gemini (que não sabe o que é a lista) ou no
+ * fallback de boas-vindas (em 7 conversas de set–out/2026).
+ */
+export type SitePrefillKind = "info" | "lista_espera" | "mapeamento" | "menor_4";
+
+const SITE_PREFILL_LISTA_ESPERA = /^(ola|oi) quero entrar na lista de espera da clinica faca ?amigos/;
+// "Acabei de fazer o Mapeamento Comportamental do(a) Arthur. Gostaria de
+// conversar." e "Oi! Tenho uma dúvida sobre o Mapeamento Comportamental."
+const SITE_PREFILL_MAPEAMENTO =
+  /^((ola|oi) )?(acabei de fazer o mapeamento comportamental|tenho uma duvida sobre o mapeamento comportamental)/;
+// "Oi! Minha criança (Arthur) tem menos de 4 anos e eu gostaria de conversar
+// sobre o desenvolvimento dela." (o mapeamento do site só cobre 4–17 anos).
+const SITE_PREFILL_MENOR_4 = /^(ola|oi) minha crianca .{0,60}tem menos de 4 anos/;
+
+/** Qual botão do site gerou a mensagem, ou null se não foi um botão. */
+export function detectSitePrefill(text: string): SitePrefillKind | null {
+  const normalized = normalize(text);
+  if (!normalized) return null;
+  if (SITE_PREFILL.test(normalized)) return "info";
+  if (SITE_PREFILL_LISTA_ESPERA.test(normalized)) return "lista_espera";
+  if (SITE_PREFILL_MAPEAMENTO.test(normalized)) return "mapeamento";
+  if (SITE_PREFILL_MENOR_4.test(normalized)) return "menor_4";
+  return null;
+}
+
+/** Respostas fixas dos botões que não são a saudação genérica. Nenhuma
+ * promete agenda nem manda responder AGENDAR: a situação da agenda é da
+ * recepção (ou da nota "situação da agenda" do prompt, quando a conversa
+ * segue para a IA). */
+export const SITE_PREFILL_REPLIES: Record<Exclude<SitePrefillKind, "info">, string> = {
+  lista_espera:
+    "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩\n\n" +
+    "Para entrar na lista de espera, me conta em uma única mensagem:\n" +
+    "• nome e idade da criança;\n" +
+    "• plano de saúde (ou particular);\n" +
+    "• qual terapia ou avaliação você procura.\n\n" +
+    "A recepção confirma a sua entrada na lista e retorna por aqui em horário comercial. ✨",
+  mapeamento:
+    "Olá! 💙 Que bom que você fez o *Mapeamento Comportamental*! Ele é um retrato educativo, não é um diagnóstico, " +
+    "e o resultado chega também no seu e-mail. 🧩\n\n" +
+    "Se quiser conversar com a nossa equipe sobre ele, me conta o nome e a idade da criança e o plano de saúde " +
+    "(ou particular), que a recepção retorna por aqui em horário comercial. ✨",
+  menor_4:
+    "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩\n\n" +
+    "Me conta em poucas palavras o que você tem observado, a idade da criança e o plano de saúde (ou particular), " +
+    "que a gente te orienta por aqui. ✨",
+};
+
+/** Intent gravado em `messages.intent` para cada botão do site. */
+export function sitePrefillIntent(kind: Exclude<SitePrefillKind, "info">): string {
+  return `site_${kind}`;
+}
+
 // Palavras que, sozinhas, formam uma saudação ("Oi, tudo bem?", "Boa tarde",
 // "Oi, muito bom dia").
 const GREETING_TOKENS = new Set([

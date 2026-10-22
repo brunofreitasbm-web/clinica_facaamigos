@@ -4,7 +4,7 @@
 // pergunta junto tem que seguir para o agente de FAQ.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { INITIAL_GREETING_REPLY, isPureGreeting } from "../lib/greeting-pure.ts";
+import { INITIAL_GREETING_REPLY, SITE_PREFILL_REPLIES, detectSitePrefill, isPureGreeting } from "../lib/greeting-pure.ts";
 
 test("saudações puras e texto pré-preenchido do site são reconhecidos", () => {
   for (const msg of [
@@ -46,4 +46,38 @@ test("saudação com pergunta ou conteúdo NÃO é saudação pura", () => {
 test("a resposta fixa cita a marca e o gatilho AGENDAR", () => {
   assert.match(INITIAL_GREETING_REPLY, /FaçaAmigos - Centro de Terapia Comportamental/);
   assert.match(INITIAL_GREETING_REPLY, /\*AGENDAR\*/);
+});
+
+// Os outros botões do site (lista de espera, mapeamento, menor de 4 anos)
+// chegam com texto pronto e recebem resposta fixa própria — antes caíam no
+// Gemini ou no fallback de boas-vindas.
+test("botões do site são identificados pelo texto pré-preenchido", () => {
+  assert.equal(
+    detectSitePrefill("Olá! Quero entrar na lista de espera da Clínica FaçaAmigos - Centro de Terapia Comportamental (vim pelo site)."),
+    "lista_espera",
+  );
+  assert.equal(detectSitePrefill("Acabei de fazer o Mapeamento Comportamental do(a) Arthur. Gostaria de conversar."), "mapeamento");
+  assert.equal(
+    detectSitePrefill("Acabei de fazer o Mapeamento Comportamental do(a) Ágatha e gostaria de entrar na lista de espera da Clínica."),
+    "mapeamento",
+  );
+  assert.equal(detectSitePrefill("Oi! Tenho uma dúvida sobre o Mapeamento Comportamental."), "mapeamento");
+  assert.equal(
+    detectSitePrefill("Oi! Minha criança (Arthur) tem menos de 4 anos e eu gostaria de conversar sobre o desenvolvimento dela."),
+    "menor_4",
+  );
+  assert.equal(detectSitePrefill("Olá! Vim pelo site e gostaria de informações sobre o FaçaAmigos - Centro de Terapia Comportamental."), "info");
+  for (const msg of ["Oi", "Vcs aceitam iasep?", "Gostaria de entrar para lista de espera atendimento IASEP", ""]) {
+    assert.equal(detectSitePrefill(msg), null, msg);
+  }
+});
+
+test("respostas dos botões não prometem agenda nem mandam responder AGENDAR", () => {
+  for (const reply of Object.values(SITE_PREFILL_REPLIES)) {
+    assert.doesNotMatch(reply, /AGENDAR/);
+    assert.doesNotMatch(reply, /vaga/i);
+    assert.doesNotMatch(reply, /institutofacaamigos/);
+  }
+  assert.match(SITE_PREFILL_REPLIES.lista_espera, /lista de espera/);
+  assert.match(SITE_PREFILL_REPLIES.mapeamento, /não é um diagnóstico/);
 });

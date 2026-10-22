@@ -4,6 +4,7 @@ import { loadAtendimentoData } from "@/lib/atendimento/load-data";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import type { ChatbotDashboardStats } from "./chatbot/dashboard-panel";
 import type { DeliveryHistoryRow } from "./chatbot/chatbot-panel";
+import type { UnansweredQuestionRow } from "./chatbot/faq-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ async function loadChatbotAdminData(
     conversationsRes,
     messagesTodayRes,
     faqRes,
+    kpisRes,
+    unansweredRes,
     quickResponsesRes,
     templatesRes,
     deliveryRes,
@@ -26,9 +29,21 @@ async function loadChatbotAdminData(
     supabase.from("messages").select("sender_type").gte("sent_at", todayStart.toISOString()),
     supabase
       .from("clinic_faq")
-      .select("id, question, answer, keywords, category, active")
+      .select("id, question, answer, keywords, category, active, audience")
       .eq("clinic_id", DEV_CLINIC_ID)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("metabase_chatbot_kpis_semanais")
+      .select("*")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .order("semana", { ascending: false })
+      .limit(2),
+    supabase
+      .from("metabase_chatbot_perguntas_sem_resposta")
+      .select("message_id, sent_at, intent, pergunta")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .order("sent_at", { ascending: false })
+      .limit(60),
     supabase
       .from("quick_responses")
       .select("id, shortcut, title, content_text")
@@ -48,7 +63,7 @@ async function loadChatbotAdminData(
       .limit(30),
     supabase
       .from("chatbot_settings")
-      .select("bot_enabled, daily_reply_limit, greeting_fallback, bot_auto_resume_hours")
+      .select("bot_enabled, daily_reply_limit, greeting_fallback, bot_auto_resume_hours, agenda_status_note")
       .eq("clinic_id", DEV_CLINIC_ID)
       .maybeSingle(),
   ]);
@@ -75,7 +90,27 @@ async function loadChatbotAdminData(
     }
   }
 
-  const stats: ChatbotDashboardStats = { conversationsByStatus, conversationsByKind, messagesTodayByType, escalationsByReason };
+  // As duas semanas mais recentes da view (atual, que pode estar em andamento, e a anterior).
+  const kpiWeeks = kpisRes.data ?? [];
+  const stats: ChatbotDashboardStats = {
+    conversationsByStatus,
+    conversationsByKind,
+    messagesTodayByType,
+    escalationsByReason,
+    weekly: kpiWeeks[0] ?? null,
+  };
+
+  // Mesma pergunta repetida (ex.: 12 candidatos) vira uma linha com contagem.
+  const unansweredByText = new Map<string, UnansweredQuestionRow>();
+  for (const q of unansweredRes.data ?? []) {
+    const text = (q.pergunta ?? "").trim();
+    if (!text) continue;
+    const key = text.toLowerCase().replace(/\s+/g, " ");
+    const existing = unansweredByText.get(key);
+    if (existing) existing.count += 1;
+    else unansweredByText.set(key, { text, count: 1, lastAt: q.sent_at, intent: q.intent });
+  }
+  const unanswered = Array.from(unansweredByText.values()).sort((a, b) => b.count - a.count).slice(0, 25);
 
   const deliveryHistory: DeliveryHistoryRow[] = (deliveryRes.data ?? []).map((m) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,7 +136,9 @@ async function loadChatbotAdminData(
       keywords: r.keywords ?? [],
       category: r.category,
       active: r.active,
+      audience: r.audience === "lead" || r.audience === "paciente" ? r.audience : "ambos",
     })),
+    unanswered,
     quickResponses: (quickResponsesRes.data ?? []).map((r) => ({
       id: r.id,
       shortcut: r.shortcut,
@@ -115,6 +152,7 @@ async function loadChatbotAdminData(
       dailyReplyLimit: settingsRes.data?.daily_reply_limit ?? 20,
       greetingFallback: settingsRes.data?.greeting_fallback ?? null,
       botAutoResumeHours: settingsRes.data?.bot_auto_resume_hours ?? null,
+      agendaStatusNote: settingsRes.data?.agenda_status_note ?? null,
     },
   };
 }
