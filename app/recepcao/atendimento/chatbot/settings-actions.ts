@@ -17,6 +17,7 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
   const dailyReplyLimitRaw = String(formData.get("dailyReplyLimit") ?? "").trim();
   const greetingFallback = String(formData.get("greetingFallback") ?? "").trim();
   const botAutoResumeHoursRaw = String(formData.get("botAutoResumeHours") ?? "0").trim();
+  const agendaStatusNote = String(formData.get("agendaStatusNote") ?? "").trim();
 
   const dailyReplyLimit = Number(dailyReplyLimitRaw);
   if (!Number.isInteger(dailyReplyLimit) || dailyReplyLimit < 1) {
@@ -26,6 +27,10 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
   const botAutoResumeHours = Number(botAutoResumeHoursRaw);
   if (!Number.isInteger(botAutoResumeHours) || botAutoResumeHours < 0) {
     return { success: false, error: "A retomada automática deve ser um número inteiro de horas (0 = desligado)." };
+  }
+
+  if (agendaStatusNote.length > 600) {
+    return { success: false, error: "A situação da agenda deve ter até 600 caracteres (1 a 3 frases curtas)." };
   }
 
   const supabase = await createClient();
@@ -40,6 +45,7 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
       daily_reply_limit: dailyReplyLimit,
       greeting_fallback: greetingFallback || null,
       bot_auto_resume_hours: botAutoResumeHours || null,
+      agenda_status_note: agendaStatusNote || null,
       updated_at: new Date().toISOString(),
       updated_by: user?.id ?? null,
     },

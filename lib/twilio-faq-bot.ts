@@ -37,9 +37,9 @@
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
-import { hasExplicitJobSignal, hasStrongJobSignal, JOB_INQUIRY_REPLY } from "@/lib/job-inquiry-pure";
+import { hasExplicitJobSignal, hasStrongJobSignal, JOB_AMBIGUOUS_REPLY, JOB_INQUIRY_REPLY } from "@/lib/job-inquiry-pure";
 import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
-import { matchFaqRule, type FaqRuleData } from "@/lib/faq-rules-pure";
+import { expandFaqTokens, isPlaceholderAnswer, matchFaqRule, type FaqRuleData } from "@/lib/faq-rules-pure";
 
 /** Quantas mensagens da thread vão como contexto (~6 turnos). */
 const HISTORY_LIMIT = 12;
@@ -61,6 +61,11 @@ export type ChatbotSettings = {
   botEnabled: boolean;
   dailyReplyLimit: number;
   greetingFallback: string | null;
+  /** Texto curto que o gestor mantém sobre a agenda ("em montagem, previsão
+   * novembro", "vagas para fono à tarde") — entra no prompt como a seção
+   * SITUAÇÃO ATUAL DA AGENDA. Sem isso o bot prometia "responda AGENDAR"
+   * enquanto a recepção dizia "ainda estamos montando a agenda". */
+  agendaStatusNote: string | null;
 };
 
 type SettingsCacheEntry = { settings: ChatbotSettings; expiresAt: number };
@@ -81,7 +86,7 @@ export async function getChatbotSettings(clinicId: string): Promise<ChatbotSetti
 
   const { data } = await supabase
     .from("chatbot_settings")
-    .select("bot_enabled, daily_reply_limit, greeting_fallback")
+    .select("bot_enabled, daily_reply_limit, greeting_fallback, agenda_status_note")
     .eq("clinic_id", clinicId)
     .maybeSingle();
 
@@ -89,13 +94,19 @@ export async function getChatbotSettings(clinicId: string): Promise<ChatbotSetti
     botEnabled: data?.bot_enabled ?? true,
     dailyReplyLimit: data?.daily_reply_limit ?? DEFAULT_DAILY_REPLY_LIMIT,
     greetingFallback: data?.greeting_fallback ?? null,
+    agendaStatusNote: data?.agenda_status_note?.trim() || null,
   };
 
   settingsCache.set(clinicId, { settings, expiresAt: Date.now() + SETTINGS_TTL_MS });
   return settings;
 }
 
-export type FaqEscalationReason = "fora_da_base" | "clinico" | "pediu_humano" | "relatorio";
+export type FaqEscalationReason = "fora_da_base" | "clinico" | "pediu_humano" | "relatorio" | "lista_espera";
+
+/** Público de uma entrada do `clinic_faq`: regras de paciente (portal da
+ * família, faltas) não entram no prompt de um lead, e vice-versa. */
+export type FaqAudience = "lead" | "paciente" | "ambos";
+export type ConversationKind = "lead" | "patient";
 
 export interface FaqBotResult {
   handled: boolean;
@@ -108,7 +119,12 @@ export interface FaqBotResult {
 }
 
 type KnowledgeCacheEntry = { text: string; rules: FaqRuleData; expiresAt: number };
+// Chave: `${clinicId}:${kind}` — o bloco de FAQ muda conforme a conversa é de lead ou de paciente.
 const knowledgeCache = new Map<string, KnowledgeCacheEntry>();
+
+function knowledgeKey(clinicId: string, kind: ConversationKind): string {
+  return `${clinicId}:${kind}`;
+}
 
 /**
  * Invalida imediatamente o cache de conhecimento e de configurações do chatbot
@@ -116,7 +132,8 @@ const knowledgeCache = new Map<string, KnowledgeCacheEntry>();
  */
 export function invalidateKnowledgeCache(clinicId?: string): void {
   if (clinicId) {
-    knowledgeCache.delete(clinicId);
+    knowledgeCache.delete(knowledgeKey(clinicId, "lead"));
+    knowledgeCache.delete(knowledgeKey(clinicId, "patient"));
     settingsCache.delete(clinicId);
   } else {
     knowledgeCache.clear();
@@ -128,19 +145,29 @@ export function invalidateKnowledgeCache(clinicId?: string): void {
  * Monta o bloco de conhecimento do prompt a partir do banco. Em cache por
  * clínica com invalidação imediata quando o banco é editado.
  */
-async function loadFaqKnowledge(clinicId: string): Promise<{ text: string; rules: FaqRuleData }> {
-  const cached = knowledgeCache.get(clinicId);
+async function loadFaqKnowledge(
+  clinicId: string,
+  kind: ConversationKind = "lead",
+): Promise<{ text: string; rules: FaqRuleData }> {
+  const key = knowledgeKey(clinicId, kind);
+  const cached = knowledgeCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached;
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
-  const [faqRes, insurersRes, typesRes, roomsRes, therapistsRes, particularPricesRes, hoursRes] = await Promise.all([
+  // Público da entrada: 'ambos' sempre; 'lead' só em conversa de lead; 'paciente'
+  // só em conversa de paciente. Um lead não recebe "justifique pelo portal da
+  // família" (ele não tem portal).
+  const audiences: FaqAudience[] = ["ambos", kind === "patient" ? "paciente" : "lead"];
+
+  const [faqRes, insurersRes, typesRes, particularPricesRes, hoursRes] = await Promise.all([
     supabase
       .from("clinic_faq")
-      .select("question, answer, keywords, category")
+      .select("question, answer, keywords, category, audience")
       .eq("clinic_id", clinicId)
       .eq("active", true)
+      .in("audience", audiences)
       .order("sort_order"),
     supabase.from("insurers").select("name").eq("clinic_id", clinicId).eq("active", true).order("name"),
     supabase
@@ -149,17 +176,6 @@ async function loadFaqKnowledge(clinicId: string): Promise<{ text: string; rules
       .eq("clinic_id", clinicId)
       .eq("active", true)
       .order("name"),
-    supabase
-      .from("rooms")
-      .select("name, is_evaluation_room")
-      .eq("clinic_id", clinicId)
-      .order("name"),
-    supabase
-      .from("profiles")
-      .select("full_name, role")
-      .eq("clinic_id", clinicId)
-      .in("role", ["terapeuta", "profissional", "supervisor"])
-      .order("full_name"),
     // Preço particular por terapia — tabela de preços do convênio
     // "Particular" (/gestor/cadastros/convenios/[id]/precos). Diferente dos
     // demais convênios (nunca expostos pelo bot), o gestor decidiu que o valor
@@ -181,7 +197,17 @@ async function loadFaqKnowledge(clinicId: string): Promise<{ text: string; rules
       .order("day_of_week"),
   ]);
 
-  const faqBlock = (faqRes.data ?? [])
+  // Resposta placeholder ("⚠️ TODO: preencher…") nunca entra no prompt: em
+  // 20/10/2026 o modelo repassou esse texto a uma família. Sem a entrada, a
+  // pergunta cai em "fora da base" e vai para a recepção.
+  const activeInsurerNames = (insurersRes.data ?? [])
+    .map((i) => i.name.trim())
+    .filter((name) => name && name.toLowerCase() !== PARTICULAR_INSURER_NAME);
+  const faqRows = (faqRes.data ?? [])
+    .filter((row) => !isPlaceholderAnswer(row.answer))
+    .map((row) => ({ ...row, answer: expandFaqTokens(row.answer, activeInsurerNames) }));
+
+  const faqBlock = faqRows
     .map((row) => {
       const synonyms = (row.keywords ?? []).length ? ` (também perguntam como: ${(row.keywords ?? []).join(", ")})` : "";
       return `P: ${row.question}${synonyms}\nR: ${row.answer}`;
@@ -197,14 +223,6 @@ async function loadFaqKnowledge(clinicId: string): Promise<{ text: string; rules
     .map((t) => `${t.name} (${t.duration_minutes} min)`)
     .join(", ");
 
-  const roomsBlock = (roomsRes.data ?? [])
-    .map((r) => `${r.name}${r.is_evaluation_room ? " (Sala de Avaliação)" : ""}`)
-    .join(", ");
-
-  const therapistsBlock = (therapistsRes.data ?? [])
-    .map((tp) => `${tp.full_name} (${tp.role})`)
-    .join(", ");
-
   const businessHoursBlock = formatBusinessHours(hoursRes.data ?? []);
 
   const priceFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -216,6 +234,8 @@ async function loadFaqKnowledge(clinicId: string): Promise<{ text: string; rules
       return `${p.procedure_name}: ${priceFormatter.format(Number(p.price))}${duration}`;
     })
     .join(", ");
+
+  const agendaStatusNote = (await getChatbotSettings(clinicId)).agendaStatusNote;
 
   const text = [
     "=== PERGUNTAS FREQUENTES (fonte da verdade) ===",
@@ -233,19 +253,18 @@ async function loadFaqKnowledge(clinicId: string): Promise<{ text: string; rules
     "=== HORÁRIO COMERCIAL DA RECEPÇÃO (atendimento humano) ===",
     businessHoursBlock || "(não cadastrado — não prometa horário nenhum)",
     "",
-    "=== SALAS DE ATENDIMENTO E AVALIAÇÃO ===",
-    roomsBlock || "(nenhuma sala cadastrada)",
-    "",
-    "=== EQUIPE E TERAPEUTAS ATIVOS ===",
-    therapistsBlock || "(nenhum terapeuta cadastrado)",
+    // Salas e equipe saíram do prompt (auditoria out/2026): nenhuma família
+    // perguntou por sala ou terapeuta em 42 dias, e a lista trazia perfis
+    // genéricos ("Estagiário…", "Prestadores… Parque Shopping") — só material
+    // para o modelo inventar nome de profissional.
+    "=== SITUAÇÃO ATUAL DA AGENDA (mantida pela gestão) ===",
+    agendaStatusNote || "(sem nota — não prometa prazo, vaga nem previsão de agenda)",
   ].join("\n");
 
   // Mesmos dados do prompt, em forma estruturada, para a camada de regras sem IA (lib/faq-rules-pure.ts).
   const rules: FaqRuleData = {
-    insurers: (insurersRes.data ?? [])
-      .map((i) => i.name.trim())
-      .filter((name) => name && name.toLowerCase() !== PARTICULAR_INSURER_NAME),
-    faq: (faqRes.data ?? []).map((row) => ({
+    insurers: activeInsurerNames,
+    faq: faqRows.map((row) => ({
       question: row.question,
       answer: row.answer,
       keywords: row.keywords ?? [],
@@ -253,12 +272,8 @@ async function loadFaqKnowledge(clinicId: string): Promise<{ text: string; rules
   };
 
   const entry = { text, rules, expiresAt: Date.now() + KNOWLEDGE_TTL_MS };
-  knowledgeCache.set(clinicId, entry);
+  knowledgeCache.set(key, entry);
   return entry;
-}
-
-async function buildFaqKnowledge(clinicId: string): Promise<string> {
-  return (await loadFaqKnowledge(clinicId)).text;
 }
 
 function buildSystemInstruction(knowledge: string): string {
@@ -276,13 +291,17 @@ REGRAS OBRIGATÓRIAS:
 7. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
 8. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
 9. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
-10. AGENDAMENTO E INÍCIO DE ATENDIMENTO 100% VIA BOT/WHATSAPP: O agendamento de avaliações e o início do atendimento acontecem integralmente POR AQUI no WhatsApp! NUNCA direcione a pessoa para o site para agendar, saber como iniciar ou marcar consultas. Se a pessoa perguntar sobre convênios (ex.: "vocês atendem PROASA?") ou demonstrar interesse em iniciar/agendar, responda confirmando o convênio e convide-a a agendar diretamente por aqui mesmo, orientando a responder *AGENDAR*.
+10. AGENDAMENTO E INÍCIO DE ATENDIMENTO 100% VIA BOT/WHATSAPP: O agendamento de avaliações e o início do atendimento acontecem integralmente POR AQUI no WhatsApp! NUNCA direcione a pessoa para o site para agendar, saber como iniciar ou marcar consultas. Se a pessoa perguntar sobre convênios (ex.: "vocês atendem PROASA?") ou demonstrar interesse em iniciar/agendar, responda confirmando o convênio e convide-a a agendar diretamente por aqui mesmo, orientando a responder *AGENDAR* — EXCETO se a seção "SITUAÇÃO ATUAL DA AGENDA" disser que a agenda está fechada, em montagem ou em lista de espera: nesse caso siga a regra 17 e não mande responder AGENDAR.
 11. NUNCA DIRECIONE PARA O SITE PARA AGENDAR OU INICIAR: O site oficial (www.institutofacaamigos.com.br) é EXCLUSIVAMENTE para consulta institucional/conhecer a clínica e deve ser incluído apenas como assinatura/despedida ao encerrar ou finalizar a conversa (Ex: "Conheça mais sobre nossa clínica em www.institutofacaamigos.com.br 🌐💙"). NUNCA associe o site a agendamentos, início de processo ou tira-dúvidas operacionais.
 12. DOCUMENTOS DE CONVÊNIO: sempre que a conversa envolver um plano de saúde que NÃO seja particular, oriente que é preciso a *carteirinha do plano* (foto frente e verso) e o *número do cartão*. A *guia autorizada NÃO é obrigatória*: se a pessoa já tiver, ótimo; se não tiver, diga que a clínica faz a autorização — nunca condicione o agendamento à guia. Para atendimento particular, nada disso é necessário.
 13. CURRÍCULO E VAGA DE EMPREGO (cuidado: "vaga" é palavra ambígua, leia o item 13.1 antes de usar): quando a pessoa fala de TRABALHO — quer enviar currículo, pergunta se a clínica está contratando, procura estágio ou oportunidade de emprego —, responda UMA ÚNICA mensagem, com "intent": "emprego" e "escalar": false, dizendo que não recebemos currículos nem tratamos de vagas de trabalho por aqui e que ela deve acessar www.institutofacaamigos.com.br e procurar *Trabalhe Conosco*. Essa mensagem ENCERRA o assunto: não faça perguntas, não ofereça ajuda extra, não chame a equipe humana e NUNCA peça que o currículo seja enviado por este WhatsApp — depois dela o atendimento automático é desligado e nada mais é respondido. Esta é a ÚNICA situação em que o site pode ser indicado como caminho para resolver algo (a regra 11 continua valendo para tudo o mais).
 13.1 VAGA DE EMPREGO ≠ VAGA NA AGENDA: a maioria das pessoas que escreve "vaga" está perguntando por HORÁRIO DISPONÍVEL para atendimento do filho — isso é agendamento (regra 10), NUNCA "emprego". Exemplos que são AGENDAMENTO ("intent": "agendamento" ou "horarios", nunca "emprego"): "vocês têm vaga para avaliação?", "tem vaga essa semana?", "abriu vaga na terça de manhã?", "estão com vaga para fono?", "tem vaga pelo plano?", "quando abre vaga para ABA?". Exemplos que são EMPREGO: "vocês têm vaga de emprego?", "estão contratando psicóloga?", "posso mandar meu currículo?", "tem vaga para estágio?", "sou fonoaudióloga recém-formada, tem oportunidade de trabalho aí?". Só use "emprego" quando a mensagem disser com todas as letras que é trabalho/currículo/estágio/contratação — a palavra "vaga" sozinha NUNCA basta. Se ficar genuinamente em dúvida (ex.: "vocês têm vaga?" e o histórico não esclarece), NÃO use "emprego": pergunte em uma frase curta se é vaga na nossa agenda de atendimento ou vaga de trabalho ("intent": "outro", "escalar": false) e siga a resposta da pessoa.
 14. MENSAGENS DE ÁUDIO: este contato não recebe mensagens de áudio — ninguém ouve notas de voz por aqui. Se a pessoa mandar áudio ou disser que vai mandar, peça com carinho que escreva a dúvida em texto. Nunca diga que vai ouvir depois nem que a equipe vai escutar o áudio.
 15. HORÁRIO DO ATENDIMENTO HUMANO: sempre que avisar que a equipe/recepção vai responder (qualquer escalonamento, inclusive pedido de relatório), diga que o retorno acontece em horário comercial, citando exatamente a grade da seção "HORÁRIO COMERCIAL DA RECEPÇÃO" acima. Se a seção estiver vazia, diga apenas "em horário comercial", sem inventar horários. Você (assistente virtual) continua respondendo a qualquer hora — o horário vale para a resposta humana.
+16. PLANO QUE NÃO ATENDEMOS (inclusive SUS): se a pessoa perguntar por um plano que NÃO está na seção "CONVÊNIOS ATENDIDOS" (ex.: Unimed, Hapvida, Amazônia Saúde, SUS), responda com clareza que hoje não atendemos esse plano diretamente, que o atendimento seria PARTICULAR e que emitimos nota fiscal e relatório para ela pedir o reembolso ao plano dela. Ofereça os valores particulares da seção "VALORES PARTICULAR". NÃO escale por isso ("escalar": false, "intent": "planos") e deixe "convenio" como null — nunca diga que "em breve" atenderemos o plano, a menos que a base diga isso.
+17. LISTA DE ESPERA E PREVISÃO DE AGENDA: a seção "SITUAÇÃO ATUAL DA AGENDA" é a única fonte sobre vagas, prazos e previsão de início — cite-a quando perguntarem "tem vaga?", "qual a previsão?", "quero entrar na lista de espera". Se ela estiver vazia, diga que a recepção confirma a disponibilidade e NUNCA invente prazo. Quando a pessoa quiser entrar na lista de espera (ou a seção disser que a agenda está em lista de espera e ela quiser iniciar), reúna em UMA mensagem o que ainda não foi dito no histórico — nome e idade da criança, plano de saúde (ou particular) e terapia/avaliação desejada — e, com esses dados (mesmo incompletos após uma segunda tentativa), ESCALE com "escalar": true, "motivo": "lista_espera", "intent": "lista_espera", resumindo o que foi coletado no campo "resposta" (ex.: "Anotado! 💛 *Criança:* João, 5 anos · *Plano:* IASEP · *Terapia:* fono. A recepção confirma sua entrada na lista e retorna por aqui em horário comercial.").
+18. O QUE A BASE NÃO DIZ: faixa etária atendida, se atendemos adultos, terapias que não estão nas seções acima (ex.: fisioterapia, TCC, acompanhante terapêutico), quais terapias cada convênio autoriza, visita à clínica e número de sessões por semana — se a base não responder explicitamente, escale ("fora_da_base") sem afirmar nem negar. NUNCA diga "atendemos só crianças" nem "não temos essa terapia" por conta própria.
+19. MAPEAMENTO COMPORTAMENTAL: é o questionário gratuito e educativo do site (não é diagnóstico). Quem o cita quer conversar sobre o resultado: acolha, colete nome e idade da criança e o plano (ou particular) e siga a regra 17 (lista de espera) ou a regra 10 (agendar), conforme a situação da agenda.
 
 SOLICITAÇÃO DE RELATÓRIO OU DOCUMENTO (laudo, declaração de comparecimento, relatório de evolução, atestado, etc.):
 Isso não é uma dúvida que você responde — é um pedido que a recepção vai atender, mas cabe a você reunir as informações antes de repassar, para a equipe não precisar perguntar tudo de novo.
@@ -292,19 +311,20 @@ Isso não é uma dúvida que você responde — é um pedido que a recepção va
 4. Junto com o "escalar=true, motivo=relatorio", preencha TAMBÉM o campo "relatorio_dados" com o que foi coletado (use null no que não foi informado) — é esse campo, não o texto da "resposta", que vira o aviso de pendência para o Supervisor providenciar junto ao terapeuta correspondente.
 
 QUANDO ESCALAR (escalar = true):
-- "fora_da_base": a informação pedida não está acima, ou refere-se a valores de convênio/reembolso (nunca informe esses).
+- "fora_da_base": a informação pedida não está acima, ou refere-se a valores de convênio/reembolso (nunca informe esses). Plano que não atendemos NÃO é "fora da base" (regra 16).
+- "lista_espera": a pessoa quer entrar na lista de espera / iniciar com a agenda fechada, DEPOIS de reunir nome, idade, plano e terapia (regra 17).
 - "clinico": pergunta sobre sintoma, diagnóstico, evolução ou conduta da criança.
 - "pediu_humano": a pessoa pediu para falar com alguém, reclamou ou está claramente insatisfeita.
 - "relatorio": pedido de relatório/documento, DEPOIS de reunir os dados acima — nunca na primeira mensagem do pedido.
-Ao escalar por "fora_da_base", "clinico" ou "pediu_humano", o campo "resposta" deve apenas acolher e avisar que a equipe foi chamada, sem tentar responder a dúvida. Ao escalar por "relatorio", o campo "resposta" traz o resumo coletado (regra 3 acima) e "relatorio_dados" traz os mesmos dados de forma estruturada.
+Ao escalar por "fora_da_base", "clinico" ou "pediu_humano", o campo "resposta" deve apenas acolher e avisar que a equipe foi chamada, sem tentar responder a dúvida. Ao escalar por "relatorio", o campo "resposta" traz o resumo coletado (regra 3 acima) e "relatorio_dados" traz os mesmos dados de forma estruturada. Ao escalar por "lista_espera", o campo "resposta" traz o resumo do que foi coletado (regra 17).
 
 IDENTIFICAÇÃO DO PLANO: sempre que a pessoa disser QUAL plano de saúde a criança/paciente tem (ex.: "meu filho tem Unimed", "somos particular"), preencha "convenio" com o nome do plano exatamente como está na lista de CONVÊNIOS cadastrados acima (ou "Particular" se ela disser que é particular e esse nome estiver na lista). Perguntar se a clínica atende um plano NÃO conta — só quando ela afirma que possui o plano. Se o plano citado não estiver na lista, ou se ainda não souber, use null (e mantenha o valor se já foi dito antes no histórico).
 
 Responda SEMPRE em JSON válido, exatamente neste formato:
 {"resposta": "texto para enviar no WhatsApp", "escalar": false, "motivo": null, "intent": "planos", "convenio": null, "relatorio_dados": null, "concluido": false}
 
-"motivo" é null quando escalar for false, senão um de: "fora_da_base", "clinico", "pediu_humano", "relatorio".
-"intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "relatorio", "emprego", "outro". Use "emprego" APENAS para currículo/contratação/estágio (regras 13 e 13.1) — é sempre a última mensagem do bot naquela conversa; pergunta sobre vaga/horário disponível para atendimento é "agendamento" ou "horarios".
+"motivo" é null quando escalar for false, senão um de: "fora_da_base", "clinico", "pediu_humano", "relatorio", "lista_espera".
+"intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "lista_espera", "relatorio", "emprego", "outro". Use "emprego" APENAS para currículo/contratação/estágio (regras 13 e 13.1) — é sempre a última mensagem do bot naquela conversa; pergunta sobre vaga/horário disponível para atendimento é "agendamento" ou "horarios".
 "relatorio_dados" é null exceto quando motivo="relatorio", caso em que é um objeto {"crianca": string ou null, "plano": string ou null, "carteirinha": string ou null (número do cartão do plano; null se particular ou não informado), "documento": string ou null, "terapeuta": string ou null}.
 "concluido" é true SOMENTE quando a pessoa deu a conversa por encerrada (ex.: "obrigada, era só isso", "tchau", "ok, vou pensar") e a sua "resposta" é apenas a despedida, sem fazer nenhuma pergunta nem deixar nada pendente; em qualquer outro caso é false. Nunca é true junto com "escalar": true.`;
 }
@@ -526,6 +546,27 @@ async function saveDetectedPlan(conversationId: string, clinicId: string, rawPla
   }
 }
 
+/**
+ * Marca a conversa como pendente para a recepção SEM calar o bot — usado
+ * quando a IA falha (503/JSON inválido): a família recebe um aviso honesto, a
+ * pergunta entra na fila, e a próxima mensagem dela continua sendo respondida
+ * automaticamente. Antes, a falha virava a saudação de boas-vindas de novo
+ * (77 vezes em set–out/2026) e ninguém ficava sabendo da pergunta.
+ */
+export async function flagConversationPending(conversationId: string, reason: FaqEscalationReason) {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  await supabase
+    .from("twilio_conversations")
+    .update({ status: "pending", escalation_reason: reason, escalated_at: new Date().toISOString() })
+    .eq("id", conversationId)
+    .neq("status", "pending");
+
+  const { notifyStaffOfConversation } = await import("./web-push");
+  await notifyStaffOfConversation(conversationId);
+}
+
 export async function escalateConversation(conversationId: string, reason: FaqEscalationReason) {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
@@ -597,14 +638,23 @@ async function closeConversationAfterFinalReply(conversationId: string): Promise
     .eq("id", conversationId);
 }
 
+/** Aviso quando a IA não responde (503, JSON inválido). A pergunta vai para a
+ * fila da recepção (flagConversationPending) e o bot segue ativo. */
+const AI_UNAVAILABLE_REPLY =
+  "Não consegui responder agora. 💙 Já deixei a sua mensagem com a recepção, que retorna por aqui em horário comercial. " +
+  "Se quiser, pode escrever de novo em instantes.";
+
 export async function processFaqBotStep(params: {
   phone: string;
   body: string;
   conversationId: string | null;
   patientId?: string | null;
   guardianId?: string | null;
+  /** lead ou patient — define quais entradas do clinic_faq entram no prompt. */
+  conversationKind?: ConversationKind | null;
 }): Promise<FaqBotResult> {
   const { phone, body, conversationId, patientId = null, guardianId = null } = params;
+  const conversationKind: ConversationKind = params.conversationKind === "patient" ? "patient" : "lead";
   const notHandled: FaqBotResult = { handled: false, replyMessage: "", intent: "", escalated: false };
 
   if (!body.trim()) return notHandled;
@@ -625,7 +675,7 @@ export async function processFaqBotStep(params: {
   // desliga a camada (volta ao comportamento anterior, 100% IA).
   if (process.env.FAQ_RULES_DISABLED !== "1") {
     try {
-      const { rules } = await loadFaqKnowledge(DEV_CLINIC_ID);
+      const { rules } = await loadFaqKnowledge(DEV_CLINIC_ID, conversationKind);
       const ruleMatch = matchFaqRule(body, rules);
       if (ruleMatch) {
         return { handled: true, replyMessage: ruleMatch.reply, intent: ruleMatch.intent, escalated: false };
@@ -641,7 +691,7 @@ export async function processFaqBotStep(params: {
   const withinQuota = await reserveDailyQuota(phone, settings.dailyReplyLimit);
   if (!withinQuota) return notHandled;
 
-  const knowledge = await buildFaqKnowledge(DEV_CLINIC_ID);
+  const { text: knowledge } = await loadFaqKnowledge(DEV_CLINIC_ID, conversationKind);
   const conversationHistory = conversationId ? await loadHistory(conversationId) : [];
 
   const aiResponse = await generateGeminiChatResponse({
@@ -653,18 +703,27 @@ export async function processFaqBotStep(params: {
     feature: "faq_whatsapp",
   });
 
-  if (!aiResponse.success || !aiResponse.text) return notHandled;
+  // IA fora do ar (503 em ~9% das chamadas) ou resposta inválida: a pergunta
+  // vai para a fila da recepção e a família recebe um aviso honesto, em vez da
+  // saudação de boas-vindas pela segunda vez.
+  const aiUnavailable = async (): Promise<FaqBotResult> => {
+    if (!conversationId) return notHandled;
+    await flagConversationPending(conversationId, "fora_da_base");
+    return { handled: true, replyMessage: AI_UNAVAILABLE_REPLY, intent: "ia_indisponivel", escalated: false };
+  };
+
+  if (!aiResponse.success || !aiResponse.text) return aiUnavailable();
 
   let parsed: FaqModelOutput;
   try {
     parsed = JSON.parse(stripCodeFence(aiResponse.text)) as FaqModelOutput;
   } catch {
     console.error("[Twilio FAQ Bot] JSON inválido do Gemini:", aiResponse.text.slice(0, 200));
-    return notHandled;
+    return aiUnavailable();
   }
 
   const reply = (parsed.resposta ?? "").trim();
-  if (!reply) return notHandled;
+  if (!reply) return aiUnavailable();
 
   if (conversationId && typeof parsed.convenio === "string" && parsed.convenio.trim()) {
     await saveDetectedPlan(conversationId, DEV_CLINIC_ID, parsed.convenio);
@@ -681,8 +740,13 @@ export async function processFaqBotStep(params: {
   // fallback de atendimento (AGENDAR/CONVÊNIOS) em lib/twilio.ts.
   if (parsed.intent === "emprego") {
     if (!hasExplicitJobSignal(body)) {
-      console.warn("[Twilio FAQ Bot] intent=emprego sem marca de trabalho na mensagem — tratado como atendimento.");
-      return notHandled;
+      // "Vaga está disponível?", "Em busca de uma oportunidade": o modelo
+      // apostou em emprego, o regex não confirma. Pergunta em vez de descartar
+      // a resposta e cair no fallback de boas-vindas (era o destino de ~40
+      // mensagens de candidatos em outubro/2026). O bot segue ativo; a
+      // próxima mensagem ("é pra trabalhar") já traz a marca explícita.
+      console.warn("[Twilio FAQ Bot] intent=emprego sem marca de trabalho na mensagem — pedindo desambiguação.");
+      return { handled: true, replyMessage: JOB_AMBIGUOUS_REPLY, intent: "faq_emprego_duvida", escalated: false };
     }
     if (conversationId) await closeConversationAfterFinalReply(conversationId);
     return { handled: true, replyMessage: reply, intent: "faq_emprego", escalated: false, concluded: true };
@@ -690,7 +754,10 @@ export async function processFaqBotStep(params: {
 
   const shouldEscalate = parsed.escalar === true;
   const reason: FaqEscalationReason =
-    parsed.motivo === "clinico" || parsed.motivo === "pediu_humano" || parsed.motivo === "relatorio"
+    parsed.motivo === "clinico" ||
+    parsed.motivo === "pediu_humano" ||
+    parsed.motivo === "relatorio" ||
+    parsed.motivo === "lista_espera"
       ? parsed.motivo
       : "fora_da_base";
 
@@ -708,10 +775,10 @@ export async function processFaqBotStep(params: {
   }
 
   // "pediu_humano"/"clinico"/"fora_da_base" são pedidos de resposta
-  // imediata do humano — "relatorio" já é um resumo de pendência, não uma
-  // promessa de resposta agora, então não leva o aviso de horário.
+  // imediata do humano — "relatorio" e "lista_espera" já são resumos de
+  // pendência, não uma promessa de resposta agora, então não levam o aviso.
   let finalReply = reply;
-  if (shouldEscalate && reason !== "relatorio" && !(await isWithinBusinessHoursNow(DEV_CLINIC_ID))) {
+  if (shouldEscalate && reason !== "relatorio" && reason !== "lista_espera" && !(await isWithinBusinessHoursNow(DEV_CLINIC_ID))) {
     finalReply = `${reply}${OUT_OF_HOURS_ESCALATION_SUFFIX}`;
   }
 
