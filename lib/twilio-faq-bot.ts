@@ -38,7 +38,7 @@
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
 import { hasExplicitJobSignal, hasStrongJobSignal, JOB_INQUIRY_REPLY } from "@/lib/job-inquiry-pure";
-import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
+import { generateChatResponse, isChatAiConfigured } from "@/lib/chat-llm";
 import { matchFaqRule, type FaqRuleData } from "@/lib/faq-rules-pure";
 
 /** Quantas mensagens da thread vão como contexto (~6 turnos). */
@@ -279,7 +279,7 @@ REGRAS OBRIGATÓRIAS:
 10. AGENDAMENTO E INÍCIO DE ATENDIMENTO 100% VIA BOT/WHATSAPP: O agendamento de avaliações e o início do atendimento acontecem integralmente POR AQUI no WhatsApp! NUNCA direcione a pessoa para o site para agendar, saber como iniciar ou marcar consultas. Se a pessoa perguntar sobre convênios (ex.: "vocês atendem PROASA?") ou demonstrar interesse em iniciar/agendar, responda confirmando o convênio e convide-a a agendar diretamente por aqui mesmo, orientando a responder *AGENDAR*.
 11. NUNCA DIRECIONE PARA O SITE PARA AGENDAR OU INICIAR: O site oficial (www.institutofacaamigos.com.br) é EXCLUSIVAMENTE para consulta institucional/conhecer a clínica e deve ser incluído apenas como assinatura/despedida ao encerrar ou finalizar a conversa (Ex: "Conheça mais sobre nossa clínica em www.institutofacaamigos.com.br 🌐💙"). NUNCA associe o site a agendamentos, início de processo ou tira-dúvidas operacionais.
 12. DOCUMENTOS DE CONVÊNIO: sempre que a conversa envolver um plano de saúde que NÃO seja particular, oriente que é preciso a *carteirinha do plano* (foto frente e verso) e o *número do cartão*. A *guia autorizada NÃO é obrigatória*: se a pessoa já tiver, ótimo; se não tiver, diga que a clínica faz a autorização — nunca condicione o agendamento à guia. Para atendimento particular, nada disso é necessário.
-13. CURRÍCULO E VAGA DE EMPREGO (cuidado: "vaga" é palavra ambígua, leia o item 13.1 antes de usar): quando a pessoa fala de TRABALHO — quer enviar currículo, pergunta se a clínica está contratando, procura estágio ou oportunidade de emprego —, responda UMA ÚNICA mensagem, com "intent": "emprego" e "escalar": false, dizendo que não recebemos currículos nem tratamos de vagas de trabalho por aqui e que ela deve acessar www.institutofacaamigos.com.br e procurar *Trabalhe Conosco*. Essa mensagem ENCERRA o assunto: não faça perguntas, não ofereça ajuda extra, não chame a equipe humana e NUNCA peça que o currículo seja enviado por este WhatsApp — depois dela o atendimento automático é desligado e nada mais é respondido. Esta é a ÚNICA situação em que o site pode ser indicado como caminho para resolver algo (a regra 11 continua valendo para tudo o mais).
+13. CURRÍCULO E VAGA DE EMPREGO (cuidado: "vaga" é palavra ambígua, leia o item 13.1 antes de usar): quando a pessoa fala de TRABALHO — quer enviar currículo, pergunta se a clínica está contratando, procura estágio ou oportunidade de emprego —, responda UMA ÚNICA mensagem, com "intent": "emprego" e "escalar": false, dizendo que não recebemos currículos nem tratamos de vagas de trabalho por aqui e que ela deve acessar www.institutofacaamigos.com.br e clicar em *Venha fazer parte do nosso time*. Essa mensagem ENCERRA o assunto: não faça perguntas, não ofereça ajuda extra, não chame a equipe humana e NUNCA peça que o currículo seja enviado por este WhatsApp — depois dela o atendimento automático é desligado e nada mais é respondido. Esta é a ÚNICA situação em que o site pode ser indicado como caminho para resolver algo (a regra 11 continua valendo para tudo o mais).
 13.1 VAGA DE EMPREGO ≠ VAGA NA AGENDA: a maioria das pessoas que escreve "vaga" está perguntando por HORÁRIO DISPONÍVEL para atendimento do filho — isso é agendamento (regra 10), NUNCA "emprego". Exemplos que são AGENDAMENTO ("intent": "agendamento" ou "horarios", nunca "emprego"): "vocês têm vaga para avaliação?", "tem vaga essa semana?", "abriu vaga na terça de manhã?", "estão com vaga para fono?", "tem vaga pelo plano?", "quando abre vaga para ABA?". Exemplos que são EMPREGO: "vocês têm vaga de emprego?", "estão contratando psicóloga?", "posso mandar meu currículo?", "tem vaga para estágio?", "sou fonoaudióloga recém-formada, tem oportunidade de trabalho aí?". Só use "emprego" quando a mensagem disser com todas as letras que é trabalho/currículo/estágio/contratação — a palavra "vaga" sozinha NUNCA basta. Se ficar genuinamente em dúvida (ex.: "vocês têm vaga?" e o histórico não esclarece), NÃO use "emprego": pergunte em uma frase curta se é vaga na nossa agenda de atendimento ou vaga de trabalho ("intent": "outro", "escalar": false) e siga a resposta da pessoa.
 14. MENSAGENS DE ÁUDIO: este contato não recebe mensagens de áudio — ninguém ouve notas de voz por aqui. Se a pessoa mandar áudio ou disser que vai mandar, peça com carinho que escreva a dúvida em texto. Nunca diga que vai ouvir depois nem que a equipe vai escutar o áudio.
 15. HORÁRIO DO ATENDIMENTO HUMANO: sempre que avisar que a equipe/recepção vai responder (qualquer escalonamento, inclusive pedido de relatório), diga que o retorno acontece em horário comercial, citando exatamente a grade da seção "HORÁRIO COMERCIAL DA RECEPÇÃO" acima. Se a seção estiver vazia, diga apenas "em horário comercial", sem inventar horários. Você (assistente virtual) continua respondendo a qualquer hora — o horário vale para a resposta humana.
@@ -632,7 +632,7 @@ export async function processFaqBotStep(params: {
     }
   }
 
-  if (!isGeminiConfigured()) return notHandled;
+  if (!isChatAiConfigured()) return notHandled;
 
   const settings = await getChatbotSettings(DEV_CLINIC_ID);
   const withinQuota = await reserveDailyQuota(phone, settings.dailyReplyLimit);
@@ -641,7 +641,7 @@ export async function processFaqBotStep(params: {
   const knowledge = await buildFaqKnowledge(DEV_CLINIC_ID);
   const conversationHistory = conversationId ? await loadHistory(conversationId) : [];
 
-  const aiResponse = await generateGeminiChatResponse({
+  const aiResponse = await generateChatResponse({
     prompt: body,
     systemInstruction: buildSystemInstruction(knowledge),
     conversationHistory,

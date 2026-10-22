@@ -77,6 +77,5 @@ test("sinal forte: frase de família NUNCA silencia o bot", () => {
 
 test("a resposta fixa aponta para o site e cita os dois rótulos", () => {
   assert.match(JOB_INQUIRY_REPLY, /www\.institutofacaamigos\.com\.br/);
-  assert.match(JOB_INQUIRY_REPLY, /Trabalhe Conosco/);
   assert.match(JOB_INQUIRY_REPLY, /Venha fazer parte do nosso time/);
 });

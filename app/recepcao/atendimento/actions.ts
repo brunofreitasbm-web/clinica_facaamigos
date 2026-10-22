@@ -12,7 +12,7 @@ import {
   WHATSAPP_WINDOW_CLOSED_ERROR_CODES,
 } from "@/lib/twilio";
 import { createInteressadoAction, type CreateInteressadoInput } from "../actions";
-import { generateGeminiChatResponse, isGeminiConfigured } from "@/lib/gemini";
+import { generateChatResponse, isChatAiConfigured } from "@/lib/chat-llm";
 import { formatConversationPhone } from "./format-phone";
 import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
@@ -749,7 +749,7 @@ export async function extractLeadInfoFromChat(conversationId: string) {
     chiefComplaint: "",
   };
 
-  if (messages.length === 0 || !isGeminiConfigured()) {
+  if (messages.length === 0 || !isChatAiConfigured()) {
     const data = draft?.extraction ? mergeDocumentIntoLead(fallbackData, draft.extraction) : fallbackData;
     await persistChatExtractionToDraft(conversation.phone_number, draft?.info.id ?? null, data, conversation.contact_name);
     return { success: true as const, data, draft: draft?.info ?? null };
@@ -797,7 +797,7 @@ Histórico da Conversa:
 ${transcript}`;
 
     try {
-      const aiRes = await generateGeminiChatResponse({
+      const aiRes = await generateChatResponse({
         prompt,
         systemInstruction,
         temperature: 0.1,

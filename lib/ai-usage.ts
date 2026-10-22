@@ -19,7 +19,7 @@ export type AiFeature =
   | "relatorio_devolutiva";
 
 export interface AiUsageEntry {
-  provider: "gemini" | "anthropic";
+  provider: "gemini" | "anthropic" | "deepseek";
   model: string;
   feature: AiFeature;
   inputTokens?: number;
