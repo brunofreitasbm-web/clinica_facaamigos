@@ -539,6 +539,9 @@ export async function escalateConversation(conversationId: string, reason: FaqEs
       escalated_at: new Date().toISOString(),
     })
     .eq("id", conversationId);
+
+  const { notifyStaffOfConversation } = await import("./web-push");
+  await notifyStaffOfConversation(conversationId);
 }
 
 /**

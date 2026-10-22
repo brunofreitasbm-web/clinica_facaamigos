@@ -20,8 +20,7 @@ const fredoka = Fredoka({
 });
 
 export const metadata: Metadata = {
-  // Base para resolver as URLs relativas de metadata (app/opengraph-image.png,
-  // canonical). app/site sobrescreve com o domínio da landing.
+  // Base para resolver as URLs relativas de metadata (app/opengraph-image.png, canonical).
   metadataBase: new URL(APP_ORIGIN),
   // Aba do navegador mostra só a marca ("FaçaAmigos") — o nome oficial
   // completo (com "Centro de Terapia Comportamental") fica na description,
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
     template: `%s · ${CLINIC_BRAND}`,
   },
   description: `${CLINIC_NAME} — sistema de gestão clínica (TEA/TDAH).`,
-  // Sistema com dado de saúde atrás de login: fora dos buscadores. app/site sobrescreve (index: true).
+  // Sistema com dado de saúde atrás de login: fora dos buscadores.
   robots: { index: false, follow: false },
 };
 
@@ -67,8 +66,8 @@ export default function RootLayout({
           </Suspense>
           <OfflineBanner />
           <Suspense fallback={null}>
-            {/* Sem a barra global: chat mobile (altura toda) e landing pública /site (visitante não tem elo com o sistema) */}
-            <HideOnRoutes prefixes={["/recepcao/atendimento", "/site"]}>
+            {/* Sem a barra global: chat mobile (altura toda) */}
+            <HideOnRoutes prefixes={["/recepcao/atendimento"]}>
               <AuthStatus />
             </HideOnRoutes>
           </Suspense>

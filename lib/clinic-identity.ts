@@ -31,11 +31,17 @@ export const CLINIC_SUPPORT_EMAIL = "institutofacaamigos@gmail.com";
 export const CLINIC_WEBSITE = "https://clinica.institutofacaamigos.com.br";
 
 /**
+ * Desde 18/10/2026 a página pública da Clínica mora no HUB (institutofacaamigos.com.br/clinica,
+ * HTML estático no repositório do hub). Este app não serve mais landing: clinica.… só redireciona (301)
+ * para cá e o resto dele é o sistema (sistema.…). CLINIC_WEBSITE ficou como host legado.
+ */
+export const CLINIC_PUBLIC_URL = "https://institutofacaamigos.com.br/clinica";
+
+/**
  * Origem de onde ESTE deploy é servido de fato — hoje o domínio do sistema
  * de gestão. É o que resolve URL relativa em metadata (Open Graph, Twitter,
- * canonical) fora de `app/site`, que tem metadataBase próprio apontando para
- * CLINIC_WEBSITE. São coisas diferentes de propósito: CLINIC_WEBSITE é o
- * endereço público da landing institucional; aqui é onde o app responde.
+ * canonical). CLINIC_WEBSITE e CLINIC_PUBLIC_URL são endereços da página pública
+ * (hoje no hub); aqui é onde o app responde.
  *
  * Sem isto, o Next resolve as imagens sociais contra http://localhost:3000 —
  * o build avisa, mas a prévia de link só quebra em produção, em silêncio.
