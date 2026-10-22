@@ -114,13 +114,14 @@ export function hasStrongJobSignal(text: string): boolean {
   return STRONG_JOB_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
-/** Resposta fixa (sem IA) para currículo/vaga de emprego. Link DIRETO da
- * página de candidatura (o rótulo "Trabalhe Conosco" fica no topo do site e
- * 6 candidatos em outubro disseram não achar) e o e-mail como alternativa. */
+/** Resposta fixa (sem IA) para currículo/vaga de emprego. O rótulo é o do site
+ * ("Venha fazer parte do nosso time", mantido da main); o link é o DIRETO da
+ * página de candidatura (6 candidatos em outubro disseram não achar o botão no
+ * site) e o e-mail fica como alternativa. */
 export const JOB_INQUIRY_REPLY =
   "Olá! 💙 Agradecemos o seu interesse em fazer parte do *FaçaAmigos*!\n\n" +
-  "Por aqui no WhatsApp não recebemos currículos nem tratamos de vagas de trabalho. 🙏\n\n" +
-  "Para se candidatar, preencha o formulário da página *Trabalhe Conosco* (currículo em PDF):\n" +
+  "Por aqui no WhatsApp não recebemos currículos. Para se candidatar, preencha o formulário " +
+  "*Venha fazer parte do nosso time* (currículo em PDF):\n" +
   "https://institutofacaamigos.com.br/trabalhe-conosco\n\n" +
   "Se o link não abrir, envie o currículo para institutofacaamigos@gmail.com. Boa sorte! 🌱";
 

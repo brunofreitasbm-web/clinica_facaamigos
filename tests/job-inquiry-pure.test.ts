@@ -77,7 +77,7 @@ test("sinal forte: frase de família NUNCA silencia o bot", () => {
 
 test("a resposta fixa aponta para a página de candidatura direta e dá o e-mail como alternativa", () => {
   assert.match(JOB_INQUIRY_REPLY, /https:\/\/institutofacaamigos\.com\.br\/trabalhe-conosco/);
-  assert.match(JOB_INQUIRY_REPLY, /Trabalhe Conosco/);
+  assert.match(JOB_INQUIRY_REPLY, /Venha fazer parte do nosso time/);
   assert.match(JOB_INQUIRY_REPLY, /institutofacaamigos@gmail\.com/);
   assert.doesNotMatch(JOB_INQUIRY_REPLY, /www\./, "www. redireciona (308) — o link direto evita um salto");
 });
