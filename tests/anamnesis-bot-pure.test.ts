@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  BOT_THERAPY_VALUES,
   canonicalAnamnesisStep,
   decideGuardianEmailStep,
   isAgendarIntent,
@@ -178,4 +179,13 @@ test("parseTherapiesAnswer: números, apelidos, várias terapias, não sei e inv
   assert.deepEqual(parseTherapiesAnswer("9", options), { kind: "invalid" });
   assert.deepEqual(parseTherapiesAnswer("talvez amanhã", options), { kind: "invalid" });
   assert.deepEqual(parseTherapiesAnswer("", options), { kind: "invalid" });
+});
+
+test("BOT_THERAPY_VALUES: sem repetidas e cada posição da lista é reconhecida pelo número", () => {
+  const options = BOT_THERAPY_VALUES.map((value) => ({ value, label: value.replace(/_/g, " ") }));
+  assert.equal(new Set(BOT_THERAPY_VALUES).size, BOT_THERAPY_VALUES.length);
+  options.forEach((option, index) => {
+    const answer = parseTherapiesAnswer(String(index + 1), options);
+    assert.deepEqual(answer, { kind: "therapies", values: [option.value], labels: [option.label] });
+  });
 });

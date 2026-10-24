@@ -4,6 +4,7 @@ import { runAfterResponse } from "@/lib/after-response";
 import { enrichLeadFromDocuments, registerLeadMedia, upsertWhatsappLead } from "@/lib/whatsapp-lead";
 import { normalizeEmail, normalizeFullName, type LeadDocKind } from "@/lib/whatsapp-lead-pure";
 import {
+  BOT_THERAPY_VALUES,
   MAX_TEXT_REPLIES_FOR_DOCUMENT,
   canonicalAnamnesisStep,
   isAgendarIntent,
@@ -423,8 +424,12 @@ async function loadActiveTherapies(supabase: any): Promise<TherapyOption[]> {
     .select("value, label")
     .eq("clinic_id", DEV_CLINIC_ID)
     .eq("active", true)
-    .order("sort_order");
-  return ((data ?? []) as TherapyOption[]).filter((t) => t.value !== "outro");
+    .in("value", [...BOT_THERAPY_VALUES])
+    // `value` desempata: com empate em sort_order a ordem mudaria entre a
+    // pergunta e a leitura da resposta, e o número digitado viraria outra terapia.
+    .order("sort_order")
+    .order("value");
+  return (data ?? []) as TherapyOption[];
 }
 
 function therapiesQuestion(childName: string | undefined, options: TherapyOption[]): string {

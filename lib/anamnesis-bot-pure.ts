@@ -174,6 +174,17 @@ export type TherapiesAnswer =
   | { kind: "unsure" }
   | { kind: "invalid" };
 
+/** Terapias que o bot oferece (chaves de `specialties.value`), na ordem em que são listadas. */
+export const BOT_THERAPY_VALUES = [
+  "psicologia_aba",
+  "fonoaudiologia",
+  "terapia_ocupacional",
+  "fisioterapia",
+  "musicoterapia",
+  "psicopedagogia",
+  "nutricao",
+] as const;
+
 /** Apelidos por `specialties.value` (palavra inteira, sem acento). */
 const THERAPY_ALIASES: Record<string, string[]> = {
   fonoaudiologia: ["fono", "fonoaudiologa", "fonoaudiologo"],
