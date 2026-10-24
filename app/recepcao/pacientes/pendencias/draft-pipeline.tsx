@@ -15,6 +15,7 @@ import {
   undoGuideSent,
   waiveDraftAuthorization,
 } from "./draft-pipeline-actions";
+import { finishWhatsappWindow, preOpenWhatsappWindow } from "./open-whatsapp";
 
 /**
  * Linha do tempo de um contato da fila de pendências, do recebimento dos
@@ -206,6 +207,8 @@ export function DraftPipelineColumns({
   const [docState, sentState, authState, schedState] = stepStates(pipeline);
   const [showGuideForm, setShowGuideForm] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: "error" | "note"; text: string } | null>(null);
+  // Link do aviso quando o navegador bloqueou a aba do WhatsApp.
+  const [whatsappFallback, setWhatsappFallback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const missingLabels = visiblePills(draft.pendencies)
@@ -241,9 +244,12 @@ export function DraftPipelineColumns({
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const text = (key: string) => String(formData.get(key) ?? "");
+    setWhatsappFallback(null);
+    // Aba aberta aqui, no clique; recebe o link do WhatsApp quando a action responde.
+    const whatsappWindow = preOpenWhatsappWindow();
     run(
-      () =>
-        registerAuthorizedGuide(draft.id, {
+      async () => {
+        const result = await registerAuthorizedGuide(draft.id, {
           guideNumber: text("guide_number"),
           procedureCode: text("procedure_code"),
           sessionsAuthorized: Number(text("sessions_authorized")),
@@ -251,7 +257,12 @@ export function DraftPipelineColumns({
           validTo: text("valid_to"),
           password: text("password"),
           passwordValidUntil: text("password_valid_until"),
-        }),
+        });
+        const url = result.success ? result.whatsappUrl : undefined;
+        const opened = finishWhatsappWindow(whatsappWindow, url);
+        if (url && !opened) setWhatsappFallback(url);
+        return result;
+      },
       () => setShowGuideForm(false),
     );
   };
@@ -331,7 +342,7 @@ export function DraftPipelineColumns({
         {(pipeline.authorization === "enviada" || (pipeline.authorization === "pendente" && suggestion)) && (
           <>
             <p className="m-0 text-sm text-ink-faint">
-              Confira a autorização junto ao plano (portal ou telefone). Quando o plano autorizar, registre a guia aqui.
+              Confira a autorização junto ao plano (portal ou telefone). Quando o plano autorizar, clique em Autorizado, confira os dados da guia e o WhatsApp abre com o aviso pronto para o responsável.
             </p>
             {showGuideForm ? (
               <form onSubmit={onSubmitGuide} className="flex flex-col gap-2">
@@ -365,7 +376,7 @@ export function DraftPipelineColumns({
                     className="rounded-md border-0 px-3 py-1.5 text-[13px] font-semibold text-white disabled:opacity-50"
                     style={{ backgroundColor: "var(--color-accent)" }}
                   >
-                    {isPending ? "Salvando…" : "Autorizada — salvar guia"}
+                    {isPending ? "Salvando…" : "Autorizado — salvar e avisar no WhatsApp"}
                   </button>
                   <StepButton onClick={() => setShowGuideForm(false)} disabled={isPending}>
                     Cancelar
@@ -375,7 +386,7 @@ export function DraftPipelineColumns({
             ) : (
               <div className="flex flex-wrap gap-2">
                 <StepButton primary onClick={() => setShowGuideForm(true)} disabled={isPending}>
-                  Plano autorizou — registrar guia
+                  Autorizado
                 </StepButton>
                 <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
                   Particular / sem guia
@@ -471,6 +482,15 @@ export function DraftPipelineColumns({
           </p>
         )}
       </StepShell>
+
+      {whatsappFallback && (
+        <p className="m-0 text-sm md:col-span-7">
+          O navegador bloqueou a aba do WhatsApp.{" "}
+          <a href={whatsappFallback} target="_blank" rel="noopener noreferrer" className="font-semibold text-accent underline">
+            Abrir WhatsApp com o aviso
+          </a>
+        </p>
+      )}
 
       {feedback && (
         <p

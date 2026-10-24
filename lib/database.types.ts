@@ -457,6 +457,7 @@ export type Database = {
           child_name: string
           clinic_id: string | null
           created_at: string
+          desired_specialties: string[] | null
           guardian_cpf: string
           guardian_name: string
           guardian_phone: string
@@ -482,6 +483,7 @@ export type Database = {
           child_name: string
           clinic_id?: string | null
           created_at?: string
+          desired_specialties?: string[] | null
           guardian_cpf: string
           guardian_name: string
           guardian_phone: string
@@ -507,6 +509,7 @@ export type Database = {
           child_name?: string
           clinic_id?: string | null
           created_at?: string
+          desired_specialties?: string[] | null
           guardian_cpf?: string
           guardian_name?: string
           guardian_phone?: string

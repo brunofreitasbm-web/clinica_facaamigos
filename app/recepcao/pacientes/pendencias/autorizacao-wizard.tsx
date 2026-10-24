@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Copy, X } from "lucide-react";
 import type { AuthorizationWizardItem } from "@/lib/reception-queue";
 import { registerAuthorizationRenewalResponse, requestAuthorizationRenewal } from "./authorization-renewal-actions";
+import { finishWhatsappWindow, preOpenWhatsappWindow } from "./open-whatsapp";
 import { suggestedRenewalPeriod, validateRenewalPeriod } from "./authorization-renewal-pure";
 
 export type AuthorizationItem = AuthorizationWizardItem;
@@ -69,8 +70,8 @@ export function AutorizacaoWizard({ initialItems = [] }: { initialItems?: Author
       {dialog?.kind === "request" && (
         <RequestRenewalDialog item={dialog.item} onClose={() => setDialog(null)} onDone={() => done("Pedido de renovação registrado. Falta registrar a resposta do plano.")} />
       )}
-      {dialog?.kind === "response" && (
-        <RenewalResponseDialog item={dialog.item} onClose={() => setDialog(null)} onDone={done} />
+      {dialog?.kind === "response" && dialog.item.renewal && (
+        <RenewalResponseDialog item={{ ...dialog.item, renewal: dialog.item.renewal }} onClose={() => setDialog(null)} onDone={done} />
       )}
     </div>
   );
@@ -320,21 +321,25 @@ function RequestRenewalDialog({ item, onClose, onDone }: { item: AuthorizationIt
   );
 }
 
-function RenewalResponseDialog({
+export function RenewalResponseDialog({
   item,
   onClose,
   onDone,
 }: {
-  item: AuthorizationItem;
+  item: Pick<AuthorizationItem, "patientName" | "insurerName" | "specialty"> & {
+    renewal: NonNullable<AuthorizationItem["renewal"]>;
+  };
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
   const router = useRouter();
-  const renewal = item.renewal!;
+  const renewal = item.renewal;
   const [outcome, setOutcome] = useState<"autorizada" | "negada">("autorizada");
   const [guideNumber, setGuideNumber] = useState("");
   const [form, setForm] = useState({ sessions: String(renewal.sessionsRequested), validFrom: renewal.validFrom, validTo: renewal.validTo });
   const [error, setError] = useState<string | null>(null);
+  // Aviso pronto quando o navegador bloqueou a aba do WhatsApp: o diálogo fica aberto com o link.
+  const [blocked, setBlocked] = useState<{ url: string; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const submit = () => {
@@ -348,11 +353,21 @@ function RenewalResponseDialog({
       if (invalid) return setError(invalid);
     }
     setError(null);
+    // Aba aberta no clique (antes do await) para o navegador não tratar como pop-up.
+    const whatsappWindow = input.outcome === "autorizada" ? preOpenWhatsappWindow() : null;
     startTransition(async () => {
       const result = await registerAuthorizationRenewalResponse(renewal.id, input);
-      if (!result.success) return setError(result.error);
+      if (!result.success) {
+        whatsappWindow?.close();
+        return setError(result.error);
+      }
+      const opened = finishWhatsappWindow(whatsappWindow, result.whatsappUrl);
       router.refresh();
-      onDone(outcome === "autorizada" ? "Guia nova registrada e ativa." : "Negativa do plano registrada.");
+      const message = [outcome === "autorizada" ? "Guia nova registrada e ativa." : "Negativa do plano registrada.", result.note]
+        .filter(Boolean)
+        .join(" ");
+      if (result.whatsappUrl && !opened) return setBlocked({ url: result.whatsappUrl, message });
+      onDone(message);
     });
   };
 
@@ -362,7 +377,7 @@ function RenewalResponseDialog({
         <div className="rounded-md bg-paper p-4">
           <p className="m-0 text-base font-bold text-ink">{item.patientName}</p>
           <p className="m-0 mt-1 text-sm text-ink-soft">
-            {item.insurerName} · {item.specialty} · pedido{renewal.requestedAt ? ` em ${fmtDate(renewal.requestedAt)}` : ""} de{" "}
+            {[item.insurerName, item.specialty].filter(Boolean).join(" · ")} · pedido{renewal.requestedAt ? ` em ${fmtDate(renewal.requestedAt)}` : ""} de{" "}
             {renewal.sessionsRequested} sessões
           </p>
         </div>
@@ -377,7 +392,7 @@ function RenewalResponseDialog({
               }`}
             >
               <input type="radio" name="renewal-outcome" value={value} checked={outcome === value} onChange={() => setOutcome(value)} className="accent-[var(--color-accent)]" />
-              {value === "autorizada" ? "Autorizou" : "Negou"}
+              {value === "autorizada" ? "Autorizado" : "Negado"}
             </label>
           ))}
         </fieldset>
@@ -401,14 +416,28 @@ function RenewalResponseDialog({
             {error}
           </p>
         )}
-        <div className="flex justify-end gap-3 border-t border-paper-line pt-4">
-          <button type="button" onClick={onClose} className="btn btn-ghost" disabled={isPending}>
-            Cancelar
-          </button>
-          <button type="button" onClick={submit} className="btn btn-primary" disabled={isPending}>
-            {isPending ? "Registrando…" : outcome === "autorizada" ? "Registrar guia autorizada" : "Registrar negativa"}
-          </button>
-        </div>
+        {blocked ? (
+          <div className="flex flex-col gap-3 border-t border-paper-line pt-4">
+            <p className="m-0 text-sm text-ink">{blocked.message} O navegador bloqueou a aba do WhatsApp.</p>
+            <div className="flex justify-end gap-3">
+              <a href={blocked.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary" onClick={() => onDone(blocked.message)}>
+                Abrir WhatsApp com o aviso
+              </a>
+              <button type="button" onClick={() => onDone(blocked.message)} className="btn btn-ghost">
+                Fechar sem avisar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-end gap-3 border-t border-paper-line pt-4">
+            <button type="button" onClick={onClose} className="btn btn-ghost" disabled={isPending}>
+              Cancelar
+            </button>
+            <button type="button" onClick={submit} className="btn btn-primary" disabled={isPending}>
+              {isPending ? "Registrando…" : outcome === "autorizada" ? "Autorizado — salvar e avisar no WhatsApp" : "Registrar negativa"}
+            </button>
+          </div>
+        )}
       </div>
     </DialogShell>
   );
