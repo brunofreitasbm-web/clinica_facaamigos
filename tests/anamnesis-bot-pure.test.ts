@@ -14,6 +14,7 @@ import {
   parseFullNameAnswer,
   parseGuardianEmailAnswer,
   parsePlanAnswer,
+  parseTherapiesAnswer,
   parseYesNo,
 } from "../lib/anamnesis-bot-pure.ts";
 import { normalizeEmail, normalizeFullName } from "../lib/whatsapp-lead-pure.ts";
@@ -142,4 +143,39 @@ test("canonicalAnamnesisStep: etapas antigas continuam valendo", () => {
   assert.equal(canonicalAnamnesisStep("awaiting_carteirinha_frente"), "awaiting_carteirinha");
   assert.equal(canonicalAnamnesisStep("awaiting_documento_identidade"), "awaiting_documento_identidade");
   assert.equal(canonicalAnamnesisStep("pending_supervisor"), "pending_supervisor");
+});
+
+test("parseTherapiesAnswer: números, apelidos, várias terapias, não sei e inválido", () => {
+  const options = [
+    { value: "fonoaudiologia", label: "Fonoaudiologia" },
+    { value: "terapia_ocupacional", label: "Terapia Ocupacional" },
+    { value: "psicologia_aba", label: "Psicologia ABA" },
+    { value: "psicopedagogia", label: "Psicopedagogia" },
+  ];
+  assert.deepEqual(parseTherapiesAnswer("1 e 3", options), {
+    kind: "therapies",
+    values: ["fonoaudiologia", "psicologia_aba"],
+    labels: ["Fonoaudiologia", "Psicologia ABA"],
+  });
+  assert.deepEqual(parseTherapiesAnswer("2", options), {
+    kind: "therapies",
+    values: ["terapia_ocupacional"],
+    labels: ["Terapia Ocupacional"],
+  });
+  assert.deepEqual(parseTherapiesAnswer("Fono e TO", options), {
+    kind: "therapies",
+    values: ["fonoaudiologia", "terapia_ocupacional"],
+    labels: ["Fonoaudiologia", "Terapia Ocupacional"],
+  });
+  // "psico" não pode casar com psicopedagogia (palavra inteira)
+  assert.deepEqual(parseTherapiesAnswer("psicopedagogia", options), {
+    kind: "therapies",
+    values: ["psicopedagogia"],
+    labels: ["Psicopedagogia"],
+  });
+  assert.deepEqual(parseTherapiesAnswer("Não sei", options), { kind: "unsure" });
+  assert.deepEqual(parseTherapiesAnswer("quero uma avaliação", options), { kind: "unsure" });
+  assert.deepEqual(parseTherapiesAnswer("9", options), { kind: "invalid" });
+  assert.deepEqual(parseTherapiesAnswer("talvez amanhã", options), { kind: "invalid" });
+  assert.deepEqual(parseTherapiesAnswer("", options), { kind: "invalid" });
 });

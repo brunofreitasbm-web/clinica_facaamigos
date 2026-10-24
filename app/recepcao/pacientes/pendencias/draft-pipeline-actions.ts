@@ -2,7 +2,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { buildAuthorizationApprovedMessage, buildWhatsappLink } from "@/lib/whatsapp-message";
 
 /**
  * Etapas 2, 3 e 4 da linha do tempo de cada contato da fila de pendências
@@ -17,7 +19,12 @@ import { createClient } from "@/lib/supabase/server";
  * update a recepção/supervisor/gestor da clínica.
  */
 
-type ActionResult = { success: true; note?: string } | { success: false; error: string };
+/** `whatsappUrl`: aviso manual ao responsável (wa.me), só em registerAuthorizedGuide. */
+type ActionResult = { success: true; note?: string; whatsappUrl?: string } | { success: false; error: string };
+
+const asRecord = (v: unknown): Record<string, unknown> | null =>
+  v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+const asText = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 
 export type AuthorizedGuideInput = {
   guideNumber: string;
@@ -142,7 +149,7 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
 
   const { data: draft } = await supabase
     .from("registration_drafts")
-    .select("id, patient_id, authorization_id, scheduling_enabled_at, guide_sent_at")
+    .select("id, patient_id, authorization_id, scheduling_enabled_at, guide_sent_at, source_phone, extracted, patients(full_name)")
     .eq("id", draftId)
     .maybeSingle();
   if (!draft) return { success: false, error: "Contato não encontrado." };
@@ -218,7 +225,59 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
   }
 
   refresh();
-  return { success: true, note };
+  // bot_collected ainda não está em database.types.ts (coluna de 20260921060000).
+  const { data: botRow } = await (supabase as unknown as SupabaseClient)
+    .from("registration_drafts")
+    .select("bot_collected")
+    .eq("id", draftId)
+    .maybeSingle();
+  const notice = await authorizationWhatsappNotice(supabase, { ...draft, bot_collected: botRow?.bot_collected ?? null });
+  return { success: true, note: note ?? notice.note, whatsappUrl: notice.whatsappUrl };
+}
+
+/**
+ * Link do WhatsApp com o aviso de "plano autorizou". Telefone e nomes vêm do
+ * que o contato já tem (conferido > lido pela IA > digitado no bot > telefone
+ * da conversa). O envio é manual; sem telefone, só um aviso na tela.
+ */
+async function authorizationWhatsappNotice(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  draft: {
+    source_phone: string | null;
+    extracted: unknown;
+    bot_collected: unknown;
+    patients: { full_name: string } | { full_name: string }[] | null;
+  },
+): Promise<{ whatsappUrl?: string; note?: string }> {
+  const extracted = asRecord(draft.extracted);
+  const bot = asRecord(draft.bot_collected);
+  const guardian = asRecord(extracted?.guardian);
+  const patient = asRecord(extracted?.patient);
+  const insurance = asRecord(extracted?.insurance);
+
+  const phone = asText(guardian?.phone) ?? draft.source_phone;
+  if (!phone) return { note: "Autorização registrada. Sem telefone do responsável — avise a família manualmente." };
+
+  const linkedPatient = Array.isArray(draft.patients) ? draft.patients[0] : draft.patients;
+  let insurerName = asText(insurance?.insurer_name);
+  if (!insurerName && draft.source_phone) {
+    const { data: conversation } = await supabase
+      .from("twilio_conversations")
+      .select("insurers(name)")
+      .eq("phone_number", draft.source_phone)
+      .not("insurer_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    const insurer = Array.isArray(conversation?.insurers) ? conversation?.insurers[0] : conversation?.insurers;
+    insurerName = insurer?.name ?? null;
+  }
+
+  const message = buildAuthorizationApprovedMessage({
+    guardianName: asText(guardian?.full_name) ?? asText(bot?.guardian_name),
+    patientName: linkedPatient?.full_name ?? asText(patient?.full_name) ?? asText(bot?.child_name),
+    insurerName,
+  });
+  return { whatsappUrl: buildWhatsappLink(phone, message) };
 }
 
 /** Marca a etapa 3 como dispensada — particular, ou convênio que não exige guia para a 1ª avaliação. */

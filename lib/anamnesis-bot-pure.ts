@@ -167,6 +167,54 @@ export function parsePlanAnswer(raw: string | null | undefined, insurers: PlanOp
   return { kind: "not_served", typed: (raw ?? "").trim() };
 }
 
+export type TherapyOption = { value: string; label: string };
+
+export type TherapiesAnswer =
+  | { kind: "therapies"; values: string[]; labels: string[] }
+  | { kind: "unsure" }
+  | { kind: "invalid" };
+
+/** Apelidos por `specialties.value` (palavra inteira, sem acento). */
+const THERAPY_ALIASES: Record<string, string[]> = {
+  fonoaudiologia: ["fono", "fonoaudiologa", "fonoaudiologo"],
+  terapia_ocupacional: ["to", "t o", "ocupacional"],
+  psicologia_aba: ["psico", "psicologia", "psicologa", "psicologo", "aba"],
+  fisioterapia: ["fisio", "fisioterapeuta"],
+  musicoterapia: ["musico", "musica"],
+  psicopedagogia: ["psicoped", "psicopedagoga", "psicopedagogo"],
+  nutricao: ["nutri", "nutricionista"],
+};
+
+const THERAPY_UNSURE = /\b(nao sei|nao tenho certeza|em duvida|duvida|indeciso|indecisa|avaliacao|so avaliacao|quero avaliacao)\b/;
+
+/**
+ * Resposta à pergunta "quais terapias?". Aceita números da lista ("1 e 3"),
+ * nome ou apelido (fono, TO, ABA…), uma ou várias. "Não sei"/"avaliação" segue
+ * sem terapia; o resto é `invalid` (o bot pergunta de novo uma vez).
+ */
+export function parseTherapiesAnswer(raw: string | null | undefined, options: TherapyOption[]): TherapiesAnswer {
+  const text = normalizeAnswer(raw);
+  if (!text) return { kind: "invalid" };
+  const padded = ` ${text} `;
+  const picked = new Set<string>();
+
+  for (const token of text.match(/\b\d+\b/g) ?? []) {
+    const option = options[Number(token) - 1];
+    if (option) picked.add(option.value);
+  }
+  for (const option of options) {
+    const names = [normalizeAnswer(option.label), ...(THERAPY_ALIASES[option.value] ?? [])].filter((n) => n.length > 0);
+    if (names.some((name) => padded.includes(` ${name} `))) picked.add(option.value);
+  }
+
+  if (picked.size > 0) {
+    const chosen = options.filter((o) => picked.has(o.value));
+    return { kind: "therapies", values: chosen.map((o) => o.value), labels: chosen.map((o) => o.label) };
+  }
+  if (THERAPY_UNSURE.test(text)) return { kind: "unsure" };
+  return { kind: "invalid" };
+}
+
 /**
  * Etapas do fluxo antigo (14 mensagens) → etapa equivalente do fluxo enxuto,
  * para quem parou no meio continuar de onde estava. `legacy_identity` = estava

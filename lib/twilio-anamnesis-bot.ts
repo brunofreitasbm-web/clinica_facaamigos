@@ -11,8 +11,10 @@ import {
   parseExitCommand,
   parseFullNameAnswer,
   parsePlanAnswer,
+  parseTherapiesAnswer,
   parseYesNo,
   type PlanOption,
+  type TherapyOption,
 } from "@/lib/anamnesis-bot-pure";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { registerBotDraftFiles, syncBotDraft } from "@/lib/registration-drafts-bot";
@@ -327,6 +329,7 @@ async function finalizeAnamnesisRequest(
       carteirinha_verso_url: data.carteirinha_verso_url,
       card_number: data.card_number,
       is_private: data.is_private === true,
+      desired_specialties: Array.isArray(data.therapies) && data.therapies.length > 0 ? data.therapies : null,
       patient_id: leadPatientId,
       status: "pendente_supervisor",
     })
@@ -381,6 +384,7 @@ const OWN_STEPS = new Set([
   "awaiting_child_name",
   "awaiting_child_birth_date",
   "awaiting_plan",
+  "awaiting_therapies",
   "awaiting_laudo",
   "awaiting_carteirinha",
   "awaiting_carteirinha_verso",
@@ -411,6 +415,61 @@ async function loadActiveInsurers(supabase: any): Promise<PlanOption[]> {
 function insurerList(insurers: PlanOption[]): string {
   return insurers.length > 0 ? insurers.map((i) => `*${i.name}*`).join(", ") : "nossos convênios parceiros";
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadActiveTherapies(supabase: any): Promise<TherapyOption[]> {
+  const { data } = await supabase
+    .from("specialties")
+    .select("value, label")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("active", true)
+    .order("sort_order");
+  return ((data ?? []) as TherapyOption[]).filter((t) => t.value !== "outro");
+}
+
+function therapiesQuestion(childName: string | undefined, options: TherapyOption[]): string {
+  const list = options.map((t, i) => `${i + 1}. *${t.label}*`).join("\n");
+  return (
+    `Quais terapias vocês procuram para ${childName || "a criança"}? Pode responder mais de uma ` +
+    `(ex.: *1 e 3*).\n\n${list}\n\nSe ainda não souber, responda *NÃO SEI* que a equipe orienta na avaliação.`
+  );
+}
+
+/** Pergunta as terapias; se o catálogo estiver vazio, pula direto para o próximo passo. */
+async function askTherapies(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  phone: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
+  prefix = "",
+): Promise<AnamnesisStepResult> {
+  const options = await loadActiveTherapies(supabase);
+  if (options.length === 0) return afterTherapies(supabase, phone, data, prefix);
+  await persistStep(supabase, phone, "awaiting_therapies", data);
+  return { handled: true, replyMessage: prefix + therapiesQuestion(data.child_name, options) };
+}
+
+/** Depois das terapias: particular fecha a solicitação; convênio pede o laudo. */
+async function afterTherapies(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  phone: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
+  prefix = "",
+): Promise<AnamnesisStepResult> {
+  if (data.is_private === true) return finalizeAnamnesisRequest(supabase, phone, data);
+  await persistStep(supabase, phone, "awaiting_laudo", data);
+  return {
+    handled: true,
+    replyMessage:
+      prefix +
+      `Envie a foto ou PDF do *laudo* (ou pedido médico com CID) de ${data.child_name}. ${LAUDO_QUESTION_SUFFIX}`,
+  };
+}
+
+const LAUDO_QUESTION_SUFFIX = "Se ainda não tiver, responda *NÃO TENHO*.";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function resetSession(supabase: any, phone: string): Promise<void> {
@@ -586,7 +645,7 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
 
     if (answer.kind === "particular") {
       data.is_private = true;
-      return finalizeAnamnesisRequest(supabase, phone, data);
+      return askTherapies(supabase, phone, data);
     }
 
     if (answer.kind === "insurer") {
@@ -596,14 +655,7 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
       if (params.conversationId) {
         await supabase.from("twilio_conversations").update({ insurer_id: answer.id }).eq("id", params.conversationId);
       }
-      await persistStep(supabase, phone, "awaiting_laudo", data);
-      return {
-        handled: true,
-        replyMessage:
-          `Perfeito, atendemos *${answer.name}*! 💙\n\n` +
-          `Envie a foto ou PDF do *laudo* (ou pedido médico com CID) de ${data.child_name}. ` +
-          "Se ainda não tiver, responda *NÃO TENHO*.",
-      };
+      return askTherapies(supabase, phone, data, `Perfeito, atendemos *${answer.name}*! 💙\n\n`);
     }
 
     if (answer.kind === "not_served") {
@@ -619,6 +671,31 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
       handled: true,
       replyMessage: `Qual o nome do plano? Atendemos ${insurerList(insurers)}. Ou responda *PARTICULAR*.`,
     };
+  }
+
+  // 5.5. Terapias desejadas (etapa fixa, sem IA). Duas respostas ilegíveis não
+  // travam o lead: o texto livre vai para a recepção conferir.
+  if (currentStep === "awaiting_therapies") {
+    const options = await loadActiveTherapies(supabase);
+    const answer = parseTherapiesAnswer(rawBody, options);
+
+    if (answer.kind === "invalid" && options.length > 0 && !data.therapies_reasked) {
+      data.therapies_reasked = true;
+      await persistStep(supabase, phone, "awaiting_therapies", data);
+      return {
+        handled: true,
+        replyMessage: `Não consegui identificar a terapia. 💙 Responda com o número da lista (ex.: *1 e 2*) ou *NÃO SEI*.\n\n${therapiesQuestion(data.child_name, options)}`,
+      };
+    }
+
+    if (answer.kind === "therapies") {
+      data.therapies = answer.values;
+      data.therapies_labels = answer.labels;
+    } else if (answer.kind === "invalid" && rawBody.trim()) {
+      data.therapies_text = rawBody.trim().slice(0, 200);
+    }
+    delete data.therapies_reasked;
+    return afterTherapies(supabase, phone, data);
   }
 
   // 6. Laudo: um passo só (antes: "tem laudo? SIM/NÃO" + "envie o laudo").

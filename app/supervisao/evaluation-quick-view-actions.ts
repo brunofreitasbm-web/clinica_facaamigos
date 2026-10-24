@@ -99,7 +99,7 @@ async function anamnesisQuickView(requestId: string): Promise<QuickViewResult> {
   const { data: request } = await admin
     .from("anamnesis_scheduling_requests")
     .select(
-      "id, child_name, child_birth_date, guardian_name, guardian_phone, guardian_cpf, card_number, is_private, status, rejection_reason, patient_id, laudo_pdf_url, guia_pdf_url, carteirinha_frente_url, carteirinha_verso_url",
+      "id, child_name, child_birth_date, guardian_name, guardian_phone, guardian_cpf, card_number, is_private, status, rejection_reason, patient_id, laudo_pdf_url, guia_pdf_url, carteirinha_frente_url, carteirinha_verso_url, desired_specialties",
     )
     .eq("id", requestId)
     .maybeSingle();
@@ -119,6 +119,11 @@ async function anamnesisQuickView(requestId: string): Promise<QuickViewResult> {
   pushField(fields, "Nascimento", fmtDate(request.child_birth_date));
   pushField(fields, "CPF do responsável", request.guardian_cpf);
   pushField(fields, "Nº da carteirinha", request.card_number);
+  if (request.desired_specialties && request.desired_specialties.length > 0) {
+    const { data: specialties } = await admin.from("specialties").select("value, label").in("value", request.desired_specialties);
+    const labelOf = new Map((specialties ?? []).map((sp) => [sp.value, sp.label]));
+    pushField(fields, "Terapias desejadas", request.desired_specialties.map((v) => labelOf.get(v) ?? v).join(", "));
+  }
 
   const warnings: string[] = [];
   if (request.rejection_reason) warnings.push(`Documentação já rejeitada uma vez: ${request.rejection_reason}`);

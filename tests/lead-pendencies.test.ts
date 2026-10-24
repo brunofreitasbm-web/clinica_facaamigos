@@ -7,6 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   computeLeadPendencies,
+  desiredTherapiesFromBot,
   hasUsefulChatData,
   isBotDatumPresent,
   mergeBotCollectedIntoExtraction,
@@ -278,4 +279,20 @@ test("chaves de cobrança batem com MISSING_DOCUMENT_TEMPLATES", async () => {
   for (const literal of ["laudo_medico", "pedido_medico", "carteirinha", "documento_responsavel"]) {
     assert.ok(keys.includes(literal), literal);
   }
+});
+
+test("pickBotCollected mantém as terapias pedidas e desiredTherapiesFromBot as resume", () => {
+  const picked = pickBotCollected(
+    { child_name: "Ana", therapies: ["fonoaudiologia"], therapies_labels: ["Fonoaudiologia"], therapies_reasked: true },
+    "awaiting_laudo",
+  );
+  assert.deepEqual(picked.therapies, ["fonoaudiologia"]);
+  assert.deepEqual(picked.therapies_labels, ["Fonoaudiologia"]);
+  assert.equal("therapies_reasked" in picked, false);
+  assert.equal(desiredTherapiesFromBot(picked), "Fonoaudiologia");
+  assert.equal(desiredTherapiesFromBot({ therapies_labels: ["Fonoaudiologia", "Terapia Ocupacional"] }), "Fonoaudiologia, Terapia Ocupacional");
+  assert.equal(desiredTherapiesFromBot({ therapies_text: "  só musicalização " }), "só musicalização");
+  assert.equal(desiredTherapiesFromBot(null), null);
+  // terapia sozinha não conta como "o lead deu um dado" para a recepção conferir
+  assert.equal(isBotDatumPresent({ therapies: ["fonoaudiologia"] }), false);
 });

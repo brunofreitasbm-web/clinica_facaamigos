@@ -13,6 +13,7 @@ import { fmtDueShort } from "@/lib/format";
 import { RegisterContactButton } from "./register-contact-button";
 import { ResolveAutoFaltaButton } from "./resolve-auto-falta-button";
 import { ResolveSimpleButton } from "./resolve-simple-button";
+import { AuthorizeRenewalButton } from "./authorize-renewal-button";
 import { ResolveRenewalRequestButton } from "./resolve-renewal-request-button";
 import { ReassignOwnerButton } from "./reassign-owner-button";
 import { resolveRescheduleRequest, reviewFamilyDocument } from "./actions";
@@ -89,7 +90,12 @@ function primaryAction(item: PendingQueueItem) {
       <ResolveSimpleButton id={item.documentId} label="Marcar como revisado" doneLabel="Revisado" action={reviewFamilyDocument} />
     );
   if (category === "renovacao_solicitada" && item.renewalRequestId)
-    return <ResolveRenewalRequestButton requestId={item.renewalRequestId} />;
+    return (
+      <div className="flex flex-wrap items-start justify-end gap-2">
+        {item.renewalPending && <AuthorizeRenewalButton patientName={item.patientName} pending={item.renewalPending} />}
+        <ResolveRenewalRequestButton requestId={item.renewalRequestId} />
+      </div>
+    );
   return null;
 }
 
