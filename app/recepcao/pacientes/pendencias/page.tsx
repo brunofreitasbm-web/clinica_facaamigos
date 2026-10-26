@@ -1,10 +1,12 @@
 import { ChevronRight } from "lucide-react";
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import {
   getReceptionQueue,
   getAuthorizationWizardItems,
+  isAuthorizationQueueItem,
   type PendingQueueCategory,
 } from "@/lib/reception-queue";
 import { AutorizacaoWizard } from "./autorizacao-wizard";
@@ -49,7 +51,11 @@ export default async function PendenciasPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const queue = await getReceptionQueue(supabase);
+  const fullQueue = await getReceptionQueue(supabase);
+  // Lead que só espera o plano mora em /recepcao/a-autorizar; links antigos (?lead=) seguem para lá.
+  const movedLead = params.lead ? fullQueue.find((item) => item.draft?.id === params.lead && isAuthorizationQueueItem(item)) : undefined;
+  if (movedLead) redirect(`/recepcao/a-autorizar?item=${encodeURIComponent(movedLead.id)}`);
+  const queue = fullQueue.filter((item) => !isAuthorizationQueueItem(item));
   const authorizations = await getAuthorizationWizardItems(supabase, DEV_CLINIC_ID);
 
   // Candidatos pra reatribuição manual (§9.1 "dono + prazo"): mesmo conjunto
@@ -87,8 +93,8 @@ export default async function PendenciasPage({
     <main className="flex flex-1 flex-col">
       <PageHeader
         axisLabel="Recepção"
-        title="Fila de pendências"
-        description="Tudo o que a recepção precisa resolver, do mais urgente ao que pode esperar."
+        title="Pendências gerais"
+        description="Documento faltando, guia vencendo, faltas e demais pendências de pacientes. A autorização do plano fica em Autorizações do plano."
       />
       <PageContainer className="gap-5">
         {authorizations.length > 0 && (

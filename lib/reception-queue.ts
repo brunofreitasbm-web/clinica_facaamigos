@@ -1319,6 +1319,18 @@ async function attachQueueAssignments(
  * lugar do app (guia vencendo, cadastro incompleto, evolução atrasada); esta
  * função só junta e ordena pra exibição, sem duplicar regra.
  */
+/**
+ * Separa as duas filas da Recepção. "À autorizar" (Autorizações do plano) é só o
+ * que depende do plano de saúde: contato com documentos completos, ainda sem o
+ * ok de agendamento, ou devolvido pela Supervisão. Todo o resto — documento
+ * faltando, guia vencendo, falta sem motivo etc. — é "Pendências gerais".
+ */
+export function isAuthorizationQueueItem(item: PendingQueueItem): boolean {
+  const draft = item.draft;
+  if (!draft || draft.pipeline.schedulingEnabledAt) return false;
+  return draft.pendencies.missingCount === 0 || Boolean(draft.pipeline.returned);
+}
+
 export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_CLINIC_ID): Promise<PendingQueueItem[]> {
   const [
     expiringAuths,

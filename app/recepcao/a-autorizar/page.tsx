@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { getReceptionQueue } from "@/lib/reception-queue";
+import { getReceptionQueue, isAuthorizationQueueItem } from "@/lib/reception-queue";
 import { QueueWorkspace, type QueueStage } from "../pacientes/pendencias/queue-workspace";
 import { buildWorkspaceItems } from "../pacientes/pendencias/queue-items";
 
@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
 const QUEUE_STAGES: QueueStage[] = ["docs", "autorizacao", "agendar"];
 
 /**
- * "À autorizar": todo lead vindo do WhatsApp que ainda não passou pelo plano de
- * saúde — documentos e dados captados pelo bot, mais a linha do tempo da
+ * "Autorizações do plano": contato com documentos completos que ainda não passou pelo
+ * plano de saúde — documentos e dados captados pelo bot, mais a linha do tempo da
  * autorização (guia enviada → plano autorizou → habilitar agendamento). É o
  * mesmo painel de contato da Fila de pendências (DraftIntakeCard), só que
  * recortado para essa etapa. Quem a Supervisão devolveu volta aqui com o motivo.
@@ -24,12 +24,7 @@ export default async function AAutorizarPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const queue = (await getReceptionQueue(supabase)).filter((item) => {
-    const draft = item.draft;
-    if (!draft || draft.source !== "whatsapp") return false;
-    if (draft.pipeline.schedulingEnabledAt) return false;
-    return true;
-  });
+  const queue = (await getReceptionQueue(supabase)).filter(isAuthorizationQueueItem);
 
   const { data: reassignCandidates } = await supabase
     .from("profiles")
@@ -50,14 +45,14 @@ export default async function AAutorizarPage({
     <main className="flex flex-1 flex-col">
       <PageHeader
         axisLabel="Recepção"
-        title="À autorizar"
-        description="Leads do WhatsApp com os documentos e dados captados, aguardando a autorização do plano de saúde."
+        title="Autorizações do plano"
+        description="Contatos com os documentos já completos, aguardando só a autorização do plano de saúde. Documento faltando fica em Pendências gerais."
       />
       <PageContainer className="gap-5">
         {queue.length === 0 ? (
           <div className="rounded-lg bg-paper-surface px-6 py-10 text-center shadow-sm">
-            <p className="m-0 text-lg font-bold text-ink">Nenhum lead aguardando autorização.</p>
-            <p className="m-0 mt-1 text-[15px] text-ink-soft">Quando um contato do WhatsApp enviar documentos, ele aparece aqui.</p>
+            <p className="m-0 text-lg font-bold text-ink">Nenhuma autorização de plano pendente.</p>
+            <p className="m-0 mt-1 text-[15px] text-ink-soft">Quando um contato completar os documentos, ele aparece aqui.</p>
           </div>
         ) : (
           <QueueWorkspace
