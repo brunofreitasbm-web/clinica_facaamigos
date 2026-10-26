@@ -235,12 +235,22 @@ export function computeLeadPendencies(input: LeadPendenciesInput): LeadPendencie
   // sem resposta (mídia solta, portal), vale o "sem guia" marcado pela recepção.
   // Plano identificado (cadastro, conversa, leitura da IA ou resposta do bot) nunca vira particular
   // por "sem guia" marcado na recepção.
-  const hasPlan = input.insurerKnown || asText(insurance?.insurer_name) !== null || bot?.is_private === false;
-  const isPrivate = bot?.is_private === true || (bot?.is_private == null && input.authorizationWaived && !hasPlan);
-
   const types = new Set<string>();
   for (const t of input.fileTypes) if (t) types.add(t);
   for (const c of input.patientDocCategories) if (c) types.add(c);
+
+  // Qualquer menção a plano basta: nome/id do convênio, plano, nº da carteirinha (IA ou bot)
+  // ou uma carteirinha entre os arquivos/documentos.
+  const hasPlan =
+    input.insurerKnown ||
+    asText(insurance?.insurer_name) !== null ||
+    asText(insurance?.insurer_id) !== null ||
+    asText(insurance?.plan_name) !== null ||
+    asText(insurance?.card_number) !== null ||
+    asText(bot?.card_number) !== null ||
+    types.has("carteirinha") ||
+    bot?.is_private === false;
+  const isPrivate = bot?.is_private === true || (bot?.is_private == null && input.authorizationWaived && !hasPlan);
 
   const readingPending =
     (input.draftStatus === "pending" || input.draftStatus === "processing") && input.filesCount > 0;

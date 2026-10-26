@@ -278,10 +278,24 @@ async function draftHasPlan(supabase: Awaited<ReturnType<typeof createClient>>, 
     .maybeSingle();
   if (!draft) return false;
 
-  const bot = draft.bot_collected as { is_private?: unknown } | null;
+  const bot = draft.bot_collected as { is_private?: unknown; card_number?: unknown } | null;
   if (bot?.is_private === false) return true;
-  const insurance = (draft.extracted as { insurance?: { insurer_name?: unknown } } | null)?.insurance;
-  if (typeof insurance?.insurer_name === "string" && insurance.insurer_name.trim()) return true;
+  const filled = (v: unknown) => (typeof v === "string" ? v.trim() !== "" : v != null);
+  if (filled(bot?.card_number)) return true;
+  const insurance = (
+    draft.extracted as { insurance?: { insurer_name?: unknown; insurer_id?: unknown; plan_name?: unknown; card_number?: unknown } } | null
+  )?.insurance;
+  if (filled(insurance?.insurer_name) || filled(insurance?.insurer_id) || filled(insurance?.plan_name) || filled(insurance?.card_number)) {
+    return true;
+  }
+
+  const { data: cardFiles } = await supabase
+    .from("registration_draft_files")
+    .select("id")
+    .eq("draft_id", draftId)
+    .eq("detected_type", "carteirinha")
+    .limit(1);
+  if (cardFiles && cardFiles.length > 0) return true;
 
   if (draft.patient_id) {
     const { data } = await supabase
