@@ -88,9 +88,10 @@ export function PayoutStatementModal({
   return (
     <>
       <button
+        type="button"
         onClick={handleOpen}
         disabled={isDownloading}
-        className="inline-flex items-center gap-2 rounded-md border border-paper-line-strong bg-paper px-3.5 py-1.5 text-xs font-semibold text-ink hover:bg-paper-subtle transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-paper-line-strong bg-paper px-4 py-2 text-xs font-semibold text-ink shadow-2xs transition-all duration-150 hover:bg-paper-subtle active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
       >
         {isDownloading ? "Gerando PDF..." : "📄 Extrato de Honorários PDF"}
       </button>
@@ -110,15 +111,17 @@ export function PayoutStatementModal({
               </div>
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={handlePrint}
                   disabled={isDownloading}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
                 >
                   {isDownloading ? "Gerando PDF..." : "🖨 Baixar / Imprimir PDF"}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-md border border-paper-line-strong px-3 py-2 text-xs font-medium text-ink hover:bg-paper-line"
+                  className="inline-flex min-h-[44px] items-center rounded-lg border border-paper-line-strong px-4 py-2 text-xs font-semibold text-ink transition-all duration-150 hover:bg-paper-line active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent cursor-pointer"
                 >
                   Fechar
                 </button>

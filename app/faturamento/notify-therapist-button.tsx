@@ -36,13 +36,13 @@ export function NotifyTherapistButton({
       type="button"
       onClick={handleClick}
       disabled={status !== "idle"}
-      className="btn btn-ghost text-xs"
+      className="btn btn-ghost min-h-[44px] px-3 py-2 text-xs font-semibold inline-flex items-center gap-2 transition-all duration-150 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent cursor-pointer"
       style={status === "success" ? { color: "var(--color-status-realizada-text)" } : undefined}
     >
-      {status === "loading" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-      {status === "success" && <Check className="h-3.5 w-3.5" />}
-      {status === "idle" && <BellRing className="h-3.5 w-3.5" />}
-      {status === "success" ? "Notificado" : "Notificar terapeuta"}
+      {status === "loading" && <Loader2 className="h-4 w-4 animate-spin" />}
+      {status === "success" && <Check className="h-4 w-4" />}
+      {status === "idle" && <BellRing className="h-4 w-4" />}
+      <span>{status === "success" ? "Notificado" : "Notificar terapeuta"}</span>
     </button>
   );
 }

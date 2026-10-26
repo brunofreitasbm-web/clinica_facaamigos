@@ -66,7 +66,7 @@ export function Sidebar({
               key={item.key}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`group flex items-center justify-between rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all duration-150 ${
+              className={`group flex min-h-[44px] items-center justify-between rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all duration-150 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${
                 active
                   ? "active-link border-l-4 border-[#1967D2] bg-[#E8F0FE] font-semibold text-[#1967D2] shadow-xs"
                   : "border-l-4 border-transparent text-ink-soft hover:bg-paper hover:text-ink"

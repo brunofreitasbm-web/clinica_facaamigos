@@ -45,17 +45,17 @@ export function MonthlyTabs({
               color: isActive ? theme.colors.tab.activeText : theme.colors.tab.inactiveText,
               borderColor: isActive ? theme.colors.tab.activeBg : theme.colors.tab.inactiveBorder,
             }}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 border shadow-xs hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:ring-2 focus-visible:ring-offset-1`}
+            className={`min-h-[44px] px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 active:scale-95 flex items-center gap-2 border shadow-xs hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:ring-2 focus-visible:ring-offset-1 cursor-pointer`}
           >
             <span>{tab.label}</span>
             {typeof tab.count === "number" && (
               <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
                   tab.hasAlert
-                    ? "bg-status-negative text-white font-bold animate-pulse"
+                    ? "bg-status-negative text-white animate-pulse"
                     : isActive
-                    ? "bg-white/25 text-white font-bold"
-                    : "bg-[#D4D4D4] text-[#1F1F1F] font-bold"
+                    ? "bg-white/25 text-white"
+                    : "bg-[#D4D4D4] text-[#1F1F1F]"
                 }`}
               >
                 {tab.count}

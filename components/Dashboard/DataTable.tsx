@@ -90,7 +90,7 @@ export function DataTable<T extends Record<string, any>>({
           disabled={isExporting}
           aria-busy={isExporting}
           aria-live="polite"
-          className="btn btn-primary text-xs font-semibold px-4 py-2 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn btn-primary min-h-[44px] text-xs font-semibold px-4 py-2 flex items-center gap-2 transition-all duration-150 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isExporting ? (
             <>

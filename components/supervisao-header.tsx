@@ -86,7 +86,7 @@ export function SupervisaoHeader() {
               if (!onRoot) router.push("/supervisao");
               setManualScheduleOpen(true);
             }}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-semibold no-underline transition-all duration-150 active:scale-95 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="flex min-h-[44px] items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold no-underline transition-all duration-150 active:scale-95 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white cursor-pointer shadow-2xs"
             style={{ background: "var(--color-on-accent)", color: "var(--color-accent)" }}
           >
             <CalendarDays size={15} aria-hidden />
