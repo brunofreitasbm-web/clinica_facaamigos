@@ -50,24 +50,24 @@ export function SectionSidebar({
 
   return (
     <aside className="w-[220px] shrink-0 border-r border-paper-line-strong px-4 py-8">
-      <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3 px-3">
+      <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider">
         {title}
       </h6>
-      <nav className="flex flex-col gap-1">
+      <nav className="flex flex-col gap-1" aria-label={title}>
         {items.map((item) => (
           <Link
             key={item.key}
             href={item.href}
             prefetch={true}
             aria-current={activeKey === item.key ? "page" : undefined}
-            className="rounded-md px-3 py-2 text-[14px] no-underline"
+            className="flex min-h-[44px] items-center rounded-lg px-3 py-2 text-[14px] no-underline transition-all duration-150 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
             style={{
               color: activeKey === item.key ? "var(--color-accent)" : "var(--color-text)",
               background: activeKey === item.key ? "var(--color-accent-100)" : "transparent",
               fontWeight: activeKey === item.key ? 600 : 400,
             }}
           >
-            {item.label}
+            <span className="truncate">{item.label}</span>
             {item.external && <span aria-label="(sai desta seção)"> ↗</span>}
           </Link>
         ))}
