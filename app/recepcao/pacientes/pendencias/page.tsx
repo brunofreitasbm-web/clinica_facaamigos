@@ -9,7 +9,7 @@ import {
   type PendingQueueCategory,
   type PendingQueueItem,
 } from "@/lib/reception-queue";
-import { fmtDueShort } from "@/lib/format";
+import { fmtDueShort, fmtWaitingDays } from "@/lib/format";
 import { RegisterContactButton } from "./register-contact-button";
 import { ResolveAutoFaltaButton } from "./resolve-auto-falta-button";
 import { ResolveSimpleButton } from "./resolve-simple-button";
@@ -64,7 +64,7 @@ function draftStage(item: PendingQueueItem): QueueStage | null {
 }
 
 function dueText(item: PendingQueueItem): string {
-  if (item.escalatedAt) return `escalado ${fmtDueShort(item.escalatedAt, CLINIC_TIMEZONE)}`;
+  if (item.escalatedAt) return fmtWaitingDays(item.escalatedAt, CLINIC_TIMEZONE);
   if (item.overdue && item.dueAt) return `atrasado · ${fmtDueShort(item.dueAt, CLINIC_TIMEZONE)}`;
   if (item.dueAt) return fmtDueShort(item.dueAt, CLINIC_TIMEZONE);
   return item.urgencyLabel;
@@ -145,6 +145,11 @@ export default async function PendenciasPage({
           <h2 className="m-0 text-2xl font-extrabold leading-tight text-ink">{item.patientName}</h2>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="rounded-full border border-paper-line-strong px-3 py-1 font-semibold text-ink">{item.categoryLabel}</span>
+            {draft?.mergedDraftsCount && draft.mergedDraftsCount > 1 && (
+              <span className="rounded-full bg-paper-line px-2.5 py-1 text-xs font-semibold text-ink-soft">
+                {draft.mergedDraftsCount} conversas unificadas
+              </span>
+            )}
             {draft && <SummaryChip pendencies={draft.pendencies} />}
             {draft && <DraftPipelineMini pipeline={draft.pipeline} />}
           </div>

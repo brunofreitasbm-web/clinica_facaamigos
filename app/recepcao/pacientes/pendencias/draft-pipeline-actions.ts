@@ -2,7 +2,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { extractText } from "unpdf";
 import { createClient } from "@/lib/supabase/server";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { parseAuthorizedGuideText, type GuideProcedure, type ParsedAuthorizedGuide } from "@/lib/authorized-guide-parser";
 
 /**
  * Etapas 2, 3 e 4 da linha do tempo de cada contato da fila de pendências
@@ -21,15 +24,43 @@ type ActionResult = { success: true; note?: string } | { success: false; error: 
 
 export type AuthorizedGuideInput = {
   guideNumber: string;
-  procedureCode: string;
-  sessionsAuthorized: number;
-  validFrom: string;
+  /** Validade da senha = validade da guia (campo 6 da guia SP/SADT). */
   validTo: string;
-  password: string;
-  passwordValidUntil: string;
+  procedures: GuideProcedure[];
 };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_GUIDE_PDF_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Lê a guia SP/SADT autorizada (PDF digital do plano) por algoritmo, sem IA, e
+ * devolve os campos que o formulário da etapa 3 pré-preenche. Só leitura: nada
+ * é gravado até a recepção confirmar.
+ */
+export async function parseAuthorizedGuidePdf(
+  formData: FormData,
+): Promise<{ success: true; guide: ParsedAuthorizedGuide } | { success: false; error: string }> {
+  const { user } = await requireUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { success: false, error: "Escolha o PDF da guia autorizada." };
+  if (file.size > MAX_GUIDE_PDF_BYTES) return { success: false, error: "O PDF passa de 10 MB." };
+  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    return { success: false, error: "Envie a guia em PDF." };
+  }
+
+  try {
+    const { text } = await extractText(new Uint8Array(await file.arrayBuffer()));
+    const fullText = Array.isArray(text) ? text.join("\n") : String(text ?? "");
+    if (fullText.trim().length < 20) {
+      return { success: false, error: "Esse PDF é imagem (sem texto). Preencha os campos à mão." };
+    }
+    return { success: true, guide: parseAuthorizedGuideText(fullText) };
+  } catch {
+    return { success: false, error: "Não consegui ler esse PDF. Preencha os campos à mão." };
+  }
+}
 
 async function requireUser() {
   const supabase = await createClient();
@@ -128,17 +159,19 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
 
   const guideNumber = input.guideNumber.trim();
-  const procedureCode = input.procedureCode.trim();
-  const sessions = Math.trunc(Number(input.sessionsAuthorized));
+  const procedures = input.procedures
+    .map((p) => ({ code: p.code.trim(), description: p.description.trim(), quantity: Math.trunc(Number(p.quantity)) }))
+    .filter((p) => p.code || p.description);
   if (!guideNumber) return { success: false, error: "Informe o número da guia autorizada." };
-  if (!procedureCode) return { success: false, error: "Informe o procedimento autorizado." };
-  if (!Number.isFinite(sessions) || sessions <= 0) return { success: false, error: "Informe quantas sessões foram autorizadas." };
-  if (!ISO_DATE.test(input.validFrom) || !ISO_DATE.test(input.validTo)) {
-    return { success: false, error: "Informe a vigência da guia (de/até)." };
+  if (procedures.length === 0) return { success: false, error: "Informe ao menos um procedimento autorizado." };
+  if (procedures.some((p) => !p.code || !Number.isFinite(p.quantity) || p.quantity <= 0)) {
+    return { success: false, error: "Todo procedimento precisa de código e quantidade autorizada." };
   }
-  if (input.validTo < input.validFrom) return { success: false, error: "A vigência termina antes de começar." };
-  const passwordValidUntil = ISO_DATE.test(input.passwordValidUntil) ? input.passwordValidUntil : null;
-  const password = input.password.trim() || null;
+  if (!ISO_DATE.test(input.validTo)) return { success: false, error: "Informe a validade da guia." };
+  // A guia vale a partir de hoje (dia em que a recepção registra); o fim é a validade da senha.
+  const validFrom = new Date().toLocaleDateString("en-CA", { timeZone: CLINIC_TIMEZONE });
+  if (input.validTo < validFrom) return { success: false, error: "A validade da guia já passou." };
+  const totalSessions = procedures.reduce((sum, p) => sum + p.quantity, 0);
 
   const { data: draft } = await supabase
     .from("registration_drafts")
@@ -146,21 +179,28 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
     .eq("id", draftId)
     .maybeSingle();
   if (!draft) return { success: false, error: "Contato não encontrado." };
+  if (draft.authorization_id) {
+    return { success: false, error: "A guia já foi gravada no prontuário — ajuste ou cancele por lá." };
+  }
 
+  // `procedure_code` e `sessions_authorized` seguem preenchidos (primeiro código e
+  // soma) para quem lê a guia como um item só; `procedures` é o detalhe por terapia.
   const guide = {
     guide_number: guideNumber,
-    procedure_code: procedureCode,
-    sessions_authorized: sessions,
-    valid_from: input.validFrom,
+    procedure_code: procedures[0].code,
+    sessions_authorized: totalSessions,
+    valid_from: validFrom,
     valid_to: input.validTo,
-    authorization_password: password,
-    password_valid_until: passwordValidUntil,
+    authorization_password: null,
+    password_valid_until: input.validTo,
+    procedures,
   };
 
   // Se o cadastro já foi conferido e o paciente tem um único plano, a guia já
-  // vai para o prontuário. Sem paciente (ou com mais de um plano) ela fica
-  // guardada no contato e a conferência do cadastro a grava com os demais dados.
-  let authorizationId = draft.authorization_id;
+  // vai para o prontuário — uma linha de `authorizations` por procedimento, para
+  // cada terapia ter o seu saldo de sessões. Sem paciente (ou com mais de um
+  // plano) ela fica guardada no contato e a conferência do cadastro a grava.
+  let authorizationId: string | null = null;
   let note: string | undefined;
   if (draft.patient_id) {
     const { data: plans } = await supabase
@@ -170,29 +210,24 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
       .eq("is_private", false);
 
     if (plans && plans.length === 1) {
-      const row = {
-        guide_number: guideNumber,
-        procedure_code: procedureCode,
-        sessions_authorized: sessions,
-        valid_from: input.validFrom,
-        valid_to: input.validTo,
-        authorization_password: password,
-        password_valid_until: passwordValidUntil,
-        status: "ativa",
-        approved_at: new Date().toISOString(),
-      };
-      if (authorizationId) {
-        const { error } = await supabase.from("authorizations").update(row).eq("id", authorizationId);
-        if (error) return { success: false, error: "Não foi possível atualizar a guia no prontuário." };
-      } else {
-        const { data: created, error } = await supabase
-          .from("authorizations")
-          .insert({ ...row, patient_insurance_id: plans[0].id })
-          .select("id")
-          .single();
-        if (error || !created) return { success: false, error: "Não foi possível gravar a guia no prontuário." };
-        authorizationId = created.id;
-      }
+      const { data: created, error } = await supabase
+        .from("authorizations")
+        .insert(
+          procedures.map((p) => ({
+            patient_insurance_id: plans[0].id,
+            guide_number: guideNumber,
+            procedure_code: p.code,
+            sessions_authorized: p.quantity,
+            valid_from: validFrom,
+            valid_to: input.validTo,
+            password_valid_until: input.validTo,
+            status: "ativa",
+            approved_at: new Date().toISOString(),
+          })),
+        )
+        .select("id");
+      if (error || !created || created.length === 0) return { success: false, error: "Não foi possível gravar a guia no prontuário." };
+      authorizationId = created[0].id;
     } else {
       note = "Guia guardada no contato — vincule o plano no prontuário para ela valer como guia ativa.";
     }

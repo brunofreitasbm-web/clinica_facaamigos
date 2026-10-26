@@ -79,6 +79,26 @@ function getDueFormatters(timeZone: string): DueFormatters {
   return f;
 }
 
+/**
+ * Há quanto tempo algo espera, em dias corridos no fuso da clínica:
+ * "esperando há hoje" não existe, então 0 dias vira "esperando desde hoje".
+ */
+export function fmtWaitingDays(iso: string | null | undefined, timeZone: string, now: Date = new Date()): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "—";
+
+  const { ymd } = getDueFormatters(timeZone);
+  const dayNumber = (d: Date): number => {
+    const [year, month, day] = ymd.format(d).split("-").map(Number);
+    return Date.UTC(year, month - 1, day) / 86_400_000;
+  };
+
+  const days = Math.max(0, dayNumber(now) - dayNumber(date));
+  if (days === 0) return "esperando desde hoje";
+  return `esperando há ${days} ${days === 1 ? "dia" : "dias"}`;
+}
+
 export function fmtDueShort(iso: string | null | undefined, timeZone: string, now: Date = new Date()): string {
   if (!iso) return "—";
   const date = new Date(iso);

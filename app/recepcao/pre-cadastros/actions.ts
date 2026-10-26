@@ -9,6 +9,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { claimAndProcessDrafts } from "@/lib/registration-drafts-process";
 import { normalizeCpf, parseBrDate, normalizeUf, normalizeCep, normalizePhone } from "@/lib/document-extraction";
 import { sendTwilioWhatsApp } from "@/lib/twilio";
+import { parseGuideProcedures } from "@/lib/reception-queue";
 
 type ActionResult = { success: true; patientId: string; warnings: string[] } | { success: false; error: string };
 type SimpleResult = { success: true } | { success: false; error: string };
@@ -40,7 +41,7 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
 
   const { data: draft } = await supabase
     .from("registration_drafts")
-    .select("id, patient_id, guardian_id, source_phone, clinic_id, authorization_id")
+    .select("id, patient_id, guardian_id, source_phone, clinic_id, authorization_id, authorized_guide")
     .eq("id", draftId)
     .maybeSingle();
   if (!draft) return { success: false, error: "Rascunho não encontrado." };
@@ -228,9 +229,34 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
       const validFrom = parseBrDate(str(formData, "authorization_valid_from")) || str(formData, "authorization_valid_from");
       const validTo = parseBrDate(str(formData, "authorization_valid_to")) || str(formData, "authorization_valid_to");
 
+      const guideProcedures = parseGuideProcedures((draft.authorized_guide as Record<string, unknown> | null)?.procedures);
+
       if (draft.authorization_id) {
         // A guia já foi gravada na etapa "autorização do plano" da fila de
         // pendências (draft-pipeline-actions.ts) — inserir de novo duplicaria.
+      } else if (guideProcedures.length > 0 && validFrom && validTo) {
+        // Guia autorizada com várias terapias (etapa 3 da fila): uma linha por procedimento, cada uma com o seu saldo.
+        const { data: createdRows, error } = await supabase
+          .from("authorizations")
+          .insert(
+            guideProcedures.map((p) => ({
+              patient_insurance_id: patientInsuranceId,
+              guide_number: str(formData, "authorization_guide_number") || null,
+              procedure_code: p.code,
+              sessions_authorized: p.quantity,
+              valid_from: validFrom,
+              valid_to: validTo,
+              status: "ativa",
+              authorization_password: str(formData, "authorization_password") || null,
+              password_valid_until: parseBrDate(str(formData, "authorization_password_valid_until")),
+            })),
+          )
+          .select("id");
+        if (error || !createdRows || createdRows.length === 0) {
+          warnings.push("Plano de saúde vinculado, mas não foi possível registrar a guia de autorização.");
+        } else {
+          authorizationId = createdRows[0].id;
+        }
       } else if (procedureCode && sessionsAuthorized > 0 && validFrom && validTo) {
         const { data: createdAuthorization, error } = await supabase.from("authorizations").insert({
           patient_insurance_id: patientInsuranceId,

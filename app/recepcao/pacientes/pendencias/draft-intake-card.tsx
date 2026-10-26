@@ -42,6 +42,13 @@ export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegist
     // borda de encaixe.
     <div className={focus ? "text-sm" : "mt-3 border-t border-paper-line-strong pt-3 text-sm"}>
       <div className="flex flex-col gap-3">
+        {draft.mergedDraftsCount && draft.mergedDraftsCount > 1 ? (
+          <div className="flex items-center gap-2 rounded-md bg-paper-line/40 px-3 py-1.5 text-xs text-ink-soft">
+            <span className="font-bold text-ink">Informações unificadas:</span>
+            <span>Dados e arquivos combinados de {draft.mergedDraftsCount} conversas enviadas pelo responsável.</span>
+          </div>
+        ) : null}
+
         {draft.guardianMessage && (
           <p className="rounded-md bg-paper-line/40 px-3 py-2 text-ink">
             <span className="text-[13px] font-semibold uppercase tracking-wide text-ink-soft">Mensagem da família: </span>

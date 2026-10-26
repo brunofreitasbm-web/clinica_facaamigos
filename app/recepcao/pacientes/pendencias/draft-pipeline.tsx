@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useState, useTransition, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
 import { visiblePills } from "@/lib/lead-pendencies";
+import { buildPlanAuthorizedMessage, buildWhatsappLink } from "@/lib/whatsapp-message";
 import {
   disableDraftScheduling,
   enableDraftScheduling,
   markGuideSent,
+  parseAuthorizedGuidePdf,
   registerAuthorizedGuide,
   undoDraftAuthorization,
   undoGuideSent,
@@ -166,31 +169,174 @@ function StepButton({
   );
 }
 
-function GuideField({
-  label,
-  name,
-  defaultValue,
-  type = "text",
-  required,
+type GuideValues = { guideNumber: string; validTo: string; procedures: { code: string; description: string; quantity: string }[] };
+
+const EMPTY_PROCEDURE = { code: "", description: "", quantity: "" };
+
+/**
+ * Menu flutuante do "Plano autorizou": a recepção sobe o PDF da guia autorizada
+ * e o sistema lê, por algoritmo (sem IA), o nº da guia, a validade da senha e a
+ * tabela de procedimentos (código, descrição, quantidade). Tudo continua
+ * editável — a leitura é só preenchimento.
+ */
+function AuthorizedGuideDialog({
+  pending,
+  error,
+  onClose,
+  onConfirm,
 }: {
-  label: string;
-  name: string;
-  defaultValue: string;
-  type?: string;
-  required?: boolean;
+  pending: boolean;
+  error: string | null;
+  onClose: () => void;
+  onConfirm: (values: GuideValues) => void;
 }) {
-  return (
-    <label className="flex flex-col gap-0.5 text-[13px] font-medium uppercase tracking-wide text-ink-soft">
-      {label}
-      <input
-        name={name}
-        type={type}
-        defaultValue={defaultValue}
-        required={required}
-        min={type === "number" ? 1 : undefined}
-        className="input normal-case tracking-normal"
-      />
-    </label>
+  const [values, setValues] = useState<GuideValues>({ guideNumber: "", validTo: "", procedures: [] });
+  const [reading, startReading] = useTransition();
+  const [readNote, setReadNote] = useState<{ tone: "error" | "note"; text: string } | null>(null);
+
+  const onPickFile = (file: File | undefined) => {
+    if (!file) return;
+    setReadNote(null);
+    const formData = new FormData();
+    formData.set("file", file);
+    startReading(async () => {
+      const result = await parseAuthorizedGuidePdf(formData);
+      if (!result.success) {
+        setReadNote({ tone: "error", text: result.error });
+        return;
+      }
+      const { guide } = result;
+      setValues({
+        guideNumber: guide.guideNumber ?? "",
+        validTo: guide.validUntil ?? "",
+        procedures: guide.procedures.map((p) => ({ code: p.code, description: p.description, quantity: String(p.quantity) })),
+      });
+      setReadNote({
+        tone: guide.warnings.length > 0 ? "error" : "note",
+        text:
+          guide.warnings.length > 0
+            ? guide.warnings.join(" ")
+            : `Guia lida do PDF: ${guide.procedures.length} procedimento(s). Confira os campos antes de salvar.`,
+      });
+    });
+  };
+
+  const setProcedure = (index: number, patch: Partial<GuideValues["procedures"][number]>) =>
+    setValues((v) => ({ ...v, procedures: v.procedures.map((p, i) => (i === index ? { ...p, ...patch } : p)) }));
+
+  const canSubmit = values.guideNumber.trim() && values.validTo && values.procedures.length > 0 && !pending && !reading;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Plano autorizou — guia autorizada"
+        className="flex max-h-[90vh] w-full max-w-xl flex-col gap-3 overflow-y-auto rounded-lg border border-paper-line-strong bg-paper p-5 shadow-xl"
+      >
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-base font-semibold text-ink">Plano autorizou</h2>
+            <p className="m-0 text-sm text-ink-faint">Suba o PDF da guia autorizada. Os campos abaixo são preenchidos sozinhos.</p>
+          </div>
+          <button type="button" onClick={onClose} className="border-0 bg-transparent text-lg text-ink-soft" aria-label="Fechar">
+            ×
+          </button>
+        </header>
+
+        <label className="flex flex-col gap-1 text-[13px] font-medium uppercase tracking-wide text-ink-soft">
+          Guia autorizada (PDF)
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            disabled={reading || pending}
+            onChange={(e) => onPickFile(e.target.files?.[0])}
+            className="input normal-case tracking-normal"
+          />
+        </label>
+        {reading && <p className="m-0 text-sm text-ink-soft">Lendo a guia…</p>}
+        {readNote && (
+          <p className={`m-0 text-sm ${readNote.tone === "error" ? "text-status-negative-text" : "text-ink-soft"}`}>{readNote.text}</p>
+        )}
+
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-0.5 text-[13px] font-medium uppercase tracking-wide text-ink-soft">
+            Nº da guia
+            <input
+              value={values.guideNumber}
+              onChange={(e) => setValues((v) => ({ ...v, guideNumber: e.target.value }))}
+              className="input normal-case tracking-normal"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5 text-[13px] font-medium uppercase tracking-wide text-ink-soft">
+            Válida até
+            <input
+              type="date"
+              value={values.validTo}
+              onChange={(e) => setValues((v) => ({ ...v, validTo: e.target.value }))}
+              className="input normal-case tracking-normal"
+            />
+          </label>
+        </div>
+
+        <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+          <legend className="mb-1 p-0 text-[13px] font-medium uppercase tracking-wide text-ink-soft">
+            Procedimentos autorizados ({values.procedures.length})
+          </legend>
+          {values.procedures.map((p, index) => (
+            <div key={index} className="grid grid-cols-[7rem_1fr_4.5rem_auto] items-end gap-2">
+              <label className="flex flex-col gap-0.5 text-[13px] text-ink-soft">
+                Código
+                <input value={p.code} onChange={(e) => setProcedure(index, { code: e.target.value })} className="input" />
+              </label>
+              <label className="flex flex-col gap-0.5 text-[13px] text-ink-soft">
+                Descrição
+                <input value={p.description} onChange={(e) => setProcedure(index, { description: e.target.value })} className="input" />
+              </label>
+              <label className="flex flex-col gap-0.5 text-[13px] text-ink-soft">
+                Qtde.
+                <input
+                  type="number"
+                  min={1}
+                  value={p.quantity}
+                  onChange={(e) => setProcedure(index, { quantity: e.target.value })}
+                  className="input"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setValues((v) => ({ ...v, procedures: v.procedures.filter((_, i) => i !== index) }))}
+                className="mb-1 border-0 bg-transparent text-lg text-ink-soft"
+                aria-label="Remover procedimento"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <div>
+            <StepButton onClick={() => setValues((v) => ({ ...v, procedures: [...v.procedures, { ...EMPTY_PROCEDURE }] }))}>
+              + Procedimento
+            </StepButton>
+          </div>
+        </fieldset>
+
+        {error && (
+          <p role="alert" className="m-0 text-sm text-status-negative-text">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-wrap justify-end gap-2">
+          <StepButton onClick={onClose} disabled={pending}>
+            Cancelar
+          </StepButton>
+          <StepButton primary onClick={() => onConfirm(values)} disabled={!canSubmit}>
+            {pending ? "Salvando…" : "Autorizado — salvar e avisar o responsável"}
+          </StepButton>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -204,7 +350,7 @@ export function DraftPipelineColumns({
 }) {
   const { pipeline } = draft;
   const [docState, sentState, authState, schedState] = stepStates(pipeline);
-  const [showGuideForm, setShowGuideForm] = useState(false);
+  const [showGuideDialog, setShowGuideDialog] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: "error" | "note"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -233,27 +379,60 @@ export function DraftPipelineColumns({
   };
 
   const guide = pipeline.authorizedGuide;
-  const suggestion = pipeline.suggestedGuide;
+  const [dialogError, setDialogError] = useState<string | null>(null);
 
-  // onSubmit (e não <form action>): a action do React limpa o formulário depois
-  // de rodar, e um erro de validação apagaria o que a recepção acabou de digitar.
-  const onSubmitGuide = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const text = (key: string) => String(formData.get(key) ?? "");
-    run(
-      () =>
-        registerAuthorizedGuide(draft.id, {
-          guideNumber: text("guide_number"),
-          procedureCode: text("procedure_code"),
-          sessionsAuthorized: Number(text("sessions_authorized")),
-          validFrom: text("valid_from"),
-          validTo: text("valid_to"),
-          password: text("password"),
-          passwordValidUntil: text("password_valid_until"),
-        }),
-      () => setShowGuideForm(false),
-    );
+  const fact = (label: string) => draft.facts.find((f) => f.label === label)?.value ?? null;
+  const whatsappPhone = fact("Telefone") ?? draft.sourcePhone;
+  const buildAuthorizedUrl = (procedures: { description: string; quantity: number }[], validUntil: string | null) =>
+    whatsappPhone
+      ? buildWhatsappLink(
+          whatsappPhone,
+          buildPlanAuthorizedMessage({
+            guardianName: fact("Responsável"),
+            patientName: draft.patientName ?? fact("Criança"),
+            procedures,
+            validUntil,
+          }),
+        )
+      : null;
+  // Reenvio do aviso depois de autorizada: usa a guia que já ficou gravada no contato.
+  const resendUrl = guide && guide.procedures.length > 0 ? buildAuthorizedUrl(guide.procedures, guide.valid_to) : null;
+
+  // "Plano autorizou" faz três coisas: grava a guia (etapa 3), habilita o
+  // agendamento (etapa 4) e abre o WhatsApp da recepção com o aviso ao responsável.
+  const confirmAuthorized = (values: GuideValues) => {
+    const procedures = values.procedures.map((p) => ({
+      code: p.code,
+      description: p.description,
+      quantity: Number(p.quantity),
+    }));
+    const whatsappUrl = buildAuthorizedUrl(procedures, values.validTo || null);
+    // A aba abre já no clique: depois de um await o navegador trata como popup e bloqueia.
+    const popup = whatsappUrl ? window.open("about:blank", "_blank") : null;
+    setDialogError(null);
+    setFeedback(null);
+    startTransition(async () => {
+      const saved = await registerAuthorizedGuide(draft.id, {
+        guideNumber: values.guideNumber,
+        validTo: values.validTo,
+        procedures,
+      });
+      if (!saved.success) {
+        popup?.close();
+        setDialogError(saved.error);
+        return;
+      }
+      const enabled = await enableDraftScheduling(draft.id);
+      if (popup && whatsappUrl) popup.location.href = whatsappUrl;
+      setShowGuideDialog(false);
+      if (!enabled.success) {
+        setFeedback({ tone: "error", text: `Guia salva, mas não foi possível habilitar o agendamento: ${enabled.error}` });
+      } else {
+        const notes = [saved.note, enabled.note, whatsappUrl ? null : "Sem telefone do responsável — avise a família por outro canal."];
+        const note = notes.filter(Boolean).join(" ");
+        if (note) setFeedback({ tone: "note", text: note });
+      }
+    });
   };
 
   const sentStatus =
@@ -324,63 +503,27 @@ export function DraftPipelineColumns({
       <Arrow />
 
       <StepShell index={3} state={authState} status={authStatus}>
-        {sentState === "locked" && !suggestion && (
-          <p className="m-0 text-sm text-ink-faint">Aguardando o envio da guia ao plano (etapa 2).</p>
-        )}
-
-        {(pipeline.authorization === "enviada" || (pipeline.authorization === "pendente" && suggestion)) && (
+        {(pipeline.authorization === "enviada" || pipeline.authorization === "pendente") && (
           <>
             <p className="m-0 text-sm text-ink-faint">
-              Confira a autorização junto ao plano (portal ou telefone). Quando o plano autorizar, registre a guia aqui.
+              Confira a autorização junto ao plano (portal ou telefone). Quando o plano autorizar, suba a guia em PDF: o sistema
+              habilita o agendamento e abre o WhatsApp com o aviso ao responsável.
             </p>
-            {showGuideForm ? (
-              <form onSubmit={onSubmitGuide} className="flex flex-col gap-2">
-                {suggestion && (
-                  <p className="m-0 text-[13px] text-ink-faint">Preenchido com o que foi lido nos arquivos — confira com a guia do plano.</p>
-                )}
-                <div className="grid grid-cols-2 gap-2">
-                  <GuideField label="Nº da guia" name="guide_number" defaultValue={suggestion?.guide_number ?? ""} required />
-                  <GuideField label="Procedimento" name="procedure_code" defaultValue={suggestion?.procedure_code ?? ""} required />
-                  <GuideField
-                    label="Sessões"
-                    name="sessions_authorized"
-                    type="number"
-                    defaultValue={suggestion?.sessions_authorized ? String(suggestion.sessions_authorized) : ""}
-                    required
-                  />
-                  <GuideField label="Senha" name="password" defaultValue={suggestion?.authorization_password ?? ""} />
-                  <GuideField label="Válida de" name="valid_from" type="date" defaultValue={suggestion?.valid_from ?? ""} required />
-                  <GuideField label="Válida até" name="valid_to" type="date" defaultValue={suggestion?.valid_to ?? ""} required />
-                  <GuideField
-                    label="Senha válida até"
-                    name="password_valid_until"
-                    type="date"
-                    defaultValue={suggestion?.password_valid_until ?? ""}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    className="rounded-md border-0 px-3 py-1.5 text-[13px] font-semibold text-white disabled:opacity-50"
-                    style={{ backgroundColor: "var(--color-accent)" }}
-                  >
-                    {isPending ? "Salvando…" : "Autorizada — salvar guia"}
-                  </button>
-                  <StepButton onClick={() => setShowGuideForm(false)} disabled={isPending}>
-                    Cancelar
-                  </StepButton>
-                </div>
-              </form>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <StepButton primary onClick={() => setShowGuideForm(true)} disabled={isPending}>
-                  Plano autorizou — registrar guia
-                </StepButton>
-                <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
-                  Particular / sem guia
-                </StepButton>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <StepButton primary onClick={() => setShowGuideDialog(true)} disabled={isPending}>
+                Plano autorizou
+              </StepButton>
+              <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
+                Particular / sem guia
+              </StepButton>
+            </div>
+            {showGuideDialog && (
+              <AuthorizedGuideDialog
+                pending={isPending}
+                error={dialogError}
+                onClose={() => setShowGuideDialog(false)}
+                onConfirm={confirmAuthorized}
+              />
             )}
           </>
         )}
@@ -391,14 +534,25 @@ export function DraftPipelineColumns({
               <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[13px]">
                 <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Guia</dt>
                 <dd className="m-0 text-ink">{guide.guide_number ?? "—"}</dd>
-                <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Procedimento</dt>
-                <dd className="m-0 text-ink">{guide.procedure_code ?? "—"}</dd>
-                <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Sessões</dt>
-                <dd className="m-0 text-ink">{guide.sessions_authorized ?? "—"}</dd>
-                <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Vigência</dt>
-                <dd className="m-0 text-ink">
-                  {fmtDate(guide.valid_from)} a {fmtDate(guide.valid_to)}
-                </dd>
+                {guide.procedures.length > 0 ? (
+                  guide.procedures.map((p) => (
+                    <div key={p.code} className="contents">
+                      <dt className="text-[13px] uppercase tracking-wide text-ink-soft">{p.code}</dt>
+                      <dd className="m-0 text-ink">
+                        {p.description || "—"} · {p.quantity}
+                      </dd>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Procedimento</dt>
+                    <dd className="m-0 text-ink">{guide.procedure_code ?? "—"}</dd>
+                    <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Sessões</dt>
+                    <dd className="m-0 text-ink">{guide.sessions_authorized ?? "—"}</dd>
+                  </>
+                )}
+                <dt className="text-[13px] uppercase tracking-wide text-ink-soft">Válida até</dt>
+                <dd className="m-0 text-ink">{fmtDate(guide.valid_to)}</dd>
               </dl>
             )}
             <p className="m-0 text-sm text-ink-faint">
@@ -406,13 +560,23 @@ export function DraftPipelineColumns({
                 ? "Guia gravada no prontuário do paciente."
                 : "Guia guardada no contato — entra no cadastro quando você conferir os dados."}
             </p>
-            {!pipeline.schedulingEnabledAt && (
-              <div>
+            <div className="flex flex-wrap gap-2">
+              {resendUrl && (
+                <a
+                  href={resendUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-[13px] font-semibold text-ink no-underline hover:bg-paper-subtle"
+                >
+                  Avisar responsável no WhatsApp
+                </a>
+              )}
+              {!pipeline.schedulingEnabledAt && (
                 <StepButton onClick={() => run(() => undoDraftAuthorization(draft.id))} disabled={isPending}>
                   Desfazer
                 </StepButton>
-              </div>
-            )}
+              )}
+            </div>
           </>
         )}
 

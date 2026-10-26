@@ -96,7 +96,21 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
         ) : draft.status === "validated" ? (
           <p className="text-sm text-ink-faint">Este rascunho já foi validado.</p>
         ) : draft.status === "rejected" ? (
-          <p className="text-sm text-ink-faint">Este rascunho foi rejeitado{draft.reject_reason ? `: ${draft.reject_reason}` : "."}</p>
+          draft.reject_reason?.startsWith("Mesclado com rascunho ") ? (
+            <div className="rounded-lg border border-paper-line bg-paper-surface p-5">
+              <p className="m-0 text-base text-ink">
+                Este rascunho foi unificado com outro pré-cadastro do mesmo paciente.
+              </p>
+              <Link
+                href={`/recepcao/pre-cadastros/${draft.reject_reason.replace("Mesclado com rascunho ", "").trim()}`}
+                className="btn btn-primary mt-3 inline-block no-underline"
+              >
+                Abrir pré-cadastro unificado →
+              </Link>
+            </div>
+          ) : (
+            <p className="text-sm text-ink-faint">Este rascunho foi rejeitado{draft.reject_reason ? `: ${draft.reject_reason}` : "."}</p>
+          )
         ) : (
           <DraftReviewForm
             draftId={draft.id}

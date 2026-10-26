@@ -11,6 +11,7 @@ import { getPendingPatients } from "@/lib/patient-stage";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
 import { computeLeadPendencies, type LeadPendencies } from "@/lib/lead-pendencies";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
+import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
 
 type Supa = SupabaseClient<Database>;
 
@@ -558,6 +559,8 @@ export type DraftAuthorizedGuide = {
   valid_to: string | null;
   authorization_password: string | null;
   password_valid_until: string | null;
+  /** Procedimentos autorizados (código, descrição, quantidade) — uma linha por terapia da guia. */
+  procedures: { code: string; description: string; quantity: number }[];
 };
 
 /**
@@ -613,6 +616,8 @@ export type PendingRegistrationDraft = {
   documentRequests: PendingDraftDocumentRequest[];
   /** O que já veio e o que falta (dados + documentos), calculado em lib/lead-pendencies.ts. */
   pendencies: LeadPendencies;
+  /** Quantidade de rascunhos mesclados quando o mesmo responsável mandou dados em várias conversas. */
+  mergedDraftsCount?: number;
 };
 
 export type PendingDraftDocumentRequest = {
@@ -668,6 +673,9 @@ function draftFacts(extracted: unknown): PendingDraftFact[] {
  */
 function draftDetail(d: PendingRegistrationDraft): string {
   const parts: string[] = [];
+  if (d.mergedDraftsCount && d.mergedDraftsCount > 1) {
+    parts.push(`unificado de ${d.mergedDraftsCount} conversas`);
+  }
   parts.push(d.source === "whatsapp" ? "WhatsApp" : "Portal da família");
   parts.push(d.files.length === 1 ? "1 arquivo" : `${d.files.length} arquivos`);
   if (d.facts.length > 0) parts.push(d.facts.length === 1 ? "1 dado já lido" : `${d.facts.length} dados já lidos`);
@@ -790,7 +798,21 @@ function parseAuthorizedGuide(raw: unknown): DraftAuthorizedGuide | null {
     valid_to: text(g.valid_to),
     authorization_password: text(g.authorization_password),
     password_valid_until: text(g.password_valid_until),
+    procedures: parseGuideProcedures(g.procedures),
   };
+}
+
+export function parseGuideProcedures(raw: unknown): DraftAuthorizedGuide["procedures"] {
+  if (!Array.isArray(raw)) return [];
+  const out: DraftAuthorizedGuide["procedures"] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const p = item as Record<string, unknown>;
+    const quantity = Number(p.quantity);
+    if (typeof p.code !== "string" || !p.code.trim() || !Number.isFinite(quantity) || quantity <= 0) continue;
+    out.push({ code: p.code.trim(), description: typeof p.description === "string" ? p.description.trim() : "", quantity });
+  }
+  return out;
 }
 
 function suggestedGuideFromExtraction(extracted: unknown): DraftAuthorizedGuide | null {
@@ -922,10 +944,20 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       draftStatus: d.status,
       filesCount: files.length,
     });
+    const ext = d.extracted && typeof d.extracted === "object" ? (d.extracted as Record<string, unknown>) : null;
+    const extPat = ext?.patient && typeof ext.patient === "object" ? (ext.patient as Record<string, unknown>) : null;
+    const botData = pendencySources.botByDraft.get(d.id);
+    const botRec = botData && typeof botData === "object" ? (botData as Record<string, unknown>) : null;
+    const resolvedPatientName =
+      patient?.full_name ??
+      (typeof extPat?.full_name === "string" && extPat.full_name.trim() ? extPat.full_name.trim() : null) ??
+      (typeof botRec?.child_name === "string" && botRec.child_name.trim() ? botRec.child_name.trim() : null) ??
+      null;
+
     return {
       id: d.id,
       patientId: d.patient_id,
-      patientName: patient?.full_name ?? null,
+      patientName: resolvedPatientName,
       sourcePhone: d.source_phone,
       source: d.source as "whatsapp" | "portal",
       status: d.status as PendingRegistrationDraft["status"],
@@ -966,9 +998,15 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
     };
   });
 
+  const rawExtractedByDraft = new Map<string, unknown>(rows.map((d) => [d.id, d.extracted]));
+  const consolidated = consolidateRegistrationDrafts(drafts, pendencySources, rawExtractedByDraft);
+
   // Partição estável: quem não tem mais nada faltando (pronto para conferir e
   // avançar na linha do tempo) sobe; dentro de cada grupo segue o mais antigo primeiro.
-  return [...drafts.filter((d) => d.pendencies.missingCount === 0), ...drafts.filter((d) => d.pendencies.missingCount > 0)];
+  return [
+    ...consolidated.filter((d) => d.pendencies.missingCount === 0),
+    ...consolidated.filter((d) => d.pendencies.missingCount > 0),
+  ];
 }
 
 /**
@@ -1026,10 +1064,20 @@ export async function getSingleRegistrationDraft(
     filesCount: files.length,
   });
 
+  const ext = d.extracted && typeof d.extracted === "object" ? (d.extracted as Record<string, unknown>) : null;
+  const extPat = ext?.patient && typeof ext.patient === "object" ? (ext.patient as Record<string, unknown>) : null;
+  const botData = pendencySources.botByDraft.get(d.id);
+  const botRec = botData && typeof botData === "object" ? (botData as Record<string, unknown>) : null;
+  const resolvedPatientName =
+    patient?.full_name ??
+    (typeof extPat?.full_name === "string" && extPat.full_name.trim() ? extPat.full_name.trim() : null) ??
+    (typeof botRec?.child_name === "string" && botRec.child_name.trim() ? botRec.child_name.trim() : null) ??
+    null;
+
   return {
     id: d.id,
     patientId: d.patient_id,
-    patientName: patient?.full_name ?? null,
+    patientName: resolvedPatientName,
     sourcePhone: d.source_phone,
     source: d.source as "whatsapp" | "portal",
     status: d.status as PendingRegistrationDraft["status"],
