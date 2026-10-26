@@ -65,7 +65,8 @@ export function MiniCalendarPicker({
     <div className="relative">
       <button
         type="button"
-        title="Escolher data"
+        title="Escolher data no calendário"
+        aria-label="Abrir seletor de data"
         onClick={() => {
           if (!open) {
             setViewYear(Number(year));
@@ -73,7 +74,7 @@ export function MiniCalendarPicker({
           }
           setOpen((v) => !v);
         }}
-        className="rounded px-2 py-1 opacity-85 hover:bg-white/10 hover:opacity-100"
+        className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg border border-slate-200/80 bg-white/80 text-slate-700 shadow-2xs transition-all hover:bg-white hover:text-slate-900 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 cursor-pointer"
       >
         <CalendarDays size={16} />
       </button>

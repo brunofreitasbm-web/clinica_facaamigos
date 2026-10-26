@@ -53,6 +53,7 @@ export function AgendaAvaliacoesPanel({
   acolhimentosUrgent?: boolean;
 }) {
   const [subTab, setSubTab] = useState<SubTabKey>("calendario");
+  const readyCount = pool.filter((p) => p.ready).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -73,6 +74,7 @@ export function AgendaAvaliacoesPanel({
                 }}
               >
                 {t.label}
+                {t.key === "calendario" ? <SubTabBadge value={readyCount} /> : null}
                 {t.key === "acolhimentos" ? <SubTabBadge value={acolhimentosCount} urgent={acolhimentosUrgent} /> : null}
               </button>
             ))}

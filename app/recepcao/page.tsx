@@ -20,6 +20,7 @@ import { ChecklistEntradaDialog } from "./checklist-entrada-dialog";
 import { AcolhimentoPresencialDialog } from "./acolhimento-presencial-dialog";
 import { getIntakeChecklistRows } from "@/lib/intake-checklist";
 import { ChegadasBanner } from "./chegadas-banner";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -410,35 +411,48 @@ export default async function RecepcaoPage({
     <div className="flex flex-1 flex-col">
       {/* Cabeçalho + atalhos globais vêm do layout (RecepcaoNav); aqui só a
           navegação de data, específica da agenda do dia. */}
-      <div
-        className="flex items-center justify-end gap-3.5 px-10 py-2 text-[13px]"
+      <nav
+        aria-label="Navegação de datas da agenda"
+        className="flex items-center justify-end px-6 py-2.5 sm:px-10 text-[13px] border-b border-teal-900/10 shadow-2xs"
         style={{ background: "var(--color-accent-100)", color: "var(--color-accent-700)" }}
       >
-        <div className="mx-auto flex w-full max-w-[1920px] items-center justify-end gap-3.5">
+        <div className="mx-auto flex w-full max-w-[1920px] items-center justify-end gap-2 sm:gap-3">
           <Link
             href="/recepcao"
-            className="rounded px-2 py-1 no-underline hover:bg-black/5"
+            className={`inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs font-semibold no-underline transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 ${
+              day === today
+                ? "bg-teal-700 text-white shadow-2xs"
+                : "border border-slate-200/80 bg-white/80 text-slate-700 hover:bg-white hover:text-slate-900"
+            }`}
           >
             Hoje
           </Link>
+
           <Link
             href={`/recepcao?date=${previousCalendarDay(day)}`}
             aria-label="Dia anterior"
-            className="rounded px-2 py-1 no-underline hover:bg-black/5"
+            className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg border border-slate-200/80 bg-white/80 text-slate-700 shadow-2xs no-underline transition-all hover:bg-white hover:text-slate-900 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+            title="Ir para o dia anterior"
           >
-            ‹
+            <ChevronLeft className="h-4 w-4" />
           </Link>
-          <span className="font-semibold">{fmtDateLabel(day)}</span>
+
+          <span className="px-2 py-1 font-semibold text-slate-800 text-sm tracking-tight select-none">
+            {fmtDateLabel(day)}
+          </span>
+
           <Link
             href={`/recepcao?date=${nextCalendarDay(day)}`}
             aria-label="Próximo dia"
-            className="rounded px-2 py-1 no-underline hover:bg-black/5"
+            className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg border border-slate-200/80 bg-white/80 text-slate-700 shadow-2xs no-underline transition-all hover:bg-white hover:text-slate-900 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+            title="Ir para o próximo dia"
           >
-            ›
+            <ChevronRight className="h-4 w-4" />
           </Link>
+
           <MiniCalendarPicker selectedDate={day} basePath="/recepcao" />
         </div>
-      </div>
+      </nav>
 
       <main className="mx-auto grid w-full max-w-[1920px] grid-cols-1 gap-14 px-10 pb-16 pt-9 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] 2xl:grid-cols-[1fr_440px]">
         <section>

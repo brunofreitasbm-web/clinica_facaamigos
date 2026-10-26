@@ -40,7 +40,17 @@ export type EvaluationPoolItem = {
   ready: boolean;
   /** Preenchido só para contatos de documentos da Recepção; ver EvaluationSchedulingGate. */
   gate?: EvaluationSchedulingGate;
+  /** Só para cadastro presencial: o que a Supervisão precisa pra escolher avaliador/horário. */
+  facts?: EvaluationPoolFacts;
   bookInput: EvaluationBookInput;
+};
+
+export type EvaluationPoolFacts = {
+  /** Nome do convênio, "Particular" ou null quando a Recepção ainda não informou. */
+  insurer: string | null;
+  /** "5 anos", "8 meses" — null sem data de nascimento válida. */
+  age: string | null;
+  waitingDays: number;
 };
 
 /** Uma 1ª avaliação já marcada na agenda, numa semana específica. */
@@ -176,26 +186,64 @@ const GATE_STATUS_LABEL: Record<EvaluationSchedulingGate, string> = {
 async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<string>): Promise<EvaluationPoolItem[]> {
   const pending = await getPendingPatients(supabase, 0);
   const candidates = pending.filter((p) => p.stage === 1 && !coveredPatientIds.has(p.id));
-  const gates = await getSchedulingGates(
-    supabase,
-    candidates.map((p) => p.id),
-  );
+  const candidateIds = candidates.map((p) => p.id);
+  const [gates, profiles] = await Promise.all([getSchedulingGates(supabase, candidateIds), getPoolPatientProfiles(supabase, candidateIds)]);
 
   return candidates.map((p) => {
     // Paciente que entrou por contato de documentos só é liberado depois do
     // "ok" da Recepção (linha do tempo da Fila de pendências).
     const gate = gates.get(p.id);
+    const profile = profiles.get(p.id);
     return {
       id: `presencial-${p.id}`,
       origin: "presencial" as const,
       patientName: p.full_name,
       statusLabel: gate ? GATE_STATUS_LABEL[gate] : "🚨 PRESENCIAL NA CLÍNICA",
-      detail: gate ? `Documentos por WhatsApp/portal · cadastrado há ${p.daysSinceCreated} dia(s)` : `Presencial · cadastrado há ${p.daysSinceCreated} dia(s)`,
+      detail: gate ? `Documentos por WhatsApp/portal · cadastrado há ${p.daysSinceCreated} dia(s)` : `Cadastrado há ${p.daysSinceCreated} dia(s)`,
       ready: !gate || gate === "habilitado",
       gate,
+      facts: { insurer: profile?.insurer ?? null, age: profile?.age ?? null, waitingDays: p.daysSinceCreated },
       bookInput: { origin: "presencial" as const, patientId: p.id },
     };
   });
+}
+
+/** Convênio e idade dos candidatos da fila, numa consulta só. */
+async function getPoolPatientProfiles(supabase: Supa, patientIds: string[]): Promise<Map<string, { insurer: string | null; age: string | null }>> {
+  const profiles = new Map<string, { insurer: string | null; age: string | null }>();
+  if (patientIds.length === 0) return profiles;
+
+  const { data } = await supabase
+    .from("patients")
+    .select("id, birth_date, patient_insurance(is_private, plan_name, insurers(name))")
+    .in("id", patientIds);
+
+  for (const p of data ?? []) {
+    const coverages = Array.isArray(p.patient_insurance) ? p.patient_insurance : p.patient_insurance ? [p.patient_insurance] : [];
+    const insurer =
+      coverages
+        .map((c) => {
+          if (c.is_private) return "Particular";
+          const ins = Array.isArray(c.insurers) ? c.insurers[0] : c.insurers;
+          return ins?.name ?? c.plan_name ?? null;
+        })
+        .find(Boolean) ?? null;
+    profiles.set(p.id, { insurer, age: formatChildAge(p.birth_date) });
+  }
+  return profiles;
+}
+
+function formatChildAge(birthDate: string | null): string | null {
+  if (!birthDate) return null;
+  const birth = new Date(`${birthDate.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+  if (now.getDate() < birth.getDate()) months -= 1;
+  if (months < 0) return null;
+  if (months < 24) return `${months} ${months === 1 ? "mês" : "meses"}`;
+  const years = Math.floor(months / 12);
+  return `${years} anos`;
 }
 
 /**
