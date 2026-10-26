@@ -54,15 +54,15 @@ export function AutorizacaoWizard({ initialItems = [] }: { initialItems?: Author
       )}
 
       <p className="m-0 text-[15px] text-ink-soft">
-        Saldo de cada guia ativa. O agendamento é bloqueado quando as sessões autorizadas acabam.
+        Saldo das guias ativas, agrupado por paciente. O agendamento é bloqueado quando as sessões autorizadas acabam.
       </p>
 
       {initialItems.length === 0 ? (
         <p className="m-0 text-[15px] text-ink-soft">Nenhuma guia ativa no momento.</p>
       ) : (
-        <ul className="m-0 flex list-none flex-col gap-3 p-0">
-          {initialItems.map((item) => (
-            <AuthorizationRow key={item.id} item={item} onOpen={setDialog} />
+        <ul className="m-0 flex list-none flex-col gap-4 p-0">
+          {groupByPatient(initialItems).map((group) => (
+            <PatientGroup key={group.patientId} group={group} onOpen={setDialog} />
           ))}
         </ul>
       )}
@@ -74,6 +74,52 @@ export function AutorizacaoWizard({ initialItems = [] }: { initialItems?: Author
         <RenewalResponseDialog item={{ ...dialog.item, renewal: dialog.item.renewal }} onClose={() => setDialog(null)} onDone={done} />
       )}
     </div>
+  );
+}
+
+type PatientGroupData = {
+  patientId: string;
+  patientName: string;
+  items: AuthorizationItem[];
+};
+
+const STATUS_PRIORITY = { critical: 0, attention: 1, regular: 2 } as const;
+
+/** Um card por paciente; as guias dele ficam dentro. Itens já chegam ordenados por urgência. */
+function groupByPatient(items: AuthorizationItem[]): PatientGroupData[] {
+  const groups = new Map<string, PatientGroupData>();
+  for (const item of items) {
+    const group = groups.get(item.patientId);
+    if (group) group.items.push(item);
+    else groups.set(item.patientId, { patientId: item.patientId, patientName: item.patientName, items: [item] });
+  }
+  const worst = (g: PatientGroupData) => Math.min(...g.items.map((i) => STATUS_PRIORITY[i.status]));
+  return [...groups.values()].sort((a, b) => worst(a) - worst(b) || a.patientName.localeCompare(b.patientName, "pt-BR"));
+}
+
+function PatientGroup({ group, onOpen }: { group: PatientGroupData; onOpen: (d: Dialog) => void }) {
+  const total = group.items.reduce((sum, i) => sum + i.authorizedHours, 0);
+  const used = group.items.reduce((sum, i) => sum + i.consumedHours, 0);
+  const insurers = [...new Set(group.items.map((i) => i.insurerName))].join(", ");
+
+  return (
+    <li className="flex flex-col gap-3 rounded-md border border-paper-line-strong bg-paper-surface p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-paper-line pb-2">
+        <div className="flex flex-col">
+          <span className="text-base font-bold text-ink">{group.patientName}</span>
+          <span className="text-sm text-ink-soft">{insurers}</span>
+        </div>
+        <span className="text-sm text-ink-soft">
+          {group.items.length === 1 ? "1 guia" : `${group.items.length} guias`} ·{" "}
+          <strong className="text-ink tabular-figure">{used}</strong> de <span className="tabular-figure">{total}</span> sessões usadas
+        </span>
+      </div>
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {group.items.map((item) => (
+          <AuthorizationRow key={item.id} item={item} onOpen={onOpen} />
+        ))}
+      </ul>
+    </li>
   );
 }
 
@@ -96,18 +142,16 @@ function AuthorizationRow({ item, onOpen }: { item: AuthorizationItem; onOpen: (
 
   return (
     <li
-      className={`flex flex-col gap-4 rounded-md border p-4 md:flex-row md:items-center md:justify-between ${
-        tone === "negative" ? "border-status-negative-text/40 bg-status-negative-soft/40" : "border-paper-line-strong bg-paper-surface"
+      className={`flex flex-col gap-4 rounded-md border p-3 md:flex-row md:items-center md:justify-between ${
+        tone === "negative" ? "border-status-negative-text/40 bg-status-negative-soft/40" : "border-paper-line bg-paper"
       }`}
     >
       <div className="flex min-w-[260px] flex-col gap-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-base font-bold text-ink">{item.patientName}</span>
-          <span className="rounded bg-paper px-1.5 py-0.5 text-[13px] tabular-figure text-ink-soft">{item.protocolNumber}</span>
+          <span className="rounded bg-paper-surface px-1.5 py-0.5 text-[13px] tabular-figure text-ink-soft">{item.protocolNumber}</span>
+          <span className="text-sm font-semibold text-ink">{item.specialty}</span>
         </span>
-        <span className="text-sm text-ink-soft">
-          {item.insurerName} · {item.specialty}
-        </span>
+        <span className="text-sm text-ink-soft">{item.insurerName}</span>
       </div>
 
       <div className="max-w-md flex-1">

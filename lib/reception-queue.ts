@@ -185,6 +185,7 @@ export async function getExpiringAuthorizations(supabase: Supa, clinicId: string
 
 export type AuthorizationWizardItem = {
   id: string;
+  patientId: string;
   patientName: string;
   insurerName: string;
   specialty: string;
@@ -281,6 +282,7 @@ export async function getAuthorizationWizardItems(
 
     items.push({
       id: auth.id,
+      patientId: insurance.patient_id,
       patientName: (patient?.full_name ?? "—") + ageStr,
       insurerName,
       specialty: auth.procedure_code || "Atendimento",
