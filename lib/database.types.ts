@@ -7054,6 +7054,9 @@ export type Database = {
           scheduling_enabled_by: string | null
           guide_sent_at: string | null
           guide_sent_by: string | null
+          returned_to_reception_at: string | null
+          returned_to_reception_by: string | null
+          returned_to_reception_reason: string | null
         }
         Insert: {
           attempts?: number
@@ -7090,6 +7093,9 @@ export type Database = {
           scheduling_enabled_by?: string | null
           guide_sent_at?: string | null
           guide_sent_by?: string | null
+          returned_to_reception_at?: string | null
+          returned_to_reception_by?: string | null
+          returned_to_reception_reason?: string | null
         }
         Update: {
           attempts?: number
@@ -7126,6 +7132,9 @@ export type Database = {
           scheduling_enabled_by?: string | null
           guide_sent_at?: string | null
           guide_sent_by?: string | null
+          returned_to_reception_at?: string | null
+          returned_to_reception_by?: string | null
+          returned_to_reception_reason?: string | null
         }
         Relationships: [
           {
@@ -7147,6 +7156,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_drafts_returned_to_reception_by_fkey"
+            columns: ["returned_to_reception_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {

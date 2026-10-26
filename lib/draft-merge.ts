@@ -55,6 +55,7 @@ export type DraftPipeline = {
   authorizedGuide: DraftAuthorizedGuide | null;
   authorizationId: string | null;
   schedulingEnabledAt: string | null;
+  returned: { at: string; reason: string; byName: string | null } | null;
   suggestedGuide: DraftAuthorizedGuide | null;
   registered: boolean;
 };
@@ -633,6 +634,7 @@ export function mergeRegistrationDraftGroup(
       guideSentAt,
       authorizedAt,
       schedulingEnabledAt,
+      returned: group.map((d) => d.pipeline.returned).filter((r): r is NonNullable<typeof r> => Boolean(r)).sort((a, b) => b.at.localeCompare(a.at))[0] ?? null,
       registered: group.some((d) => d.pipeline.registered),
     },
     mergedDraftsCount: group.length,

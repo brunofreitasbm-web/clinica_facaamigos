@@ -624,6 +624,8 @@ export type DraftPipeline = {
   /** Guia já gravada em `authorizations` (só possível quando o paciente e o plano já existem). */
   authorizationId: string | null;
   schedulingEnabledAt: string | null;
+  /** Devolvido pela Supervisão (texto interno — a família nunca vê). Limpo ao habilitar de novo. */
+  returned: { at: string; reason: string; byName: string | null } | null;
   /**
    * Guia que a IA leu nos arquivos enviados (extracted.authorization) —
    * só sugestão para pré-preencher o formulário da etapa 3, a recepção confere.
@@ -941,17 +943,26 @@ async function getDraftPendencySources(
  * contato, então o item entra na fila desde o primeiro arquivo, sem esperar
  * a IA.
  */
+function returnedInfo(d: {
+  returned_to_reception_at: string | null;
+  returned_to_reception_reason: string | null;
+  returned_by: { full_name: string | null } | { full_name: string | null }[] | null;
+}): { at: string; reason: string; byName: string | null } | null {
+  if (!d.returned_to_reception_at) return null;
+  const by = Array.isArray(d.returned_by) ? d.returned_by[0] : d.returned_by;
+  return { at: d.returned_to_reception_at, reason: d.returned_to_reception_reason ?? "", byName: by?.full_name ?? null };
+}
+
 async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): Promise<PendingRegistrationDraft[]> {
   const { data } = await supabase
     .from("registration_drafts")
     .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("clinic_id", clinicId)
     .neq("status", "rejected")
-    .is("plan_authorized_at", null)
-    .is("scheduling_enabled_at", null)
-    .eq("authorization_waived", false)
+    // Devolvido pela Supervisão volta à fila mesmo já autorizado (precisa de nova conferência).
+    .or("and(plan_authorized_at.is.null,scheduling_enabled_at.is.null,authorization_waived.eq.false),returned_to_reception_at.not.is.null")
     .order("created_at", { ascending: true });
 
   const rows = data ?? [];
@@ -1026,6 +1037,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
         authorizedGuide: parseAuthorizedGuide(d.authorized_guide),
         authorizationId: d.authorization_id,
         schedulingEnabledAt: d.scheduling_enabled_at,
+        returned: returnedInfo(d),
         suggestedGuide: suggestedGuideFromExtraction(d.extracted),
         registered: d.status === "validated" && Boolean(d.patient_id),
       },
@@ -1070,7 +1082,7 @@ export async function getSingleRegistrationDraft(
   const { data: d } = await supabase
     .from("registration_drafts")
     .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("id", draftId)
     .maybeSingle();
@@ -1147,6 +1159,7 @@ export async function getSingleRegistrationDraft(
       authorizedGuide: parseAuthorizedGuide(d.authorized_guide),
       authorizationId: d.authorization_id,
       schedulingEnabledAt: d.scheduling_enabled_at,
+      returned: returnedInfo(d),
       suggestedGuide: suggestedGuideFromExtraction(d.extracted),
       registered: d.status === "validated" && Boolean(d.patient_id),
     },

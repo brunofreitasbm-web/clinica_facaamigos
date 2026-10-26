@@ -78,7 +78,7 @@ export default async function RecepcaoPage({
   ]);
 
   // Checklist de entrada (meta intake_complete_rate da recepção, §10.1):
-  // status real dos 6 documentos por paciente que ainda não teve 1ª sessão.
+  // status real dos documentos por paciente que ainda não teve 1ª sessão.
   const intakeChecklistRows = await getIntakeChecklistRows(supabase, DEV_CLINIC_ID);
 
   const { data: appointmentTypeRows } = await supabase

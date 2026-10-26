@@ -264,10 +264,58 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
   return { success: true, note };
 }
 
-/** Marca a etapa 3 como dispensada — particular, ou convênio que não exige guia para a 1ª avaliação. */
+/**
+ * O contato tem plano de saúde identificado? Mesmas fontes da fila
+ * (computeLeadPendencies): convênio no cadastro do paciente, plano da conversa
+ * do WhatsApp, plano lido dos documentos ou resposta "tenho plano" no bot.
+ */
+async function draftHasPlan(supabase: Awaited<ReturnType<typeof createClient>>, draftId: string): Promise<boolean> {
+  // `bot_collected` ainda não está nos tipos gerados (mesmo cast de lib/reception-queue.ts).
+  const { data: draft } = await (supabase as unknown as import("@supabase/supabase-js").SupabaseClient)
+    .from("registration_drafts")
+    .select("patient_id, source_phone, extracted, bot_collected")
+    .eq("id", draftId)
+    .maybeSingle();
+  if (!draft) return false;
+
+  const bot = draft.bot_collected as { is_private?: unknown } | null;
+  if (bot?.is_private === false) return true;
+  const insurance = (draft.extracted as { insurance?: { insurer_name?: unknown } } | null)?.insurance;
+  if (typeof insurance?.insurer_name === "string" && insurance.insurer_name.trim()) return true;
+
+  if (draft.patient_id) {
+    const { data } = await supabase
+      .from("patient_insurance")
+      .select("id")
+      .eq("patient_id", draft.patient_id)
+      .eq("is_private", false)
+      .not("insurer_id", "is", null)
+      .limit(1);
+    if (data && data.length > 0) return true;
+  }
+  if (draft.source_phone) {
+    const { data } = await supabase
+      .from("twilio_conversations")
+      .select("id")
+      .eq("phone_number", draft.source_phone)
+      .not("insurer_id", "is", null)
+      .limit(1);
+    if (data && data.length > 0) return true;
+  }
+  return false;
+}
+
+/** Marca a etapa 3 como dispensada — particular. Contato com plano identificado não pode ser dispensado: segue a guia do plano. */
 export async function waiveDraftAuthorization(draftId: string): Promise<ActionResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+
+  if (await draftHasPlan(supabase, draftId)) {
+    return {
+      success: false,
+      error: "Este contato tem plano de saúde — não pode ser tratado como particular. Registre a autorização do plano (“Plano autorizou”).",
+    };
+  }
 
   const { data: updated, error } = await supabase
     .from("registration_drafts")
@@ -337,10 +385,20 @@ export async function enableDraftScheduling(draftId: string): Promise<ActionResu
   if (!draft.plan_authorized_at && !draft.authorization_waived) {
     return { success: false, error: "Registre a autorização do plano (ou dispense, se for particular) antes de habilitar." };
   }
+  // Dispensa antiga de contato que depois ganhou plano: não vale como particular.
+  if (!draft.plan_authorized_at && (await draftHasPlan(supabase, draftId))) {
+    return { success: false, error: "Este contato tem plano de saúde — registre a autorização do plano (“Plano autorizou”) antes de habilitar." };
+  }
 
   const { error } = await supabase
     .from("registration_drafts")
-    .update({ scheduling_enabled_at: new Date().toISOString(), scheduling_enabled_by: user.id })
+    .update({
+      scheduling_enabled_at: new Date().toISOString(),
+      scheduling_enabled_by: user.id,
+      returned_to_reception_at: null,
+      returned_to_reception_by: null,
+      returned_to_reception_reason: null,
+    })
     .eq("id", draftId);
   if (error) return { success: false, error: "Não foi possível habilitar. Tente de novo." };
 

@@ -413,6 +413,31 @@ async function loadActiveInsurers(supabase: any): Promise<PlanOption[]> {
   return ((data ?? []) as PlanOption[]).filter((i) => normalizeText(i.name) !== "particular");
 }
 
+/**
+ * Plano que o sistema já identificou nesta conversa (FAQ bot ou resposta
+ * anterior). Só vale se ainda for um convênio ativo — o "Particular" nunca
+ * entra na lista, então não bloqueia a si mesmo.
+ */
+async function findKnownInsurer(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
+  conversationId: string | null | undefined,
+  insurers: PlanOption[],
+): Promise<PlanOption | null> {
+  let insurerId: string | null = data.is_private === true ? null : (data.insurer_id ?? null);
+  if (!insurerId && conversationId) {
+    const { data: conv } = await supabase
+      .from("twilio_conversations")
+      .select("insurer_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    insurerId = conv?.insurer_id ?? null;
+  }
+  return insurers.find((i) => i.id === insurerId) ?? null;
+}
+
 function insurerList(insurers: PlanOption[]): string {
   return insurers.length > 0 ? insurers.map((i) => `*${i.name}*`).join(", ") : "nossos convênios parceiros";
 }
@@ -633,11 +658,13 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
     data.child_birth_date = isoDate;
     await persistStep(supabase, phone, "awaiting_plan", data);
     const insurers = await loadActiveInsurers(supabase);
+    const known = await findKnownInsurer(supabase, data, params.conversationId ?? undefined, insurers);
     return {
       handled: true,
-      replyMessage:
-        "Anotado! 🧩 O atendimento será por qual *plano de saúde*?\n\n" +
-        `Responda o nome do plano (atendemos ${insurerList(insurers)}) ou *PARTICULAR*.`,
+      replyMessage: known
+        ? `Anotado! 🧩 Vi que o atendimento é pelo plano *${known.name}*. Confirma? Responda *${known.name}* ou o nome de outro plano.`
+        : "Anotado! 🧩 O atendimento será por qual *plano de saúde*?\n\n" +
+          `Responda o nome do plano (atendemos ${insurerList(insurers)}) ou *PARTICULAR*.`,
     };
   }
 
@@ -646,11 +673,22 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
   // à toa. Particular não tem laudo, carteirinha nem número de cartão.
   if (currentStep === "awaiting_plan") {
     const insurers = await loadActiveInsurers(supabase);
-    const answer = parsePlanAnswer(rawBody, insurers);
+    const known = await findKnownInsurer(supabase, data, params.conversationId ?? undefined, insurers);
+    const answer = parsePlanAnswer(rawBody, insurers, known);
 
     if (answer.kind === "particular") {
       data.is_private = true;
       return askTherapies(supabase, phone, data);
+    }
+
+    // Paciente de plano não vira particular por comando: a troca passa pela equipe.
+    if (answer.kind === "particular_blocked") {
+      return {
+        handled: true,
+        replyMessage:
+          `Já identificamos que o atendimento é pelo plano *${answer.known.name}*, então não conseguimos seguir como particular por aqui. 💙\n\n` +
+          `Responda *${answer.known.name}* para continuar. Para falar com a equipe, responda *ATENDENTE*.`,
+      };
     }
 
     if (answer.kind === "insurer") {
@@ -668,13 +706,17 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
         handled: true,
         replyMessage:
           `No momento não atendemos *${answer.typed}* pelo convênio — atendemos ${insurerList(insurers)}. 💙\n\n` +
-          "Se quiser seguir pelo particular, responda *PARTICULAR*. Para falar com a equipe, responda *ATENDENTE*.",
+          (known
+            ? "Para falar com a equipe, responda *ATENDENTE*."
+            : "Se quiser seguir pelo particular, responda *PARTICULAR*. Para falar com a equipe, responda *ATENDENTE*."),
       };
     }
 
     return {
       handled: true,
-      replyMessage: `Qual o nome do plano? Atendemos ${insurerList(insurers)}. Ou responda *PARTICULAR*.`,
+      replyMessage: known
+        ? `Qual o nome do plano? Atendemos ${insurerList(insurers)}.`
+        : `Qual o nome do plano? Atendemos ${insurerList(insurers)}. Ou responda *PARTICULAR*.`,
     };
   }
 

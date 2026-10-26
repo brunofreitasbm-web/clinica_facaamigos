@@ -11,6 +11,7 @@ import {
   Mail,
   MessageCircle,
   Phone,
+  Undo2,
   Send,
   Stethoscope,
   User,
@@ -23,6 +24,7 @@ import {
   approveEvaluationDocsAction,
   getEvaluationQuickViewAction,
   rejectEvaluationDocsAction,
+  returnEvaluationToReceptionAction,
   sendEvaluationMessageAction,
   type EvaluationDocActionResult,
   type EvaluationQuickView,
@@ -334,6 +336,63 @@ function ReviewActions({
   );
 }
 
+/** Devolve o paciente habilitado à fila da Recepção, com motivo interno (a família não vê). */
+function ReturnToReception({ patientId, onResolved }: { patientId: string; onResolved: (text: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirm() {
+    setBusy(true);
+    setError(null);
+    const res = await returnEvaluationToReceptionAction(patientId, reason);
+    setBusy(false);
+    if (res.success) onResolved("Paciente devolvido à fila de pendências da Recepção, com o motivo.");
+    else setError(res.error);
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-paper-line pt-3">
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="btn btn-ghost justify-center border border-paper-line-strong py-2 text-xs">
+          <Undo2 size={14} aria-hidden />
+          Devolver à fila de pendências
+        </button>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-md border border-paper-line-strong bg-paper/40 p-2.5">
+          <label className="text-[11px] font-semibold text-ink" htmlFor="return-reason">
+            Motivo para a Recepção
+          </label>
+          <textarea
+            id="return-reason"
+            rows={3}
+            maxLength={500}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Ex.: marcado como particular por engano — o paciente tem plano."
+            className="input text-xs"
+          />
+          <p className="text-[10px] text-ink-faint">Texto interno: só a equipe vê, a família não recebe.</p>
+          {error && (
+            <p role="alert" className="text-[11px] text-status-negative-text">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setOpen(false)} disabled={busy} className="btn btn-ghost px-2.5 py-1 text-xs">
+              Cancelar
+            </button>
+            <button type="button" onClick={confirm} disabled={busy || reason.trim().length < 5} className="btn btn-primary px-3 py-1 text-xs">
+              {busy ? "Devolvendo…" : "Devolver"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Janela flutuante de um paciente da fila "Aguardando agendamento" do
  * calendário de 1ª avaliação. Abre no clique do card: laudo, guia e
@@ -524,6 +583,9 @@ export function EvaluationQuickViewPanel({
                 onResolved={onResolved}
                 onChanged={onChanged}
               />
+              {item.gate === "habilitado" && item.bookInput.origin === "presencial" && (
+                <ReturnToReception patientId={item.bookInput.patientId} onResolved={onResolved} />
+              )}
             </>
           )}
         </div>

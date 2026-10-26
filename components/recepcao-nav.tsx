@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Users, AlertCircle, Inbox, FileText, UserX, DoorOpen, Trophy } from "lucide-react";
+import { CalendarDays, Users, AlertCircle, ShieldCheck, Inbox, FileText, UserX, DoorOpen, Trophy } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { key: "chegadas", label: "Chegadas", href: "/recepcao/chegadas", icon: DoorOpen },
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
   { key: "pendencias", label: "Pendências", href: "/recepcao/pacientes/pendencias", icon: AlertCircle },
+  { key: "a-autorizar", label: "À autorizar", href: "/recepcao/a-autorizar", icon: ShieldCheck },
   { key: "atendimento", label: "Atendimento", href: "/recepcao/atendimento", icon: Inbox },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText },
   // "Cadastro IA" (/recepcao/pre-cadastros) saiu da navegação em 20/09/2026:
@@ -30,14 +31,17 @@ const NAV_ITEMS = [
 export function RecepcaoNav({
   pendingCount,
   chegadasCount,
+  toAuthorizeCount,
 }: {
   pendingCount: number;
+  /** Leads do WhatsApp aguardando autorização do plano — ver app/recepcao/a-autorizar. */
+  toAuthorizeCount?: number;
   /** Chegadas declaradas pelo QR ainda não confirmadas — ver app/recepcao/chegadas. */
   chegadasCount?: number;
 }) {
   const items: ModuleNavItem[] = NAV_ITEMS.map((item) => ({
     ...item,
-    badge: item.key === "pendencias" ? pendingCount : item.key === "chegadas" ? chegadasCount : undefined,
+    badge: item.key === "pendencias" ? pendingCount : item.key === "chegadas" ? chegadasCount : item.key === "a-autorizar" ? toAuthorizeCount : undefined,
   }));
 
   return (

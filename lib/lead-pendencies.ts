@@ -51,6 +51,8 @@ export type LeadPendenciesInput = {
 export type LeadPendencies = {
   /** Faltando → aviso → analisando → ok → não se aplica; dentro de cada estado, documentos antes de dados. */
   pills: LeadPill[];
+  /** Há plano de saúde identificado: a recepção não pode tratar o contato como particular. */
+  hasPlan: boolean;
   /** Só `faltando` — aviso, "analisando" e "não se aplica" não contam. */
   missingCount: number;
   summary: string;
@@ -231,7 +233,10 @@ export function computeLeadPendencies(input: LeadPendenciesInput): LeadPendencie
 
   // Particular = convênio sem guia. O que o responsável respondeu no bot manda;
   // sem resposta (mídia solta, portal), vale o "sem guia" marcado pela recepção.
-  const isPrivate = bot?.is_private === true || (bot?.is_private == null && input.authorizationWaived);
+  // Plano identificado (cadastro, conversa, leitura da IA ou resposta do bot) nunca vira particular
+  // por "sem guia" marcado na recepção.
+  const hasPlan = input.insurerKnown || asText(insurance?.insurer_name) !== null || bot?.is_private === false;
+  const isPrivate = bot?.is_private === true || (bot?.is_private == null && input.authorizationWaived && !hasPlan);
 
   const types = new Set<string>();
   for (const t of input.fileTypes) if (t) types.add(t);
@@ -351,6 +356,7 @@ export function computeLeadPendencies(input: LeadPendenciesInput): LeadPendencie
   const missing = ordered.filter((p) => p.state === "faltando");
   return {
     pills: ordered,
+    hasPlan,
     missingCount: missing.length,
     summary: missing.length === 0 ? "Dados e documentos completos" : `Faltam ${missing.length}: ${missing.map((p) => p.label).join(", ")}`,
   };

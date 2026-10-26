@@ -138,6 +138,8 @@ export type PlanOption = { id: string; name: string };
 
 export type PlanAnswer =
   | { kind: "particular" }
+  /** Respondeu PARTICULAR, mas a conversa já foi identificada com um plano. */
+  | { kind: "particular_blocked"; known: PlanOption }
   | { kind: "insurer"; id: string; name: string }
   | { kind: "generic_convenio" }
   | { kind: "not_served"; typed: string }
@@ -151,10 +153,17 @@ const GENERIC_CONVENIO = /^(convenio|convenios|plano|plano de saude|pelo plano|p
  * um contém o outro, mínimo 3 letras). Texto curto que não casa = plano que a
  * clínica NÃO atende (avisar já, sem pedir documento).
  */
-export function parsePlanAnswer(raw: string | null | undefined, insurers: PlanOption[]): PlanAnswer {
+export function parsePlanAnswer(
+  raw: string | null | undefined,
+  insurers: PlanOption[],
+  /** Plano já identificado na conversa: com ele, PARTICULAR não é aceito. */
+  knownInsurer?: PlanOption | null,
+): PlanAnswer {
   const text = normalizeAnswer(raw);
   if (!text) return { kind: "invalid" };
-  if (/\bparticular\b/.test(text)) return { kind: "particular" };
+  if (/\bparticular\b/.test(text)) {
+    return knownInsurer ? { kind: "particular_blocked", known: knownInsurer } : { kind: "particular" };
+  }
   for (const insurer of insurers) {
     const known = normalizeAnswer(insurer.name);
     if (known.length < 3) continue;

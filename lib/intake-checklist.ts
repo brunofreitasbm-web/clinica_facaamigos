@@ -34,18 +34,6 @@ export const INTAKE_CHECKLIST_ITEMS = [
     insuranceOnly: false,
   },
   {
-    category: "termo_lgpd",
-    label: "Termo LGPD assinado",
-    hint: "Consentimento para tratamento de dados sensíveis",
-    insuranceOnly: false,
-  },
-  {
-    category: "termo_imagem",
-    label: "Termo de uso de imagem assinado",
-    hint: "Autorização para gravações clínicas/pedagógicas",
-    insuranceOnly: false,
-  },
-  {
     category: "contrato",
     label: "Contrato de prestação de serviços",
     hint: "Assinatura do contrato de adesão clínica",

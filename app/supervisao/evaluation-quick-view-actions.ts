@@ -1,7 +1,9 @@
 // app/supervisao/evaluation-quick-view-actions.ts
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { EvaluationBookInput } from "@/lib/evaluation-agenda";
 import type { LaudoExtraction } from "@/lib/laudo-extraction";
@@ -497,5 +499,70 @@ export async function sendEvaluationMessageAction(bookInput: EvaluationBookInput
     return { success: false, error: "Sem canal de WhatsApp da clínica com este responsável — use o botão de WhatsApp da janela." };
   } catch {
     return { success: false, error: "Não foi possível enviar o WhatsApp agora." };
+  }
+}
+
+/**
+ * Devolve à fila de pendências da Recepção um paciente que já estava
+ * habilitado para a 1ª avaliação (ex.: marcado "Particular / sem guia" por
+ * engano, ou plano aprovado com dado errado). O motivo é texto interno: fica
+ * no contato e a Recepção o vê na fila; nada é enviado à família.
+ * Dispensa ("particular") é desfeita; autorização de plano é mantida — a
+ * Recepção a desfaz na própria linha do tempo se for o caso. Com 1ª
+ * avaliação já marcada não devolve: cancele o agendamento antes.
+ */
+export async function returnEvaluationToReceptionAction(patientId: string, reason: string): Promise<EvaluationDocActionResult> {
+  const auth = await requireReviewer();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const note = reason.trim().slice(0, 500);
+  if (note.length < 5) return { success: false, error: "Informe o motivo para a Recepção (mínimo de 5 caracteres)." };
+
+  try {
+    const supabase = await createClient();
+
+    const { count } = await supabase
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patientId)
+      .eq("is_evaluation", true)
+      .not("status", "in", `(${CANCELLED_APPOINTMENT_STATUSES.join(",")})`);
+    if (count && count > 0) {
+      return { success: false, error: "Este paciente já tem 1ª avaliação marcada — cancele o agendamento antes de devolver." };
+    }
+
+    const { data: drafts } = await supabase
+      .from("registration_drafts")
+      .select("id, authorization_waived")
+      .eq("patient_id", patientId)
+      .neq("status", "rejected")
+      .not("scheduling_enabled_at", "is", null);
+    if (!drafts || drafts.length === 0) return { success: false, error: "Este paciente não veio da fila de pendências da Recepção." };
+
+    for (const d of drafts) {
+      const { error } = await supabase
+        .from("registration_drafts")
+        .update({
+          scheduling_enabled_at: null,
+          scheduling_enabled_by: null,
+          returned_to_reception_at: new Date().toISOString(),
+          returned_to_reception_by: auth.userId,
+          returned_to_reception_reason: note,
+          ...(d.authorization_waived
+            ? { authorization_waived: false, plan_authorized_at: null, plan_authorized_by: null, authorized_guide: null }
+            : {}),
+        })
+        .eq("id", d.id);
+      if (error) return { success: false, error: "Não foi possível devolver à Recepção. Tente de novo." };
+    }
+
+    // Promovido a "avaliacao" só por causa do ok; sem avaliação marcada, volta a interessado.
+    await supabase.from("patients").update({ status: "interessado" }).eq("id", patientId).eq("status", "avaliacao").is("evaluated_at", null);
+
+    revalidatePath("/supervisao");
+    revalidatePath("/recepcao/pacientes/pendencias");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Não foi possível devolver à Recepção." };
   }
 }

@@ -32,6 +32,24 @@ export async function createContract(formData: FormData): Promise<ActionResult> 
   }
 
   const supabase = await createClient();
+
+  // Paciente com plano de saúde não entra em contrato "particular puro".
+  if (planType === "particular") {
+    const { data: plans } = await supabase
+      .from("patient_insurance")
+      .select("id")
+      .eq("patient_id", patientId)
+      .eq("is_private", false)
+      .not("insurer_id", "is", null)
+      .limit(1);
+    if (plans && plans.length > 0) {
+      return {
+        success: false,
+        error: "Este paciente tem plano de saúde — não é possível criar contrato particular puro. Use reembolso assistido ou co-participação.",
+      };
+    }
+  }
+
   const { error } = await supabase.from("patient_contracts").insert({
     clinic_id: DEV_CLINIC_ID,
     patient_id: patientId,

@@ -386,7 +386,7 @@ export function QueueWorkspace({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(460px,560px)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
         {/* Lista */}
         <div onKeyDown={onListKeyDown} className="flex min-w-0 flex-col gap-4">
           {visible.length === 0 && (

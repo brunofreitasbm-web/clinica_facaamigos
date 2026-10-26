@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
-import type { PendingRegistrationDraft } from "@/lib/reception-queue";
+import type { PendingRegistrationDraft, DraftAuthorizedGuide } from "@/lib/reception-queue";
 import { visiblePills } from "@/lib/lead-pendencies";
 import { buildPlanAuthorizedMessage, buildWhatsappLink } from "@/lib/whatsapp-message";
 import {
@@ -483,6 +483,16 @@ export function DraftPipelineColumns({
       : "Pronto para habilitar";
 
   return (
+    <div className="flex flex-col gap-2">
+      {pipeline.returned && (
+        <div role="status" className="rounded-md border border-status-pending-text/60 bg-status-pending-text/5 px-3 py-2 text-sm text-ink">
+          <p className="m-0 font-semibold text-status-pending-text">
+            Devolvido pela Supervisão em {fmtDateTime(pipeline.returned.at, CLINIC_TIMEZONE)}
+            {pipeline.returned.byName ? ` · ${pipeline.returned.byName}` : ""}
+          </p>
+          <p className="m-0 mt-0.5 whitespace-pre-wrap">{pipeline.returned.reason}</p>
+        </div>
+      )}
     <div className="grid gap-2 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr]">
       <StepShell index={1} state={docState} status={`${draft.files.length} arquivo(s) · ${draft.facts.length} dado(s) lido(s)`}>
         {documents}
@@ -503,9 +513,11 @@ export function DraftPipelineColumns({
               <StepButton primary onClick={handleMarkGuideSent} disabled={isPending}>
                 Guia enviada ao plano
               </StepButton>
-              <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
-                Particular / sem guia
-              </StepButton>
+              {!draft.pendencies.hasPlan && (
+                <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
+                  Particular / sem guia
+                </StepButton>
+              )}
             </div>
           </>
         )}
@@ -538,9 +550,11 @@ export function DraftPipelineColumns({
               <StepButton primary onClick={() => setShowGuideDialog(true)} disabled={isPending}>
                 Plano autorizou
               </StepButton>
-              <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
-                Particular / sem guia
-              </StepButton>
+              {!draft.pendencies.hasPlan && (
+                <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
+                  Particular / sem guia
+                </StepButton>
+              )}
             </div>
             {showGuideDialog && (
               <AuthorizedGuideDialog
@@ -670,6 +684,7 @@ export function DraftPipelineColumns({
           {feedback.text}
         </p>
       )}
+    </div>
     </div>
   );
 }

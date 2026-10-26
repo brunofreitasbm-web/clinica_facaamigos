@@ -162,6 +162,13 @@ test("sem resposta do bot, 'sem guia' marcado pela recepção vale como particul
   assert.equal(stateOf(result, "carteirinha"), "nao_se_aplica");
 });
 
+test("plano identificado: 'sem guia' da recepção não vira particular", () => {
+  const result = computeLeadPendencies({ ...base, insurerKnown: true, authorizationWaived: true });
+  assert.equal(result.hasPlan, true);
+  assert.equal(stateOf(result, "carteirinha"), "faltando");
+  assert.equal(computeLeadPendencies(base).hasPlan, false);
+});
+
 test("convênio + 'sem guia' da recepção: carteirinha continua exigida, guia some", () => {
   const result = computeLeadPendencies({ ...base, bot: { is_private: false }, authorizationWaived: true });
   assert.equal(stateOf(result, "carteirinha"), "faltando");

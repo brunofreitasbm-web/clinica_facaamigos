@@ -23,8 +23,6 @@ export function hoursBetween(startsAt: string, endsAt: string): number {
 export const INTAKE_REQUIRED_CATEGORIES = [
   "pedido_medico",
   "documento_responsavel",
-  "termo_lgpd",
-  "termo_imagem",
   "contrato",
 ] as const;
 export const INTAKE_INSURANCE_CATEGORY = "carteirinha";

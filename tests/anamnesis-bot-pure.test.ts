@@ -134,6 +134,13 @@ test("parsePlanAnswer: particular, convênio atendido, genérico, não atendido"
   assert.deepEqual(parsePlanAnswer("", insurers), { kind: "invalid" });
 });
 
+test("parsePlanAnswer: plano já identificado bloqueia PARTICULAR", () => {
+  const insurers = [{ id: "1", name: "IASEP" }];
+  assert.deepEqual(parsePlanAnswer("particular", insurers, insurers[0]), { kind: "particular_blocked", known: insurers[0] });
+  assert.deepEqual(parsePlanAnswer("iasep", insurers, insurers[0]), { kind: "insurer", id: "1", name: "IASEP" });
+  assert.deepEqual(parsePlanAnswer("particular", insurers, null), { kind: "particular" });
+});
+
 test("canonicalAnamnesisStep: etapas antigas continuam valendo", () => {
   assert.equal(canonicalAnamnesisStep("awaiting_guardian_cpf"), "legacy_identity");
   assert.equal(canonicalAnamnesisStep("awaiting_guardian_email"), "legacy_identity");
