@@ -678,8 +678,7 @@ export function DraftPipelineColumns({
             O paciente só aparece na agenda depois que o cadastro for conferido.{" "}
             <Link
               href={`/recepcao/pre-cadastros/${draft.id}`}
-              className="font-semibold no-underline"
-              style={{ color: "var(--color-accent)" }}
+              className="btn btn-primary mt-2 inline-block no-underline"
             >
               Conferir e cadastrar →
             </Link>

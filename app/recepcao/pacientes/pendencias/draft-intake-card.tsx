@@ -34,7 +34,16 @@ function fileLabel(file: PendingRegistrationDraft["files"][number]): string {
   return detected ? `${detected} · ${file.name}` : file.name;
 }
 
-export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegistrationDraft; focus?: boolean }) {
+export function DraftIntakeCard({
+  draft,
+  focus = false,
+  hideReviewLink = false,
+}: {
+  draft: PendingRegistrationDraft;
+  focus?: boolean;
+  /** O chamador já mostra "Conferir e cadastrar" no cabeçalho, ao lado do nome. */
+  hideReviewLink?: boolean;
+}) {
   return (
     // Quem recolhe/expande é a linha do contato (CollapsibleQueueRow, em
     // page.tsx): com vários contatos na fila ao mesmo tempo, o cartão aberto
@@ -157,11 +166,10 @@ export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegist
         />
 
         <div className="flex flex-wrap items-center gap-3">
-          {draft.status !== "validated" && (
+          {draft.status !== "validated" && !hideReviewLink && (
             <Link
               href={`/recepcao/pre-cadastros/${draft.id}`}
-              className="text-[13px] font-semibold no-underline"
-              style={{ color: "var(--color-accent)" }}
+              className="btn btn-primary no-underline"
             >
               Conferir e cadastrar →
             </Link>

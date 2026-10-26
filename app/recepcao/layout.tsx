@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  * Layout do módulo Recepção — monta o cabeçalho (RecepcaoNav) em toda tela
  * do módulo. Cada página sob app/recepcao só entrega o conteúdo daquela tela.
  */
-export default async function RecepcaoLayout({ children }: { children: React.ReactNode }) {
+export default async function RecepcaoLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
   const supabase = await createClient();
   const today = todayInTimeZone(CLINIC_TIMEZONE);
 
@@ -37,6 +37,7 @@ export default async function RecepcaoLayout({ children }: { children: React.Rea
     <div className="flex min-h-0 flex-1 flex-col">
       <RecepcaoNav pendingCount={pendingCount} chegadasCount={chegadasCount ?? 0} toAuthorizeCount={toAuthorizeCount} />
       {children}
+      {modal}
       <KnowledgeBaseDrawer />
       <BonusFloatingWidget />
     </div>

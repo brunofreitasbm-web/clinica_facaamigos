@@ -399,7 +399,7 @@ export function QueueWorkspace({
       <div
         className={
           split
-            ? "grid grid-cols-1 items-start gap-6 md:grid-cols-[30%_minmax(0,1fr)]"
+            ? "grid grid-cols-1 items-start gap-6 md:grid-cols-[320px_minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[390px_minmax(0,1fr)]"
             : "grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]"
         }
       >
@@ -549,7 +549,7 @@ function QueueRow({
       onClick={onSelect}
       aria-current={selected ? "true" : undefined}
       className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors focus-visible:relative focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)] ${
-        selected ? "bg-[var(--color-accent-100)]" : "hover:bg-paper"
+        selected ? "bg-[var(--color-accent-100)] border-l-4 border-[var(--color-accent)] pl-3" : "hover:bg-paper"
       }`}
     >
       <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">

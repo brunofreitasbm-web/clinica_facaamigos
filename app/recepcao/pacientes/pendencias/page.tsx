@@ -145,6 +145,7 @@ export default async function PendenciasPage({
         ) : (
           <QueueWorkspace
             items={items}
+            split
             categoryOrder={CATEGORY_ORDER}
             owners={(reassignCandidates ?? []).map((c) => ({ id: c.id, name: c.full_name }))}
             initial={{

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AlertCircle, CheckSquare } from "lucide-react";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingQueueItem } from "@/lib/reception-queue";
 import { fmtDueShort, fmtWaitingDays } from "@/lib/format";
@@ -14,6 +15,192 @@ import { DraftPipelineMini } from "./draft-pipeline";
 import { SummaryChip } from "./pendency-pills";
 import type { QueueStage, WorkspaceItem } from "./queue-workspace";
 import { normalizeSearch, urgencyBand } from "./queue-filters-pure";
+
+type PendencyGuidance = {
+  problemTitle: string;
+  problemDescription: string;
+  actionTitle: string;
+  actionSteps: string[];
+  actionButtonText?: string;
+};
+
+function getPendencyGuidance(category: string, detail: string): PendencyGuidance {
+  switch (category) {
+    case "guia_vencendo":
+      return {
+        problemTitle: "Guia prestes a vencer",
+        problemDescription: `A autorização do convênio está próxima do vencimento (${detail}). Sem uma nova guia autorizada, os próximos atendimentos não serão cobertos pelo plano.`,
+        actionTitle: "Ação necessária para renovar a guia:",
+        actionSteps: [
+          "Verifique se a família já entregou novo pedido/laudo médico recente.",
+          "Solicite a renovação junto ao convênio ou contate o responsável para pedir novo encaminhamento.",
+          "Abra a ficha do paciente para lançar os dados da nova guia autorizada.",
+        ],
+        actionButtonText: "Abrir ficha e gerenciar guias",
+      };
+    case "guia_poucas_sessoes":
+      return {
+        problemTitle: "Poucas sessões autorizadas restantes",
+        problemDescription: `O saldo de sessões autorizadas está no fim (${detail}). O paciente corre risco de interrupção nas terapias.`,
+        actionTitle: "Ação necessária para solicitar novo lote:",
+        actionSteps: [
+          "Solicite ao terapeuta o relatório evolutivo atualizado para embasar a renovação.",
+          "Encaminhe o pedido de extensão de sessões para o convênio.",
+          "Acompanhe a autorização e registre o novo saldo na ficha.",
+        ],
+        actionButtonText: "Abrir ficha do paciente",
+      };
+    case "cadastro_incompleto":
+      return {
+        problemTitle: "Cadastro incompleto / Parado",
+        problemDescription: `O cadastro do paciente está parado nesta etapa há vários dias (${detail}), sem dados pessoais ou documentação necessária concluída.`,
+        actionTitle: "Ação necessária para completar o cadastro:",
+        actionSteps: [
+          "Acesse a ficha cadastral e confira os campos obrigatórios vazios (CPF, responsável, dados do convênio).",
+          "Faça contato com a família via telefone/WhatsApp para colher as informações faltantes.",
+          "Preencha os dados e libere o paciente para avaliação ou início dos atendimentos.",
+        ],
+        actionButtonText: "Completar cadastro do paciente",
+      };
+    case "evolucao_atrasada":
+      return {
+        problemTitle: "Evolução clínica atrasada (> 24h)",
+        problemDescription: `A sessão foi realizada (${detail}), porém a nota de evolução do prontuário ainda não foi registrada pelo terapeuta no prazo legal de 24h.`,
+        actionTitle: "Ação necessária para regularizar o prontuário:",
+        actionSteps: [
+          "Localize o terapeuta responsável pelo atendimento.",
+          "Envie um lembrete solicitando a elaboração e assinatura da evolução no sistema.",
+          "Se persistir, comunique a supervisão clínica para alinhamento.",
+        ],
+        actionButtonText: "Abrir agenda do dia",
+      };
+    case "documento_vencido":
+      return {
+        problemTitle: "Documento obrigatório vencido",
+        problemDescription: `Um documento essencial do paciente expirou (${detail}) e precisa de renovação para manter a regularidade do prontuário.`,
+        actionTitle: "Ação necessária para atualizar o documento:",
+        actionSteps: [
+          "Verifique qual documento expirou na aba de Documentos do paciente.",
+          "Envie mensagem ao responsável solicitando o envio do documento atualizado em foto/PDF.",
+          "Faça o upload do documento no prontuário do paciente.",
+        ],
+        actionButtonText: "Abrir documentos do paciente",
+      };
+    case "interessado_sem_retorno":
+      return {
+        problemTitle: "Interessado aguardando retorno humano",
+        problemDescription: `Novo contato de família (${detail}) sem primeiro atendimento por parte da recepção.`,
+        actionTitle: "Ação necessária para acolhimento:",
+        actionSteps: [
+          "Ligue ou mande mensagem de WhatsApp para acolher a família.",
+          "Apresente a clínica, entenda as necessidades da criança e tire dúvidas.",
+          "Clique em 'Registrar contato' abaixo para computar o retorno no sistema.",
+        ],
+        actionButtonText: "Registrar retorno do contato",
+      };
+    case "falta_sem_motivo":
+      return {
+        problemTitle: "Falta sem motivo / Justificativa pendente",
+        problemDescription: `O paciente não compareceu à sessão (${detail}) e a falta foi lançada automaticamente sem motivo registrado.`,
+        actionTitle: "Ação necessária para apurar a ausência:",
+        actionSteps: [
+          "Entre em contato com a família para entender o que aconteceu e prestar acolhimento.",
+          "Se houver justificativa ou atestado, clique em 'Definir motivo' e selecione a opção correta.",
+          "Se o paciente esteve presente ou foi um erro, clique em 'Desfazer falta'.",
+        ],
+        actionButtonText: "Definir motivo da falta",
+      };
+    case "remarcacao_solicitada":
+      return {
+        problemTitle: "Pedido de remarcação de horário",
+        problemDescription: `Foi solicitada a remarcação de um atendimento agendado (${detail}).`,
+        actionTitle: "Ação necessária para reagendar:",
+        actionSteps: [
+          "Consulte os horários livres na agenda do terapeuta correspondente.",
+          "Combine a nova data com a família.",
+          "Atualize o agendamento na agenda e clique em 'Marcar como concluído'.",
+        ],
+        actionButtonText: "Concluir remarcação",
+      };
+    case "renovacao_solicitada":
+      return {
+        problemTitle: "Renovação de guia aguardando retorno do plano",
+        problemDescription: `Pedido de renovação enviado ao plano de saúde (${detail}).`,
+        actionTitle: "Ação necessária para conferência:",
+        actionSteps: [
+          "Acesse o portal da operadora e verifique se a autorização foi liberada.",
+          "Se liberada, clique em 'Autorizado' para cadastrar a nova guia com número e vigência.",
+          "Marque a solicitação como resolvida para concluir a pendência.",
+        ],
+        actionButtonText: "Registrar guia autorizada",
+      };
+    case "chegada_nao_confirmada":
+      return {
+        problemTitle: "Paciente aguardando confirmação no balcão",
+        problemDescription: `O paciente realizou check-in presencial (${detail}) e está aguardando na recepção.`,
+        actionTitle: "Ação necessária na recepção:",
+        actionSteps: [
+          "Identifique o paciente e responsável presentes no balcão.",
+          "Acesse a tela de Chegadas e confirme a entrada para liberar o acesso e notificar a equipe.",
+        ],
+        actionButtonText: "Ir para Chegadas",
+      };
+    default:
+      return {
+        problemTitle: "Pendência administrativa",
+        problemDescription: detail,
+        actionTitle: "Ação necessária:",
+        actionSteps: [
+          "Abra a ficha do paciente para verificar o histórico e o status atual.",
+          "Tome a providência administrativa necessária e atualize o registro.",
+        ],
+        actionButtonText: "Abrir e resolver",
+      };
+  }
+}
+
+function getDraftGuidance(draft: NonNullable<PendingQueueItem["draft"]>): PendencyGuidance {
+  const missing = draft.pendencies.missingCount;
+  if (missing > 0) {
+    const missingLabels = draft.pendencies.pills.filter((p) => p.state === "faltando").map((p) => p.label);
+    return {
+      problemTitle: `Falta ${missing === 1 ? "1 documento/dado" : `${missing} documentos/dados`}`,
+      problemDescription: `Rascunho de pré-cadastro incompleto via WhatsApp. Pendente: ${missingLabels.join(", ") || "documentos obrigatórios"}.`,
+      actionTitle: "Ação necessária para obter os documentos:",
+      actionSteps: [
+        "Envie mensagem via WhatsApp pelos botões rápidos abaixo solicitando os arquivos faltantes.",
+        "Aguarde o envio dos documentos pela família e confira os arquivos recebidos.",
+        "Com todos os documentos em mãos, avance para a conferência e autorização do plano.",
+      ],
+      actionButtonText: "Conferir e cadastrar",
+    };
+  }
+
+  if (draft.pipeline.authorization === "pendente" || draft.pipeline.authorization === "enviada") {
+    return {
+      problemTitle: "Documentos prontos · Aguardando plano de saúde",
+      problemDescription: "Todos os documentos foram recebidos. A guia precisa ser enviada e aprovada pelo plano.",
+      actionTitle: "Ação necessária junto ao plano:",
+      actionSteps: [
+        "Envie a guia médica ao convênio e clique em 'Marcar como enviada' na linha do tempo.",
+        "Ao receber o retorno da operadora, registre a guia autorizada ou dispense a guia.",
+        "Habilite o agendamento para a supervisão marcar a 1ª avaliação.",
+      ],
+      actionButtonText: "Avançar autorização",
+    };
+  }
+
+  return {
+    problemTitle: "Autorizado · Pronto para agendar",
+    problemDescription: "A autorização do convênio foi concluída com sucesso. Falta liberar o agendamento.",
+    actionTitle: "Ação para liberar agendamento:",
+    actionSteps: [
+      "Confira os dados do paciente para garantir que o prontuário está consistente.",
+      "Clique em 'Habilitar agendamento' na linha do tempo abaixo para disponibilizar o contato à supervisão.",
+    ],
+    actionButtonText: "Habilitar agendamento",
+  };
+}
 
 /**
  * Converte a fila da recepção nos itens do <QueueWorkspace> (lista + painel de
@@ -75,10 +262,19 @@ export function buildWorkspaceItems(
     const action = primaryAction(item);
     const due = dueText(item);
 
+    const guidance = draft ? getDraftGuidance(draft) : getPendencyGuidance(item.category, item.detail);
+
     const detail = (
-      <article key={item.id} className="flex flex-col gap-5">
-        <header className="flex flex-col gap-2 border-b border-paper-line pb-4">
-          <h2 className="m-0 text-2xl font-extrabold leading-tight text-ink">{item.patientName}</h2>
+      <article key={item.id} className="flex flex-col gap-4">
+        <header className="flex flex-col gap-2 border-b border-paper-line pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="m-0 text-2xl font-extrabold leading-tight text-ink">{item.patientName}</h2>
+            {draft && draft.status !== "validated" && (
+              <Link href={`/recepcao/pre-cadastros/${draft.id}`} className="btn btn-primary no-underline">
+                Conferir e cadastrar →
+              </Link>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="rounded-full border border-paper-line-strong px-3 py-1 font-semibold text-ink">{item.categoryLabel}</span>
             {draft?.mergedDraftsCount && draft.mergedDraftsCount > 1 && (
@@ -110,25 +306,55 @@ export function buildWorkspaceItems(
           </p>
         </header>
 
-        <p className="m-0 text-base leading-relaxed text-ink">{item.detail}</p>
-
-        {!draft && (
-          <div className="flex flex-wrap items-center gap-3">
-            {action}
-            {item.patientId && (
-              <Link href={item.href} className={`btn ${action ? "btn-ghost" : "btn-primary"} no-underline`}>
-                {action ? "Abrir ficha" : "Abrir e resolver"}
-              </Link>
-            )}
-            {!action && !item.patientId && (
-              <Link href={item.href} className="btn btn-primary no-underline">
-                Abrir e resolver
-              </Link>
-            )}
+        {/* Bloco 1: Qual a pendência que precisa ser resolvida */}
+        <section className="rounded-xl border border-status-pending-line bg-paper-surface p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-status-pending-soft px-2.5 py-0.5 text-xs font-bold text-status-pending-text">
+              <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+              Pendência a resolver
+            </span>
+            <span className="text-xs font-semibold text-ink-faint">·</span>
+            <span className="text-xs font-medium text-ink-soft">{item.categoryLabel}</span>
           </div>
-        )}
+          <h3 className="m-0 text-base font-bold text-ink">{guidance.problemTitle}</h3>
+          <p className="m-0 mt-1.5 text-sm leading-relaxed text-ink-soft">{guidance.problemDescription}</p>
+        </section>
 
-        {draft && <DraftIntakeCard draft={draft} focus />}
+        {/* Bloco 2: Ação para fazer */}
+        <section className="rounded-xl border border-paper-line-strong bg-paper p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent-100)] px-2.5 py-0.5 text-xs font-bold text-[var(--color-accent)]">
+              <CheckSquare className="h-3.5 w-3.5" aria-hidden="true" />
+              Ação para fazer
+            </span>
+          </div>
+          <p className="m-0 text-sm font-semibold text-ink">{guidance.actionTitle}</p>
+          <ol className="m-0 mt-2 list-decimal space-y-1.5 pl-4 text-sm leading-relaxed text-ink-soft">
+            {guidance.actionSteps.map((step, idx) => (
+              <li key={idx}>
+                <span className="text-ink">{step}</span>
+              </li>
+            ))}
+          </ol>
+
+          {!draft && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-paper-line pt-3">
+              {action}
+              {item.patientId && (
+                <Link href={item.href} className={`btn ${action ? "btn-secondary" : "btn-primary"} no-underline`}>
+                  {guidance.actionButtonText || (action ? "Abrir ficha" : "Abrir e resolver")} →
+                </Link>
+              )}
+              {!action && !item.patientId && (
+                <Link href={item.href} className="btn btn-primary no-underline">
+                  {guidance.actionButtonText || "Abrir e resolver"} →
+                </Link>
+              )}
+            </div>
+          )}
+        </section>
+
+        {draft && <DraftIntakeCard draft={draft} focus hideReviewLink />}
       </article>
     );
 
