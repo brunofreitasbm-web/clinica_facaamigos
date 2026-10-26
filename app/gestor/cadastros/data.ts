@@ -66,6 +66,7 @@ export async function getPatientRows(supabase: Supa, clinicId: string): Promise<
     .from("patients")
     .select("id, full_name, birth_date, status")
     .eq("clinic_id", clinicId)
+    .neq("status", "interessado") // interessado ainda não é paciente (sem prontuário)
     .order("full_name");
   const list = patients ?? [];
   if (list.length === 0) return [];

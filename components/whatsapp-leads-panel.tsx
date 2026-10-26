@@ -248,16 +248,6 @@ function LeadCard({ lead, today }: { lead: WhatsappLeadRow; today: string }) {
           </ul>
         )}
       </div>
-
-      <footer className="flex justify-end">
-        <a
-          href={`/supervisao/prontuario-unificado?p=${lead.id}`}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-accent no-underline hover:underline"
-        >
-          Abrir prontuário
-          <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-      </footer>
     </article>
   );
 }

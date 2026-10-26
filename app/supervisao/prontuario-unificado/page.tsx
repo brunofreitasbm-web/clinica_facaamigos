@@ -60,6 +60,7 @@ export default async function ProntuarioUnificadoPage({
     .from("patients")
     .select("id, full_name, cpf, birth_date, status")
     .eq("clinic_id", DEV_CLINIC_ID)
+    .neq("status", "interessado") // interessado ainda não é paciente (sem prontuário)
     .order("full_name", { ascending: true })
     .limit(30);
 
@@ -78,6 +79,7 @@ export default async function ProntuarioUnificadoPage({
       .from("patients")
       .select("id, full_name, cpf, birth_date, status")
       .eq("clinic_id", DEV_CLINIC_ID)
+      .neq("status", "interessado")
       .eq("id", selectedPatientId)
       .maybeSingle();
     selectedPatient = byId ?? null;

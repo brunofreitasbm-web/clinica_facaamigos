@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
@@ -29,11 +29,14 @@ export default async function RedeExternaPage({ params }: { params: Promise<{ id
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")
-    .select("id, full_name")
+    .select("id, full_name, status")
     .eq("id", id)
     .maybeSingle();
 
   if (!patient || patientError) notFound();
+
+  // Interessado ainda não é paciente: sem prontuário até o plano ser autorizado.
+  if (patient.status === "interessado") redirect("/recepcao/pacientes/pendencias");
 
   await logRecordAccess(supabase, patient.id, "rede_externa");
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
@@ -42,6 +42,9 @@ export default async function GestaoPacientePage({
     .maybeSingle();
 
   if (!patient || patientError) notFound();
+
+  // Interessado ainda não é paciente: sem prontuário até o plano ser autorizado.
+  if (patient.status === "interessado") redirect("/recepcao/pacientes/pendencias");
 
   await logRecordAccess(supabase, id, "gestao");
 

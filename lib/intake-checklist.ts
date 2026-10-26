@@ -89,7 +89,7 @@ export async function getIntakeChecklistRows(
     .from("patients")
     .select("id, full_name, first_session_at, status")
     .eq("clinic_id", clinicId)
-    .in("status", ["interessado", "avaliacao", "ativo"])
+    .in("status", ["avaliacao", "ativo"]) // interessado ainda não tem prontuário
     .or(`first_session_at.is.null,first_session_at.gte.${nowISO}`)
     .order("full_name");
 
