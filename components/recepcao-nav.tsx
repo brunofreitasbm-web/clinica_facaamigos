@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Users, AlertCircle, ShieldCheck, Inbox, FileText, UserX, DoorOpen, Trophy } from "lucide-react";
+import { CalendarDays, Users, AlertCircle, ShieldCheck, Inbox, FileText, DoorOpen, Trophy } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -24,7 +24,6 @@ const NAV_ITEMS = [
   // agora entram em Pendências já com arquivos, dados e conversa — ver
   // app/recepcao/pacientes/pendencias/draft-intake-card.tsx. A tela de
   // validação individual continua em /recepcao/pre-cadastros/[draftId].
-  { key: "emergencias", label: "Aviso Falta Terapeuta", href: "/recepcao/emergencias", icon: UserX },
   { key: "metricas", label: "Minha bonificação", href: "/recepcao/metricas", icon: Trophy },
 ] as const;
 
