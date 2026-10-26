@@ -9,7 +9,10 @@ import { formatCpfMask, formatPhoneMask } from "@/lib/masks";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
+  // /login?blocked=true: o middleware encerrou a sessão de um colaborador desativado (ver lib/profile-access.ts).
+  const [error, setError] = useState<string | null>(() =>
+    searchParams?.get("blocked") === "true" ? "Seu acesso está desativado. Fale com o gestor da clínica." : null,
+  );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<"email" | "otp">("email");

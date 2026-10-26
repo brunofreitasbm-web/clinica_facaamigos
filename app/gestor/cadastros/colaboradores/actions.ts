@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ROLES, type Role } from "@/lib/roles";
 import { isPasswordStrong } from "@/lib/password";
+import { banDurationFor } from "@/lib/profile-access";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -210,6 +211,32 @@ export async function updateStaffProfile(
 export async function toggleStaffActive(profileId: string, active: boolean): Promise<ActionResult> {
   const caller = await requireCallerIsGestor();
   if (!caller.ok) return { success: false, error: caller.error };
+
+  // O middleware passa a barrar o colaborador desativado: desativar a si mesmo trancaria o gestor para fora.
+  if (!active && profileId === caller.actorId) {
+    return { success: false, error: "Você não pode desativar o seu próprio usuário de gestor." };
+  }
+
+  // Desativar não é só marcar `active`: o login também é banido no Auth, para valer na renovação do token,
+  // e reativar levanta o banimento (o Hub de Gestão faz o mesmo). Sem a chave de serviço, segue só com a
+  // marca, que o middleware já respeita.
+  let admin: ReturnType<typeof createAdminClient> | null = null;
+  try {
+    admin = createAdminClient();
+  } catch {
+    admin = null;
+  }
+  if (admin) {
+    // O admin client ignora a RLS: confere que o alvo é desta clínica antes de tocar no Auth.
+    const { data: target } = await admin.from("profiles").select("id, clinic_id").eq("id", profileId).maybeSingle();
+    if (!target || target.clinic_id !== caller.clinicId) {
+      return { success: false, error: "Colaborador não encontrado nesta clínica." };
+    }
+    const { error: banError } = await admin.auth.admin.updateUserById(profileId, {
+      ban_duration: banDurationFor(active),
+    });
+    if (banError) return { success: false, error: "Não foi possível alterar o login do colaborador." };
+  }
 
   const session = await createClient();
   const { error } = await session
