@@ -91,3 +91,106 @@ export async function reassignQueueItem(itemId: string, assigneeId: string): Pro
   revalidatePath("/recepcao/pacientes/pendencias");
   return { success: true };
 }
+
+/**
+ * Coloca o item para o último lugar da fila (§9.1).
+ * Útil quando o operador julga que não é relevante autorizar ou tratar o item no momento.
+ * Atualiza `due_at` para uma data futura além do maior `due_at` existente na clínica
+ * (colocando-o no final da faixa "Depois") e remove `escalated_at` para tirá-lo de "Agora".
+ */
+export async function moveQueueItemToEnd(itemId: string): Promise<ActionResult> {
+  if (!itemId) {
+    return { success: false, error: "Item inválido." };
+  }
+
+  const supabase = await createClient();
+
+  // Busca o maior due_at atual entre as pendências da clínica
+  const { data: latest } = await supabase
+    .from("pending_queue_assignments")
+    .select("due_at")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .order("due_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const minFutureMs = Date.now() + 30 * 24 * 60 * 60 * 1000;
+  const latestMs = latest?.due_at ? new Date(latest.due_at).getTime() : 0;
+  const newDueAt = new Date(Math.max(minFutureMs, latestMs + 60_000)).toISOString();
+
+  const { data: existing } = await supabase
+    .from("pending_queue_assignments")
+    .select("id")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("item_id", itemId)
+    .maybeSingle();
+
+  let updateError = null;
+
+  if (existing) {
+    const { error } = await supabase
+      .from("pending_queue_assignments")
+      .update({
+        due_at: newDueAt,
+        escalated_at: null,
+      })
+      .eq("id", existing.id);
+    updateError = error;
+  } else {
+    const category = itemId.startsWith("cadastro-ia-")
+      ? "cadastro_assistido_ia"
+      : itemId.startsWith("guia-vence-")
+      ? "guia_vencendo"
+      : itemId.startsWith("falta-auto-")
+      ? "falta_sem_motivo"
+      : itemId.startsWith("remarcacao-")
+      ? "remarcacao_solicitada"
+      : itemId.startsWith("renovacao-")
+      ? "renovacao_solicitada"
+      : "cadastro_incompleto";
+
+    const { error } = await supabase
+      .from("pending_queue_assignments")
+      .insert({
+        clinic_id: DEV_CLINIC_ID,
+        item_id: itemId,
+        category,
+        due_at: newDueAt,
+        escalated_at: null,
+      });
+    updateError = error;
+  }
+
+  if (updateError) {
+    return { success: false, error: "Não foi possível mover para o fim da fila." };
+  }
+
+  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/pacientes/pendencias");
+  return { success: true };
+}
+
+/**
+ * Restaura o item para o topo da fila (define due_at para agora).
+ */
+export async function restoreQueueItemToTop(itemId: string): Promise<ActionResult> {
+  if (!itemId) return { success: false, error: "Item inválido." };
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("pending_queue_assignments")
+    .update({
+      due_at: now,
+      escalated_at: null,
+    })
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("item_id", itemId);
+
+  if (error) return { success: false, error: "Não foi possível priorizar o item." };
+
+  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/pacientes/pendencias");
+  return { success: true };
+}
+

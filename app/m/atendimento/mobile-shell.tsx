@@ -74,6 +74,7 @@ export function MobileShell({
               ? {
                   ...existing,
                   patientId: row.patient_id,
+                  patientStatus: row.patient_id === existing.patientId ? existing.patientStatus : null,
                   guardianId: row.guardian_id,
                   kind: row.kind === "lead" ? "lead" : "patient",
                   isBotActive: row.is_bot_active,
@@ -97,6 +98,7 @@ export function MobileShell({
               : {
                   id: row.id,
                   patientId: row.patient_id,
+                  patientStatus: null,
                   guardianId: row.guardian_id,
                   phoneNumber: row.phone_number,
                   isBotActive: row.is_bot_active,

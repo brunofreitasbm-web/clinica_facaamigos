@@ -22,7 +22,7 @@ import type { DeliveryHistoryRow } from "./chatbot/chatbot-panel";
 
 export type { ConversationRow, InsurerPill, ConversationPatch } from "@/lib/atendimento/types";
 import type { ConversationRow, ConversationPatch, InsurerPill } from "@/lib/atendimento/types";
-import { toLastMessageSender } from "@/lib/atendimento/types";
+import { hasPatientRecord, toLastMessageSender } from "@/lib/atendimento/types";
 
 const WHATSAPP_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -122,6 +122,11 @@ export function AtendimentoShell({
               ? {
                   ...existing,
                   patientId: row.patient_id,
+                  // O realtime de twilio_conversations não traz o status do
+                  // paciente (patients.status) — se o vínculo mudou, mantém
+                  // o status conhecido até a próxima carga via server; não
+                  // existe aqui dado melhor para decidir.
+                  patientStatus: row.patient_id === existing.patientId ? existing.patientStatus : null,
                   guardianId: row.guardian_id,
                   kind: row.kind === "lead" ? "lead" : "patient",
                   isBotActive: row.is_bot_active,
@@ -146,6 +151,7 @@ export function AtendimentoShell({
               : {
                   id: row.id,
                   patientId: row.patient_id,
+                  patientStatus: null,
                   guardianId: row.guardian_id,
                   phoneNumber: row.phone_number,
                   isBotActive: row.is_bot_active,
@@ -396,7 +402,7 @@ export function AtendimentoShell({
                   mobileView === "chat" && showContextMobile ? "block" : "hidden"
                 }`}
               >
-                {selected.patientId ? (
+                {hasPatientRecord(selected) ? (
                   <PatientContextPanel key={selected.id} conversation={selected} />
                 ) : (
                   <LeadContextPanel

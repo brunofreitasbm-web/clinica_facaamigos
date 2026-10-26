@@ -6,6 +6,7 @@ import { AlertTriangle, ChevronDown, Clock, Search, X } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
 import { extractDraftOnDemand } from "./draft-pipeline-actions";
 import { BAND_ORDER, highlightSegments, matchesSearch, type UrgencyBand } from "./queue-filters-pure";
+import { MoveToLastButton } from "./move-to-last-button";
 
 /**
  * Em que ponto do funil o contato está. Só pré-cadastros (drafts) têm etapa;
@@ -35,6 +36,8 @@ export type WorkspaceItem = {
   haystack: string;
   /** Pré-cadastro com arquivos ainda não lidos: a IA lê ao abrir o contato. */
   readDraftId: string | null;
+  /** Item empurrado para o final da fila porque não é relevante autorizar no momento */
+  isPostponed?: boolean;
   /** Painel de detalhe, montado no servidor. */
   detail: ReactNode;
 };
@@ -131,8 +134,17 @@ export function QueueWorkspace({
     return () => window.removeEventListener("queue-item-dismiss", handleDismiss);
   }, []);
 
+  useEffect(() => {
+    const handleMovedToLast = () => {
+      // Abre a faixa "Depois" para o operador ver o item no fim da fila
+      setOpenBands((prev) => ({ ...prev, depois: true }));
+    };
+    window.addEventListener("queue-item-moved-to-last", handleMovedToLast);
+    return () => window.removeEventListener("queue-item-moved-to-last", handleMovedToLast);
+  }, []);
+
   const searchRef = useRef<HTMLInputElement>(null);
-  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
+  const rowRefs = useRef(new Map<string, HTMLElement>());
   const detailRef = useRef<HTMLDivElement>(null);
   const readRequested = useRef(new Set<string>());
   const [reading, startReading] = useTransition();
@@ -602,17 +614,24 @@ function QueueRow({
   search: string;
   selected: boolean;
   onSelect: () => void;
-  buttonRef: (el: HTMLButtonElement | null) => void;
+  buttonRef: (el: HTMLElement | null) => void;
 }) {
   const late = item.escalated || item.overdue;
   const Icon = item.band === "agora" ? AlertTriangle : item.band === "hoje" ? Clock : null;
   return (
-    <button
-      ref={buttonRef}
-      type="button"
+    <div
+      ref={buttonRef as unknown as React.Ref<HTMLDivElement>}
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       aria-current={selected ? "true" : undefined}
-      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors focus-visible:relative focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)] ${
+      className={`flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors focus-visible:relative focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)] ${
         selected ? "bg-[var(--color-accent-100)] border-l-4 border-[var(--color-accent)] pl-3" : "hover:bg-paper"
       }`}
     >
@@ -622,7 +641,7 @@ function QueueRow({
         )}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-baseline justify-between gap-3">
+        <span className="flex items-baseline justify-between gap-2">
           <span className={`truncate text-base font-bold ${selected ? "text-[var(--color-accent)]" : "text-ink"}`}>
             {highlightSegments(item.name, search).map((seg, i) =>
               seg.match ? (
@@ -634,12 +653,15 @@ function QueueRow({
               ),
             )}
           </span>
-          <span
-            className={`shrink-0 whitespace-nowrap text-sm tabular-figure ${
-              late ? "font-bold text-status-negative-text" : "text-ink-soft"
-            }`}
-          >
-            {item.dueText}
+          <span className="flex items-center gap-1 shrink-0">
+            <MoveToLastButton itemId={item.id} patientName={item.name} isPostponed={item.isPostponed} compact />
+            <span
+              className={`whitespace-nowrap text-sm tabular-figure ${
+                item.isPostponed ? "text-amber-700 font-semibold" : late ? "font-bold text-status-negative-text" : "text-ink-soft"
+              }`}
+            >
+              {item.dueText}
+            </span>
           </span>
         </span>
         <span className="mt-0.5 flex items-baseline justify-between gap-3 text-sm">
@@ -659,7 +681,7 @@ function QueueRow({
           ) : null}
         </span>
       </span>
-    </button>
+    </div>
   );
 }
 
