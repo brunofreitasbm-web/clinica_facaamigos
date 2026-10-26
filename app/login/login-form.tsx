@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { signIn } from "./actions";
 import { requestFamilyOtp, verifyFamilyOtp } from "./otp-actions";
 import { formatCpfMask, formatPhoneMask } from "@/lib/masks";
+import { RecoverPassword } from "./recover-password";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -16,6 +17,7 @@ export function LoginForm() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<"email" | "otp">("email");
+  const [recovering, setRecovering] = useState(false);
 
   // Estados do formulário OTP da Família
   const [phone, setPhone] = useState("");
@@ -119,7 +121,9 @@ export function LoginForm() {
         </button>
       </div>
 
-      {mode === "email" ? (
+      {mode === "email" && recovering ? (
+        <RecoverPassword onBack={() => setRecovering(false)} />
+      ) : mode === "email" ? (
         <form
           className="flex flex-col gap-4"
           action={(formData) => {
@@ -170,6 +174,17 @@ export function LoginForm() {
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {isPending ? "Entrando…" : "Entrar"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setRecovering(true);
+            }}
+            className="text-xs text-ink-soft hover:text-ink underline"
+          >
+            Esqueci minha senha
           </button>
 
           {error && (
