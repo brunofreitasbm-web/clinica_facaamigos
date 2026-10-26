@@ -174,6 +174,24 @@ type GuideValues = { guideNumber: string; validTo: string; procedures: { code: s
 
 const EMPTY_PROCEDURE = { code: "", description: "", quantity: "" };
 
+function defaultGuideValues(suggested?: DraftAuthorizedGuide | null): GuideValues {
+  const defaultValidTo = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10);
+  const procedures = suggested?.procedures?.length
+    ? suggested.procedures.map((p) => ({ code: p.code, description: p.description, quantity: String(p.quantity) }))
+    : [
+        {
+          code: suggested?.procedure_code || "AVAL",
+          description: "1ª Avaliação Global",
+          quantity: String(suggested?.sessions_authorized || "1"),
+        },
+      ];
+  return {
+    guideNumber: suggested?.guide_number || "",
+    validTo: suggested?.valid_to || defaultValidTo,
+    procedures,
+  };
+}
+
 /**
  * Menu flutuante do "Plano autorizou": a recepção sobe o PDF da guia autorizada
  * e o sistema lê, por algoritmo (sem IA), o nº da guia, a validade da senha e a
@@ -181,17 +199,19 @@ const EMPTY_PROCEDURE = { code: "", description: "", quantity: "" };
  * editável — a leitura é só preenchimento.
  */
 function AuthorizedGuideDialog({
+  suggestedGuide,
   pending,
   error,
   onClose,
   onConfirm,
 }: {
+  suggestedGuide?: DraftAuthorizedGuide | null;
   pending: boolean;
   error: string | null;
   onClose: () => void;
   onConfirm: (values: GuideValues) => void;
 }) {
-  const [values, setValues] = useState<GuideValues>({ guideNumber: "", validTo: "", procedures: [] });
+  const [values, setValues] = useState<GuideValues>(() => defaultGuideValues(suggestedGuide));
   const [reading, startReading] = useTransition();
   const [readNote, setReadNote] = useState<{ tone: "error" | "note"; text: string } | null>(null);
 
@@ -225,7 +245,7 @@ function AuthorizedGuideDialog({
   const setProcedure = (index: number, patch: Partial<GuideValues["procedures"][number]>) =>
     setValues((v) => ({ ...v, procedures: v.procedures.map((p, i) => (i === index ? { ...p, ...patch } : p)) }));
 
-  const canSubmit = values.guideNumber.trim() && values.validTo && values.procedures.length > 0 && !pending && !reading;
+  const canSubmit = !pending && !reading;
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" role="presentation">
@@ -428,6 +448,7 @@ export function DraftPipelineColumns({
       const enabled = await enableDraftScheduling(draft.id);
       if (popup && whatsappUrl) popup.location.href = whatsappUrl;
       setShowGuideDialog(false);
+      window.dispatchEvent(new CustomEvent("queue-item-dismiss", { detail: { id: draft.id } }));
       router.refresh();
       if (!enabled.success) {
         setFeedback({ tone: "error", text: `Guia salva, mas não foi possível habilitar o agendamento: ${enabled.error}` });
@@ -523,6 +544,7 @@ export function DraftPipelineColumns({
             </div>
             {showGuideDialog && (
               <AuthorizedGuideDialog
+                suggestedGuide={pipeline.suggestedGuide}
                 pending={isPending}
                 error={dialogError}
                 onClose={() => setShowGuideDialog(false)}

@@ -10,6 +10,7 @@ import { claimAndProcessDrafts } from "@/lib/registration-drafts-process";
 import { normalizeCpf, parseBrDate, normalizeUf, normalizeCep, normalizePhone } from "@/lib/document-extraction";
 import { sendTwilioWhatsApp } from "@/lib/twilio";
 import { parseGuideProcedures } from "@/lib/reception-queue";
+import { promoteToPatient } from "@/lib/patient-stage";
 
 type ActionResult = { success: true; patientId: string; warnings: string[] } | { success: false; error: string };
 type SimpleResult = { success: true } | { success: false; error: string };
@@ -279,6 +280,8 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
       }
     }
   }
+
+  if (authorizationId || draft.authorization_id) await promoteToPatient(supabase, patientId);
 
   // --- Arquivos: WhatsApp copia pra `documents`; portal só troca categoria ---
   const admin = createAdminClient();

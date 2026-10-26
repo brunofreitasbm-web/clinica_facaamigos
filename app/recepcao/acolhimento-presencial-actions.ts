@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { normalizePhone } from "@/lib/document-extraction";
 import { zonedDateTimeToUtc } from "@/lib/timezone";
+import { promoteToPatient } from "@/lib/patient-stage";
 
 export type CreatePresencialAcolhimentoInput = {
   // Paciente
@@ -187,6 +188,7 @@ export async function createPresencialAcolhimentoAction(
 
       if (!authErr && authRow) {
         authorizationId = authRow.id;
+        await promoteToPatient(supabase, patient.id);
       } else if (authErr) {
         console.error("Erro ao criar autorização:", authErr);
       }

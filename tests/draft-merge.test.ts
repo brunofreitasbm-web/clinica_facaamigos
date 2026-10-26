@@ -212,3 +212,26 @@ test("groupMatchingDrafts e mergeRegistrationDraftGroup: unem conversas do mesmo
   assert.match(merged.guardianMessage ?? "", /certidão/);
   assert.match(merged.guardianMessage ?? "", /laudo/);
 });
+
+test("areDraftsSameCase: nome completo idêntico (3+ palavras) junta mesmo sem telefone/responsável", () => {
+  const base = { patientBirthDate: null, patientCpf: null, guardianName: null, guardianCpf: null, guardianPhone: null, cardNumber: null };
+  const a = makeIdentity({ ...base, id: "a", patientName: "Maria Luisa Gonçalves Freitas", sourcePhone: "+5591988880001" });
+  const b = makeIdentity({ ...base, id: "b", patientName: "MARIA LUISA GONCALVES FREITAS", sourcePhone: "+5591977770002" });
+  assert.equal(areDraftsSameCase(a, b), true);
+});
+
+test("areDraftsSameCase: nome curto ou apenas contido não junta sozinho", () => {
+  const base = { patientBirthDate: null, patientCpf: null, guardianName: null, guardianCpf: null, guardianPhone: null, cardNumber: null };
+  const short1 = makeIdentity({ ...base, id: "a", patientName: "João Silva", sourcePhone: "+5591988880001" });
+  const short2 = makeIdentity({ ...base, id: "b", patientName: "João Silva", sourcePhone: "+5591977770002" });
+  assert.equal(areDraftsSameCase(short1, short2), false);
+  const full = makeIdentity({ ...base, id: "c", patientName: "Arthur Miguel Silva", sourcePhone: "+5591966660003" });
+  const part = makeIdentity({ ...base, id: "d", patientName: "Arthur Miguel", sourcePhone: "+5591955550004" });
+  assert.equal(areDraftsSameCase(full, part), false);
+});
+
+test("areDraftsSameCase: nome idêntico não junta se nascimentos divergem", () => {
+  const a = makeIdentity({ id: "a", guardianName: null, guardianCpf: null, patientCpf: null, patientBirthDate: "2019-01-01", sourcePhone: "+5591988880001", guardianPhone: null, cardNumber: null, patientName: "Maria Luisa Gonçalves Freitas" });
+  const b = { ...a, id: "b", patientBirthDate: "2020-02-02", sourcePhone: "+5591977770002" };
+  assert.equal(areDraftsSameCase(a, b), false);
+});

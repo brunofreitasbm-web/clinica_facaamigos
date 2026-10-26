@@ -9,6 +9,7 @@ import { dayIndexInWeek, timeLabel, type WeekInfo } from "./grade-data";
 import {
   getEvaluationCalendarWeekAction,
   getEvaluationPoolAction,
+  getEvaluationDayCountsAction,
   getTherapistAvailabilityAction,
   scheduleFromPoolAction,
   rescheduleEvaluationAction,
@@ -86,6 +87,156 @@ function evaluationWeek(anchorDateStr: string): WeekInfo & { rangeLabel: string 
   return { days, weekNumber: 0, rangeLabel: `${shortDateStr(days[0])} – ${shortDateStr(days[5])}` };
 }
 
+const MONTH_WEEKDAY_LABEL = ["S", "T", "Q", "Q", "S", "S", "D"] as const;
+
+/** Primeiro dia (`YYYY-MM-01`) do mês que contém `dateStr`. */
+function firstOfMonthStr(dateStr: string): string {
+  return `${dateStr.slice(0, 7)}-01`;
+}
+
+/** `YYYY-MM-01` + `n` meses. */
+function addMonthsStr(monthStr: string, n: number): string {
+  const [year, month] = monthStr.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1 + n, 1)).toISOString().slice(0, 10);
+}
+
+function monthLabelStr(monthStr: string): string {
+  const [year, month] = monthStr.split("-").map(Number);
+  const label = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(
+    new Date(Date.UTC(year, month - 1, 1)),
+  );
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** Células do mês (Seg→Dom), completando as semanas com dias do mês vizinho. */
+function monthCells(monthStr: string): string[] {
+  const start = mondayOfStr(monthStr);
+  const next = addMonthsStr(monthStr, 1);
+  const lastDay = addDaysStr(next, -1);
+  const end = addDaysStr(mondayOfStr(lastDay), 6);
+  const cells: string[] = [];
+  for (let d = start; d <= end; d = addDaysStr(d, 1)) cells.push(d);
+  return cells;
+}
+
+/**
+ * Calendário mensal compacto pra escolher o dia da avaliação. Clicar num dia
+ * leva a grade semanal pra semana dele e destaca a coluna; domingo é
+ * desabilitado (a clínica não atende).
+ */
+function MonthPicker({
+  selected,
+  today,
+  refreshKey,
+  onSelect,
+}: {
+  selected: string;
+  today: string;
+  /** Muda quando a agenda é alterada (agendar/reagendar) pra recontar os dias. */
+  refreshKey: number;
+  onSelect: (date: string) => void;
+}) {
+  const [viewMonth, setViewMonth] = useState(() => firstOfMonthStr(selected));
+  const [counts, setCounts] = useState<Record<string, number>>({});
+
+  // Navegar de semana pelas setas pode cruzar o mês — acompanha a seleção.
+  useEffect(() => {
+    setViewMonth(firstOfMonthStr(selected));
+  }, [selected]);
+
+  const cells = useMemo(() => monthCells(viewMonth), [viewMonth]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getEvaluationDayCountsAction(cells[0], cells[cells.length - 1]).then((res) => {
+      if (!cancelled) setCounts(res.success ? res.counts : {});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [cells, refreshKey]);
+
+  const selectedWeek = mondayOfStr(selected);
+
+  return (
+    <div className="mb-4 rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <button
+          type="button"
+          aria-label="Mês anterior"
+          onClick={() => setViewMonth((m) => addMonthsStr(m, -1))}
+          className="rounded px-2 text-sm font-semibold text-ink-soft hover:bg-paper"
+        >
+          ‹
+        </button>
+        <span className="text-xs font-bold text-ink">{monthLabelStr(viewMonth)}</span>
+        <button
+          type="button"
+          aria-label="Próximo mês"
+          onClick={() => setViewMonth((m) => addMonthsStr(m, 1))}
+          className="rounded px-2 text-sm font-semibold text-ink-soft hover:bg-paper"
+        >
+          ›
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-y-0.5 text-center">
+        {MONTH_WEEKDAY_LABEL.map((l, i) => (
+          <span key={i} className="pb-1 text-[10px] font-bold uppercase text-ink-faint">
+            {l}
+          </span>
+        ))}
+        {cells.map((date) => {
+          const inMonth = date.slice(0, 7) === viewMonth.slice(0, 7);
+          const isSunday = new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
+          const isSelected = date === selected;
+          const isToday = date === today;
+          const inSelectedWeek = mondayOfStr(date) === selectedWeek;
+          return (
+            <button
+              key={date}
+              type="button"
+              disabled={isSunday}
+              aria-label={`${date.split("-").reverse().join("/")}${counts[date] ? ` — ${counts[date]} avaliação(ões)` : ""}`}
+              aria-current={isSelected ? "date" : undefined}
+              title={counts[date] ? `${counts[date]} avaliação(ões) agendada(s)` : undefined}
+              onClick={() => onSelect(date)}
+              className={`relative h-7 text-[11px] tabular-nums transition-colors ${
+                isSelected ? "rounded-md font-bold" : "hover:bg-paper"
+              } ${isSunday ? "cursor-not-allowed opacity-40" : ""} ${inMonth ? "text-ink" : "text-ink-faint"} ${
+                isToday && !isSelected ? "font-bold underline underline-offset-2" : ""
+              }`}
+              style={
+                isSelected
+                  ? { background: "var(--color-accent)", color: "var(--color-bg)" }
+                  : inSelectedWeek
+                    ? { background: "var(--color-accent-100)" }
+                    : undefined
+              }
+            >
+              {Number(date.slice(8))}
+              {counts[date] ? (
+                <span
+                  aria-hidden
+                  className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full"
+                  style={{ background: isSelected ? "var(--color-bg)" : "var(--color-accent)" }}
+                />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1.5 text-[10px] text-ink-faint">Ponto = dia com avaliação agendada.</p>
+      <button
+        type="button"
+        onClick={() => onSelect(today)}
+        className="mt-2 w-full rounded-md border border-paper-line-strong py-1 text-[11px] font-semibold text-ink-soft hover:bg-paper"
+      >
+        Hoje
+      </button>
+    </div>
+  );
+}
+
 function parseTimeToMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
@@ -143,6 +294,7 @@ export function EvaluationCalendar({
   const [appointments, setAppointments] = useState<EvaluationCalendarAppointment[]>([]);
   const [pool, setPool] = useState(initialPool);
   const [loading, setLoading] = useState(true);
+  const [countsVersion, setCountsVersion] = useState(0);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const { toast } = useToast();
   const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
@@ -158,6 +310,7 @@ export function EvaluationCalendar({
     setQuickView({ item, rect: target.getBoundingClientRect() });
   }
 
+  const today = todayInTimeZone(CLINIC_TIMEZONE);
   const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
   const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
 
@@ -198,7 +351,10 @@ export function EvaluationCalendar({
   async function fetchWeek() {
     setLoading(true);
     const res = await getEvaluationCalendarWeekAction(bounds.start);
-    if (res.success) setAppointments(res.appointments);
+    if (res.success) {
+      setAppointments(res.appointments);
+      setCountsVersion((v) => v + 1);
+    }
     setLoading(false);
   }
 
@@ -403,6 +559,7 @@ export function EvaluationCalendar({
       <div className="flex gap-4">
         {/* Fila lateral */}
         <aside className="w-64 shrink-0">
+          <MonthPicker selected={weekAnchor} today={today} refreshKey={countsVersion} onSelect={setWeekAnchor} />
           <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">Aguardando agendamento ({pool.length})</h3>
           <p className="mb-2 mt-0.5 text-[10px] text-ink-faint">Clique num paciente para ver os documentos e aprovar, rejeitar ou enviar mensagem sem sair da agenda.</p>
           <div className="flex flex-col gap-2">
@@ -535,7 +692,20 @@ export function EvaluationCalendar({
                 const closedHeight = COLUMN_HEIGHT_PX - closedTop;
                 return (
                   <div key={day} className="flex-1 border-l border-paper-line pl-1">
-                    <div className="pb-1 text-center text-xs font-bold text-ink">{WEEKDAY_LABEL[dayIndex]}</div>
+                    <div className="flex flex-col items-center pb-1 leading-tight">
+                      <span className="text-[10px] font-bold uppercase text-ink-soft">{WEEKDAY_LABEL[dayIndex]}</span>
+                      <button
+                        type="button"
+                        onClick={() => setWeekAnchor(day)}
+                        title={day.split("-").reverse().join("/")}
+                        className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-bold tabular-nums ${
+                          day === today ? "" : day === weekAnchor ? "ring-2 ring-[var(--color-accent)]" : "hover:bg-paper"
+                        } text-ink`}
+                        style={day === today ? { background: "var(--color-accent)", color: "var(--color-bg)" } : undefined}
+                      >
+                        {Number(day.slice(8))}
+                      </button>
+                    </div>
                     <div
                       className="relative rounded-md"
                       style={{

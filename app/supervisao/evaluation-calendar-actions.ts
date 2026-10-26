@@ -39,7 +39,32 @@ export async function getEvaluationCalendarWeekAction(
   }
 }
 
-export async function getEvaluationPoolAction(): Promise<{ success: true; pool: EvaluationPoolItem[] } | { success: false; error: string }> {
+/**
+ * Quantidade de avaliações agendadas por dia civil (`YYYY-MM-DD`) no intervalo
+ * [startDateStr, endDateStr] — alimenta os indicadores do calendário mensal.
+ */
+export async function getEvaluationDayCountsAction(
+  startDateStr: string,
+  endDateStr: string,
+): Promise<{ success: true; counts: Record<string, number> } | { success: false; error: string }> {
+  try {
+    const supabase = await createClient();
+    const startIso = zonedDateTimeToUtc(startDateStr, "00:00", CLINIC_TIMEZONE).toISOString();
+    const endIso = zonedDateTimeToUtc(nextCalendarDay(endDateStr), "00:00", CLINIC_TIMEZONE).toISOString();
+    const appointments = await getEvaluationCalendarAppointments(supabase, startIso, endIso);
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: CLINIC_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" });
+    const counts: Record<string, number> = {};
+    for (const a of appointments) {
+      const day = fmt.format(new Date(a.startsAt));
+      counts[day] = (counts[day] ?? 0) + 1;
+    }
+    return { success: true, counts };
+  } catch {
+    return { success: false, error: "Não foi possível carregar o mês." };
+  }
+}
+
+export async function getEvaluationPoolAction():Promise<{ success: true; pool: EvaluationPoolItem[] } | { success: false; error: string }> {
   try {
     const supabase = await createClient();
     const pool = await getEvaluationPool(supabase, DEV_CLINIC_ID);

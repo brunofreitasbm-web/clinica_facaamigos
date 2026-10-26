@@ -101,6 +101,23 @@ export function QueueWorkspace({
   const [meus, setMeus] = useState(initial.meus);
   const [selectedId, setSelectedId] = useState<string | null>(initial.item);
   const [openBands, setOpenBands] = useState<Record<UrgencyBand, boolean>>({ agora: true, hoje: true, depois: false });
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    const handleDismiss = (e: Event) => {
+      const id = (e as CustomEvent<{ id: string }>).detail?.id;
+      if (id) {
+        setDismissedIds((prev) => {
+          const next = new Set(prev);
+          next.add(id);
+          next.add(`cadastro-ia-${id}`);
+          return next;
+        });
+      }
+    };
+    window.addEventListener("queue-item-dismiss", handleDismiss);
+    return () => window.removeEventListener("queue-item-dismiss", handleDismiss);
+  }, []);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -110,27 +127,32 @@ export function QueueWorkspace({
 
   const isFiltering = Boolean(search.trim() || tipo || etapa || dono || meus);
 
+  const activeItems = useMemo(
+    () => items.filter((item) => !dismissedIds.has(item.id) && !(item.readDraftId && dismissedIds.has(item.readDraftId))),
+    [items, dismissedIds],
+  );
+
   const categories = useMemo(() => {
     const seen = new Map<string, { label: string; count: number }>();
-    for (const item of items) {
+    for (const item of activeItems) {
       const cur = seen.get(item.category);
       if (cur) cur.count++;
       else seen.set(item.category, { label: item.categoryLabel, count: 1 });
     }
     return categoryOrder.filter((c) => seen.has(c)).map((c) => ({ key: c, ...seen.get(c)! }));
-  }, [items, categoryOrder]);
+  }, [activeItems, categoryOrder]);
 
   const stageCounts = useMemo(() => {
     const c: Record<QueueStage, number> = { docs: 0, autorizacao: 0, agendar: 0, liberado: 0 };
-    for (const item of items) if (item.stage) c[item.stage]++;
+    for (const item of activeItems) if (item.stage) c[item.stage]++;
     return c;
-  }, [items]);
+  }, [activeItems]);
 
-  const mineCount = useMemo(() => items.filter((i) => i.mine).length, [items]);
+  const mineCount = useMemo(() => activeItems.filter((i) => i.mine).length, [activeItems]);
 
   const visible = useMemo(
     () =>
-      items.filter((item) => {
+      activeItems.filter((item) => {
         if (tipo && item.category !== tipo) return false;
         if (etapa && item.stage !== etapa) return false;
         if (meus && !item.mine) return false;
@@ -138,7 +160,7 @@ export function QueueWorkspace({
         if (dono && dono !== NO_OWNER && item.ownerId !== dono) return false;
         return matchesSearch(item.haystack, search);
       }),
-    [items, tipo, etapa, meus, dono, search],
+    [activeItems, tipo, etapa, meus, dono, search],
   );
 
   const bands = useMemo(
@@ -154,7 +176,7 @@ export function QueueWorkspace({
   const bandIsOpen = (band: UrgencyBand) => isFiltering || openBands[band];
 
   const navigable = bands.flatMap(({ band, list }) => (bandIsOpen(band) ? list : []));
-  const selected = selectedId ? items.find((i) => i.id === selectedId) ?? null : null;
+  const selected = selectedId ? activeItems.find((i) => i.id === selectedId) ?? null : null;
 
   // Estado na URL (sem recarregar a página nem refazer a consulta): F5, voltar e
   // link compartilhado mantêm a busca e o contato aberto.
@@ -200,10 +222,10 @@ export function QueueWorkspace({
 
   // Quando um item é resolvido/removido da fila (ex: plano autorizou), limpa a seleção.
   useEffect(() => {
-    if (selectedId && !items.some((i) => i.id === selectedId)) {
+    if (selectedId && !activeItems.some((i) => i.id === selectedId)) {
       setSelectedId(null);
     }
-  }, [items, selectedId]);
+  }, [activeItems, selectedId]);
 
   const select = useCallback((id: string | null, focus = false) => {
     setSelectedId(id);
@@ -350,7 +372,7 @@ export function QueueWorkspace({
         <p className="m-0 ml-auto flex shrink-0 items-center gap-3 text-[15px] text-ink-soft" aria-live="polite">
           <span>
             <strong className="tabular-figure text-ink">{visible.length}</strong> de{" "}
-            <span className="tabular-figure">{items.length}</span>
+            <span className="tabular-figure">{activeItems.length}</span>
           </span>
           {isFiltering && (
             <button

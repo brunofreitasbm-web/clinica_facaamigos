@@ -19,11 +19,41 @@ export function computeStage(
   hasEvaluationScheduled: boolean,
   hasActiveAuthorization: boolean,
 ): 1 | 2 | 3 | 4 | 5 {
-  if (patient.status === "ativo" || patient.first_session_at) return 5;
+  if (patient.first_session_at) return 5;
+  // Guia autorizada já torna o paciente "ativo" (promoteToPatient), mas a etapa
+  // 5 só vem com a 1ª sessão da grade. "ativo" sem guia e sem sessão é dado legado.
   if (hasActiveAuthorization) return 4;
+  if (patient.status === "ativo") return 5;
   if (patient.evaluated_at) return 3;
   if (hasEvaluationScheduled || patient.status === "avaliacao") return 2;
   return 1;
+}
+
+/**
+ * Guia autorizada = a família virou paciente: tira de "interessado"/"avaliacao"
+ * e põe "ativo". Só promove esses dois status — alta, evadido, pausado e
+ * arquivado são decisões da clínica e uma guia nova não as desfaz. Falha aqui
+ * não derruba o registro da guia (já gravada), por isso só loga.
+ */
+export async function promoteToPatient(supabase: SupabaseClient<Database>, patientId: string | null | undefined): Promise<void> {
+  if (!patientId) return;
+  const { error } = await supabase
+    .from("patients")
+    .update({ status: "ativo" })
+    .eq("id", patientId)
+    .in("status", ["interessado", "avaliacao"]);
+  if (error) console.error("Erro ao promover interessado a paciente:", error);
+}
+
+/** Mesma promoção, partindo do id da guia (renovação responde só com `authorizations.id`). */
+export async function promoteToPatientByAuthorization(supabase: SupabaseClient<Database>, authorizationId: string): Promise<void> {
+  const { data } = await supabase
+    .from("authorizations")
+    .select("patient_insurance!inner(patient_id)")
+    .eq("id", authorizationId)
+    .maybeSingle();
+  const pi = data?.patient_insurance as { patient_id: string } | { patient_id: string }[] | null | undefined;
+  await promoteToPatient(supabase, Array.isArray(pi) ? pi[0]?.patient_id : pi?.patient_id);
 }
 
 export type PendingPatient = {
@@ -89,6 +119,6 @@ export async function getPendingPatients(
       stage: computeStage(p, evaluationScheduledIds.has(p.id), activeAuthPatientIds.has(p.id)),
       daysSinceCreated: Math.floor((now - new Date(p.created_at).getTime()) / 86_400_000),
     }))
-    .filter((p) => p.stage < 5 && p.daysSinceCreated >= daysThreshold)
+    .filter((p) => p.stage < 4 && p.daysSinceCreated >= daysThreshold)
     .sort((a, b) => b.daysSinceCreated - a.daysSinceCreated);
 }

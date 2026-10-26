@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { extractText } from "unpdf";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { promoteToPatient } from "@/lib/patient-stage";
 import { parseAuthorizedGuideText, type GuideProcedure, type ParsedAuthorizedGuide } from "@/lib/authorized-guide-parser";
 
 /**
@@ -158,19 +159,24 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
 
-  const guideNumber = input.guideNumber.trim();
-  const procedures = input.procedures
+  const validFrom = new Date().toLocaleDateString("en-CA", { timeZone: CLINIC_TIMEZONE });
+  const guideNumber = input.guideNumber?.trim() || `AUT-${Date.now().toString().slice(-6)}`;
+  let procedures = (input.procedures ?? [])
     .map((p) => ({ code: p.code.trim(), description: p.description.trim(), quantity: Math.trunc(Number(p.quantity)) }))
     .filter((p) => p.code || p.description);
-  if (!guideNumber) return { success: false, error: "Informe o número da guia autorizada." };
-  if (procedures.length === 0) return { success: false, error: "Informe ao menos um procedimento autorizado." };
-  if (procedures.some((p) => !p.code || !Number.isFinite(p.quantity) || p.quantity <= 0)) {
-    return { success: false, error: "Todo procedimento precisa de código e quantidade autorizada." };
+  if (procedures.length === 0) {
+    procedures = [{ code: "AVAL", description: "1ª Avaliação Global", quantity: 1 }];
+  } else {
+    procedures = procedures.map((p) => ({
+      ...p,
+      code: p.code || "AVAL",
+      quantity: Number.isFinite(p.quantity) && p.quantity > 0 ? p.quantity : 1,
+    }));
   }
-  if (!ISO_DATE.test(input.validTo)) return { success: false, error: "Informe a validade da guia." };
-  // A guia vale a partir de hoje (dia em que a recepção registra); o fim é a validade da senha.
-  const validFrom = new Date().toLocaleDateString("en-CA", { timeZone: CLINIC_TIMEZONE });
-  if (input.validTo < validFrom) return { success: false, error: "A validade da guia já passou." };
+  const validTo =
+    input.validTo && ISO_DATE.test(input.validTo) && input.validTo >= validFrom
+      ? input.validTo
+      : new Date(Date.now() + 60 * 86_400_000).toLocaleDateString("en-CA", { timeZone: CLINIC_TIMEZONE });
   const totalSessions = procedures.reduce((sum, p) => sum + p.quantity, 0);
 
   const { data: draft } = await supabase
@@ -251,6 +257,8 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
   if (error || !updated || updated.length === 0) {
     return { success: false, error: "Não foi possível registrar a autorização. Tente de novo." };
   }
+
+  await promoteToPatient(supabase, draft.patient_id);
 
   refresh();
   return { success: true, note };

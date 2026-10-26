@@ -19,6 +19,7 @@ import { startIntakeConversation, pushIntakeUpdate, setIntakeAwaitingSlot } from
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { runLaudoExtraction } from "@/lib/laudo-extraction";
 import { REJECT_REASON_LABEL, isRejectReasonCode } from "@/lib/intake-reject-reasons";
+import { promoteToPatient } from "@/lib/patient-stage";
 
 type SimpleResult = { success: true } | { success: false; error: string };
 type UrlResult = { success: true; url: string } | { success: false; error: string };
@@ -669,6 +670,7 @@ export async function approveIntakeLeadDocuments(
           warnings.push("Plano de saúde vinculado, mas não foi possível registrar a guia de autorização.");
         } else {
           await supabase.from("insurance_intake_leads").update({ patient_insurance_id: patientInsuranceId, authorization_id: authRow.id }).eq("id", leadId);
+          await promoteToPatient(supabase, lead.patient_id);
         }
       } else {
         warnings.push("Guia não cadastrada automaticamente: faltou procedimento, sessões autorizadas ou vigência — cadastre manualmente se necessário.");

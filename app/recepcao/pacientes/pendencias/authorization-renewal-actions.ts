@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateRenewalPeriod, type RenewalPeriodInput } from "./authorization-renewal-pure";
 import { buildRenewalApprovedMessage, buildWhatsappLink } from "@/lib/whatsapp-message";
+import { promoteToPatientByAuthorization } from "@/lib/patient-stage";
 
 /** `whatsappUrl`: aviso manual ao responsável (wa.me), só quando a guia nova foi autorizada. */
 type ActionResult = { success: true; whatsappUrl?: string; note?: string } | { success: false; error: string };
@@ -145,6 +146,8 @@ export async function registerAuthorizationRenewalResponse(
     })
     .eq("id", pendingAuthorizationId);
   if (error) return { success: false, error: "Não foi possível registrar a guia autorizada. Tente de novo." };
+
+  await promoteToPatientByAuthorization(supabase, pendingAuthorizationId);
 
   await supabase
     .from("authorization_renewal_requests")

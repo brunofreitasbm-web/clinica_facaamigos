@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { CLINIC_TIMEZONE, STANDARD_SESSION_DURATION_MINUTES } from "@/lib/constants";
 import { zonedDateTimeToUtc } from "@/lib/timezone";
 import { getActiveAuthorizationId } from "@/lib/active-authorization";
-import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
+import { CANCELLED_APPOINTMENT_STATUSES, promoteToPatient } from "@/lib/patient-stage";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
 
@@ -222,6 +222,8 @@ export async function registerAuthorization(
   if (authError) {
     return { success: false, error: "Plano de saúde vinculado, mas houve erro ao registrar a autorização." };
   }
+
+  await promoteToPatient(supabase, patientId);
 
   if (cid) {
     const { error: cidError } = await supabase.from("patients").update({ cid }).eq("id", patientId);

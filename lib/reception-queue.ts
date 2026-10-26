@@ -941,6 +941,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
     .neq("status", "rejected")
     .is("plan_authorized_at", null)
     .is("scheduling_enabled_at", null)
+    .eq("authorization_waived", false)
     .order("created_at", { ascending: true });
 
   const rows = data ?? [];

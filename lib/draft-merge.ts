@@ -279,7 +279,26 @@ export function areDraftsSameCase(a: DraftIdentity, b: DraftIdentity): boolean {
   // 8. Mesma carteirinha de convênio E (telefone ou responsável confere)
   if (cardMatch && (phoneMatch || guardianMatch || childMatch)) return true;
 
+  // 9. Só o nome da criança bate (telefones diferentes, responsável ausente, sem
+  //    nascimento/CPF para confirmar). Os conflitos duros já foram barrados acima.
+  if (childMatch && isNameOnlyMatchTrusted(a.patientName, b.patientName)) return true;
+
   return false;
+}
+
+/**
+ * Decide se o nome da criança, SOZINHO, basta para tratar dois rascunhos como o
+ * mesmo paciente. Caso real: o responsável manda várias conversas (números
+ * diferentes) citando a criança pelo mesmo nome e nada mais foi extraído.
+ * Falso positivo junta dois pacientes (homônimos); falso negativo deixa
+ * cadastros duplicados na fila.
+ */
+export function isNameOnlyMatchTrusted(nameA?: string | null, nameB?: string | null): boolean {
+  // Política conservadora: nome idêntico após normalização e ao menos 3 palavras.
+  // "Arthur" ou "João Silva" sozinhos nunca bastam; nome apenas "contido" também não.
+  const a = normalizeName(nameA);
+  const b = normalizeName(nameB);
+  return a !== "" && a === b && a.split(" ").length >= 3;
 }
 
 /**
@@ -697,8 +716,9 @@ export function consolidateRegistrationDrafts(
       const primaryId = merged.id;
       const secondaryIds = group.filter((d) => d.id !== primaryId).map((d) => d.id);
 
-      (async () => {
-        try {
+      // `after` mantém a função viva depois da resposta (IIFE solta é cortada na Vercel).
+      const persist = async () => {
+        {
           const { createAdminClient } = await import("@/lib/supabase/admin");
           const admin = createAdminClient();
           let mergedExtracted: Record<string, unknown> = rawExtractedByDraft?.get(primaryId)
@@ -725,10 +745,14 @@ export function consolidateRegistrationDrafts(
             merged.guardianMessage,
             merged.patientId,
           );
-        } catch (err) {
-          console.error("[DraftMerge] Falha em background ao mesclar no banco:", err);
         }
-      })();
+      };
+      // Import dinâmico: `next/server` não resolve nos testes em node puro.
+      void import("@/lib/after-response")
+        .then(({ runAfterResponse }) => {
+          if (!runAfterResponse("draft-merge", persist)) return persist();
+        })
+        .catch((err) => console.error("[DraftMerge] Falha ao mesclar no banco:", err));
     }
   }
 
