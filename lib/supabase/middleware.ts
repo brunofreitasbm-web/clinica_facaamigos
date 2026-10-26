@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { ROLE_HOME, ROLE_ALLOWED_PREFIXES, type Role } from "@/lib/roles";
 import { isNextError } from "@/lib/next-utils";
+import { isProfileBlocked } from "@/lib/profile-access";
 
 const LOGIN_PATH = "/login";
 const CHANGE_PASSWORD_PATH = "/trocar-senha";
@@ -116,9 +117,18 @@ export async function updateSession(request: NextRequest) {
     if (user && !isPublicPath) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, must_change_password")
+        .select("role, must_change_password, active")
         .eq("id", user.id)
         .maybeSingle();
+
+      // Colaborador desativado (pelo gestor ou pelo Hub de Gestão) não entra nem com sessão aberta:
+      // encerra a sessão e volta ao login com o aviso. O /login é público, então não há laço.
+      if (isProfileBlocked(profile)) {
+        await supabase.auth.signOut();
+        const blocked = NextResponse.redirect(new URL("/login?blocked=true", request.url));
+        response.cookies.getAll().forEach((cookie) => blocked.cookies.set(cookie));
+        return blocked;
+      }
 
       if (profile?.must_change_password && pathname !== CHANGE_PASSWORD_PATH) {
         return NextResponse.redirect(new URL(CHANGE_PASSWORD_PATH, request.url));
