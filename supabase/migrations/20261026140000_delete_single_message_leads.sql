@@ -26,10 +26,30 @@ begin
       from twilio_conversations c
      where c.kind = 'lead'
        and c.status = 'open'
-       and c.last_message_sender = 'contact'
        and c.last_message_at is not null
        and c.last_message_at <= now() - interval '2 days'
-       and (select count(*) from messages m where m.conversation_id = c.id) = 1
+       -- O contato mandou apenas 1 mensagem de entrada (ex: "Bom dia" ou pedido de info) e sumiu:
+       and (select count(*) from messages m where m.conversation_id = c.id and m.direction = 'inbound') = 1
+       -- Nenhum atendente humano respondeu:
+       and not exists (
+         select 1 from messages m
+          where m.conversation_id = c.id
+            and m.sender_type = 'agent'
+       )
+       and not exists (
+         select 1 from appointments a
+          where a.is_evaluation
+            and a.status in ('agendada', 'confirmada')
+            and a.starts_at > now()
+            and (
+              a.patient_id = c.patient_id
+              or a.patient_id in (
+                select g.patient_id from guardians g
+                 where g.phone is not null
+                   and normalize_br_phone_key(g.phone) = normalize_br_phone_key(c.phone_number)
+              )
+            )
+       )
        and not exists (
          select 1 from registration_drafts d
           where d.status = 'extracted'
