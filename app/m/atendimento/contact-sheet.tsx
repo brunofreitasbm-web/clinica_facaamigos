@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
 import { openLeadPendency, type LeadDraftInfo } from "@/app/recepcao/atendimento/actions";
-import type { ConversationPatch, ConversationRow } from "@/lib/atendimento/types";
+import { hasPatientRecord, type ConversationPatch, type ConversationRow } from "@/lib/atendimento/types";
 
 const ESCALATION_LABELS: Record<string, string> = {
   fora_da_base: "A dúvida não está na base de conhecimento do bot.",
@@ -58,10 +58,10 @@ export function ContactSheet({
   }, [onPatch]);
 
   useEffect(() => {
-    if (!conversation.patientId) return;
+    if (!hasPatientRecord(conversation)) return;
     let cancelled = false;
     const supabase = createClient();
-    const patientId = conversation.patientId;
+    const patientId = conversation.patientId!;
     Promise.all([
       supabase.from("patient_insurance").select("plan_name, insurers(name)").eq("patient_id", patientId),
       supabase
@@ -84,7 +84,7 @@ export function ContactSheet({
     return () => {
       cancelled = true;
     };
-  }, [conversation.patientId]);
+  }, [conversation.patientId, conversation.patientStatus]);
 
   const handleResolverPendencias = async () => {
     setError(null);
@@ -144,7 +144,7 @@ export function ContactSheet({
           </div>
         </div>
 
-        {conversation.patientId ? (
+        {hasPatientRecord(conversation) ? (
           <>
             <div>
               <h6>Plano de Saúde</h6>

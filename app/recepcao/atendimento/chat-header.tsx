@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { assignConversation, setConversationClosed, toggleBotActive } from "./actions";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
+import { hasPatientRecord } from "@/lib/atendimento/types";
 import { HealthPlanBadge } from "@/components/health-plan-badge";
 import { isWhatsappWindowClosed } from "./atendimento-shell";
 import { ChatActions } from "@/src/components/Reception/Chat/ChatActions";
@@ -98,7 +99,7 @@ export function ChatHeader({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            {conversation.patientId ? (
+            {hasPatientRecord(conversation) ? (
               <Link
                 href={`/recepcao/pacientes/${conversation.patientId}`}
                 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 hover:underline"

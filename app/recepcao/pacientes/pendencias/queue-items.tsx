@@ -15,6 +15,8 @@ import { DraftPipelineMini } from "./draft-pipeline";
 import { SummaryChip } from "./pendency-pills";
 import type { QueueStage, WorkspaceItem } from "./queue-workspace";
 import { normalizeSearch, urgencyBand } from "./queue-filters-pure";
+import { MoveToLastButton } from "./move-to-last-button";
+import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
 
 type PendencyGuidance = {
   problemTitle: string;
@@ -219,7 +221,11 @@ export function draftStage(item: PendingQueueItem): QueueStage | null {
 function dueText(item: PendingQueueItem): string {
   if (item.escalatedAt) return fmtWaitingDays(item.escalatedAt, CLINIC_TIMEZONE);
   if (item.overdue && item.dueAt) return `atrasado · ${fmtDueShort(item.dueAt, CLINIC_TIMEZONE)}`;
-  if (item.dueAt) return fmtDueShort(item.dueAt, CLINIC_TIMEZONE);
+  if (item.dueAt) {
+    const isPostponed = new Date(item.dueAt).getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000;
+    if (isPostponed) return "no fim da fila";
+    return fmtDueShort(item.dueAt, CLINIC_TIMEZONE);
+  }
   return item.urgencyLabel;
 }
 
@@ -263,12 +269,27 @@ export function buildWorkspaceItems(
     const due = dueText(item);
 
     const guidance = draft ? getDraftGuidance(draft) : getPendencyGuidance(item.category, item.detail);
+    const isPostponed = item.dueAt ? new Date(item.dueAt).getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000 : false;
+    const phone = draft?.sourcePhone ? formatPhoneDisplay(draft.sourcePhone) : null;
+    const showPhoneBesideName = phone && item.patientName !== phone;
 
     const detail = (
       <article key={item.id} className="flex flex-col gap-4">
         <header className="flex flex-col gap-2 border-b border-paper-line pb-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="m-0 text-2xl font-extrabold leading-tight text-ink">{item.patientName}</h2>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="m-0 text-2xl font-extrabold leading-tight text-ink">{item.patientName}</h2>
+              {showPhoneBesideName && (
+                <span className="inline-flex items-center rounded-md border border-paper-line bg-paper-surface px-2.5 py-1 text-sm font-semibold text-ink-soft">
+                  {phone}
+                </span>
+              )}
+              <MoveToLastButton
+                itemId={item.id}
+                patientName={item.patientName}
+                isPostponed={isPostponed}
+              />
+            </div>
             {draft && draft.status !== "validated" && (
               <Link href={`/recepcao/pre-cadastros/${draft.id}`} className="btn btn-primary no-underline">
                 Conferir e cadastrar →
@@ -394,6 +415,7 @@ export function buildWorkspaceItems(
       ),
       readDraftId:
         draft && (draft.status === "pending" || draft.status === "failed") && draft.files.length > 0 ? draft.id : null,
+      isPostponed,
       detail,
     };
   });

@@ -27,7 +27,7 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
     supabase
       .from("twilio_conversations")
       .select(
-        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, last_inbound_at, last_message_preview, last_message_sender, kind, contact_name, escalation_reason, assigned_to, insurer_id, patients(full_name), guardians(full_name)",
+        "id, patient_id, guardian_id, phone_number, is_bot_active, status, unread_count, last_message_at, last_inbound_at, last_message_preview, last_message_sender, kind, contact_name, escalation_reason, assigned_to, insurer_id, patients(full_name, status), guardians(full_name)",
       )
       .order("last_message_at", { ascending: false, nullsFirst: false }),
     // Nomes de quem pode assumir conversa — para mostrar "com Fulana" na fila.
@@ -76,6 +76,7 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
     return {
       id: c.id,
       patientId: c.patient_id,
+      patientStatus: patient?.status ?? null,
       guardianId: c.guardian_id,
       phoneNumber: c.phone_number,
       isBotActive: c.is_bot_active,

@@ -8,6 +8,10 @@
 export type ConversationRow = {
   id: string;
   patientId: string | null;
+  /** Status do paciente em `patients.status`. "interessado" = ainda sem
+   * avaliação agendada, ou seja, sem prontuário de fato — mesmo já tendo
+   * `patientId` preenchido (ver hasPatientRecord). */
+  patientStatus: string | null;
   guardianId: string | null;
   phoneNumber: string;
   isBotActive: boolean;
@@ -38,6 +42,18 @@ export type LastMessageSender = "contact" | "agent" | "bot" | "automation";
 
 export function toLastMessageSender(value: string | null | undefined): LastMessageSender | null {
   return value === "contact" || value === "agent" || value === "bot" || value === "automation" ? value : null;
+}
+
+/**
+ * true só quando a conversa está de fato ligada a um prontuário — paciente
+ * com `patientId` e status além de "interessado" (que é lead com cadastro
+ * ainda incompleto, ver 20260906000023_rename_lead_to_interessado.sql).
+ * Antes qualquer `patientId` preenchido abria "Ficha do paciente" em vez de
+ * "Resolver pendências", mesmo sem prontuário real (ex.: Débora da Costa
+ * Soares Monteiro, status "interessado").
+ */
+export function hasPatientRecord(c: Pick<ConversationRow, "patientId" | "patientStatus">): boolean {
+  return Boolean(c.patientId) && c.patientStatus !== "interessado";
 }
 
 export type InsurerPill = { name: string; color: string | null };
