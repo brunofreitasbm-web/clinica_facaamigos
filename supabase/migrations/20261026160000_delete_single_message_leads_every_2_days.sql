@@ -12,8 +12,8 @@ $$;
 do $$
 begin
   perform cron.schedule(
-    'delete_single_message_leads_daily',
-    '0 3 * * *',
+    'delete_single_message_leads_every_2_days',
+    '0 3 */2 * *',
     $job$select delete_single_message_leads();$job$
   );
 exception when others then
