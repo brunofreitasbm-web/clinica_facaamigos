@@ -3,6 +3,7 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
@@ -348,6 +349,7 @@ export function DraftPipelineColumns({
   /** Conteúdo da coluna ① (arquivos e dados já recebidos) — montado no servidor. */
   documents: ReactNode;
 }) {
+  const router = useRouter();
   const { pipeline } = draft;
   const [docState, sentState, authState, schedState] = stepStates(pipeline);
   const [showGuideDialog, setShowGuideDialog] = useState(false);
@@ -373,6 +375,7 @@ export function DraftPipelineColumns({
         setFeedback({ tone: "error", text: result.error });
         return;
       }
+      router.refresh();
       if (result.note) setFeedback({ tone: "note", text: result.note });
       after?.();
     });
@@ -425,6 +428,7 @@ export function DraftPipelineColumns({
       const enabled = await enableDraftScheduling(draft.id);
       if (popup && whatsappUrl) popup.location.href = whatsappUrl;
       setShowGuideDialog(false);
+      router.refresh();
       if (!enabled.success) {
         setFeedback({ tone: "error", text: `Guia salva, mas não foi possível habilitar o agendamento: ${enabled.error}` });
       } else {

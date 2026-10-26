@@ -938,7 +938,9 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("clinic_id", clinicId)
-    .or("status.in.(pending,processing,extracted,failed),and(status.eq.validated,scheduling_enabled_at.is.null)")
+    .neq("status", "rejected")
+    .is("plan_authorized_at", null)
+    .is("scheduling_enabled_at", null)
     .order("created_at", { ascending: true });
 
   const rows = data ?? [];

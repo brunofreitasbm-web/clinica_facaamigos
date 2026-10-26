@@ -198,6 +198,13 @@ export function QueueWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Quando um item é resolvido/removido da fila (ex: plano autorizou), limpa a seleção.
+  useEffect(() => {
+    if (selectedId && !items.some((i) => i.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [items, selectedId]);
+
   const select = useCallback((id: string | null, focus = false) => {
     setSelectedId(id);
     if (id === null) return;
