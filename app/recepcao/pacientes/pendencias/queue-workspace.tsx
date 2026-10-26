@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronDown, Clock, Search, X } from "lucide-react";
+import { useToast } from "@/components/toast-provider";
 import { extractDraftOnDemand } from "./draft-pipeline-actions";
 import { BAND_ORDER, highlightSegments, matchesSearch, type UrgencyBand } from "./queue-filters-pure";
 
@@ -101,6 +102,7 @@ export function QueueWorkspace({
   split?: boolean;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [search, setSearch] = useState(initial.q);
   const [tipo, setTipo] = useState<string | null>(initial.tipo);
   const [etapa, setEtapa] = useState<QueueStage | null>(initial.etapa);
@@ -109,6 +111,9 @@ export function QueueWorkspace({
   const [selectedId, setSelectedId] = useState<string | null>(initial.item);
   const [openBands, setOpenBands] = useState<Record<UrgencyBand, boolean>>({ agora: true, hoje: true, depois: false });
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
+  // Texto para leitor de tela quando o detalhe troca de contato sem ação do usuário.
+  const [announce, setAnnounce] = useState("");
+  const prevShown = useRef<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     const handleDismiss = (e: Event) => {
@@ -154,6 +159,10 @@ export function QueueWorkspace({
     for (const item of activeItems) if (item.stage) c[item.stage]++;
     return c;
   }, [activeItems]);
+
+  // 4 primeiros tipos (ordem de urgência, estável) viram chips; o resto fica num select.
+  const primaryCategories = categories.slice(0, 4);
+  const moreCategories = categories.slice(4);
 
   const mineCount = useMemo(() => activeItems.filter((i) => i.mine).length, [activeItems]);
 
@@ -237,6 +246,18 @@ export function QueueWorkspace({
     }
   }, [activeItems, selectedId]);
 
+  // Resolver um item faz o detalhe pular para o próximo contato: avisa quem
+  // saiu e quem entrou, pra ninguém agir no paciente errado sem perceber.
+  useEffect(() => {
+    const prev = prevShown.current;
+    if (prev && shownId && prev.id !== shownId && !activeItems.some((i) => i.id === prev.id)) {
+      const text = `${prev.name} saiu da fila · agora: ${selected?.name ?? "próximo contato"}`;
+      toast(text, "info");
+      setAnnounce(text);
+    }
+    prevShown.current = selected ? { id: selected.id, name: selected.name } : null;
+  }, [shownId, selected, activeItems, toast]);
+
   const select = useCallback((id: string | null, focus = false) => {
     setSelectedId(id);
     if (id === null) return;
@@ -282,7 +303,10 @@ export function QueueWorkspace({
       const last = navigable[navigable.length - 1];
       if (last) select(last.id, true);
     } else if (e.key === "Escape") {
-      setSelectedId(null);
+      // Em split o detalhe nunca fica vazio: limpar a seleção só trocaria o
+      // paciente pelo 1º da lista. Esc leva o foco à busca.
+      if (split) searchRef.current?.focus();
+      else setSelectedId(null);
     }
   };
 
@@ -313,7 +337,8 @@ export function QueueWorkspace({
   return (
     <div className="flex flex-col gap-4">
       {/* Barra de busca e filtros — fica presa no topo enquanto a lista rola. */}
-      <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center gap-2 xl:flex-nowrap border-b border-paper-line bg-paper px-1 py-3">
+      <div className="sticky top-0 z-20 -mx-1 flex flex-col gap-2 border-b border-paper-line bg-paper px-1 py-3">
+        <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
         <label className="relative flex min-w-[240px] flex-[1_1_420px] items-center">
           <Search className="pointer-events-none absolute left-3.5 h-5 w-5 text-ink-soft" aria-hidden="true" />
           <input
@@ -347,27 +372,6 @@ export function QueueWorkspace({
         >
           Meus <span className="tabular-figure">{mineCount}</span>
         </button>
-        <select value={tipo ?? ""} onChange={(e) => setTipo(e.target.value || null)} className={selectClass} aria-label="Tipo de pendência">
-          <option value="">Todos os tipos</option>
-          {categories.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.label} ({c.count})
-            </option>
-          ))}
-        </select>
-        <select
-          value={etapa ?? ""}
-          onChange={(e) => setEtapa((e.target.value || null) as QueueStage | null)}
-          className={selectClass}
-          aria-label="Etapa do pré-cadastro"
-        >
-          <option value="">Todas as etapas</option>
-          {(Object.keys(STAGE_LABEL) as QueueStage[]).map((s) => (
-            <option key={s} value={s} disabled={stageCounts[s] === 0}>
-              {STAGE_LABEL[s]} ({stageCounts[s]})
-            </option>
-          ))}
-        </select>
         {owners.length > 0 && (
           <select value={dono ?? ""} onChange={(e) => setDono(e.target.value || null)} className={selectClass} aria-label="Dono da pendência">
             <option value="">Qualquer dono</option>
@@ -394,7 +398,52 @@ export function QueueWorkspace({
             </button>
           )}
         </p>
+        </div>
+        {(Object.values(stageCounts).some((n) => n > 0) || etapa || categories.length > 0) && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            {(Object.values(stageCounts).some((n) => n > 0) || etapa) && (
+              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar por etapa do cadastro">
+                <span className="text-sm font-semibold text-ink-soft">Etapa</span>
+                {(Object.keys(STAGE_LABEL) as QueueStage[]).map((s) =>
+                  stageCounts[s] > 0 || etapa === s ? (
+                    <FilterChip key={s} active={etapa === s} onClick={() => setEtapa(etapa === s ? null : s)}>
+                      {STAGE_LABEL[s]} <span className="tabular-figure">{stageCounts[s]}</span>
+                    </FilterChip>
+                  ) : null,
+                )}
+              </div>
+            )}
+            {categories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar por tipo de pendência">
+                <span className="text-sm font-semibold text-ink-soft">Tipo</span>
+                {primaryCategories.map((c) => (
+                  <FilterChip key={c.key} active={tipo === c.key} onClick={() => setTipo(tipo === c.key ? null : c.key)}>
+                    {c.label} <span className="tabular-figure">{c.count}</span>
+                  </FilterChip>
+                ))}
+                {moreCategories.length > 0 && (
+                  <select
+                    value={moreCategories.some((c) => c.key === tipo) ? (tipo ?? "") : ""}
+                    onChange={(e) => setTipo(e.target.value || (moreCategories.some((c) => c.key === tipo) ? null : tipo))}
+                    className="h-9 max-w-[200px] rounded-full border border-paper-line-strong bg-paper-surface px-3 text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                    aria-label="Mais tipos de pendência"
+                  >
+                    <option value="">Mais tipos…</option>
+                    {moreCategories.map((c) => (
+                      <option key={c.key} value={c.key}>
+                        {c.label} ({c.count})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+      <p className="sr-only" aria-live="polite">
+        {announce}
+      </p>
 
       <div
         className={
@@ -431,6 +480,7 @@ export function QueueWorkspace({
                     {band === "agora" && <AlertTriangle className="h-4 w-4" aria-hidden="true" />}
                     {BAND_TITLE[band]}
                     <span className="tabular-figure rounded-full bg-paper px-2 py-0.5 text-sm tracking-normal">{list.length}</span>
+                    {band === "depois" && <span className="text-sm font-normal normal-case tracking-normal text-ink-soft">sem urgência</span>}
                     {!isFiltering && (
                       <ChevronDown
                         className={`ml-auto h-5 w-5 text-ink-soft transition-transform ${open ? "" : "-rotate-90"}`}
@@ -460,40 +510,54 @@ export function QueueWorkspace({
               </section>
             );
           })}
+          <ul className="m-0 hidden list-none flex-wrap gap-x-4 gap-y-1 p-0 text-sm text-ink-soft md:flex" aria-label="Atalhos de teclado">
+            <li>
+              <Kbd>/</Kbd> buscar
+            </li>
+            <li>
+              <Kbd>↑</Kbd> <Kbd>↓</Kbd> ou <Kbd>j</Kbd> <Kbd>k</Kbd> navegar
+            </li>
+            <li>
+              <Kbd>Esc</Kbd> {split ? "voltar à busca" : "fechar"}
+            </li>
+          </ul>
         </div>
 
         {/* Detalhe: coluna fixa no desktop; no celular/tablet, tela cheia por cima da lista. */}
         <div
           ref={detailRef}
           onKeyDown={(e) => {
-            if (e.key === "Escape" && !isEditable(e.target) && selectedId) {
-              const id = selectedId;
-              setSelectedId(null);
-              rowRefs.current.get(id)?.focus();
+            if (e.key === "Escape" && !isEditable(e.target) && shownId) {
+              if (!split) setSelectedId(null);
+              rowRefs.current.get(shownId)?.focus();
             }
           }}
           className={
             split
               ? selected
-                ? "fixed inset-0 z-50 overflow-y-auto bg-paper p-4 md:z-auto md:sticky md:top-[84px] md:max-h-[calc(100dvh-100px)] md:rounded-lg md:bg-paper-surface md:p-6 md:shadow-sm"
-                : "hidden md:sticky md:top-[84px] md:block"
+                ? `${selectedId ? "fixed inset-0 z-50 overflow-y-auto bg-paper p-4" : "hidden"} md:block md:z-auto md:sticky md:top-[140px] md:max-h-[calc(100dvh-156px)] md:overflow-y-auto md:rounded-lg md:bg-paper-surface md:p-6 md:shadow-sm`
+                : "hidden md:sticky md:top-[140px] md:block"
               : selected
-                ? "fixed inset-0 z-50 overflow-y-auto bg-paper p-4 xl:z-auto xl:sticky xl:top-[84px] xl:max-h-[calc(100dvh-100px)] xl:rounded-lg xl:bg-paper-surface xl:p-6 xl:shadow-sm"
-                : "hidden xl:sticky xl:top-[84px] xl:block"
+                ? "fixed inset-0 z-50 overflow-y-auto bg-paper p-4 xl:z-auto xl:sticky xl:top-[140px] xl:max-h-[calc(100dvh-156px)] xl:rounded-lg xl:bg-paper-surface xl:p-6 xl:shadow-sm"
+                : "hidden xl:sticky xl:top-[140px] xl:block"
           }
           role={selected ? "region" : undefined}
           aria-label={selected ? `Pendência de ${selected.name}` : undefined}
         >
           {selected ? (
             <>
-              <div className={`mb-3 flex justify-end ${split ? "md:hidden" : "xl:hidden"}`}>
+              <div className={`sticky top-0 z-10 -mx-4 -mt-4 mb-3 flex justify-start bg-paper px-4 py-3 ${split ? "md:hidden" : "xl:hidden"}`}>
                 <button type="button" onClick={() => setSelectedId(null)} className="btn btn-secondary">
                   <X className="h-4 w-4" aria-hidden="true" /> Voltar para a lista
                 </button>
               </div>
-              {reading && (
-                <p className="m-0 mb-4 rounded-md bg-[var(--color-accent-100)] px-4 py-2.5 text-[15px] text-ink">
-                  Lendo os documentos com IA…
+              {/* Altura reservada enquanto a IA lê: o conteúdo não pula quando o aviso entra/sai. */}
+              {(reading || selected.readDraftId) && (
+                <p
+                  className="m-0 mb-3 flex h-9 items-center rounded-md bg-[var(--color-accent-100)] px-3 text-sm text-ink"
+                  aria-live="polite"
+                >
+                  {reading ? "Lendo os documentos com IA…" : "Documentos aguardando leitura da IA"}
                 </p>
               )}
               {selected.detail}
@@ -588,9 +652,30 @@ function QueueRow({
                 <span className="font-semibold text-status-positive-text"> · Completo</span>
               ))}
           </span>
-          <span className="shrink-0 whitespace-nowrap text-ink-faint">{item.ownerName ? item.ownerName.split(" ")[0] : "Sem dono"}</span>
+          {item.ownerName ? (
+            <span className="shrink-0 whitespace-nowrap text-ink-faint">{item.ownerName.split(" ")[0]}</span>
+          ) : item.band === "agora" ? (
+            <span className="shrink-0 whitespace-nowrap font-semibold text-status-negative-text">Sem dono</span>
+          ) : null}
         </span>
       </span>
+    </button>
+  );
+}
+
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`h-9 rounded-full border px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] ${
+        active
+          ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
+          : "border-paper-line-strong bg-paper-surface text-ink hover:bg-[var(--color-accent-100)]"
+      }`}
+    >
+      {children}
     </button>
   );
 }

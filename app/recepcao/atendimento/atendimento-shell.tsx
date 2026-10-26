@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { ConversationList, type ConversationFilter } from "./conversation-list";
@@ -10,7 +10,7 @@ import { LeadContextPanel } from "./lead-context-panel";
 import { formatConversationPhone } from "./format-phone";
 import { ChatbotPanel } from "./chatbot/chatbot-panel";
 import { ChatLayout } from "@/src/components/Reception/Chat/ChatLayout";
-import { assignConversation, markConversationRead } from "./actions";
+import { assignConversation, markConversationRead, setConversationClosed } from "./actions";
 import { matchesFilter, matchesSearch } from "@/lib/atendimento/filters";
 import type { ChatbotDashboardStats } from "./chatbot/dashboard-panel";
 import type { FaqRow } from "./chatbot/faq-manager";
@@ -65,6 +65,27 @@ export function AtendimentoShell({
   const [activeTab, setActiveTab] = useState<"conversas" | "chatbot">("conversas");
   const [filter, setFilter] = useState<ConversationFilter>("abertas");
   const [search, setSearch] = useState("");
+  // Mobile: lista e conversa viram telas separadas (master-detail), em vez
+  // de três painéis empilhados com o chat abaixo da dobra.
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [showContextMobile, setShowContextMobile] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [closedToast, setClosedToast] = useState<{ id: string; name: string } | null>(null);
+  // Vizinha da conversa no momento em que o encerramento é pedido: depois do
+  // patch otimista ela já saiu da lista e o índice se perderia.
+  const closeNeighborRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!closedToast) return;
+    const timer = setTimeout(() => setClosedToast(null), 8000);
+    return () => clearTimeout(timer);
+  }, [closedToast]);
+
+  useEffect(() => {
+    if (!actionError) return;
+    const timer = setTimeout(() => setActionError(null), 8000);
+    return () => clearTimeout(timer);
+  }, [actionError]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -188,6 +209,50 @@ export function AtendimentoShell({
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
+  const selectConversation = useCallback((id: string) => {
+    setSelectedId(id);
+    setMobileView("chat");
+    setShowContextMobile(false);
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)));
+    // Persiste no banco — sem isto o contador de não lidas voltava ao
+    // recarregar a página, porque só o estado local em memória era
+    // zerado (markConversationRead nunca era chamada).
+    void markConversationRead(id);
+  }, []);
+
+  const handlePatchSelected = (patch: ConversationPatch) => {
+    if (!selected) return;
+    if (patch.status === "closed") {
+      const idx = visibleConversations.findIndex((c) => c.id === selected.id);
+      const neighbor = visibleConversations[idx + 1] ?? visibleConversations[idx - 1] ?? null;
+      closeNeighborRef.current = neighbor?.id ?? null;
+    }
+    patchConversation(selected.id, patch);
+  };
+
+  // Confirmado pelo servidor: avisa e leva a recepção à próxima conversa da
+  // fila, em vez de deixá-la num painel órfão (Peak-end).
+  const handleClosed = () => {
+    if (!selected) return;
+    setClosedToast({ id: selected.id, name: selected.displayName });
+    const nextId = closeNeighborRef.current;
+    closeNeighborRef.current = null;
+    if (filter !== "encerradas" && nextId) selectConversation(nextId);
+    else setMobileView("list");
+  };
+
+  const handleUndoClose = async () => {
+    if (!closedToast) return;
+    const { id } = closedToast;
+    setClosedToast(null);
+    patchConversation(id, { status: "open" });
+    const result = await setConversationClosed(id, false);
+    if (!result.success) {
+      patchConversation(id, { status: "closed" });
+      setActionError(result.error || "Não foi possível reabrir a conversa.");
+    }
+  };
+
   const handleAssignActiveConversation = async () => {
     if (!selected) return;
     const isMine = Boolean(currentUserId) && selected.assignedTo === currentUserId;
@@ -203,7 +268,7 @@ export function AtendimentoShell({
     // gravado no banco. Desfaz o otimismo e avisa.
     if (!result.success) {
       patchConversation(selected.id, previous);
-      window.alert(result.error || "Não foi possível assumir/liberar a conversa.");
+      setActionError(result.error || "Não foi possível assumir/liberar a conversa.");
     }
   };
 
@@ -211,14 +276,7 @@ export function AtendimentoShell({
     <ChatLayout
       conversations={visibleConversations}
       selectedId={selectedId}
-      onSelectConversation={(id) => {
-        setSelectedId(id);
-        patchConversation(id, { unreadCount: 0 });
-        // Persiste no banco — sem isto o contador de não lidas voltava ao
-        // recarregar a página, porque só o estado local em memória era
-        // zerado (markConversationRead nunca era chamada).
-        void markConversationRead(id);
-      }}
+      onSelectConversation={selectConversation}
       onAssignActiveConversation={handleAssignActiveConversation}
     >
       <div className="flex min-h-0 flex-1 flex-col">
@@ -250,6 +308,18 @@ export function AtendimentoShell({
           </div>
         )}
 
+        {actionError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800"
+          >
+            <span>{actionError}</span>
+            <button type="button" onClick={() => setActionError(null)} className="ml-3 text-xs font-semibold underline">
+              Fechar
+            </button>
+          </div>
+        )}
+
         {activeTab === "chatbot" && chatbotAdmin ? (
           <ChatbotPanel
             clinicId={chatbotAdmin.clinicId}
@@ -263,7 +333,11 @@ export function AtendimentoShell({
           />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-            <div className="w-full border-b border-paper-line-strong md:w-80 md:border-b-0 md:border-r">
+            <div
+              className={`min-h-0 w-full border-b border-paper-line-strong md:block md:w-80 md:border-b-0 md:border-r ${
+                mobileView === "chat" ? "hidden" : "block"
+              }`}
+            >
               <ConversationList
                 conversations={visibleConversations}
                 selectedId={selectedId}
@@ -274,21 +348,40 @@ export function AtendimentoShell({
                 currentUserId={currentUserId}
                 onFilterChange={setFilter}
                 onSearchChange={setSearch}
-                onSelect={(id) => {
-                  setSelectedId(id);
-                  patchConversation(id, { unreadCount: 0 });
-                  void markConversationRead(id);
-                }}
+                onSelect={selectConversation}
               />
             </div>
 
-            <div className="flex min-h-[60vh] flex-1 flex-col md:min-h-0">
+            <div
+              className={`min-h-[60vh] flex-1 flex-col md:flex md:min-h-0 ${mobileView === "chat" ? "flex" : "hidden"}`}
+            >
+              {selected && (
+                <div className="flex items-center justify-between gap-2 border-b border-paper-line-strong bg-white px-3 py-2 md:hidden dark:bg-slate-900">
+                  <button
+                    type="button"
+                    onClick={() => setMobileView("list")}
+                    className="min-h-10 rounded-md px-3 text-sm font-semibold text-teal-700 hover:bg-slate-100 dark:text-teal-300"
+                  >
+                    ← Conversas
+                  </button>
+                  <button
+                    type="button"
+                    aria-expanded={showContextMobile}
+                    onClick={() => setShowContextMobile((v) => !v)}
+                    className="min-h-10 rounded-md px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200"
+                  >
+                    {showContextMobile ? "Ocultar dados" : "Dados do contato"}
+                  </button>
+                </div>
+              )}
               {selected ? (
                 <ChatWindow
+                  key={selected.id}
                   conversation={selected}
                   currentUserId={currentUserId}
                   staffNames={staffNames}
-                  onPatch={(patch) => patchConversation(selected.id, patch)}
+                  onPatch={handlePatchSelected}
+                  onClosed={handleClosed}
                 />
               ) : (
                 <div className="flex flex-1 items-center justify-center text-sm text-ink-faint">
@@ -298,7 +391,11 @@ export function AtendimentoShell({
             </div>
 
             {selected && (
-              <div className="w-full border-t border-paper-line-strong md:w-80 md:border-t-0 md:border-l">
+              <div
+                className={`w-full border-t border-paper-line-strong md:block md:w-80 md:border-t-0 md:border-l ${
+                  mobileView === "chat" && showContextMobile ? "block" : "hidden"
+                }`}
+              >
                 {selected.patientId ? (
                   <PatientContextPanel key={selected.id} conversation={selected} />
                 ) : (
@@ -313,6 +410,22 @@ export function AtendimentoShell({
           </div>
         )}
       </div>
+
+      {closedToast && (
+        <div
+          role="status"
+          className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-xl"
+        >
+          <span>Conversa com {closedToast.name} encerrada.</span>
+          <button
+            type="button"
+            onClick={handleUndoClose}
+            className="font-semibold text-teal-300 underline hover:text-teal-200"
+          >
+            Desfazer
+          </button>
+        </div>
+      )}
     </ChatLayout>
   );
 }

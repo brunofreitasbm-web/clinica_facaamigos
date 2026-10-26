@@ -30,7 +30,9 @@ export function MessageInput({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [showQuickResponses, setShowQuickResponses] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Texto mais recente do campo, lido após o await do envio.
+  const draftRef = useRef(draft);
 
   // Aplica substituidores em respostas rápidas como {nome}
   const applyPlaceholders = (text: string): string => {
@@ -48,10 +50,13 @@ export function MessageInput({
     setErrorMessage(null);
     setWarningMessage(null);
 
+    // O campo é liberado já no envio (Doherty): a recepção pode começar a
+    // próxima resposta sem esperar a Twilio. Por isso o rascunho só é
+    // limpo se ainda for o texto enviado — nunca apaga o que veio depois.
     const result = await onSend(textToSend, isRetry);
 
     if (result.success) {
-      clearDraft();
+      if (draftRef.current.trim() === textToSend) clearDraft();
       if (result.warning) {
         setWarningMessage(result.warning);
       }
@@ -61,7 +66,14 @@ export function MessageInput({
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const resizeInput = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (showQuickResponses) {
       // Deixa o QuickResponsesPopover lidar com navegação se necessário, ou Enter para fechar
       if (e.key === "Escape") {
@@ -69,14 +81,17 @@ export function MessageInput({
       }
     }
 
-    if (e.key === "Enter" && !e.shiftKey) {
+    // Shift+Enter quebra linha; Enter envia (não durante composição IME).
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSend();
     }
   };
 
   useEffect(() => {
+    draftRef.current = draft;
     setShowQuickResponses(draft.startsWith("/"));
+    resizeInput();
   }, [draft]);
 
   return (
@@ -145,13 +160,13 @@ export function MessageInput({
       )}
 
       {/* Input de Mensagem */}
-      <div className="flex items-center gap-2">
-        <input
+      <div className="flex items-end gap-2">
+        <textarea
           ref={inputRef}
-          className="input flex-1 focus:ring-2 focus:ring-teal-600 focus:outline-none text-sm"
-          placeholder="Digite uma mensagem ou / para respostas rápidas"
+          rows={1}
+          className="input max-h-32 flex-1 resize-none text-sm focus:outline-none focus:ring-2 focus:ring-teal-600"
+          placeholder="Digite uma mensagem ou / para respostas rápidas (Shift+Enter quebra linha)"
           value={draft}
-          disabled={isPending}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={handleKeyDown}
           aria-label="Campo de mensagem do atendimento"

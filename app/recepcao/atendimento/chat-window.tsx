@@ -50,13 +50,24 @@ export function ChatWindow({
   currentUserId,
   staffNames,
   onPatch,
+  onClosed,
 }: {
   conversation: ConversationRow;
   currentUserId: string | null;
   staffNames: Record<string, string>;
   onPatch: (patch: ConversationPatch) => void;
+  onClosed?: () => void;
 }) {
   const [messages, setMessages] = useState<MessageRow[]>([]);
+  // Sem isto "Nenhuma mensagem ainda." piscava a cada troca de conversa,
+  // enquanto o fetch ainda estava em andamento.
+  const [loaded, setLoaded] = useState(false);
+  const [hasNewBelow, setHasNewBelow] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // true enquanto a recepção está perto do fim da conversa. Só nesse caso
+  // uma mensagem nova arrasta a rolagem; quem subiu para ler histórico não
+  // é puxado de volta.
+  const stickToBottomRef = useRef(true);
   // Conversas antigas (anos de histórico com um lead que virou paciente)
   // carregavam TODAS as mensagens de uma vez — só as últimas
   // MESSAGE_PAGE_SIZE entram no primeiro carregamento; "carregar
@@ -85,6 +96,7 @@ export function ChatWindow({
         const rows = (data ?? []).map(toMessageRow).reverse();
         setMessages(rows);
         setHasMore(rows.length === MESSAGE_PAGE_SIZE);
+        setLoaded(true);
       });
 
     const channel = supabase
@@ -96,6 +108,8 @@ export function ChatWindow({
           const raw = payload.new as Parameters<typeof toMessageRow>[0] | null;
           if (!raw || !raw.id) return;
           const m = toMessageRow(raw);
+          // A própria resposta sempre leva a rolagem ao fim.
+          if (m.direction === "outbound") stickToBottomRef.current = true;
 
           setMessages((prev) => {
             const idx = prev.findIndex((item) => item.id === m.id);
@@ -143,8 +157,28 @@ export function ChatWindow({
       skipAutoScrollRef.current = false;
       return;
     }
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (stickToBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: loaded ? "smooth" : "auto" });
+      setHasNewBelow(false);
+    } else {
+      setHasNewBelow(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    stickToBottomRef.current = nearBottom;
+    if (nearBottom) setHasNewBelow(false);
+  }, []);
+
+  const jumpToBottom = useCallback(() => {
+    stickToBottomRef.current = true;
+    setHasNewBelow(false);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
 
   const handleSendText = useCallback(
     async (textToSend: string, isRetry = false): Promise<{ success: boolean; error?: string; warning?: string }> => {
@@ -176,9 +210,11 @@ export function ChatWindow({
         currentUserId={currentUserId}
         staffNames={staffNames}
         onPatch={onPatch}
+        onClosed={onClosed}
       />
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-5 py-4">
+      <div className="relative min-h-0 flex-1">
+      <div ref={scrollRef} onScroll={handleScroll} className="h-full space-y-2 overflow-y-auto px-5 py-4">
         {hasMore && (
           <div className="flex justify-center pb-2">
             <button
@@ -199,8 +235,25 @@ export function ChatWindow({
             onRetry={(body) => handleSendText(body, true)}
           />
         ))}
-        {messages.length === 0 && <p className="text-sm text-slate-400 dark:text-slate-500">Nenhuma mensagem ainda.</p>}
+        {!loaded && (
+          <p role="status" className="text-sm text-slate-500 dark:text-slate-400">
+            Carregando mensagens…
+          </p>
+        )}
+        {loaded && messages.length === 0 && (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Nenhuma mensagem ainda.</p>
+        )}
         <div ref={bottomRef} />
+      </div>
+      {hasNewBelow && (
+        <button
+          type="button"
+          onClick={jumpToBottom}
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-teal-600 px-4 py-1.5 text-xs font-semibold text-white shadow-lg hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-teal-600"
+        >
+          Novas mensagens ↓
+        </button>
+      )}
       </div>
 
       <MessageInput

@@ -109,7 +109,7 @@ export function ChatActions({
             onClick={handleAssignClick}
             className={`btn ${
               isMine ? "btn-ghost" : "btn-secondary"
-            } flex items-center gap-1.5 text-xs focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50 disabled:cursor-not-allowed`}
+            } flex min-h-9 items-center gap-1.5 text-xs focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50 disabled:cursor-not-allowed`}
             title={
               isMine
                 ? "Liberar conversa (Alt + A)"
@@ -132,13 +132,16 @@ export function ChatActions({
           </button>
         )}
 
+        {/* Separador: afasta o Encerrar dos controles de uso frequente (Fitts) */}
+        <span className="mx-1 hidden h-6 w-px bg-slate-200 dark:bg-slate-700 sm:block" aria-hidden />
+
         {/* Encerrar / Reabrir Button */}
         {isClosed ? (
           <button
             type="button"
             disabled={isBusy}
             onClick={handleReopenClick}
-            className="btn btn-ghost flex items-center gap-1.5 text-xs text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50"
+            className="btn btn-ghost flex min-h-9 items-center gap-1.5 text-xs text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50"
             title="Reabrir a conversa"
           >
             {isTerminating ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
@@ -153,10 +156,10 @@ export function ChatActions({
               setOutcomeNote("");
               setShowConfirmModal(true);
             }}
-            className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50/50 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100/70 hover:border-red-300 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Encerrar: mova para encerradas com confirmação"
+            className="flex min-h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            title="Encerrar: move para Encerradas (dá para reabrir)"
           >
-            {isTerminating ? <Loader2 size={14} className="animate-spin text-red-600" /> : <CheckCircle2 size={14} className="text-red-600" />}
+            {isTerminating ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
             <span>Encerrar</span>
           </button>
         )}
@@ -164,9 +167,12 @@ export function ChatActions({
         {/* Bot Switch Toggle */}
         <button
           type="button"
+          role="switch"
+          aria-checked={isBotActive}
           disabled={isBusy}
           onClick={handleBotClick}
-          className="flex shrink-0 items-center gap-2 rounded-full border border-paper-line-strong px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+          title={isBotActive ? "Bot respondendo — clique para assumir manualmente" : "Humano respondendo — clique para devolver ao bot"}
+          className="flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-paper-line-strong px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
           style={{
             background: isBotActive
               ? "var(--color-status-active-soft, #eaf6ff)"
@@ -204,7 +210,7 @@ export function ChatActions({
         >
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300">
                 <CheckCircle2 size={22} />
               </div>
               <div>
@@ -212,7 +218,7 @@ export function ChatActions({
                   Encerrar atendimento deste contato?
                 </h3>
                 <p id="modal-desc-encerrar" className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                  A conversa será movida para <strong className="font-semibold text-slate-800 dark:text-slate-200">&apos;Encerradas&apos;</strong> e o bot será pausado para novas interações manuais.
+                  A conversa vai para <strong className="font-semibold text-slate-800 dark:text-slate-200">&apos;Encerradas&apos;</strong>. O bot volta a responder; se a família escrever de novo, a conversa reabre.
                 </p>
               </div>
             </div>
@@ -265,7 +271,7 @@ export function ChatActions({
                 type="button"
                 disabled={isTerminating || !outcome}
                 onClick={handleConfirmClose}
-                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50"
               >
                 {isTerminating && <Loader2 size={14} className="animate-spin" />}
                 <span>Confirmar Encerramento</span>

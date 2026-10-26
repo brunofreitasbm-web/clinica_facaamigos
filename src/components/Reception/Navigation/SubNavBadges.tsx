@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 
 export type ConversationFilter = "abertas" | "aguardando" | "nao_lidas" | "leads" | "minhas" | "encerradas";
 
@@ -23,6 +23,8 @@ interface SubNavBadgesProps {
   counts: Record<ConversationFilter, number>;
   onFilterChange: (filter: ConversationFilter) => void;
   filters?: FilterOption[];
+  /** Filtros de uso raro, recolhidos atrás de "Mais" (Lei de Hick). */
+  collapsedKeys?: ConversationFilter[];
 }
 
 export function SubNavBadges({
@@ -30,10 +32,16 @@ export function SubNavBadges({
   counts,
   onFilterChange,
   filters = DEFAULT_FILTERS,
+  collapsedKeys = [],
 }: SubNavBadgesProps) {
+  const [expanded, setExpanded] = useState(false);
+  const activeIsCollapsed = collapsedKeys.includes(currentFilter);
+  const showCollapsed = expanded || activeIsCollapsed;
+  const visibleFilters = filters.filter((f) => !collapsedKeys.includes(f.key) || showCollapsed);
+
   return (
     <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtros da Fila de Atendimento">
-      {filters.map((f) => {
+      {visibleFilters.map((f) => {
         const isActive = f.key === currentFilter;
         const count = counts[f.key] ?? 0;
         const isAlert = f.key === "aguardando" && count > 0;
@@ -54,7 +62,7 @@ export function SubNavBadges({
           >
             <span>{f.label}</span>
             <span
-              className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${
                 isActive
                   ? "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900"
                   : isAlert
@@ -67,6 +75,16 @@ export function SubNavBadges({
           </button>
         );
       })}
+      {collapsedKeys.length > 0 && !activeIsCollapsed && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+          className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-teal-600 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          {expanded ? "Menos" : "Mais"}
+        </button>
+      )}
     </div>
   );
 }

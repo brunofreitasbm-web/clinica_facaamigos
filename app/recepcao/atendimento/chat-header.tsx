@@ -14,11 +14,14 @@ export function ChatHeader({
   currentUserId,
   staffNames,
   onPatch,
+  onClosed,
 }: {
   conversation: ConversationRow;
   currentUserId: string | null;
   staffNames: Record<string, string>;
   onPatch: (patch: ConversationPatch) => void;
+  /** Disparado só depois que o servidor confirmou o encerramento. */
+  onClosed?: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -64,6 +67,8 @@ export function ChatHeader({
         if (!result.success) {
           onPatch(revert);
           setError(result.error ?? "Não foi possível atualizar a conversa.");
+        } else if (shouldClose) {
+          onClosed?.();
         }
         resolve();
       });
@@ -110,7 +115,7 @@ export function ChatHeader({
             )}
             {isWhatsappWindowClosed(conversation) && (
               <span
-                className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-bold uppercase text-amber-900 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200"
                 title="Mais de 24h desde a última mensagem do contato — mensagem livre não é entregue pela Twilio."
               >
                 Janela fechada

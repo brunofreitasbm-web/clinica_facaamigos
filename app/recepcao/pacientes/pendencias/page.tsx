@@ -95,11 +95,48 @@ export default async function PendenciasPage({
       <PageHeader
         axisLabel="Recepção"
         title="Pendências"
-        description="Pendências de pacientes com prontuário: documento vencido, guia vencendo, faltas e remarcações. Leads do WhatsApp ficam em Autorizações."
+        description="Pacientes com prontuário: documentos, guias, faltas, remarcações e cadastros em andamento. Leads novos do WhatsApp ficam em Autorizações."
       />
       <PageContainer className="gap-5">
+        {critical > 0 && (
+          <a
+            href="#pacotes"
+            className="m-0 flex items-center justify-between gap-3 rounded-md bg-status-negative-soft px-4 py-3 text-[15px] font-semibold text-status-negative-text no-underline shadow-sm"
+          >
+            <span>
+              {critical} {critical === 1 ? "pacote de horas em estado crítico" : "pacotes de horas em estado crítico"}
+            </span>
+            <span className="underline underline-offset-2">Ver abaixo</span>
+          </a>
+        )}
+        {params.lead && !leadItem && (
+          <p className="m-0 rounded-md bg-paper-surface px-4 py-3 text-[15px] text-ink shadow-sm">
+            Este contato não tem mais pendências abertas.
+          </p>
+        )}
+        {queue.length === 0 ? (
+          <div className="rounded-lg bg-paper-surface px-6 py-10 text-center shadow-sm">
+            <p className="m-0 text-lg font-bold text-ink">Nenhuma pendência no momento.</p>
+            <p className="m-0 mt-1 text-[15px] text-ink-soft">Quando algo precisar da recepção, aparece aqui por ordem de urgência.</p>
+          </div>
+        ) : (
+          <QueueWorkspace
+            items={items}
+            split
+            categoryOrder={CATEGORY_ORDER}
+            owners={(reassignCandidates ?? []).map((c) => ({ id: c.id, name: c.full_name }))}
+            initial={{
+              q: params.q ?? "",
+              tipo: params.tipo && CATEGORY_ORDER.includes(params.tipo as PendingQueueCategory) ? params.tipo : null,
+              etapa,
+              dono: params.dono ?? null,
+              meus: params.meus === "1",
+              item: leadItem?.id ?? requestedItem,
+            }}
+          />
+        )}
         {authorizations.length > 0 && (
-          <details className="group rounded-lg bg-paper-surface shadow-sm">
+          <details id="pacotes" open={critical > 0} className="group rounded-lg bg-paper-surface shadow-sm">
             <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-5 py-4 text-base focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] [&::-webkit-details-marker]:hidden">
               <ChevronRight className="h-5 w-5 text-ink-soft transition-transform group-open:rotate-90" aria-hidden="true" />
               <span className="font-bold text-ink">Pacotes de horas autorizadas</span>
@@ -131,32 +168,6 @@ export default async function PendenciasPage({
               <AutorizacaoWizard initialItems={authorizations} />
             </div>
           </details>
-        )}
-        {params.lead && !leadItem && (
-          <p className="m-0 rounded-md bg-paper-surface px-4 py-3 text-[15px] text-ink shadow-sm">
-            Este contato não tem mais pendências abertas.
-          </p>
-        )}
-        {queue.length === 0 ? (
-          <div className="rounded-lg bg-paper-surface px-6 py-10 text-center shadow-sm">
-            <p className="m-0 text-lg font-bold text-ink">Nenhuma pendência no momento.</p>
-            <p className="m-0 mt-1 text-[15px] text-ink-soft">Quando algo precisar da recepção, aparece aqui por ordem de urgência.</p>
-          </div>
-        ) : (
-          <QueueWorkspace
-            items={items}
-            split
-            categoryOrder={CATEGORY_ORDER}
-            owners={(reassignCandidates ?? []).map((c) => ({ id: c.id, name: c.full_name }))}
-            initial={{
-              q: params.q ?? "",
-              tipo: params.tipo && CATEGORY_ORDER.includes(params.tipo as PendingQueueCategory) ? params.tipo : null,
-              etapa,
-              dono: params.dono ?? null,
-              meus: params.meus === "1",
-              item: leadItem?.id ?? requestedItem,
-            }}
-          />
         )}
       </PageContainer>
     </main>

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, useMemo, useTransition } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Bot, Search, User } from "lucide-react";
+import { Search } from "lucide-react";
 import { HealthPlanBadge } from "@/components/health-plan-badge";
 import { SubNavBadges, ConversationFilter } from "@/src/components/Reception/Navigation/SubNavBadges";
 import type { ConversationRow } from "@/app/recepcao/atendimento/atendimento-shell";
@@ -76,19 +76,26 @@ const ConversationItem = React.memo(function ConversationItem({
       : (staffNames[c.assignedTo]?.split(" ")[0] ?? "equipe")
     : null;
 
+  // Selecionado e urgente usavam a mesma borda esquerda (e o border-l-4
+  // ainda empurrava o conteúdo 4px). Agora tudo é inset shadow: a urgência
+  // (vermelho) prevalece na faixa, e a seleção também aparece no contorno.
+  const shadows: string[] = [];
+  if (waitAlert) shadows.push("inset 4px 0 0 #dc2626");
+  else if (isSelected) shadows.push("inset 4px 0 0 #0d9488");
+  if (isSelected && waitAlert) shadows.push("inset 0 0 0 2px #0d9488");
+
+  // Um único sinal de "quem responde" (menos ruído que ícone + texto).
+  const handlerLabel = assigneeName ? `com ${assigneeName}` : !c.isBotActive ? "Humano" : null;
+
   return (
     <button
       type="button"
       onClick={() => onSelect(c.id)}
-      aria-selected={isSelected}
+      aria-current={isSelected ? "true" : undefined}
       className={`flex h-[72px] w-full items-center gap-3 border-b border-slate-200 px-4 py-3 text-left transition-colors dark:border-slate-800 ${
-        isSelected
-          ? "bg-teal-50/80 border-l-4 border-l-teal-600 dark:bg-slate-800/80"
-          : "hover:bg-slate-50 dark:hover:bg-slate-900"
+        isSelected ? "bg-teal-50 dark:bg-slate-800/80" : "hover:bg-slate-50 dark:hover:bg-slate-900"
       }`}
-      style={{
-        boxShadow: waitAlert ? "inset 3px 0 0 #dc2626" : undefined,
-      }}
+      style={{ boxShadow: shadows.length ? shadows.join(", ") : undefined }}
     >
       <span
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold shadow-2xs"
@@ -101,56 +108,53 @@ const ConversationItem = React.memo(function ConversationItem({
         {initialsOf(c.displayName)}
       </span>
 
+      {/* Linha 1: quem. Linha 2: o quê. Linha 3: só o que exige ação ou contexto. */}
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center justify-between gap-2">
           <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{c.displayName}</span>
+          <span className="shrink-0 text-xs text-slate-600 dark:text-slate-400">
+            {now !== null ? relativeTime(c.lastMessageAt) : ""}
+          </span>
+        </span>
+        <span
+          className={`flex min-w-0 items-center justify-between gap-2 text-xs ${
+            c.lastMessageSender === "contact"
+              ? "font-medium text-slate-800 dark:text-slate-200"
+              : "text-slate-600 dark:text-slate-400"
+          }`}
+        >
+          <span className="flex min-w-0 items-center gap-1">
+            <LastSenderIndicator sender={c.lastMessageSender} />
+            <span className="truncate">{c.lastMessagePreview || c.guardianName || c.phoneNumber}</span>
+          </span>
+          {c.unreadCount > 0 && (
+            <span
+              className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-teal-600 px-1.5 text-[11px] font-bold text-white shadow-2xs"
+              aria-label={`${c.unreadCount} não lidas`}
+            >
+              {c.unreadCount}
+            </span>
+          )}
+        </span>
+        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] font-semibold">
+          {waitMinutes !== null ? (
+            <span
+              className={`shrink-0 rounded-full px-1.5 py-0.5 ${
+                waitAlert ? "bg-red-600 text-white" : "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300"
+              }`}
+            >
+              Aguardando · {waitMinutes < 1 ? "agora" : relativeTime(waitStart)}
+            </span>
+          ) : (
+            handlerLabel && <span className="shrink-0 text-slate-600 dark:text-slate-400">{handlerLabel}</span>
+          )}
           {c.kind === "lead" && (
-            <span className="shrink-0 rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+            <span className="shrink-0 rounded-full bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold uppercase text-sky-900 dark:bg-sky-950 dark:text-sky-300">
               Lead
             </span>
           )}
-          {c.isBotActive ? (
-            <Bot size={13} className="shrink-0 text-slate-400" />
-          ) : (
-            <User size={13} className="shrink-0 text-emerald-600" />
-          )}
           {c.planName && <HealthPlanBadge name={c.planName} color={c.planColor} size="sm" />}
         </span>
-        <span
-          className={`flex min-w-0 items-center gap-1 text-xs ${
-            c.lastMessageSender === "contact"
-              ? "font-medium text-slate-800 dark:text-slate-200"
-              : "text-slate-500 dark:text-slate-400"
-          }`}
-        >
-          <LastSenderIndicator sender={c.lastMessageSender} />
-          <span className="truncate">{c.lastMessagePreview || c.guardianName || c.phoneNumber}</span>
-        </span>
-        {(waitMinutes !== null || assigneeName) && (
-          <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
-            {waitMinutes !== null && (
-              <span
-                className={`rounded-full px-1.5 py-0.5 ${
-                  waitAlert
-                    ? "bg-red-600 text-white"
-                    : "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300"
-                }`}
-              >
-                Aguardando · {waitMinutes < 1 ? "agora" : relativeTime(waitStart)}
-              </span>
-            )}
-            {assigneeName && <span className="text-slate-500 dark:text-slate-400">com {assigneeName}</span>}
-          </span>
-        )}
-      </span>
-
-      <span className="flex shrink-0 flex-col items-end gap-1">
-        <span className="text-[11px] text-slate-400 dark:text-slate-500">{now !== null ? relativeTime(c.lastMessageAt) : ""}</span>
-        {c.unreadCount > 0 && (
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-teal-600 px-1 text-[10px] font-bold text-white shadow-2xs">
-            {c.unreadCount}
-          </span>
-        )}
       </span>
     </button>
   );
@@ -224,7 +228,12 @@ export function ConversationList({
             aria-label="Buscar conversa por nome ou telefone"
           />
         </label>
-        <SubNavBadges currentFilter={filter} counts={counts} onFilterChange={onFilterChange} />
+        <SubNavBadges
+          currentFilter={filter}
+          counts={counts}
+          onFilterChange={onFilterChange}
+          collapsedKeys={["leads", "encerradas"]}
+        />
       </div>
 
       <div
