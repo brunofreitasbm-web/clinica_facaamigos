@@ -47,7 +47,33 @@ export async function signIn(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  let { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    try {
+      const res = await fetch("https://ivjvpdzsfjdpyabbzzuj.supabase.co/functions/v1/gestao-hub", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "sincronizar_login_clinica",
+          identifier: email,
+          password,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.ok) {
+          const retry = await supabase.auth.signInWithPassword({
+            email: data.email || email,
+            password,
+          });
+          error = retry.error;
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao sincronizar senha com Hub:", e);
+    }
+  }
 
   if (error) {
     return { success: false, error: "CPF/e-mail ou senha inválidos." };

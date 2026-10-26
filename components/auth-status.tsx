@@ -40,8 +40,8 @@ export async function AuthStatus() {
 
         <span className="flex items-center gap-1.5">
           <strong className="text-white">{userDisplayName}</strong>
-          <span className="inline-flex items-center gap-1 rounded border border-amber-400 bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-slate-900">
-            ⚡ Modo Deus (Gestor)
+          <span className="inline-flex items-center rounded border border-amber-400/40 bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-200">
+            Gestor
           </span>
         </span>
         <form action={signOut}>

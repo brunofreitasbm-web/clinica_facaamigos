@@ -46,6 +46,8 @@ const PUBLIC_PREFIXES = [
   // Porta de entrada do Hub de Gestão (app/auth/sso): chega sem sessão por
   // definição — é ela que cria a sessão a partir do token de uso único.
   "/auth/sso",
+  "/esqueci-senha",
+  "/primeiro-acesso",
 ];
 
 // Rotas que só exigem sessão válida, sem o guard de papel abaixo: os links de
