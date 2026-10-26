@@ -4,8 +4,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { validateRenewalPeriod, type RenewalPeriodInput } from "./authorization-renewal-pure";
+import { buildRenewalApprovedMessage, buildWhatsappLink } from "@/lib/whatsapp-message";
 
-type ActionResult = { success: true } | { success: false; error: string };
+/** `whatsappUrl`: aviso manual ao responsável (wa.me), só quando a guia nova foi autorizada. */
+type ActionResult = { success: true; whatsappUrl?: string; note?: string } | { success: false; error: string };
 
 function revalidateQueue() {
   revalidatePath("/recepcao");
@@ -151,7 +153,45 @@ export async function registerAuthorizationRenewalResponse(
     .in("status", ["pendente", "solicitada_convenio"]);
 
   revalidateQueue();
-  return { success: true };
+  return { success: true, ...(await renewalWhatsappNotice(supabase, pendingAuthorizationId, input)) };
+}
+
+/**
+ * Link do WhatsApp com o aviso da guia renovada. O envio é manual (a recepção
+ * só aperta enviar), então qualquer falha aqui vira `note` — a guia já foi
+ * gravada e não pode ser desfeita por causa do aviso.
+ */
+async function renewalWhatsappNotice(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  authorizationId: string,
+  input: { sessions: number; validTo: string },
+): Promise<{ whatsappUrl?: string; note?: string }> {
+  const noPhone = { note: "Guia registrada. Sem telefone do responsável — avise a família manualmente." };
+  const { data: auth } = await supabase
+    .from("authorizations")
+    .select("patient_insurance(patient_id, insurers(name), patients(full_name))")
+    .eq("id", authorizationId)
+    .maybeSingle();
+  const insurance = Array.isArray(auth?.patient_insurance) ? auth?.patient_insurance[0] : auth?.patient_insurance;
+  if (!insurance?.patient_id) return noPhone;
+
+  const { data: guardians } = await supabase
+    .from("guardians")
+    .select("full_name, phone, is_financial")
+    .eq("patient_id", insurance.patient_id);
+  const guardian = guardians?.find((g) => g.is_financial && g.phone) ?? guardians?.find((g) => g.phone);
+  if (!guardian?.phone) return noPhone;
+
+  const insurer = Array.isArray(insurance.insurers) ? insurance.insurers[0] : insurance.insurers;
+  const patient = Array.isArray(insurance.patients) ? insurance.patients[0] : insurance.patients;
+  const message = buildRenewalApprovedMessage({
+    guardianName: guardian.full_name,
+    patientName: patient?.full_name,
+    insurerName: insurer?.name,
+    sessions: input.sessions,
+    validTo: input.validTo,
+  });
+  return { whatsappUrl: buildWhatsappLink(guardian.phone, message) };
 }
 
 /**

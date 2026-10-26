@@ -11,7 +11,10 @@ import {
   GREETING_REPEAT_WINDOW_MS,
   INITIAL_GREETING_INTENT,
   INITIAL_GREETING_REPLY,
+  SITE_PREFILL_REPLIES,
+  detectSitePrefill,
   isPureGreeting,
+  sitePrefillIntent,
 } from "@/lib/greeting-pure";
 
 /**
@@ -564,6 +567,7 @@ export async function handleTwilioIncomingMessage(params: {
   let conversationId: string | null = null;
   let patientId: string | null = null;
   let guardianId: string | null = null;
+  let conversationKind: "lead" | "patient" | null = null;
 
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
@@ -578,6 +582,7 @@ export async function handleTwilioIncomingMessage(params: {
       guardianId: resolved?.guardianId,
     });
     conversationId = conversation.id;
+    conversationKind = conversation.kind === "patient" ? "patient" : "lead";
 
     // Dedupe: grava a mensagem ANTES de qualquer outra coisa, com o SID da
     // Twilio (índice único parcial idx_messages_twilio_sid). Se a Twilio já
@@ -777,6 +782,14 @@ export async function handleTwilioIncomingMessage(params: {
   // nesta conversa há pouco, não repete as boas-vindas: segue para o FAQ, cujo
   // prompt já considera o histórico.
   try {
+    // Botões "lista de espera", "mapeamento" e "menor de 4 anos" do site: o
+    // texto pronto já diz o que a pessoa quer — resposta fixa própria, sem IA
+    // (antes caíam no Gemini, que não conhece a lista de espera, ou no
+    // fallback de boas-vindas).
+    const prefill = detectSitePrefill(body);
+    if (prefill && prefill !== "info") {
+      return { intent: sitePrefillIntent(prefill), replyMessage: SITE_PREFILL_REPLIES[prefill] };
+    }
     if (isPureGreeting(body) && !(await hasRecentOutbound(conversationId))) {
       return { intent: INITIAL_GREETING_INTENT, replyMessage: INITIAL_GREETING_REPLY };
     }
@@ -794,7 +807,7 @@ export async function handleTwilioIncomingMessage(params: {
   // não recebia histórico, então cada mensagem era tratada isoladamente.
   try {
     const { processFaqBotStep } = await import("./twilio-faq-bot");
-    const faqResult = await processFaqBotStep({ phone, body, conversationId, patientId, guardianId });
+    const faqResult = await processFaqBotStep({ phone, body, conversationId, patientId, guardianId, conversationKind });
     if (faqResult.handled) {
       return { intent: faqResult.intent, replyMessage: faqResult.replyMessage, concluded: faqResult.concluded };
     }

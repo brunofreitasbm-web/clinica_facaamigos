@@ -74,3 +74,39 @@ export function buildWhatsappLink(rawPhone: string, message: string): string {
   const phone = normalizeBrazilianPhone(rawPhone);
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
+
+function firstName(fullName: string | null | undefined): string {
+  return (fullName ?? "").trim().split(/\s+/)[0] ?? "";
+}
+
+function greeting(guardianName: string | null | undefined): string {
+  const name = firstName(guardianName);
+  return name ? `Olá ${name}!` : "Olá!";
+}
+
+/** Aviso manual (wa.me) de que o plano autorizou a 1ª avaliação. */
+export function buildAuthorizationApprovedMessage(params: {
+  guardianName?: string | null;
+  patientName?: string | null;
+  insurerName?: string | null;
+}): string {
+  const plan = params.insurerName?.trim() ? `o plano ${params.insurerName.trim()}` : "o plano";
+  const patient = params.patientName?.trim() ? ` de ${params.patientName.trim()}` : "";
+  return `${greeting(params.guardianName)} Boa notícia: ${plan} autorizou a avaliação${patient}. 💙 Em breve entramos em contato para combinar o melhor horário.`;
+}
+
+/** Aviso manual (wa.me) de que a renovação da guia saiu. `validTo` em AAAA-MM-DD. */
+export function buildRenewalApprovedMessage(params: {
+  guardianName?: string | null;
+  patientName?: string | null;
+  insurerName?: string | null;
+  sessions?: number | null;
+  validTo?: string | null;
+}): string {
+  const plan = params.insurerName?.trim() ? `o plano ${params.insurerName.trim()}` : "o plano";
+  const patient = params.patientName?.trim() ? ` de ${params.patientName.trim()}` : "";
+  const sessions = params.sessions && params.sessions > 0 ? `${params.sessions} sessões` : "novas sessões";
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(params.validTo ?? "");
+  const until = iso ? `, válidas até ${iso[3]}/${iso[2]}/${iso[1]}` : "";
+  return `${greeting(params.guardianName)} Boa notícia: ${plan} autorizou a renovação da guia${patient}: ${sessions}${until}. 💙 As sessões seguem normalmente.`;
+}

@@ -8,6 +8,7 @@ export type ChatbotSettingsRow = {
   dailyReplyLimit: number;
   greetingFallback: string | null;
   botAutoResumeHours: number | null;
+  agendaStatusNote: string | null;
 };
 
 export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
@@ -85,6 +86,23 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
           <span className="text-xs font-normal text-ink-faint">
             Mensagem enviada quando nenhum outro fluxo do bot reconhece o pedido (ex.: Gemini indisponível ou teto
             diário atingido). Em branco, usa o texto padrão do sistema.
+          </span>
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
+          Situação atual da agenda (aparece no assistente)
+          <textarea
+            name="agendaStatusNote"
+            rows={3}
+            maxLength={600}
+            defaultValue={settings.agendaStatusNote ?? ""}
+            placeholder="Ex.: Agenda em montagem; previsão de início das sessões em novembro. Novas famílias entram na lista de espera."
+            className="input"
+          />
+          <span className="text-xs font-normal text-ink-faint">
+            É a única fonte que o assistente usa para responder &ldquo;tem vaga?&rdquo;, &ldquo;qual a previsão?&rdquo; e
+            pedidos de lista de espera. Em branco, ele não promete prazo nem vaga e passa a dúvida para a recepção.
+            Atualize sempre que a agenda mudar.
           </span>
         </label>
 

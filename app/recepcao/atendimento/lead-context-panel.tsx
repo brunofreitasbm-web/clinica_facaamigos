@@ -17,6 +17,7 @@ const ESCALATION_LABELS: Record<string, string> = {
   clinico: "Pergunta clínica sobre a criança — o bot não responde.",
   pediu_humano: "A pessoa pediu para falar com alguém da equipe.",
   relatorio: "Pedido de relatório/documento — dados coletados na última mensagem do bot, veja a conversa.",
+  lista_espera: "Quer entrar na lista de espera — nome, idade, plano e terapia estão no resumo da última mensagem do bot.",
 };
 
 const DOCUMENT_KIND_LABEL: Record<string, string> = {

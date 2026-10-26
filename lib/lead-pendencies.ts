@@ -105,10 +105,24 @@ export function pickBotCollected(collected: unknown, step: string | null): Recor
   }
   if (typeof data.is_private === "boolean") picked.is_private = data.is_private;
   if (typeof data.has_laudo === "boolean") picked.has_laudo = data.has_laudo;
+  if (Array.isArray(data.therapies)) picked.therapies = data.therapies.filter((t): t is string => typeof t === "string");
+  if (Array.isArray(data.therapies_labels)) {
+    picked.therapies_labels = data.therapies_labels.filter((t): t is string => typeof t === "string");
+  }
+  if (typeof data.therapies_text === "string" && data.therapies_text.trim()) picked.therapies_text = data.therapies_text;
   if (typeof data.request_id === "string") picked.request_id = data.request_id;
   if (typeof data.lead_patient_id === "string") picked.lead_patient_id = data.lead_patient_id;
   if (step) picked.last_step = step;
   return picked;
+}
+
+/** Terapias que o lead pediu no bot ("Fonoaudiologia, Terapia Ocupacional") ou o texto livre, quando não deu para ler. */
+export function desiredTherapiesFromBot(bot: unknown): string | null {
+  const data = asRecord(bot);
+  if (!data) return null;
+  const labels = Array.isArray(data.therapies_labels) ? data.therapies_labels.filter((t) => typeof t === "string" && t) : [];
+  if (labels.length > 0) return labels.join(", ");
+  return asText(data.therapies_text);
 }
 
 /**

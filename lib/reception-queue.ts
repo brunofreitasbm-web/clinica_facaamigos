@@ -9,7 +9,7 @@ import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { civilDateInTimeZone } from "@/lib/timezone";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
-import { computeLeadPendencies, type LeadPendencies } from "@/lib/lead-pendencies";
+import { computeLeadPendencies, desiredTherapiesFromBot, type LeadPendencies } from "@/lib/lead-pendencies";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
 import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
 
@@ -47,6 +47,9 @@ export type PendingQueueItem = {
   /** Só preenchido em renovacao_solicitada — id da linha em
    * authorization_renewal_requests, pra ação de marcar como resolvida. */
   renewalRequestId?: string;
+  /** Só preenchido em renovacao_solicitada quando a guia nova já foi pedida ao plano
+   * (authorizations "pendente" com previous_authorization_id) — habilita o botão "Autorizado". */
+  renewalPending?: RenewalPendingGuide & { insurerName: string };
   /** Só preenchido em cadastro_assistido_ia — id do registration_drafts pra abrir a tela de validação. */
   draftId?: string;
   /**
@@ -484,6 +487,15 @@ async function getPendingFamilyDocuments(supabase: Supa, clinicId: string): Prom
   });
 }
 
+/** Guia nova já pedida ao plano, aguardando a resposta (linha "pendente" de `authorizations`). */
+export type RenewalPendingGuide = {
+  authorizationId: string;
+  requestedAt: string | null;
+  sessionsRequested: number;
+  validFrom: string;
+  validTo: string;
+};
+
 export type AuthorizationRenewalRequest = {
   id: string;
   patientId: string;
@@ -491,6 +503,7 @@ export type AuthorizationRenewalRequest = {
   insurerName: string;
   status: "pendente" | "solicitada_convenio";
   createdAt: string;
+  pendingGuide?: RenewalPendingGuide;
 };
 
 /**
@@ -507,10 +520,31 @@ async function getAuthorizationRenewalRequests(supabase: Supa, clinicId: string)
   const { data } = await supabase
     .from("authorization_renewal_requests")
     .select(
-      "id, status, created_at, patient_insurance:patient_insurance_id(patient_id, insurers(name), patients(id, full_name, clinic_id))",
+      "id, status, created_at, authorization_id, patient_insurance:patient_insurance_id(patient_id, insurers(name), patients(id, full_name, clinic_id))",
     )
     .in("status", ["pendente", "solicitada_convenio"])
     .order("created_at", { ascending: true });
+
+  // Guia nova já pedida ao plano: linha "pendente" apontando para a guia atual.
+  const previousIds = (data ?? []).map((r) => r.authorization_id).filter((id): id is string => Boolean(id));
+  const pendingByPrevious = new Map<string, RenewalPendingGuide>();
+  if (previousIds.length > 0) {
+    const { data: pending } = await supabase
+      .from("authorizations")
+      .select("id, previous_authorization_id, requested_at, sessions_authorized, valid_from, valid_to")
+      .eq("status", "pendente")
+      .in("previous_authorization_id", previousIds);
+    for (const a of pending ?? []) {
+      if (!a.previous_authorization_id) continue;
+      pendingByPrevious.set(a.previous_authorization_id, {
+        authorizationId: a.id,
+        requestedAt: a.requested_at,
+        sessionsRequested: a.sessions_authorized,
+        validFrom: a.valid_from,
+        validTo: a.valid_to,
+      });
+    }
+  }
 
   const result: AuthorizationRenewalRequest[] = [];
   for (const r of data ?? []) {
@@ -527,6 +561,7 @@ async function getAuthorizationRenewalRequests(supabase: Supa, clinicId: string)
       insurerName,
       status: r.status as "pendente" | "solicitada_convenio",
       createdAt: r.created_at,
+      pendingGuide: r.authorization_id ? pendingByPrevious.get(r.authorization_id) : undefined,
     });
   }
   return result;
@@ -649,10 +684,9 @@ const DRAFT_FACT_LABELS: { section: string; field: string; label: string }[] = [
  * pulando o que veio vazio. Só leitura — a edição continua na tela de
  * validação do rascunho.
  */
-function draftFacts(extracted: unknown): PendingDraftFact[] {
-  if (!extracted || typeof extracted !== "object") return [];
-  const root = extracted as Record<string, unknown>;
+function draftFacts(extracted: unknown, bot?: unknown): PendingDraftFact[] {
   const facts: PendingDraftFact[] = [];
+  const root = extracted && typeof extracted === "object" ? (extracted as Record<string, unknown>) : {};
   for (const { section, field, label } of DRAFT_FACT_LABELS) {
     const block = root[section];
     if (!block || typeof block !== "object") continue;
@@ -660,6 +694,8 @@ function draftFacts(extracted: unknown): PendingDraftFact[] {
     if (raw === null || raw === undefined || raw === "") continue;
     facts.push({ label, value: String(raw) });
   }
+  const therapies = desiredTherapiesFromBot(bot);
+  if (therapies) facts.push({ label: "Terapias desejadas", value: therapies });
   return facts;
 }
 
@@ -989,7 +1025,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
           mimeType: f.mime_type,
           detectedType: f.detected_type,
         })),
-      facts: draftFacts(d.extracted),
+      facts: draftFacts(d.extracted, pendencySources.botByDraft.get(d.id)),
       warnings: d.warnings ?? [],
       error: d.error,
       messages: (d.source_phone ? messagesByPhone.get(d.source_phone) : undefined) ?? [],
@@ -1109,7 +1145,7 @@ export async function getSingleRegistrationDraft(
         mimeType: f.mime_type,
         detectedType: f.detected_type,
       })),
-    facts: draftFacts(d.extracted),
+    facts: draftFacts(d.extracted, pendencySources.botByDraft.get(d.id)),
     warnings: d.warnings ?? [],
     error: d.error,
     messages: (d.source_phone ? messagesByPhone.get(d.source_phone) : undefined) ?? [],
@@ -1417,6 +1453,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       urgencyLabel: new Date(r.createdAt).toLocaleDateString("pt-BR"),
       href: `/recepcao/pacientes/${r.patientId}`,
       renewalRequestId: r.id,
+      renewalPending: r.pendingGuide ? { ...r.pendingGuide, insurerName: r.insurerName } : undefined,
     });
   }
 

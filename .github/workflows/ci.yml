@@ -5,9 +5,15 @@ on:
     branches: [main]
   pull_request:
 
+# Cancela runs antigos da mesma branch/PR e limita o tempo de cada run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

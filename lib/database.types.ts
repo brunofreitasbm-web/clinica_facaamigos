@@ -457,6 +457,7 @@ export type Database = {
           child_name: string
           clinic_id: string | null
           created_at: string
+          desired_specialties: string[] | null
           guardian_cpf: string
           guardian_name: string
           guardian_phone: string
@@ -482,6 +483,7 @@ export type Database = {
           child_name: string
           clinic_id?: string | null
           created_at?: string
+          desired_specialties?: string[] | null
           guardian_cpf: string
           guardian_name: string
           guardian_phone: string
@@ -507,6 +509,7 @@ export type Database = {
           child_name?: string
           clinic_id?: string | null
           created_at?: string
+          desired_specialties?: string[] | null
           guardian_cpf?: string
           guardian_name?: string
           guardian_phone?: string
@@ -1552,6 +1555,7 @@ export type Database = {
       }
       chatbot_settings: {
         Row: {
+          agenda_status_note: string | null
           bot_auto_resume_hours: number | null
           bot_enabled: boolean
           clinic_id: string
@@ -1561,6 +1565,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          agenda_status_note?: string | null
           bot_auto_resume_hours?: number | null
           bot_enabled?: boolean
           clinic_id: string
@@ -1570,6 +1575,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          agenda_status_note?: string | null
           bot_auto_resume_hours?: number | null
           bot_enabled?: boolean
           clinic_id?: string
@@ -1882,6 +1888,7 @@ export type Database = {
       clinic_faq: {
         Row: {
           active: boolean
+          audience: string
           answer: string
           category: string | null
           clinic_id: string
@@ -1895,6 +1902,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          audience?: string
           answer: string
           category?: string | null
           clinic_id: string
@@ -1908,6 +1916,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          audience?: string
           answer?: string
           category?: string | null
           clinic_id?: string
@@ -8692,6 +8701,46 @@ export type Database = {
           meta_max_ttfa_s: number | null
           permanencia_mediana_s: number | null
           leitura: string | null
+        }
+        Relationships: []
+      }
+      metabase_chatbot_kpis_semanais: {
+        Row: {
+          clinic_id: string | null
+          semana: string | null
+          semana_em_andamento: boolean | null
+          msgs_familia: number | null
+          respostas_bot: number | null
+          respostas_humanas: number | null
+          fallbacks: number | null
+          ia_indisponivel: number | null
+          respostas_por_regra: number | null
+          escalonamentos: number | null
+          conversas_novas: number | null
+          conversas_com_resposta_humana: number | null
+          pct_fallback_atual: number | null
+          pct_fallback_semana_anterior: number | null
+          variacao_fallback_pp: number | null
+          meta_max_pct_fallback: number | null
+          pct_regras_atual: number | null
+          pct_regras_semana_anterior: number | null
+          variacao_regras_pp: number | null
+          pct_conversas_com_humano_atual: number | null
+          pct_conversas_com_humano_semana_anterior: number | null
+          variacao_humano_pp: number | null
+          ia_indisponivel_atual: number | null
+          ia_indisponivel_semana_anterior: number | null
+        }
+        Relationships: []
+      }
+      metabase_chatbot_perguntas_sem_resposta: {
+        Row: {
+          clinic_id: string | null
+          message_id: string | null
+          conversation_id: string | null
+          sent_at: string | null
+          intent: string | null
+          pergunta: string | null
         }
         Relationships: []
       }

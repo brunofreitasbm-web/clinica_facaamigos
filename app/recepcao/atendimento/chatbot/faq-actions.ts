@@ -10,6 +10,9 @@ type ActionResult = { success: true } | { success: false; error: string };
 const CATEGORIES = ["convenios", "valores", "local", "terapias", "horarios", "regras", "outro"] as const;
 export type FaqCategory = (typeof CATEGORIES)[number];
 
+const AUDIENCES = ["ambos", "lead", "paciente"] as const;
+export type FaqAudienceValue = (typeof AUDIENCES)[number];
+
 /** "unimed, plano, carteirinha" -> ['unimed','plano','carteirinha'] */
 function parseKeywords(raw: string): string[] {
   return Array.from(
@@ -28,7 +31,9 @@ function readForm(formData: FormData) {
   const rawCategory = String(formData.get("category") ?? "").trim();
   const category = (CATEGORIES as readonly string[]).includes(rawCategory) ? rawCategory : "outro";
   const keywords = parseKeywords(String(formData.get("keywords") ?? ""));
-  return { question, answer, category, keywords };
+  const rawAudience = String(formData.get("audience") ?? "").trim();
+  const audience = (AUDIENCES as readonly string[]).includes(rawAudience) ? rawAudience : "ambos";
+  return { question, answer, category, keywords, audience };
 }
 
 /**
@@ -39,7 +44,7 @@ function readForm(formData: FormData) {
  * uma invenção sobre preço ou cobertura (ver lib/twilio-faq-bot.ts).
  */
 export async function createFaq(formData: FormData): Promise<ActionResult> {
-  const { question, answer, category, keywords } = readForm(formData);
+  const { question, answer, category, keywords, audience } = readForm(formData);
 
   if (!question) return { success: false, error: "Escreva a pergunta." };
   if (!answer) return { success: false, error: "Escreva a resposta que o bot deve enviar." };
@@ -58,6 +63,7 @@ export async function createFaq(formData: FormData): Promise<ActionResult> {
     answer,
     category,
     keywords,
+    audience,
     sort_order: (last?.[0]?.sort_order ?? 0) + 10,
   });
 
@@ -71,7 +77,7 @@ export async function createFaq(formData: FormData): Promise<ActionResult> {
 }
 
 export async function updateFaq(faqId: string, formData: FormData): Promise<ActionResult> {
-  const { question, answer, category, keywords } = readForm(formData);
+  const { question, answer, category, keywords, audience } = readForm(formData);
 
   if (!question) return { success: false, error: "Escreva a pergunta." };
   if (!answer) return { success: false, error: "Escreva a resposta que o bot deve enviar." };
@@ -79,7 +85,7 @@ export async function updateFaq(faqId: string, formData: FormData): Promise<Acti
   const supabase = await createClient();
   const { error } = await supabase
     .from("clinic_faq")
-    .update({ question, answer, category, keywords, updated_at: new Date().toISOString() })
+    .update({ question, answer, category, keywords, audience, updated_at: new Date().toISOString() })
     .eq("id", faqId);
 
   if (error) {

@@ -17,6 +17,7 @@ import type { FaqRow } from "./chatbot/faq-manager";
 import type { QuickResponseRow } from "./chatbot/quick-responses-manager";
 import type { TemplateRow } from "./chatbot/templates-manager";
 import type { ChatbotSettingsRow } from "./chatbot/settings-panel";
+import type { UnansweredQuestionRow } from "./chatbot/faq-manager";
 import type { DeliveryHistoryRow } from "./chatbot/chatbot-panel";
 
 export type { ConversationRow, InsurerPill, ConversationPatch } from "@/lib/atendimento/types";
@@ -37,6 +38,7 @@ export type ChatbotAdminData = {
   clinicId: string;
   stats: ChatbotDashboardStats;
   faqs: FaqRow[];
+  unanswered: UnansweredQuestionRow[];
   quickResponses: QuickResponseRow[];
   templates: TemplateRow[];
   deliveryHistory: DeliveryHistoryRow[];
@@ -253,6 +255,7 @@ export function AtendimentoShell({
             clinicId={chatbotAdmin.clinicId}
             stats={chatbotAdmin.stats}
             faqs={chatbotAdmin.faqs}
+            unanswered={chatbotAdmin.unanswered}
             quickResponses={chatbotAdmin.quickResponses}
             templates={chatbotAdmin.templates}
             deliveryHistory={chatbotAdmin.deliveryHistory}
