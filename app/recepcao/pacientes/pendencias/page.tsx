@@ -7,6 +7,7 @@ import {
   getReceptionQueue,
   getAuthorizationWizardItems,
   isAuthorizationQueueItem,
+  isPendingQueueItem,
   type PendingQueueCategory,
 } from "@/lib/reception-queue";
 import { AutorizacaoWizard } from "./autorizacao-wizard";
@@ -55,7 +56,7 @@ export default async function PendenciasPage({
   // Lead que só espera o plano mora em /recepcao/a-autorizar; links antigos (?lead=) seguem para lá.
   const movedLead = params.lead ? fullQueue.find((item) => item.draft?.id === params.lead && isAuthorizationQueueItem(item)) : undefined;
   if (movedLead) redirect(`/recepcao/a-autorizar?item=${encodeURIComponent(movedLead.id)}`);
-  const queue = fullQueue.filter((item) => !isAuthorizationQueueItem(item));
+  const queue = fullQueue.filter(isPendingQueueItem);
   const authorizations = await getAuthorizationWizardItems(supabase, DEV_CLINIC_ID);
 
   // Candidatos pra reatribuição manual (§9.1 "dono + prazo"): mesmo conjunto
@@ -93,8 +94,8 @@ export default async function PendenciasPage({
     <main className="flex flex-1 flex-col">
       <PageHeader
         axisLabel="Recepção"
-        title="Pendências gerais"
-        description="Documento faltando, guia vencendo, faltas e demais pendências de pacientes. A autorização do plano fica em Autorizações do plano."
+        title="Pendências"
+        description="Pendências de pacientes com prontuário: documento vencido, guia vencendo, faltas e remarcações. Leads do WhatsApp ficam em Autorizações."
       />
       <PageContainer className="gap-5">
         {authorizations.length > 0 && (

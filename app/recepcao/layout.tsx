@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
-import { getReceptionQueue, isAuthorizationQueueItem } from "@/lib/reception-queue";
+import { getReceptionQueue, isAuthorizationQueueItem, isPendingQueueItem } from "@/lib/reception-queue";
 import { RecepcaoNav } from "@/components/recepcao-nav";
 import { KnowledgeBaseDrawer } from "@/components/knowledge-base-drawer";
 import { BonusFloatingWidget } from "@/components/bonus-floating-widget";
@@ -31,10 +31,11 @@ export default async function RecepcaoLayout({ children }: { children: React.Rea
 
   // Duas filas distintas, sem sobreposição: autorização do plano x pendências gerais.
   const toAuthorizeCount = queue.filter(isAuthorizationQueueItem).length;
+  const pendingCount = queue.filter(isPendingQueueItem).length;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <RecepcaoNav pendingCount={queue.length - toAuthorizeCount} chegadasCount={chegadasCount ?? 0} toAuthorizeCount={toAuthorizeCount} />
+      <RecepcaoNav pendingCount={pendingCount} chegadasCount={chegadasCount ?? 0} toAuthorizeCount={toAuthorizeCount} />
       {children}
       <KnowledgeBaseDrawer />
       <BonusFloatingWidget />

@@ -56,9 +56,11 @@ const STEP_TITLE = [
 ] as const;
 
 const STATE_STYLE: Record<StepState, string> = {
-  done: "border-status-positive-text/60 bg-status-positive-text/5",
-  current: "border-[var(--color-accent)] bg-paper",
-  locked: "border-dashed border-paper-line-strong bg-paper/40 opacity-80",
+  // Etapa vencida em "penumbra" (volta ao normal no hover/foco, para o Desfazer continuar à mão);
+  // a da vez fica em destaque; a futura fica discreta.
+  done: "border-status-positive-text/30 bg-status-positive-text/5 opacity-50 saturate-50 transition-opacity hover:opacity-100 focus-within:opacity-100",
+  current: "border-2 border-[var(--color-accent)] bg-paper-surface shadow-lg ring-4 ring-[var(--color-accent)]/20",
+  locked: "border-dashed border-paper-line-strong bg-paper/40 opacity-70",
 };
 
 function fmtDate(iso: string | null): string {
@@ -118,7 +120,16 @@ function StepShell({
           {state === "done" ? "✓" : index + 1}
         </span>
         <div className="min-w-0">
-          <h3 className="m-0 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">{STEP_TITLE[index - 1]}</h3>
+          <h3
+            className={`m-0 text-[13px] font-semibold uppercase tracking-wide ${state === "current" ? "text-[var(--color-accent)]" : "text-ink-soft"}`}
+          >
+            {STEP_TITLE[index - 1]}
+          </h3>
+          {state === "current" && (
+            <span className="mt-0.5 inline-block rounded-full bg-[var(--color-accent)] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+              Na vez
+            </span>
+          )}
           <p
             className={`m-0 text-sm ${
               state === "done" ? "text-status-positive-text" : state === "current" ? "text-ink" : "text-ink-faint"

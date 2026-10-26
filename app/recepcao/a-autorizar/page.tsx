@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const QUEUE_STAGES: QueueStage[] = ["docs", "autorizacao", "agendar"];
 
 /**
- * "Autorizações do plano": contato com documentos completos que ainda não passou pelo
+ * "Autorizações": lead do WhatsApp com documentos completos que ainda não passou pelo
  * plano de saúde — documentos e dados captados pelo bot, mais a linha do tempo da
  * autorização (guia enviada → plano autorizou → habilitar agendamento). É o
  * mesmo painel de contato da Fila de pendências (DraftIntakeCard), só que
@@ -45,18 +45,19 @@ export default async function AAutorizarPage({
     <main className="flex flex-1 flex-col">
       <PageHeader
         axisLabel="Recepção"
-        title="Autorizações do plano"
-        description="Contatos com os documentos já completos, aguardando só a autorização do plano de saúde. Documento faltando fica em Pendências gerais."
+        title="Autorizações"
+        description="Leads do WhatsApp (ainda sem prontuário) com os documentos e dados captados, a caminho da autorização do plano de saúde."
       />
       <PageContainer className="gap-5">
         {queue.length === 0 ? (
           <div className="rounded-lg bg-paper-surface px-6 py-10 text-center shadow-sm">
-            <p className="m-0 text-lg font-bold text-ink">Nenhuma autorização de plano pendente.</p>
-            <p className="m-0 mt-1 text-[15px] text-ink-soft">Quando um contato completar os documentos, ele aparece aqui.</p>
+            <p className="m-0 text-lg font-bold text-ink">Nenhuma autorização pendente.</p>
+            <p className="m-0 mt-1 text-[15px] text-ink-soft">Quando um lead do WhatsApp enviar documentos, ele aparece aqui.</p>
           </div>
         ) : (
           <QueueWorkspace
             items={items}
+            split
             categoryOrder={["cadastro_assistido_ia"]}
             owners={(reassignCandidates ?? []).map((c) => ({ id: c.id, name: c.full_name }))}
             initial={{ q: params.q ?? "", tipo: null, etapa, dono: params.dono ?? null, meus: params.meus === "1", item: requestedItem }}

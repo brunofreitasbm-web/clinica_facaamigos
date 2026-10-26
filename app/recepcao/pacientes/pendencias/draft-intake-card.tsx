@@ -2,6 +2,7 @@ import Link from "next/link";
 import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
+import { FileText, Image as ImageIcon } from "lucide-react";
 import { DocumentRequestButtons } from "./document-request-buttons";
 import { DraftPipelineColumns } from "./draft-pipeline";
 import { PendencyGrid } from "./pendency-pills";
@@ -71,21 +72,28 @@ export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegist
                 {draft.files.length === 0 ? (
                   <p className="m-0 text-ink-faint">Nenhum arquivo anexado a este contato.</p>
                 ) : (
-                  <ul className="m-0 flex list-none flex-col gap-1 p-0">
-                    {draft.files.map((file) => (
-                      <li key={file.id}>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {draft.files.map((file) => {
+                      const isImage = (file.mimeType ?? "").startsWith("image/");
+                      return (
                         <a
+                          key={file.id}
                           href={`/api/arquivos/rascunho/${file.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[13px] font-medium no-underline"
-                          style={{ color: "var(--color-accent)" }}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-paper-line-strong bg-paper px-2.5 py-1 text-xs font-medium text-ink no-underline transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] hover:bg-paper-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                          title={`Abrir ${fileLabel(file)}`}
                         >
-                          {fileLabel(file)}
+                          {isImage ? (
+                            <ImageIcon className="h-3.5 w-3.5 shrink-0 text-ink-soft" aria-hidden="true" />
+                          ) : (
+                            <FileText className="h-3.5 w-3.5 shrink-0 text-ink-soft" aria-hidden="true" />
+                          )}
+                          <span className="truncate">{fileLabel(file)}</span>
                         </a>
-                      </li>
-                    ))}
-                  </ul>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 

@@ -87,11 +87,18 @@ export function QueueWorkspace({
   categoryOrder,
   owners,
   initial,
+  split = false,
 }: {
   items: WorkspaceItem[];
   categoryOrder: string[];
   owners: { id: string; name: string }[];
   initial: WorkspaceFilters;
+  /**
+   * Lista a ~30% e detalhe nos ~70% já a partir de tablet (md), com o primeiro
+   * item aberto — tela de trabalho como a de Autorizações. Sem isso, o detalhe
+   * só fica ao lado em telas xl e, abaixo disso, cobre a tela inteira.
+   */
+  split?: boolean;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState(initial.q);
@@ -176,7 +183,10 @@ export function QueueWorkspace({
   const bandIsOpen = (band: UrgencyBand) => isFiltering || openBands[band];
 
   const navigable = bands.flatMap(({ band, list }) => (bandIsOpen(band) ? list : []));
-  const selected = selectedId ? activeItems.find((i) => i.id === selectedId) ?? null : null;
+  // Modo split: o detalhe nunca fica vazio — sem seleção explícita mostra o primeiro da lista
+  // e, ao resolver um item, passa para o próximo.
+  const shownId = selectedId ?? (split ? (navigable[0]?.id ?? null) : null);
+  const selected = shownId ? activeItems.find((i) => i.id === shownId) ?? null : null;
 
   // Estado na URL (sem recarregar a página nem refazer a consulta): F5, voltar e
   // link compartilhado mantêm a busca e o contato aberto.
@@ -386,7 +396,13 @@ export function QueueWorkspace({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+      <div
+        className={
+          split
+            ? "grid grid-cols-1 items-start gap-6 md:grid-cols-[30%_minmax(0,1fr)]"
+            : "grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]"
+        }
+      >
         {/* Lista */}
         <div onKeyDown={onListKeyDown} className="flex min-w-0 flex-col gap-4">
           {visible.length === 0 && (
@@ -430,7 +446,7 @@ export function QueueWorkspace({
                         <QueueRow
                           item={item}
                           search={search}
-                          selected={item.id === selectedId}
+                          selected={item.id === shownId}
                           onSelect={() => select(item.id)}
                           buttonRef={(el) => {
                             if (el) rowRefs.current.set(item.id, el);
@@ -457,16 +473,20 @@ export function QueueWorkspace({
             }
           }}
           className={
-            selected
-              ? "fixed inset-0 z-50 overflow-y-auto bg-paper p-4 xl:z-auto xl:sticky xl:top-[84px] xl:max-h-[calc(100dvh-100px)] xl:rounded-lg xl:bg-paper-surface xl:p-6 xl:shadow-sm"
-              : "hidden xl:sticky xl:top-[84px] xl:block"
+            split
+              ? selected
+                ? "fixed inset-0 z-50 overflow-y-auto bg-paper p-4 md:z-auto md:sticky md:top-[84px] md:max-h-[calc(100dvh-100px)] md:rounded-lg md:bg-paper-surface md:p-6 md:shadow-sm"
+                : "hidden md:sticky md:top-[84px] md:block"
+              : selected
+                ? "fixed inset-0 z-50 overflow-y-auto bg-paper p-4 xl:z-auto xl:sticky xl:top-[84px] xl:max-h-[calc(100dvh-100px)] xl:rounded-lg xl:bg-paper-surface xl:p-6 xl:shadow-sm"
+                : "hidden xl:sticky xl:top-[84px] xl:block"
           }
           role={selected ? "region" : undefined}
           aria-label={selected ? `Pendência de ${selected.name}` : undefined}
         >
           {selected ? (
             <>
-              <div className="mb-3 flex justify-end xl:hidden">
+              <div className={`mb-3 flex justify-end ${split ? "md:hidden" : "xl:hidden"}`}>
                 <button type="button" onClick={() => setSelectedId(null)} className="btn btn-secondary">
                   <X className="h-4 w-4" aria-hidden="true" /> Voltar para a lista
                 </button>

@@ -1320,15 +1320,29 @@ async function attachQueueAssignments(
  * função só junta e ordena pra exibição, sem duplicar regra.
  */
 /**
- * Separa as duas filas da Recepção. "À autorizar" (Autorizações do plano) é só o
- * que depende do plano de saúde: contato com documentos completos, ainda sem o
- * ok de agendamento, ou devolvido pela Supervisão. Todo o resto — documento
- * faltando, guia vencendo, falta sem motivo etc. — é "Pendências gerais".
+ * Separa as duas filas da Recepção, sem sobreposição:
+ *  - "Autorizações": lead do WhatsApp ainda sem prontuário (paciente "interessado"
+ *    ou sem cadastro) que espera documentos/autorização do plano, até receber o
+ *    ok de agendamento — mais o devolvido pela Supervisão;
+ *  - "Pendências": só paciente COM prontuário (documento vencido, guia vencendo,
+ *    falta sem motivo, remarcação, renovação, cadastro incompleto etc.).
+ * Item fora das duas (contato do portal sem prontuário; interessado sem retorno)
+ * não aparece em nenhuma — ver isAuthorizationQueueItem/isPendingQueueItem.
  */
 export function isAuthorizationQueueItem(item: PendingQueueItem): boolean {
   const draft = item.draft;
-  if (!draft || draft.pipeline.schedulingEnabledAt) return false;
-  return draft.pendencies.missingCount === 0 || Boolean(draft.pipeline.returned);
+  if (!draft || draft.source !== "whatsapp" || draft.pipeline.schedulingEnabledAt) return false;
+  return !hasMedicalRecord(item) || Boolean(draft.pipeline.returned);
+}
+
+/** Paciente já com prontuário: tem cadastro e deixou de ser "interessado". */
+function hasMedicalRecord(item: PendingQueueItem): boolean {
+  if (item.draft) return Boolean(item.draft.patientId) && item.draft.patientStatus !== null && item.draft.patientStatus !== "interessado";
+  return item.category !== "interessado_sem_retorno";
+}
+
+export function isPendingQueueItem(item: PendingQueueItem): boolean {
+  return hasMedicalRecord(item) && !isAuthorizationQueueItem(item);
 }
 
 export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_CLINIC_ID): Promise<PendingQueueItem[]> {
