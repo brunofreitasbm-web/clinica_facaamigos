@@ -13,7 +13,7 @@ type DuplicateCandidate = { id: string; full_name: string; birth_date: string };
 const CONFIDENCE_THRESHOLD = 0.7;
 
 function fieldClass(key: string, extracted: DocumentExtraction | null): string {
-  if (!extracted) return "input mt-1";
+  if (!extracted?.confidence) return "input mt-1";
   const conf = extracted.confidence[key];
   if (conf !== undefined && conf < CONFIDENCE_THRESHOLD) {
     return "input mt-1 border-status-negative-text bg-status-negative-text/5";

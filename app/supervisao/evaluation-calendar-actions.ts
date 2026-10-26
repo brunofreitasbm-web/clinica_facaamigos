@@ -205,3 +205,72 @@ export async function rescheduleEvaluationAction(appointmentId: string, date: st
   // mostra um lembrete flutuante pedindo pra avisar manualmente.
   return { success: true, requiresFamilyNotice: Boolean(appointment.patient_id) };
 }
+
+export async function updateEvaluationAppointmentAction({
+  appointmentId,
+  date,
+  time,
+  therapistId,
+  roomId,
+  durationMinutes = EVALUATION_DURATION_MINUTES,
+}: {
+  appointmentId: string;
+  date: string;
+  time: string;
+  therapistId: string;
+  roomId: string;
+  durationMinutes?: number;
+}): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  if (!appointmentId || !date || !time || !therapistId || !roomId) {
+    return { success: false, error: "Preencha data, horário, terapeuta e sala." };
+  }
+
+  const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
+  const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+      therapist_id: therapistId,
+      room_id: roomId,
+      status: "agendada",
+      cancelled_at: null,
+      cancel_reason: null,
+    })
+    .eq("id", appointmentId);
+
+  if (error) {
+    if (error.code === "23P01") {
+      return { success: false, error: "Sala ou terapeuta já tem sessão nesse horário." };
+    }
+    return { success: false, error: "Não foi possível atualizar o agendamento." };
+  }
+
+  return { success: true };
+}
+
+export async function cancelEvaluationAppointmentAction(
+  appointmentId: string,
+  reason: string = "Desmarcado pelo supervisor no calendário",
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      status: "cancelada_clinica",
+      cancelled_at: new Date().toISOString(),
+      cancel_reason: reason,
+    })
+    .eq("id", appointmentId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível desmarcar a avaliação." };
+  }
+
+  return { success: true };
+}

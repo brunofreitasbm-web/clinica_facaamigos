@@ -61,9 +61,11 @@ export type EvaluationCalendarAppointment = {
   patientName: string;
   therapistId: string;
   therapistName: string;
+  roomId?: string;
   roomName: string;
   startsAt: string;
   endsAt: string;
+  isProvisional?: boolean;
 };
 
 const ANAMNESIS_STATUS_LABEL: Record<string, string> = {
@@ -140,11 +142,22 @@ export async function getSchedulingGates(supabase: Supa, patientIds: string[]): 
   const gates = new Map<string, EvaluationSchedulingGate>();
   if (patientIds.length === 0) return gates;
 
-  const { data } = await supabase
-    .from("registration_drafts")
-    .select("patient_id, status, guide_sent_at, plan_authorized_at, authorization_waived, scheduling_enabled_at")
-    .in("patient_id", patientIds)
-    .neq("status", "rejected");
+  const [{ data: drafts }, { data: activeAuths }] = await Promise.all([
+    supabase
+      .from("registration_drafts")
+      .select("patient_id, status, guide_sent_at, plan_authorized_at, authorization_waived, scheduling_enabled_at")
+      .in("patient_id", patientIds)
+      .neq("status", "rejected"),
+    supabase
+      .from("authorizations")
+      .select("patient_insurance!inner(patient_id)")
+      .in("patient_insurance.patient_id", patientIds)
+      .eq("status", "ativa"),
+  ]);
+
+  const patientsWithActiveAuth = new Set(
+    (activeAuths ?? []).map((a: any) => a.patient_insurance?.patient_id).filter(Boolean)
+  );
 
   const rank: Record<EvaluationSchedulingGate, number> = {
     aguardando_envio_guia: 0,
@@ -152,18 +165,26 @@ export async function getSchedulingGates(supabase: Supa, patientIds: string[]): 
     aguardando_habilitacao: 2,
     habilitado: 3,
   };
-  for (const d of data ?? []) {
+  for (const d of drafts ?? []) {
     if (!d.patient_id) continue;
-    const gate: EvaluationSchedulingGate = d.scheduling_enabled_at
+    const isPlanAuthorized = Boolean(
+      d.plan_authorized_at || d.authorization_waived || d.scheduling_enabled_at || patientsWithActiveAuth.has(d.patient_id)
+    );
+    const gate: EvaluationSchedulingGate = isPlanAuthorized
       ? "habilitado"
-      : d.plan_authorized_at || d.authorization_waived
-        ? "aguardando_habilitacao"
-        : d.guide_sent_at
-          ? "aguardando_autorizacao"
-          : "aguardando_envio_guia";
+      : d.guide_sent_at
+        ? "aguardando_autorizacao"
+        : "aguardando_envio_guia";
     const current = gates.get(d.patient_id);
     if (!current || rank[gate] > rank[current]) gates.set(d.patient_id, gate);
   }
+
+  for (const pid of patientsWithActiveAuth) {
+    if (!gates.has(pid)) {
+      gates.set(pid, "habilitado");
+    }
+  }
+
   return gates;
 }
 
@@ -171,7 +192,7 @@ const GATE_STATUS_LABEL: Record<EvaluationSchedulingGate, string> = {
   aguardando_envio_guia: "Aguardando envio da guia ao plano",
   aguardando_autorizacao: "Guia enviada — aguardando o plano",
   aguardando_habilitacao: "Autorizado — aguardando a Recepção habilitar",
-  habilitado: "Habilitado pela Recepção",
+  habilitado: "Plano autorizado / Habilitado",
 };
 
 /**
@@ -179,28 +200,56 @@ const GATE_STATUS_LABEL: Record<EvaluationSchedulingGate, string> = {
  * origem em anamnese/convênio — identificados via getPendingPatients (mesma
  * regra de estágio usada na aba Fluxos), excluindo quem já apareceu nas
  * outras duas origens pra não contar o mesmo paciente duas vezes. Sempre
- * "ready" — não há aprovação de documentos pendente nesse caminho — salvo
- * quando o paciente veio de um contato de documentos, caso em que só fica
- * pronto com o "ok" da Recepção (getSchedulingGates).
+ * "ready" quando autorizado pelo plano ou com status 'avaliacao', sem
+ * avaliação realizada prévia e sem agendamento futuro ativo.
  */
 async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<string>): Promise<EvaluationPoolItem[]> {
   const pending = await getPendingPatients(supabase, 0);
-  const candidates = pending.filter((p) => p.stage === 1 && !coveredPatientIds.has(p.id));
+  const candidates = pending.filter((p) => {
+    if (coveredPatientIds.has(p.id)) return false;
+    if (p.evaluated_at || p.first_session_at) return false;
+    return p.stage === 1 || p.stage === 2 || p.stage === 4;
+  });
   const candidateIds = candidates.map((p) => p.id);
-  const [gates, profiles] = await Promise.all([getSchedulingGates(supabase, candidateIds), getPoolPatientProfiles(supabase, candidateIds)]);
 
-  return candidates.map((p) => {
-    // Paciente que entrou por contato de documentos só é liberado depois do
-    // "ok" da Recepção (linha do tempo da Fila de pendências).
+  // Exclui apenas quem já possui agendamento ativo futuro de 1ª avaliação
+  const { data: activeEvals } = candidateIds.length
+    ? await supabase
+        .from("appointments")
+        .select("patient_id")
+        .in("patient_id", candidateIds)
+        .eq("is_evaluation", true)
+        .in("status", ["agendada", "confirmada"])
+    : { data: [] as { patient_id: string }[] };
+
+  const activeEvalIds = new Set((activeEvals ?? []).map((a) => a.patient_id));
+  const availableCandidates = candidates.filter((p) => !activeEvalIds.has(p.id));
+  const availableCandidateIds = availableCandidates.map((p) => p.id);
+
+  const [gates, profiles] = await Promise.all([
+    getSchedulingGates(supabase, availableCandidateIds),
+    getPoolPatientProfiles(supabase, availableCandidateIds),
+  ]);
+
+  return availableCandidates.map((p) => {
     const gate = gates.get(p.id);
     const profile = profiles.get(p.id);
+    const isReady = !gate || gate === "habilitado" || p.status === "avaliacao";
     return {
       id: `presencial-${p.id}`,
       origin: "presencial" as const,
       patientName: p.full_name,
-      statusLabel: gate ? GATE_STATUS_LABEL[gate] : "🚨 PRESENCIAL NA CLÍNICA",
-      detail: gate ? `Documentos por WhatsApp/portal · cadastrado há ${p.daysSinceCreated} dia(s)` : `Cadastrado há ${p.daysSinceCreated} dia(s)`,
-      ready: !gate || gate === "habilitado",
+      statusLabel: gate
+        ? GATE_STATUS_LABEL[gate]
+        : p.status === "avaliacao"
+          ? "Apto para 1ª avaliação"
+          : "🚨 PRESENCIAL NA CLÍNICA",
+      detail: gate
+        ? `Documentos por WhatsApp/portal · cadastrado há ${p.daysSinceCreated} dia(s)`
+        : p.status === "avaliacao"
+          ? "Apto para 1ª avaliação · plano autorizado"
+          : `Cadastrado há ${p.daysSinceCreated} dia(s)`,
+      ready: isReady,
       gate,
       facts: { insurer: profile?.insurer ?? null, age: profile?.age ?? null, waitingDays: p.daysSinceCreated },
       bookInput: { origin: "presencial" as const, patientId: p.id },
@@ -262,7 +311,7 @@ export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_C
 
   // Paciente que veio por contato de documentos (WhatsApp/portal) só entra na
   // fila depois do "ok" da Recepção confirmando a autorização do plano.
-  const allItems = [...anamnesisItems, ...intakeItems, ...presencialItems].filter((item) => !item.gate || item.gate === "habilitado");
+  const allItems = [...anamnesisItems, ...intakeItems, ...presencialItems].filter((item) => !item.gate || item.gate === "habilitado" || item.ready);
 
   // Pacientes presenciais (origin === "presencial") sempre sobem pro TOPO da fila com prioridade alta!
   // Exceto quem veio de contato de documentos (gate): não está na clínica, e enquanto
@@ -295,7 +344,7 @@ export async function getEvaluationCalendarAppointments(
   const { data } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, patient_id, therapist_id, is_family_meeting, is_patient_feedback, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
+      "id, starts_at, ends_at, patient_id, therapist_id, room_id, is_provisional, is_family_meeting, is_patient_feedback, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
     )
     .or("is_evaluation.eq.true,is_family_meeting.eq.true,is_patient_feedback.eq.true")
     .gte("starts_at", weekStartIso)
@@ -339,9 +388,11 @@ export async function getEvaluationCalendarAppointments(
       patientName: patient?.full_name ?? "—",
       therapistId: a.therapist_id,
       therapistName: therapist?.full_name ?? "—",
+      roomId: a.room_id,
       roomName: room?.name ?? "—",
       startsAt: a.starts_at,
       endsAt: a.ends_at,
+      isProvisional: Boolean(a.is_provisional),
     };
   });
 }

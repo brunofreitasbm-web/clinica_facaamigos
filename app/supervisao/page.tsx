@@ -82,7 +82,11 @@ export default async function SupervisaoPage() {
       .eq("role", "terapeuta")
       .eq("active", true)
       .order("full_name"),
-    supabase.from("rooms").select("id, name, capacity").eq("clinic_id", DEV_CLINIC_ID).order("name"),
+    supabase
+      .from("rooms")
+      .select("id, name, capacity, is_evaluation_room")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .order("name"),
     supabase
       .from("appointments")
       .select(
@@ -480,7 +484,7 @@ export default async function SupervisaoPage() {
         <AgendaAvaliacoesPanel
           pool={evaluationPool}
           therapists={(therapists ?? []).filter((t) => t.is_evaluator).map((t) => ({ id: t.id, name: t.full_name }))}
-          rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
+          rooms={(rooms ?? []).filter((r) => r.is_evaluation_room).map((r) => ({ id: r.id, name: r.name }))}
           triagensPanel={
             <div className="flex flex-col gap-10">
               <Suspense fallback={<p className="text-xs text-ink-faint">Carregando leads do WhatsApp…</p>}>

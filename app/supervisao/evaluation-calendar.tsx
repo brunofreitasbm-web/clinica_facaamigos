@@ -13,6 +13,8 @@ import {
   getTherapistAvailabilityAction,
   scheduleFromPoolAction,
   rescheduleEvaluationAction,
+  updateEvaluationAppointmentAction,
+  cancelEvaluationAppointmentAction,
   type TherapistAvailabilityBlock,
 } from "./evaluation-calendar-actions";
 import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationPoolFacts, EvaluationPoolItem } from "@/lib/evaluation-agenda";
@@ -463,6 +465,194 @@ function ScheduleDialog({
   );
 }
 
+function EditAppointmentDialog({
+  appointment,
+  therapists,
+  rooms,
+  pending,
+  onSave,
+  onCancelAppointment,
+  onClose,
+}: {
+  appointment: EvaluationCalendarAppointment;
+  therapists: { id: string; name: string; isEvaluator: boolean }[];
+  rooms: { id: string; name: string }[];
+  pending: boolean;
+  onSave: (date: string, time: string, therapistId: string, roomId: string) => Promise<void>;
+  onCancelAppointment: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const initialDate = useMemo(() => {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: CLINIC_TIMEZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(appointment.startsAt));
+  }, [appointment.startsAt]);
+
+  const initialTime = useMemo(() => {
+    return timeLabel(appointment.startsAt, CLINIC_TIMEZONE);
+  }, [appointment.startsAt]);
+
+  const [date, setDate] = useState(initialDate);
+  const [time, setTime] = useState(initialTime);
+  const [therapistId, setTherapistId] = useState(appointment.therapistId);
+  const [roomId, setRoomId] = useState(appointment.roomId || rooms[0]?.id || "");
+  const [confirmCancel, setConfirmCancel] = useState(false);
+
+  const timeOptions = useMemo(() => {
+    const list: string[] = [];
+    for (let h = DAY_START_HOUR; h <= GRID_END_HOUR; h++) {
+      list.push(`${String(h).padStart(2, "0")}:00`);
+      if (h < GRID_END_HOUR) list.push(`${String(h).padStart(2, "0")}:30`);
+    }
+    return list;
+  }, []);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const fieldLabel = "text-[11px] font-semibold uppercase tracking-wide text-ink-soft";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-dialog-title"
+        className="w-full max-w-md rounded-lg border border-paper-line-strong bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-paper-line pb-3">
+          <div>
+            <h3 id="edit-dialog-title" className="text-sm font-bold text-ink">
+              Editar 1ª Avaliação
+            </h3>
+            <p className="text-xs font-semibold text-chart">{appointment.patientName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-ink-soft hover:bg-paper hover:text-ink"
+            aria-label="Fechar"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className={fieldLabel}>Data</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="input text-xs"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className={fieldLabel}>Horário de início</span>
+              <select value={time} onChange={(e) => setTime(e.target.value)} className="input text-xs">
+                {!timeOptions.includes(time) && <option value={time}>{time}</option>}
+                {timeOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="flex flex-col gap-1">
+            <span className={fieldLabel}>Terapeuta avaliador</span>
+            <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
+              {therapists.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} {!t.isEvaluator ? "(sem qualificação de avaliador)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className={fieldLabel}>Sala de atendimento</span>
+            <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input text-xs">
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <p className="text-[11px] text-ink-faint">
+            Duração padrão: {EVALUATION_DURATION_MINUTES} min · Horário de término previsto:{" "}
+            {minutesToTime(parseTimeToMinutes(time) + EVALUATION_DURATION_MINUTES)}.
+          </p>
+        </div>
+
+        {confirmCancel ? (
+          <div className="mt-4 rounded-md border border-status-negative-text/30 bg-status-negative-soft/40 p-3">
+            <p className="text-xs font-semibold text-status-negative-text">
+              Deseja desmarcar esta avaliação e retornar {appointment.patientName} para a lista de pacientes aguardando agendamento?
+            </p>
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmCancel(false)}
+                disabled={pending}
+                className="btn text-xs"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={onCancelAppointment}
+                disabled={pending}
+                className="btn text-xs font-semibold text-white bg-status-negative-text hover:opacity-90 disabled:opacity-50"
+              >
+                {pending ? "Desmarcando…" : "Sim, desmarcar avaliação"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 flex items-center justify-between border-t border-paper-line pt-3">
+            <button
+              type="button"
+              onClick={() => setConfirmCancel(true)}
+              disabled={pending}
+              className="text-xs font-semibold text-status-negative-text hover:underline disabled:opacity-50"
+            >
+              Desmarcar / Voltar para fila
+            </button>
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose} disabled={pending} className="btn text-xs">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => onSave(date, time, therapistId, roomId)}
+                disabled={pending || !date || !time || !therapistId || !roomId}
+                className="btn text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
+              >
+                {pending ? "Salvando…" : "Salvar alterações"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function EvaluationCalendar({
   pool: initialPool,
   therapists,
@@ -487,6 +677,8 @@ export function EvaluationCalendar({
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const [slotDialog, setSlotDialog] = useState<SlotDialog | null>(null);
   const [scheduling, setScheduling] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<EvaluationCalendarAppointment | null>(null);
+  const [pendingEdit, setPendingEdit] = useState(false);
   // Janela flutuante do card clicado na fila (laudo/guia/contato + aprovar,
   // rejeitar e mensagem) — guarda o retângulo do card pra ancorar a janela
   // ao lado dele.
@@ -1095,15 +1287,19 @@ export function EvaluationCalendar({
                           data-appointment
                           draggable
                           tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAppointment(a);
+                          }}
                           onDragStart={(e) => {
                             const payload: DragPayload = { kind: "reschedule", appointmentId: a.id, durationMinutes };
                             dragPayloadRef.current = payload;
                             e.dataTransfer.setData("application/json", JSON.stringify(payload));
                           }}
                           onDragEnd={clearDrag}
-                          className="grid-cell-focusable absolute left-0.5 right-0.5 cursor-grab overflow-hidden rounded-md border p-1 text-[11px] shadow-sm active:cursor-grabbing"
+                          className="grid-cell-focusable absolute left-0.5 right-0.5 cursor-pointer overflow-hidden rounded-md border p-1 text-[11px] shadow-sm hover:ring-2 hover:ring-chart/50 active:cursor-grabbing"
                           style={{ top, height, background: "var(--status-agendada-bg)", borderColor: "var(--paper-line-strong)" }}
-                          title={`${a.patientName} · ${a.therapistName} · ${a.roomName} — arraste para reagendar`}
+                          title={`${a.patientName} · ${a.therapistName} · ${a.roomName} — clique para editar/desmarcar ou arraste`}
                         >
                           <p className="truncate font-semibold text-ink">{a.patientName}</p>
                           <p className="truncate text-ink-soft">{timeLabel(a.startsAt, CLINIC_TIMEZONE)} · {a.therapistName}</p>
@@ -1155,6 +1351,46 @@ export function EvaluationCalendar({
           onRoomChange={setRoomId}
           onConfirm={confirmSchedule}
           onClose={() => setSlotDialog(null)}
+        />
+      )}
+
+      {editingAppointment && (
+        <EditAppointmentDialog
+          appointment={editingAppointment}
+          therapists={availableTherapists}
+          rooms={rooms}
+          pending={pendingEdit}
+          onSave={async (date, time, editTherapistId, editRoomId) => {
+            setPendingEdit(true);
+            const res = await updateEvaluationAppointmentAction({
+              appointmentId: editingAppointment.id,
+              date,
+              time,
+              therapistId: editTherapistId,
+              roomId: editRoomId,
+            });
+            setPendingEdit(false);
+            if (!res.success) {
+              toast(res.error, "error");
+              return;
+            }
+            toast("Agendamento atualizado com sucesso.", "success");
+            setEditingAppointment(null);
+            await Promise.all([fetchWeek(), fetchPool()]);
+          }}
+          onCancelAppointment={async () => {
+            setPendingEdit(true);
+            const res = await cancelEvaluationAppointmentAction(editingAppointment.id);
+            setPendingEdit(false);
+            if (!res.success) {
+              toast(res.error, "error");
+              return;
+            }
+            toast(`${editingAppointment.patientName} desmarcado(a) e retornado(a) para a fila.`, "success");
+            setEditingAppointment(null);
+            await Promise.all([fetchWeek(), fetchPool()]);
+          }}
+          onClose={() => setEditingAppointment(null)}
         />
       )}
     </div>

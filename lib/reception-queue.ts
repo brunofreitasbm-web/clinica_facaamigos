@@ -122,6 +122,7 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
 };
 
 export type ExpiringAuthorization = {
+  id?: string;
   patientId: string;
   patientName: string;
   insurerName: string;
@@ -156,7 +157,7 @@ export async function getExpiringAuthorizations(supabase: Supa, clinicId: string
 
   const { data: activeAuths } = await supabase
     .from("authorizations")
-    .select("patient_insurance_id, sessions_used, sessions_authorized, valid_to")
+    .select("id, patient_insurance_id, sessions_used, sessions_authorized, valid_to")
     .in("patient_insurance_id", insuranceIds)
     .eq("status", "ativa");
 
@@ -172,6 +173,7 @@ export async function getExpiringAuthorizations(supabase: Supa, clinicId: string
     if (!expiringSoon && !fewSessionsLeft) continue;
 
     result.push({
+      id: auth.id,
       patientId: insurance.patient_id,
       patientName: patientNameById.get(insurance.patient_id) ?? "—",
       insurerName,
@@ -1387,7 +1389,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
 
   for (const g of expiringAuths.filter((a) => a.reason === "vencendo").sort((a, b) => a.validTo.localeCompare(b.validTo))) {
     items.push({
-      id: `guia-vence-${g.patientId}-${g.validTo}`,
+      id: g.id ? `guia-vence-${g.id}` : `guia-vence-${g.patientId}-${g.validTo}`,
       category: "guia_vencendo",
       categoryLabel: CATEGORY_LABEL.guia_vencendo,
       patientId: g.patientId,
@@ -1402,7 +1404,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     .filter((a) => a.reason === "poucas_sessoes")
     .sort((a, b) => a.sessionsAuthorized - a.sessionsUsed - (b.sessionsAuthorized - b.sessionsUsed))) {
     items.push({
-      id: `guia-poucas-${g.patientId}-${g.validTo}`,
+      id: g.id ? `guia-poucas-${g.id}` : `guia-poucas-${g.patientId}-${g.validTo}`,
       category: "guia_poucas_sessoes",
       categoryLabel: CATEGORY_LABEL.guia_poucas_sessoes,
       patientId: g.patientId,

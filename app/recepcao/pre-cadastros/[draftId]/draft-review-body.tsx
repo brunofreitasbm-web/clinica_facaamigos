@@ -58,7 +58,7 @@ export async function loadDraftReview(draftId: string) {
   if (extracted && authorizedGuide) {
     extracted = { ...extracted, authorization: { ...extracted.authorization, ...authorizedGuide } };
   }
-  if (!draft.patient_id && extracted?.patient.full_name) {
+  if (!draft.patient_id && extracted?.patient?.full_name) {
     const { data } = await supabase
       .from("patients")
       .select("id, full_name, birth_date")

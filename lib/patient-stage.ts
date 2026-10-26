@@ -11,6 +11,7 @@ export const CANCELLED_APPOINTMENT_STATUSES = [
   "cancelada_familia",
   "cancelada_terapeuta",
   "cancelada_clinica",
+  "falta_familia",
   "remarcada",
 ] as const;
 

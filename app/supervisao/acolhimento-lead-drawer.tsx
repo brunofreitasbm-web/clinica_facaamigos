@@ -72,8 +72,8 @@ export type LeadRow = {
   files: LeadFileRow[];
 };
 
-function fieldClass(key: string, confidence: Record<string, number>): string {
-  const conf = confidence[key];
+function fieldClass(key: string, confidence?: Record<string, number> | null): string {
+  const conf = confidence?.[key];
   if (conf !== undefined && conf < CONFIDENCE_THRESHOLD) {
     return "input mt-1 border-status-negative-text bg-status-negative-text/5";
   }
