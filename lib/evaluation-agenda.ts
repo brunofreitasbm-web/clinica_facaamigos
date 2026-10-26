@@ -212,7 +212,9 @@ export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_C
 
   const presencialItems = await getPresencialPoolItems(supabase, new Set());
 
-  const allItems = [...anamnesisItems, ...intakeItems, ...presencialItems];
+  // Paciente que veio por contato de documentos (WhatsApp/portal) só entra na
+  // fila depois do "ok" da Recepção confirmando a autorização do plano.
+  const allItems = [...anamnesisItems, ...intakeItems, ...presencialItems].filter((item) => !item.gate || item.gate === "habilitado");
 
   // Pacientes presenciais (origin === "presencial") sempre sobem pro TOPO da fila com prioridade alta!
   // Exceto quem veio de contato de documentos (gate): não está na clínica, e enquanto
