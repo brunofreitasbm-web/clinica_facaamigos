@@ -9,7 +9,7 @@ import type { EvaluationBookInput } from "@/lib/evaluation-agenda";
 import type { LaudoExtraction } from "@/lib/laudo-extraction";
 import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
 import { REJECT_REASON_LABEL, isRejectReasonCode } from "@/lib/intake-reject-reasons";
-import { sendTwilioWhatsApp } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { pushIntakeUpdate } from "@/lib/twilio-intake-bot";
 import { approveAnamnesisDocumentAction, rejectAnamnesisDocumentAction } from "@/app/actions/anamnesis-chatbot";
 import { approveIntakeLeadDocuments, rejectIntakeLeadDocuments } from "./acolhimento-actions";
@@ -487,7 +487,7 @@ export async function sendEvaluationMessageAction(bookInput: EvaluationBookInput
         .eq("id", bookInput.requestId)
         .maybeSingle();
       if (!request?.guardian_phone) return { success: false, error: "Solicitação sem telefone do responsável." };
-      const sent = await sendTwilioWhatsApp({ to: request.guardian_phone, message });
+      const sent = await sendWhatsApp({ to: request.guardian_phone, message });
       return sent.success ? { success: true } : { success: false, error: "Não foi possível enviar o WhatsApp agora." };
     }
 

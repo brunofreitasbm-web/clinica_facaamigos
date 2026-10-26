@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { DOCUMENT_CATEGORY_LABEL } from "@/lib/document-categories";
-import { sendTwilioWhatsApp } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { FamilyShareDocument } from "@/lib/family-share-pdf";
 import { getClinicIdentity } from "@/lib/clinic-identity";
 
@@ -174,7 +174,7 @@ export async function generateFamilyShare(patientId: string, selection: FamilySh
       .maybeSingle();
 
     if (guardian?.phone) {
-      const result = await sendTwilioWhatsApp({
+      const result = await sendWhatsApp({
         to: guardian.phone,
         message: `Olá! Um novo documento sobre o acompanhamento de ${patient.full_name} foi compartilhado no portal da família. Acesse o portal para visualizar. 💙`,
       });

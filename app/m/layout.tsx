@@ -8,11 +8,11 @@ import type { Metadata, Viewport } from "next";
  * (app/layout.tsx), que envolve toda a árvore de rotas.
  */
 export const metadata: Metadata = {
-  title: "Atendimento",
+  title: "Chat",
   manifest: "/m/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Atendimento",
+    title: "Chat",
     statusBarStyle: "black-translucent",
   },
 };

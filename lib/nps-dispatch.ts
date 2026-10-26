@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getTwilioContentSidForCategory, sendTwilioWhatsApp } from "@/lib/twilio";
+import { getWhatsAppTemplateForCategory, sendWhatsApp } from "@/lib/whatsapp";
 import { buildAnamneseNpsPayload } from "./nps-dispatch-pure";
 
 export { buildAnamneseNpsPayload };
@@ -109,9 +109,9 @@ export async function dispatchAnamneseNps(
     .single();
 
   const payload = buildAnamneseNpsPayload(guardian.full_name, patient?.full_name);
-  const contentSid = getTwilioContentSidForCategory("nps");
+  const contentSid = getWhatsAppTemplateForCategory("nps");
 
-  const sendResult = await sendTwilioWhatsApp({
+  const sendResult = await sendWhatsApp({
     to: guardian.phone,
     message: payload.messageText,
     ...(contentSid

@@ -5,11 +5,12 @@ import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import {
   MISSING_DOCUMENT_TEMPLATES,
+  buildDocumentsOpenerMessage,
   buildMissingDocumentMessage,
   type MissingDocumentKey,
 } from "@/lib/document-request-templates";
 import type { PendingDraftDocumentRequest } from "@/lib/reception-queue";
-import { requestMissingDocument } from "./document-request-actions";
+import { openDocumentConversation, requestMissingDocument } from "./document-request-actions";
 
 /**
  * Ação rápida de cobrança de documento (fila de pendências).
@@ -57,6 +58,25 @@ export function DocumentRequestButtons({
           ? { tone: "warn", text: result.warning }
           : { tone: "ok", text: "Cobrança enviada pelo WhatsApp." },
       );
+    });
+  };
+
+  const [openedAt, setOpenedAt] = useState<string | null>(null);
+  const [isOpening, startOpening] = useTransition();
+
+  // Modelo aprovado que reabre a conversa (janela de 24h fechada ou contato
+  // que nunca escreveu). Texto genérico, sem documento específico: o foco é
+  // a família responder para a recepção levantar dados e documentos.
+  const openConversation = () => {
+    setFeedback(null);
+    startOpening(async () => {
+      const result = await openDocumentConversation(draftId);
+      if (!result.success) {
+        setFeedback({ tone: "error", text: result.error });
+        return;
+      }
+      setOpenedAt(result.sentAt);
+      setFeedback({ tone: "ok", text: "Mensagem de abertura enviada pelo WhatsApp." });
     });
   };
 
@@ -116,6 +136,27 @@ export function DocumentRequestButtons({
           <div className="mt-2 flex flex-wrap gap-2">{others.map((template) => renderButton(template, false))}</div>
         </details>
       )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-paper-line-strong pt-3">
+        <button
+          type="button"
+          disabled={isPending || isOpening || !hasPhone}
+          onClick={openConversation}
+          title={buildDocumentsOpenerMessage(patientName)}
+          className="inline-flex items-center gap-2 rounded-lg border-0 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:brightness-110 disabled:opacity-50"
+          style={{ backgroundColor: "#128C7E" }}
+        >
+          <span aria-hidden>💬</span>
+          {isOpening ? "Enviando…" : "Abrir conversa"}
+          {openedAt && (
+            <span className="font-normal text-white/80">· aberta {fmtDateTime(openedAt, CLINIC_TIMEZONE)}</span>
+          )}
+        </button>
+        <span className="text-sm text-ink-faint">
+          Envia um modelo aprovado pedindo para a família responder — use quando a conversa estiver parada ou
+          fechada.
+        </span>
+      </div>
 
       {!hasPhone && (
         <p className="m-0 mt-2 text-sm text-ink-faint">

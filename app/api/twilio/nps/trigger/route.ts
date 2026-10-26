@@ -88,11 +88,11 @@ export async function POST(req: NextRequest) {
       });
 
       if (!insertError) {
-        const { getTwilioContentSidForCategory, sendTwilioWhatsApp } = await import("@/lib/twilio");
-        const contentSid = getTwilioContentSidForCategory("nps");
+        const { getWhatsAppTemplateForCategory, sendWhatsApp } = await import("@/lib/whatsapp");
+        const contentSid = getWhatsAppTemplateForCategory("nps");
         const clinicUrl = process.env.NEXT_PUBLIC_APP_URL || CLINIC_WEBSITE;
         
-        await sendTwilioWhatsApp({
+        await sendWhatsApp({
           to: guardian.phone,
           message: `Olá! Em uma escala de 0 a 10, como você avalia os serviços? Responda no portal.`,
           ...(contentSid ? {

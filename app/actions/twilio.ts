@@ -3,9 +3,9 @@
 import {
   isTwilioConfigured,
   sendTwilioSMS,
-  sendTwilioWhatsApp,
   SendMessageResult,
 } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function checkTwilioStatusAction() {
@@ -43,7 +43,7 @@ export async function sendTwilioNotificationAction(params: {
 
   let result: SendMessageResult;
   if (channel === "whatsapp") {
-    result = await sendTwilioWhatsApp({ to, message, mediaUrl });
+    result = await sendWhatsApp({ to, message, mediaUrl });
   } else {
     result = await sendTwilioSMS({ to, message, mediaUrl });
   }

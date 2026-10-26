@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { zonedDateTimeToUtc } from "@/lib/timezone";
-import { formatE164Phone, sendTwilioWhatsApp, getTwilioContentSidForCategory } from "@/lib/twilio";
+import { formatE164Phone } from "@/lib/twilio";
+import { sendWhatsApp, getWhatsAppTemplateForCategory } from "@/lib/whatsapp";
 import { sendFamilyMeetingConfirmationNotification } from "@/lib/family-meeting-confirmation";
 
 type ActionResult = { success: true } | { success: false; error: string };
@@ -83,7 +84,7 @@ export async function sendManualWhatsAppAction(params: {
   const gate = await requireSupervisorOrGestor(supabase);
   if (!gate.success) return gate;
 
-  const result = await sendTwilioWhatsApp({ to: params.phone, message: text });
+  const result = await sendWhatsApp({ to: params.phone, message: text });
   if (!result.success) return { success: false, error: result.error ?? "Não foi possível enviar a mensagem via WhatsApp." };
 
   await supabase.from("messages").insert({
@@ -113,13 +114,13 @@ export async function sendTemplateWhatsAppAction(params: {
   const gate = await requireSupervisorOrGestor(supabase);
   if (!gate.success) return gate;
 
-  const contentSid = getTwilioContentSidForCategory("reuniao_responsavel");
+  const contentSid = getWhatsAppTemplateForCategory("reuniao_responsavel");
   if (!contentSid) {
     return { success: false, error: "Nenhum template aprovado configurado para convite de reunião (TWILIO_MEETING_TEMPLATE_CONTENT_SID)." };
   }
 
   const fallbackBody = `Convite de reunião sobre o acompanhamento de ${params.patientName} enviado via template Twilio.`;
-  const result = await sendTwilioWhatsApp({
+  const result = await sendWhatsApp({
     to: params.phone,
     message: fallbackBody,
     contentSid,

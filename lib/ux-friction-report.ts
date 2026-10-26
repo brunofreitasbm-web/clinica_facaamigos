@@ -69,7 +69,7 @@ const ROUTE_WORDS: Record<string, string> = {
   gestor: "Gestão",
   supervisao: "Supervisão",
   faturamento: "Faturamento",
-  atendimento: "Atendimento",
+  atendimento: "Chat",
   pacientes: "Pacientes",
   paciente: "Paciente",
   agenda: "Agenda",

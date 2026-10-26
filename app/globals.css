@@ -398,6 +398,24 @@ a {
 }
 
 /* números medidos — contagens, percentuais, valores monetários */
+/* Etapa "na vez" do pipeline de pré-cadastro (autorização exige leitura atenta):
+   fundo branco, texto preto e corpo maior. Sem camada → vence os utilitários. */
+.step-current {
+  background: #fff;
+  color: #000;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.step-current .text-ink,
+.step-current .text-ink-soft,
+.step-current .text-ink-faint {
+  color: #000;
+}
+.step-current .text-sm,
+.step-current .text-\[13px\] {
+  font-size: 15px;
+}
+
 .tabular-figure {
   font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
@@ -770,3 +788,37 @@ label:has(> input.sr-only:focus-visible) { outline: 2px solid var(--color-accent
 .site-brand .btn-primary:active { background: var(--color-pink-active); }
 .site-brand .btn-secondary { color: var(--color-dark); border-color: var(--color-dark); }
 .site-brand .btn-secondary:hover { background: var(--color-yellow); }
+
+/* ── Gamificação da fila de pendências (draft-pipeline.tsx) ── */
+@keyframes quest-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent-2) 55%, transparent), 0 6px 18px color-mix(in srgb, var(--color-accent-2) 45%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-accent-2) 0%, transparent), 0 8px 26px color-mix(in srgb, var(--color-accent-2) 60%, transparent); }
+}
+@keyframes quest-shine {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  60%, 100% { transform: translateX(260%) skewX(-20deg); }
+}
+@keyframes quest-pop {
+  0% { transform: scale(0.85); opacity: 0; }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.quest-cta {
+  position: relative; overflow: hidden; isolation: isolate;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px 18px; border: 0; border-radius: 10px; cursor: pointer;
+  font-size: 15px; font-weight: 800; letter-spacing: 0.02em; color: #fff;
+  background: linear-gradient(135deg, var(--color-accent-2-600), var(--color-accent-2) 45%, var(--color-accent-2-400));
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  animation: quest-glow 1.8s ease-in-out infinite;
+  transition: transform 0.15s ease;
+}
+.quest-cta::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: quest-shine 2.8s ease-in-out infinite;
+}
+.quest-cta:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); }
+.quest-cta:active:not(:disabled) { transform: scale(0.98); }
+.quest-cta:disabled { opacity: 0.6; animation: none; cursor: progress; }
+.quest-pop { animation: quest-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; }

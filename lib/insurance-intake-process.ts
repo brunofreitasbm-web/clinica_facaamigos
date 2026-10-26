@@ -285,8 +285,8 @@ export async function sweepIntakeLeadsAwaitingDocuments(): Promise<number> {
       .update({ status: "pending_supervisor", updated_at: new Date().toISOString() })
       .eq("id", lead.id);
     if (lead.phone_e164) {
-      const { sendTwilioWhatsApp } = await import("@/lib/twilio");
-      await sendTwilioWhatsApp({
+      const { sendWhatsApp } = await import("@/lib/whatsapp");
+      await sendWhatsApp({
         to: lead.phone_e164,
         message: "Recebemos os documentos enviados até agora e já colocamos na fila de conferência da nossa equipe. Se quiser enviar mais algum, pode mandar por aqui a qualquer momento. 🙏",
       }).catch(() => null);

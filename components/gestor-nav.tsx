@@ -23,7 +23,7 @@ const NAV_ITEMS = [
   { key: "inteligencia", label: "Inteligência BI", href: "/gestor/inteligencia" },
   {
     key: "atendimento",
-    label: "Central de Atendimento",
+    label: "Chat",
     href: "/recepcao/atendimento",
     icon: MessageCircle,
     // Único item que sai do módulo Gestão pra outro (outro layout, outro

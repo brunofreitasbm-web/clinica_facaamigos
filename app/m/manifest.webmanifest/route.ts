@@ -16,8 +16,8 @@ import type { MetadataRoute } from "next";
  */
 function manifest(): MetadataRoute.Manifest {
   return {
-    name: "FaçaAmigos Atendimento",
-    short_name: "Atendimento",
+    name: "FaçaAmigos Chat",
+    short_name: "Chat",
     description: "Fila de WhatsApp da recepção FaçaAmigos, para celular.",
     start_url: "/m/atendimento",
     scope: "/m/",

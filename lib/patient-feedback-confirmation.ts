@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatE164Phone, sendTwilioWhatsApp, getTwilioContentSidForCategory, type SendMessageResult } from "@/lib/twilio";
+import { formatE164Phone, type SendMessageResult } from "@/lib/twilio";
+import { sendWhatsApp, getWhatsAppTemplateForCategory } from "@/lib/whatsapp";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 
 export interface PatientFeedbackNotificationParams {
@@ -70,8 +71,8 @@ export async function sendPatientFeedbackConfirmationNotification(
       isReschedule: params.isReschedule,
     });
 
-    const contentSid = getTwilioContentSidForCategory("devolutiva_paciente");
-    return await sendTwilioWhatsApp({
+    const contentSid = getWhatsAppTemplateForCategory("devolutiva_paciente");
+    return await sendWhatsApp({
       to: formattedPhone,
       message,
       ...(contentSid

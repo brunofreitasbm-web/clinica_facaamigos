@@ -1,4 +1,5 @@
-import { formatE164Phone, getTwilioClient, sendTwilioWhatsApp, type SendMessageResult } from "./twilio";
+import { formatE164Phone, getTwilioClient, type SendMessageResult } from "./twilio";
+import { sendWhatsApp } from "./whatsapp";
 
 /**
  * Template PT-BR da mensagem de emergência, com placeholders — é o valor
@@ -121,7 +122,7 @@ export async function sendEmergencyFallback(
   options: SendEmergencyFallbackOptions,
 ): Promise<SendMessageResult> {
   const { to, patientName, time } = options;
-  return sendTwilioWhatsApp({
+  return sendWhatsApp({
     to,
     message: buildEmergencyMessage(patientName, time),
   });

@@ -1,10 +1,10 @@
 import {
   handleTwilioIncomingMessage,
-  sendTwilioWhatsApp,
   sendTwilioSMS,
   formatE164Phone,
   buildMessagePreview,
 } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { closeAttendanceResolvedByBot } from "@/lib/conversation-attendance";
 
@@ -43,7 +43,7 @@ export async function processInboundTwilioMessage(payload: InboundTwilioPayload)
     // que o bot não deve responder automaticamente.
     if (from && result.replyMessage) {
       const sendResult = isWhatsApp
-        ? await sendTwilioWhatsApp({
+        ? await sendWhatsApp({
             to: from.replace("whatsapp:", ""),
             message: result.replyMessage,
           }).catch((err) => {

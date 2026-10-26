@@ -53,6 +53,36 @@ export const MISSING_DOCUMENT_TEMPLATES = [
 export type MissingDocumentTemplate = (typeof MISSING_DOCUMENT_TEMPLATES)[number];
 export type MissingDocumentKey = MissingDocumentTemplate["key"];
 
+/**
+ * `messages.template_key` e categoria (getTwilioContentSidForCategory) da
+ * mensagem genérica que ABRE a conversa. Fica fora do prefixo
+ * `documento_pendente:` de propósito: não é cobrança de um documento
+ * específico e não deve acender o "cobrado em …" de nenhum botão.
+ */
+export const DOCUMENTS_OPENER_KEY = "abertura_documentos";
+
+/**
+ * Texto do modelo aprovado na Meta (Twilio Content API) que reabre a conversa
+ * fora da janela de 24h. Uma única variável: {{1}} = primeiro nome da criança
+ * ("do(a) João" ou "da criança"). Tem que ser igual ao corpo cadastrado na Twilio — o que a
+ * família recebe é o modelo; este texto só alimenta `messages.body` e a
+ * pré-visualização da recepção.
+ */
+export function documentsOpenerChildPhrase(patientName?: string | null): string {
+  const first = patientName?.trim().split(/\s+/)[0];
+  return first ? `do(a) ${first}` : "da criança";
+}
+
+export function buildDocumentsOpenerMessage(patientName?: string | null): string {
+  return [
+    `Olá! Aqui é da ${CLINIC_BRAND}. 💙`,
+    "",
+    `Estamos cuidando do pedido de autorização ${documentsOpenerChildPhrase(patientName)} junto ao plano de saúde e precisamos conferir com você algumas informações e documentos para dar andamento.`,
+    "",
+    "Pode responder esta mensagem para conversarmos por aqui? 🙂",
+  ].join("\n");
+}
+
 export const TEMPLATE_KEY_PREFIX = "documento_pendente:";
 
 export function templateKeyFor(key: MissingDocumentKey): string {

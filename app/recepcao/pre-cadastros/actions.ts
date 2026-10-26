@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { claimAndProcessDrafts } from "@/lib/registration-drafts-process";
 import { normalizeCpf, parseBrDate, normalizeUf, normalizeCep, normalizePhone } from "@/lib/document-extraction";
-import { sendTwilioWhatsApp } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { parseGuideProcedures } from "@/lib/reception-queue";
 import { promoteToPatient } from "@/lib/patient-stage";
 
@@ -354,7 +354,7 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
 
   if (draft.source_phone) {
     const { data: patient } = await supabase.from("patients").select("full_name").eq("id", patientId).maybeSingle();
-    await sendTwilioWhatsApp({
+    await sendWhatsApp({
       to: draft.source_phone,
       message: `Cadastro de *${patient?.full_name ?? "seu(sua) filho(a)"}* conferido pela recepção. ✅ Os documentos foram guardados com segurança. Qualquer dúvida, é só responder aqui.`,
     }).catch(() => null);
@@ -414,7 +414,7 @@ export async function rejectRegistrationDraft(draftId: string, reason: string): 
   });
 
   if (draft.source_phone) {
-    await sendTwilioWhatsApp({
+    await sendWhatsApp({
       to: draft.source_phone,
       message: `Olá! Não conseguimos aproveitar os documentos enviados${reason ? `: ${reason}` : "."} Se puder, reenvie com boa iluminação e o documento inteiro na foto. 🙏`,
     }).catch(() => null);

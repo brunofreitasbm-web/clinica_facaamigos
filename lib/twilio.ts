@@ -173,6 +173,8 @@ export function getTwilioContentSidForCategory(category: string): string | undef
       return process.env.TWILIO_MEETING_TEMPLATE_CONTENT_SID;
     case "devolutiva_paciente":
       return process.env.TWILIO_PATIENT_FEEDBACK_TEMPLATE_CONTENT_SID;
+    case "abertura_documentos":
+      return process.env.TWILIO_DOCUMENTS_OPENER_TEMPLATE_CONTENT_SID;
     default:
       return undefined;
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Users, AlertCircle, ShieldCheck, Inbox, FileText, DoorOpen, Trophy } from "lucide-react";
+import { CalendarDays, Users, AlertCircle, ShieldCheck, MessageSquare, FileText, DoorOpen, Trophy } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
   { key: "pendencias", label: "Pendências", href: "/recepcao/pacientes/pendencias", icon: AlertCircle },
   { key: "a-autorizar", label: "Autorizações", href: "/recepcao/a-autorizar", icon: ShieldCheck },
-  { key: "atendimento", label: "Atendimento", href: "/recepcao/atendimento", icon: Inbox },
+  { key: "atendimento", label: "Chat", href: "/recepcao/atendimento", icon: MessageSquare },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText },
   // "Cadastro IA" (/recepcao/pre-cadastros) saiu da navegação em 20/09/2026:
   // a fila mostrava "Aguardando IA" em quase todo pré-cadastro e a recepção

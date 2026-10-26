@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendTwilioWhatsApp } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { buildReminderMessage } from "@/lib/anamnesis-prefill";
 
 /**
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       const childName = patient?.full_name ?? "seu(sua) filho(a)";
-      const result = await sendTwilioWhatsApp({
+      const result = await sendWhatsApp({
         to: request.phone_number,
         message: buildReminderMessage(childName),
       });

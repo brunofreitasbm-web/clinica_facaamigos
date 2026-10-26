@@ -5,12 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import {
-  sendTwilioWhatsApp,
-  buildMessagePreview,
-  getTwilioContentSidForCategory,
-  WHATSAPP_WINDOW_CLOSED_ERROR_CODES,
-} from "@/lib/twilio";
+import { buildMessagePreview } from "@/lib/twilio";
+import { sendWhatsApp, getWhatsAppTemplateForCategory, isWhatsAppWindowClosedError } from "@/lib/whatsapp";
 import { createInteressadoAction, type CreateInteressadoInput } from "../actions";
 import { generateChatResponse, isChatAiConfigured } from "@/lib/chat-llm";
 import { formatConversationPhone } from "./format-phone";
@@ -67,7 +63,7 @@ export async function sendManualMessage(conversationId: string, body: string) {
     return { success: false as const, error: "Conversa não encontrada." };
   }
 
-  const sendResult = await sendTwilioWhatsApp({ to: conversation.phone_number, message: trimmed });
+  const sendResult = await sendWhatsApp({ to: conversation.phone_number, message: trimmed });
 
   // Detecta se a falha é por conta/perfil KYC pendente na Twilio ou por bloqueio de janela 24h da Meta (Erro 63016)
   const isKycOrAccountPending =
@@ -127,7 +123,7 @@ export async function sendManualMessage(conversationId: string, body: string) {
     // de 24h de serviço do WhatsApp — só um template aprovado reabre a
     // conversa (ver sendTemplateMessage). Sem essa distinção a recepção via
     // só "Falha ao enviar" e não sabia que precisava de um template.
-    if (sendResult.errorCode && WHATSAPP_WINDOW_CLOSED_ERROR_CODES.includes(sendResult.errorCode)) {
+    if (isWhatsAppWindowClosedError(sendResult.errorCode)) {
       return {
         success: false as const,
         error: "Essa conversa está fora da janela de 24h do WhatsApp — envie um modelo aprovado para reabri-la.",
@@ -161,7 +157,7 @@ export async function sendManualMessage(conversationId: string, body: string) {
 /**
  * Envia um modelo (Content API) aprovado pela Meta pra reabrir uma conversa
  * fora da janela de 24h — mesma categoria/ContentSid usados pelos bots
- * (getTwilioContentSidForCategory, lib/twilio.ts), agora também disponíveis
+ * (getWhatsAppTemplateForCategory, lib/twilio.ts), agora também disponíveis
  * pra recepção mandar manualmente. `variables` preenche o template
  * (contentVariables da Content API); `previewText` é só o que fica salvo em
  * messages.body pra o histórico ficar legível.
@@ -172,7 +168,7 @@ export async function sendTemplateMessage(
   previewText: string,
   variables: Record<string, string> = {},
 ) {
-  const contentSid = getTwilioContentSidForCategory(category);
+  const contentSid = getWhatsAppTemplateForCategory(category);
   if (!contentSid) {
     return { success: false as const, error: "Nenhum modelo aprovado configurado para esta categoria." };
   }
@@ -189,7 +185,7 @@ export async function sendTemplateMessage(
     return { success: false as const, error: "Conversa não encontrada." };
   }
 
-  const sendResult = await sendTwilioWhatsApp({
+  const sendResult = await sendWhatsApp({
     to: conversation.phone_number,
     message: previewText,
     contentSid,

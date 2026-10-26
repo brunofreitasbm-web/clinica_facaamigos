@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatE164Phone, sendTwilioWhatsApp } from "@/lib/twilio";
+import { formatE164Phone } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 
 export async function dispatchAbsenceRescheduleOffer(params: {
   patientId: string;
@@ -23,7 +24,7 @@ export async function dispatchAbsenceRescheduleOffer(params: {
 
   const message = `Infelizmente a clínica sente a ausência de ${childName}. Aguardamos vocês na próxima sessão agendada!`;
 
-  await sendTwilioWhatsApp({
+  await sendWhatsApp({
     to: phoneE164,
     message,
   });

@@ -7,7 +7,8 @@ import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reas
 import { todayInTimeZone } from "@/lib/timezone";
 import { computeAvailableSlots, type AvailableSlot } from "@/lib/available-slots";
 import { revalidatePath } from "next/cache";
-import { sendTwilioWhatsApp, formatE164Phone } from "@/lib/twilio";
+import { formatE164Phone } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { evaluateAuthorizationWarning } from "@/lib/authorization-warning";
 import { maybeBuildCheckinCoupon } from "./coupon-actions";
 import type { CouponModel } from "@/lib/checkin-coupon";
@@ -67,7 +68,7 @@ async function notifyTherapistOfFirstCheckIn(
       timeZone: CLINIC_TIMEZONE,
     });
 
-    await sendTwilioWhatsApp({
+    await sendWhatsApp({
       to: formatE164Phone(therapist.phone),
       message: `Olá, ${therapist.full_name?.split(" ")[0] ?? ""}! O paciente ${patient?.full_name ?? "da sua primeira sessão"} (${time}) acabou de fazer check-in na recepção.`,
     });

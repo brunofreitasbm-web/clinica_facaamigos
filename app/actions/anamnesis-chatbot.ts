@@ -1,7 +1,8 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatE164Phone, sendTwilioWhatsApp } from "@/lib/twilio";
+import { formatE164Phone } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { buildStoragePointer } from "@/lib/whatsapp-media-pure";
 import { revalidatePath } from "next/cache";
 
@@ -268,7 +269,7 @@ export async function approveAnamnesisDocumentAction(
       `${slotListText}\n\n` +
       `Responda apenas com o número desejado (ex: 1).`;
 
-    await sendTwilioWhatsApp({
+    await sendWhatsApp({
       to: formattedPhone.replace("whatsapp:", ""),
       message: messageText,
     });
@@ -359,7 +360,7 @@ export async function rejectAnamnesisDocumentAction(
       `📌 *Motivo:* ${rejectionReason}\n\n` +
       `Por favor, envie o documento corrigido por aqui assim que puder. 💙`;
 
-    await sendTwilioWhatsApp({
+    await sendWhatsApp({
       to: formattedPhone.replace("whatsapp:", ""),
       message: messageText,
     });

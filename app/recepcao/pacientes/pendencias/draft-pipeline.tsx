@@ -59,7 +59,8 @@ const STATE_STYLE: Record<StepState, string> = {
   // Etapa vencida em "penumbra" (volta ao normal no hover/foco, para o Desfazer continuar à mão);
   // a da vez fica em destaque; a futura fica discreta.
   done: "border-status-positive-text/30 bg-status-positive-text/5 opacity-50 saturate-50 transition-opacity hover:opacity-100 focus-within:opacity-100",
-  current: "border-2 border-[var(--color-accent)] bg-paper-surface shadow-lg ring-4 ring-[var(--color-accent)]/20",
+  // `step-current` (globals.css): fundo branco e texto preto — etapa de leitura atenta, contraste máximo.
+  current: "step-current border-2 border-[var(--color-accent)] bg-white shadow-lg ring-4 ring-[var(--color-accent)]/20",
   locked: "border-dashed border-paper-line-strong bg-paper/40 opacity-70",
 };
 
@@ -109,7 +110,12 @@ function StepShell({
   children: ReactNode;
 }) {
   return (
-    <section className={`flex min-w-0 flex-col gap-2 rounded-md border px-3 py-3 ${STATE_STYLE[state]}`}>
+    <section
+      className={`flex min-w-0 flex-col gap-2 rounded-md border px-3 py-3 ${STATE_STYLE[state]} ${
+        // A conquista final não esmaece: é a comemoração da missão.
+        index === 4 && state === "done" ? "!opacity-100 !saturate-100 !shadow-lg" : ""
+      }`}
+    >
       <header className="flex items-start gap-2">
         <span
           aria-hidden="true"
@@ -141,6 +147,59 @@ function StepShell({
       </header>
       {children}
     </section>
+  );
+}
+
+const QUEST_HINT = [
+  "Receba os documentos.",
+  "Envie a guia ao plano.",
+  "Falta o plano autorizar.",
+  "Última etapa: habilite o agendamento!",
+] as const;
+
+/**
+ * Cabeçalho de "missão" do contato: barra de progresso + próxima conquista,
+ * para dar ao operador a sensação de avanço (e vontade de fechar a fila).
+ */
+function QuestProgress({ states }: { states: StepState[] }) {
+  const doneCount = states.filter((s) => s === "done").length;
+  const complete = doneCount === states.length;
+  const percent = Math.round((doneCount / states.length) * 100);
+  const nextIndex = states.findIndex((s) => s === "current");
+
+  return (
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
+      aria-label={`Missão: habilitar para agendamento — ${doneCount} de ${states.length} etapas`}
+      className="flex flex-col gap-1.5 rounded-md border border-paper-line-strong bg-paper-surface px-3 py-2"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+        <span className="font-bold uppercase tracking-wide text-ink">
+          {complete ? "🏆 Missão cumprida!" : `🎯 Missão: habilitar o agendamento · ${doneCount}/${states.length}`}
+        </span>
+        <span className="font-semibold text-ink-soft">
+          {complete ? "Paciente liberado para a agenda" : nextIndex >= 0 ? QUEST_HINT[nextIndex] : ""}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5" aria-hidden="true">
+        {states.map((state, i) => (
+          <div
+            key={i}
+            className={`h-2.5 flex-1 rounded-full transition-colors ${
+              state === "done"
+                ? "bg-status-positive-text"
+                : state === "current"
+                  ? "bg-[var(--color-accent-2)] animate-pulse"
+                  : "bg-paper-line-strong/50"
+            }`}
+          />
+        ))}
+        <span className="w-10 text-right text-[13px] font-bold text-ink">{percent}%</span>
+      </div>
+    </div>
   );
 }
 
@@ -495,6 +554,7 @@ export function DraftPipelineColumns({
 
   return (
     <div className="flex flex-col gap-2">
+      <QuestProgress states={[docState, sentState, authState, schedState]} />
       {pipeline.returned && (
         <div role="status" className="rounded-md border border-status-pending-text/60 bg-status-pending-text/5 px-3 py-2 text-sm text-ink">
           <p className="m-0 font-semibold text-status-pending-text">
@@ -644,27 +704,38 @@ export function DraftPipelineColumns({
 
       <StepShell index={4} state={schedState} status={schedStatus}>
         {schedState === "locked" && (
-          <p className="m-0 text-sm text-ink-faint">
-            Só libera depois que o plano autorizar (ou a autorização for dispensada).
-          </p>
+          <>
+            <p className="m-0 text-sm text-ink-faint">
+              🔒 Só libera depois que o plano autorizar (ou a autorização for dispensada).
+            </p>
+            <p className="m-0 text-[13px] font-semibold text-ink-soft">
+              Faltam {authState === "done" ? 0 : sentState === "done" ? 1 : 2} etapa(s) para destravar.
+            </p>
+          </>
         )}
 
         {schedState === "current" && (
           <>
-            <p className="m-0 text-sm text-ink-faint">
-              Ao habilitar, a Supervisão passa a ver o “ok” na Agenda 1ª Avaliação e pode marcar.
+            <p className="m-0 text-sm text-ink">
+              Falta só este passo! Ao habilitar, a Supervisão vê o “ok” na Agenda 1ª Avaliação e já pode marcar.
             </p>
-            <div>
-              <StepButton primary onClick={() => run(() => enableDraftScheduling(draft.id))} disabled={isPending}>
-                {isPending ? "Salvando…" : "Habilitar para agendamento"}
-              </StepButton>
-            </div>
+            <button
+              type="button"
+              className="quest-cta"
+              onClick={() => run(() => enableDraftScheduling(draft.id))}
+              disabled={isPending}
+            >
+              <span aria-hidden="true">🚀</span>
+              {isPending ? "Salvando…" : "Habilitar para agendamento"}
+            </button>
           </>
         )}
 
         {schedState === "done" && (
           <>
-            <p className="m-0 text-sm text-ink-faint">A Supervisão já vê o “ok” na Agenda 1ª Avaliação.</p>
+            <p className="quest-pop m-0 text-sm font-bold text-status-positive-text">
+              🏆 Missão cumprida! A Supervisão já vê o “ok” na Agenda 1ª Avaliação.
+            </p>
             <div>
               <StepButton onClick={() => run(() => disableDraftScheduling(draft.id))} disabled={isPending}>
                 Retirar habilitação

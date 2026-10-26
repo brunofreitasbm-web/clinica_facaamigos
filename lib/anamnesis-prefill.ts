@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatE164Phone, sendTwilioWhatsApp } from "@/lib/twilio";
+import { formatE164Phone } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 
 /**
@@ -66,7 +67,7 @@ export async function dispatchAnamnesisPrefillRequest(params: {
     }
 
     const consentMessage = buildConsentMessage(childName, formattedDate);
-    const sendResult = await sendTwilioWhatsApp({ to: phone, message: consentMessage });
+    const sendResult = await sendWhatsApp({ to: phone, message: consentMessage });
 
     if (!sendResult.success) {
       console.error("[Anamnesis Prefill] Falha ao enviar WhatsApp:", sendResult.error);

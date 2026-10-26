@@ -115,13 +115,24 @@ export function DraftIntakeCard({
                     Nada lido automaticamente ainda — abra os arquivos acima e a conversa abaixo para conferir.
                   </p>
                 ) : (
-                  <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                    {draft.facts.map((fact) => (
-                      <div key={fact.label} className="contents">
-                        <dt className="text-[13px] uppercase tracking-wide text-ink-soft">{fact.label}</dt>
-                        <dd className="m-0 text-ink">{fact.value}</dd>
-                      </div>
-                    ))}
+                  <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2">
+                    {draft.facts.map((fact) => {
+                      const isLong = String(fact.value).length > 24;
+                      return (
+                        <div
+                          key={fact.label}
+                          className={`min-w-0 ${isLong ? "col-span-2" : ""}`}
+                        >
+                          <dt className="text-[11px] uppercase tracking-wide text-ink-soft">{fact.label}</dt>
+                          <dd
+                            className="m-0 break-words text-ink [overflow-wrap:anywhere] line-clamp-3"
+                            title={String(fact.value)}
+                          >
+                            {fact.value}
+                          </dd>
+                        </div>
+                      );
+                    })}
                   </dl>
                 )}
               </div>

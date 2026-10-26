@@ -10,7 +10,8 @@
 // `flow`/`lead_id` (migration 20260907170006) pra não colidir com os outros
 // bots que também usam chatbot_sessions.
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildMessagePreview, formatE164Phone, sendTwilioWhatsApp, findOrCreateConversation } from "@/lib/twilio";
+import { buildMessagePreview, formatE164Phone, findOrCreateConversation } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { downloadTwilioMedia, ALLOWED_MIME_TYPES, extensionFor, MAX_FILE_BYTES } from "@/lib/registration-drafts-ingest";
 import { sanitizeFileName } from "@/lib/file-name";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
@@ -91,7 +92,7 @@ async function sendIntakeMessage(
   // Só a 1ª mensagem (startIntakeConversation) precisa do template Meta —
   // a partir da primeira resposta do responsável, a janela de 24h de
   // serviço está aberta e mensagem livre é entregue normalmente.
-  const send = await sendTwilioWhatsApp({ to: params.phoneE164, message: params.text });
+  const send = await sendWhatsApp({ to: params.phoneE164, message: params.text });
 
   let conversationId = params.conversationId ?? null;
   if (!conversationId) {
@@ -172,7 +173,7 @@ export async function startIntakeConversation(leadId: string): Promise<{ success
     `Ao terminar, responda *PRONTO*. (Ou *PARAR* para encerrar).`;
 
   const templateSid = process.env.TWILIO_INTAKE_TEMPLATE_CONTENT_SID;
-  const send = await sendTwilioWhatsApp({
+  const send = await sendWhatsApp({
     to: lead.phone_e164,
     message: text,
     ...(templateSid ? { contentSid: templateSid, contentVariables: { "1": insurerName, "2": childName } } : {}),
