@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BackButton } from "@/components/back-button";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
@@ -67,6 +67,9 @@ export default async function PacientePage({
   }
 
   if (!patient) notFound();
+
+  // Interessado ainda não é paciente: sem prontuário até o plano ser autorizado.
+  if (patient.status === "interessado") redirect("/recepcao/pacientes/pendencias");
 
   await logRecordAccess(supabase, id, "prontuario");
 

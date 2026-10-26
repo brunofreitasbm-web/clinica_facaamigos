@@ -15,6 +15,9 @@ export default async function PacientesPage() {
       "id, full_name, status, birth_date, cpf, created_at, evaluated_at, first_session_at, guardians(full_name, is_financial), patient_insurance(is_private, insurers(name, badge_color))",
     )
     .eq("clinic_id", DEV_CLINIC_ID)
+    // Interessado ainda não é paciente (sem prontuário): vive nas Pendências até a
+    // guia ser autorizada (promoteToPatient → "avaliacao").
+    .neq("status", "interessado")
     .order("full_name");
 
   const patientIds = (patients ?? []).map((p) => p.id);
@@ -75,7 +78,7 @@ export default async function PacientesPage() {
       <PageHeader
         axisLabel="Recepção"
         title="Pacientes"
-        description="Todos os pacientes da clínica, com estágio atual do cadastro contínuo."
+        description="Pacientes da clínica (plano autorizado), com estágio atual do cadastro contínuo. Interessados ficam nas Pendências."
       />
       <PatientListClient rows={rows} />
     </main>

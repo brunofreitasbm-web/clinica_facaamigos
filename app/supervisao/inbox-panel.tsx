@@ -5,6 +5,8 @@ import { resolveMessage, sendReply } from "./inbox-actions";
 import { approveReportFromSupervisao } from "./report-review-actions";
 import { NpsAlertsPanel, type NpsAlertRow } from "./nps-alerts-panel";
 import { FamilyMeetingButton } from "./family-meeting-modal";
+import { ResolveSimpleButton } from "../recepcao/pacientes/pendencias/resolve-simple-button";
+import { reviewFamilyDocument } from "../recepcao/pacientes/pendencias/actions";
 
 export type InboxMessageRow = {
   id: string;
@@ -196,11 +198,20 @@ function AbsenceReportCard({ report }: { report: AbsenceReportRow }) {
   );
 }
 
+export type FamilyDocumentRow = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  note: string | null;
+  uploadedAtLabel: string;
+};
+
 export function InboxPanel({
   messages,
   reassessments,
   pendingReports,
   absenceReports = [],
+  familyDocuments = [],
   npsAlerts = [],
   rooms = [],
 }: {
@@ -208,6 +219,7 @@ export function InboxPanel({
   reassessments: ReassessmentRow[];
   pendingReports: PendingReportRow[];
   absenceReports?: AbsenceReportRow[];
+  familyDocuments?: FamilyDocumentRow[];
   npsAlerts?: NpsAlertRow[];
   rooms?: { id: string; name: string }[];
 }) {
@@ -269,6 +281,43 @@ export function InboxPanel({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {absenceReports.map((report) => (
               <AbsenceReportCard key={report.id} report={report} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* DOCUMENTOS ENVIADOS PELA FAMÍLIA — conferência no prontuário (saiu da fila da recepção) */}
+      <section className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-ink-strong m-0">Documentos enviados pela família</h2>
+          {familyDocuments.length > 0 && (
+            <span className="px-2.5 py-1 text-xs font-bold bg-amber-600 text-white rounded-full">
+              {familyDocuments.length} para conferir
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-ink-soft mb-4">
+          Enviados pelo portal. Abra o prontuário, confira o documento e marque como revisado.
+        </p>
+        {familyDocuments.length === 0 ? (
+          <p className="text-xs text-ink-faint italic">Nenhum documento aguardando conferência.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {familyDocuments.map((d) => (
+              <div key={d.id} className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded border border-amber-200 bg-amber-50">
+                <div className="min-w-0">
+                  <span className="font-medium text-amber-900">{d.patientName}</span>
+                  <span className="block text-xs text-amber-700">
+                    {d.note || "Documento enviado pelo portal"} · {d.uploadedAtLabel}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <a href={`/supervisao/prontuario-unificado?p=${d.patientId}`} className="text-xs font-medium underline">
+                    Abrir prontuário
+                  </a>
+                  <ResolveSimpleButton id={d.id} label="Marcar como revisado" doneLabel="Revisado" action={reviewFamilyDocument} />
+                </div>
+              </div>
             ))}
           </div>
         )}

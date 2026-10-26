@@ -158,7 +158,7 @@ export function DraftIntakeCard({ draft, focus = false }: { draft: PendingRegist
               Conferir e cadastrar →
             </Link>
           )}
-          {draft.patientId && (
+          {draft.patientId && draft.patientStatus !== "interessado" && (
             <Link href={`/recepcao/pacientes/${draft.patientId}`} className="text-[13px] no-underline text-ink-soft">
               Abrir prontuário
             </Link>

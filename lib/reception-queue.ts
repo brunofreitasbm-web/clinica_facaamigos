@@ -24,7 +24,6 @@ export type PendingQueueCategory =
   | "interessado_sem_retorno"
   | "falta_sem_motivo"
   | "remarcacao_solicitada"
-  | "documento_familia_novo"
   | "renovacao_solicitada"
   | "cadastro_assistido_ia"
   | "chegada_nao_confirmada";
@@ -42,8 +41,6 @@ export type PendingQueueItem = {
   appointmentId?: string;
   /** Só preenchido em remarcacao_solicitada — id da reschedule_request pra ação de concluir. */
   rescheduleRequestId?: string;
-  /** Só preenchido em documento_familia_novo — id do documento pra ação de marcar como revisado. */
-  documentId?: string;
   /** Só preenchido em renovacao_solicitada — id da linha em
    * authorization_renewal_requests, pra ação de marcar como resolvida. */
   renewalRequestId?: string;
@@ -82,8 +79,8 @@ export type PendingQueueItem = {
  *  - interessado_sem_retorno: já é o item mais urgente da fila (só entra depois de
  *    15min sem retorno) — 1h de prazo pra não deixar o interessado esfriar.
  *  - falta_sem_motivo: precisa de contato com a família no mesmo dia — 24h.
- *  - cadastro_incompleto / evolucao_atrasada / remarcacao_solicitada /
- *    documento_familia_novo: mesma janela de 24h — itens que dependem de um
+ *  - cadastro_incompleto / evolucao_atrasada / remarcacao_solicitada:
+ *    mesma janela de 24h — itens que dependem de um
  *    retorno humano rápido, mas não são tão urgentes quanto um interessado novo.
  *  - guia_vencendo / guia_poucas_sessoes / documento_vencido /
  *    renovacao_solicitada: prazos administrativos que dependem de terceiros
@@ -102,7 +99,6 @@ const DUE_MINUTES_BY_CATEGORY: Record<PendingQueueCategory, number> = {
   cadastro_incompleto: 24 * 60,
   evolucao_atrasada: 24 * 60,
   remarcacao_solicitada: 24 * 60,
-  documento_familia_novo: 24 * 60,
   guia_vencendo: 3 * 24 * 60,
   guia_poucas_sessoes: 3 * 24 * 60,
   documento_vencido: 3 * 24 * 60,
@@ -119,7 +115,6 @@ const CATEGORY_LABEL: Record<PendingQueueCategory, string> = {
   interessado_sem_retorno: "Interessado sem retorno > 15 min",
   falta_sem_motivo: "Falta sem motivo",
   remarcacao_solicitada: "Pedido de remarcação",
-  documento_familia_novo: "Documento enviado pela família",
   renovacao_solicitada: "Renovação de guia solicitada",
   cadastro_assistido_ia: "Contatos do WhatsApp — dados e documentos",
   chegada_nao_confirmada: "Chegada aguardando confirmação",
@@ -372,7 +367,17 @@ async function getUnansweredInteressados(supabase: Supa, clinicId: string, minut
     .lte("created_at", cutoff)
     .order("created_at", { ascending: true });
 
-  return (data ?? []).map((p) => ({
+  // Quem tem contato na esteira (registration_drafts) já é acompanhado lá —
+  // pendente, autorizado, dispensado ou com agendamento liberado. Mesma regra
+  // de getPendingPatients: listar de novo aqui duplicava a família na fila e
+  // mantinha "sem retorno" um interessado que a Supervisão já liberou.
+  const interessadoIds = (data ?? []).map((p) => p.id);
+  const { data: pipelineDrafts } = interessadoIds.length
+    ? await supabase.from("registration_drafts").select("patient_id").in("patient_id", interessadoIds).neq("status", "rejected")
+    : { data: [] as { patient_id: string | null }[] };
+  const pipelinePatientIds = new Set((pipelineDrafts ?? []).map((d) => d.patient_id).filter((id): id is string => Boolean(id)));
+
+  return (data ?? []).filter((p) => !pipelinePatientIds.has(p.id)).map((p) => ({
     patientId: p.id,
     patientName: p.full_name,
     minutesWaiting: Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60_000),
@@ -464,9 +469,10 @@ export type PendingFamilyDocument = {
 
 /**
  * Documentos enviados pela família (PRD §3.6, category='familia_envio',
- * 20260906000020) ainda não conferidos pela recepção (reviewed_at is null).
+ * 20260906000020) ainda não conferidos (reviewed_at is null). Conferência é da
+ * Supervisão (aba Caixa de entrada) — não entra na fila de pendências da recepção.
  */
-async function getPendingFamilyDocuments(supabase: Supa, clinicId: string): Promise<PendingFamilyDocument[]> {
+export async function getPendingFamilyDocuments(supabase: Supa, clinicId: string): Promise<PendingFamilyDocument[]> {
   const { data } = await supabase
     .from("documents")
     .select("id, note, uploaded_at, patients!inner(id, full_name, clinic_id)")
@@ -629,6 +635,8 @@ export type PendingRegistrationDraft = {
   id: string;
   patientId: string | null;
   patientName: string | null;
+  /** `patients.status` do paciente vinculado; "interessado" ainda não tem prontuário. */
+  patientStatus: string | null;
   sourcePhone: string | null;
   source: "whatsapp" | "portal";
   status: "pending" | "processing" | "extracted" | "failed" | "validated";
@@ -935,7 +943,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   const { data } = await supabase
     .from("registration_drafts")
     .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("clinic_id", clinicId)
     .neq("status", "rejected")
@@ -997,6 +1005,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       id: d.id,
       patientId: d.patient_id,
       patientName: resolvedPatientName,
+    patientStatus: patient?.status ?? null,
       sourcePhone: d.source_phone,
       source: d.source as "whatsapp" | "portal",
       status: d.status as PendingRegistrationDraft["status"],
@@ -1059,7 +1068,7 @@ export async function getSingleRegistrationDraft(
   const { data: d } = await supabase
     .from("registration_drafts")
     .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("id", draftId)
     .maybeSingle();
@@ -1117,6 +1126,7 @@ export async function getSingleRegistrationDraft(
     id: d.id,
     patientId: d.patient_id,
     patientName: resolvedPatientName,
+    patientStatus: patient?.status ?? null,
     sourcePhone: d.source_phone,
     source: d.source as "whatsapp" | "portal",
     status: d.status as PendingRegistrationDraft["status"],
@@ -1303,7 +1313,6 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     unansweredInteressados,
     autoFaltas,
     rescheduleRequests,
-    pendingFamilyDocuments,
     renewalRequests,
     pendingRegistrationDrafts,
     unconfirmedCheckins,
@@ -1315,7 +1324,6 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
     getUnansweredInteressados(supabase, clinicId),
     getAutoFaltasSemMotivo(supabase, clinicId),
     getPendingRescheduleRequests(supabase, clinicId),
-    getPendingFamilyDocuments(supabase, clinicId),
     getAuthorizationRenewalRequests(supabase, clinicId),
     getPendingRegistrationDrafts(supabase, clinicId),
     getUnconfirmedCheckins(supabase, clinicId),
@@ -1360,7 +1368,8 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       patientName: p.full_name,
       detail: `Parado há ${p.daysSinceCreated} dia(s)`,
       urgencyLabel: `${p.daysSinceCreated}d`,
-      href: `/recepcao/pacientes/${p.id}`,
+      // Interessado não tem prontuário: o link voltaria para as Pendências.
+      href: p.status === "interessado" ? "/recepcao/pacientes/pendencias" : `/recepcao/pacientes/${p.id}`,
     });
   }
 
@@ -1399,7 +1408,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       patientName: l.patientName,
       detail: `Cadastrado há ${l.minutesWaiting} min sem retorno`,
       urgencyLabel: `${l.minutesWaiting}min`,
-      href: `/recepcao/pacientes/${l.patientId}`,
+      href: "/recepcao/pacientes/pendencias",
     });
   }
 
@@ -1428,20 +1437,6 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       urgencyLabel: new Date(r.createdAt).toLocaleDateString("pt-BR"),
       href: `/recepcao/pacientes/${r.patientId}`,
       rescheduleRequestId: r.id,
-    });
-  }
-
-  for (const d of pendingFamilyDocuments) {
-    items.push({
-      id: `doc-familia-${d.id}`,
-      category: "documento_familia_novo",
-      categoryLabel: CATEGORY_LABEL.documento_familia_novo,
-      patientId: d.patientId,
-      patientName: d.patientName,
-      detail: d.note || "Documento enviado pelo portal da família",
-      urgencyLabel: new Date(d.uploadedAt).toLocaleDateString("pt-BR"),
-      href: `/recepcao/pacientes/${d.patientId}`,
-      documentId: d.id,
     });
   }
 

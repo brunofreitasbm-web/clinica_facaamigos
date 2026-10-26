@@ -16,7 +16,7 @@ import { ResolveSimpleButton } from "./resolve-simple-button";
 import { AuthorizeRenewalButton } from "./authorize-renewal-button";
 import { ResolveRenewalRequestButton } from "./resolve-renewal-request-button";
 import { ReassignOwnerButton } from "./reassign-owner-button";
-import { resolveRescheduleRequest, reviewFamilyDocument } from "./actions";
+import { resolveRescheduleRequest } from "./actions";
 import { AutorizacaoWizard } from "./autorizacao-wizard";
 import { DraftIntakeCard } from "./draft-intake-card";
 import { DraftPipelineMini } from "./draft-pipeline";
@@ -49,7 +49,6 @@ const CATEGORY_ORDER: PendingQueueCategory[] = [
   "interessado_sem_retorno",
   "falta_sem_motivo",
   "remarcacao_solicitada",
-  "documento_familia_novo",
   "renovacao_solicitada",
 ];
 
@@ -84,10 +83,6 @@ function primaryAction(item: PendingQueueItem) {
         doneLabel="Concluído"
         action={resolveRescheduleRequest}
       />
-    );
-  if (category === "documento_familia_novo" && item.documentId)
-    return (
-      <ResolveSimpleButton id={item.documentId} label="Marcar como revisado" doneLabel="Revisado" action={reviewFamilyDocument} />
     );
   if (category === "renovacao_solicitada" && item.renewalRequestId)
     return (

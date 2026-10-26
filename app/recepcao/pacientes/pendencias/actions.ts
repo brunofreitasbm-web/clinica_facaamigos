@@ -60,7 +60,7 @@ export async function reviewFamilyDocument(documentId: string): Promise<ActionRe
     return { success: false, error: "Não foi possível marcar como revisado." };
   }
 
-  revalidatePath("/recepcao/pacientes/pendencias");
+  revalidatePath("/supervisao");
   return { success: true };
 }
 

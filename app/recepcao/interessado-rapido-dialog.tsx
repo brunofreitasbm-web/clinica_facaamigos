@@ -117,10 +117,9 @@ export function InteressadoRapidoDialog({
     // recepção (fila de pendências, lista de pacientes) só reflete isso
     // depois de um refresh — sem isso o atendente via o modal fechar e
     // nada mudar na tela, parecia que o cadastro não tinha ido pra lugar
-    // nenhum. Manda direto pra ficha do paciente recém-criado, mesma UX do
-    // formulário completo (app/recepcao/pacientes/novo/page.tsx).
+    // nenhum. Interessado não tem prontuário: manda pras Pendências, onde ele vive.
     if (res.patientId) {
-      router.push(`/recepcao/pacientes/${res.patientId}`);
+      router.push("/recepcao/pacientes/pendencias");
     } else {
       router.refresh();
     }

@@ -27,7 +27,7 @@ export default function NovoPacientePage() {
               setError(result.error);
               return;
             }
-            router.push(`/recepcao/pacientes/${result.patientId}`);
+            router.push("/recepcao/pacientes/pendencias");
           });
         }}
       >

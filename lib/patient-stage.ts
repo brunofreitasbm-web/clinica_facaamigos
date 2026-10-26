@@ -100,6 +100,14 @@ export async function getPendingPatients(
         .eq("status", "ativa")
     : { data: [] as { patient_insurance: { patient_id: string } | { patient_id: string }[] | null }[] };
 
+  // Quem tem contato na esteira (registration_drafts) já é acompanhado lá —
+  // pendente, autorizado, dispensado ou com agendamento liberado. Listar de novo
+  // aqui duplicava a mesma família na fila de pendências.
+  const { data: pipelineDrafts } = patientIds.length
+    ? await supabase.from("registration_drafts").select("patient_id").in("patient_id", patientIds).neq("status", "rejected")
+    : { data: [] as { patient_id: string | null }[] };
+  const pipelinePatientIds = new Set((pipelineDrafts ?? []).map((d) => d.patient_id).filter((id): id is string => Boolean(id)));
+
   const evaluationScheduledIds = new Set((evalAppointments ?? []).map((a) => a.patient_id));
   const activeAuthPatientIds = new Set(
     (activeAuths ?? []).flatMap((a) => {
@@ -116,6 +124,6 @@ export async function getPendingPatients(
       stage: computeStage(p, evaluationScheduledIds.has(p.id), activeAuthPatientIds.has(p.id)),
       daysSinceCreated: Math.floor((now - new Date(p.created_at).getTime()) / 86_400_000),
     }))
-    .filter((p) => p.stage < 4 && p.daysSinceCreated >= daysThreshold)
+    .filter((p) => p.stage < 4 && p.daysSinceCreated >= daysThreshold && !pipelinePatientIds.has(p.id))
     .sort((a, b) => b.daysSinceCreated - a.daysSinceCreated);
 }

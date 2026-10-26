@@ -63,6 +63,8 @@ export type PendingRegistrationDraft = {
   id: string;
   patientId: string | null;
   patientName: string | null;
+  /** `patients.status` do paciente vinculado; "interessado" ainda não tem prontuário. */
+  patientStatus: string | null;
   sourcePhone: string | null;
   source: "whatsapp" | "portal";
   status: "pending" | "processing" | "extracted" | "failed" | "validated";
@@ -617,6 +619,7 @@ export function mergeRegistrationDraftGroup(
     ...primary,
     patientId,
     patientName: resolvedPatientName,
+    patientStatus: (primary.patientId ? primary : group.find((d) => d.patientId))?.patientStatus ?? null,
     guardianMessage: mergedGuardianMessage,
     files: mergedFiles,
     messages: mergedMessages,

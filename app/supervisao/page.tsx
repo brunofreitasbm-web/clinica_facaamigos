@@ -16,7 +16,15 @@ import {
 } from "./grade-data";
 import { GradePanel, type GradeAppointment, type PendingNote, type PendingPlan } from "./grade-panel";
 import { PlanosPanel, type PlanRow } from "./planos-panel";
-import { InboxPanel, type InboxMessageRow, type ReassessmentRow, type PendingReportRow, type AbsenceReportRow } from "./inbox-panel";
+import {
+  InboxPanel,
+  type InboxMessageRow,
+  type ReassessmentRow,
+  type PendingReportRow,
+  type AbsenceReportRow,
+  type FamilyDocumentRow,
+} from "./inbox-panel";
+import { getPendingFamilyDocuments } from "@/lib/reception-queue";
 import type { NpsAlertRow } from "./nps-alerts-panel";
 import { SupervisaoShell } from "./supervisao-shell";
 import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
@@ -331,6 +339,15 @@ export default async function SupervisaoPage() {
     };
   });
 
+  // ── Documentos enviados pela família aguardando conferência ─────────────
+  const familyDocumentRows: FamilyDocumentRow[] = (await getPendingFamilyDocuments(supabase, DEV_CLINIC_ID)).map((d) => ({
+    id: d.id,
+    patientId: d.patientId,
+    patientName: d.patientName,
+    note: d.note,
+    uploadedAtLabel: fmtDateTime(d.uploadedAt),
+  }));
+
   // ── Alertas de insatisfação (NPS) ───────────────────────────────────────
   const npsAlerts: NpsAlertRow[] = (rawNpsAlerts ?? []).map((a) => {
     const patient = Array.isArray(a.patients) ? a.patients[0] : a.patients;
@@ -507,6 +524,7 @@ export default async function SupervisaoPage() {
           reassessments={reassessmentRows}
           pendingReports={pendingReportRows}
           absenceReports={absenceReportRows}
+          familyDocuments={familyDocumentRows}
           npsAlerts={npsAlerts}
           rooms={(rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
         />
