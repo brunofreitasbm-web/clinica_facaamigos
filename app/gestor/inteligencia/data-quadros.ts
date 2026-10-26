@@ -201,10 +201,8 @@ export async function getOnboardingFunnel(
   let stuck3d = 0;
 
   for (const p of allPatients) {
-    if (p.status === "alta" || p.status === "evadido" || p.first_session_at) continue;
+    if (p.status === "ativo" || p.status === "alta" || p.status === "evadido" || p.first_session_at) continue;
     const hasAuth = activeAuthPatientIds.has(p.id);
-    // "ativo" com guia e sem 1ª sessão = autorizado aguardando grade; sem guia é dado legado.
-    if (p.status === "ativo" && !hasAuth) continue;
     const daysSinceCreated = Math.floor((now - new Date(p.created_at).getTime()) / 86_400_000);
 
     if (hasAuth) authorizedNoGrid++;

@@ -21,7 +21,7 @@ ou Item Assistencial
 test("lê nº da guia, validade da senha e os 3 procedimentos", () => {
   const r = parseAuthorizedGuideText(SAMPLE);
   assert.equal(r.guideNumber, "48592161");
-  assert.equal(r.validUntil, "2026-10-31");
+  assert.equal(r.validUntil, "2026-12-21");
   assert.deepEqual(
     r.procedures.map((p) => [p.code, p.quantity]),
     [

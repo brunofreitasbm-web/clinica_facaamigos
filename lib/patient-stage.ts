@@ -19,29 +19,26 @@ export function computeStage(
   hasEvaluationScheduled: boolean,
   hasActiveAuthorization: boolean,
 ): 1 | 2 | 3 | 4 | 5 {
-  if (patient.first_session_at) return 5;
-  // Guia autorizada já torna o paciente "ativo" (promoteToPatient), mas a etapa
-  // 5 só vem com a 1ª sessão da grade. "ativo" sem guia e sem sessão é dado legado.
+  if (patient.status === "ativo" || patient.first_session_at) return 5;
   if (hasActiveAuthorization) return 4;
-  if (patient.status === "ativo") return 5;
   if (patient.evaluated_at) return 3;
   if (hasEvaluationScheduled || patient.status === "avaliacao") return 2;
   return 1;
 }
 
 /**
- * Guia autorizada = a família virou paciente: tira de "interessado"/"avaliacao"
- * e põe "ativo". Só promove esses dois status — alta, evadido, pausado e
- * arquivado são decisões da clínica e uma guia nova não as desfaz. Falha aqui
- * não derruba o registro da guia (já gravada), por isso só loga.
+ * Plano autorizado = apto à 1ª avaliação: o interessado vira paciente
+ * ("avaliacao"). "ativo" só vem com a 1ª sessão da grade. Só promove quem ainda
+ * é "interessado" — qualquer outro status é decisão da clínica e não se desfaz.
+ * Falha aqui não derruba o registro da guia (já gravada), por isso só loga.
  */
 export async function promoteToPatient(supabase: SupabaseClient<Database>, patientId: string | null | undefined): Promise<void> {
   if (!patientId) return;
   const { error } = await supabase
     .from("patients")
-    .update({ status: "ativo" })
+    .update({ status: "avaliacao" })
     .eq("id", patientId)
-    .in("status", ["interessado", "avaliacao"]);
+    .eq("status", "interessado");
   if (error) console.error("Erro ao promover interessado a paciente:", error);
 }
 

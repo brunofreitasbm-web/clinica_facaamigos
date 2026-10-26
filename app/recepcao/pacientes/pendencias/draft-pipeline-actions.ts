@@ -284,6 +284,10 @@ export async function waiveDraftAuthorization(draftId: string): Promise<ActionRe
     return { success: false, error: "Não foi possível dispensar a autorização — a guia já está no prontuário." };
   }
 
+  // Particular / convênio sem guia: também está apto à 1ª avaliação.
+  const { data: waivedDraft } = await supabase.from("registration_drafts").select("patient_id").eq("id", draftId).maybeSingle();
+  await promoteToPatient(supabase, waivedDraft?.patient_id);
+
   refresh();
   return { success: true };
 }

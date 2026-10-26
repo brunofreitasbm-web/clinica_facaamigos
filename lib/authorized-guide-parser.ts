@@ -41,23 +41,47 @@ function toIso(day: string, month: string, year: string): string | null {
 }
 
 function findValidUntil(lines: string[]): { value: string | null; ambiguous: boolean } {
+  // 1. Rótulo explícito "6-Data da Validade da Senha" ou "Validade da Senha"
+  for (const line of lines) {
+    const labeled = line.match(
+      /(?:6\s*-\s*Data\s+da\s+Validade\s+da\s+Senha|Validade\s+da\s+Senha|Validade\s+da\s+Guia)[\s:]*(\d{2})\/(\d{2})\/(\d{4})/i,
+    );
+    if (labeled) {
+      const iso = toIso(labeled[1], labeled[2], labeled[3]);
+      if (iso) return { value: iso, ambiguous: false };
+    }
+  }
+
+  // 2. Par Senha (campo 5) + Data da Validade da Senha (campo 6) emitidos juntos pelo unpdf (ex.: "174321112 21/12/2026")
+  for (const line of lines) {
+    const pwdMatch = line.match(/^([A-Za-z0-9]{4,})\s+(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (pwdMatch) {
+      const iso = toIso(pwdMatch[2], pwdMatch[3], pwdMatch[4]);
+      if (iso) return { value: iso, ambiguous: false };
+    }
+  }
+
+  // 3. Fallback por exclusão dos outros campos conhecidos
   const candidates: string[] = [];
   for (const line of lines) {
     const dates = [...line.matchAll(DATE_RE)];
     if (dates.length === 0) continue;
-    // Validade da carteira (campo 9): vem logo depois do nº da carteira na linha.
-    if (/^\d{6,}\s+\d{2}\/\d{2}\/\d{4}$/.test(line)) continue;
-    // Data da solicitação (campo 22): vem logo depois do caráter do atendimento (1 dígito).
+    // Validade da carteira (campo 9): desconsiderar (vem com flag RN "31/10/2026 N" ou com rótulo carteira)
+    if (/\b\d{2}\/\d{2}\/\d{4}\s+[SN]\b/i.test(line)) continue;
+    if (/carteira/i.test(line)) continue;
+    // Data da solicitação (campo 22): vem logo depois do caráter do atendimento (1 dígito)
     if (/^\d\s+\d{2}\/\d{2}\/\d{4}$/.test(line)) continue;
+    // Data da autorização (campo 4): data seguida de nº da guia atribuído pela operadora (ex.: "29/09/2026 17432111")
+    if (/^\d{2}\/\d{2}\/\d{4}\s+\d+$/.test(line)) continue;
+
     for (const [, d, m, y] of dates) {
       const iso = toIso(d, m, y);
       if (iso) candidates.push(iso);
     }
   }
   if (candidates.length === 0) return { value: null, ambiguous: true };
-  // Sobram data da autorização (campo 4) e validade da senha (campo 6): esta é a posterior.
   const sorted = [...new Set(candidates)].sort();
-  return { value: sorted[sorted.length - 1], ambiguous: sorted.length > 2 };
+  return { value: sorted[sorted.length - 1], ambiguous: sorted.length > 1 };
 }
 
 export function parseAuthorizedGuideText(text: string): ParsedAuthorizedGuide {
