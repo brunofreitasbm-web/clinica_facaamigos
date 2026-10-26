@@ -9,7 +9,8 @@ import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { civilDateInTimeZone } from "@/lib/timezone";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
-import { computeLeadPendencies, desiredTherapiesFromBot, type LeadPendencies } from "@/lib/lead-pendencies";
+import { computeLeadPendencies, desiredTherapiesFromBot, isBotDatumPresent, type LeadPendencies } from "@/lib/lead-pendencies";
+import { isJobInquiryLead } from "@/lib/job-inquiry-pure";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
 import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
 
@@ -965,19 +966,31 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
     .or("and(plan_authorized_at.is.null,scheduling_enabled_at.is.null,authorization_waived.eq.false),returned_to_reception_at.not.is.null")
     .order("created_at", { ascending: true });
 
-  const rows = data ?? [];
-  const phones = [...new Set(rows.map((d) => d.source_phone).filter((p): p is string => Boolean(p)))];
-  const patientIds = [...new Set(rows.map((d) => d.patient_id).filter((p): p is string => Boolean(p)))];
+  const allRows = data ?? [];
+  const phones = [...new Set(allRows.map((d) => d.source_phone).filter((p): p is string => Boolean(p)))];
+  const patientIds = [...new Set(allRows.map((d) => d.patient_id).filter((p): p is string => Boolean(p)))];
   const [messagesByPhone, requestsByPhone, pendencySources] = await Promise.all([
     getDraftConversationMessages(supabase, phones),
     getDraftDocumentRequests(supabase, phones),
     getDraftPendencySources(
       supabase,
-      rows.map((d) => d.id),
+      allRows.map((d) => d.id),
       patientIds,
       phones,
     ),
   ]);
+
+  // Candidatura a emprego (currículo/vaga) não é lead de paciente: não entra na fila.
+  const rows = allRows.filter((d) => {
+    const ext = d.extracted && typeof d.extracted === "object" ? (d.extracted as Record<string, unknown>) : null;
+    const pat = ext?.patient && typeof ext.patient === "object" ? (ext.patient as Record<string, unknown>) : null;
+    const inbound = (d.source_phone ? messagesByPhone.get(d.source_phone) : undefined)?.filter((m) => m.direction === "inbound") ?? [];
+    return !isJobInquiryLead({
+      texts: [typeof pat?.complaint_hint === "string" ? pat.complaint_hint : null, d.guardian_message, ...inbound.map((m) => m.body)],
+      fileTypes: (d.registration_draft_files ?? []).map((f: { detected_type: string | null }) => f.detected_type),
+      hasBotData: isBotDatumPresent(pendencySources.botByDraft.get(d.id)),
+    });
+  });
 
   const drafts: PendingRegistrationDraft[] = rows.map((d) => {
     const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;

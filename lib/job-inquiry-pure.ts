@@ -132,3 +132,23 @@ export const JOB_INQUIRY_REPLY =
 export const JOB_AMBIGUOUS_REPLY =
   "Só pra eu te direcionar certinho 💙: você procura *vaga de trabalho* na clínica ou *horário de atendimento* para uma criança?\n\n" +
   "Se for atendimento, me conta o plano de saúde e a terapia que procura. Se for trabalho, respondo em seguida.";
+
+/** Tipos de arquivo que só uma família de paciente manda (candidato manda currículo, não laudo). */
+const PATIENT_FILE_TYPES = new Set(["laudo", "pedido_medico", "carteirinha", "autorizacao"]);
+
+/**
+ * O contato do WhatsApp é candidatura a emprego, não lead de paciente? Usado
+ * para tirar o rascunho da fila de Autorizações/Pendências da recepção.
+ * Exige sinal FORTE de emprego em algum texto (queixa lida pela IA, mensagem
+ * da família ou o que ela escreveu) E nenhuma prova de que é paciente
+ * (laudo/carteirinha/pedido/guia, ou dado digitado no bot de agendamento).
+ */
+export function isJobInquiryLead(input: {
+  texts: (string | null | undefined)[];
+  fileTypes: (string | null)[];
+  hasBotData: boolean;
+}): boolean {
+  if (input.hasBotData) return false;
+  if (input.fileTypes.some((t) => t !== null && PATIENT_FILE_TYPES.has(t))) return false;
+  return input.texts.some((t) => typeof t === "string" && t.trim() !== "" && hasStrongJobSignal(t));
+}

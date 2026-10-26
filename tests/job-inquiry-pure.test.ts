@@ -6,7 +6,7 @@
 // família perguntando por horário de avaliação.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hasExplicitJobSignal, hasStrongJobSignal, JOB_AMBIGUOUS_REPLY, JOB_INQUIRY_REPLY } from "../lib/job-inquiry-pure.ts";
+import { hasExplicitJobSignal, hasStrongJobSignal, isJobInquiryLead, JOB_AMBIGUOUS_REPLY, JOB_INQUIRY_REPLY } from "../lib/job-inquiry-pure.ts";
 
 test("candidatura explícita é reconhecida", () => {
   for (const msg of [
@@ -134,4 +134,13 @@ test("família que cita uma profissão sem 'vaga' nunca cai em emprego", () => {
   ]) {
     assert.equal(hasStrongJobSignal(msg), false, msg);
   }
+});
+
+test("isJobInquiryLead: currículo na queixa tira o contato da fila; paciente real fica", () => {
+  const curriculo = "Contato realizado para envio de currículo para a vaga de psicólogo";
+  assert.equal(isJobInquiryLead({ texts: [curriculo], fileTypes: [], hasBotData: false }), true);
+  assert.equal(isJobInquiryLead({ texts: [null, curriculo], fileTypes: ["outro"], hasBotData: false }), true);
+  assert.equal(isJobInquiryLead({ texts: [curriculo], fileTypes: ["laudo"], hasBotData: false }), false);
+  assert.equal(isJobInquiryLead({ texts: [curriculo], fileTypes: [], hasBotData: true }), false);
+  assert.equal(isJobInquiryLead({ texts: ["Atraso na fala, quer avaliação"], fileTypes: [], hasBotData: false }), false);
 });
