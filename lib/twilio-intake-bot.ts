@@ -301,14 +301,21 @@ export async function processIntakeBotStep(params: { from: string; body: string;
   const step = session.current_step as IntakeStep;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = (session.collected_data as Record<string, any>) ?? {};
+  const patientId: string | null = data.patient_id ?? null;
 
-  if (!leadId) {
+  if (!leadId && !patientId) {
     return { handled: false, replyMessage: "" };
+  }
+
+  if (step !== "intake_awaiting_slot") {
+    if (!leadId) return { handled: false, replyMessage: "" };
   }
 
   if (upperBody === "PARAR" || upperBody === "SAIR") {
     await admin.from("chatbot_sessions").update({ current_step: "idle", updated_at: new Date().toISOString() }).eq("phone_number", phone);
-    await admin.from("insurance_intake_leads").update({ status: "cancelled", status_reason: "opt_out", cancelled_at: new Date().toISOString() }).eq("id", leadId);
+    if (leadId) {
+      await admin.from("insurance_intake_leads").update({ status: "cancelled", status_reason: "opt_out", cancelled_at: new Date().toISOString() }).eq("id", leadId);
+    }
     return { handled: true, replyMessage: "Tudo bem, encerramos por aqui. Se precisar, é só chamar a clínica diretamente. 🙏" };
   }
 
@@ -318,6 +325,12 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       replyMessage: "Você pode mandar foto ou PDF do Laudo e da Carteirinha do plano (frente e verso, ou PDF) por aqui — e da Guia/autorização, se já tiver (não é obrigatória). Quando terminar, responda *PRONTO*. Para encerrar, responda *PARAR*.",
     };
   }
+
+  // A partir daqui, para etapas de documentos e dados, leadId é obrigatório
+  if (step !== "intake_awaiting_slot" && !leadId) {
+    return { handled: false, replyMessage: "" };
+  }
+  const leadIdStr = leadId!;
 
   // --- intake_awaiting_documents ------------------------------------------
   if (step === "intake_awaiting_documents") {
@@ -336,9 +349,9 @@ export async function processIntakeBotStep(params: { from: string; body: string;
         continue;
       }
 
-      const existingCount = await getLeadFileCount(admin, leadId);
+      const existingCount = await getLeadFileCount(admin, leadIdStr);
       const fileName = `${existingCount + savedCount}-${Date.now()}.${extensionFor(downloaded.mime)}`;
-      const storagePath = `intake/leads/${leadId}/${fileName}`;
+      const storagePath = `intake/leads/${leadIdStr}/${fileName}`;
 
       const { error: uploadError } = await admin.storage.from(DOCUMENTS_BUCKET).upload(storagePath, downloaded.buffer, {
         contentType: downloaded.mime,
@@ -352,7 +365,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       const { data: insertedFile, error: insertError } = await admin
         .from("insurance_intake_lead_files")
         .insert({
-          lead_id: leadId,
+          lead_id: leadIdStr,
           storage_path: storagePath,
           mime_type: downloaded.mime,
           size_bytes: downloaded.buffer.byteLength,
@@ -374,17 +387,17 @@ export async function processIntakeBotStep(params: { from: string; body: string;
     }
 
     if (savedCount > 0) {
-      await admin.from("insurance_intake_leads").update({ last_file_at: new Date().toISOString() }).eq("id", leadId);
+      await admin.from("insurance_intake_leads").update({ last_file_at: new Date().toISOString() }).eq("id", leadIdStr);
     }
 
-    const totalFiles = await getLeadFileCount(admin, leadId);
+    const totalFiles = await getLeadFileCount(admin, leadIdStr);
     const readyToAdvance = upperBody === "PRONTO" || totalFiles >= MIN_FILES_TO_AUTO_ADVANCE;
 
     if (readyToAdvance && totalFiles > 0) {
       // Todo convênio precisa do número do cartão além da imagem da
       // carteirinha. O lead pode já trazê-lo do PDF do convênio — só pergunta
       // se faltar.
-      const { data: lead } = await admin.from("insurance_intake_leads").select("card_number").eq("id", leadId).maybeSingle();
+      const { data: lead } = await admin.from("insurance_intake_leads").select("card_number").eq("id", leadIdStr).maybeSingle();
       if (!lead?.card_number?.trim()) {
         await admin.from("chatbot_sessions").update({ current_step: "intake_awaiting_card_number", updated_at: new Date().toISOString() }).eq("phone_number", phone);
         return {
@@ -392,7 +405,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
           replyMessage: "Documentos recebidos! 🎉 Falta só um detalhe: digite o *número do cartão* (número da carteirinha) do plano:",
         };
       }
-      return advanceToSupervisor(admin, phone, leadId);
+      return advanceToSupervisor(admin, phone, leadIdStr);
     }
 
     if (upperBody === "PRONTO" && totalFiles === 0) {
@@ -422,7 +435,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
   // --- intake_awaiting_card_number -----------------------------------------
   if (step === "intake_awaiting_card_number") {
     // Arquivo que chega aqui ainda é anexado ao lead.
-    await attachExtraFiles(admin, leadId, media);
+    await attachExtraFiles(admin, leadIdStr, media);
 
     // Aceita "0 123 456789 00-1", mas exige um mínimo de caracteres
     // alfanuméricos (carteirinhas variam de 8 a 20 dígitos/letras).
@@ -431,14 +444,14 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       return { handled: true, replyMessage: "Não consegui identificar o número. Digite o *número do cartão* (número da carteirinha) do plano, exatamente como está impresso:" };
     }
 
-    await admin.from("insurance_intake_leads").update({ card_number: cardNumber }).eq("id", leadId);
-    return advanceToSupervisor(admin, phone, leadId);
+    await admin.from("insurance_intake_leads").update({ card_number: cardNumber }).eq("id", leadIdStr);
+    return advanceToSupervisor(admin, phone, leadIdStr);
   }
 
   // --- intake_pending_supervisor -------------------------------------------
   if (step === "intake_pending_supervisor") {
     // Documentos extras ainda são aceitos e anexados ao lead, mesmo já em análise.
-    await attachExtraFiles(admin, leadId, media);
+    await attachExtraFiles(admin, leadIdStr, media);
 
     return {
       handled: true,
@@ -456,25 +469,58 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       return { handled: true, replyMessage: "Opção inválida. Responda apenas com o *número* do horário desejado (ex.: 1, 2, 3...)." };
     }
 
-    const { data: rpcResult, error: rpcErr } = selected.aba_class_id
-      ? await admin.rpc("book_aba_training_slot_atomic", {
-          p_lead_id: leadId,
-          p_class_id: selected.aba_class_id,
-          p_therapist_id: selected.therapist_id,
-          p_starts_at: selected.starts_at,
-        })
-      : await admin.rpc("book_intake_lead_slot_atomic", {
-          p_lead_id: leadId,
-          p_therapist_id: selected.therapist_id,
-          p_room_id: selected.room_id,
-          p_starts_at: selected.starts_at,
-          p_ends_at: selected.ends_at,
-        });
+    if (leadId) {
+      const { data: rpcResult, error: rpcErr } = selected.aba_class_id
+        ? await admin.rpc("book_aba_training_slot_atomic", {
+            p_lead_id: leadId,
+            p_class_id: selected.aba_class_id,
+            p_therapist_id: selected.therapist_id,
+            p_starts_at: selected.starts_at,
+          })
+        : await admin.rpc("book_intake_lead_slot_atomic", {
+            p_lead_id: leadId,
+            p_therapist_id: selected.therapist_id,
+            p_room_id: selected.room_id,
+            p_starts_at: selected.starts_at,
+            p_ends_at: selected.ends_at,
+          });
 
-    const resObj = rpcResult as { success?: boolean; error?: string } | null;
-    if (rpcErr || !resObj?.success) {
-      const reason = resObj?.error || rpcErr?.message || "Erro ao efetuar a reserva.";
-      return { handled: true, replyMessage: `⚠️ ${reason}\n\nResponda com outro número de horário vago.` };
+      const resObj = rpcResult as { success?: boolean; error?: string } | null;
+      if (rpcErr || !resObj?.success) {
+        const reason = resObj?.error || rpcErr?.message || "Erro ao efetuar a reserva.";
+        return { handled: true, replyMessage: `⚠️ ${reason}\n\nResponda com outro número de horário vago.` };
+      }
+    } else if (patientId) {
+      // Conflito de agenda de terapeuta ou sala
+      const { data: conflict } = await admin
+        .from("appointments")
+        .select("id")
+        .or(`therapist_id.eq.${selected.therapist_id},room_id.eq.${selected.room_id}`)
+        .in("status", ["agendada", "confirmada"])
+        .lt("starts_at", selected.ends_at)
+        .gt("ends_at", selected.starts_at)
+        .limit(1);
+
+      if (conflict && conflict.length > 0) {
+        return { handled: true, replyMessage: "⚠️ Esse horário acabou de ser ocupado. Por favor, escolha outra opção digitando o número correspondente." };
+      }
+
+      const { error: insertErr } = await admin.from("appointments").insert({
+        patient_id: patientId,
+        therapist_id: selected.therapist_id,
+        room_id: selected.room_id,
+        starts_at: selected.starts_at,
+        ends_at: selected.ends_at,
+        status: "agendada",
+        is_evaluation: true,
+        is_provisional: true,
+        modality: "individual",
+        discipline: "Avaliação Multifuncional",
+      });
+
+      if (insertErr) {
+        return { handled: true, replyMessage: "⚠️ Erro ao registrar a reserva. Responda com outro número de horário vago." };
+      }
     }
 
     await admin.from("chatbot_sessions").update({ current_step: "idle", collected_data: {}, updated_at: new Date().toISOString() }).eq("phone_number", phone);

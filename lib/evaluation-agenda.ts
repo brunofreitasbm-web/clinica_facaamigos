@@ -51,6 +51,8 @@ export type EvaluationPoolFacts = {
   /** "5 anos", "8 meses" — null sem data de nascimento válida. */
   age: string | null;
   waitingDays: number;
+  guardianName?: string | null;
+  phone?: string | null;
 };
 
 /** Uma 1ª avaliação já marcada na agenda, numa semana específica. */
@@ -251,23 +253,57 @@ async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<str
           : `Cadastrado há ${p.daysSinceCreated} dia(s)`,
       ready: isReady,
       gate,
-      facts: { insurer: profile?.insurer ?? null, age: profile?.age ?? null, waitingDays: p.daysSinceCreated },
+      facts: {
+        insurer: profile?.insurer ?? null,
+        age: profile?.age ?? null,
+        waitingDays: p.daysSinceCreated,
+        guardianName: profile?.guardianName ?? null,
+        phone: profile?.phone ?? null,
+      },
       bookInput: { origin: "presencial" as const, patientId: p.id },
     };
   });
 }
 
-/** Convênio e idade dos candidatos da fila, numa consulta só. */
-async function getPoolPatientProfiles(supabase: Supa, patientIds: string[]): Promise<Map<string, { insurer: string | null; age: string | null }>> {
-  const profiles = new Map<string, { insurer: string | null; age: string | null }>();
+/** Convênio, idade e contato do responsável dos candidatos da fila, numa consulta só. */
+async function getPoolPatientProfiles(
+  supabase: Supa,
+  patientIds: string[],
+): Promise<Map<string, { insurer: string | null; age: string | null; guardianName: string | null; phone: string | null }>> {
+  const profiles = new Map<string, { insurer: string | null; age: string | null; guardianName: string | null; phone: string | null }>();
   if (patientIds.length === 0) return profiles;
 
-  const { data } = await supabase
-    .from("patients")
-    .select("id, birth_date, patient_insurance(is_private, plan_name, insurers(name))")
-    .in("id", patientIds);
+  const [{ data: patientsData }, { data: guardiansData }, { data: draftsData }] = await Promise.all([
+    supabase
+      .from("patients")
+      .select("id, birth_date, patient_insurance(is_private, plan_name, insurers(name))")
+      .in("id", patientIds),
+    supabase
+      .from("guardians")
+      .select("patient_id, full_name, phone, is_financial")
+      .in("patient_id", patientIds),
+    supabase
+      .from("registration_drafts")
+      .select("patient_id, source_phone")
+      .in("patient_id", patientIds),
+  ]);
 
-  for (const p of data ?? []) {
+  const guardianByPatient = new Map<string, { name: string | null; phone: string | null }>();
+  for (const g of guardiansData ?? []) {
+    const existing = guardianByPatient.get(g.patient_id);
+    if (!existing || g.is_financial) {
+      guardianByPatient.set(g.patient_id, { name: g.full_name ?? null, phone: g.phone ?? null });
+    }
+  }
+
+  const draftByPatient = new Map<string, { name: string | null; phone: string | null }>();
+  for (const d of draftsData ?? []) {
+    if (d.patient_id && !draftByPatient.has(d.patient_id)) {
+      draftByPatient.set(d.patient_id, { name: null, phone: d.source_phone ?? null });
+    }
+  }
+
+  for (const p of patientsData ?? []) {
     const coverages = Array.isArray(p.patient_insurance) ? p.patient_insurance : p.patient_insurance ? [p.patient_insurance] : [];
     const insurer =
       coverages
@@ -277,7 +313,15 @@ async function getPoolPatientProfiles(supabase: Supa, patientIds: string[]): Pro
           return ins?.name ?? c.plan_name ?? null;
         })
         .find(Boolean) ?? null;
-    profiles.set(p.id, { insurer, age: formatChildAge(p.birth_date) });
+
+    const gInfo = guardianByPatient.get(p.id) ?? draftByPatient.get(p.id);
+
+    profiles.set(p.id, {
+      insurer,
+      age: formatChildAge(p.birth_date),
+      guardianName: gInfo?.name ?? null,
+      phone: gInfo?.phone ?? null,
+    });
   }
   return profiles;
 }

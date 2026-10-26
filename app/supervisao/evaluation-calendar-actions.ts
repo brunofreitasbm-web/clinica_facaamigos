@@ -15,6 +15,9 @@ import {
 import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions";
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
+import { formatE164Phone } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
+import { computeAvailableSlots } from "@/lib/available-slots";
 
 type ActionResult = { success: true; requiresFamilyNotice?: boolean } | { success: false; error: string };
 
@@ -274,3 +277,146 @@ export async function cancelEvaluationAppointmentAction(
 
   return { success: true };
 }
+
+export async function sendEvaluationOfferViaWhatsAppAction({
+  patientId,
+  therapistId,
+  roomId,
+  customPhone,
+}: {
+  patientId: string;
+  therapistId: string;
+  roomId: string;
+  customPhone?: string;
+}): Promise<ActionResult> {
+  if (!patientId || !therapistId || !roomId) {
+    return { success: false, error: "Selecione o terapeuta e a sala para gerar os horários." };
+  }
+
+  const admin = createAdminClient();
+
+  const [{ data: patient }, { data: guardians }, { data: draft }] = await Promise.all([
+    admin.from("patients").select("id, full_name").eq("id", patientId).maybeSingle(),
+    admin.from("guardians").select("full_name, phone, is_financial").eq("patient_id", patientId),
+    admin.from("registration_drafts").select("source_phone").eq("patient_id", patientId).limit(1).maybeSingle(),
+  ]);
+
+  if (!patient) {
+    return { success: false, error: "Paciente não encontrado." };
+  }
+
+  const rawPhone =
+    customPhone ||
+    (guardians ?? []).find((g) => g.is_financial)?.phone ||
+    (guardians ?? [])[0]?.phone ||
+    draft?.source_phone ||
+    "";
+
+  const phoneE164 = formatE164Phone(rawPhone);
+  if (!phoneE164) {
+    return { success: false, error: "Paciente sem telefone de responsável válido para WhatsApp." };
+  }
+
+  const rawSlots = await computeAvailableSlots(admin, {
+    therapistId,
+    roomId,
+    durationMinutes: EVALUATION_DURATION_MINUTES,
+    limit: 3,
+    maxPerDay: 1,
+    daysAhead: 10,
+  });
+
+  if (rawSlots.length === 0) {
+    return { success: false, error: "Nenhum horário livre encontrado nos próximos 10 dias para esse terapeuta e sala." };
+  }
+
+  const offeredSlots = rawSlots.map((s, index) => ({
+    index: index + 1,
+    label: `${s.dateLabel} às ${s.timeLabel}`,
+    starts_at: s.startsAtIso,
+    ends_at: s.endsAtIso,
+    therapist_id: therapistId,
+    room_id: roomId,
+  }));
+
+  // Grava sessão no chatbot_sessions para o webhook capturar a resposta 1, 2 ou 3
+  await admin.from("chatbot_sessions").upsert(
+    {
+      phone_number: phoneE164,
+      flow: "intake",
+      current_step: "intake_awaiting_slot",
+      collected_data: {
+        patient_id: patient.id,
+        child_name: patient.full_name,
+        available_slots: offeredSlots,
+      },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "phone_number" }
+  );
+
+  const slotListText = offeredSlots.map((s) => `*${s.index}* - ${s.label}`).join("\n");
+  const messageText =
+    `Olá! 💙 Equipe Faça Amigos aqui.\n\n` +
+    `Temos uma ótima notícia: a documentação e autorização do plano de *${patient.full_name}* estão prontas para a 1ª Avaliação!\n\n` +
+    `Separamos 3 opções de horários com nossos especialistas para você escolher:\n\n` +
+    `${slotListText}\n\n` +
+    `👉 *Responda apenas com o número da sua opção (ex: 1, 2 ou 3)* para reservarmos o horário!`;
+
+  const twilioRes = await sendWhatsApp({
+    to: phoneE164,
+    message: messageText,
+  });
+
+  if (!twilioRes.success) {
+    return { success: false, error: `Não foi possível enviar mensagem WhatsApp via Twilio: ${twilioRes.error}` };
+  }
+
+  return { success: true };
+}
+
+export async function confirmEvaluationAppointmentAction(appointmentId: string): Promise<ActionResult> {
+  const admin = createAdminClient();
+
+  const { data: appointment, error: fetchErr } = await admin
+    .from("appointments")
+    .select("id, patient_id, therapist_id, room_id, starts_at, ends_at, is_provisional")
+    .eq("id", appointmentId)
+    .maybeSingle();
+
+  if (fetchErr || !appointment) {
+    return { success: false, error: "Agendamento não encontrado." };
+  }
+
+  const { error: updateErr } = await admin
+    .from("appointments")
+    .update({
+      is_provisional: false,
+      confirmed_at: new Date().toISOString(),
+      confirmed_via: "whatsapp_supervisor_ok",
+      status: "confirmada",
+    })
+    .eq("id", appointmentId);
+
+  if (updateErr) {
+    return { success: false, error: "Não foi possível confirmar o agendamento." };
+  }
+
+  // Extrair data e hora
+  const [date, fullTime] = new Date(appointment.starts_at)
+    .toLocaleString("sv-SE", { timeZone: CLINIC_TIMEZONE })
+    .split(" ");
+  const time = fullTime.slice(0, 5);
+
+  // Disparar WhatsApp com a confirmação final e orientações
+  await sendEvaluationConfirmationNotification({
+    patientId: appointment.patient_id,
+    therapistId: appointment.therapist_id,
+    roomId: appointment.room_id,
+    date,
+    time,
+  });
+
+  return { success: true };
+}
+

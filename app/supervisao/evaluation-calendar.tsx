@@ -15,11 +15,13 @@ import {
   rescheduleEvaluationAction,
   updateEvaluationAppointmentAction,
   cancelEvaluationAppointmentAction,
+  sendEvaluationOfferViaWhatsAppAction,
+  confirmEvaluationAppointmentAction,
   type TherapistAvailabilityBlock,
 } from "./evaluation-calendar-actions";
 import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationPoolFacts, EvaluationPoolItem } from "@/lib/evaluation-agenda";
 import { EvaluationQuickViewPanel } from "./evaluation-quick-view";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, MessageSquare, CheckCircle } from "lucide-react";
 
 /**
  * Calendário semanal de 1ª avaliação — visão única, independente de onde o
@@ -472,6 +474,7 @@ function EditAppointmentDialog({
   pending,
   onSave,
   onCancelAppointment,
+  onConfirmProvisional,
   onClose,
 }: {
   appointment: EvaluationCalendarAppointment;
@@ -480,6 +483,7 @@ function EditAppointmentDialog({
   pending: boolean;
   onSave: (date: string, time: string, therapistId: string, roomId: string) => Promise<void>;
   onCancelAppointment: () => Promise<void>;
+  onConfirmProvisional?: () => Promise<void>;
   onClose: () => void;
 }) {
   const initialDate = useMemo(() => {
@@ -598,6 +602,30 @@ function EditAppointmentDialog({
           </p>
         </div>
 
+        {appointment.isProvisional && onConfirmProvisional && (
+          <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3">
+            <div className="flex items-center gap-2 text-amber-800">
+              <span className="text-base">⏳</span>
+              <p className="text-xs font-semibold">Horário escolhido pela família via WhatsApp — aguardando aprovação do supervisor.</p>
+            </div>
+            <p className="mt-1 text-[11px] text-amber-700">
+              Ao confirmar, a vaga é fixada e uma notificação de confirmação com orientações é disparada imediatamente para o WhatsApp do responsável.
+            </p>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={onConfirmProvisional}
+                disabled={pending}
+                className="btn flex items-center gap-1.5 text-xs font-bold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
+                style={{ background: "var(--color-success)" }}
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                {pending ? "Confirmando…" : "Confirmar agendamento (Enviar WhatsApp)"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {confirmCancel ? (
           <div className="mt-4 rounded-md border border-status-negative-text/30 bg-status-negative-soft/40 p-3">
             <p className="text-xs font-semibold text-status-negative-text">
@@ -653,6 +681,134 @@ function EditAppointmentDialog({
   );
 }
 
+function SendWhatsAppOfferDialog({
+  item,
+  therapists,
+  rooms,
+  defaultTherapistId,
+  defaultRoomId,
+  pending,
+  onSend,
+  onClose,
+}: {
+  item: EvaluationPoolItem;
+  therapists: { id: string; name: string; isEvaluator: boolean }[];
+  rooms: { id: string; name: string }[];
+  defaultTherapistId: string;
+  defaultRoomId: string;
+  pending: boolean;
+  onSend: (patientId: string, therapistId: string, roomId: string, phone: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const patientId = item.bookInput.origin === "presencial" ? item.bookInput.patientId : "";
+  const initialPhone = item.facts?.phone || "";
+  const [phone, setPhone] = useState(initialPhone);
+  const [therapistId, setTherapistId] = useState(defaultTherapistId || therapists[0]?.id || "");
+  const [roomId, setRoomId] = useState(defaultRoomId || rooms[0]?.id || "");
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const fieldLabel = "text-[11px] font-semibold uppercase tracking-wide text-ink-soft";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="whatsapp-dialog-title"
+        className="w-full max-w-md rounded-lg border border-paper-line-strong bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-paper-line pb-3">
+          <div className="flex items-center gap-2">
+            <div className="rounded-full bg-emerald-100 p-1.5 text-emerald-700">
+              <MessageSquare className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 id="whatsapp-dialog-title" className="text-sm font-bold text-ink">
+                Enviar 3 opções via WhatsApp
+              </h3>
+              <p className="text-xs font-semibold text-emerald-800">{item.patientName}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-ink-soft hover:bg-paper hover:text-ink"
+            aria-label="Fechar"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3">
+          <div className="rounded-md bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-900 leading-relaxed">
+            O sistema calculará automaticamente os próximos <strong>3 horários vagos</strong> na agenda para o terapeuta e sala escolhidos, e enviará uma mensagem acolhedora pelo WhatsApp para a família responder com <strong>1, 2 ou 3</strong>.
+          </div>
+
+          <label className="flex flex-col gap-1">
+            <span className={fieldLabel}>WhatsApp do responsável</span>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(91) 99999-9999"
+              className="input text-xs"
+            />
+            {item.facts?.guardianName && (
+              <span className="text-[10px] text-ink-faint">Responsável: {item.facts.guardianName}</span>
+            )}
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className={fieldLabel}>Terapeuta avaliador</span>
+            <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
+              {therapists.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} {!t.isEvaluator ? "(sem qualificação de avaliador)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className={fieldLabel}>Sala de atendimento</span>
+            <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input text-xs">
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-5 flex items-center justify-end gap-2 border-t border-paper-line pt-3">
+          <button type="button" onClick={onClose} disabled={pending} className="btn text-xs">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => onSend(patientId, therapistId, roomId, phone)}
+            disabled={pending || !phone || !therapistId || !roomId || !patientId}
+            className="btn flex items-center gap-1.5 text-xs font-bold text-white shadow-sm hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: "var(--color-success)" }}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            {pending ? "Enviando horários…" : "Disparar opções no WhatsApp"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EvaluationCalendar({
   pool: initialPool,
   therapists,
@@ -679,6 +835,8 @@ export function EvaluationCalendar({
   const [scheduling, setScheduling] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<EvaluationCalendarAppointment | null>(null);
   const [pendingEdit, setPendingEdit] = useState(false);
+  const [whatsappOfferItem, setWhatsappOfferItem] = useState<EvaluationPoolItem | null>(null);
+  const [pendingWhatsApp, setPendingWhatsApp] = useState(false);
   // Janela flutuante do card clicado na fila (laudo/guia/contato + aprovar,
   // rejeitar e mensagem) — guarda o retângulo do card pra ancorar a janela
   // ao lado dele.
@@ -1066,16 +1224,30 @@ export function EvaluationCalendar({
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-xs font-semibold text-ink">{item.patientName}</p>
                   {hasEvaluators && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDialogFromCard(item);
-                      }}
-                      className="shrink-0 rounded border border-paper-line-strong px-1.5 py-0.5 text-[10px] font-semibold text-accent hover:bg-paper"
-                    >
-                      Agendar
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWhatsappOfferItem(item);
+                        }}
+                        className="flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition-all"
+                        title="Enviar 3 opções de horários via WhatsApp para o responsável"
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        <span>WhatsApp</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDialogFromCard(item);
+                        }}
+                        className="rounded border border-paper-line-strong px-1.5 py-0.5 text-[10px] font-semibold text-accent hover:bg-paper"
+                      >
+                        Agendar
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="mt-1 flex flex-wrap gap-1">
@@ -1296,12 +1468,27 @@ export function EvaluationCalendar({
                             dragPayloadRef.current = payload;
                             e.dataTransfer.setData("application/json", JSON.stringify(payload));
                           }}
-                          onDragEnd={clearDrag}
-                          className="grid-cell-focusable absolute left-0.5 right-0.5 cursor-pointer overflow-hidden rounded-md border p-1 text-[11px] shadow-sm hover:ring-2 hover:ring-chart/50 active:cursor-grabbing"
-                          style={{ top, height, background: "var(--status-agendada-bg)", borderColor: "var(--paper-line-strong)" }}
-                          title={`${a.patientName} · ${a.therapistName} · ${a.roomName} — clique para editar/desmarcar ou arraste`}
+                          className={`grid-cell-focusable absolute left-0.5 right-0.5 cursor-pointer overflow-hidden rounded-md border p-1 text-[11px] shadow-sm hover:ring-2 hover:ring-chart/50 active:cursor-grabbing ${
+                            a.isProvisional ? "border-amber-400 bg-amber-50" : ""
+                          }`}
+                          style={{
+                            top,
+                            height,
+                            background: a.isProvisional ? "#fffbeb" : "var(--status-agendada-bg)",
+                            borderColor: a.isProvisional ? "#f59e0b" : "var(--paper-line-strong)",
+                          }}
+                          title={`${a.patientName} · ${a.therapistName} · ${a.roomName}${
+                            a.isProvisional ? " (⏳ Aguardando aprovação do supervisor)" : ""
+                          } — clique para editar/confirmar/desmarcar`}
                         >
-                          <p className="truncate font-semibold text-ink">{a.patientName}</p>
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="truncate font-semibold text-ink">{a.patientName}</p>
+                            {a.isProvisional && (
+                              <span className="shrink-0 rounded bg-amber-200 px-1 py-0.2 text-[9px] font-bold text-amber-900">
+                                ⏳ Provisório
+                              </span>
+                            )}
+                          </div>
                           <p className="truncate text-ink-soft">{timeLabel(a.startsAt, CLINIC_TIMEZONE)} · {a.therapistName}</p>
                           <OriginChip origin={a.origin} />
                         </div>
@@ -1390,7 +1577,47 @@ export function EvaluationCalendar({
             setEditingAppointment(null);
             await Promise.all([fetchWeek(), fetchPool()]);
           }}
+          onConfirmProvisional={async () => {
+            setPendingEdit(true);
+            const res = await confirmEvaluationAppointmentAction(editingAppointment.id);
+            setPendingEdit(false);
+            if (!res.success) {
+              toast(res.error, "error");
+              return;
+            }
+            toast(`Agendamento de ${editingAppointment.patientName} confirmado! Notificação enviada por WhatsApp.`, "success");
+            setEditingAppointment(null);
+            await Promise.all([fetchWeek(), fetchPool()]);
+          }}
           onClose={() => setEditingAppointment(null)}
+        />
+      )}
+
+      {whatsappOfferItem && (
+        <SendWhatsAppOfferDialog
+          item={whatsappOfferItem}
+          therapists={availableTherapists}
+          rooms={rooms}
+          defaultTherapistId={therapistId}
+          defaultRoomId={roomId}
+          pending={pendingWhatsApp}
+          onSend={async (patientId, sendTherapistId, sendRoomId, phone) => {
+            setPendingWhatsApp(true);
+            const res = await sendEvaluationOfferViaWhatsAppAction({
+              patientId,
+              therapistId: sendTherapistId,
+              roomId: sendRoomId,
+              customPhone: phone,
+            });
+            setPendingWhatsApp(false);
+            if (!res.success) {
+              toast(res.error, "error");
+              return;
+            }
+            toast(`3 opções de horários enviadas via WhatsApp para ${whatsappOfferItem.patientName}!`, "success");
+            setWhatsappOfferItem(null);
+          }}
+          onClose={() => setWhatsappOfferItem(null)}
         />
       )}
     </div>
