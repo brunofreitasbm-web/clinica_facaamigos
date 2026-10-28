@@ -15,3 +15,8 @@ scripts/out/
 # Segredos Twilio - nunca commitar (ver plano de segurança)
 twilio_2FA_recovery_code.txt
 twilio/api keys.png
+
+# Logs e arquivos temporarios de sessao
+*.log
+_tmp*
+scratch*
