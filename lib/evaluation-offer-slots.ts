@@ -15,6 +15,7 @@ import {
   type BusyRange,
   type OfferTherapist,
 } from "@/lib/evaluation-offer-slots-pure";
+import { effectiveEarliestDate } from "@/lib/evaluation-offer-wave-pure";
 
 /** Quantos dias à frente o bot enxerga. */
 const HORIZON_DAYS = 21;
@@ -44,6 +45,17 @@ function minuteOfDayInClinic(instant: Date): number {
   return h * 60 + m;
 }
 
+/** Data piso da 1ª onda (ou null). Erro de leitura NÃO bloqueia a oferta: cai na regra de amanhã. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadWaveFloor(admin: SupabaseClient<any>, clinicId: string): Promise<string | null> {
+  const { data, error } = await admin.from("evaluation_offer_settings").select("wave_earliest_date").eq("clinic_id", clinicId).maybeSingle();
+  if (error) {
+    console.error("[Evaluation Slots] evaluation_offer_settings:", error.message);
+    return null;
+  }
+  return (data as { wave_earliest_date: string | null } | null)?.wave_earliest_date ?? null;
+}
+
 export function formatOfferSlotLabel(date: string, startMin: number): string {
   return `${WEEKDAY_SHORT[weekdayOf(date)]} ${date.slice(8)}/${date.slice(5, 7)} às ${minutesToHHMM(startMin)}`;
 }
@@ -56,13 +68,16 @@ export async function computeEvaluationOfferSlots(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: SupabaseClient<any>,
   clinicId: string,
-  opts: { page?: number; nowMs?: number } = {},
+  opts: { page?: number; nowMs?: number; therapistId?: string; roomId?: string } = {},
 ): Promise<EvaluationOfferSlot[]> {
   const page = opts.page ?? 0;
   const nowMs = opts.nowMs ?? Date.now();
 
+  // Data mais próxima possível: o 1º dia sugerido é AMANHÃ (nunca hoje) — ou o piso da
+  // 1ª onda de disparos (evaluation_offer_settings.wave_earliest_date), se for mais tarde.
+  const earliestDate = effectiveEarliestDate(nextCalendarDay(todayInTimeZone(CLINIC_TIMEZONE)), await loadWaveFloor(admin, clinicId));
   const days: string[] = [];
-  let cursor = todayInTimeZone(CLINIC_TIMEZONE);
+  let cursor = earliestDate;
   for (let i = 0; i < HORIZON_DAYS; i++) {
     days.push(cursor);
     cursor = nextCalendarDay(cursor);
@@ -72,8 +87,9 @@ export async function computeEvaluationOfferSlots(
     admin.from("profiles").select("id").eq("clinic_id", clinicId).eq("is_evaluator", true).eq("active", true),
     admin.from("rooms").select("id").eq("clinic_id", clinicId).eq("is_evaluation_room", true),
   ]);
-  const therapistIds = ((therapistsRes.data ?? []) as { id: string }[]).map((t) => t.id);
-  const roomIds = ((roomsRes.data ?? []) as { id: string }[]).map((r) => r.id);
+  // `therapistId`/`roomId` restringem a busca a um avaliador/sala (sugestão no agendamento manual).
+  const therapistIds = ((therapistsRes.data ?? []) as { id: string }[]).map((t) => t.id).filter((id) => !opts.therapistId || id === opts.therapistId);
+  const roomIds = ((roomsRes.data ?? []) as { id: string }[]).map((r) => r.id).filter((id) => !opts.roomId || id === opts.roomId);
   if (therapistIds.length === 0 || roomIds.length === 0) return [];
 
   const rangeStart = zonedDateTimeToUtc(days[0], "00:00", CLINIC_TIMEZONE).toISOString();
@@ -130,6 +146,7 @@ export async function computeEvaluationOfferSlots(
     businessHours: calendar.businessHours,
     closures: calendar.closures,
     nowMs,
+    earliestDate,
     toUtcMs: (date, minutes) => zonedDateTimeToUtc(date, minutesToHHMM(minutes), CLINIC_TIMEZONE).getTime(),
   });
 

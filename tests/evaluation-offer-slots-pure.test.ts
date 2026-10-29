@@ -80,6 +80,7 @@ function gen(overrides: Partial<Parameters<typeof generateEvaluationCandidates>[
     businessHours: GRADE,
     closures: [],
     nowMs: NOW,
+    earliestDate: "2026-11-02", // amanhã de NOW (1/11)
     toUtcMs,
     ...overrides,
   });
@@ -108,13 +109,34 @@ test("janelas cadastradas mas nenhuma no dia = sem horário", () => {
   assert.equal(gen({ therapists: [{ id: "A", windows }] }).length, 0);
 });
 
-test("feriado, fechamento parcial e menos de 24h de antecedência somem", () => {
+test("feriado e fechamento parcial somem", () => {
   assert.equal(gen({ days: ["2026-11-20"] }).length, 0); // Consciência Negra
   const closures = [{ date: "2026-11-04", start_minutes: 8 * 60, end_minutes: 12 * 60, reason: "Reunião" }];
   assert.ok(gen({ closures }).every((c) => c.startMin >= 12 * 60));
-  // Agora = 3/11 20:00: o dia 4/11 inteiro está a menos de 24h do primeiro horário útil das 08h (12h) e
-  // só os horários depois das 20:00 de 4/11 passariam — que não existem (fecha às 19h).
-  assert.equal(gen({ nowMs: Date.parse("2026-11-03T20:00:00-03:00") }).length, 0);
+});
+
+test("data mais próxima: nunca o mesmo dia, o primeiro horário vago é o do dia seguinte", () => {
+  // Hoje é 3/11 às 06:00 (segunda... terça): o 1º dia permitido é 4/11, mesmo com a manhã de hoje livre.
+  const today = "2026-11-03";
+  const tomorrow = "2026-11-04";
+  const nowMs = Date.parse("2026-11-03T06:00:00-03:00");
+  const c = gen({ days: [today, tomorrow], nowMs, earliestDate: tomorrow });
+  assert.ok(c.length > 0);
+  assert.ok(c.every((x) => x.date === tomorrow));
+  assert.equal(c[0].startMin, 480); // 08:00 de amanhã
+});
+
+test("dia permitido mais cedo vazio (feriado) pula para o próximo dia útil", () => {
+  // 19/11 é quinta; 20/11 (Consciência Negra) é feriado; o próximo dia útil é 23/11.
+  const days = ["2026-11-20", "2026-11-21", "2026-11-22", "2026-11-23"];
+  const c = gen({ days, earliestDate: "2026-11-20", nowMs: Date.parse("2026-11-19T10:00:00-03:00") });
+  assert.equal(c[0].date, "2026-11-23");
+});
+
+test("nunca sugere horário que já passou, mesmo dentro do dia permitido", () => {
+  const nowMs = Date.parse("2026-11-04T10:00:00-03:00");
+  const c = gen({ days: ["2026-11-04"], nowMs, earliestDate: "2026-11-04" });
+  assert.ok(c.every((x) => toUtcMs(x.date, x.startMin) > nowMs));
 });
 
 test("sala ocupada: usa a outra; sem outra sala, pula pro próximo horário", () => {

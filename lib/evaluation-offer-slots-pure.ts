@@ -83,8 +83,9 @@ export function pickOfferPage(
 }
 
 export const EVALUATION_DURATION_MIN = 50;
-/** Antecedência mínima: nunca oferecer um horário daqui a menos de 24h. */
-export const MIN_LEAD_MS = 24 * 60 * 60 * 1000;
+// Regra da data mais próxima: sugerimos o primeiro horário vago a partir de AMANHÃ
+// (nunca o mesmo dia — dá tempo de a família escolher, a supervisão confirmar e a
+// família se organizar). Quem chama informa o 1º dia permitido em `earliestDate`.
 
 export type BusyRange = {
   therapistId: string;
@@ -116,6 +117,8 @@ export type GenerateCandidatesInput = {
   businessHours: BusinessHourRow[];
   closures: ClinicClosure[];
   nowMs: number;
+  /** Primeiro dia civil que pode ser sugerido ("YYYY-MM-DD", inclusive): amanhã. */
+  earliestDate: string;
   /** "YYYY-MM-DD" + minutos → instante UTC em ms (já no fuso da clínica). */
   toUtcMs: (date: string, minutes: number) => number;
   durationMin?: number;
@@ -165,7 +168,7 @@ export function generateEvaluationCandidates(input: GenerateCandidatesInput): Of
             businessHours: input.businessHours,
             closures: input.closures,
           });
-          const farEnough = startMs - input.nowMs >= MIN_LEAD_MS;
+          const farEnough = date >= input.earliestDate && startMs > input.nowMs;
 
           if (!closed && farEnough) {
             const roomId = input.roomIds.find((rid) => !findOverlap(input.busy.filter((b) => b.roomId === rid), startMs, endMs));
