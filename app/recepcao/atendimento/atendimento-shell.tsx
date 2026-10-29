@@ -24,15 +24,8 @@ export type { ConversationRow, InsurerPill, ConversationPatch } from "@/lib/aten
 import type { ConversationRow, ConversationPatch, InsurerPill } from "@/lib/atendimento/types";
 import { hasPatientRecord, toLastMessageSender } from "@/lib/atendimento/types";
 
-const WHATSAPP_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-/** true quando a janela de 24h do WhatsApp já fechou (ou nunca esteve
- * aberta — contato sem mensagem inbound registrada) e só um template
- * aprovado consegue reabrir a conversa. */
-export function isWhatsappWindowClosed(conversation: Pick<ConversationRow, "lastInboundAt">): boolean {
-  if (!conversation.lastInboundAt) return true;
-  return Date.now() - new Date(conversation.lastInboundAt).getTime() > WHATSAPP_SERVICE_WINDOW_MS;
-}
+// Regra extraída para lib/ para o PWA mobile usar sem importar este shell inteiro.
+export { isWhatsappWindowClosed } from "@/lib/atendimento/whatsapp-window";
 
 export type ChatbotAdminData = {
   clinicId: string;

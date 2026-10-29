@@ -7,6 +7,7 @@ import { HealthPlanBadge } from "@/components/health-plan-badge";
 import type { ConversationFilter } from "@/lib/atendimento/filters";
 import type { ConversationRow } from "@/lib/atendimento/types";
 import { waitingSince } from "@/lib/atendimento/waiting";
+import { formatListTimestamp } from "@/lib/atendimento/chat-format";
 import { LastSenderIndicator } from "@/components/atendimento/last-sender-indicator";
 
 export type MobileTab = "conversas" | "leads" | "encerradas";
@@ -390,7 +391,7 @@ export function MobileQueue({
                           : "var(--color-neutral-400)",
                     }}
                   >
-                    {now !== null ? relativeTime(c.lastMessageAt) : ""}
+                    {now !== null ? formatListTimestamp(c.lastMessageAt, new Date(now)) : ""}
                   </span>
                   {isUnread && (
                     <span
