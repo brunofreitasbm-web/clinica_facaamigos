@@ -6,27 +6,35 @@ import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { zonedDateTimeToUtc, nextCalendarDay } from "@/lib/timezone";
 import {
   getEvaluationCalendarAppointments,
+  getEvaluationOffers,
   getEvaluationPool,
   getSchedulingGates,
   type EvaluationBookInput,
   type EvaluationCalendarAppointment,
+  type EvaluationOfferItem,
   type EvaluationPoolItem,
 } from "@/lib/evaluation-agenda";
+import { cancelEvaluationOffer, getActiveOfferForAppointment, reofferAfterRejection, startEvaluationOffer } from "@/lib/evaluation-offer";
+import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
+import { revalidatePath } from "next/cache";
 import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions";
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
-import { formatE164Phone } from "@/lib/twilio";
-import { sendWhatsApp } from "@/lib/whatsapp";
-import { computeAvailableSlots } from "@/lib/available-slots";
+import { loadClinicCalendar } from "@/lib/clinic-calendar";
+import type { ClinicClosure } from "@/lib/clinic-calendar-pure";
 
-type ActionResult = { success: true; requiresFamilyNotice?: boolean } | { success: false; error: string };
+type ActionResult =
+  | { success: true; requiresFamilyNotice?: boolean; /** Algo secundário falhou (ex.: convite da pré-anamnese), mas a ação principal valeu. */ warning?: string }
+  | { success: false; error: string };
 
 /** Duração fixa de toda 1ª avaliação/anamnese — mesma convenção usada em scheduleEvaluation e nos bots de WhatsApp. */
 const EVALUATION_DURATION_MINUTES = 50;
 
 export async function getEvaluationCalendarWeekAction(
   weekStartDateStr: string,
-): Promise<{ success: true; appointments: EvaluationCalendarAppointment[] } | { success: false; error: string }> {
+): Promise<
+  { success: true; appointments: EvaluationCalendarAppointment[]; closures: ClinicClosure[] } | { success: false; error: string }
+> {
   try {
     const supabase = await createClient();
     const weekStartIso = zonedDateTimeToUtc(weekStartDateStr, "00:00", CLINIC_TIMEZONE).toISOString();
@@ -35,8 +43,11 @@ export async function getEvaluationCalendarWeekAction(
     let weekEndDateStr = weekStartDateStr;
     for (let i = 0; i < 6; i++) weekEndDateStr = nextCalendarDay(weekEndDateStr);
     const weekEndIso = zonedDateTimeToUtc(weekEndDateStr, "00:00", CLINIC_TIMEZONE).toISOString();
-    const appointments = await getEvaluationCalendarAppointments(supabase, weekStartIso, weekEndIso);
-    return { success: true, appointments };
+    const [appointments, calendar] = await Promise.all([
+      getEvaluationCalendarAppointments(supabase, weekStartIso, weekEndIso),
+      loadClinicCalendar(supabase, weekStartDateStr, weekEndDateStr),
+    ]);
+    return { success: true, appointments, closures: calendar.closures };
   } catch {
     return { success: false, error: "Não foi possível carregar a semana." };
   }
@@ -67,11 +78,13 @@ export async function getEvaluationDayCountsAction(
   }
 }
 
-export async function getEvaluationPoolAction():Promise<{ success: true; pool: EvaluationPoolItem[] } | { success: false; error: string }> {
+export async function getEvaluationPoolAction(): Promise<
+  { success: true; pool: EvaluationPoolItem[]; offers: EvaluationOfferItem[] } | { success: false; error: string }
+> {
   try {
     const supabase = await createClient();
-    const pool = await getEvaluationPool(supabase, DEV_CLINIC_ID);
-    return { success: true, pool };
+    const [pool, offers] = await Promise.all([getEvaluationPool(supabase, DEV_CLINIC_ID), getEvaluationOffers(supabase)]);
+    return { success: true, pool, offers };
   } catch {
     return { success: false, error: "Não foi possível carregar a fila de agendamento." };
   }
@@ -183,6 +196,52 @@ export async function scheduleFromPoolAction(
   return { success: true };
 }
 
+/**
+ * Supervisão recusa o horário que o responsável escolheu na oferta
+ * automática: libera a vaga, a oferta volta a "escolha" e o responsável
+ * recebe uma lista nova.
+ */
+export async function rejectEvaluationOfferAction(appointmentId: string): Promise<ActionResult> {
+  const auth = await requireManager();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const offer = await getActiveOfferForAppointment(appointmentId);
+  if (!offer) return { success: false, error: "Este agendamento não veio da oferta automática por WhatsApp." };
+
+  const admin = createAdminClient();
+  const { data: rpc, error: rpcErr } = await admin.rpc("reject_evaluation_offer" as never, { p_offer_id: offer.id } as never);
+  const res = rpc as { success?: boolean; error?: string } | null;
+  if (rpcErr || !res?.success) return { success: false, error: res?.error ?? "Não foi possível recusar o horário." };
+
+  const reoffer = await reofferAfterRejection(offer.id);
+  revalidatePath("/supervisao");
+  return reoffer.success
+    ? { success: true }
+    : { success: false, error: `Horário liberado, mas a nova lista não foi enviada: ${reoffer.error ?? "erro desconhecido"}` };
+}
+
+/** Nova tentativa de oferta para uma criança cuja oferta falhou, expirou ou ficou sem horário. */
+export async function restartEvaluationOfferAction(patientId: string): Promise<ActionResult> {
+  const auth = await requireManager();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const started = await startEvaluationOffer({ patientId });
+  revalidatePath("/supervisao");
+  if (started.status === "sent" || started.status === "duplicate") return { success: true };
+  return { success: false, error: started.error };
+}
+
+/** Cancela a oferta em andamento (a supervisão agenda manualmente) e libera o telefone no bot. */
+export async function cancelEvaluationOfferAction(offerId: string): Promise<ActionResult> {
+  const auth = await requireManager();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const res = await cancelEvaluationOffer(offerId);
+  if (!res.success) return { success: false, error: res.error ?? "Não foi possível cancelar a oferta." };
+  revalidatePath("/supervisao");
+  return { success: true };
+}
+
 export async function rescheduleEvaluationAction(appointmentId: string, date: string, time: string, durationMinutes: number): Promise<ActionResult> {
   const supabase = await createClient();
 
@@ -278,104 +337,24 @@ export async function cancelEvaluationAppointmentAction(
   return { success: true };
 }
 
-export async function sendEvaluationOfferViaWhatsAppAction({
-  patientId,
-  therapistId,
-  roomId,
-  customPhone,
-}: {
-  patientId: string;
-  therapistId: string;
-  roomId: string;
-  customPhone?: string;
-}): Promise<ActionResult> {
-  if (!patientId || !therapistId || !roomId) {
-    return { success: false, error: "Selecione o terapeuta e a sala para gerar os horários." };
+/** Só supervisão/gestão confirma ou recusa horário de 1ª avaliação (o middleware já limita /supervisao; aqui a mensagem chega na tela). */
+async function requireManager(): Promise<{ userId: string } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessão expirada. Faça login de novo." };
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (profile?.role && profile.role !== "supervisor" && profile.role !== "gestor") {
+    return { error: "Somente supervisão ou gestão pode confirmar agendamentos." };
   }
-
-  const admin = createAdminClient();
-
-  const [{ data: patient }, { data: guardians }, { data: draft }] = await Promise.all([
-    admin.from("patients").select("id, full_name").eq("id", patientId).maybeSingle(),
-    admin.from("guardians").select("full_name, phone, is_financial").eq("patient_id", patientId),
-    admin.from("registration_drafts").select("source_phone").eq("patient_id", patientId).limit(1).maybeSingle(),
-  ]);
-
-  if (!patient) {
-    return { success: false, error: "Paciente não encontrado." };
-  }
-
-  const rawPhone =
-    customPhone ||
-    (guardians ?? []).find((g) => g.is_financial)?.phone ||
-    (guardians ?? [])[0]?.phone ||
-    draft?.source_phone ||
-    "";
-
-  const phoneE164 = formatE164Phone(rawPhone);
-  if (!phoneE164) {
-    return { success: false, error: "Paciente sem telefone de responsável válido para WhatsApp." };
-  }
-
-  const rawSlots = await computeAvailableSlots(admin, {
-    therapistId,
-    roomId,
-    durationMinutes: EVALUATION_DURATION_MINUTES,
-    limit: 3,
-    maxPerDay: 1,
-    daysAhead: 10,
-  });
-
-  if (rawSlots.length === 0) {
-    return { success: false, error: "Nenhum horário livre encontrado nos próximos 10 dias para esse terapeuta e sala." };
-  }
-
-  const offeredSlots = rawSlots.map((s, index) => ({
-    index: index + 1,
-    label: `${s.dateLabel} às ${s.timeLabel}`,
-    starts_at: s.startsAtIso,
-    ends_at: s.endsAtIso,
-    therapist_id: therapistId,
-    room_id: roomId,
-  }));
-
-  // Grava sessão no chatbot_sessions para o webhook capturar a resposta 1, 2 ou 3
-  await admin.from("chatbot_sessions").upsert(
-    {
-      phone_number: phoneE164,
-      flow: "intake",
-      current_step: "intake_awaiting_slot",
-      collected_data: {
-        patient_id: patient.id,
-        child_name: patient.full_name,
-        available_slots: offeredSlots,
-      },
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "phone_number" }
-  );
-
-  const slotListText = offeredSlots.map((s) => `*${s.index}* - ${s.label}`).join("\n");
-  const messageText =
-    `Olá! 💙 Equipe Faça Amigos aqui.\n\n` +
-    `Temos uma ótima notícia: a documentação e autorização do plano de *${patient.full_name}* estão prontas para a 1ª Avaliação!\n\n` +
-    `Separamos 3 opções de horários com nossos especialistas para você escolher:\n\n` +
-    `${slotListText}\n\n` +
-    `👉 *Responda apenas com o número da sua opção (ex: 1, 2 ou 3)* para reservarmos o horário!`;
-
-  const twilioRes = await sendWhatsApp({
-    to: phoneE164,
-    message: messageText,
-  });
-
-  if (!twilioRes.success) {
-    return { success: false, error: `Não foi possível enviar mensagem WhatsApp via Twilio: ${twilioRes.error}` };
-  }
-
-  return { success: true };
+  return { userId: user.id };
 }
 
 export async function confirmEvaluationAppointmentAction(appointmentId: string): Promise<ActionResult> {
+  const auth = await requireManager();
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const admin = createAdminClient();
 
   const { data: appointment, error: fetchErr } = await admin
@@ -388,18 +367,32 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
     return { success: false, error: "Agendamento não encontrado." };
   }
 
-  const { error: updateErr } = await admin
-    .from("appointments")
-    .update({
-      is_provisional: false,
-      confirmed_at: new Date().toISOString(),
-      confirmed_via: "whatsapp_supervisor_ok",
-      status: "confirmada",
-    })
-    .eq("id", appointmentId);
+  // Horário escolhido pelo responsável na oferta automática: a RPC confirma
+  // appointment e oferta juntos; depois do aviso segue o link da anamnese.
+  const offer = await getActiveOfferForAppointment(appointmentId);
+  if (offer) {
+    const { data: rpc, error: rpcErr } = await admin.rpc(
+      "confirm_evaluation_offer" as never,
+      { p_offer_id: offer.id, p_confirmed_by: auth.userId } as never,
+    );
+    const res = rpc as { success?: boolean; error?: string } | null;
+    if (rpcErr || !res?.success) {
+      return { success: false, error: res?.error ?? "Não foi possível confirmar o agendamento." };
+    }
+  } else {
+    const { error: updateErr } = await admin
+      .from("appointments")
+      .update({
+        is_provisional: false,
+        confirmed_at: new Date().toISOString(),
+        confirmed_via: "whatsapp_supervisor_ok",
+        status: "confirmada",
+      })
+      .eq("id", appointmentId);
 
-  if (updateErr) {
-    return { success: false, error: "Não foi possível confirmar o agendamento." };
+    if (updateErr) {
+      return { success: false, error: "Não foi possível confirmar o agendamento." };
+    }
   }
 
   // Extrair data e hora
@@ -417,6 +410,13 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
     time,
   });
 
-  return { success: true };
+  let warning: string | undefined;
+  if (offer) {
+    const invite = await dispatchAnamnesisPrefillRequest({ patientId: appointment.patient_id, appointmentId, startsAt: appointment.starts_at });
+    if (!invite.sent) warning = `O convite da pré-anamnese não foi enviado: ${invite.reason ?? "motivo desconhecido"}.`;
+  }
+
+  revalidatePath("/supervisao");
+  return { success: true, warning };
 }
 

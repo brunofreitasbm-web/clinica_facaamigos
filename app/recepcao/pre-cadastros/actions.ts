@@ -11,6 +11,7 @@ import { normalizeCpf, parseBrDate, normalizeUf, normalizeCep, normalizePhone } 
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { parseGuideProcedures } from "@/lib/reception-queue";
 import { promoteToPatient } from "@/lib/patient-stage";
+import { startEvaluationOffer } from "@/lib/evaluation-offer";
 
 type ActionResult = { success: true; patientId: string; warnings: string[] } | { success: false; error: string };
 type SimpleResult = { success: true } | { success: false; error: string };
@@ -281,7 +282,23 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
     }
   }
 
-  if (authorizationId || draft.authorization_id) await promoteToPatient(supabase, patientId);
+  if (authorizationId || draft.authorization_id) {
+    await promoteToPatient(supabase, patientId);
+
+    // Guia autorizada + paciente agora existe: oferece os 3 horários da 1ª
+    // avaliação pelo WhatsApp. Cobre o contato que foi autorizado na fila de
+    // pendências ANTES de ter paciente (lá o disparo não tinha patient_id).
+    // Idempotente (uma oferta viva por criança); falha só vira aviso.
+    try {
+      const started = await startEvaluationOffer({ patientId, draftId });
+      if (started.status !== "sent" && started.status !== "duplicate") {
+        warnings.push(`Oferta automática de horários não enviada: ${started.error}`);
+      }
+    } catch (err) {
+      console.error("[pre-cadastros] oferta de horários:", err);
+      warnings.push("Oferta automática de horários não enviada. Avise a família pelo WhatsApp.");
+    }
+  }
 
   // --- Arquivos: WhatsApp copia pra `documents`; portal só troca categoria ---
   const admin = createAdminClient();

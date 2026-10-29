@@ -539,7 +539,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
         `📅 *Data e horário escolhido:* ${formattedDate}` +
         (selected.aba_class_id ? `\n⏱️ *Duração:* bloco de 2h (3 sessões de 40min)` : "") +
         `\n\n` +
-        "Nossa supervisão irá analisar os documentos e a data escolhida. Em breve você receberá a confirmação final por aqui junto com o link para o formulário de anamnese!",
+        "Nossa supervisão irá analisar os documentos e a data escolhida. Em breve você receberá a confirmação final por aqui, junto com o convite para responder algumas perguntas antes da consulta!",
     };
   }
 

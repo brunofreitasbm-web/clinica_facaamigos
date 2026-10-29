@@ -9,6 +9,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone, nextCalendarDay, zonedDateTimeToUtc } from "@/lib/timezone";
+import { loadClinicCalendar } from "@/lib/clinic-calendar";
+import { closedReason, timeToMinutes, weekdayOf } from "@/lib/clinic-calendar-pure";
 
 const WEEKDAY_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
@@ -34,18 +36,9 @@ export type ComputeAvailableSlotsOptions = {
 };
 
 /**
- * Horário de funcionamento da clínica: Seg–Sex 08h–19h, Sábado 08h–12h,
- * Domingo fechado. `dow` é 0=Domingo..6=Sábado (getUTCDay de uma data civil).
- */
-function closingHourForWeekday(dow: number): number | null {
-  if (dow === 0) return null;
-  if (dow === 6) return 12;
-  return 19;
-}
-
-/**
  * Vagas livres reais pra sala+terapeuta informados, dentro do horário de
- * funcionamento da clínica (Seg–Sex 08h–19h, Sáb 08h–12h, Dom fechado),
+ * funcionamento da clínica (clinic_business_hours), fora de feriados
+ * nacionais e de fechamentos cadastrados (lib/clinic-calendar-pure.ts),
  * passo de 30min, respeitando `limit`/`maxPerDay`.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +66,10 @@ export async function computeAvailableSlots(supabase: SupabaseClient<any>, opts:
     query = query.neq("id", excludeAppointmentId);
   }
 
-  const { data: busy } = await query;
+  const [{ data: busy }, calendar] = await Promise.all([
+    query,
+    loadClinicCalendar(supabase, days[0], days[days.length - 1]),
+  ]);
 
   const busyRanges = (busy ?? []).map((b: { starts_at: string; ends_at: string }) => ({
     start: new Date(b.starts_at).getTime(),
@@ -84,36 +80,33 @@ export async function computeAvailableSlots(supabase: SupabaseClient<any>, opts:
   const slots: AvailableSlot[] = [];
 
   for (const day of days) {
-    const [dayYear, dayMonth, dayNum0] = day.split("-").map(Number);
-    const dow = new Date(Date.UTC(dayYear, dayMonth - 1, dayNum0)).getUTCDay();
-    const closingHour = closingHourForWeekday(dow);
-    if (closingHour === null) continue; // domingo fechado
-
-    const closingInstant = zonedDateTimeToUtc(day, `${String(closingHour).padStart(2, "0")}:00`, CLINIC_TIMEZONE);
+    const dow = weekdayOf(day);
+    const shifts = calendar.businessHours.filter((r) => r.day_of_week === dow);
+    if (shifts.length === 0) continue; // dia sem expediente (ex.: domingo)
+    const openMin = Math.min(...shifts.map((r) => timeToMinutes(r.open_time)));
+    const closeMin = Math.max(...shifts.map((r) => timeToMinutes(r.close_time)));
 
     let countThisDay = 0;
-    for (let hour = 8; hour < closingHour && slots.length < limit; hour++) {
-      for (const minute of [0, 30]) {
-        if (slots.length >= limit) break;
-        if (maxPerDay && countThisDay >= maxPerDay) break;
-        const timeStr = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-        const startsAt = zonedDateTimeToUtc(day, timeStr, CLINIC_TIMEZONE);
-        if (startsAt.getTime() <= now) continue;
-        const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-        if (endsAt.getTime() > closingInstant.getTime()) continue;
-        const overlaps = busyRanges.some((r) => startsAt.getTime() < r.end && endsAt.getTime() > r.start);
-        if (overlaps) continue;
+    for (let minuteOfDay = Math.ceil(openMin / 30) * 30; minuteOfDay < closeMin && slots.length < limit; minuteOfDay += 30) {
+      if (slots.length >= limit) break;
+      if (maxPerDay && countThisDay >= maxPerDay) break;
+      const timeStr = `${String(Math.floor(minuteOfDay / 60)).padStart(2, "0")}:${String(minuteOfDay % 60).padStart(2, "0")}`;
+      const startsAt = zonedDateTimeToUtc(day, timeStr, CLINIC_TIMEZONE);
+      if (startsAt.getTime() <= now) continue;
+      const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+      if (closedReason(day, minuteOfDay, minuteOfDay + durationMinutes, calendar)) continue;
+      const overlaps = busyRanges.some((r) => startsAt.getTime() < r.end && endsAt.getTime() > r.start);
+      if (overlaps) continue;
 
-        const [year, month, dayNum] = day.split("-").map(Number);
-        const weekday = WEEKDAY_PT[new Date(Date.UTC(year, month - 1, dayNum)).getUTCDay()];
-        slots.push({
-          dateLabel: `${String(dayNum).padStart(2, "0")}/${String(month).padStart(2, "0")} (${weekday})`,
-          timeLabel: timeStr,
-          startsAtIso: startsAt.toISOString(),
-          endsAtIso: endsAt.toISOString(),
-        });
-        countThisDay++;
-      }
+      const [year, month, dayNum] = day.split("-").map(Number);
+      const weekday = WEEKDAY_PT[new Date(Date.UTC(year, month - 1, dayNum)).getUTCDay()];
+      slots.push({
+        dateLabel: `${String(dayNum).padStart(2, "0")}/${String(month).padStart(2, "0")} (${weekday})`,
+        timeLabel: timeStr,
+        startsAtIso: startsAt.toISOString(),
+        endsAtIso: endsAt.toISOString(),
+      });
+      countThisDay++;
     }
   }
 
