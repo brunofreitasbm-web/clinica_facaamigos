@@ -20,6 +20,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { buildMessagePreview, findOrCreateConversation, formatE164Phone, getTwilioContentSidForCategory } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { notifyRolesPush } from "@/lib/web-push";
 import { computeEvaluationOfferSlots, type EvaluationOfferSlot } from "@/lib/evaluation-offer-slots";
 import { parseInterestReply, parseSlotReply } from "@/lib/evaluation-offer-reply-pure";
 
@@ -416,6 +417,13 @@ export async function processEvaluationOfferStep(params: {
 
       if (result?.success) {
         await setSessionIdle(phone);
+        // Aviso à supervisão e à gestão: um horário escolhido espera o OK. Sem nome na tela bloqueada.
+        await notifyRolesPush({
+          roles: ["supervisor", "gestor"],
+          title: "Horário escolhido",
+          body: "Um responsável escolheu o horário da 1ª avaliação. Confirme na agenda.",
+          url: "/supervisao",
+        });
         return {
           handled: true,
           replyMessage:
