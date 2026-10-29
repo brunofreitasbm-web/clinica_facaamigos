@@ -122,17 +122,11 @@ type ActionMode = "idle" | "reject" | "message";
 function ReviewActions({
   view,
   item,
-  scheduleLabel,
-  therapistId,
-  roomId,
   onResolved,
   onChanged,
 }: {
   view: EvaluationQuickView;
   item: EvaluationPoolItem;
-  scheduleLabel: string | null;
-  therapistId: string;
-  roomId: string;
   onResolved: (text: string) => void;
   onChanged: () => void;
 }) {
@@ -144,8 +138,6 @@ function ReviewActions({
   const [detail, setDetail] = useState("");
   const [text, setText] = useState("");
 
-  const isLead = item.bookInput.origin === "convenio_pdf";
-  const needsSchedule = isLead && (!therapistId || !roomId);
 
   async function run(action: () => Promise<EvaluationDocActionResult>, onSuccess: () => void) {
     setBusy(true);
@@ -165,7 +157,7 @@ function ReviewActions({
 
   const approve = () =>
     run(
-      () => approveEvaluationDocsAction(item.bookInput, therapistId, roomId),
+      () => approveEvaluationDocsAction(item.bookInput),
       () => onResolved(`Documentação de ${item.patientName} aprovada — horários enviados ao responsável por WhatsApp.`),
     );
 
@@ -201,7 +193,7 @@ function ReviewActions({
                 <button
                   type="button"
                   onClick={approve}
-                  disabled={busy || needsSchedule}
+                  disabled={busy}
                   className="btn btn-primary flex-1 py-2 text-xs"
                 >
                   <CheckCircle2 size={14} aria-hidden />
@@ -220,10 +212,6 @@ function ReviewActions({
                   Rejeitar
                 </button>
               </div>
-              {isLead && !needsSchedule && scheduleLabel && (
-                <p className="text-[10px] text-ink-faint">Horários oferecidos ao responsável: {scheduleLabel}.</p>
-              )}
-              {needsSchedule && <p className="text-[10px] text-ink-faint">Selecione terapeuta e sala no topo do calendário para aprovar.</p>}
             </>
           )}
           {view.canMessage && (
@@ -405,19 +393,12 @@ function ReturnToReception({ patientId, onResolved }: { patientId: string; onRes
 export function EvaluationQuickViewPanel({
   item,
   anchorRect,
-  therapistId,
-  roomId,
-  scheduleLabel,
   onClose,
   onResolved,
   onChanged,
 }: {
   item: EvaluationPoolItem;
   anchorRect: DOMRect | null;
-  /** Avaliador/sala escolhidos no calendário — definem os horários oferecidos ao aprovar um acolhimento de PDF. */
-  therapistId: string;
-  roomId: string;
-  scheduleLabel: string | null;
   onClose: () => void;
   /** Aprovou/rejeitou: o pai fecha a janela e recarrega a fila. */
   onResolved: (text: string) => void;
@@ -577,9 +558,6 @@ export function EvaluationQuickViewPanel({
               <ReviewActions
                 view={view}
                 item={item}
-                scheduleLabel={scheduleLabel}
-                therapistId={therapistId}
-                roomId={roomId}
                 onResolved={onResolved}
                 onChanged={onChanged}
               />

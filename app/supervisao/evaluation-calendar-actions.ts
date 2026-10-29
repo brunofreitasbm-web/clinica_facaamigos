@@ -20,6 +20,7 @@ import { revalidatePath } from "next/cache";
 import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions";
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
+import { allocateEvaluator } from "@/lib/evaluation-allocation";
 import { loadClinicCalendar } from "@/lib/clinic-calendar";
 import type { ClinicClosure } from "@/lib/clinic-calendar-pure";
 
@@ -93,49 +94,75 @@ export async function getEvaluationPoolAction(): Promise<
 export type TherapistAvailabilityBlock = { dayOfWeek: number; startTime: string; endTime: string };
 
 /**
- * Janela de disponibilidade cadastrada do avaliador (professional_availability,
- * 20260909220000_professional_availability.sql) — mesma tabela que já
- * bloqueia agendamento fora do expediente no banco via
- * appointments_availability_guard. Usada aqui só pra pintar visualmente as
- * células indisponíveis no calendário de 1ª avaliação e barrar o drop antes
- * de bater no banco; a validação real continua sendo o trigger.
+ * Janelas de disponibilidade cadastradas (professional_availability,
+ * 20260909220000_professional_availability.sql) de TODOS os avaliadores ativos
+ * — mesma tabela que já bloqueia agendamento fora do expediente no banco via
+ * appointments_availability_guard. A grade pinta como livre o que algum
+ * avaliador cobre (união das janelas); a escolha de quem atende é do servidor
+ * (allocateEvaluator). `unconfigured`: algum avaliador ainda não cadastrou
+ * janela e por isso vale o expediente da clínica inteiro — nada é bloqueado.
  */
-export async function getTherapistAvailabilityAction(
-  therapistId: string,
-): Promise<{ success: true; blocks: TherapistAvailabilityBlock[] } | { success: false; error: string }> {
-  if (!therapistId) return { success: true, blocks: [] };
+export async function getEvaluatorsAvailabilityAction(): Promise<
+  { success: true; blocks: TherapistAvailabilityBlock[]; unconfigured: boolean } | { success: false; error: string }
+> {
   try {
     const supabase = await createClient();
+    const { data: evaluators, error: evaluatorsErr } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .eq("is_evaluator", true)
+      .eq("active", true);
+    if (evaluatorsErr) return { success: false, error: "Não foi possível carregar a disponibilidade dos avaliadores." };
+
+    const ids = (evaluators ?? []).map((e) => e.id);
+    if (ids.length === 0) return { success: true, blocks: [], unconfigured: false };
+
     const { data, error } = await supabase
       .from("professional_availability")
-      .select("day_of_week, start_time, end_time")
-      .eq("profile_id", therapistId)
+      .select("profile_id, day_of_week, start_time, end_time")
+      .in("profile_id", ids)
       .eq("active", true);
+    if (error) return { success: false, error: "Não foi possível carregar a disponibilidade dos avaliadores." };
 
-    if (error) return { success: false, error: "Não foi possível carregar a disponibilidade do avaliador." };
-
+    const configured = new Set((data ?? []).map((b) => b.profile_id));
     return {
       success: true,
       blocks: (data ?? []).map((b) => ({ dayOfWeek: b.day_of_week, startTime: b.start_time, endTime: b.end_time })),
+      unconfigured: ids.some((id) => !configured.has(id)),
     };
   } catch {
-    return { success: false, error: "Não foi possível carregar a disponibilidade do avaliador." };
+    return { success: false, error: "Não foi possível carregar a disponibilidade dos avaliadores." };
   }
 }
 
+/**
+ * Agenda a 1ª avaliação. O avaliador NÃO vem do cliente: o servidor escolhe
+ * (allocateEvaluator) entre os livres naquele horário, o de menor carga na semana.
+ */
 export async function scheduleFromPoolAction(
   bookInput: EvaluationBookInput,
-  therapistId: string,
   roomId: string,
   date: string,
   time: string,
 ): Promise<ActionResult> {
-  if (!therapistId || !roomId || !date || !time) {
-    return { success: false, error: "Selecione terapeuta e sala antes de agendar." };
+  if (!roomId || !date || !time) {
+    return { success: false, error: "Selecione a sala antes de agendar." };
   }
 
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + EVALUATION_DURATION_MINUTES * 60_000);
+
+  const startMin = Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+  let therapistId: string | null;
+  try {
+    therapistId = await allocateEvaluator(createAdminClient(), DEV_CLINIC_ID, date, startMin, startMin + EVALUATION_DURATION_MINUTES);
+  } catch {
+    return { success: false, error: "Não foi possível verificar a agenda dos avaliadores. Tente de novo." };
+  }
+  if (!therapistId) {
+    return { success: false, error: "Nenhum avaliador livre nesse horário. Escolha outro." };
+  }
 
   if (bookInput.origin === "presencial") {
     // Paciente que veio de contato de documentos só agenda com o "ok" da
@@ -272,21 +299,19 @@ export async function updateEvaluationAppointmentAction({
   appointmentId,
   date,
   time,
-  therapistId,
   roomId,
   durationMinutes = EVALUATION_DURATION_MINUTES,
 }: {
   appointmentId: string;
   date: string;
   time: string;
-  therapistId: string;
   roomId: string;
   durationMinutes?: number;
 }): Promise<ActionResult> {
   const supabase = await createClient();
 
-  if (!appointmentId || !date || !time || !therapistId || !roomId) {
-    return { success: false, error: "Preencha data, horário, terapeuta e sala." };
+  if (!appointmentId || !date || !time || !roomId) {
+    return { success: false, error: "Preencha data, horário e sala." };
   }
 
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
@@ -297,7 +322,6 @@ export async function updateEvaluationAppointmentAction({
     .update({
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
-      therapist_id: therapistId,
       room_id: roomId,
       status: "agendada",
       cancelled_at: null,

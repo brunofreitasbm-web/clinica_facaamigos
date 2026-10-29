@@ -189,6 +189,42 @@ export function generateEvaluationCandidates(input: GenerateCandidatesInput): Of
   return out;
 }
 
+/**
+ * Avaliador da 1ª avaliação no agendamento manual: entre os que estão no
+ * expediente cadastrado e sem atendimento sobreposto naquele horário, vence
+ * quem tem MENOS avaliações na semana (`weekLoad`); empate → menor id, só pra
+ * ser determinístico. `null` = ninguém livre. Quem não tem janela cadastrada
+ * (`windows: null`) vale o expediente da clínica, igual ao gerador do bot.
+ */
+export function pickEvaluatorForSlot(input: {
+  therapists: OfferTherapist[];
+  busy: BusyRange[];
+  weekLoad: Map<string, number>;
+  /** Dia da semana do horário (0 = domingo). */
+  dayOfWeek: number;
+  startMin: number;
+  endMin: number;
+  startMs: number;
+  endMs: number;
+}): string | null {
+  const free = input.therapists.filter((t) => {
+    if (t.windows) {
+      const inside = (t.windows.get(input.dayOfWeek) ?? []).some(([s, e]) => input.startMin >= s && input.endMin <= e);
+      if (!inside) return false;
+    }
+    return !findOverlap(
+      input.busy.filter((b) => b.therapistId === t.id),
+      input.startMs,
+      input.endMs,
+    );
+  });
+  free.sort((a, b) => {
+    const diff = (input.weekLoad.get(a.id) ?? 0) - (input.weekLoad.get(b.id) ?? 0);
+    return diff !== 0 ? diff : a.id < b.id ? -1 : 1;
+  });
+  return free[0]?.id ?? null;
+}
+
 /** Ocupação por avaliadora+dia+turno a partir dos atendimentos já marcados. */
 export function buildOccupancy(busy: BusyRange[]): ShiftOccupancy {
   const occ: ShiftOccupancy = new Map();

@@ -15,7 +15,7 @@ import {
   restartEvaluationOfferAction,
   cancelEvaluationOfferAction,
   getEvaluationDayCountsAction,
-  getTherapistAvailabilityAction,
+  getEvaluatorsAvailabilityAction,
   scheduleFromPoolAction,
   rescheduleEvaluationAction,
   updateEvaluationAppointmentAction,
@@ -362,14 +362,11 @@ function ScheduleDialog({
   dialog,
   readyPool,
   weekDays,
-  therapists,
   rooms,
-  therapistId,
   roomId,
   error,
   pending,
   onChange,
-  onTherapistChange,
   onRoomChange,
   onConfirm,
   onClose,
@@ -377,14 +374,11 @@ function ScheduleDialog({
   dialog: SlotDialog;
   readyPool: EvaluationPoolItem[];
   weekDays: string[];
-  therapists: { id: string; name: string; isEvaluator: boolean }[];
   rooms: { id: string; name: string }[];
-  therapistId: string;
   roomId: string;
   error: string | null;
   pending: boolean;
   onChange: (next: SlotDialog) => void;
-  onTherapistChange: (id: string) => void;
   onRoomChange: (id: string) => void;
   onConfirm: () => void;
   onClose: () => void;
@@ -454,16 +448,6 @@ function ScheduleDialog({
             </label>
           </div>
           <label className="flex flex-col gap-1">
-            <span className={fieldLabel}>Terapeuta avaliador</span>
-            <select value={therapistId} onChange={(e) => onTherapistChange(e.target.value)} className="input text-xs">
-              {therapists.map((t) => (
-                <option key={t.id} value={t.id} disabled={!t.isEvaluator}>
-                  {t.isEvaluator ? t.name : `${t.name} (sem qualificação de avaliador)`}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
             <span className={fieldLabel}>Sala</span>
             <select value={roomId} onChange={(e) => onRoomChange(e.target.value)} className="input text-xs">
               {rooms.map((r) => (
@@ -473,7 +457,9 @@ function ScheduleDialog({
               ))}
             </select>
           </label>
-          <p className="text-[11px] text-ink-faint">Duração: {EVALUATION_DURATION_MINUTES} min.</p>
+          <p className="text-[11px] text-ink-faint">
+            Duração: {EVALUATION_DURATION_MINUTES} min · O avaliador é definido automaticamente (menos avaliações na semana entre os livres).
+          </p>
           {liveOffer && (
             <p role="alert" className="rounded-md border border-amber-400 bg-amber-100 px-2 py-1.5 text-[11px] font-semibold text-amber-900">
               O responsável está no fluxo automático do WhatsApp. Agendar manualmente cancela esse fluxo.
@@ -506,7 +492,6 @@ function ScheduleDialog({
 
 function EditAppointmentDialog({
   appointment,
-  therapists,
   rooms,
   pending,
   onSave,
@@ -516,10 +501,9 @@ function EditAppointmentDialog({
   onClose,
 }: {
   appointment: EvaluationCalendarAppointment;
-  therapists: { id: string; name: string; isEvaluator: boolean }[];
   rooms: { id: string; name: string }[];
   pending: boolean;
-  onSave: (date: string, time: string, therapistId: string, roomId: string) => Promise<void>;
+  onSave: (date: string, time: string, roomId: string) => Promise<void>;
   onCancelAppointment: () => Promise<void>;
   onConfirmProvisional?: () => Promise<void>;
   /** Só quando o horário veio da oferta automática: recusa, libera a vaga e reenvia as opções ao responsável. */
@@ -541,7 +525,6 @@ function EditAppointmentDialog({
 
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(initialTime);
-  const [therapistId, setTherapistId] = useState(appointment.therapistId);
   const [roomId, setRoomId] = useState(appointment.roomId || rooms[0]?.id || "");
   const [confirmCancel, setConfirmCancel] = useState(false);
 
@@ -614,16 +597,9 @@ function EditAppointmentDialog({
             </label>
           </div>
 
-          <label className="flex flex-col gap-1">
-            <span className={fieldLabel}>Terapeuta avaliador</span>
-            <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
-              {therapists.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} {!t.isEvaluator ? "(sem qualificação de avaliador)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+          <p className="text-xs text-ink-soft">
+            <span className={fieldLabel}>Avaliador</span> {appointment.therapistName}
+          </p>
 
           <label className="flex flex-col gap-1">
             <span className={fieldLabel}>Sala de atendimento</span>
@@ -717,8 +693,8 @@ function EditAppointmentDialog({
               </button>
               <button
                 type="button"
-                onClick={() => onSave(date, time, therapistId, roomId)}
-                disabled={pending || !date || !time || !therapistId || !roomId}
+                onClick={() => onSave(date, time, roomId)}
+                disabled={pending || !date || !time || !roomId}
                 className="btn text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
               >
@@ -758,9 +734,10 @@ export function EvaluationCalendar({
   const [loading, setLoading] = useState(true);
   const [countsVersion, setCountsVersion] = useState(0);
   const { toast } = useToast();
-  const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
+  // União das janelas de todos os avaliadores; `unconfigured` = algum ainda sem janela (vale o expediente inteiro).
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TherapistAvailabilityBlock[]>([]);
+  const [availabilityUnconfigured, setAvailabilityUnconfigured] = useState(false);
   // dataTransfer.getData() não é legível no dragover (só no drop) — o
   // payload fica num ref pra prévia saber a duração e o tipo do arraste.
   const dragPayloadRef = useRef<DragPayload | null>(null);
@@ -782,39 +759,11 @@ export function EvaluationCalendar({
   const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
   const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
 
-  // Une os terapeutas cadastrados como avaliadores com quem de fato aparece
-  // agendado na semana visível — sem isso o dropdown pode dizer "nenhum
-  // terapeuta avaliador cadastrado" enquanto o grid mostra agendamentos reais,
-  // já que o agendamento em si não exige a flag is_evaluator.
-  // Esses avulsos entram só para leitura do grid: `isEvaluator: false` os
-  // desabilita como destino de NOVO agendamento — não é uma trava (o banco
-  // aceitaria), é orientação: nem todo terapeuta é avaliador.
-  const availableTherapists = useMemo(() => {
-    const byId = new Map<string, { id: string; name: string; isEvaluator: boolean }>(
-      therapists.map((t) => [t.id, { ...t, isEvaluator: true }]),
-    );
-    for (const a of appointments) {
-      if (!byId.has(a.therapistId))
-        byId.set(a.therapistId, { id: a.therapistId, name: a.therapistName, isEvaluator: false });
-    }
-    return Array.from(byId.values());
-  }, [therapists, appointments]);
-
   // Sem avaliador cadastrado, a grade não tem destino válido pra receber um
   // agendamento — em vez de deixar o usuário arrastar/clicar em slots vazios
   // e só descobrir o erro depois do drop, a interação fica bloqueada e o
   // aviso aparece antes, com CTA direto pra cadastrar disponibilidade.
-  const hasEvaluators = availableTherapists.some((t) => t.isEvaluator);
-
-  useEffect(() => {
-    // Nunca pré-selecionar um avulso sem qualificação: ele só está na lista
-    // para o grid, não como destino padrão de novo agendamento.
-    if (!therapistId) {
-      const first = availableTherapists.find((t) => t.isEvaluator);
-      if (first) setTherapistId(first.id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableTherapists]);
+  const hasEvaluators = therapists.length > 0;
 
   async function fetchWeek(silent = false) {
     if (!silent) setLoading(true);
@@ -918,29 +867,27 @@ export function EvaluationCalendar({
   }, [bounds.start]);
 
   useEffect(() => {
-    if (!therapistId) return;
     let cancelled = false;
-    getTherapistAvailabilityAction(therapistId).then((res) => {
-      if (!cancelled) setAvailabilityBlocks(res.success ? res.blocks : []);
+    getEvaluatorsAvailabilityAction().then((res) => {
+      if (cancelled) return;
+      setAvailabilityBlocks(res.success ? res.blocks : []);
+      setAvailabilityUnconfigured(res.success ? res.unconfigured : false);
     });
     return () => {
       cancelled = true;
     };
-  }, [therapistId]);
-
-  const therapistName = availableTherapists.find((t) => t.id === therapistId)?.name;
-  const roomName = rooms.find((r) => r.id === roomId)?.name;
-  const quickViewScheduleLabel = therapistName && roomName ? `${therapistName} · ${roomName}` : null;
+  }, []);
 
   const readyPool = pool.filter((p) => p.ready);
   const waitingPool = pool.filter((p) => !p.ready);
   // Ofertas cujo paciente não aparece na fila (o card da fila já mostra a faixa de status).
   const orphanOffers = offers.filter((o) => !pool.some((p) => p.offer?.id === o.id));
 
-  // Se o avaliador não tem NENHUM bloco cadastrado, disponibilidade ainda não
-  // foi configurada pra ele — não restringe nada além do horário comercial,
-  // mesmo comportamento do trigger appointments_availability_guard no banco.
-  const hasAvailabilityConfigured = availabilityBlocks.length > 0;
+  // Se algum avaliador não tem NENHUM bloco cadastrado, a disponibilidade dele
+  // ainda não foi configurada — vale o horário comercial inteiro, mesmo
+  // comportamento do trigger appointments_availability_guard no banco; então
+  // nada é pintado como bloqueado.
+  const hasAvailabilityConfigured = availabilityBlocks.length > 0 && !availabilityUnconfigured;
   const blockedRangesByDay = useMemo(() => {
     if (!hasAvailabilityConfigured) return [] as [number, number][][];
     return week.days.map((_, dayIndex) => {
@@ -980,7 +927,7 @@ export function EvaluationCalendar({
     }
     if (kind === "pool" && hasAvailabilityConfigured) {
       const isBlocked = blockedRangesByDay[dayIndex]?.some(([s, e]) => startMinutes < e && endMinutes > s);
-      if (isBlocked) return `Fora da disponibilidade cadastrada de ${therapistName ?? "avaliador"} nesse horário.`;
+      if (isBlocked) return "Nenhum avaliador atende nesse horário (fora da disponibilidade cadastrada).";
     }
     return null;
   }
@@ -1089,8 +1036,8 @@ export function EvaluationCalendar({
   const dialogError = slotDialog
     ? !slotDialog.itemId
       ? "Escolha o paciente."
-      : !therapistId || !roomId
-        ? "Selecione terapeuta e sala."
+      : !roomId
+        ? "Selecione a sala."
         : validateSlot(week.days.indexOf(slotDialog.date), slotDialog.time, "pool", EVALUATION_DURATION_MINUTES)
     : null;
 
@@ -1099,7 +1046,7 @@ export function EvaluationCalendar({
     const item = pool.find((p) => p.id === slotDialog.itemId);
     if (!item) return;
     setScheduling(true);
-    const res = await scheduleFromPoolAction(item.bookInput, therapistId, roomId, slotDialog.date, slotDialog.time);
+    const res = await scheduleFromPoolAction(item.bookInput, roomId, slotDialog.date, slotDialog.time);
     setScheduling(false);
     if (!res.success) {
       toast(res.error, "error");
@@ -1135,16 +1082,6 @@ export function EvaluationCalendar({
 
         {hasEvaluators ? (
           <div className="flex flex-wrap items-center gap-2">
-            <label htmlFor="eval-therapist" className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-              Terapeuta avaliador
-            </label>
-            <select id="eval-therapist" value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
-              {availableTherapists.map((t) => (
-                <option key={t.id} value={t.id} disabled={!t.isEvaluator}>
-                  {t.isEvaluator ? t.name : `${t.name} (sem qualificação de avaliador)`}
-                </option>
-              ))}
-            </select>
             <label htmlFor="eval-room" className="text-xs font-medium uppercase tracking-wide text-ink-soft">
               Sala
             </label>
@@ -1184,18 +1121,17 @@ export function EvaluationCalendar({
         </div>
       )}
 
-      {therapistId && hasEvaluators && (
+      {hasEvaluators && (
         <p className="text-[11px] text-ink-faint">
           {hasAvailabilityConfigured ? (
             <>
-              Disponibilidade de {therapistName ?? "—"}:{" "}
-              <span style={{ color: "var(--color-success)" }} className="font-semibold">verde</span> é horário livre,{" "}
+              <span style={{ color: "var(--color-success)" }} className="font-semibold">Verde</span> é horário em que algum avaliador atende,{" "}
               <span style={{ color: "var(--color-error)" }} className="font-semibold">vermelho</span> é fora do expediente ou fechado.
             </>
           ) : (
-            <>{therapistName ?? "Avaliador"} sem disponibilidade cadastrada — vale só o horário comercial.</>
+            <>Avaliador sem disponibilidade cadastrada — vale só o horário comercial.</>
           )}{" "}
-          Clique num horário vazio ou arraste um paciente para agendar.
+          Clique num horário vazio ou arraste um paciente: o sistema escolhe o avaliador.
         </p>
       )}
 
@@ -1258,19 +1194,17 @@ export function EvaluationCalendar({
                 {item.offer && <OfferStatusBand badge={offerBadge(item.offer, nowMs)} />}
                 <div className="mt-1 flex flex-wrap gap-1">
                   {item.gate ? (
-                    <span className="tag-status st-agendada">Docs · Recepção</span>
-                  ) : item.facts ? (
-                    <PoolFactsChips facts={item.facts} />
-                  ) : (
-                    <OriginChip origin={item.origin} />
-                  )}
-                  {item.gate === "habilitado" && (
+                    // Na fila de prontos todo gate é "habilitado": um chip só, sem a categoria "Docs · Recepção".
                     <span
                       className="tag-status st-confirmada"
                       title="A Recepção conferiu os documentos, o plano autorizou e o agendamento foi habilitado"
                     >
-                      ✓ OK da Recepção
+                      ✓ Docs OK
                     </span>
+                  ) : item.facts ? (
+                    <PoolFactsChips facts={item.facts} />
+                  ) : (
+                    <OriginChip origin={item.origin} />
                   )}
                 </div>
                 {!item.facts || item.gate ? <p className="mt-1 text-[11px] text-ink-faint">{item.detail}</p> : null}
@@ -1387,9 +1321,6 @@ export function EvaluationCalendar({
             key={quickView.item.id}
             item={quickView.item}
             anchorRect={quickView.rect}
-            therapistId={therapistId}
-            roomId={roomId}
-            scheduleLabel={quickViewScheduleLabel}
             onClose={() => setQuickView(null)}
             onResolved={(text) => {
               setQuickView(null);
@@ -1590,7 +1521,7 @@ export function EvaluationCalendar({
                           {preview.time}–{minutesToTime(parseTimeToMinutes(preview.time) + preview.durationMinutes)}
                         </p>
                         <p className="truncate font-normal">
-                          {preview.error ?? (preview.kind === "pool" ? quickViewScheduleLabel : "Reagendar")}
+                          {preview.error ?? (preview.kind === "pool" ? "Avaliador automático" : "Reagendar")}
                         </p>
                       </div>
                     )}
@@ -1607,14 +1538,11 @@ export function EvaluationCalendar({
           dialog={slotDialog}
           readyPool={readyPool}
           weekDays={week.days}
-          therapists={availableTherapists}
           rooms={rooms}
-          therapistId={therapistId}
           roomId={roomId}
           error={dialogError}
           pending={scheduling}
           onChange={setSlotDialog}
-          onTherapistChange={setTherapistId}
           onRoomChange={setRoomId}
           onConfirm={confirmSchedule}
           onClose={() => setSlotDialog(null)}
@@ -1624,16 +1552,14 @@ export function EvaluationCalendar({
       {editingAppointment && (
         <EditAppointmentDialog
           appointment={editingAppointment}
-          therapists={availableTherapists}
           rooms={rooms}
           pending={pendingEdit}
-          onSave={async (date, time, editTherapistId, editRoomId) => {
+          onSave={async (date, time, editRoomId) => {
             setPendingEdit(true);
             const res = await updateEvaluationAppointmentAction({
               appointmentId: editingAppointment.id,
               date,
               time,
-              therapistId: editTherapistId,
               roomId: editRoomId,
             });
             setPendingEdit(false);

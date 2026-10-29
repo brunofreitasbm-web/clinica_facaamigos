@@ -397,12 +397,10 @@ async function requirePendingAnamnesis(requestId: string): Promise<string | null
  * "libera" o agendamento da criança. Anamnese: usa o mesmo fluxo do painel
  * de validação. Acolhimento de PDF: marca como aprovados os arquivos ainda
  * pendentes (a Supervisão acabou de conferi-los na própria janela) e oferece
- * horários do avaliador/sala escolhidos no calendário.
+ * horários de avaliador e sala alocados pelo sistema.
  */
 export async function approveEvaluationDocsAction(
   bookInput: EvaluationBookInput,
-  therapistId: string,
-  roomId: string,
 ): Promise<EvaluationDocActionResult> {
   const auth = await requireReviewer();
   if (!auth.ok) return { success: false, error: auth.error };
@@ -422,7 +420,7 @@ export async function approveEvaluationDocsAction(
         .update({ review_status: "approved", reviewed_at: new Date().toISOString(), reviewed_by: auth.userId })
         .eq("lead_id", bookInput.leadId)
         .eq("review_status", "pending");
-      return await approveIntakeLeadDocuments(bookInput.leadId, therapistId, roomId, "avaliacao");
+      return await approveIntakeLeadDocuments(bookInput.leadId, "", "", "avaliacao");
     }
 
     return { success: false, error: "Paciente cadastrado na recepção não tem documentação a aprovar aqui." };

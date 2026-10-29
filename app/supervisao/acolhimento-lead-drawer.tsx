@@ -190,7 +190,8 @@ export function AcolhimentoLeadDrawer({
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
   const [therapistId, setTherapistId] = useState(therapists[0]?.id ?? "");
-  const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
+  // Só o Treino ABA ainda recebe sala daqui (e a ação a ignora); a avaliação é alocada pelo servidor.
+  const roomId = rooms[0]?.id ?? "";
   // O que a família vai escolher no WhatsApp: sessão de avaliação de 50min
   // (padrão) ou bloco de 2h de Treino ABA em turma — no Treino ABA a sala e
   // o horário vêm da turma, não daqui.
@@ -443,28 +444,22 @@ export function AcolhimentoLeadDrawer({
               <option value="avaliacao">Avaliação (sessão de 50min)</option>
               <option value="treino_aba">Treino ABA (bloco de 2h em turma)</option>
             </select>
-            <div className="grid grid-cols-2 gap-2">
-              <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input">
-                {therapists.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              {offerKind === "treino_aba" ? (
-                <p className="self-center text-[11px] text-ink-soft">
-                  Sala e horário vêm da turma escolhida pela família (8h, 10h, 14h ou 16h).
-                </p>
-              ) : (
-                <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input">
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
+            {offerKind === "treino_aba" ? (
+              <div className="grid grid-cols-2 gap-2">
+                <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input">
+                  {therapists.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
                     </option>
                   ))}
                 </select>
-              )}
-            </div>
+                <p className="self-center text-[11px] text-ink-soft">
+                  Sala e horário vêm da turma escolhida pela família (8h, 10h, 14h ou 16h).
+                </p>
+              </div>
+            ) : (
+              <p className="text-[11px] text-ink-soft">Avaliador e sala são definidos automaticamente pelo sistema.</p>
+            )}
             <button
               type="button"
               disabled={isPending || approvedFiles.length === 0}

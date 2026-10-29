@@ -13,7 +13,7 @@ import { normalizeCpf, parseBrDate, normalizePhone } from "@/lib/document-extrac
 import { claimAndProcessIntakeBatches, ingestPreExtractedIntakeBatch } from "@/lib/insurance-intake-process";
 import { parseIntakeProfile, type IntakeExtractionProfile } from "@/lib/insurance-intake-profile";
 import { parsePythonIntakeRecords, mapPythonRecordsToIntakeExtraction } from "@/lib/insurance-intake-python-import";
-import { computeAvailableSlots } from "@/lib/available-slots";
+import { computeEvaluationOfferSlots } from "@/lib/evaluation-offer-slots";
 import { computeAbaTrainingSlots } from "@/lib/aba-training-slots";
 import { startIntakeConversation, pushIntakeUpdate, setIntakeAwaitingSlot } from "@/lib/twilio-intake-bot";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
@@ -518,21 +518,16 @@ async function buildOfferedSlots(
     }));
   }
 
-  const rawSlots = await computeAvailableSlots(admin, {
-    therapistId: params.therapistId,
-    roomId: params.roomId,
-    durationMinutes: 50,
-    limit: 3,
-    maxPerDay: 2,
-  });
-
-  return rawSlots.map((s, index) => ({
-    index: index + 1,
-    label: `${s.dateLabel} às ${s.timeLabel}`,
-    starts_at: s.startsAtIso,
-    ends_at: s.endsAtIso,
-    therapist_id: params.therapistId,
-    room_id: params.roomId,
+  // 1ª avaliação: avaliador e sala saem do sistema (mesma regra de preenchimento
+  // de turno da oferta automática), não de escolha da Supervisão.
+  const slots = await computeEvaluationOfferSlots(admin, params.clinicId);
+  return slots.map((s) => ({
+    index: s.index,
+    label: s.label,
+    starts_at: s.starts_at,
+    ends_at: s.ends_at,
+    therapist_id: s.therapist_id,
+    room_id: s.room_id,
   }));
 }
 
@@ -553,8 +548,8 @@ export async function approveIntakeLeadDocuments(
   if ("error" in auth) return { success: false, error: auth.error };
   // No Treino ABA a sala vem da turma escolhida pela família, não daqui —
   // só o terapeuta responsável pelo bloco continua sendo escolha do supervisor.
-  if (!therapistId) return { success: false, error: "Selecione o terapeuta." };
-  if (offerKind === "avaliacao" && !roomId) return { success: false, error: "Selecione o terapeuta e a sala da avaliação." };
+  // Na 1ª avaliação nada disso vem do cliente: o sistema aloca avaliador e sala.
+  if (offerKind === "treino_aba" && !therapistId) return { success: false, error: "Selecione o terapeuta." };
 
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -692,7 +687,7 @@ export async function approveIntakeLeadDocuments(
       error:
         offerKind === "treino_aba"
           ? "Sem vaga nas turmas de Treino ABA nos próximos dias — abra uma turma ou libere vaga antes de enviar."
-          : "Sem horários livres nos próximos dias para esse terapeuta/sala — tente outra combinação.",
+          : "Sem horários livres para avaliação nos próximos dias — libere agenda de um avaliador ou uma sala de avaliação.",
     };
   }
 
