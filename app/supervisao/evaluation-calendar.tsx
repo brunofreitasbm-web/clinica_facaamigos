@@ -17,6 +17,7 @@ import {
   getEvaluationDayCountsAction,
   getEvaluatorsAvailabilityAction,
   scheduleFromPoolAction,
+  suggestNearestEvaluationSlotAction,
   rescheduleEvaluationAction,
   updateEvaluationAppointmentAction,
   cancelEvaluationAppointmentAction,
@@ -382,7 +383,7 @@ function ScheduleDialog({
   onChange: (next: SlotDialog) => void;
   onRoomChange: (id: string) => void;
   onConfirm: () => void;
-  /** Preenche data e horário com o primeiro horário vago do avaliador/sala escolhidos, a partir de amanhã. */
+  /** Preenche data e horário com o primeiro horário vago a partir de amanhã. */
   onSuggest: () => void;
   onClose: () => void;
 }) {
@@ -453,9 +454,9 @@ function ScheduleDialog({
           <button
             type="button"
             onClick={onSuggest}
-            disabled={pending || !therapistId || !roomId}
+            disabled={pending}
             className="btn text-xs font-semibold disabled:opacity-50"
-            title="Primeiro horário vago do avaliador e da sala escolhidos, a partir de amanhã"
+            title="Primeiro horário vago a partir de amanhã"
           >
             Sugerir data mais próxima
           </button>
@@ -1053,17 +1054,17 @@ export function EvaluationCalendar({
     const date = week.days.includes(today) ? today : week.days[0];
     setSlotDialog({ itemId: item.id, date, time: minutesToTime(DAY_START_HOUR * 60) });
     // Abre já na data mais próxima possível (primeiro horário vago a partir de amanhã).
-    void applyNearestSuggestion(therapistId, roomId, true);
+    void applyNearestSuggestion(true);
   }
 
   /**
    * Regra da data mais próxima: preenche o diálogo com o primeiro horário vago
-   * do avaliador/sala, a partir de amanhã. Muda a semana exibida se a data cair
+   * a partir de amanhã. Muda a semana exibida se a data cair
    * em outra semana (o seletor de data só lista a semana visível). Quando
    * `silent`, uma falha não incomoda: o diálogo segue com o padrão de sempre.
    */
-  async function applyNearestSuggestion(forTherapistId: string, forRoomId: string, silent: boolean) {
-    const res = await suggestNearestEvaluationSlotAction({ therapistId: forTherapistId, roomId: forRoomId });
+  async function applyNearestSuggestion(silent: boolean) {
+    const res = await suggestNearestEvaluationSlotAction();
     if (!res.success) {
       if (!silent) toast(res.error, "info");
       return;
@@ -1613,7 +1614,7 @@ export function EvaluationCalendar({
           onChange={setSlotDialog}
           onRoomChange={setRoomId}
           onConfirm={confirmSchedule}
-          onSuggest={() => void applyNearestSuggestion(therapistId, roomId, false)}
+          onSuggest={() => void applyNearestSuggestion(false)}
           onClose={() => setSlotDialog(null)}
         />
       )}

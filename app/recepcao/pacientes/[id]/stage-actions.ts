@@ -9,6 +9,8 @@ import { CANCELLED_APPOINTMENT_STATUSES, promoteToPatient } from "@/lib/patient-
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
 import { releaseOfferForManualScheduling } from "@/lib/evaluation-offer";
+import { getSchedulingGates } from "@/lib/evaluation-agenda";
+import { shouldPromoteOnScheduling } from "@/lib/scheduling-promotion-pure";
 
 type ActionResult = { success: true } | { success: false; error: string };
 

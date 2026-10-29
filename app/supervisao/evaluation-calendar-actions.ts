@@ -21,6 +21,7 @@ import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions"
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
 import { allocateEvaluator } from "@/lib/evaluation-allocation";
+import { computeEvaluationOfferSlots } from "@/lib/evaluation-offer-slots";
 import { loadClinicCalendar } from "@/lib/clinic-calendar";
 import type { ClinicClosure } from "@/lib/clinic-calendar-pure";
 
@@ -245,6 +246,30 @@ export async function rejectEvaluationOfferAction(appointmentId: string): Promis
   return reoffer.success
     ? { success: true }
     : { success: false, error: `Horário liberado, mas a nova lista não foi enviada: ${reoffer.error ?? "erro desconhecido"}` };
+}
+
+/**
+ * Sugestão de data para o agendamento manual: o primeiro horário vago a partir
+ * de AMANHÃ (mesma regra da oferta do bot — lib/evaluation-offer-slots.ts),
+ * respeitando disponibilidade, feriados e fechamentos. O avaliador é escolhido
+ * no agendamento (allocateEvaluator), então a sugestão vale para qualquer um.
+ * Só sugere: quem confirma é a supervisão no diálogo.
+ */
+export async function suggestNearestEvaluationSlotAction(): Promise<
+  { success: true; date: string; time: string; label: string } | { success: false; error: string }
+> {
+  const auth = await requireManager();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  try {
+    const slots = await computeEvaluationOfferSlots(createAdminClient(), DEV_CLINIC_ID, { page: 0 });
+    const first = slots[0];
+    if (!first) return { success: false, error: "Sem horário vago nos próximos 21 dias." };
+    const [date, fullTime] = new Date(first.starts_at).toLocaleString("sv-SE", { timeZone: CLINIC_TIMEZONE }).split(" ");
+    return { success: true, date, time: fullTime.slice(0, 5), label: first.label };
+  } catch {
+    return { success: false, error: "Não foi possível calcular a sugestão agora." };
+  }
 }
 
 /** Nova tentativa de oferta para uma criança cuja oferta falhou, expirou ou ficou sem horário. */
