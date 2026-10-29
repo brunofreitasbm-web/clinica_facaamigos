@@ -72,6 +72,8 @@ Deno.serve(async (req) => {
         mediaUrl0: params.MediaUrl0 ?? "",
         mediaContentType0: params.MediaContentType0 ?? "",
         media,
+        buttonPayload: params.ButtonPayload ?? "",
+        listId: params.ListId ?? "",
       },
     },
     { onConflict: "message_sid", ignoreDuplicates: true },

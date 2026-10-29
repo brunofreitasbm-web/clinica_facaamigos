@@ -13,6 +13,7 @@ import { fetchPtsTemplatesAction, saveGoalAsTemplateAction } from "@/app/supervi
 import type { ClinicIdentity } from "@/lib/clinic-identity";
 import { generate40MinSlotsForShift } from "@/lib/pts-slots";
 import { GoalForm } from "@/components/SmartGoals/GoalForm";
+import { closureReason, timeToMinutes, type ClinicClosure } from "@/lib/clinic-calendar-pure";
 
 
 type Patient = { id: string; full_name: string };
@@ -110,6 +111,7 @@ export function PlanForm({
   therapists = [],
   rooms = [],
   availability = [],
+  closures = [],
   initialPatientId = "",
   initialFamilyPriorities = "",
   suggestedGoals = [],
@@ -120,6 +122,7 @@ export function PlanForm({
   therapists?: Therapist[];
   rooms?: Room[];
   availability?: AvailabilityBlock[];
+  closures?: ClinicClosure[];
   initialPatientId?: string;
   initialFamilyPriorities?: string;
   suggestedGoals?: SuggestedGoal[];
@@ -371,14 +374,24 @@ export function PlanForm({
 
     let curr = new Date(startDate);
     let sessionCounter = 1;
+    // Dias com sessão que cairia em feriado/fechamento de dia inteiro: não
+    // geramos (clínica fechada) e avisamos no fim.
+    const skippedClosedDays = new Map<string, string>();
 
     while (curr <= endDate) {
       const currentJsDay = curr.getDay(); // 0 = Dom, 1 = Seg, ..., 6 = Sáb
-      const dateIso = curr.toISOString().substring(0, 10);
+      // Data civil local (curr nasce de "T00:00:00" local): toISOString()
+      // converteria pra UTC e deslocaria o dia em fusos atrás de UTC.
+      const dateIso = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, "0")}-${String(curr.getDate()).padStart(2, "0")}`;
+      const closedDay = closureReason(dateIso, 0, 24 * 60, closures);
 
       gridRows.forEach((row) => {
         const matchingDays = row.daysOfWeek.map((d) => dayMap[d]);
         if (matchingDays.includes(currentJsDay)) {
+          if (closedDay) {
+            skippedClosedDays.set(dateIso, closedDay.label);
+            return;
+          }
           const discLabel = DISCIPLINES.find((d) => d.value === row.discipline)?.label || row.discipline;
           const dayName = curr.toLocaleDateString("pt-BR", { weekday: "short" }).toUpperCase();
           const therapistId = row.therapistId || null;
@@ -438,6 +451,16 @@ export function PlanForm({
               conflictNote = "Terapeuta ainda sem disponibilidade cadastrada em /supervisao/disponibilidade — horário sugerido, não garantido.";
             }
 
+            // Fechamento parcial (ex.: reunião geral à tarde) que cobre o slot.
+            if (assignedTimeSlot) {
+              const [slotStart, slotEnd] = assignedTimeSlot.split(" - ");
+              const partial = closureReason(dateIso, timeToMinutes(slotStart), timeToMinutes(slotEnd), closures);
+              if (partial) {
+                conflictStatus = "MANUAL_REQUIRED";
+                conflictNote = `Clínica fechada neste horário: ${partial.label}.`;
+              }
+            }
+
             // Aloca sala real por rotação simples entre as salas livres
             // naquele slot.
             if (assignedTimeSlot && rooms.length > 0) {
@@ -484,6 +507,15 @@ export function PlanForm({
     }
 
     setGeneratedSessions(sessionsList);
+    if (skippedClosedDays.size > 0) {
+      const sample = [...skippedClosedDays.entries()]
+        .slice(0, 3)
+        .map(([d, label]) => `${d.slice(8)}/${d.slice(5, 7)} ${label}`)
+        .join(", ");
+      const more = skippedClosedDays.size > 3 ? ` e mais ${skippedClosedDays.size - 3}` : "";
+      setToastMessage(`${skippedClosedDays.size} dia(s) sem sessão por feriado/fechamento: ${sample}${more}.`);
+      setTimeout(() => setToastMessage(null), 8000);
+    }
   }
 
   function addSuggestedGoal(s: SuggestedGoal) {

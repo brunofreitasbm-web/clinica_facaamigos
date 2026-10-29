@@ -34,7 +34,7 @@ import { WhatsappLeadsPanel } from "@/components/whatsapp-leads-panel";
 import { AcolhimentosPanel, type BatchRow } from "./acolhimentos-panel";
 import type { LeadRow, LeadFileRow } from "./acolhimento-lead-drawer";
 import { AgendaAvaliacoesPanel } from "./agenda-avaliacoes-panel";
-import { getEvaluationPool } from "@/lib/evaluation-agenda";
+import { getEvaluationOffers, getEvaluationPool } from "@/lib/evaluation-agenda";
 
 export const dynamic = "force-dynamic";
 
@@ -165,7 +165,7 @@ export default async function SupervisaoPage() {
   ]);
 
   // ── Agenda de 1ª Avaliação (WhatsApp anamnese + PDF convênio + presencial) ──
-  const evaluationPool = await getEvaluationPool(supabase, DEV_CLINIC_ID);
+  const [evaluationPool, evaluationOffers] = await Promise.all([getEvaluationPool(supabase, DEV_CLINIC_ID), getEvaluationOffers(supabase)]);
   const nAgenda1a = evaluationPool.length;
 
   // ── Grade semanal ──────────────────────────────────────────────────────
@@ -483,6 +483,7 @@ export default async function SupervisaoPage() {
       agenda1aTab={
         <AgendaAvaliacoesPanel
           pool={evaluationPool}
+          offers={evaluationOffers}
           therapists={(therapists ?? []).filter((t) => t.is_evaluator).map((t) => ({ id: t.id, name: t.full_name }))}
           rooms={(rooms ?? []).filter((r) => r.is_evaluation_room).map((r) => ({ id: r.id, name: r.name }))}
           triagensPanel={

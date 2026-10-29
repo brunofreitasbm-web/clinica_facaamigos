@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/page-container";
@@ -51,6 +52,13 @@ export default async function DisponibilidadePage() {
         description="Dias e horários em que cada terapeuta atende — cadastro exclusivo da supervisão e da gestão; o terapeuta apenas visualiza a própria janela. Um agendamento fora dela é bloqueado automaticamente na recepção, na grade recorrente e no calendário do PTS."
       />
       <PageContainer>
+        <p className="mb-4 text-xs text-ink-soft">
+          Feriados e fechamentos da clínica:{" "}
+          <Link href="/supervisao/feriados" className="font-semibold text-chart underline">
+            cadastrar em Feriados e fechamentos
+          </Link>
+          .
+        </p>
         <AvailabilityManager
           therapists={(therapists ?? []) as TherapistOption[]}
           blocks={(blocks ?? []) as AvailabilityBlock[]}

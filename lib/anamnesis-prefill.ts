@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatE164Phone } from "@/lib/twilio";
+import { formatE164Phone, getTwilioContentSidForCategory } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 
@@ -20,7 +20,7 @@ export async function dispatchAnamnesisPrefillRequest(params: {
   patientId: string;
   appointmentId: string;
   startsAt: string;
-}): Promise<void> {
+}): Promise<{ sent: boolean; reason?: string }> {
   const { patientId, appointmentId, startsAt } = params;
 
   try {
@@ -28,14 +28,14 @@ export async function dispatchAnamnesisPrefillRequest(params: {
 
     const [{ data: patient }, { data: guardians }] = await Promise.all([
       admin.from("patients").select("full_name").eq("id", patientId).maybeSingle(),
-      admin.from("guardians").select("id, phone, is_financial").eq("patient_id", patientId),
+      admin.from("guardians").select("id, full_name, phone, is_financial").eq("patient_id", patientId),
     ]);
 
     const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
-    if (!guardian?.phone) return;
+    if (!guardian?.phone) return { sent: false, reason: "Responsável sem telefone." };
 
     const phone = formatE164Phone(guardian.phone);
-    if (!phone) return;
+    if (!phone) return { sent: false, reason: "Telefone do responsável inválido." };
 
     const childName = patient?.full_name ?? "seu(sua) filho(a)";
     const formattedDate = new Date(startsAt).toLocaleString("pt-BR", {
@@ -63,15 +63,26 @@ export async function dispatchAnamnesisPrefillRequest(params: {
       if (requestError && requestError.code !== "23505") {
         console.error("[Anamnesis Prefill] Falha ao criar solicitação:", requestError.message);
       }
-      return;
+      return { sent: false, reason: requestError?.code === "23505" ? "Convite já criado para este agendamento." : "Falha ao registrar o convite." };
     }
 
     const consentMessage = buildConsentMessage(childName, formattedDate);
-    const sendResult = await sendWhatsApp({ to: phone, message: consentMessage });
+    // Template (convite_pre_anamnese) quando configurado: texto livre só é entregue com a
+    // janela de 24h aberta, e a confirmação do horário pode ter sido horas depois da escolha.
+    const contentSid = getTwilioContentSidForCategory("convite_pre_anamnese");
+    const guardianFirstName = (guardian.full_name ?? "").trim().split(/\s+/)[0] ?? "";
+    const sendResult = await sendWhatsApp({
+      to: phone,
+      message: consentMessage,
+      ...(contentSid ? { contentSid, contentVariables: { "1": guardianFirstName || "família", "2": childName, "3": formattedDate } } : {}),
+    });
 
     if (!sendResult.success) {
       console.error("[Anamnesis Prefill] Falha ao enviar WhatsApp:", sendResult.error);
-      return;
+      // Sem entrega, o pedido não pode ficar como "enviado": as telas mostrariam um convite
+      // que a família nunca recebeu. Removido, o convite pode ser disparado de novo.
+      await db.from("anamnesis_prefill_requests").delete().eq("id", request.id);
+      return { sent: false, reason: sendResult.error ?? "Falha ao enviar o convite por WhatsApp." };
     }
 
     await db.from("chatbot_sessions").upsert(
@@ -83,8 +94,10 @@ export async function dispatchAnamnesisPrefillRequest(params: {
       },
       { onConflict: "phone_number" },
     );
+    return { sent: true };
   } catch (err) {
     console.error("[Anamnesis Prefill] Exceção ao disparar convite:", err);
+    return { sent: false, reason: "Erro inesperado ao disparar o convite." };
   }
 }
 
@@ -99,7 +112,8 @@ export function buildConsentMessage(childName: string, formattedDate: string): s
     "Olá! 👋 Aqui é o assistente virtual da clínica.\n\n" +
     `A avaliação de *${childName}* foi agendada para ${formattedDate}. Para o terapeuta chegar mais preparado, gostaríamos de coletar algumas informações antes da consulta — leva poucos minutos.\n\n` +
     "Essas respostas serão revisadas e aprofundadas pelo terapeuta durante o atendimento; elas não substituem a anamnese clínica presencial.\n\n" +
-    "Você concorda em responder por aqui? Responda *SIM* para começar ou *PULAR* se preferir preencher tudo presencialmente com o terapeuta."
+    "Você concorda em responder por aqui? Responda *SIM* para começar ou *PULAR* se preferir preencher tudo presencialmente com o terapeuta.\n\n" +
+    "FaçaAmigos - Centro de Terapia Comportamental"
   );
 }
 

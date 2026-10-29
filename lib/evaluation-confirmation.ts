@@ -53,18 +53,20 @@ export async function sendEvaluationConfirmationNotification(
 
     let patientName = "Paciente";
     let phoneToNotify = "";
+    let guardianFirstName = "";
 
     // 1. Obter nome do paciente e telefone com base na origem ou patientId
     if (params.patientId) {
       const [{ data: patient }, { data: guardians }] = await Promise.all([
         admin.from("patients").select("full_name").eq("id", params.patientId).maybeSingle(),
-        admin.from("guardians").select("phone, is_financial").eq("patient_id", params.patientId),
+        admin.from("guardians").select("full_name, phone, is_financial").eq("patient_id", params.patientId),
       ]);
       if (patient?.full_name) patientName = patient.full_name;
 
       const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
       if (guardian?.phone) {
         phoneToNotify = guardian.phone;
+        guardianFirstName = (guardian.full_name ?? "").trim().split(/\s+/)[0] ?? "";
       }
     } else if (params.bookInput) {
       if (params.bookInput.origin === "whatsapp_anamnese") {
@@ -92,13 +94,14 @@ export async function sendEvaluationConfirmationNotification(
       } else if (params.bookInput.origin === "presencial") {
         const [{ data: patient }, { data: guardians }] = await Promise.all([
           admin.from("patients").select("full_name").eq("id", params.bookInput.patientId).maybeSingle(),
-          admin.from("guardians").select("phone, is_financial").eq("patient_id", params.bookInput.patientId),
+          admin.from("guardians").select("full_name, phone, is_financial").eq("patient_id", params.bookInput.patientId),
         ]);
         if (patient?.full_name) patientName = patient.full_name;
 
         const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
         if (guardian?.phone) {
           phoneToNotify = guardian.phone;
+          guardianFirstName = (guardian.full_name ?? "").trim().split(/\s+/)[0] ?? "";
         }
       }
     }
@@ -156,13 +159,13 @@ export async function sendEvaluationConfirmationNotification(
       ...(contentSid
         ? {
             contentSid,
+            // Template `confirmacao_avaliacao` (scripts/create-eval-offer-template.ts):
+            // 1 = primeiro nome do responsável, 2 = criança, 3 = data e hora, 4 = profissional.
             contentVariables: {
-              "1": "Responsável",
+              "1": guardianFirstName || "família",
               "2": patientName,
               "3": formattedDate,
-              "4": params.time,
-              "5": therapistName || "Especialista",
-              "6": "FaçaAmigos",
+              "4": therapistName || "equipe FaçaAmigos",
             },
           }
         : {}),

@@ -117,6 +117,10 @@ export async function POST(req: NextRequest) {
       mediaUrl0,
       mediaContentType0,
       media,
+      // Respostas interativas (botão do template / item de lista) — só vêm no
+      // corpo form-encoded; JSON/texto simples não têm esses campos.
+      buttonPayload: signatureParams.ButtonPayload || undefined,
+      listId: signatureParams.ListId || undefined,
     };
 
     // Fila durável: grava o payload ANTES de processar. Se o processamento

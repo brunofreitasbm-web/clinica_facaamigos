@@ -2,10 +2,13 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
-import { DEV_CLINIC_ID } from "@/lib/constants";
+import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { getSuggestedGoals, getTeamSuggestions } from "@/lib/plan-suggestions";
 import { PlanForm } from "./plan-form";
 import { getClinicIdentity } from "@/lib/clinic-identity";
+import { loadClinicCalendar } from "@/lib/clinic-calendar";
+import { todayInTimeZone } from "@/lib/timezone";
+import { addDays } from "@/lib/clinic-calendar-pure";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +76,13 @@ export default async function NovoPlanoPage({
     .eq("clinic_id", DEV_CLINIC_ID)
     .eq("active", true);
 
+  // Fechamentos cadastrados (feriado municipal, recesso...) pelos próximos ~2
+  // anos — o calendário de 6 meses do PTS pula esses dias; feriados nacionais
+  // vêm de lib/clinic-calendar-pure. O bloqueio definitivo é o trigger
+  // appointments_clinic_hours_guard.
+  const todayIso = todayInTimeZone(CLINIC_TIMEZONE);
+  const { closures } = await loadClinicCalendar(supabase, todayIso, addDays(todayIso, 730));
+
   // Prioridades da família (Módulo 3 MAAIS, slide 22) — pré-preenche o campo
   // do plano com o que a 1ª avaliação (anamnese) já registrou, pra não
   // depender de alguém lembrar de reler a anamnese na hora de montar o PTS.
@@ -109,6 +119,7 @@ export default async function NovoPlanoPage({
           therapists={therapists ?? []}
           rooms={rooms ?? []}
           availability={availability ?? []}
+          closures={closures}
           initialPatientId={paciente ?? ""}
           initialFamilyPriorities={familyPriorities ?? ""}
           suggestedGoals={suggestedGoals}

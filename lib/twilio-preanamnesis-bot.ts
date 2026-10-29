@@ -1,37 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatE164Phone } from "@/lib/twilio";
+import { PRE_ANAMNESIS_QUESTIONS as QUESTIONS, PREANAM_BUTTON_NO } from "@/lib/pre-anamnesis-questions";
 
-/**
- * Perguntas do pré-preenchimento assíncrono de anamnese (disparado por
- * lib/anamnesis-prefill.ts::dispatchAnamnesisPrefillRequest). Deliberadamente
- * curto e sem perguntas que exijam julgamento clínico — o objetivo é coletar
- * dado bruto para o terapeuta revisar e aprofundar na consulta, não
- * substituir a anamnese oficial (`anamneses`, preenchida pelo profissional
- * em app/supervisao/pacientes/[id]/anamnese).
- */
-const QUESTIONS: { key: string; prompt: string }[] = [
-  {
-    key: "queixa_principal",
-    prompt: "Qual é a principal queixa ou motivo que trouxe vocês à avaliação?",
-  },
-  {
-    key: "historico_gestacao_desenvolvimento",
-    prompt:
-      "Há alguma informação sobre gestação, parto ou desenvolvimento (motor, fala, marcos) que considere importante?",
-  },
-  {
-    key: "diagnosticos_medicamentos",
-    prompt: "A criança possui algum diagnóstico médico e/ou faz uso de medicação? Se sim, quais?",
-  },
-  {
-    key: "alergias",
-    prompt: "Há alergias alimentares ou a medicamentos que devemos saber?",
-  },
-  {
-    key: "expectativas",
-    prompt: "Por fim, o que vocês esperam desse primeiro atendimento?",
-  },
-];
+// As perguntas moram em lib/pre-anamnesis-questions.ts (puro, também usado pelas telas de 1ª avaliação).
 
 function normalize(text: string): string {
   return (text || "")
@@ -50,6 +21,8 @@ function normalize(text: string): string {
 export async function processPreAnamnesisStep(params: {
   from: string;
   body: string;
+  /** Toque no botão do template de convite (`ButtonPayload`). */
+  buttonPayload?: string | null;
 }): Promise<{ handled: boolean; replyMessage: string }> {
   const phone = formatE164Phone(params.from.replace("whatsapp:", ""));
   const rawBody = (params.body || "").trim();
@@ -78,7 +51,7 @@ export async function processPreAnamnesisStep(params: {
     return { handled: false, replyMessage: "" };
   }
 
-  const isDecline = normBody === "pular" || normBody.includes("nao quero") || normBody === "nao" || normBody === "n";
+  const isDecline = params.buttonPayload === PREANAM_BUTTON_NO || normBody === "pular" || normBody.includes("nao quero") || normBody === "nao" || normBody === "n";
 
   if (session.current_step === "pre_anamnesis_consent") {
     if (isDecline) {

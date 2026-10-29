@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { EvaluationCalendar } from "./evaluation-calendar";
 import { PatientFeedbackButton } from "./patient-feedback-modal";
-import type { EvaluationPoolItem } from "@/lib/evaluation-agenda";
+import type { EvaluationOfferItem, EvaluationPoolItem } from "@/lib/evaluation-agenda";
 
 const SUB_TABS = [
   { key: "calendario", label: "Calendário" },
@@ -37,6 +37,7 @@ function SubTabBadge({ value, urgent }: { value: number; urgent?: boolean }) {
  */
 export function AgendaAvaliacoesPanel({
   pool,
+  offers,
   therapists,
   rooms,
   triagensPanel,
@@ -45,6 +46,7 @@ export function AgendaAvaliacoesPanel({
   acolhimentosUrgent = false,
 }: {
   pool: EvaluationPoolItem[];
+  offers: EvaluationOfferItem[];
   therapists: { id: string; name: string }[];
   rooms: { id: string; name: string }[];
   triagensPanel: ReactNode;
@@ -84,7 +86,7 @@ export function AgendaAvaliacoesPanel({
 
       {subTab === "triagens" ? triagensPanel : null}
       {subTab === "acolhimentos" ? acolhimentosPanel : null}
-      {subTab === "calendario" ? <EvaluationCalendar pool={pool} therapists={therapists} rooms={rooms} /> : null}
+      {subTab === "calendario" ? <EvaluationCalendar pool={pool} offers={offers} therapists={therapists} rooms={rooms} /> : null}
     </div>
   );
 }
