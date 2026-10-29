@@ -4,6 +4,7 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
 import { FileText, Image as ImageIcon } from "lucide-react";
 import { DocumentRequestButtons } from "./document-request-buttons";
+import { DraftAdjustButton } from "./draft-adjust-dialog";
 import { DraftPipelineColumns } from "./draft-pipeline";
 import { PendencyGrid } from "./pendency-pills";
 import { missingChaseKeys } from "@/lib/lead-pendencies";
@@ -177,6 +178,7 @@ export function DraftIntakeCard({
         />
 
         <div className="flex flex-wrap items-center gap-3">
+          <DraftAdjustButton draftId={draft.id} />
           {draft.status !== "validated" && !hideReviewLink && (
             <Link
               href={`/recepcao/pre-cadastros/${draft.id}`}

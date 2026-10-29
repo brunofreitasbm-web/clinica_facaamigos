@@ -39,7 +39,7 @@ export async function promoteToPatient(supabase: SupabaseClient<Database>, patie
     .from("patients")
     .update({ status: "avaliacao" })
     .eq("id", patientId)
-    .eq("status", "interessado");
+    .in("status", ["interessado", "aguardando"]);
   if (error) console.error("Erro ao promover interessado a paciente:", error);
 }
 
@@ -65,6 +65,11 @@ export type PendingPatient = {
   daysSinceCreated: number;
 };
 
+export type GetPendingPatientsOptions = {
+  includeStage4?: boolean;
+  includePipelineDrafts?: boolean;
+};
+
 /**
  * Pacientes travados em algum estágio do cadastro contínuo há `daysThreshold`+
  * dias — mesma regra usada em `/recepcao/pacientes/pendencias` e na contagem
@@ -73,6 +78,7 @@ export type PendingPatient = {
 export async function getPendingPatients(
   supabase: SupabaseClient<Database>,
   daysThreshold = 3,
+  options?: GetPendingPatientsOptions,
 ): Promise<PendingPatient[]> {
   const { data: patients } = await supabase
     .from("patients")
@@ -103,7 +109,7 @@ export async function getPendingPatients(
 
   // Quem tem contato na esteira (registration_drafts) já é acompanhado lá —
   // pendente, autorizado, dispensado ou com agendamento liberado. Listar de novo
-  // aqui duplicava a mesma família na fila de pendências.
+  // aqui duplicava a mesma família na fila de pendências da recepção.
   const { data: pipelineDrafts } = patientIds.length
     ? await supabase.from("registration_drafts").select("patient_id").in("patient_id", patientIds).neq("status", "rejected")
     : { data: [] as { patient_id: string | null }[] };
@@ -118,6 +124,9 @@ export async function getPendingPatients(
     }),
   );
 
+  const includeStage4 = options?.includeStage4 ?? false;
+  const includePipelineDrafts = options?.includePipelineDrafts ?? false;
+
   const now = Date.now();
   return (patients ?? [])
     .map((p) => ({
@@ -125,6 +134,11 @@ export async function getPendingPatients(
       stage: computeStage(p, evaluationScheduledIds.has(p.id), activeAuthPatientIds.has(p.id)),
       daysSinceCreated: Math.floor((now - new Date(p.created_at).getTime()) / 86_400_000),
     }))
-    .filter((p) => p.stage < 4 && p.daysSinceCreated >= daysThreshold && !pipelinePatientIds.has(p.id))
+    .filter((p) => {
+      if (!includeStage4 && p.stage >= 4) return false;
+      if (p.daysSinceCreated < daysThreshold) return false;
+      if (!includePipelineDrafts && pipelinePatientIds.has(p.id)) return false;
+      return true;
+    })
     .sort((a, b) => b.daysSinceCreated - a.daysSinceCreated);
 }

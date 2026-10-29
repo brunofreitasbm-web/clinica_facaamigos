@@ -66,9 +66,24 @@ export type DocumentExtraction = {
     authorization_password: string | null;
     password_valid_until: string | null;
   };
+  /**
+   * Outras crianças (irmãos) cujos documentos vieram no MESMO envio. `patient` e
+   * `insurance` descrevem só a primeira; cada irmão vira um rascunho próprio
+   * (lib/draft-split.ts). `document_indexes` aponta os arquivos que são só dele.
+   */
+  additional_children: ExtractedSibling[];
   documents: { index: number; kind: ExtractedDocType; summary: string }[];
   confidence: Record<string, number>;
   warnings: string[];
+};
+
+export type ExtractedSibling = {
+  full_name: string;
+  birth_date: string | null;
+  cpf: string | null;
+  cid: string | null;
+  card_number: string | null;
+  document_indexes: number[];
 };
 
 export type ExtractionOutcome =
@@ -109,10 +124,12 @@ Responda APENAS um JSON com exatamente este formato:
   "address": {"cep": string|null, "logradouro": string|null, "numero": string|null, "complemento": string|null, "bairro": string|null, "cidade": string|null, "uf": string|null},
   "insurance": {"insurer_name": string|null, "card_number": string|null, "plan_name": string|null, "card_valid_until": string|null},
   "authorization": {"guide_number": string|null, "procedure_code": string|null, "sessions_authorized": number|null, "valid_from": string|null, "valid_to": string|null, "authorization_password": string|null, "password_valid_until": string|null},
+  "additional_children": [{"full_name": string, "birth_date": string|null, "cpf": string|null, "cid": string|null, "card_number": string|null, "document_indexes": [number]}],
   "documents": [{"index": number, "kind": "certidao_nascimento"|"documento_identidade"|"comprovante_residencia"|"carteirinha"|"autorizacao"|"laudo"|"pedido_medico"|"outro", "summary": string}],
   "confidence": {"patient.full_name": number, "...": number},
   "warnings": [string]
 }
+Se os arquivos forem de MAIS DE UMA criança (irmãos, gêmeos: duas carteirinhas, dois RGs, laudos em nomes diferentes), preencha "patient" e "insurance" só com a primeira criança e liste cada outra em "additional_children", com "document_indexes" = índices dos arquivos que pertencem somente a ela (carteirinha, RG, laudo, pedido dela). Arquivos do responsável ou comuns às duas não entram em "document_indexes". Com uma criança só, devolva "additional_children": []. NUNCA misture CPF, carteirinha ou CID de uma criança na outra.
 Preencha "confidence" (0 a 1) para cada campo não-nulo que você preencheu (chave = caminho, ex. "patient.full_name", "address.cep"). Em "warnings", liste inconsistências encontradas (ex.: nomes divergentes entre documentos, documento ilegível, carteirinha vencida). Responda só o JSON, sem texto adicional.`;
 }
 
@@ -145,6 +162,7 @@ function coerceExtraction(raw: unknown): DocumentExtraction {
   const insurance = (r.insurance ?? {}) as Record<string, unknown>;
   const authorization = (r.authorization ?? {}) as Record<string, unknown>;
   const documentsRaw = Array.isArray(r.documents) ? r.documents : [];
+  const siblingsRaw = Array.isArray(r.additional_children) ? r.additional_children : [];
   const confidenceRaw = (r.confidence ?? {}) as Record<string, unknown>;
   const warningsRaw = Array.isArray(r.warnings) ? r.warnings : [];
 
@@ -197,6 +215,22 @@ function coerceExtraction(raw: unknown): DocumentExtraction {
       authorization_password: coerceString(authorization.authorization_password),
       password_valid_until: coerceString(authorization.password_valid_until),
     },
+    additional_children: siblingsRaw.flatMap((c): ExtractedSibling[] => {
+      const child = (c ?? {}) as Record<string, unknown>;
+      const fullName = coerceString(child.full_name);
+      if (!fullName) return [];
+      const indexes = Array.isArray(child.document_indexes) ? child.document_indexes : [];
+      return [
+        {
+          full_name: fullName,
+          birth_date: coerceString(child.birth_date),
+          cpf: coerceString(child.cpf),
+          cid: coerceString(child.cid),
+          card_number: coerceString(child.card_number),
+          document_indexes: indexes.map(coerceNumber).filter((n): n is number => n !== null),
+        },
+      ];
+    }),
     documents: documentsRaw.map((d, i) => {
       const doc = (d ?? {}) as Record<string, unknown>;
       return {
@@ -458,6 +492,11 @@ export function applyNormalization(
       cpf: normalizedCpf,
       birth_date: parseBrDate(result.patient.birth_date),
     },
+    additional_children: (result.additional_children ?? []).map((c) => ({
+      ...c,
+      cpf: normalizeCpf(c.cpf),
+      birth_date: parseBrDate(c.birth_date),
+    })),
     guardian: {
       ...result.guardian,
       cpf: normalizeCpf(result.guardian.cpf),

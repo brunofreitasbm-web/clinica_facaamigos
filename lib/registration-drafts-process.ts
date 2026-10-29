@@ -12,6 +12,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { extractRegistrationFromFiles, applyNormalization } from "@/lib/document-extraction";
 import { promoteDraftToLead } from "@/lib/whatsapp-lead";
+import { splitSiblingsFromDraft } from "@/lib/draft-split-db";
 import { mergeBotCollectedIntoExtraction } from "@/lib/lead-pendencies";
 import type { Json } from "@/lib/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -159,6 +160,16 @@ async function runExtractionForDraft(
     clinic_id: draft.clinic_id,
     after: { warnings: normalized.warnings.length, files: downloaded.length },
   });
+
+  // Irmãos no mesmo envio: cada criança vira rascunho próprio antes da promoção
+  // a lead — senão o paciente-lead sairia só com a primeira (lib/draft-split.ts).
+  // Os arquivos seguem a numeração que a IA recebeu (`included`, em ordem de envio).
+  const currentExtracted = (botCollected ? mergeBotCollectedIntoExtraction(normalized, botCollected) : normalized) as Json;
+  await splitSiblingsFromDraft(
+    admin,
+    { id: draft.id, clinic_id: draft.clinic_id, extracted: currentExtracted },
+    included.map((f) => ({ id: f.id, detectedType: f.detected_type })),
+  );
 
   // Cadastro automático de lead: qualquer caminho que termina em "extracted"
   // (cron, reprocessamento, execução imediata) promove o rascunho do WhatsApp a

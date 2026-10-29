@@ -206,7 +206,7 @@ const GATE_STATUS_LABEL: Record<EvaluationSchedulingGate, string> = {
  * avaliação realizada prévia e sem agendamento futuro ativo.
  */
 async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<string>): Promise<EvaluationPoolItem[]> {
-  const pending = await getPendingPatients(supabase, 0);
+  const pending = await getPendingPatients(supabase, 0, { includeStage4: true, includePipelineDrafts: true });
   const candidates = pending.filter((p) => {
     if (coveredPatientIds.has(p.id)) return false;
     if (p.evaluated_at || p.first_session_at) return false;
@@ -237,20 +237,25 @@ async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<str
     const gate = gates.get(p.id);
     const profile = profiles.get(p.id);
     const isReady = !gate || gate === "habilitado" || p.status === "avaliacao";
+    const isApto = gate === "habilitado" || p.status === "avaliacao";
+    const statusLabel = isApto
+      ? "Apto para 1ª avaliação"
+      : gate
+        ? GATE_STATUS_LABEL[gate]
+        : "🚨 PRESENCIAL NA CLÍNICA";
+
+    const detail = isApto
+      ? "Apto para 1ª avaliação · plano autorizado"
+      : gate
+        ? `Documentos por WhatsApp/portal · cadastrado há ${p.daysSinceCreated} dia(s)`
+        : `Cadastrado há ${p.daysSinceCreated} dia(s)`;
+
     return {
       id: `presencial-${p.id}`,
       origin: "presencial" as const,
       patientName: p.full_name,
-      statusLabel: gate
-        ? GATE_STATUS_LABEL[gate]
-        : p.status === "avaliacao"
-          ? "Apto para 1ª avaliação"
-          : "🚨 PRESENCIAL NA CLÍNICA",
-      detail: gate
-        ? `Documentos por WhatsApp/portal · cadastrado há ${p.daysSinceCreated} dia(s)`
-        : p.status === "avaliacao"
-          ? "Apto para 1ª avaliação · plano autorizado"
-          : `Cadastrado há ${p.daysSinceCreated} dia(s)`,
+      statusLabel,
+      detail,
       ready: isReady,
       gate,
       facts: {
