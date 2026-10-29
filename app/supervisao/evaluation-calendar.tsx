@@ -879,6 +879,10 @@ export function EvaluationCalendar({
   }, []);
 
   const readyPool = pool.filter((p) => p.ready);
+  // Com oferta viva o responsável é quem agenda (WhatsApp): o card vira só acompanhamento
+  // e sai do agendamento manual (botão, arrastar, clique na grade) até a oferta ser assumida.
+  const hasLiveOffer = (p: EvaluationPoolItem) => Boolean(p.offer && isLiveOffer(p.offer));
+  const schedulablePool = readyPool.filter((p) => !hasLiveOffer(p));
   const waitingPool = pool.filter((p) => !p.ready);
   // Ofertas cujo paciente não aparece na fila (o card da fila já mostra a faixa de status).
   const orphanOffers = offers.filter((o) => !pool.some((p) => p.offer?.id === o.id));
@@ -1015,8 +1019,13 @@ export function EvaluationCalendar({
 
   function handleGridClick(dayIndex: number, offsetY: number) {
     if (!hasEvaluators) return;
-    if (readyPool.length === 0) {
-      toast("Nenhum paciente pronto para agendar na fila.", "info");
+    if (schedulablePool.length === 0) {
+      toast(
+        readyPool.length > 0
+          ? "Os pacientes da fila estão no agendamento automático pelo WhatsApp. Use \"Assumir manualmente\" no card para agendar você mesmo."
+          : "Nenhum paciente pronto para agendar na fila.",
+        "info",
+      );
       return;
     }
     const time = computeTimeFromOffsetY(offsetY);
@@ -1025,7 +1034,7 @@ export function EvaluationCalendar({
       toast(error, "error");
       return;
     }
-    setSlotDialog({ itemId: readyPool[0].id, date: week.days[dayIndex], time });
+    setSlotDialog({ itemId: schedulablePool[0].id, date: week.days[dayIndex], time });
   }
 
   function openDialogFromCard(item: EvaluationPoolItem) {
@@ -1139,16 +1148,19 @@ export function EvaluationCalendar({
         {/* Fila lateral — origem do agendamento vem antes da navegação por mês. */}
         <aside className="w-64 shrink-0">
           <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">Prontos para agendar ({readyPool.length})</h3>
-          <p className="mb-2 mt-0.5 text-[10px] text-ink-faint">Clique no card para ver documentos; arraste para a grade ou use Agendar.</p>
+          <p className="mb-2 mt-0.5 text-[10px] text-ink-faint">Cards com faixa colorida seguem o agendamento automático pelo WhatsApp: nada a fazer, o horário aparece na agenda para você confirmar. Nos demais, clique para ver documentos e arraste para a grade ou use Agendar.</p>
           <div className="flex flex-col gap-2">
-            {readyPool.map((item) => (
+            {readyPool.map((item) => {
+              const automatic = hasLiveOffer(item);
+              const canSchedule = hasEvaluators && !automatic;
+              return (
               <div
                 key={item.id}
-                draggable={hasEvaluators}
+                draggable={canSchedule}
                 role="button"
                 tabIndex={0}
                 onDragStart={(e) => {
-                  if (!hasEvaluators) {
+                  if (!canSchedule) {
                     e.preventDefault();
                     return;
                   }
@@ -1166,17 +1178,19 @@ export function EvaluationCalendar({
                   }
                 }}
                 className={`grid-cell-focusable rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm hover:border-[var(--color-accent)] ${
-                  hasEvaluators ? "cursor-grab active:cursor-grabbing" : "cursor-pointer opacity-70"
+                  canSchedule ? "cursor-grab active:cursor-grabbing" : automatic ? "cursor-pointer" : "cursor-pointer opacity-70"
                 }`}
                 title={
-                  hasEvaluators
-                    ? "Clique para consulta rápida (laudo, guia, contato) · arraste para a grade para agendar"
-                    : "Clique para consulta rápida — cadastre um terapeuta avaliador para liberar o agendamento"
+                  automatic
+                    ? "Agendamento automático em andamento — o responsável escolhe o horário pelo WhatsApp. Clique para consulta rápida."
+                    : hasEvaluators
+                      ? "Clique para consulta rápida (laudo, guia, contato) · arraste para a grade para agendar"
+                      : "Clique para consulta rápida — cadastre um terapeuta avaliador para liberar o agendamento"
                 }
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-xs font-semibold text-ink">{item.patientName}</p>
-                  {hasEvaluators && (
+                  {canSchedule && (
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
@@ -1192,6 +1206,24 @@ export function EvaluationCalendar({
                   )}
                 </div>
                 {item.offer && <OfferStatusBand badge={offerBadge(item.offer, nowMs)} />}
+                {automatic && item.offer && (
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className="text-[10px] text-ink-faint">Nada a fazer: você confirma quando o horário aparecer na agenda.</p>
+                    <button
+                      type="button"
+                      className="shrink-0 text-[10px] font-semibold text-ink-soft underline underline-offset-2 hover:no-underline"
+                      title="Cancela o envio automático ao responsável para você agendar manualmente"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const offerId = item.offer!.id;
+                        if (!window.confirm("Cancelar o agendamento automático e agendar manualmente? O responsável deixa de receber as opções por WhatsApp.")) return;
+                        void runOfferAction(() => cancelEvaluationOfferAction(offerId), "Oferta cancelada. Agende manualmente.");
+                      }}
+                    >
+                      Assumir manualmente
+                    </button>
+                  </div>
+                )}
                 <div className="mt-1 flex flex-wrap gap-1">
                   {item.gate ? (
                     // Na fila de prontos todo gate é "habilitado": um chip só, sem a categoria "Docs · Recepção".
@@ -1209,7 +1241,8 @@ export function EvaluationCalendar({
                 </div>
                 {!item.facts || item.gate ? <p className="mt-1 text-[11px] text-ink-faint">{item.detail}</p> : null}
               </div>
-            ))}
+              );
+            })}
             {readyPool.length === 0 && <p className="text-xs text-ink-faint">Nenhum paciente pronto para agendar.</p>}
           </div>
 
@@ -1536,7 +1569,7 @@ export function EvaluationCalendar({
       {slotDialog && (
         <ScheduleDialog
           dialog={slotDialog}
-          readyPool={readyPool}
+          readyPool={schedulablePool}
           weekDays={week.days}
           rooms={rooms}
           roomId={roomId}

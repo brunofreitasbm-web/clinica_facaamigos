@@ -303,6 +303,15 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
   }
 
   if (appointment.is_evaluation && appointment.patient_id) {
+    // Check-out da 1ª avaliação = avaliação fechada: marca o paciente como
+    // avaliado (mesmo efeito de markEvaluationDone e do check-out do terapeuta).
+    const { error: evaluatedError } = await supabase
+      .from("patients")
+      .update({ evaluated_at: new Date().toISOString() })
+      .eq("id", appointment.patient_id)
+      .is("evaluated_at", null);
+    if (evaluatedError) console.error("[Session Checkout evaluated_at Warning]:", evaluatedError);
+
     try {
       const { dispatchAnamneseNps } = await import("@/lib/nps-dispatch");
       await dispatchAnamneseNps(appointment.patient_id, appointmentId);

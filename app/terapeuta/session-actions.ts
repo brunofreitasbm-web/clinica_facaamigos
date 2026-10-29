@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
 type ActionResult = { success: true } | { success: false; error: string };
@@ -125,6 +126,17 @@ export async function checkOut(appointmentId: string): Promise<ActionResult> {
   }
 
   if (appointment.is_evaluation && appointment.patient_id) {
+    // Check-out da 1ª avaliação = terapeuta fechou: marca o paciente como
+    // avaliado (tira da fila de Autorizações / agenda de 1ª avaliação). A RLS
+    // de patients não libera terapeuta, então usa admin — o patient_id vem de
+    // um agendamento já validado como deste terapeuta.
+    const { error: evaluatedError } = await createAdminClient()
+      .from("patients")
+      .update({ evaluated_at: new Date().toISOString() })
+      .eq("id", appointment.patient_id)
+      .is("evaluated_at", null);
+    if (evaluatedError) console.error("[Session Checkout evaluated_at Warning]:", evaluatedError);
+
     try {
       const { dispatchAnamneseNps } = await import("@/lib/nps-dispatch");
       await dispatchAnamneseNps(appointment.patient_id, appointmentId);
