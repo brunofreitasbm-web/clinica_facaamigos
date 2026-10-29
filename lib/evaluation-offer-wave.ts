@@ -76,6 +76,23 @@ export async function findWaveCandidates(db: Loose): Promise<WaveCandidate[]> {
     const pi = Array.isArray(a.patient_insurance) ? a.patient_insurance[0] : a.patient_insurance;
     if (pi?.patient_id) ids.add(pi.patient_id);
   }
+
+  // Remarcação: particular de verdade (dispensado, sem plano no cadastro) cuja 1ª avaliação a
+  // própria clínica cancelou e que não tem outra marcada. Quem tem plano segue só pelo
+  // "Plano autorizou".
+  const [waivedRes, clinicCancelledRes, planHoldersRes] = await Promise.all([
+    db.from("registration_drafts").select("patient_id").eq("authorization_waived", true).not("patient_id", "is", null),
+    db.from("appointments").select("patient_id").eq("is_evaluation", true).eq("status", "cancelada_clinica"),
+    db.from("patient_insurance").select("patient_id").eq("is_private", false).not("insurer_id", "is", null),
+  ]);
+  for (const [name, res] of [["registration_drafts(waived)", waivedRes], ["appointments(cancelada_clinica)", clinicCancelledRes], ["patient_insurance", planHoldersRes]] as const) {
+    if (res.error) throw new Error(`${name}: ${res.error.message}`);
+  }
+  const idsOf = (rows: unknown) => new Set(((rows ?? []) as { patient_id: string }[]).map((r) => r.patient_id));
+  const clinicCancelled = idsOf(clinicCancelledRes.data);
+  const planHolders = idsOf(planHoldersRes.data);
+  for (const id of idsOf(waivedRes.data)) if (clinicCancelled.has(id) && !planHolders.has(id)) ids.add(id);
+
   if (ids.size === 0) return [];
   const idList = [...ids];
 
