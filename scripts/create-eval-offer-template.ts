@@ -22,6 +22,8 @@
 // `allow_category_change: false`: se a Meta entender que a mensagem é
 // marketing, ela REJEITA em vez de reclassificar sozinha (marketing é cobrado
 // mais caro e a decisão de mudar o texto deve ser nossa).
+// Prefixo `fa_clinica_`: a conta Twilio também guarda os templates do Playground/Circuito
+// (`fa_visita_*`, `fa_oferta_*`, `fa_lc_*`...). O prefixo mantém os dois domínios separados.
 import fs from "fs";
 import path from "path";
 import twilio from "twilio";
@@ -92,8 +94,8 @@ const LIST_BODY = "{{1}}\n\n" + BRAND_LINE;
 const TEMPLATES: Template[] = [
   {
     key: "offer",
-    metaName: "fa_plano_autorizado_agendar",
-    friendlyName: "fa_plano_autorizado_agendar_v2",
+    metaName: "fa_clinica_plano_autorizado",
+    friendlyName: "fa_clinica_plano_autorizado_v1",
     envVar: "TWILIO_EVAL_OFFER_TEMPLATE_CONTENT_SID",
     needsApproval: true,
     variables: { "1": "Nome do responsável", "2": "Nome da criança" },
@@ -110,8 +112,8 @@ const TEMPLATES: Template[] = [
   },
   {
     key: "reminder",
-    metaName: "fa_lembrete_agendar_avaliacao",
-    friendlyName: "fa_lembrete_agendar_avaliacao_v1",
+    metaName: "fa_clinica_lembrete_agendamento",
+    friendlyName: "fa_clinica_lembrete_agendamento_v1",
     envVar: "TWILIO_EVAL_REMINDER_TEMPLATE_CONTENT_SID",
     needsApproval: true,
     variables: { "1": "Nome do responsável", "2": "Nome da criança" },
@@ -128,8 +130,8 @@ const TEMPLATES: Template[] = [
   },
   {
     key: "confirm",
-    metaName: "fa_avaliacao_confirmada",
-    friendlyName: "fa_avaliacao_confirmada_v1",
+    metaName: "fa_clinica_avaliacao_confirmada",
+    friendlyName: "fa_clinica_avaliacao_confirmada_v1",
     envVar: "TWILIO_EVAL_CONFIRM_TEMPLATE_CONTENT_SID",
     needsApproval: true,
     variables: { "1": "Nome do responsável", "2": "Nome da criança", "3": "Data e horário", "4": "Profissional" },
@@ -138,8 +140,8 @@ const TEMPLATES: Template[] = [
   },
   {
     key: "invite",
-    metaName: "fa_convite_pre_anamnese",
-    friendlyName: "fa_convite_pre_anamnese_v1",
+    metaName: "fa_clinica_convite_pre_anamnese",
+    friendlyName: "fa_clinica_convite_pre_anamnese_v1",
     envVar: "TWILIO_PREANAMNESE_INVITE_TEMPLATE_CONTENT_SID",
     needsApproval: true,
     variables: { "1": "Nome do responsável", "2": "Nome da criança", "3": "Data e horário" },
@@ -156,8 +158,8 @@ const TEMPLATES: Template[] = [
   },
   {
     key: "list",
-    metaName: "fa_lista_horarios_avaliacao",
-    friendlyName: "fa_lista_horarios_avaliacao_v1",
+    metaName: "fa_clinica_lista_horarios",
+    friendlyName: "fa_clinica_lista_horarios_v1",
     envVar: "TWILIO_EVAL_SLOTLIST_CONTENT_SID",
     needsApproval: false,
     variables: { "1": "Texto de abertura", "2": "Horário 1", "3": "Horário 2", "4": "Horário 3" },
