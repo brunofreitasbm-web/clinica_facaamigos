@@ -56,13 +56,15 @@ export async function computeEvaluationOfferSlots(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: SupabaseClient<any>,
   clinicId: string,
-  opts: { page?: number; nowMs?: number } = {},
+  opts: { page?: number; nowMs?: number; therapistId?: string; roomId?: string } = {},
 ): Promise<EvaluationOfferSlot[]> {
   const page = opts.page ?? 0;
   const nowMs = opts.nowMs ?? Date.now();
 
+  // Data mais próxima possível: o 1º dia sugerido é AMANHÃ (nunca hoje).
+  const earliestDate = nextCalendarDay(todayInTimeZone(CLINIC_TIMEZONE));
   const days: string[] = [];
-  let cursor = todayInTimeZone(CLINIC_TIMEZONE);
+  let cursor = earliestDate;
   for (let i = 0; i < HORIZON_DAYS; i++) {
     days.push(cursor);
     cursor = nextCalendarDay(cursor);
@@ -72,8 +74,9 @@ export async function computeEvaluationOfferSlots(
     admin.from("profiles").select("id").eq("clinic_id", clinicId).eq("is_evaluator", true).eq("active", true),
     admin.from("rooms").select("id").eq("clinic_id", clinicId).eq("is_evaluation_room", true),
   ]);
-  const therapistIds = ((therapistsRes.data ?? []) as { id: string }[]).map((t) => t.id);
-  const roomIds = ((roomsRes.data ?? []) as { id: string }[]).map((r) => r.id);
+  // `therapistId`/`roomId` restringem a busca a um avaliador/sala (sugestão no agendamento manual).
+  const therapistIds = ((therapistsRes.data ?? []) as { id: string }[]).map((t) => t.id).filter((id) => !opts.therapistId || id === opts.therapistId);
+  const roomIds = ((roomsRes.data ?? []) as { id: string }[]).map((r) => r.id).filter((id) => !opts.roomId || id === opts.roomId);
   if (therapistIds.length === 0 || roomIds.length === 0) return [];
 
   const rangeStart = zonedDateTimeToUtc(days[0], "00:00", CLINIC_TIMEZONE).toISOString();
@@ -130,6 +133,7 @@ export async function computeEvaluationOfferSlots(
     businessHours: calendar.businessHours,
     closures: calendar.closures,
     nowMs,
+    earliestDate,
     toUtcMs: (date, minutes) => zonedDateTimeToUtc(date, minutesToHHMM(minutes), CLINIC_TIMEZONE).getTime(),
   });
 
