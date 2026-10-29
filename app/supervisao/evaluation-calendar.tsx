@@ -1229,9 +1229,10 @@ export function EvaluationCalendar({
                           e.stopPropagation();
                           openDialogFromCard(item);
                         }}
-                        className="rounded border border-paper-line-strong px-1.5 py-0.5 text-[10px] font-semibold text-accent hover:bg-paper"
+                        title="Só use se for agendar por conta própria: o responsável não precisa de autorização sua para escolher o horário"
+                        className="text-[10px] font-medium text-ink-faint underline underline-offset-2 hover:text-ink-soft hover:no-underline"
                       >
-                        Agendar
+                        Agendar manualmente
                       </button>
                     </div>
                   )}
@@ -1271,6 +1272,9 @@ export function EvaluationCalendar({
                   )}
                 </div>
                 {!item.facts || item.gate ? <p className="mt-1 text-[11px] text-ink-faint">{item.detail}</p> : null}
+                {!item.offer && item.bookInput.origin === "presencial" && (
+                  <p className="mt-1 text-[10px] text-ink-faint">Convite automático por WhatsApp ainda não enviado.</p>
+                )}
               </div>
               );
             })}
