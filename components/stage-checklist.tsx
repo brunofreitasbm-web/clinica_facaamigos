@@ -1,14 +1,9 @@
 "use client";
 
-import { Check } from "lucide-react";
-
-const STAGES = [
-  { n: 1, label: "Paciente sem avaliação" },
-  { n: 2, label: "Avaliação agendada" },
-  { n: 3, label: "Avaliação realizada" },
-  { n: 4, label: "Autorização do plano" },
-  { n: 5, label: "Grade terapêutica montada" },
-] as const;
+import { useState } from "react";
+import Link from "next/link";
+import { Check, Link2 } from "lucide-react";
+import { JOURNEY_STEPS, type Journey } from "@/lib/patient-journey-pure";
 
 /**
  * StageChecklist aprimorado pelas Leis de UX:
@@ -16,17 +11,62 @@ const STAGES = [
  * - Law of Uniform Connectedness: linha vertical conectora unindo as etapas em um fluxo contínuo.
  * - Zeigarnik Effect: evidencia com clareza o próximo passo pendente a ser resolvido.
  * - Von Restorff Effect: destaca a etapa corrente com contraste e anel de foco.
+ *
+ * Somente leitura: o status real vem de `computeJourney`; `actionHref` é o
+ * destino do botão (null quando o perfil de quem vê não pode agir) e
+ * `shareHref` é o caminho que "Copiar link" entrega a outra pessoa.
  */
-export function StageChecklist({ stage }: { stage: 1 | 2 | 3 | 4 | 5 }) {
-  const percentComplete = Math.round(((stage - 1) / (STAGES.length - 1)) * 100);
+export function StageChecklist({
+  journey,
+  actionHref,
+  shareHref,
+}: {
+  journey: Journey;
+  actionHref?: string | null;
+  shareHref?: string | null;
+}) {
+  const { step } = journey;
+  const total = JOURNEY_STEPS.length;
+  const percentComplete = Math.round(((step - 1) / (total - 1)) * 100);
+  const [copied, setCopied] = useState(false);
+
+  async function copyLink() {
+    if (!shareHref) return;
+    try {
+      await navigator.clipboard.writeText(new URL(shareHref, window.location.origin).toString());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Sem permissão de clipboard: o link continua na barra de endereço.
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Status real do paciente */}
+      <div className="rounded-lg border border-accent-100 bg-accent-100 p-3" role="status">
+        <p className="text-sm font-bold text-ink">{journey.label}</p>
+        {journey.detail && <p className="mt-0.5 text-xs text-ink-soft">{journey.detail}</p>}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {journey.ctaLabel && actionHref && (
+            <Link href={actionHref} className="btn btn-primary text-xs no-underline">
+              {journey.ctaLabel}
+            </Link>
+          )}
+          {shareHref && (
+            <button type="button" onClick={copyLink} className="btn text-xs">
+              <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+              {copied ? "Link copiado" : "Copiar link do status"}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Goal-Gradient header */}
       <div className="flex items-center justify-between text-xs">
         <span className="font-bold text-ink">Jornada do Paciente</span>
         <span className="font-semibold text-accent tabular-nums">
-          Etapa {stage} de {STAGES.length} ({percentComplete}%)
+          Etapa {step} de {total} ({percentComplete}%)
         </span>
       </div>
 
@@ -38,10 +78,10 @@ export function StageChecklist({ stage }: { stage: 1 | 2 | 3 | 4 | 5 }) {
       </div>
 
       <ol className="relative flex flex-col gap-3 pt-1">
-        {STAGES.map((s, index) => {
-          const done = s.n < stage;
-          const current = s.n === stage;
-          const isLast = index === STAGES.length - 1;
+        {JOURNEY_STEPS.map((s, index) => {
+          const done = s.n < step;
+          const current = s.n === step;
+          const isLast = index === JOURNEY_STEPS.length - 1;
 
           return (
             <li key={s.n} className="relative flex items-center gap-3 text-sm">

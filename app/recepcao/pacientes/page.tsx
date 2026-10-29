@@ -1,7 +1,9 @@
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { fmtDateTime } from "@/lib/format";
+import { computeJourney, type JourneyEvaluation } from "@/lib/patient-journey-pure";
 import { PatientListClient } from "./patient-list-client";
 
 export const dynamic = "force-dynamic";
@@ -22,27 +24,36 @@ export default async function PacientesPage() {
 
   const patientIds = (patients ?? []).map((p) => p.id);
 
-  const { data: evalAppointments } = patientIds.length
-    ? await supabase
-        .from("appointments")
-        .select("patient_id")
-        .in("patient_id", patientIds)
-        .eq("is_evaluation", true)
-        .not("status", "in", `(${CANCELLED_APPOINTMENT_STATUSES.join(",")})`)
-    : { data: [] as { patient_id: string }[] };
+  const [{ data: evalAppointments }, { data: activeAuths }, { data: drafts }] = patientIds.length
+    ? await Promise.all([
+        supabase.from("appointments").select("patient_id, starts_at, status").in("patient_id", patientIds).eq("is_evaluation", true),
+        supabase
+          .from("authorizations")
+          .select("id, patient_insurance!inner(patient_id)")
+          .in("patient_insurance.patient_id", patientIds)
+          .eq("status", "ativa"),
+        supabase
+          .from("registration_drafts")
+          .select("patient_id, guide_sent_at, plan_authorized_at, authorization_waived, scheduling_enabled_at")
+          .in("patient_id", patientIds)
+          .neq("status", "rejected"),
+      ])
+    : [{ data: [] }, { data: [] }, { data: [] }];
 
-  const { data: activeAuths } = patientIds.length
-    ? await supabase
-        .from("authorizations")
-        .select("id, patient_insurance!inner(patient_id)")
-        .in("patient_insurance.patient_id", patientIds)
-        .eq("status", "ativa")
-    : { data: [] as { patient_insurance: { patient_id: string } | { patient_id: string }[] | null }[] };
-
-  const evaluationScheduledIds = new Set((evalAppointments ?? []).map((a) => a.patient_id));
+  const evaluationsByPatient = new Map<string, JourneyEvaluation[]>();
+  for (const a of evalAppointments ?? []) {
+    const list = evaluationsByPatient.get(a.patient_id) ?? [];
+    list.push({ starts_at: a.starts_at, status: a.status });
+    evaluationsByPatient.set(a.patient_id, list);
+  }
+  const draftsByPatient = new Map<string, NonNullable<typeof drafts>>();
+  for (const d of drafts ?? []) {
+    if (!d.patient_id) continue;
+    draftsByPatient.set(d.patient_id, [...(draftsByPatient.get(d.patient_id) ?? []), d]);
+  }
   const activeAuthPatientIds = new Set(
     (activeAuths ?? []).flatMap((a) => {
-      const pi = a.patient_insurance;
+      const pi = a.patient_insurance as { patient_id: string } | { patient_id: string }[] | null;
       if (!pi) return [];
       return Array.isArray(pi) ? pi.map((x) => x.patient_id) : [pi.patient_id];
     }),
@@ -69,7 +80,17 @@ export default async function PacientesPage() {
       guardian_name: mainGuardian?.full_name ?? null,
       insurer_name: insurerName,
       insurer_color: insurerColor,
-      stage: computeStage(p, evaluationScheduledIds.has(p.id), activeAuthPatientIds.has(p.id)),
+      journey_label: computeJourney({
+        patient: p,
+        planAuthorizedByDraft: (draftsByPatient.get(p.id) ?? []).some(
+          (d) => d.plan_authorized_at || d.authorization_waived || d.scheduling_enabled_at,
+        ),
+        guideSent: (draftsByPatient.get(p.id) ?? []).some((d) => d.guide_sent_at),
+        authorizationWaived: (draftsByPatient.get(p.id) ?? []).some((d) => d.authorization_waived),
+        hasActiveAuthorization: activeAuthPatientIds.has(p.id),
+        evaluations: evaluationsByPatient.get(p.id) ?? [],
+        formatDateTime: (iso) => fmtDateTime(iso, CLINIC_TIMEZONE),
+      }).label,
     };
   });
 

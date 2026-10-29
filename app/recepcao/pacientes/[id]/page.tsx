@@ -7,7 +7,7 @@ import { IntakeChecklist } from "@/components/intake-checklist";
 import { getIntakeSteps } from "@/lib/intake-steps";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
-import { computeStage, CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-stage";
+import { getPatientJourney } from "@/lib/patient-journey";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
 import { APPOINTMENT_STATUS_STYLE, AUTHORIZATION_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getFeedPosts } from "@/lib/feed-posts";
@@ -78,24 +78,7 @@ export default async function PacientePage({
     .select("id, full_name, phone, is_emergency_contact, is_financial")
     .eq("patient_id", id);
 
-  const { data: evalAppointment } = await supabase
-    .from("appointments")
-    .select("id")
-    .eq("patient_id", id)
-    .eq("is_evaluation", true)
-    .not("status", "in", `(${CANCELLED_APPOINTMENT_STATUSES.join(",")})`)
-    .limit(1)
-    .maybeSingle();
-
-  const { data: activeAuth } = await supabase
-    .from("authorizations")
-    .select("id, patient_insurance_id, patient_insurance!inner(patient_id)")
-    .eq("patient_insurance.patient_id", id)
-    .eq("status", "ativa")
-    .limit(1)
-    .maybeSingle();
-
-  const stage = computeStage(patient, !!evalAppointment, !!activeAuth);
+  const journey = await getPatientJourney(supabase, patient);
   const intakeSteps = await getIntakeSteps(supabase, id);
 
   // Header de identificação (PRD §1) — lógica compartilhada com a tela de
@@ -201,6 +184,8 @@ export default async function PacientePage({
   // entrada (ver lib/roles.ts ROLE_ALLOWED_PREFIXES) — recepção não pode,
   // o middleware manda de volta; ver IntakeChecklist.linksNavigable.
   let canNavigateToSupervisao = false;
+  // Quadro "Próximo passo": todos veem o status; só recepção/gestor agem.
+  let canActOnJourney = false;
   if (user) {
     const { data: viewerProfile } = await supabase
       .from("profiles")
@@ -209,6 +194,7 @@ export default async function PacientePage({
       .maybeSingle();
     canUploadDocuments = !!viewerProfile && CAN_UPLOAD_ROLES.includes(viewerProfile.role);
     canNavigateToSupervisao = viewerProfile?.role === "supervisor" || viewerProfile?.role === "gestor";
+    canActOnJourney = viewerProfile?.role === "recepcao" || viewerProfile?.role === "gestor";
   }
 
   // Mural da família (PRD §4) — mural independente das evoluções, mesma
@@ -569,13 +555,23 @@ export default async function PacientePage({
             </div>
 
             {/* Próximo Passo Checklist se o paciente não for ativo ainda */}
-            {stage < 5 && (
+            {journey.key !== "ativo" && (
               <div id="proximo-passo" className="card scroll-mt-6">
                 <div className="card-kicker">Próximo passo</div>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <StageChecklist stage={stage} />
+                  <StageChecklist
+                    journey={journey}
+                    actionHref={
+                      canActOnJourney
+                        ? "#proximo-passo"
+                        : canNavigateToSupervisao && (journey.key === "agendar_avaliacao" || journey.key === "avaliacao_agendada")
+                          ? "/supervisao?tab=agenda1a"
+                          : null
+                    }
+                    shareHref={`/recepcao/pacientes/${patient.id}#proximo-passo`}
+                  />
                   <div>
-                    {stage === 1 && (
+                    {canActOnJourney && journey.key === "agendar_avaliacao" && (
                       <StageActionForm action={scheduleEvaluation.bind(null, patient.id)} submitLabel="Agendar avaliação">
                         <select name="therapist_id" required className="input" disabled={evaluatorTherapists.length === 0}>
                           <option value="">Terapeuta avaliador</option>
@@ -598,17 +594,17 @@ export default async function PacientePage({
                         <input type="time" name="time" required className="input" />
                       </StageActionForm>
                     )}
-                    {stage === 2 && (
+                    {canActOnJourney && journey.key === "avaliacao_agendada" && (
                       <StageActionForm action={markEvaluationDone.bind(null, patient.id)} submitLabel="Marcar avaliação como realizada">
                         <p className="text-sm text-ink-soft">Confirma que a avaliação já aconteceu?</p>
                       </StageActionForm>
                     )}
-                    {stage === 3 && (
+                    {canActOnJourney && journey.key === "registrar_guia" && (
                       <StageActionForm action={registerAuthorization.bind(null, patient.id)} submitLabel="Registrar autorização">
                         <AuthorizationFormFields insurers={insurers} />
                       </StageActionForm>
                     )}
-                    {stage === 4 && (
+                    {canActOnJourney && journey.key === "montar_grade" && (
                       <StageActionForm action={activatePatient.bind(null, patient.id)} submitLabel="Montar grade (1ª sessão)">
                         <select name="therapist_id" required className="input">
                           <option value="">Terapeuta</option>

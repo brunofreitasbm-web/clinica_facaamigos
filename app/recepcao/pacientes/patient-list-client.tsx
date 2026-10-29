@@ -32,16 +32,8 @@ export interface PatientRow {
   guardian_name?: string | null;
   insurer_name?: string | null;
   insurer_color?: string | null;
-  stage: number;
+  journey_label: string;
 }
-
-const STAGE_LABEL: Record<number, string> = {
-  1: "Paciente sem avaliação agendada",
-  2: "Avaliação agendada, aguardando",
-  3: "Avaliação feita, sem autorização",
-  4: "Autorizado, sem grade montada",
-  5: "Ativo — grade montada",
-};
 
 interface PatientListClientProps {
   rows: PatientRow[];
@@ -155,7 +147,7 @@ export const PatientListItem = React.memo(function PatientListItem({
             subtitle={
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-faint">
                 <span className="group-hover/link:text-[#841B4D] transition-colors font-medium">
-                  {STAGE_LABEL[patient.stage] ?? "Estágio desconhecido"}
+                  {patient.journey_label}
                 </span>
                 {patient.guardian_name && (
                   <>
@@ -322,7 +314,7 @@ export function PatientListClient({ rows }: PatientListClientProps) {
       const guardianMatch = (p.guardian_name || "").toLowerCase().includes(query);
       const cpfMatch = (p.cpf || "").replace(/\D/g, "").includes(query.replace(/\D/g, ""));
       const statusMatch = (p.status || "").toLowerCase().includes(query);
-      const stageMatch = (STAGE_LABEL[p.stage] || "").toLowerCase().includes(query);
+      const stageMatch = (p.journey_label || "").toLowerCase().includes(query);
 
       return nameMatch || guardianMatch || cpfMatch || statusMatch || stageMatch;
     });

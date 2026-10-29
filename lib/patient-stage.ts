@@ -2,18 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 
-/**
- * Status de appointment que representam uma sessão que não vai acontecer
- * (cancelada ou remarcada) — nunca devem contar como "agendada"/"realizada"
- * pra fins de progresso de estágio do paciente.
- */
-export const CANCELLED_APPOINTMENT_STATUSES = [
-  "cancelada_familia",
-  "cancelada_terapeuta",
-  "cancelada_clinica",
-  "falta_familia",
-  "remarcada",
-] as const;
+// Fonte única da lista: o quadro "Próximo passo" (patient-journey-pure) usa a mesma.
+import { CANCELLED_APPOINTMENT_STATUSES } from "@/lib/patient-journey-pure";
+export { CANCELLED_APPOINTMENT_STATUSES };
 
 export function computeStage(
   patient: { status: string; evaluated_at: string | null; first_session_at: string | null },

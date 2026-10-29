@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { fmtDateTime } from "@/lib/format";
 import { getPatientIdentitySummary } from "@/lib/patient-identity";
+import { getPatientJourney } from "@/lib/patient-journey";
 import { getPatientDossier } from "@/lib/patient-dossier";
 import { getBehaviorCatalog } from "@/lib/behavior-catalog";
 import { getMetasTrabalhadas, type SessionNoteStructured } from "@/lib/session-note-fields";
@@ -62,12 +63,13 @@ export default async function TerapeutaFichaPacientePage({
   // revelamos se o paciente existe pra quem não tem acesso a ele.
   const { data: patient } = await supabase
     .from("patients")
-    .select("id, full_name, birth_date, clinic_id")
+    .select("id, full_name, birth_date, clinic_id, status, evaluated_at, first_session_at")
     .eq("id", patientId)
     .maybeSingle();
   if (!patient) notFound();
 
   await logRecordAccess(supabase, patientId, "prontuario_terapeuta");
+  const journey = await getPatientJourney(supabase, patient);
 
   const [dossier, { insurance, emergencyContact }, behaviorCatalog, contacts, enabledInstruments, enabledProtocols, hasPendingPtsNotice] = await Promise.all([
     getPatientDossier(supabase, patientId, { includeBilling: false }),
@@ -190,7 +192,7 @@ export default async function TerapeutaFichaPacientePage({
 
   return (
     <main className="flex flex-1 flex-col pb-24 md:pb-10">
-      <PageHeader axisLabel="Terapeuta" title={patient.full_name} description="Ficha do paciente" />
+      <PageHeader axisLabel="Terapeuta" title={patient.full_name} description={`Ficha do paciente · ${journey.label}`} />
 
       <div className="mx-auto w-full max-w-[1720px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
