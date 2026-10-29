@@ -77,7 +77,8 @@ export async function getPendingPatients(
     .eq("clinic_id", DEV_CLINIC_ID)
     .neq("status", "ativo")
     .neq("status", "alta")
-    .neq("status", "evadido");
+    .neq("status", "evadido")
+    .neq("status", "arquivado");
 
   const patientIds = (patients ?? []).map((p) => p.id);
 
