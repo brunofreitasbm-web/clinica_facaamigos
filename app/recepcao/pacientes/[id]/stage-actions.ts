@@ -63,14 +63,12 @@ export async function scheduleEvaluation(
     return { success: false, error: "Não foi possível agendar a avaliação." };
   }
 
-  const { error: patientError } = await supabase
-    .from("patients")
-    .update({ status: "avaliacao" })
-    .eq("id", patientId);
-
-  if (patientError) {
-    return { success: false, error: "Avaliação agendada, mas houve erro ao atualizar o status do paciente." };
-  }
+  // Agendar não autoriza: só promove a "avaliacao" quem não espera guia/plano. Promover sempre
+  // tirava da tela de Autorizações quem ainda aguardava o plano (e o mostrava como "pronto
+  // para agendar" sem guia). A promoção também só vale para "interessado"/"aguardando":
+  // antes o update forçava "avaliacao" até sobre um paciente já "ativo".
+  const gate = (await getSchedulingGates(supabase, [patientId])).get(patientId);
+  if (shouldPromoteOnScheduling(gate)) await promoteToPatient(supabase, patientId);
 
   // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
   // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia

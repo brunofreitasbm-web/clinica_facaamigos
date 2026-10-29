@@ -101,3 +101,51 @@ export async function notifyStaffOfConversation(conversationId: string): Promise
     console.error("[Web Push] erro ao notificar equipe:", err);
   }
 }
+
+/**
+ * Push para quem tem um dos papéis informados (ex.: supervisor e gestor quando
+ * um responsável escolhe o horário da 1ª avaliação). Nunca lança. O texto não
+ * deve levar nome nem dado de saúde: aparece na tela bloqueada.
+ */
+export async function notifyRolesPush(params: { roles: string[]; title: string; body: string; url: string }): Promise<{ sent: number }> {
+  try {
+    if (!configure()) return { sent: 0 };
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+
+    const { data: people } = await supabase.from("profiles").select("id").in("role", params.roles).eq("active", true);
+    const userIds = new Set((people ?? []).map((p) => p.id));
+    if (userIds.size === 0) return { sent: 0 };
+
+    const { data: subs } = await supabase.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth");
+    const targets = (subs ?? []).filter((s) => userIds.has(s.user_id));
+    if (targets.length === 0) return { sent: 0 };
+
+    const payload = JSON.stringify({ title: params.title, body: params.body, url: params.url });
+    const now = new Date().toISOString();
+    let sent = 0;
+    await Promise.all(
+      targets.map(async (s) => {
+        try {
+          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, {
+            TTL: 60 * 60 * 12,
+            urgency: "normal",
+          });
+          sent += 1;
+          await supabase.from("push_subscriptions").update({ last_success_at: now }).eq("id", s.id);
+        } catch (err) {
+          const status = (err as { statusCode?: number }).statusCode;
+          if (status === 404 || status === 410) {
+            await supabase.from("push_subscriptions").delete().eq("id", s.id);
+          } else {
+            console.error("[Web Push] falha ao enviar:", status ?? err);
+          }
+        }
+      }),
+    );
+    return { sent };
+  } catch (err) {
+    console.error("[Web Push] erro ao notificar papéis:", err);
+    return { sent: 0 };
+  }
+}
