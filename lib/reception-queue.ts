@@ -964,8 +964,8 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
     )
     .eq("clinic_id", clinicId)
     .neq("status", "rejected")
-    // Devolvido pela Supervisão volta à fila mesmo já autorizado (precisa de nova conferência).
-    .or("and(plan_authorized_at.is.null,scheduling_enabled_at.is.null,authorization_waived.eq.false),returned_to_reception_at.not.is.null")
+    // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
+    .or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null")
     .order("created_at", { ascending: true });
 
   const allRows = data ?? [];
@@ -1346,7 +1346,7 @@ async function attachQueueAssignments(
  */
 export function isAuthorizationQueueItem(item: PendingQueueItem): boolean {
   const draft = item.draft;
-  if (!draft || draft.source !== "whatsapp" || draft.pipeline.schedulingEnabledAt) return false;
+  if (!draft || draft.source !== "whatsapp") return false;
   return !hasMedicalRecord(item) || Boolean(draft.pipeline.returned);
 }
 

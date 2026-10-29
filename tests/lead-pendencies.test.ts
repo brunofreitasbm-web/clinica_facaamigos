@@ -303,3 +303,18 @@ test("pickBotCollected mantém as terapias pedidas e desiredTherapiesFromBot as 
   // terapia sozinha não conta como "o lead deu um dado" para a recepção conferir
   assert.equal(isBotDatumPresent({ therapies: ["fonoaudiologia"] }), false);
 });
+
+test("processo de autorização: laudo médico sana a pendência de pedido médico (e vice-versa)", () => {
+  // Com laudo: pedido médico vira aviso e não gera cobrança
+  const comLaudo = computeLeadPendencies({ ...base, fileTypes: ["laudo"] });
+  assert.equal(stateOf(comLaudo, "laudo"), "ok");
+  assert.equal(stateOf(comLaudo, "pedido_medico"), "aviso");
+  assert.equal(missingChaseKeys(comLaudo).includes("pedido_medico"), false);
+
+  // Com pedido médico: laudo vira aviso e não gera cobrança
+  const comPedido = computeLeadPendencies({ ...base, fileTypes: ["pedido_medico"] });
+  assert.equal(stateOf(comPedido, "pedido_medico"), "ok");
+  assert.equal(stateOf(comPedido, "laudo"), "aviso");
+  assert.equal(missingChaseKeys(comPedido).includes("laudo_medico"), false);
+});
+

@@ -941,7 +941,9 @@ export function EvaluationCalendar({
 
   function computeTimeFromOffsetY(offsetY: number): string {
     const rawMinutes = (offsetY / ROW_HEIGHT_PX) * ROW_MINUTES;
-    const snapped = Math.max(0, Math.min(TOTAL_MINUTES - ROW_MINUTES, Math.round(rawMinutes / ROW_MINUTES) * ROW_MINUTES));
+    // floor = o slot sob o cursor. Com round, 08:00 só valia nos 14px de cima da
+    // grade (a borda, onde o cursor quase nunca cai) e 08:30 "roubava" a faixa.
+    const snapped = Math.max(0, Math.min(TOTAL_MINUTES - ROW_MINUTES, Math.floor(rawMinutes / ROW_MINUTES) * ROW_MINUTES));
     return minutesToTime(DAY_START_HOUR * 60 + snapped);
   }
 
@@ -1391,8 +1393,7 @@ export function EvaluationCalendar({
                     onClick={(e) => {
                       if ((e.target as HTMLElement).closest("[data-appointment]")) return;
                       const rect = e.currentTarget.getBoundingClientRect();
-                      // Centraliza o clique no slot de 30 min em vez de arredondar pela borda.
-                      handleGridClick(dayIndex, e.clientY - rect.top - ROW_HEIGHT_PX / 2);
+                      handleGridClick(dayIndex, e.clientY - rect.top);
                     }}
                     onDragOver={(e) => {
                       e.preventDefault();

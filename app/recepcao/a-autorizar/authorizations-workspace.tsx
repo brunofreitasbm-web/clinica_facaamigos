@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   AlertTriangle,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -400,6 +401,16 @@ export function AuthorizationsWorkspace({
 
   const shownId = selectedId ?? navigable[0]?.id ?? null;
   const selected = shownId ? activeItems.find((i) => i.id === shownId) ?? null : null;
+
+  // Próximo lead para navegação contínua
+  const nextItem = useMemo(() => {
+    if (!selectedId) return null;
+    const currentIndex = visibleItems.findIndex((i) => i.id === selectedId);
+    if (currentIndex >= 0 && currentIndex < visibleItems.length - 1) {
+      return visibleItems[currentIndex + 1];
+    }
+    return visibleItems.find((i) => i.id !== selectedId && !i.isCompleted) ?? null;
+  }, [visibleItems, selectedId]);
 
   // Sincronização de URL
   useEffect(() => {
@@ -856,6 +867,57 @@ export function AuthorizationsWorkspace({
                   <X className="h-4 w-4" aria-hidden="true" /> Voltar para a lista
                 </button>
               </div>
+
+              {/* Banner de Celebração de Conclusão / Pronto para Agendar */}
+              {selected.isCompleted && (
+                <div className="mb-4 overflow-hidden rounded-2xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-4 shadow-2xs">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-200/90 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-emerald-950">
+                            ⭐ Missão Cumprida
+                          </span>
+                          <span className="text-xs font-semibold text-emerald-800">
+                            Pronto para agendar
+                          </span>
+                        </div>
+                        <h3 className="m-0 mt-1 text-sm font-bold text-slate-900">
+                          Autorização concluída com sucesso!
+                        </h3>
+                        <p className="m-0 mt-0.5 text-xs text-slate-600">
+                          A 1ª Avaliação já está liberada na Agenda da Supervisão.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href="/supervisao?tab=agenda1a"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-600/30"
+                      >
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        <span>Abrir Agenda de Avaliações</span>
+                      </a>
+                      {nextItem && nextItem.id !== selected.id && (
+                        <button
+                          type="button"
+                          onClick={() => select(nextItem.id, true)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
+                        >
+                          <span>Próximo lead</span>
+                          <span aria-hidden="true">→</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Banner de Leitura da IA */}
               {(reading || selected.readDraftId) && (

@@ -308,13 +308,28 @@ export function computeLeadPendencies(input: LeadPendenciesInput): LeadPendencie
     chaseKey,
   });
 
-  pills.push(
-    isPrivate
-      ? optional("Laudo", "laudo", hasLaudo, "laudo_medico")
-      : doc("laudo", "Laudo", hasLaudo, "laudo_medico", {
-          detail: !hasLaudo && bot?.has_laudo === false ? "a família disse que ainda não tem" : undefined,
-        }),
-  );
+  // Processo de autorização: ou Laudo Médico OU Pedido Médico sana a pendência médica
+  const hasEitherMedicalDoc = hasLaudo || hasPedido;
+
+  if (isPrivate) {
+    pills.push(optional("Laudo", "laudo", hasLaudo, "laudo_medico"));
+  } else if (hasLaudo) {
+    pills.push(doc("laudo", "Laudo", true, "laudo_medico"));
+  } else if (hasPedido) {
+    pills.push({
+      key: "laudo",
+      label: "Laudo",
+      group: "documento",
+      state: "aviso",
+      detail: "sanado pelo pedido médico anexado",
+    });
+  } else {
+    pills.push(
+      doc("laudo", "Laudo", false, "laudo_medico", {
+        detail: bot?.has_laudo === false ? "a família disse que ainda não tem" : "necessário laudo ou pedido médico",
+      }),
+    );
+  }
 
   if (isPrivate) {
     pills.push({ key: "carteirinha", label: "Carteirinha", group: "documento", state: "nao_se_aplica", detail: "atendimento particular" });
@@ -335,9 +350,26 @@ export function computeLeadPendencies(input: LeadPendenciesInput): LeadPendencie
   }
 
   pills.push(doc("doc_responsavel", "RG do responsável", hasResponsibleDoc, "documento_responsavel"));
-  pills.push(
-    isPrivate ? optional("Pedido médico", "pedido_medico", hasPedido, "pedido_medico") : doc("pedido_medico", "Pedido médico", hasPedido, "pedido_medico"),
-  );
+
+  if (isPrivate) {
+    pills.push(optional("Pedido médico", "pedido_medico", hasPedido, "pedido_medico"));
+  } else if (hasPedido) {
+    pills.push(doc("pedido_medico", "Pedido médico", true, "pedido_medico"));
+  } else if (hasLaudo) {
+    pills.push({
+      key: "pedido_medico",
+      label: "Pedido médico",
+      group: "documento",
+      state: "aviso",
+      detail: "sanado pelo laudo anexado",
+    });
+  } else {
+    pills.push(
+      doc("pedido_medico", "Pedido médico", false, "pedido_medico", {
+        detail: "necessário laudo ou pedido médico",
+      }),
+    );
+  }
 
   // ----- Dados
   pills.push(dado("crianca", "Criança", childName));

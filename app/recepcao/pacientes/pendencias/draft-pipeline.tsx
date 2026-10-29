@@ -518,7 +518,7 @@ export function DraftPipelineColumns({
       const enabled = await enableDraftScheduling(draft.id);
       if (popup && whatsappUrl) popup.location.href = whatsappUrl;
       setShowGuideDialog(false);
-      window.dispatchEvent(new CustomEvent("queue-item-dismiss", { detail: { id: draft.id } }));
+      // Mantém o item visível na tela no quadro de concluídos / prontos para agendar
       router.refresh();
       if (!enabled.success) {
         setFeedback({ tone: "error", text: `Guia salva, mas não foi possível habilitar o agendamento: ${enabled.error}` });
