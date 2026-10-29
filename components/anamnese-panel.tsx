@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { AnamneseForm } from "@/components/anamnese-form";
+import { PreAnamnesisCard } from "@/components/pre-anamnesis-card";
 
 /**
  * Corpo da tela de 1ª avaliação (anamnese ampliada) — leitura da anamnese
@@ -33,7 +34,7 @@ export async function AnamnesePanel({
 }) {
   const supabase = await createClient();
 
-  const [{ data: existing }, { data: patient }] = await Promise.all([
+  const [{ data: existing }, { data: patient }, { data: prefill }] = await Promise.all([
     supabase
       .from("anamneses")
       .select("id, conducted_at, free_text, structured, profiles!conducted_by(full_name)")
@@ -46,6 +47,14 @@ export async function AnamnesePanel({
       .select("cid, support_level, medication, allergies, comorbidities")
       .eq("id", patientId)
       .maybeSingle(),
+    // Pré-anamnese por WhatsApp (convite mais recente): o terapeuta lê antes de conduzir a consulta.
+    supabase
+      .from("anamnesis_prefill_requests")
+      .select("status, structured, sent_at, responded_at, declined_at")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const conductedByName = existing
@@ -56,16 +65,19 @@ export async function AnamnesePanel({
 
   if (!existing) {
     return (
-      <AnamneseForm
-        patientId={patientId}
-        returnHref={returnHref}
-        tcleHref={tcleHref}
-        defaultCid={patient?.cid ?? ""}
-        defaultSupportLevel={patient?.support_level ?? ""}
-        defaultMedication={patient?.medication ?? ""}
-        defaultAllergies={patient?.allergies ?? ""}
-        defaultComorbidities={patient?.comorbidities ?? ""}
-      />
+      <div className="space-y-6">
+        <PreAnamnesisCard row={prefill} />
+        <AnamneseForm
+          patientId={patientId}
+          returnHref={returnHref}
+          tcleHref={tcleHref}
+          defaultCid={patient?.cid ?? ""}
+          defaultSupportLevel={patient?.support_level ?? ""}
+          defaultMedication={patient?.medication ?? ""}
+          defaultAllergies={patient?.allergies ?? ""}
+          defaultComorbidities={patient?.comorbidities ?? ""}
+        />
+      </div>
     );
   }
 
@@ -73,6 +85,7 @@ export async function AnamnesePanel({
 
   return (
     <div className="max-w-4xl space-y-6">
+      <PreAnamnesisCard row={prefill} />
       <div className="card">
         <div className="card-kicker">Já registrada</div>
         <p className="text-sm text-ink-soft">

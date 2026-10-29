@@ -17,6 +17,10 @@ export type InboundTwilioPayload = {
   mediaUrl0: string;
   mediaContentType0: string;
   media: { url: string; contentType?: string }[];
+  /** Toque em botão de resposta rápida (template) — `ButtonPayload` da Twilio. */
+  buttonPayload?: string;
+  /** Item escolhido numa lista interativa — `ListId` da Twilio. */
+  listId?: string;
 };
 
 /**
@@ -26,7 +30,7 @@ export type InboundTwilioPayload = {
  * MessageSid: handleTwilioIncomingMessage deduplica via messages.twilio_sid.
  */
 export async function processInboundTwilioMessage(payload: InboundTwilioPayload): Promise<void> {
-  const { from, to, body: bodyText, messageSid, mediaUrl0, mediaContentType0, media } = payload;
+  const { from, to, body: bodyText, messageSid, mediaUrl0, mediaContentType0, media, buttonPayload, listId } = payload;
     const result = await handleTwilioIncomingMessage({
       from,
       body: bodyText,
@@ -34,6 +38,8 @@ export async function processInboundTwilioMessage(payload: InboundTwilioPayload)
       mediaContentType0,
       media,
       messageSid: messageSid || undefined,
+      buttonPayload: buttonPayload || undefined,
+      listId: listId || undefined,
     });
 
     // Se for mensagem vinda do WhatsApp ou se o número possuir o prefixo 'whatsapp:'

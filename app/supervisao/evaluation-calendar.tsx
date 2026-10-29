@@ -4,24 +4,35 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
+import { closureReason, type ClinicClosure } from "@/lib/clinic-calendar-pure";
 import { useToast } from "@/components/toast-provider";
+import { createClient } from "@/lib/supabase/client";
 import { dayIndexInWeek, timeLabel, type WeekInfo } from "./grade-data";
 import {
   getEvaluationCalendarWeekAction,
   getEvaluationPoolAction,
+  rejectEvaluationOfferAction,
+  restartEvaluationOfferAction,
+  cancelEvaluationOfferAction,
   getEvaluationDayCountsAction,
   getTherapistAvailabilityAction,
   scheduleFromPoolAction,
   rescheduleEvaluationAction,
   updateEvaluationAppointmentAction,
   cancelEvaluationAppointmentAction,
-  sendEvaluationOfferViaWhatsAppAction,
   confirmEvaluationAppointmentAction,
   type TherapistAvailabilityBlock,
 } from "./evaluation-calendar-actions";
-import type { EvaluationAgendaOrigin, EvaluationCalendarAppointment, EvaluationPoolFacts, EvaluationPoolItem } from "@/lib/evaluation-agenda";
+import type {
+  EvaluationAgendaOrigin,
+  EvaluationCalendarAppointment,
+  EvaluationOfferItem,
+  EvaluationPoolFacts,
+  EvaluationPoolItem,
+} from "@/lib/evaluation-agenda";
 import { EvaluationQuickViewPanel } from "./evaluation-quick-view";
-import { AlertTriangle, MessageSquare, CheckCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle } from "lucide-react";
+import { isLiveOffer, offerBadge, type OfferBadge } from "@/lib/evaluation-offer-badge-pure";
 
 /**
  * Calendário semanal de 1ª avaliação — visão única, independente de onde o
@@ -90,6 +101,25 @@ function PoolFactsChips({ facts }: { facts: EvaluationPoolFacts }) {
   );
 }
 
+const BAND_STYLE: Record<OfferBadge["tone"], string> = {
+  amber: "border-amber-400 bg-amber-100 text-amber-900",
+  blue: "border-sky-400 bg-sky-100 text-sky-900",
+  red: "border-status-negative-text/40 bg-status-negative-soft text-status-negative-text",
+};
+
+/** Faixa chamativa do card: em que passo do fluxo automático o responsável está agora. */
+function OfferStatusBand({ badge }: { badge: OfferBadge }) {
+  return (
+    <div role="status" className={`mt-1.5 rounded-md border px-2 py-1.5 ${BAND_STYLE[badge.tone]}`}>
+      <p className="flex items-center gap-1.5 text-[11px] font-bold">
+        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full bg-current ${badge.live ? "animate-pulse" : ""}`} />
+        {badge.title}
+      </p>
+      {badge.detail && <p className="mt-0.5 text-[10px] leading-snug">{badge.detail}</p>}
+    </div>
+  );
+}
+
 const WEEKDAY_LABEL = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
 /** Hora de fechamento por dia da semana (índice 0=Seg..5=Sáb) — Seg–Sex 19h, Sáb 12h. */
 const CLOSING_HOUR_BY_DAY = [19, 19, 19, 19, 19, 12];
@@ -97,7 +127,7 @@ const DAY_START_HOUR = 8;
 const GRID_END_HOUR = 19; // maior horário de fechamento da semana (Seg–Sex) — usado só pra desenhar a grade
 const TOTAL_MINUTES = (GRID_END_HOUR - DAY_START_HOUR) * 60;
 const ROW_MINUTES = 30;
-const ROW_HEIGHT_PX = 28;
+const ROW_HEIGHT_PX = 34;
 const COLUMN_HEIGHT_PX = (TOTAL_MINUTES / ROW_MINUTES) * ROW_HEIGHT_PX;
 const HOUR_MARKS = Array.from({ length: GRID_END_HOUR - DAY_START_HOUR + 1 }, (_, i) => DAY_START_HOUR + i);
 const EVALUATION_DURATION_MINUTES = 50;
@@ -374,6 +404,8 @@ function ScheduleDialog({
   }, [onClose]);
 
   const fieldLabel = "text-[11px] font-semibold uppercase tracking-wide text-ink-soft";
+  const selectedOffer = readyPool.find((p) => p.id === dialog.itemId)?.offer;
+  const liveOffer = selectedOffer ? isLiveOffer(selectedOffer) : false;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
@@ -442,6 +474,11 @@ function ScheduleDialog({
             </select>
           </label>
           <p className="text-[11px] text-ink-faint">Duração: {EVALUATION_DURATION_MINUTES} min.</p>
+          {liveOffer && (
+            <p role="alert" className="rounded-md border border-amber-400 bg-amber-100 px-2 py-1.5 text-[11px] font-semibold text-amber-900">
+              O responsável está no fluxo automático do WhatsApp. Agendar manualmente cancela esse fluxo.
+            </p>
+          )}
           {error && (
             <p role="alert" className="text-xs font-semibold text-status-negative-text">
               {error}
@@ -475,6 +512,7 @@ function EditAppointmentDialog({
   onSave,
   onCancelAppointment,
   onConfirmProvisional,
+  onRejectOffer,
   onClose,
 }: {
   appointment: EvaluationCalendarAppointment;
@@ -484,6 +522,8 @@ function EditAppointmentDialog({
   onSave: (date: string, time: string, therapistId: string, roomId: string) => Promise<void>;
   onCancelAppointment: () => Promise<void>;
   onConfirmProvisional?: () => Promise<void>;
+  /** Só quando o horário veio da oferta automática: recusa, libera a vaga e reenvia as opções ao responsável. */
+  onRejectOffer?: () => Promise<void>;
   onClose: () => void;
 }) {
   const initialDate = useMemo(() => {
@@ -611,7 +651,18 @@ function EditAppointmentDialog({
             <p className="mt-1 text-[11px] text-amber-700">
               Ao confirmar, a vaga é fixada e uma notificação de confirmação com orientações é disparada imediatamente para o WhatsApp do responsável.
             </p>
-            <div className="mt-3 flex justify-end">
+            <div className="mt-3 flex flex-wrap justify-end gap-2">
+              {appointment.offerId && onRejectOffer && (
+                <button
+                  type="button"
+                  onClick={onRejectOffer}
+                  disabled={pending}
+                  className="btn text-xs font-semibold disabled:opacity-50"
+                  title="Libera esta vaga e envia novas opções de horário ao responsável"
+                >
+                  Recusar e reofertar
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onConfirmProvisional}
@@ -681,146 +732,29 @@ function EditAppointmentDialog({
   );
 }
 
-function SendWhatsAppOfferDialog({
-  item,
-  therapists,
-  rooms,
-  defaultTherapistId,
-  defaultRoomId,
-  pending,
-  onSend,
-  onClose,
-}: {
-  item: EvaluationPoolItem;
-  therapists: { id: string; name: string; isEvaluator: boolean }[];
-  rooms: { id: string; name: string }[];
-  defaultTherapistId: string;
-  defaultRoomId: string;
-  pending: boolean;
-  onSend: (patientId: string, therapistId: string, roomId: string, phone: string) => Promise<void>;
-  onClose: () => void;
-}) {
-  const patientId = item.bookInput.origin === "presencial" ? item.bookInput.patientId : "";
-  const initialPhone = item.facts?.phone || "";
-  const [phone, setPhone] = useState(initialPhone);
-  const [therapistId, setTherapistId] = useState(defaultTherapistId || therapists[0]?.id || "");
-  const [roomId, setRoomId] = useState(defaultRoomId || rooms[0]?.id || "");
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  const fieldLabel = "text-[11px] font-semibold uppercase tracking-wide text-ink-soft";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="whatsapp-dialog-title"
-        className="w-full max-w-md rounded-lg border border-paper-line-strong bg-white p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-paper-line pb-3">
-          <div className="flex items-center gap-2">
-            <div className="rounded-full bg-emerald-100 p-1.5 text-emerald-700">
-              <MessageSquare className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 id="whatsapp-dialog-title" className="text-sm font-bold text-ink">
-                Enviar 3 opções via WhatsApp
-              </h3>
-              <p className="text-xs font-semibold text-emerald-800">{item.patientName}</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1 text-ink-soft hover:bg-paper hover:text-ink"
-            aria-label="Fechar"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3">
-          <div className="rounded-md bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-900 leading-relaxed">
-            O sistema calculará automaticamente os próximos <strong>3 horários vagos</strong> na agenda para o terapeuta e sala escolhidos, e enviará uma mensagem acolhedora pelo WhatsApp para a família responder com <strong>1, 2 ou 3</strong>.
-          </div>
-
-          <label className="flex flex-col gap-1">
-            <span className={fieldLabel}>WhatsApp do responsável</span>
-            <input
-              type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="(91) 99999-9999"
-              className="input text-xs"
-            />
-            {item.facts?.guardianName && (
-              <span className="text-[10px] text-ink-faint">Responsável: {item.facts.guardianName}</span>
-            )}
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className={fieldLabel}>Terapeuta avaliador</span>
-            <select value={therapistId} onChange={(e) => setTherapistId(e.target.value)} className="input text-xs">
-              {therapists.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} {!t.isEvaluator ? "(sem qualificação de avaliador)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className={fieldLabel}>Sala de atendimento</span>
-            <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="input text-xs">
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-5 flex items-center justify-end gap-2 border-t border-paper-line pt-3">
-          <button type="button" onClick={onClose} disabled={pending} className="btn text-xs">
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={() => onSend(patientId, therapistId, roomId, phone)}
-            disabled={pending || !phone || !therapistId || !roomId || !patientId}
-            className="btn flex items-center gap-1.5 text-xs font-bold text-white shadow-sm hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ background: "var(--color-success)" }}
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            {pending ? "Enviando horários…" : "Disparar opções no WhatsApp"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function EvaluationCalendar({
   pool: initialPool,
+  offers: initialOffers,
   therapists,
   rooms,
 }: {
   pool: EvaluationPoolItem[];
+  offers: EvaluationOfferItem[];
   therapists: { id: string; name: string }[];
   rooms: { id: string; name: string }[];
 }) {
   const [weekAnchor, setWeekAnchor] = useState(() => todayInTimeZone(CLINIC_TIMEZONE));
   const [appointments, setAppointments] = useState<EvaluationCalendarAppointment[]>([]);
+  // Fechamentos cadastrados (clinic_closures) da semana visível; feriados
+  // nacionais vêm de lib/clinic-calendar-pure, sem ida ao banco.
+  const [closures, setClosures] = useState<ClinicClosure[]>([]);
   const [pool, setPool] = useState(initialPool);
+  // Crianças que receberam a oferta automática por WhatsApp e ainda não têm horário (barra lateral).
+  const [offers, setOffers] = useState(initialOffers);
+  // Cards que o responsável acabou de escolher (aguardando OK): piscam por 2 min.
+  const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
+  // Relógio da tela (1 min) pra "há X h" das ofertas sem render impuro.
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [countsVersion, setCountsVersion] = useState(0);
   const { toast } = useToast();
@@ -835,8 +769,6 @@ export function EvaluationCalendar({
   const [scheduling, setScheduling] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<EvaluationCalendarAppointment | null>(null);
   const [pendingEdit, setPendingEdit] = useState(false);
-  const [whatsappOfferItem, setWhatsappOfferItem] = useState<EvaluationPoolItem | null>(null);
-  const [pendingWhatsApp, setPendingWhatsApp] = useState(false);
   // Janela flutuante do card clicado na fila (laudo/guia/contato + aprovar,
   // rejeitar e mensagem) — guarda o retângulo do card pra ancorar a janela
   // ao lado dele.
@@ -884,19 +816,98 @@ export function EvaluationCalendar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableTherapists]);
 
-  async function fetchWeek() {
-    setLoading(true);
+  async function fetchWeek(silent = false) {
+    if (!silent) setLoading(true);
     const res = await getEvaluationCalendarWeekAction(bounds.start);
     if (res.success) {
       setAppointments(res.appointments);
+      setClosures(res.closures);
       setCountsVersion((v) => v + 1);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 
   async function fetchPool() {
     const res = await getEvaluationPoolAction();
-    if (res.success) setPool(res.pool);
+    if (res.success) {
+      setPool(res.pool);
+      setOffers(res.offers);
+    }
+  }
+
+  // Tempo real: o responsável escolhe o horário no WhatsApp e a agenda reage
+  // sem recarregar. Escuta a oferta (evaluation_offers) e os agendamentos de
+  // avaliação; com a aba aberta o poll de 60s e o retorno à aba cobrem uma
+  // assinatura que caiu (mesmo desenho de app/recepcao/chegadas/chegadas-list.tsx).
+  const refreshRef = useRef<() => void>(() => {});
+  // Atualizado a cada render (a closure enxerga a semana atual) — fora do corpo
+  // do render pra não escrever em ref durante ele.
+  useEffect(() => {
+    refreshRef.current = () => {
+      void fetchWeek(true);
+      void fetchPool();
+    };
+  });
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRefresh = () => {
+    if (refreshTimerRef.current) return;
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null;
+      refreshRef.current();
+    }, 1500);
+  };
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("evaluation-offers-agenda")
+      .on("postgres_changes", { event: "*", schema: "public", table: "evaluation_offers" }, (payload) => {
+        const next = payload.new as { status?: string; appointment_id?: string | null } | undefined;
+        if (payload.eventType === "UPDATE" && next?.status === "aguardando_supervisor" && next.appointment_id) {
+          const appointmentId = next.appointment_id;
+          setFlashIds((prev) => new Set(prev).add(appointmentId));
+          setTimeout(
+            () =>
+              setFlashIds((prev) => {
+                const copy = new Set(prev);
+                copy.delete(appointmentId);
+                return copy;
+              }),
+            120_000,
+          );
+          toast("Um responsável escolheu o horário da 1ª avaliação — confira o card piscando na agenda e confirme.", "info");
+        }
+        scheduleRefresh();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: "is_evaluation=eq.true" }, () => scheduleRefresh())
+      .subscribe();
+
+    const interval = setInterval(() => {
+      setNowMs(Date.now());
+      if (!document.hidden) refreshRef.current();
+    }, 60_000);
+    const onVisibility = () => {
+      if (!document.hidden) refreshRef.current();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function runOfferAction(run: () => Promise<{ success: boolean; error?: string }>, okMessage: string) {
+    const res = await run();
+    if (!res.success) {
+      toast(res.error ?? "Não foi possível concluir.", "error");
+      return;
+    }
+    toast(okMessage, "success");
+    await fetchPool();
   }
 
   useEffect(() => {
@@ -923,6 +934,8 @@ export function EvaluationCalendar({
 
   const readyPool = pool.filter((p) => p.ready);
   const waitingPool = pool.filter((p) => !p.ready);
+  // Ofertas cujo paciente não aparece na fila (o card da fila já mostra a faixa de status).
+  const orphanOffers = offers.filter((o) => !pool.some((p) => p.offer?.id === o.id));
 
   // Se o avaliador não tem NENHUM bloco cadastrado, disponibilidade ainda não
   // foi configurada pra ele — não restringe nada além do horário comercial,
@@ -957,6 +970,8 @@ export function EvaluationCalendar({
     if (dayIndex < 0) return "Escolha um dia da semana visível.";
     const startMinutes = parseTimeToMinutes(time);
     const endMinutes = startMinutes + durationMinutes;
+    const calendarClosed = closureReason(week.days[dayIndex], startMinutes, endMinutes, closures);
+    if (calendarClosed) return `Clínica fechada: ${calendarClosed.label}.`;
     const closingHour = CLOSING_HOUR_BY_DAY[dayIndex];
     if (endMinutes > closingHour * 60) {
       return dayIndex === 5
@@ -1231,18 +1246,6 @@ export function EvaluationCalendar({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setWhatsappOfferItem(item);
-                        }}
-                        className="flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition-all"
-                        title="Enviar 3 opções de horários via WhatsApp para o responsável"
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                        <span>WhatsApp</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
                           openDialogFromCard(item);
                         }}
                         className="rounded border border-paper-line-strong px-1.5 py-0.5 text-[10px] font-semibold text-accent hover:bg-paper"
@@ -1252,6 +1255,7 @@ export function EvaluationCalendar({
                     </div>
                   )}
                 </div>
+                {item.offer && <OfferStatusBand badge={offerBadge(item.offer, nowMs)} />}
                 <div className="mt-1 flex flex-wrap gap-1">
                   {item.gate ? (
                     <span className="tag-status st-agendada">Docs · Recepção</span>
@@ -1274,6 +1278,61 @@ export function EvaluationCalendar({
             ))}
             {readyPool.length === 0 && <p className="text-xs text-ink-faint">Nenhum paciente pronto para agendar.</p>}
           </div>
+
+          {orphanOffers.length > 0 && (
+            <>
+              <h3 className="mt-4 text-xs font-bold uppercase tracking-wide text-ink-soft">Aguardando responsável ({orphanOffers.length})</h3>
+              <p className="mb-2 mt-0.5 text-[10px] text-ink-faint">Receberam as opções de horário por WhatsApp e ainda não escolheram.</p>
+              <div className="flex flex-col gap-2">
+                {orphanOffers.map((o) => {
+                  const problem = o.status === "falhou" || o.status === "sem_horario";
+                  const hours = o.sentAt ? Math.floor((nowMs - new Date(o.sentAt).getTime()) / 3_600_000) : null;
+                  const late = !problem && hours !== null && hours >= 24;
+                  const statusText =
+                    o.status === "aguardando_interesse"
+                      ? "Aguardando resposta ao convite"
+                      : o.status === "aguardando_escolha"
+                        ? "Escolhendo o horário"
+                        : o.status === "falhou"
+                          ? "Falha no envio"
+                          : "Sem horário livre";
+                  return (
+                    <div
+                      key={o.id}
+                      className={`rounded-md border p-2.5 ${problem ? "border-status-negative-text/40 bg-status-negative-soft/30" : late ? "border-amber-400 bg-[#fff9eb]" : "border-paper-line-strong bg-paper"}`}
+                    >
+                      <p className="text-xs font-semibold text-ink">{o.patientName}</p>
+                      <p className="mt-1 text-[11px] text-ink-soft">
+                        {statusText}
+                        {hours !== null && !problem ? ` · há ${hours < 1 ? "menos de 1" : hours} h${late ? " (lembrete enviado)" : ""}` : ""}
+                      </p>
+                      {problem && o.lastError && <p className="mt-1 text-[11px] text-status-negative-text">{o.lastError}</p>}
+                      <div className="mt-2 flex gap-1.5">
+                        {problem ? (
+                          <button
+                            type="button"
+                            className="btn text-[11px]"
+                            onClick={() => runOfferAction(() => restartEvaluationOfferAction(o.patientId), "Nova tentativa enviada ao responsável.")}
+                          >
+                            Tentar de novo
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn text-[11px]"
+                            title="Cancela a oferta automática para você agendar manualmente"
+                            onClick={() => runOfferAction(() => cancelEvaluationOfferAction(o.id), "Oferta cancelada. Agende manualmente.")}
+                          >
+                            Cancelar oferta
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           {waitingPool.length > 0 && (
             <>
@@ -1371,6 +1430,8 @@ export function EvaluationCalendar({
               const closedTop = (closedFromMinutes / ROW_MINUTES) * ROW_HEIGHT_PX;
               const closedHeight = COLUMN_HEIGHT_PX - closedTop;
               const preview = dragPreview?.dayIndex === dayIndex ? dragPreview : null;
+              // Dia inteiro fechado (feriado nacional ou fechamento sem janela de horário).
+              const dayClosed = closureReason(day, 0, 24 * 60, closures);
               return (
                 <div key={day} className="flex-1 border-l border-paper-line pl-1">
                   <div className="flex flex-col items-center pb-1 leading-tight">
@@ -1383,6 +1444,11 @@ export function EvaluationCalendar({
                     >
                       {Number(day.slice(8))}
                     </span>
+                    {dayClosed && (
+                      <span className="mt-0.5 max-w-full truncate px-1 text-[9px] font-semibold text-status-negative-text" title={dayClosed.label}>
+                        {dayClosed.label}
+                      </span>
+                    )}
                   </div>
                   <div
                     className={`relative rounded-md ${hasAvailabilityConfigured ? "" : "bg-paper"} ${hasEvaluators ? "cursor-pointer" : ""}`}
@@ -1417,6 +1483,18 @@ export function EvaluationCalendar({
                     {Array.from({ length: TOTAL_MINUTES / 60 }, (_, i) => (
                       <div key={i} className="border-t border-paper-line" style={{ height: ROW_HEIGHT_PX * (60 / ROW_MINUTES) }} />
                     ))}
+                    {dayClosed && (
+                      <div
+                        className="pointer-events-none absolute inset-0 z-[1] flex items-start justify-center rounded-md pt-2 text-center text-[10px] font-semibold"
+                        style={{
+                          background:
+                            "repeating-linear-gradient(135deg, var(--status-falta-bg) 0 8px, transparent 8px 16px)",
+                          color: "var(--color-status-negative-text)",
+                        }}
+                      >
+                        {dayClosed.label}
+                      </div>
+                    )}
                     {closedHeight > 0 && (
                       <div
                         className="pointer-events-none absolute left-0 right-0 flex items-start justify-center rounded-b-md pt-1 text-[10px] font-semibold"
@@ -1469,29 +1547,30 @@ export function EvaluationCalendar({
                             dragPayloadRef.current = payload;
                             e.dataTransfer.setData("application/json", JSON.stringify(payload));
                           }}
-                          className={`grid-cell-focusable absolute left-0.5 right-0.5 cursor-pointer overflow-hidden rounded-md border p-1 text-[11px] shadow-sm hover:ring-2 hover:ring-chart/50 active:cursor-grabbing ${
-                            a.isProvisional ? "border-amber-400 bg-amber-50" : ""
-                          }`}
+                          className={`grid-cell-focusable absolute left-1 right-1 cursor-pointer overflow-hidden rounded-[14px] border p-2 text-xs shadow-xs hover:ring-2 hover:ring-chart/50 active:cursor-grabbing transition-transform hover:scale-[1.01] ${
+                            a.isProvisional ? "border-amber-500 bg-[#fff9eb]" : ""
+                          } ${flashIds.has(a.id) ? "animate-pulse ring-2 ring-amber-400" : ""}`}
                           style={{
                             top,
                             height,
-                            background: a.isProvisional ? "#fffbeb" : "var(--status-agendada-bg)",
-                            borderColor: a.isProvisional ? "#f59e0b" : "var(--paper-line-strong)",
+                            background: a.isProvisional ? "#fff9eb" : "#fdf6e9",
+                            borderColor: a.isProvisional ? "#f59e0b" : "#4a6358",
                           }}
-                          title={`${a.patientName} · ${a.therapistName} · ${a.roomName}${
+                          title={`${a.patientName} · ${timeLabel(a.startsAt, CLINIC_TIMEZONE)} · ${a.therapistName} · ${a.roomName}${
                             a.isProvisional ? " (⏳ Aguardando aprovação do supervisor)" : ""
                           } — clique para editar/confirmar/desmarcar`}
                         >
-                          <div className="flex items-center justify-between gap-1">
-                            <p className="truncate font-semibold text-ink">{a.patientName}</p>
+                          <div className="flex items-center justify-between gap-1 leading-snug">
+                            <p className="truncate font-semibold text-slate-800 text-[12px]">{a.patientName}</p>
                             {a.isProvisional && (
-                              <span className="shrink-0 rounded bg-amber-200 px-1 py-0.2 text-[9px] font-bold text-amber-900">
-                                ⏳ Provisório
+                              <span className="shrink-0 rounded bg-amber-200 px-1 py-0.5 text-[9px] font-bold text-amber-900">
+                                {a.offerId ? "⏳ Escolhido pelo responsável" : "⏳ Provisório"}
                               </span>
                             )}
                           </div>
-                          <p className="truncate text-ink-soft">{timeLabel(a.startsAt, CLINIC_TIMEZONE)} · {a.therapistName}</p>
-                          <OriginChip origin={a.origin} />
+                          <p className="truncate text-slate-600 text-[11px] mt-0.5 font-normal">
+                            {timeLabel(a.startsAt, CLINIC_TIMEZONE)} · {a.therapistName}
+                          </p>
                         </div>
                       );
                     })}
@@ -1587,38 +1666,23 @@ export function EvaluationCalendar({
               return;
             }
             toast(`Agendamento de ${editingAppointment.patientName} confirmado! Notificação enviada por WhatsApp.`, "success");
+            if (res.warning) toast(res.warning, "info");
             setEditingAppointment(null);
             await Promise.all([fetchWeek(), fetchPool()]);
           }}
-          onClose={() => setEditingAppointment(null)}
-        />
-      )}
-
-      {whatsappOfferItem && (
-        <SendWhatsAppOfferDialog
-          item={whatsappOfferItem}
-          therapists={availableTherapists}
-          rooms={rooms}
-          defaultTherapistId={therapistId}
-          defaultRoomId={roomId}
-          pending={pendingWhatsApp}
-          onSend={async (patientId, sendTherapistId, sendRoomId, phone) => {
-            setPendingWhatsApp(true);
-            const res = await sendEvaluationOfferViaWhatsAppAction({
-              patientId,
-              therapistId: sendTherapistId,
-              roomId: sendRoomId,
-              customPhone: phone,
-            });
-            setPendingWhatsApp(false);
+          onRejectOffer={async () => {
+            setPendingEdit(true);
+            const res = await rejectEvaluationOfferAction(editingAppointment.id);
+            setPendingEdit(false);
             if (!res.success) {
               toast(res.error, "error");
               return;
             }
-            toast(`3 opções de horários enviadas via WhatsApp para ${whatsappOfferItem.patientName}!`, "success");
-            setWhatsappOfferItem(null);
+            toast(`Horário recusado. ${editingAppointment.patientName}: novas opções enviadas ao responsável.`, "success");
+            setEditingAppointment(null);
+            await Promise.all([fetchWeek(), fetchPool()]);
           }}
-          onClose={() => setWhatsappOfferItem(null)}
+          onClose={() => setEditingAppointment(null)}
         />
       )}
     </div>

@@ -4,6 +4,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { GRID_EXCLUDED_STATUSES } from "@/app/supervisao/grade-data";
+import type { PoolOffer } from "@/lib/evaluation-offer-badge-pure";
 
 type Supa = SupabaseClient<Database>;
 
@@ -43,6 +44,8 @@ export type EvaluationPoolItem = {
   /** Só para cadastro presencial: o que a Supervisão precisa pra escolher avaliador/horário. */
   facts?: EvaluationPoolFacts;
   bookInput: EvaluationBookInput;
+  /** Oferta automática por WhatsApp desta criança (viva ou que falhou) — alimenta a faixa de status do card. */
+  offer?: PoolOffer;
 };
 
 export type EvaluationPoolFacts = {
@@ -68,7 +71,72 @@ export type EvaluationCalendarAppointment = {
   startsAt: string;
   endsAt: string;
   isProvisional?: boolean;
+  /** Presente quando o horário foi escolhido pelo responsável na oferta automática do WhatsApp e aguarda o OK da Supervisão. */
+  offerId?: string;
+  /** Quando o responsável escolheu (ISO) — a agenda destaca escolhas recentes. */
+  chosenAt?: string;
 };
+
+/**
+ * Criança que recebeu a oferta automática de horários (evaluation_offers) e
+ * ainda não tem horário confirmado: alimenta a lista "Aguardando responsável"
+ * da barra lateral da agenda.
+ */
+export type EvaluationOfferItem = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  status: "aguardando_interesse" | "aguardando_escolha" | "falhou" | "sem_horario";
+  sentAt: string | null;
+  reminderSentAt: string | null;
+  lastError: string | null;
+};
+
+// `evaluation_offers` ainda não está em lib/database.types.ts (migration
+// 20261029130000 precisa ser aplicada e os tipos regenerados).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const looseDb = (supabase: Supa) => supabase as unknown as SupabaseClient<any>;
+
+/** Ofertas que a Supervisão precisa acompanhar (aguardando o responsável ou com problema no envio). */
+export async function getEvaluationOffers(supabase: Supa): Promise<EvaluationOfferItem[]> {
+  const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await looseDb(supabase)
+    .from("evaluation_offers")
+    .select("id, patient_id, status, sent_at, reminder_sent_at, last_error, created_at, patients(full_name)")
+    .in("status", ["aguardando_interesse", "aguardando_escolha", "falhou", "sem_horario"])
+    .gte("created_at", since)
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("[evaluation-agenda] evaluation_offers:", error.message);
+    return [];
+  }
+  type Row = {
+    id: string;
+    patient_id: string;
+    status: EvaluationOfferItem["status"];
+    sent_at: string | null;
+    reminder_sent_at: string | null;
+    last_error: string | null;
+    patients: { full_name: string } | { full_name: string }[] | null;
+  };
+  const rows = (data ?? []) as Row[];
+  // Falha antiga de quem já tem oferta viva (ou nova tentativa) não precisa aparecer.
+  const live = new Set(rows.filter((r) => r.status === "aguardando_interesse" || r.status === "aguardando_escolha").map((r) => r.patient_id));
+  return rows
+    .filter((r) => (r.status === "falhou" || r.status === "sem_horario" ? !live.has(r.patient_id) : true))
+    .map((r) => {
+      const patient = Array.isArray(r.patients) ? r.patients[0] : r.patients;
+      return {
+        id: r.id,
+        patientId: r.patient_id,
+        patientName: patient?.full_name ?? "—",
+        status: r.status,
+        sentAt: r.sent_at,
+        reminderSentAt: r.reminder_sent_at,
+        lastError: r.last_error,
+      };
+    });
+}
 
 const ANAMNESIS_STATUS_LABEL: Record<string, string> = {
   pendente_supervisor: "Documentação para validar",
@@ -356,7 +424,21 @@ export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_C
 
   const [anamnesisItems, intakeItems] = await Promise.all([getAnamnesisPoolItems(), getIntakePoolItems(supabase)]);
 
-  const presencialItems = await getPresencialPoolItems(supabase, new Set());
+  // Paciente com oferta automática em andamento continua na fila: o card mostra
+  // em que passo o responsável está, e agendar manualmente cancela a oferta
+  // (releaseOfferForManualScheduling). Quem já escolheu horário tem agendamento
+  // provisório e sai da fila pelo filtro de agendamento ativo.
+  const [presencialItems, offers] = await Promise.all([getPresencialPoolItems(supabase, new Set()), getEvaluationOffers(supabase)]);
+  const offerByPatient = new Map<string, PoolOffer>();
+  for (const o of offers) {
+    const live = o.status === "aguardando_interesse" || o.status === "aguardando_escolha";
+    if (live || !offerByPatient.has(o.patientId)) {
+      offerByPatient.set(o.patientId, { id: o.id, status: o.status, sentAt: o.sentAt, reminderSentAt: o.reminderSentAt, lastError: o.lastError });
+    }
+  }
+  for (const item of presencialItems) {
+    if (item.bookInput.origin === "presencial") item.offer = offerByPatient.get(item.bookInput.patientId);
+  }
 
   // Paciente que veio por contato de documentos (WhatsApp/portal) só entra na
   // fila depois do "ok" da Recepção confirmando a autorização do plano.
@@ -404,14 +486,21 @@ export async function getEvaluationCalendarAppointments(
   const appointments = data ?? [];
   const ids = appointments.map((a) => a.id);
 
-  const [{ data: anamnesisRows }, { data: intakeRows }] = await Promise.all([
+  const [{ data: anamnesisRows }, { data: intakeRows }, offerRes] = await Promise.all([
     ids.length
       ? createAdminClient().from("anamnesis_scheduling_requests").select("appointment_id").in("appointment_id", ids)
       : Promise.resolve({ data: [] as { appointment_id: string | null }[] }),
     ids.length
       ? supabase.from("insurance_intake_leads").select("appointment_id").in("appointment_id", ids)
       : Promise.resolve({ data: [] as { appointment_id: string | null }[] }),
+    ids.length
+      ? looseDb(supabase).from("evaluation_offers").select("id, appointment_id, chosen_at").eq("status", "aguardando_supervisor").in("appointment_id", ids)
+      : Promise.resolve({ data: [] as { id: string; appointment_id: string; chosen_at: string | null }[], error: null }),
   ]);
+  if (offerRes.error) console.error("[evaluation-agenda] evaluation_offers:", offerRes.error.message);
+  const offerByAppointment = new Map(
+    ((offerRes.data ?? []) as { id: string; appointment_id: string; chosen_at: string | null }[]).map((o) => [o.appointment_id, o]),
+  );
 
   const anamnesisAppointmentIds = new Set((anamnesisRows ?? []).map((r) => r.appointment_id).filter(Boolean) as string[]);
   const intakeAppointmentIds = new Set((intakeRows ?? []).map((r) => r.appointment_id).filter(Boolean) as string[]);
@@ -442,6 +531,8 @@ export async function getEvaluationCalendarAppointments(
       startsAt: a.starts_at,
       endsAt: a.ends_at,
       isProvisional: Boolean(a.is_provisional),
+      offerId: offerByAppointment.get(a.id)?.id,
+      chosenAt: offerByAppointment.get(a.id)?.chosen_at ?? undefined,
     };
   });
 }

@@ -175,6 +175,17 @@ export function getTwilioContentSidForCategory(category: string): string | undef
       return process.env.TWILIO_PATIENT_FEEDBACK_TEMPLATE_CONTENT_SID;
     case "abertura_documentos":
       return process.env.TWILIO_DOCUMENTS_OPENER_TEMPLATE_CONTENT_SID;
+    // Oferta automática de horários da 1ª avaliação (lib/evaluation-offer.ts).
+    case "agendamento_avaliacao":
+      return process.env.TWILIO_EVAL_OFFER_TEMPLATE_CONTENT_SID;
+    case "lembrete_avaliacao":
+      return process.env.TWILIO_EVAL_REMINDER_TEMPLATE_CONTENT_SID;
+    case "confirmacao_d1":
+      return process.env.TWILIO_EVAL_CONFIRM_TEMPLATE_CONTENT_SID;
+    // Convite da pré-anamnese por WhatsApp (lib/anamnesis-prefill.ts): texto livre
+    // falha fora da janela de 24h, então o convite vai por template.
+    case "convite_pre_anamnese":
+      return process.env.TWILIO_PREANAMNESE_INVITE_TEMPLATE_CONTENT_SID;
     default:
       return undefined;
   }
@@ -552,8 +563,11 @@ export async function handleTwilioIncomingMessage(params: {
    * dedupe ela era processada (e respondida) duas vezes. Opcional: quem
    * chama sem SID (painel de teste) não passa pela checagem. */
   messageSid?: string;
+  /** `ButtonPayload`/`ListId` da Twilio: resposta por toque em botão ou item de lista. */
+  buttonPayload?: string;
+  listId?: string;
 }): Promise<{ replyMessage: string; intent: string; concluded?: boolean }> {
-  const { from, body, mediaUrl0, mediaContentType0, media, messageSid } = params;
+  const { from, body, mediaUrl0, mediaContentType0, media, messageSid, buttonPayload, listId } = params;
   const phone = formatE164Phone(from.replace("whatsapp:", ""));
 
   // 0. Central Multicanal: resolve/cria a conversa e, se um humano já assumiu
@@ -650,6 +664,20 @@ export async function handleTwilioIncomingMessage(params: {
       console.error("[Twilio Intake Bot Error]:", err);
     }
 
+    // 0.65 Oferta automática de horários da 1ª avaliação (plano autorizou →
+    // template → 3 horários → supervisão confirma). Também roda com a
+    // conversa assumida por humano: a sessão só existe enquanto a oferta
+    // está viva, e escalonar libera a sessão.
+    try {
+      const { processEvaluationOfferStep } = await import("./evaluation-offer");
+      const offerResult = await processEvaluationOfferStep({ from, body, buttonPayload, listId });
+      if (offerResult.handled) {
+        return { intent: "oferta_primeira_avaliacao", replyMessage: offerResult.replyMessage };
+      }
+    } catch (err) {
+      console.error("[Twilio Evaluation Offer Bot Error]:", err);
+    }
+
     // 0.7 Mídia "a frio": TODA foto/PDF que chega e que nenhum bot está
     // esperando é guardada — não depende de fluxo de agendamento nem de
     // palavra-gatilho, e também roda com a conversa assumida por um humano
@@ -738,7 +766,7 @@ export async function handleTwilioIncomingMessage(params: {
   // sessão pre_anamnesis_*.
   try {
     const { processPreAnamnesisStep } = await import("./twilio-preanamnesis-bot");
-    const preAnamnesisResult = await processPreAnamnesisStep({ from, body });
+    const preAnamnesisResult = await processPreAnamnesisStep({ from, body, buttonPayload });
 
     if (preAnamnesisResult.handled) {
       return {

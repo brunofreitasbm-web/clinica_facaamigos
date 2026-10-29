@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { promoteToPatient } from "@/lib/patient-stage";
 import { parseAuthorizedGuideText, type GuideProcedure, type ParsedAuthorizedGuide } from "@/lib/authorized-guide-parser";
+import { startEvaluationOffer } from "@/lib/evaluation-offer";
 
 /**
  * Etapas 2, 3 e 4 da linha do tempo de cada contato da fila de pendências
@@ -21,7 +22,14 @@ import { parseAuthorizedGuideText, type GuideProcedure, type ParsedAuthorizedGui
  * update a recepção/supervisor/gestor da clínica.
  */
 
-type ActionResult = { success: true; note?: string } | { success: false; error: string };
+type ActionResult =
+  | {
+      success: true;
+      note?: string;
+      /** Só em enableDraftScheduling: o que aconteceu com a oferta automática de horários por WhatsApp. */
+      offer?: "sent" | "duplicate" | "failed";
+    }
+  | { success: false; error: string };
 
 export type AuthorizedGuideInput = {
   guideNumber: string;
@@ -416,11 +424,38 @@ export async function enableDraftScheduling(draftId: string): Promise<ActionResu
     .eq("id", draftId);
   if (error) return { success: false, error: "Não foi possível habilitar. Tente de novo." };
 
+  // Plano autorizou (não é particular): o bot do WhatsApp oferece 3 horários
+  // ao responsável e a Supervisão confirma na Agenda 1ª Avaliação
+  // (lib/evaluation-offer.ts). Falha aqui NÃO desfaz a habilitação — a
+  // recepção ainda pode avisar a família pelo botão de WhatsApp manual.
+  let offer: "sent" | "duplicate" | "failed" | undefined;
+  let offerNote: string | undefined;
+  if (draft.plan_authorized_at && draft.patient_id) {
+    try {
+      const started = await startEvaluationOffer({ patientId: draft.patient_id, draftId });
+      if (started.status === "sent") {
+        offer = "sent";
+        offerNote = "Mensagem enviada ao responsável pelo WhatsApp com as opções de horário da 1ª avaliação.";
+      } else if (started.status === "duplicate") {
+        offer = "duplicate";
+        offerNote = "A oferta de horários por WhatsApp já estava em andamento para este paciente.";
+      } else {
+        offer = "failed";
+        offerNote = `Não foi possível enviar a oferta de horários automaticamente (${started.error}) Avise a família pelo botão de WhatsApp.`;
+      }
+    } catch (err) {
+      console.error("[enableDraftScheduling] oferta de horários:", err);
+      offer = "failed";
+      offerNote = "Não foi possível enviar a oferta de horários automaticamente. Avise a família pelo botão de WhatsApp.";
+    }
+  }
+
   refresh();
   return {
     success: true,
+    offer,
     note: draft.patient_id
-      ? undefined
+      ? offerNote
       : "Habilitado. Falta conferir o cadastro para o paciente aparecer na agenda da Supervisão.",
   };
 }

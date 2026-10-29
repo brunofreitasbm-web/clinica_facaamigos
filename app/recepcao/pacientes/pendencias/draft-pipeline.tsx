@@ -492,16 +492,16 @@ export function DraftPipelineColumns({
   const resendUrl = guide && guide.procedures.length > 0 ? buildAuthorizedUrl(guide.procedures, guide.valid_to) : null;
 
   // "Plano autorizou" faz três coisas: grava a guia (etapa 3), habilita o
-  // agendamento (etapa 4) e abre o WhatsApp da recepção com o aviso ao responsável.
+  // agendamento (etapa 4) e dispara pelo servidor a oferta de 3 horários da
+  // 1ª avaliação ao responsável (WhatsApp/Twilio, lib/evaluation-offer.ts).
+  // O link wa.me da recepção deixou de abrir sozinho: continua no botão
+  // "Avisar responsável no WhatsApp" para o caso de a oferta automática falhar.
   const confirmAuthorized = (values: GuideValues) => {
     const procedures = values.procedures.map((p) => ({
       code: p.code,
       description: p.description,
       quantity: Number(p.quantity),
     }));
-    const whatsappUrl = buildAuthorizedUrl(procedures, values.validTo || null);
-    // A aba abre já no clique: depois de um await o navegador trata como popup e bloqueia.
-    const popup = whatsappUrl ? window.open("about:blank", "_blank") : null;
     setDialogError(null);
     setFeedback(null);
     startTransition(async () => {
@@ -511,21 +511,18 @@ export function DraftPipelineColumns({
         procedures,
       });
       if (!saved.success) {
-        popup?.close();
         setDialogError(saved.error);
         return;
       }
       const enabled = await enableDraftScheduling(draft.id);
-      if (popup && whatsappUrl) popup.location.href = whatsappUrl;
       setShowGuideDialog(false);
       // Mantém o item visível na tela no quadro de concluídos / prontos para agendar
       router.refresh();
       if (!enabled.success) {
         setFeedback({ tone: "error", text: `Guia salva, mas não foi possível habilitar o agendamento: ${enabled.error}` });
       } else {
-        const notes = [saved.note, enabled.note, whatsappUrl ? null : "Sem telefone do responsável — avise a família por outro canal."];
-        const note = notes.filter(Boolean).join(" ");
-        if (note) setFeedback({ tone: "note", text: note });
+        const note = [saved.note, enabled.note].filter(Boolean).join(" ");
+        if (note) setFeedback({ tone: enabled.offer === "failed" ? "error" : "note", text: note });
       }
     });
   };

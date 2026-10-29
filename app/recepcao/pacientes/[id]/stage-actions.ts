@@ -8,6 +8,7 @@ import { getActiveAuthorizationId } from "@/lib/active-authorization";
 import { CANCELLED_APPOINTMENT_STATUSES, promoteToPatient } from "@/lib/patient-stage";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
+import { releaseOfferForManualScheduling } from "@/lib/evaluation-offer";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -33,6 +34,11 @@ export async function scheduleEvaluation(
 
   const startsAt = zonedDateTimeToUtc(date, time, CLINIC_TIMEZONE);
   const endsAt = new Date(startsAt.getTime() + STANDARD_SESSION_DURATION_MINUTES * 60 * 1000);
+
+  // Oferta automática por WhatsApp em andamento: cancela (ou recusa, se o
+  // responsável já escolheu horário) antes de gravar o agendamento manual.
+  const release = await releaseOfferForManualScheduling(patientId);
+  if (!release.success) return { success: false, error: release.error };
 
   const supabase = await createClient();
   const { data: appointment, error: apptError } = await supabase
