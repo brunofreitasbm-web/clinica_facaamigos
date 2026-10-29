@@ -1,8 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatE164Phone, type SendMessageResult } from "@/lib/twilio";
+import { buildMessagePreview, findOrCreateConversation, formatE164Phone } from "@/lib/twilio";
 import { sendWhatsApp, getWhatsAppTemplateForCategory } from "@/lib/whatsapp";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { EvaluationBookInput } from "@/lib/evaluation-agenda";
+import { pickEvaluationRecipient } from "@/lib/evaluation-recipient-pure";
+
+/** Resultado do aviso: a supervisão precisa saber quando o responsável NÃO foi avisado. */
+export type EvaluationNotificationOutcome = { sent: true } | { sent: false; reason: string };
 
 export interface EvaluationNotificationParams {
   bookInput?: EvaluationBookInput;
@@ -13,6 +17,8 @@ export interface EvaluationNotificationParams {
   time: string;
   /** Quando true, ajusta a mensagem para deixar claro que a data foi alterada (remarcação), não uma 1ª marcação. */
   isReschedule?: boolean;
+  /** Vincula a mensagem registrada em `messages` ao agendamento. */
+  appointmentId?: string;
 }
 
 export function buildEvaluationConfirmationMessage(params: {
@@ -47,13 +53,14 @@ export function buildEvaluationConfirmationMessage(params: {
  */
 export async function sendEvaluationConfirmationNotification(
   params: EvaluationNotificationParams
-): Promise<SendMessageResult | null> {
+): Promise<EvaluationNotificationOutcome> {
   try {
     const admin = createAdminClient();
 
     let patientName = "Paciente";
     let phoneToNotify = "";
     let guardianFirstName = "";
+    let loggedPatientId: string | null = null;
 
     // 1. Obter nome do paciente e telefone com base na origem ou patientId
     if (params.patientId) {
@@ -62,11 +69,12 @@ export async function sendEvaluationConfirmationNotification(
         admin.from("guardians").select("full_name, phone, is_financial").eq("patient_id", params.patientId),
       ]);
       if (patient?.full_name) patientName = patient.full_name;
+      loggedPatientId = params.patientId;
 
-      const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
-      if (guardian?.phone) {
-        phoneToNotify = guardian.phone;
-        guardianFirstName = (guardian.full_name ?? "").trim().split(/\s+/)[0] ?? "";
+      const recipient = pickEvaluationRecipient(guardians ?? []);
+      if (recipient) {
+        phoneToNotify = recipient.phone;
+        guardianFirstName = recipient.firstName;
       }
     } else if (params.bookInput) {
       if (params.bookInput.origin === "whatsapp_anamnese") {
@@ -97,11 +105,12 @@ export async function sendEvaluationConfirmationNotification(
           admin.from("guardians").select("full_name, phone, is_financial").eq("patient_id", params.bookInput.patientId),
         ]);
         if (patient?.full_name) patientName = patient.full_name;
+        loggedPatientId = params.bookInput.patientId;
 
-        const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
-        if (guardian?.phone) {
-          phoneToNotify = guardian.phone;
-          guardianFirstName = (guardian.full_name ?? "").trim().split(/\s+/)[0] ?? "";
+        const recipient = pickEvaluationRecipient(guardians ?? []);
+        if (recipient) {
+          phoneToNotify = recipient.phone;
+          guardianFirstName = recipient.firstName;
         }
       }
     }
@@ -109,7 +118,7 @@ export async function sendEvaluationConfirmationNotification(
     const formattedPhone = formatE164Phone(phoneToNotify);
     if (!formattedPhone) {
       console.log("[Twilio Evaluation Notification] Telefone de contato não encontrado.");
-      return null;
+      return { sent: false, reason: "Sem telefone do responsável cadastrado." };
     }
 
     // 2. Buscar detalhes do terapeuta e da sala
@@ -171,9 +180,30 @@ export async function sendEvaluationConfirmationNotification(
         : {}),
     });
 
-    return result;
+    // Antes nada ficava registrado: falha de envio (ex.: fora da janela de 24h
+    // sem template) era invisível pra supervisão e pra Recepção.
+    try {
+      const conversation = await findOrCreateConversation({ phoneNumber: formattedPhone, patientId: loggedPatientId });
+      await admin.from("messages").insert({
+        patient_id: loggedPatientId,
+        conversation_id: conversation.id,
+        related_appointment_id: params.appointmentId ?? null,
+        sender_type: "bot",
+        channel: "whatsapp",
+        direction: "outbound",
+        body: message,
+        sent_at: new Date().toISOString(),
+        twilio_sid: result.messageId ?? null,
+        delivery_status: result.success ? "sent" : "failed",
+      });
+      await admin.from("twilio_conversations").update({ last_message_preview: buildMessagePreview(message) }).eq("id", conversation.id);
+    } catch (logError) {
+      console.error("[Twilio Evaluation Notification] Falha ao registrar mensagem:", logError);
+    }
+
+    return result.success ? { sent: true } : { sent: false, reason: result.error ?? "O WhatsApp não aceitou a mensagem." };
   } catch (error) {
     console.error("[Twilio Evaluation Notification Error]:", error);
-    return null;
+    return { sent: false, reason: "Erro ao enviar o WhatsApp." };
   }
 }

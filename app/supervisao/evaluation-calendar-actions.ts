@@ -213,7 +213,7 @@ export async function scheduleFromPoolAction(
   }
 
   // Disparar confirmação de data e horário com orientações do dia via Twilio WhatsApp
-  await sendEvaluationConfirmationNotification({
+  const notice = await sendEvaluationConfirmationNotification({
     bookInput,
     therapistId,
     roomId,
@@ -221,7 +221,7 @@ export async function scheduleFromPoolAction(
     time,
   });
 
-  return { success: true };
+  return notice.sent ? { success: true } : { success: true, warning: notice.reason };
 }
 
 /**
@@ -451,18 +451,22 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
   const time = fullTime.slice(0, 5);
 
   // Disparar WhatsApp com a confirmação final e orientações
-  await sendEvaluationConfirmationNotification({
+  const notice = await sendEvaluationConfirmationNotification({
     patientId: appointment.patient_id,
     therapistId: appointment.therapist_id,
     roomId: appointment.room_id,
     date,
     time,
+    appointmentId,
   });
 
-  let warning: string | undefined;
+  let warning: string | undefined = notice.sent ? undefined : notice.reason;
   if (offer) {
     const invite = await dispatchAnamnesisPrefillRequest({ patientId: appointment.patient_id, appointmentId, startsAt: appointment.starts_at });
-    if (!invite.sent) warning = `O convite da pré-anamnese não foi enviado: ${invite.reason ?? "motivo desconhecido"}.`;
+    if (!invite.sent) {
+      const inviteWarning = `O convite da pré-anamnese não foi enviado: ${invite.reason ?? "motivo desconhecido"}.`;
+      warning = warning ? `${warning} ${inviteWarning}` : inviteWarning;
+    }
   }
 
   revalidatePath("/supervisao");

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { GRID_EXCLUDED_STATUSES } from "@/app/supervisao/grade-data";
 import type { PoolOffer } from "@/lib/evaluation-offer-badge-pure";
+import { pickEvaluationRecipient, type GuardianContact } from "@/lib/evaluation-recipient-pure";
 
 type Supa = SupabaseClient<Database>;
 
@@ -43,10 +44,14 @@ export type EvaluationPoolItem = {
   gate?: EvaluationSchedulingGate;
   /** Só para cadastro presencial: o que a Supervisão precisa pra escolher avaliador/horário. */
   facts?: EvaluationPoolFacts;
+  /** Quem recebe o WhatsApp de confirmação ao agendar (null = ninguém com telefone). Mesma regra do envio. */
+  recipient: EvaluationRecipientPreview | null;
   bookInput: EvaluationBookInput;
   /** Oferta automática por WhatsApp desta criança (viva ou que falhou) — alimenta a faixa de status do card. */
   offer?: PoolOffer;
 };
+
+export type EvaluationRecipientPreview = { name: string | null; phone: string };
 
 export type EvaluationPoolFacts = {
   /** Nome do convênio, "Particular" ou null quando a Recepção ainda não informou. */
@@ -161,7 +166,7 @@ async function getAnamnesisPoolItems(): Promise<EvaluationPoolItem[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("anamnesis_scheduling_requests")
-    .select("id, child_name, status, created_at")
+    .select("id, child_name, status, created_at, guardian_phone")
     .in("status", ["pendente_supervisor", "aprovado"])
     .order("created_at", { ascending: true });
 
@@ -172,6 +177,7 @@ async function getAnamnesisPoolItems(): Promise<EvaluationPoolItem[]> {
     statusLabel: ANAMNESIS_STATUS_LABEL[r.status] ?? r.status,
     detail: "WhatsApp · anamnese",
     ready: r.status === "aprovado",
+    recipient: r.guardian_phone?.trim() ? { name: null, phone: r.guardian_phone } : null,
     bookInput: { origin: "whatsapp_anamnese", requestId: r.id },
   }));
 }
@@ -184,7 +190,7 @@ async function getAnamnesisPoolItems(): Promise<EvaluationPoolItem[]> {
 async function getIntakePoolItems(supabase: Supa): Promise<EvaluationPoolItem[]> {
   const { data } = await supabase
     .from("insurance_intake_leads")
-    .select("id, patient_full_name, status, created_at, extra")
+    .select("id, patient_full_name, status, created_at, extra, phone_e164")
     .not("status", "in", "(scheduled,cancelled,failed)")
     .order("created_at", { ascending: true });
 
@@ -197,6 +203,7 @@ async function getIntakePoolItems(supabase: Supa): Promise<EvaluationPoolItem[]>
       statusLabel: isPresencial ? "🚨 PRESENCIAL NA CLÍNICA" : (INTAKE_STATUS_LABEL[l.status] ?? l.status),
       detail: isPresencial ? "Presencial · docs conferidos na recepção" : "PDF de convênio",
       ready: isPresencial || l.status === "awaiting_slot",
+      recipient: l.phone_e164?.trim() ? { name: null, phone: l.phone_e164 } : null,
       bookInput: { origin: "convenio_pdf", leadId: l.id },
     };
   });
@@ -333,17 +340,26 @@ async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<str
         guardianName: profile?.guardianName ?? null,
         phone: profile?.phone ?? null,
       },
+      recipient: profile?.recipient ?? null,
       bookInput: { origin: "presencial" as const, patientId: p.id },
     };
   });
 }
 
+type PoolPatientProfile = {
+  insurer: string | null;
+  age: string | null;
+  guardianName: string | null;
+  phone: string | null;
+  recipient: EvaluationRecipientPreview | null;
+};
+
 /** Convênio, idade e contato do responsável dos candidatos da fila, numa consulta só. */
 async function getPoolPatientProfiles(
   supabase: Supa,
   patientIds: string[],
-): Promise<Map<string, { insurer: string | null; age: string | null; guardianName: string | null; phone: string | null }>> {
-  const profiles = new Map<string, { insurer: string | null; age: string | null; guardianName: string | null; phone: string | null }>();
+): Promise<Map<string, PoolPatientProfile>> {
+  const profiles = new Map<string, PoolPatientProfile>();
   if (patientIds.length === 0) return profiles;
 
   const [{ data: patientsData }, { data: guardiansData }, { data: draftsData }] = await Promise.all([
@@ -360,6 +376,13 @@ async function getPoolPatientProfiles(
       .select("patient_id, source_phone")
       .in("patient_id", patientIds),
   ]);
+
+  const guardiansByPatientList = new Map<string, GuardianContact[]>();
+  for (const g of guardiansData ?? []) {
+    const list = guardiansByPatientList.get(g.patient_id) ?? [];
+    list.push(g);
+    guardiansByPatientList.set(g.patient_id, list);
+  }
 
   const guardianByPatient = new Map<string, { name: string | null; phone: string | null }>();
   for (const g of guardiansData ?? []) {
@@ -388,12 +411,14 @@ async function getPoolPatientProfiles(
         .find(Boolean) ?? null;
 
     const gInfo = guardianByPatient.get(p.id) ?? draftByPatient.get(p.id);
+    const recipient = pickEvaluationRecipient(guardiansByPatientList.get(p.id) ?? []);
 
     profiles.set(p.id, {
       insurer,
       age: formatChildAge(p.birth_date),
       guardianName: gInfo?.name ?? null,
       phone: gInfo?.phone ?? null,
+      recipient: recipient ? { name: recipient.name, phone: recipient.phone } : null,
     });
   }
   return profiles;

@@ -404,6 +404,7 @@ function ScheduleDialog({
   const fieldLabel = "text-[11px] font-semibold uppercase tracking-wide text-ink-soft";
   const selectedOffer = readyPool.find((p) => p.id === dialog.itemId)?.offer;
   const liveOffer = selectedOffer ? isLiveOffer(selectedOffer) : false;
+  const recipient = readyPool.find((p) => p.id === dialog.itemId)?.recipient ?? null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
@@ -473,6 +474,15 @@ function ScheduleDialog({
           <p className="text-[11px] text-ink-faint">
             Duração: {EVALUATION_DURATION_MINUTES} min · O avaliador é definido automaticamente (menos avaliações na semana entre os livres).
           </p>
+          {recipient ? (
+            <p className="text-[11px] text-ink-soft">
+              <span className="font-semibold">Aviso por WhatsApp:</span> {recipient.name ?? "Responsável"} · {recipient.phone}. Sai ao confirmar.
+            </p>
+          ) : (
+            <p role="alert" className="rounded-md border border-amber-400 bg-amber-100 px-2 py-1.5 text-[11px] font-semibold text-amber-900">
+              Sem telefone do responsável: a confirmação não será enviada. Avise a família manualmente.
+            </p>
+          )}
           {liveOffer && (
             <p role="alert" className="rounded-md border border-amber-400 bg-amber-100 px-2 py-1.5 text-[11px] font-semibold text-amber-900">
               O responsável está no fluxo automático do WhatsApp. Agendar manualmente cancela esse fluxo.
@@ -1093,7 +1103,11 @@ export function EvaluationCalendar({
       toast(res.error, "error");
       return;
     }
-    toast(`${item.patientName} agendado(a) para ${brDate(slotDialog.date)} às ${slotDialog.time}.`, "success");
+    if (res.warning) {
+      toast(`${item.patientName} agendado(a), mas o responsável NÃO foi avisado: ${res.warning} Avise pelo WhatsApp.`, "error", undefined, 10000);
+    } else {
+      toast(`${item.patientName} agendado(a) para ${brDate(slotDialog.date)} às ${slotDialog.time}.`, "success");
+    }
     setSlotDialog(null);
     await Promise.all([fetchWeek(), fetchPool()]);
   }

@@ -12,7 +12,7 @@ import { releaseOfferForManualScheduling } from "@/lib/evaluation-offer";
 import { getSchedulingGates } from "@/lib/evaluation-agenda";
 import { shouldPromoteOnScheduling } from "@/lib/scheduling-promotion-pure";
 
-type ActionResult = { success: true } | { success: false; error: string };
+type ActionResult = { success: true; /** Agendou, mas o responsável não foi avisado por WhatsApp. */ warning?: string } | { success: false; error: string };
 
 export async function getInsurersList(): Promise<{ id: string; name: string }[]> {
   const supabase = await createClient();
@@ -83,16 +83,17 @@ export async function scheduleEvaluation(
   });
 
   // Notificar responsável com confirmação de data, horário e orientações do dia via Twilio WhatsApp
-  await sendEvaluationConfirmationNotification({
+  const notice = await sendEvaluationConfirmationNotification({
     patientId,
     therapistId,
     roomId,
     date,
     time,
+    appointmentId: appointment.id,
   });
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
-  return { success: true };
+  return notice.sent ? { success: true } : { success: true, warning: notice.reason };
 }
 
 export async function markEvaluationDone(patientId: string): Promise<ActionResult> {
