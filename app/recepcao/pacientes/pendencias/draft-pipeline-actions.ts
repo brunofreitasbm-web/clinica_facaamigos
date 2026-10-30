@@ -424,13 +424,13 @@ export async function enableDraftScheduling(draftId: string): Promise<ActionResu
     .eq("id", draftId);
   if (error) return { success: false, error: "Não foi possível habilitar. Tente de novo." };
 
-  // Plano autorizou (não é particular): o bot do WhatsApp oferece 3 horários
+  // Plano autorizou ou particular (dispensada): o bot do WhatsApp oferece 3 horários
   // ao responsável e a Supervisão confirma na Agenda 1ª Avaliação
   // (lib/evaluation-offer.ts). Falha aqui NÃO desfaz a habilitação — a
   // recepção ainda pode avisar a família pelo botão de WhatsApp manual.
   let offer: "sent" | "duplicate" | "failed" | undefined;
   let offerNote: string | undefined;
-  if (draft.plan_authorized_at && draft.patient_id) {
+  if ((draft.plan_authorized_at || draft.authorization_waived) && draft.patient_id) {
     try {
       const started = await startEvaluationOffer({ patientId: draft.patient_id, draftId });
       if (started.status === "sent") {

@@ -179,10 +179,11 @@ export async function startEvaluationOffer(params: {
     .maybeSingle();
   if (existing) return { status: "duplicate", offerId: existing.id };
 
-  const [{ data: patient }, { data: guardians }, draftRes] = await Promise.all([
+  const [{ data: patient }, { data: guardians }, draftRes, { data: insurances }] = await Promise.all([
     admin.from("patients").select("full_name").eq("id", params.patientId).maybeSingle(),
     admin.from("guardians").select("full_name, phone, is_financial").eq("patient_id", params.patientId),
-    params.draftId ? admin.from("registration_drafts").select("source_phone").eq("id", params.draftId).maybeSingle() : Promise.resolve({ data: null }),
+    params.draftId ? admin.from("registration_drafts").select("source_phone, authorization_waived").eq("id", params.draftId).maybeSingle() : Promise.resolve({ data: null }),
+    admin.from("patient_insurance").select("id").eq("patient_id", params.patientId).limit(1),
   ]);
 
   const guardianList = (guardians ?? []) as { full_name: string | null; phone: string | null; is_financial: boolean | null }[];
@@ -244,10 +245,14 @@ export async function startEvaluationOffer(params: {
   }
 
   const guardianName = firstName(guardian?.full_name, "responsável");
-  const text =
-    `Olá, ${guardianName}! 💙\n\n` +
-    `O plano de saúde autorizou o atendimento de *${childName}* no FaçaAmigos.\n\n` +
-    `Podemos agendar a 1ª avaliação agora? Responda *1* para escolher um horário, ou *2* se preferir deixar para depois.\n\n${BRAND_LINE}`;
+  const isPrivate = Boolean((draftRes.data as { authorization_waived?: boolean } | null)?.authorization_waived) || (insurances ?? []).length === 0;
+  const text = isPrivate
+    ? `Olá, ${guardianName}! 💙\n\n` +
+      `O atendimento de *${childName}* no FaçaAmigos está liberado para agendamento da 1ª avaliação.\n\n` +
+      `Podemos agendar agora? Responda *1* para escolher um horário, ou *2* se preferir deixar para depois.\n\n${BRAND_LINE}`
+    : `Olá, ${guardianName}! 💙\n\n` +
+      `O plano de saúde autorizou o atendimento de *${childName}* no FaçaAmigos.\n\n` +
+      `Podemos agendar a 1ª avaliação agora? Responda *1* para escolher um horário, ou *2* se preferir deixar para depois.\n\n${BRAND_LINE}`;
 
   const contentSid = getTwilioContentSidForCategory("agendamento_avaliacao");
   const send = await sendAndLog({
