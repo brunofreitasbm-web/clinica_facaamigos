@@ -8,6 +8,7 @@ import { getActiveAuthorizationId } from "@/lib/active-authorization";
 import { CANCELLED_APPOINTMENT_STATUSES, promoteToPatient } from "@/lib/patient-stage";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
+import { sendEvaluationGuidanceNotification } from "@/lib/evaluation-guidance";
 import { releaseOfferForManualScheduling } from "@/lib/evaluation-offer";
 import { getSchedulingGates } from "@/lib/evaluation-agenda";
 import { shouldPromoteOnScheduling } from "@/lib/scheduling-promotion-pure";
@@ -72,6 +73,17 @@ export async function scheduleEvaluation(
   const gate = (await getSchedulingGates(supabase, [patientId])).get(patientId);
   if (shouldPromoteOnScheduling(gate)) await promoteToPatient(supabase, patientId);
 
+  // Ordem das mensagens ao responsável: confirmação do horário → orientações do dia →
+  // convite da pré-anamnese.
+  await sendEvaluationConfirmationNotification({
+    patientId,
+    therapistId,
+    roomId,
+    date,
+    time,
+  });
+  await sendEvaluationGuidanceNotification(patientId);
+
   // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
   // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia
   // o agendamento se falhar (Twilio fora do ar, sem responsável cadastrado
@@ -80,15 +92,6 @@ export async function scheduleEvaluation(
     patientId,
     appointmentId: appointment.id,
     startsAt: startsAt.toISOString(),
-  });
-
-  // Notificar responsável com confirmação de data, horário e orientações do dia via Twilio WhatsApp
-  await sendEvaluationConfirmationNotification({
-    patientId,
-    therapistId,
-    roomId,
-    date,
-    time,
   });
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);

@@ -305,11 +305,23 @@ async function draftHasPlan(supabase: Awaited<ReturnType<typeof createClient>>, 
     .limit(1);
   if (cardFiles && cardFiles.length > 0) return true;
 
-  if (draft.patient_id) {
+  // Contato ainda sem paciente vinculado: acha o paciente pelo telefone do responsável (formatos
+  // diferentes: "(91) 9263-5677" × "+559192635677", então compara os 8 últimos dígitos).
+  // Sem isso o contato do Théo foi dispensado como particular tendo PROASA no cadastro.
+  const patientIds = new Set<string>();
+  if (draft.patient_id) patientIds.add(draft.patient_id);
+  const phoneTail = typeof draft.source_phone === "string" ? draft.source_phone.replace(/\D/g, "").slice(-8) : "";
+  if (!draft.patient_id && phoneTail.length === 8) {
+    const { data: guardians } = await supabase.from("guardians").select("patient_id, phone").not("phone", "is", null).limit(5000);
+    for (const g of guardians ?? []) {
+      if (g.patient_id && (g.phone ?? "").replace(/\D/g, "").slice(-8) === phoneTail) patientIds.add(g.patient_id);
+    }
+  }
+  if (patientIds.size > 0) {
     const { data } = await supabase
       .from("patient_insurance")
       .select("id")
-      .eq("patient_id", draft.patient_id)
+      .in("patient_id", [...patientIds])
       .eq("is_private", false)
       .not("insurer_id", "is", null)
       .limit(1);

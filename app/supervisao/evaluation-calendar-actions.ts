@@ -21,6 +21,7 @@ import { revalidatePath } from "next/cache";
 import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions";
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
+import { sendEvaluationGuidanceNotification } from "@/lib/evaluation-guidance";
 import { loadClinicCalendar } from "@/lib/clinic-calendar";
 import type { ClinicClosure } from "@/lib/clinic-calendar-pure";
 
@@ -439,6 +440,9 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
     date,
     time,
   });
+
+  // Orientações do dia: depois da confirmação e antes do convite da pré-anamnese.
+  await sendEvaluationGuidanceNotification(appointment.patient_id);
 
   let warning: string | undefined;
   if (offer) {
