@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     for (const item of eligible) {
       const { data: guardians } = await admin
         .from("guardians")
-        .select("id, phone, is_financial")
+        .select("id, full_name, phone, is_financial")
         .eq("patient_id", item.patientId);
 
       const guardian = (guardians ?? []).find((g) => g.is_financial) ?? (guardians ?? [])[0];
@@ -88,6 +88,8 @@ export async function POST(req: NextRequest) {
       });
 
       if (!insertError) {
+        const { data: patient } = await admin.from("patients").select("full_name").eq("id", item.patientId).maybeSingle();
+        const firstName = (full: string | null | undefined, fallback: string) => (full ?? "").trim().split(/\s+/)[0] || fallback;
         const { getWhatsAppTemplateForCategory, sendWhatsApp } = await import("@/lib/whatsapp");
         const contentSid = getWhatsAppTemplateForCategory("nps");
         const clinicUrl = process.env.NEXT_PUBLIC_APP_URL || CLINIC_WEBSITE;
@@ -98,8 +100,8 @@ export async function POST(req: NextRequest) {
           ...(contentSid ? {
             contentSid,
             contentVariables: {
-              "1": "Responsável",
-              "2": "Paciente",
+              "1": firstName(guardian.full_name, "responsável"),
+              "2": firstName(patient?.full_name, "seu(sua) filho(a)"),
               "3": "FaçaAmigos",
               "4": `${clinicUrl}/familia/pesquisa`
             }

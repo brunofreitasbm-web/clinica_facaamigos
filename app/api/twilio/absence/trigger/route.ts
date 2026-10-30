@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsApp, getWhatsAppTemplateForCategory } from "@/lib/whatsapp";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
 
 /**
  * Disparo diário do aviso de faltas (MAAIS §13 / PRD "risco de evasão",
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
     for (const alert of (pending as any[]) ?? []) {
       const { data: guardians } = await db
         .from("guardians")
-        .select("id, phone, is_financial")
+        .select("id, full_name, phone, is_financial")
         .eq("patient_id", alert.patient_id);
 
       const guardian = ((guardians as any[]) ?? []).find((g) => g.is_financial) ?? ((guardians as any[]) ?? [])[0];
@@ -49,6 +50,35 @@ export async function POST(req: NextRequest) {
         failed += 1;
         continue;
       }
+
+      if (!guardian.phone) {
+        failed += 1;
+        continue;
+      }
+
+      // Nomes e data reais no template (antes iam "Responsável"/"Paciente"/"hoje"/"horário agendado"):
+      // a falta mais recente da criança dá a data e a hora.
+      const [{ data: patient }, { data: lastAbsence }] = await Promise.all([
+        db.from("patients").select("full_name").eq("id", alert.patient_id).maybeSingle(),
+        db
+          .from("appointments")
+          .select("starts_at")
+          .eq("patient_id", alert.patient_id)
+          .eq("status", "falta_familia")
+          .order("starts_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      const firstName = (full: string | null | undefined, fallback: string) => (full ?? "").trim().split(/\s+/)[0] || fallback;
+      const guardianName = firstName(guardian.full_name, "responsável");
+      const childName = firstName(patient?.full_name, "seu(sua) filho(a)");
+      const absenceAt = lastAbsence?.starts_at ? new Date(lastAbsence.starts_at as string) : null;
+      const absenceDay = absenceAt
+        ? absenceAt.toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE, day: "2-digit", month: "2-digit" })
+        : "recentemente";
+      const absenceTime = absenceAt
+        ? absenceAt.toLocaleTimeString("pt-BR", { timeZone: CLINIC_TIMEZONE, hour: "2-digit", minute: "2-digit" })
+        : "horário agendado";
 
       const message =
         `Notamos ${alert.consecutive_faltas} falta(s) recente(s). ` +
@@ -62,10 +92,10 @@ export async function POST(req: NextRequest) {
           ? {
               contentSid,
               contentVariables: {
-                "1": "Responsável",
-                "2": "Paciente",
-                "3": "hoje",
-                "4": "horário agendado",
+                "1": guardianName,
+                "2": childName,
+                "3": absenceDay,
+                "4": absenceTime,
                 "5": "Recepção",
               },
             }

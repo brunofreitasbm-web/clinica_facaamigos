@@ -6,8 +6,10 @@ import { normalizeEmail, normalizeFullName, type LeadDocKind } from "@/lib/whats
 import {
   BOT_THERAPY_VALUES,
   MAX_TEXT_REPLIES_FOR_DOCUMENT,
+  assignDocumentSlots,
   canonicalAnamnesisStep,
   isAgendarIntent,
+  isDoneAnswer,
   isNoDocumentAnswer,
   parseExitCommand,
   parseFullNameAnswer,
@@ -390,6 +392,7 @@ const OWN_STEPS = new Set([
   "awaiting_child_birth_date",
   "awaiting_plan",
   "awaiting_therapies",
+  "awaiting_documents",
   "awaiting_laudo",
   "awaiting_carteirinha",
   "awaiting_carteirinha_verso",
@@ -494,13 +497,55 @@ async function afterTherapies(
   prefix = "",
 ): Promise<AnamnesisStepResult> {
   if (data.is_private === true) return finalizeAnamnesisRequest(supabase, phone, data);
-  await persistStep(supabase, phone, "awaiting_laudo", data);
+  // Todos os documentos numa etapa só (antes eram 4 perguntas seguidas: laudo, carteirinha, verso, RG,
+  // cada uma com a sua confirmação): o responsável manda tudo e responde PRONTO.
+  data.docs_started_at = new Date().toISOString();
+  delete data.docs_ack_sent;
+  await persistStep(supabase, phone, "awaiting_documents", data);
   return {
     handled: true,
     replyMessage:
       prefix +
-      `Envie a foto ou PDF do *laudo* (ou pedido médico com CID) de ${data.child_name}. ${LAUDO_QUESTION_SUFFIX}`,
+      `Agora os documentos de ${data.child_name}. Pode mandar tudo por aqui, em foto ou PDF:\n\n` +
+      "• *Laudo* (ou pedido médico com CID)\n" +
+      "• *Carteirinha* do plano (frente e verso)\n" +
+      "• *RG ou CNH* do responsável\n\n" +
+      "A guia autorizada é opcional. Quando terminar, responda *PRONTO*. " +
+      LAUDO_QUESTION_SUFFIX,
   };
+}
+
+const DOCUMENTS_FIRST_ACK =
+  "Recebido! 📄 Pode mandar os outros arquivos por aqui. Quando terminar, responda *PRONTO*.";
+
+/**
+ * Arquivos que o responsável mandou na etapa de documentos, em ordem de chegada, com a categoria
+ * que a IA já deu a cada um. Lidos do banco (não de `collected_data`): várias fotos chegam quase
+ * juntas e cada webhook reescreveria a lista do outro.
+ */
+async function loadStepDocuments(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>,
+): Promise<{ pointer: string; category: string | null }[]> {
+  if (!data.lead_patient_id) return [];
+  let query = supabase
+    .from("documents")
+    .select("storage_path, category, uploaded_at")
+    .eq("patient_id", data.lead_patient_id)
+    .eq("source", "whatsapp")
+    .order("uploaded_at", { ascending: true })
+    .limit(20);
+  if (data.docs_started_at) {
+    // 30 min de folga: o arquivo que o bot "adotou" de um envio logo antes do AGENDAR também vale.
+    query = query.gte("uploaded_at", new Date(Date.parse(data.docs_started_at) - 30 * 60 * 1000).toISOString());
+  }
+  const { data: docs } = await query;
+  return ((docs ?? []) as { storage_path: string; category: string | null }[]).map((d) => ({
+    pointer: buildStoragePointer(d.storage_path),
+    category: d.category,
+  }));
 }
 
 const LAUDO_QUESTION_SUFFIX = "Se ainda não tiver, responda *NÃO TENHO*.";
@@ -747,6 +792,74 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
     }
     delete data.therapies_reasked;
     return afterTherapies(supabase, phone, data);
+  }
+
+  // 6. Todos os documentos de uma vez (laudo, carteirinha e RG/CNH), encerrados por PRONTO. Só o
+  // primeiro arquivo recebe resposta — os seguintes entram em silêncio (cada resposta é uma
+  // mensagem cobrada) e o PRONTO fecha a etapa. Os arquivos entram como "outro": a IA reclassifica
+  // em segundo plano e, no PRONTO, cada um vai para o campo certo da solicitação.
+  if (currentStep === "awaiting_documents") {
+    if (hasMedia) {
+      const saved = await saveStepMedia(
+        params,
+        phone,
+        data,
+        "outro",
+        "Não consegui abrir o arquivo. Envie a foto ou PDF novamente.",
+      );
+      if (!saved.ok) return { handled: true, replyMessage: saved.reply };
+
+      const firstAck = !data.docs_ack_sent;
+      data.docs_ack_sent = true;
+      await persistStep(supabase, phone, "awaiting_documents", data);
+      return {
+        handled: true,
+        replyMessage: firstAck ? `${DOCUMENTS_FIRST_ACK}${saved.note}` : saved.note.trim(),
+      };
+    }
+
+    const docs = await loadStepDocuments(supabase, data);
+    const noDocument = isNoDocumentAnswer(rawBody);
+
+    if (isDoneAnswer(rawBody) || (noDocument && docs.length > 0)) {
+      if (docs.length === 0) {
+        return {
+          handled: true,
+          replyMessage: "Ainda não recebi nenhum arquivo. 📄 Envie a foto ou PDF do laudo, da carteirinha e do RG ou CNH e depois responda *PRONTO*.",
+        };
+      }
+
+      const slots = assignDocumentSlots(docs);
+      data.laudo_pdf_url = slots.laudo;
+      data.has_laudo = Boolean(slots.laudo);
+      data.guia_pdf_url = slots.guia;
+      data.carteirinha_frente_url = slots.carteirinha_frente;
+      data.carteirinha_verso_url = slots.carteirinha_verso;
+      if (slots.documento_identidade) data.documento_identidade_url = slots.documento_identidade;
+      else data.rg_pending = true;
+      return finishOrAskCardNumber(supabase, phone, data, "Documentos recebidos! ✅");
+    }
+
+    if (noDocument) {
+      // Sem laudo e sem nenhum arquivo: mesmo desfecho da etapa antiga do laudo.
+      data.has_laudo = false;
+      await syncBotDraft({ phone, data, step: storedStep });
+      await resetSession(supabase, phone);
+      return {
+        handled: true,
+        replyMessage:
+          "Entendido! 💙 Pelo plano, precisamos do *laudo* ou *pedido médico* (com CID) para pedir a autorização.\n\n" +
+          "Quando tiver o documento, é só responder *AGENDAR* por aqui.",
+      };
+    }
+
+    return {
+      handled: true,
+      replyMessage:
+        docs.length > 0
+          ? "Pode mandar os outros arquivos ou, se já enviou tudo, responda *PRONTO*. 📄"
+          : "Envie a foto ou PDF do *laudo*, da *carteirinha* e do *RG ou CNH*. Quando terminar, responda *PRONTO* (ou *NÃO TENHO* se ainda não tiver o laudo).",
+    };
   }
 
   // 6. Laudo: um passo só (antes: "tem laudo? SIM/NÃO" + "envie o laudo").

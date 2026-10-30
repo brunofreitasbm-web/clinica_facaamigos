@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTwilioSMS, isTwilioConfigured, getTwilioContentSidForCategory } from "@/lib/twilio";
+import { sendWhatsApp } from "@/lib/whatsapp";
 
 interface FamilyOtpRecord {
   id: string;
@@ -103,12 +104,23 @@ export async function requestFamilyOtp(
 
   if (isTwilioConfigured()) {
     const messageText = `Seu código de acesso ao Portal da Família FaçaAmigos é: ${code}\n\nEle expira em 5 minutos. Não compartilhe este código.`;
-    const contentSid = getTwilioContentSidForCategory("otp");
-    await sendTwilioSMS({ 
-      to: digits, 
-      message: messageText,
-      ...(contentSid ? { contentSid, contentVariables: { "1": "FaçaAmigos", "2": code } } : {})
-    });
+
+    // WhatsApp primeiro (template de autenticação, `{{1}}` = código): custa uma fração do SMS no
+    // Brasil. Sem o template configurado, ou se a entrega falhar, cai no SMS.
+    const whatsappSid = getTwilioContentSidForCategory("otp_whatsapp");
+    let delivered = false;
+    if (whatsappSid) {
+      const viaWhatsApp = await sendWhatsApp({
+        to: digits,
+        message: messageText,
+        contentSid: whatsappSid,
+        contentVariables: { "1": code },
+      }).catch(() => null);
+      delivered = Boolean(viaWhatsApp?.success);
+    }
+    if (!delivered) {
+      await sendTwilioSMS({ to: digits, message: messageText });
+    }
   }
 
   return {

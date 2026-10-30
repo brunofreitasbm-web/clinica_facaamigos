@@ -73,8 +73,9 @@ export async function scheduleEvaluation(
   const gate = (await getSchedulingGates(supabase, [patientId])).get(patientId);
   if (shouldPromoteOnScheduling(gate)) await promoteToPatient(supabase, patientId);
 
-  // Ordem das mensagens ao responsável: confirmação do horário → orientações do dia →
-  // convite da pré-anamnese.
+  // Ao responsável: com o template único configurado, UMA mensagem leva a confirmação, as
+  // orientações do dia e o convite da pré-anamnese. Sem ele, a ordem antiga:
+  // confirmação do horário → orientações do dia → convite da pré-anamnese.
   const notice = await sendEvaluationConfirmationNotification({
     patientId,
     therapistId,
@@ -82,18 +83,22 @@ export async function scheduleEvaluation(
     date,
     time,
     appointmentId: appointment.id,
+    bundlePreAnamnesis: true,
   });
-  await sendEvaluationGuidanceNotification(patientId);
 
-  // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
-  // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia
-  // o agendamento se falhar (Twilio fora do ar, sem responsável cadastrado
-  // etc.), a anamnese continua acontecendo presencialmente.
-  await dispatchAnamnesisPrefillRequest({
-    patientId,
-    appointmentId: appointment.id,
-    startsAt: startsAt.toISOString(),
-  });
+  if (!(notice.sent && notice.bundled)) {
+    await sendEvaluationGuidanceNotification(patientId);
+
+    // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
+    // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia
+    // o agendamento se falhar (Twilio fora do ar, sem responsável cadastrado
+    // etc.), a anamnese continua acontecendo presencialmente.
+    await dispatchAnamnesisPrefillRequest({
+      patientId,
+      appointmentId: appointment.id,
+      startsAt: startsAt.toISOString(),
+    });
+  }
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
   return notice.sent ? { success: true } : { success: true, warning: notice.reason };

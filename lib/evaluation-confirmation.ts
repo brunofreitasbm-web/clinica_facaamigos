@@ -4,9 +4,13 @@ import { sendWhatsApp, getWhatsAppTemplateForCategory } from "@/lib/whatsapp";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { EvaluationBookInput } from "@/lib/evaluation-agenda";
 import { pickEvaluationRecipient } from "@/lib/evaluation-recipient-pure";
+import { armPrefillSession, discardPrefillRequest, registerPrefillRequest } from "@/lib/anamnesis-prefill";
 
 /** Resultado do aviso: a supervisão precisa saber quando o responsável NÃO foi avisado. */
-export type EvaluationNotificationOutcome = { sent: true } | { sent: false; reason: string };
+export type EvaluationNotificationOutcome =
+  /** `bundled`: a mensagem já levou as orientações do dia e o convite da pré-anamnese — o chamador não manda os dois de novo. */
+  | { sent: true; bundled?: boolean }
+  | { sent: false; reason: string };
 
 export interface EvaluationNotificationParams {
   bookInput?: EvaluationBookInput;
@@ -19,6 +23,31 @@ export interface EvaluationNotificationParams {
   isReschedule?: boolean;
   /** Vincula a mensagem registrada em `messages` ao agendamento. */
   appointmentId?: string;
+  /**
+   * Manda numa mensagem só a confirmação, as orientações do dia e o convite da
+   * pré-anamnese (template `confirmacao_completa`, com botões). Só vale com
+   * `patientId` + `appointmentId`, fora de remarcação e com o template
+   * configurado; senão a confirmação segue sozinha e o chamador manda o resto.
+   */
+  bundlePreAnamnesis?: boolean;
+}
+
+/** Texto do template único (`confirmacao_completa`): confirmação + orientações + convite. Igual ao corpo aprovado na Meta. */
+export function buildEvaluationBundleMessage(params: {
+  guardianFirstName: string;
+  patientName: string;
+  formattedDate: string;
+  therapistName: string;
+}): string {
+  return (
+    `Olá, ${params.guardianFirstName}! 💙\n\n` +
+    `A 1ª avaliação de ${params.patientName} está confirmada.\n\n` +
+    `📅 Data e horário: ${params.formattedDate}\n` +
+    `👤 Profissional: ${params.therapistName}\n\n` +
+    "Chegue com 15 minutos de antecedência e traga documento com foto do responsável e da criança, além de exames, laudos e relatórios anteriores.\n\n" +
+    "Para o terapeuta chegar mais preparado, podemos fazer 5 perguntas rápidas por aqui? As respostas não substituem a avaliação presencial.\n\n" +
+    "FaçaAmigos - Centro de Terapia Comportamental"
+  );
 }
 
 export function buildEvaluationConfirmationMessage(params: {
@@ -60,13 +89,14 @@ export async function sendEvaluationConfirmationNotification(
     let patientName = "Paciente";
     let phoneToNotify = "";
     let guardianFirstName = "";
+    let guardianId: string | null = null;
     let loggedPatientId: string | null = null;
 
     // 1. Obter nome do paciente e telefone com base na origem ou patientId
     if (params.patientId) {
       const [{ data: patient }, { data: guardians }] = await Promise.all([
         admin.from("patients").select("full_name").eq("id", params.patientId).maybeSingle(),
-        admin.from("guardians").select("full_name, phone, is_financial").eq("patient_id", params.patientId),
+        admin.from("guardians").select("id, full_name, phone, is_financial").eq("patient_id", params.patientId),
       ]);
       if (patient?.full_name) patientName = patient.full_name;
       loggedPatientId = params.patientId;
@@ -75,6 +105,7 @@ export async function sendEvaluationConfirmationNotification(
       if (recipient) {
         phoneToNotify = recipient.phone;
         guardianFirstName = recipient.firstName;
+        guardianId = (guardians ?? []).find((g) => g.phone === recipient.phone)?.id ?? null;
       }
     } else if (params.bookInput) {
       if (params.bookInput.origin === "whatsapp_anamnese") {
@@ -176,6 +207,67 @@ export async function sendEvaluationConfirmationNotification(
       isReschedule: params.isReschedule,
     });
 
+    // Antes nada ficava registrado: falha de envio (ex.: fora da janela de 24h
+    // sem template) era invisível pra supervisão e pra Recepção.
+    const logOutbound = async (body: string, result: { success: boolean; messageId?: string }) => {
+      try {
+        const conversation = await findOrCreateConversation({ phoneNumber: formattedPhone, patientId: loggedPatientId });
+        await admin.from("messages").insert({
+          patient_id: loggedPatientId,
+          conversation_id: conversation.id,
+          related_appointment_id: params.appointmentId ?? null,
+          sender_type: "bot",
+          channel: "whatsapp",
+          direction: "outbound",
+          body,
+          sent_at: new Date().toISOString(),
+          twilio_sid: result.messageId ?? null,
+          delivery_status: result.success ? "sent" : "failed",
+        });
+        await admin.from("twilio_conversations").update({ last_message_preview: buildMessagePreview(body) }).eq("id", conversation.id);
+      } catch (logError) {
+        console.error("[Twilio Evaluation Notification] Falha ao registrar mensagem:", logError);
+      }
+    };
+
+    // 5a. Mensagem única (confirmação + orientações + convite da pré-anamnese): 1 envio no
+    // lugar de 3. Qualquer impedimento cai no envio avulso abaixo, que o chamador completa.
+    const bundleSid =
+      params.bundlePreAnamnesis && !params.isReschedule && params.patientId && params.appointmentId && guardianId
+        ? getWhatsAppTemplateForCategory("confirmacao_completa")
+        : undefined;
+    if (bundleSid && params.patientId && params.appointmentId && guardianId) {
+      const registered = await registerPrefillRequest({
+        patientId: params.patientId,
+        appointmentId: params.appointmentId,
+        guardianId,
+        phone: formattedPhone,
+      });
+      if (registered.ok) {
+        const therapistLabel = therapistName || "equipe FaçaAmigos";
+        const bundleBody = buildEvaluationBundleMessage({
+          guardianFirstName: guardianFirstName || "família",
+          patientName,
+          formattedDate,
+          therapistName: therapistLabel,
+        });
+        const bundled = await sendWhatsApp({
+          to: formattedPhone,
+          message: bundleBody,
+          contentSid: bundleSid,
+          // 1 = responsável, 2 = criança, 3 = data e hora, 4 = profissional.
+          contentVariables: { "1": guardianFirstName || "família", "2": patientName, "3": formattedDate, "4": therapistLabel },
+        });
+        await logOutbound(bundleBody, bundled);
+        if (bundled.success) {
+          await armPrefillSession({ phone: formattedPhone, requestId: registered.requestId, childName: patientName });
+          return { sent: true, bundled: true };
+        }
+        console.error("[Twilio Evaluation Notification] Mensagem única falhou, caindo no envio avulso:", bundled.error);
+        await discardPrefillRequest(registered.requestId);
+      }
+    }
+
     // 5. Disparar via Twilio WhatsApp
     const contentSid = getWhatsAppTemplateForCategory("confirmacao_d1");
     const result = await sendWhatsApp({
@@ -195,27 +287,7 @@ export async function sendEvaluationConfirmationNotification(
           }
         : {}),
     });
-
-    // Antes nada ficava registrado: falha de envio (ex.: fora da janela de 24h
-    // sem template) era invisível pra supervisão e pra Recepção.
-    try {
-      const conversation = await findOrCreateConversation({ phoneNumber: formattedPhone, patientId: loggedPatientId });
-      await admin.from("messages").insert({
-        patient_id: loggedPatientId,
-        conversation_id: conversation.id,
-        related_appointment_id: params.appointmentId ?? null,
-        sender_type: "bot",
-        channel: "whatsapp",
-        direction: "outbound",
-        body: message,
-        sent_at: new Date().toISOString(),
-        twilio_sid: result.messageId ?? null,
-        delivery_status: result.success ? "sent" : "failed",
-      });
-      await admin.from("twilio_conversations").update({ last_message_preview: buildMessagePreview(message) }).eq("id", conversation.id);
-    } catch (logError) {
-      console.error("[Twilio Evaluation Notification] Falha ao registrar mensagem:", logError);
-    }
+    await logOutbound(message, result);
 
     return result.success ? { sent: true } : { sent: false, reason: result.error ?? "O WhatsApp não aceitou a mensagem." };
   } catch (error) {

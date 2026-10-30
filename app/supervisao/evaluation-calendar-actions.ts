@@ -527,7 +527,8 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
     .split(" ");
   const time = fullTime.slice(0, 5);
 
-  // Disparar WhatsApp com a confirmação final e orientações
+  // Disparar WhatsApp com a confirmação final. Com o template único configurado, a mesma
+  // mensagem já leva as orientações do dia e o convite da pré-anamnese (1 envio, não 3).
   const notice = await sendEvaluationConfirmationNotification({
     patientId: appointment.patient_id,
     therapistId: appointment.therapist_id,
@@ -535,17 +536,21 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
     date,
     time,
     appointmentId,
+    bundlePreAnamnesis: Boolean(offer),
   });
-
-  // Orientações do dia: depois da confirmação e antes do convite da pré-anamnese.
-  await sendEvaluationGuidanceNotification(appointment.patient_id);
+  const bundled = notice.sent && notice.bundled === true;
 
   let warning: string | undefined = notice.sent ? undefined : notice.reason;
-  if (offer) {
-    const invite = await dispatchAnamnesisPrefillRequest({ patientId: appointment.patient_id, appointmentId, startsAt: appointment.starts_at });
-    if (!invite.sent) {
-      const inviteWarning = `O convite da pré-anamnese não foi enviado: ${invite.reason ?? "motivo desconhecido"}.`;
-      warning = warning ? `${warning} ${inviteWarning}` : inviteWarning;
+  if (!bundled) {
+    // Orientações do dia: depois da confirmação e antes do convite da pré-anamnese.
+    await sendEvaluationGuidanceNotification(appointment.patient_id);
+
+    if (offer) {
+      const invite = await dispatchAnamnesisPrefillRequest({ patientId: appointment.patient_id, appointmentId, startsAt: appointment.starts_at });
+      if (!invite.sent) {
+        const inviteWarning = `O convite da pré-anamnese não foi enviado: ${invite.reason ?? "motivo desconhecido"}.`;
+        warning = warning ? `${warning} ${inviteWarning}` : inviteWarning;
+      }
     }
   }
 

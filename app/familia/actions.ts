@@ -350,46 +350,9 @@ export async function reportAbsence(appointmentId: string, formData: FormData): 
     };
   }
 
-  try {
-    const { data: apt } = await supabase
-      .from("appointments")
-      .select("patient_id, room_id, therapist_id")
-      .eq("id", appointmentId)
-      .maybeSingle();
-
-    if (apt?.patient_id) {
-      const { data: guardian } = await supabase
-        .from("guardians")
-        .select("id, phone")
-        .eq("patient_id", apt.patient_id)
-        .eq("is_financial", true)
-        .maybeSingle();
-
-      const phoneToUse =
-        guardian?.phone ??
-        (
-          await supabase
-            .from("guardians")
-            .select("id, phone")
-            .eq("patient_id", apt.patient_id)
-            .limit(1)
-            .maybeSingle()
-        ).data?.phone;
-
-      if (phoneToUse) {
-        const { dispatchAbsenceRescheduleOffer } = await import("@/lib/twilio-absence-bot");
-        await dispatchAbsenceRescheduleOffer({
-          patientId: apt.patient_id,
-          guardianId: guardian?.id ?? "",
-          phone: phoneToUse,
-          roomId: apt.room_id,
-          therapistId: apt.therapist_id,
-        });
-      }
-    }
-  } catch (notifyErr) {
-    console.error("[reportAbsence WhatsApp error]:", notifyErr);
-  }
+  // Sem WhatsApp aqui: quem acabou de avisar a falta pelo portal não precisa de uma mensagem
+  // dizendo que a clínica "sente a ausência". O aviso único sai quando a recepção aprova o
+  // chamado (app/recepcao/pacientes/[id]/absence-actions.ts).
 
   revalidatePath("/familia");
   return { success: true };
