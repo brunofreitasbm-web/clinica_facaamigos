@@ -372,7 +372,7 @@ export function PlanForm({
     const occupiedTherapistSlots = new Map<string, Set<string>>();
     const occupiedRoomSlots = new Map<string, Set<string>>();
 
-    let curr = new Date(startDate);
+    const curr = new Date(startDate);
     let sessionCounter = 1;
     // Dias com sessão que cairia em feriado/fechamento de dia inteiro: não
     // geramos (clínica fechada) e avisamos no fim.

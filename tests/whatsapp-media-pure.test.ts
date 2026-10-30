@@ -69,6 +69,15 @@ test("planColdMedia: sem mídia ou com outro bot esperando o anexo, não interce
   assert.deepEqual(planColdMedia({ mediaCount: 1, awaitingAttachmentDirectly: true, botActive: true, knownPatient: false }), {
     action: "skip",
   });
+  assert.deepEqual(planColdMedia({ mediaCount: 0, awaitingAttachmentDirectly: true, botActive: true, knownPatient: true }), {
+    action: "skip",
+  });
+});
+
+test("planColdMedia: outro bot espera o anexo e o responsável já é paciente → espelha no prontuário sem responder", () => {
+  assert.deepEqual(planColdMedia({ mediaCount: 1, awaitingAttachmentDirectly: true, botActive: true, knownPatient: true }), {
+    action: "mirror",
+  });
 });
 
 test("planColdMedia: PDF 'do nada' de telefone desconhecido vira rascunho, sem exigir gatilho nem fluxo", () => {

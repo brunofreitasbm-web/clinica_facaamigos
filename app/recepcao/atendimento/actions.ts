@@ -356,7 +356,10 @@ const VALID_DOCUMENT_CATEGORIES = new Set<string>(DOCUMENT_CATEGORIES.map((c) =>
 function toDocumentCategory(raw: string | null | undefined, mime: string): string {
   if (raw === "guia") return "autorizacao";
   if (raw && VALID_DOCUMENT_CATEGORIES.has(raw)) return raw;
-  return mime === "application/pdf" ? "laudo" : "outro";
+  // Sem pista de tipo: "outro" (a recepção reclassifica). Chutar "laudo" para
+  // todo PDF poluía o prontuário com guias, RGs e comprovantes rotulados errado.
+  void mime;
+  return "outro";
 }
 
 export type MediaTransferSummary = { transferred: number; failed: number };

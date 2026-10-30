@@ -503,6 +503,20 @@ const ANAMNESIS_AWAITING_ATTACHMENT_STEPS = new Set([
   "awaiting_card_number",
 ]);
 
+async function readSessionStep(phone: string): Promise<string> {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const { data } = await createAdminClient()
+      .from("chatbot_sessions")
+      .select("current_step")
+      .eq("phone_number", phone)
+      .maybeSingle();
+    return data?.current_step ?? "";
+  } catch {
+    return "";
+  }
+}
+
 async function checkAwaitingAttachmentDirectly(phone: string): Promise<boolean> {
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
@@ -654,10 +668,23 @@ export async function handleTwilioIncomingMessage(params: {
     // recebendo PRONTO). Roda mesmo com a conversa assumida por um
     // humano, mesma justificativa da ingestão de rascunhos: o documento
     // precisa entrar na fila de qualquer forma.
+    // Mídia de quem já é paciente e que os bots 0.6/0.65 vão "engolir" (eles
+    // respondem e retornam antes da ingestão a frio): espelha na aba Documentos.
+    // Exceção: `intake_awaiting_documents` — ali o arquivo é do lead e só entra
+    // no prontuário depois da aprovação da supervisão.
+    const hasMedia = Boolean(media && media.length > 0);
+    const stepBeforeBots = hasMedia && patientId ? await readSessionStep(phone) : "";
+    const mirrorIfPatient = async () => {
+      if (!hasMedia || !patientId || !media) return;
+      const { mirrorWhatsappMediaToPatient } = await import("./whatsapp-cold-media");
+      await mirrorWhatsappMediaToPatient({ from, media });
+    };
+
     try {
       const { processIntakeBotStep } = await import("./twilio-intake-bot");
       const intakeResult = await processIntakeBotStep({ from, body, media });
       if (intakeResult.handled) {
+        if (stepBeforeBots !== "intake_awaiting_documents") await mirrorIfPatient();
         return { intent: "acolhimento_plano_saude", replyMessage: intakeResult.replyMessage };
       }
     } catch (err) {
@@ -672,6 +699,7 @@ export async function handleTwilioIncomingMessage(params: {
       const { processEvaluationOfferStep } = await import("./evaluation-offer");
       const offerResult = await processEvaluationOfferStep({ from, body, buttonPayload, listId });
       if (offerResult.handled) {
+        await mirrorIfPatient();
         return { intent: "oferta_primeira_avaliacao", replyMessage: offerResult.replyMessage };
       }
     } catch (err) {

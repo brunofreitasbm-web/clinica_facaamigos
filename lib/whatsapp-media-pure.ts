@@ -70,6 +70,12 @@ export function isAudioOnlyMessage(media: MediaItem[], body: string): boolean {
 
 export type ColdMediaPlan =
   | { action: "skip" }
+  /**
+   * Outro bot (anamnese/acolhimento/oferta) é dono do anexo e segue respondendo,
+   * mas o responsável já é paciente: o arquivo também vai para a aba Documentos,
+   * senão fica só no chat. Não responde nada.
+   */
+  | { action: "mirror" }
   | {
       action: "ingest";
       /** Conversa com humano: ingere sem responder. */
@@ -91,7 +97,8 @@ export function planColdMedia(input: {
   botActive: boolean;
   knownPatient: boolean;
 }): ColdMediaPlan {
-  if (input.mediaCount <= 0 || input.awaitingAttachmentDirectly) return { action: "skip" };
+  if (input.mediaCount <= 0) return { action: "skip" };
+  if (input.awaitingAttachmentDirectly) return input.knownPatient ? { action: "mirror" } : { action: "skip" };
   return { action: "ingest", silent: !input.botActive, target: input.knownPatient ? "patient" : "draft" };
 }
 

@@ -35,6 +35,26 @@ async function extractDraftWhenBatchSettles(draftId: string, lastFileAt: string)
 }
 
 /**
+ * Copia foto/PDF para a aba Documentos do paciente SEM responder — para os
+ * casos em que outro bot (anamnese, oferta da 1ª avaliação) é dono da resposta
+ * e, sem isto, o arquivo morreria só no chat. Dedupe por `documents.source_key`
+ * (URL da mídia). Nunca lança.
+ */
+export async function mirrorWhatsappMediaToPatient(params: { from: string; media: MediaItem[] }): Promise<void> {
+  try {
+    const media = filterIngestibleMedia(params.media);
+    if (media.length === 0) return;
+    const result = await registerLeadMedia({ identity: { phone: params.from }, media, kind: "outro" });
+    const patientId = result.patientId;
+    if (patientId && result.saved > 0) {
+      runAfterResponse("enriquecer lead (espelho de mídia)", () => enrichLeadFromDocuments(patientId));
+    }
+  } catch (err) {
+    console.error("[Twilio Media Mirror Error]:", err);
+  }
+}
+
+/**
  * @returns `null` quando a mensagem não é caso de mídia a frio (o chamador
  * segue o fluxo normal); senão a resposta ("" = silêncio, conversa com humano).
  */
@@ -54,6 +74,11 @@ export async function handleColdWhatsappMedia(params: {
     knownPatient: params.knownPatient,
   });
   if (plan.action === "skip") return null;
+
+  if (plan.action === "mirror") {
+    await mirrorWhatsappMediaToPatient({ from: params.from, media });
+    return null;
+  }
 
   if (plan.target === "patient") {
     const result = await registerLeadMedia({ identity: { phone: params.from }, media, kind: "outro" });

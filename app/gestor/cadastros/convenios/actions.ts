@@ -73,7 +73,7 @@ export async function updateInsurerColor(
   const supabase = await createClient();
   const clinicId = await getGestorClinicId(supabase);
 
-  let { error } = await supabase
+  const { error } = await supabase
     .from("insurers")
     .update({ badge_color: badgeColor || null })
     .eq("id", insurerId)
