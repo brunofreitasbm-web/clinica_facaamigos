@@ -8,7 +8,6 @@ import { getActiveAuthorizationId } from "@/lib/active-authorization";
 import { CANCELLED_APPOINTMENT_STATUSES, promoteToPatient } from "@/lib/patient-stage";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
-import { sendEvaluationGuidanceNotification } from "@/lib/evaluation-guidance";
 import { releaseOfferForManualScheduling } from "@/lib/evaluation-offer";
 import { getSchedulingGates } from "@/lib/evaluation-agenda";
 import { shouldPromoteOnScheduling } from "@/lib/scheduling-promotion-pure";
@@ -73,8 +72,8 @@ export async function scheduleEvaluation(
   const gate = (await getSchedulingGates(supabase, [patientId])).get(patientId);
   if (shouldPromoteOnScheduling(gate)) await promoteToPatient(supabase, patientId);
 
-  // Ordem das mensagens ao responsável: confirmação do horário → orientações do dia →
-  // convite da pré-anamnese.
+  // Ordem das mensagens ao responsável: confirmação do horário (já com as orientações
+  // do dia) → convite da pré-anamnese.
   const notice = await sendEvaluationConfirmationNotification({
     patientId,
     therapistId,
@@ -83,7 +82,6 @@ export async function scheduleEvaluation(
     time,
     appointmentId: appointment.id,
   });
-  await sendEvaluationGuidanceNotification(patientId);
 
   // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
   // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia

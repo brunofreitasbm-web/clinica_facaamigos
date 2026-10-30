@@ -1,8 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildMessagePreview, findOrCreateConversation, formatE164Phone } from "@/lib/twilio";
 import { sendWhatsApp, getWhatsAppTemplateForCategory } from "@/lib/whatsapp";
-import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { EvaluationBookInput } from "@/lib/evaluation-agenda";
+import {
+  buildEvaluationConfirmationMessage,
+  buildEvaluationRescheduleMessage,
+  formatEvaluationDateShort,
+} from "@/lib/evaluation-confirmation-pure";
 import { pickEvaluationRecipient } from "@/lib/evaluation-recipient-pure";
 
 /** Resultado do aviso: a supervisão precisa saber quando o responsável NÃO foi avisado. */
@@ -19,33 +23,6 @@ export interface EvaluationNotificationParams {
   isReschedule?: boolean;
   /** Vincula a mensagem registrada em `messages` ao agendamento. */
   appointmentId?: string;
-}
-
-export function buildEvaluationConfirmationMessage(params: {
-  patientName: string;
-  formattedDate: string;
-  therapistName?: string;
-  roomName?: string;
-  isReschedule?: boolean;
-}): string {
-  const therapistInfo = params.therapistName ? ` com o(a) especialista *${params.therapistName}*` : "";
-  const roomInfo = params.roomName ? ` (${params.roomName})` : "";
-  const intro = params.isReschedule
-    ? `Olá! 💙 A data da 1ª Avaliação de *${params.patientName}* foi *alterada*. Confira os novos detalhes abaixo!`
-    : `Olá! 💙 A 1ª Avaliação de *${params.patientName}* foi agendada e confirmada com muito carinho para a sua família!`;
-
-  return (
-    `🗓️ *${params.isReschedule ? "Alteração" : "Confirmação"} de Agendamento - FaçaAmigos - Centro de Terapia Comportamental*\n\n` +
-    `${intro}\n\n` +
-    `📅 *Data e Horário:* ${params.formattedDate}\n` +
-    `👤 *Profissional / Sala:*${therapistInfo}${roomInfo}\n\n` +
-    `📌 *Orientações importantes para a família:*\n` +
-    `• Chegue com 15 minutos de antecedência para recepção e acolhimento da família.\n` +
-    `• Traga documento oficial com foto do responsável e da criança ou adolescente (RG ou Certidão de Nascimento).\n` +
-    `• Caso possua laudos anteriores, encaminhamentos médicos ou relatórios escolares/terapêuticos, traga-os impressos.\n` +
-    `• Em caso de dúvidas ou imprevistos, nossa equipe está sempre à disposição para ajudar.\n\n` +
-    `Estamos ansiosos para acolher vocês e fazer parte desta jornada de desenvolvimento! 🧩✨`
-  );
 }
 
 /**
@@ -139,7 +116,6 @@ export async function sendEvaluationConfirmationNotification(
 
     // 2. Buscar detalhes do terapeuta e da sala
     let therapistName = "";
-    let roomName = "";
 
     if (params.therapistId) {
       const { data: profile } = await admin
@@ -150,47 +126,35 @@ export async function sendEvaluationConfirmationNotification(
       if (profile?.full_name) therapistName = profile.full_name;
     }
 
-    if (params.roomId) {
-      const { data: room } = await admin
-        .from("rooms")
-        .select("name")
-        .eq("id", params.roomId)
-        .maybeSingle();
-      if (room?.name) roomName = room.name;
-    }
+    // 3. Data/hora curta ("sex, 30/10 às 14h30"); `date`/`time` já estão no fuso da clínica.
+    const formattedDate = formatEvaluationDateShort(params.date, params.time);
 
-    // 3. Formatar data/hora
-    const isoDateTimeStr = `${params.date}T${params.time}:00`;
-    const formattedDate = new Date(isoDateTimeStr).toLocaleString("pt-BR", {
-      timeZone: CLINIC_TIMEZONE,
-      dateStyle: "full",
-      timeStyle: "short",
-    });
-
-    // 4. Construir mensagem
-    const message = buildEvaluationConfirmationMessage({
+    // 4. Construir mensagem (única: confirmação + orientações do dia)
+    const messageParams = {
+      guardianFirstName: guardianFirstName || "família",
       patientName,
       formattedDate,
-      therapistName,
-      roomName,
-      isReschedule: params.isReschedule,
-    });
+      therapistName: therapistName || "equipe FaçaAmigos",
+    };
+    const message = params.isReschedule
+      ? buildEvaluationRescheduleMessage(messageParams)
+      : buildEvaluationConfirmationMessage(messageParams);
 
-    // 5. Disparar via Twilio WhatsApp
-    const contentSid = getWhatsAppTemplateForCategory("confirmacao_d1");
+    // 5. Disparar via Twilio WhatsApp. Remarcação vai em texto livre: o template diz "confirmado".
+    const contentSid = params.isReschedule ? undefined : getWhatsAppTemplateForCategory("confirmacao_d1");
     const result = await sendWhatsApp({
       to: formattedPhone,
       message,
       ...(contentSid
         ? {
             contentSid,
-            // Template `confirmacao_avaliacao` (scripts/create-eval-offer-template.ts):
-            // 1 = primeiro nome do responsável, 2 = criança, 3 = data e hora, 4 = profissional.
+            // Template `fa_clinica_avaliacao_confirmada_v2` (scripts/create-eval-offer-template.ts):
+            // 1 = primeiro nome do responsável, 2 = criança, 3 = data curta, 4 = profissional.
             contentVariables: {
-              "1": guardianFirstName || "família",
+              "1": messageParams.guardianFirstName,
               "2": patientName,
               "3": formattedDate,
-              "4": therapistName || "equipe FaçaAmigos",
+              "4": messageParams.therapistName,
             },
           }
         : {}),
