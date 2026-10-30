@@ -117,7 +117,8 @@ export async function sendEvaluationConfirmationNotification(
 
     // Fallback: se não encontrou nos guardians, busca pelo telefone registrado na oferta da 1ª avaliação
     if (!phoneToNotify && (params.appointmentId || params.patientId)) {
-      let offerQuery = admin.from("evaluation_offers").select("phone_e164");
+      const looseAdmin = admin as unknown as { from: (table: string) => any };
+      let offerQuery = looseAdmin.from("evaluation_offers").select("phone_e164");
       if (params.appointmentId) {
         offerQuery = offerQuery.eq("appointment_id", params.appointmentId);
       } else if (params.patientId) {
