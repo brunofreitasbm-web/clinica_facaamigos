@@ -477,6 +477,7 @@ export async function generateReportData(
           created_at
         `)
         .eq("clinic_id", DEV_CLINIC_ID)
+        .eq("hidden_in_app", false)
         .order("full_name");
 
       if (filter.status === "ativo") {

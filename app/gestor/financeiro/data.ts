@@ -40,6 +40,7 @@ export async function getRepasseRows(
     .select("id, full_name")
     .eq("clinic_id", clinicId)
     .eq("role", "terapeuta")
+    .eq("hidden_in_app", false)
     .eq("active", true)
     .order("full_name");
   const list = therapists ?? [];

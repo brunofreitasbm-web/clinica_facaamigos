@@ -6469,6 +6469,7 @@ export type Database = {
           esdm_certified: boolean
           full_name: string
           google_calendar_opt_in: boolean
+          hidden_in_app: boolean
           id: string
           is_at_professional: boolean
           is_evaluator: boolean
@@ -6502,6 +6503,7 @@ export type Database = {
           esdm_certified?: boolean
           full_name: string
           google_calendar_opt_in?: boolean
+          hidden_in_app?: boolean
           id: string
           is_at_professional?: boolean
           is_evaluator?: boolean
@@ -6535,6 +6537,7 @@ export type Database = {
           esdm_certified?: boolean
           full_name?: string
           google_calendar_opt_in?: boolean
+          hidden_in_app?: boolean
           id?: string
           is_at_professional?: boolean
           is_evaluator?: boolean

@@ -57,6 +57,7 @@ export default async function TerapeutaAgendaPage({
       .select("id, full_name")
       .eq("clinic_id", DEV_CLINIC_ID)
       .eq("role", "terapeuta")
+      .eq("hidden_in_app", false)
       .eq("active", true)
       .order("full_name");
     therapists = data;

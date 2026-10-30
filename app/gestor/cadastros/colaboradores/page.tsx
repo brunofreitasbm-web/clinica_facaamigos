@@ -36,6 +36,7 @@ export default async function ColaboradoresPage() {
       "id, full_name, email, cpf, role, council_type, birth_date, active, is_evaluator, is_at_professional, google_calendar_opt_in, signature_pin_hash, source_system, created_at",
     )
     .eq("clinic_id", clinicId)
+    .eq("hidden_in_app", false)
     .order("full_name");
 
   if (profilesError) {

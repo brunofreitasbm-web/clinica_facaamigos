@@ -46,6 +46,7 @@ export async function closePayouts(competenceMonthInput: string): Promise<CloseR
     .select("id, full_name")
     .eq("clinic_id", DEV_CLINIC_ID)
     .eq("role", "terapeuta")
+    .eq("hidden_in_app", false)
     .eq("active", true);
   const therapistList = therapists ?? [];
   if (therapistList.length === 0) return { success: true, closedCount: 0, skipped: [] };

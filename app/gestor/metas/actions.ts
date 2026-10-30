@@ -66,6 +66,7 @@ export async function getTargetsData(): Promise<{ targets: TargetRow[]; roles: {
       .select("id")
       .eq("clinic_id", DEV_CLINIC_ID)
       .eq("role", "terapeuta")
+      .eq("hidden_in_app", false)
       .eq("active", true);
     const therapistIds = (therapists ?? []).map((t) => t.id);
 

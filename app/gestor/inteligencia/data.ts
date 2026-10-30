@@ -301,6 +301,7 @@ export async function getInteligenciaMetrics(
       .select("id, full_name, role, active")
       .eq("clinic_id", clinicId)
       .eq("role", "terapeuta")
+      .eq("hidden_in_app", false)
       .eq("active", true),
 
     // Billing Items (Cobranças) do período — filtradas pela data da sessão

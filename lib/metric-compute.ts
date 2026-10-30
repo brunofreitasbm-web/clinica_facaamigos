@@ -137,6 +137,7 @@ export async function computeSnapshotMetric(
       .select("id")
       .eq("clinic_id", clinicId)
       .eq("role", "terapeuta")
+      .eq("hidden_in_app", false)
       .eq("active", true);
     const ids = (therapists ?? []).map((t) => t.id);
     if (ids.length === 0) return null;
