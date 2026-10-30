@@ -115,6 +115,21 @@ export async function sendEvaluationConfirmationNotification(
       }
     }
 
+    // Fallback: se não encontrou nos guardians, busca pelo telefone registrado na oferta da 1ª avaliação
+    if (!phoneToNotify && (params.appointmentId || params.patientId)) {
+      let offerQuery = admin.from("evaluation_offers").select("phone_e164");
+      if (params.appointmentId) {
+        offerQuery = offerQuery.eq("appointment_id", params.appointmentId);
+      } else if (params.patientId) {
+        offerQuery = offerQuery.eq("patient_id", params.patientId);
+      }
+      const { data: offer } = await offerQuery.order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (offer?.phone_e164 && offer.phone_e164 !== "-") {
+        phoneToNotify = offer.phone_e164;
+        if (!guardianFirstName) guardianFirstName = "família";
+      }
+    }
+
     const formattedPhone = formatE164Phone(phoneToNotify);
     if (!formattedPhone) {
       console.log("[Twilio Evaluation Notification] Telefone de contato não encontrado.");

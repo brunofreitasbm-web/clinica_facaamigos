@@ -100,9 +100,9 @@ export type OfferTherapist = {
   id: string;
   /**
    * Janelas de disponibilidade cadastradas (professional_availability), por
-   * dia da semana, em minutos. `null` = nenhuma janela cadastrada ainda
-   * ("não configurado", não "indisponível") → vale o expediente da clínica,
-   * mesma semântica do trigger appointments_availability_guard.
+   * dia da semana, em minutos. `null` = nenhuma janela cadastrada → o
+   * avaliador NÃO recebe avaliação (só se aloca dentro de disponibilidade
+   * cadastrada).
    */
   windows: Map<number, [number, number][]> | null;
 };
@@ -142,9 +142,7 @@ export function generateEvaluationCandidates(input: GenerateCandidatesInput): Of
     if (shifts.length === 0) continue;
 
     for (const therapist of input.therapists) {
-      const windows: [number, number][] = therapist.windows
-        ? (therapist.windows.get(dow) ?? [])
-        : shifts.map((r): [number, number] => [timeToMinutes(r.open_time), timeToMinutes(r.close_time)]);
+      const windows: [number, number][] = therapist.windows?.get(dow) ?? [];
       const therapistBusy = input.busy.filter((b) => b.therapistId === therapist.id);
 
       for (const [winStart, winEnd] of windows) {
@@ -194,7 +192,7 @@ export function generateEvaluationCandidates(input: GenerateCandidatesInput): Of
  * expediente cadastrado e sem atendimento sobreposto naquele horário, vence
  * quem tem MENOS avaliações na semana (`weekLoad`); empate → menor id, só pra
  * ser determinístico. `null` = ninguém livre. Quem não tem janela cadastrada
- * (`windows: null`) vale o expediente da clínica, igual ao gerador do bot.
+ * (`windows: null`) está fora, igual ao gerador do bot.
  */
 export function pickEvaluatorForSlot(input: {
   therapists: OfferTherapist[];
@@ -208,10 +206,8 @@ export function pickEvaluatorForSlot(input: {
   endMs: number;
 }): string | null {
   const free = input.therapists.filter((t) => {
-    if (t.windows) {
-      const inside = (t.windows.get(input.dayOfWeek) ?? []).some(([s, e]) => input.startMin >= s && input.endMin <= e);
-      if (!inside) return false;
-    }
+    const inside = (t.windows?.get(input.dayOfWeek) ?? []).some(([s, e]) => input.startMin >= s && input.endMin <= e);
+    if (!inside) return false;
     return !findOverlap(
       input.busy.filter((b) => b.therapistId === t.id),
       input.startMs,

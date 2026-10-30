@@ -22,7 +22,9 @@ import {
   updateEvaluationAppointmentAction,
   cancelEvaluationAppointmentAction,
   confirmEvaluationAppointmentAction,
+  getPendingConfirmationsAction,
   type TherapistAvailabilityBlock,
+  type PendingConfirmationItem,
 } from "./evaluation-calendar-actions";
 import type {
   EvaluationAgendaOrigin,
@@ -642,13 +644,18 @@ function EditAppointmentDialog({
         </div>
 
         {appointment.isProvisional && onConfirmProvisional && (
-          <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3">
-            <div className="flex items-center gap-2 text-amber-800">
-              <span className="text-base">⏳</span>
-              <p className="text-xs font-semibold">Horário escolhido pela família via WhatsApp — aguardando aprovação do supervisor.</p>
+          <div className="mt-4 rounded-lg border-2 border-amber-400 bg-amber-50/90 p-3.5 shadow-xs">
+            <div className="flex items-center gap-2.5 text-amber-950">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white shadow-xs">
+                ⚡
+              </span>
+              <div>
+                <p className="text-xs font-bold text-amber-950">Horário escolhido pela família via WhatsApp</p>
+                <p className="text-[11px] text-amber-800">Aguardando sua confirmação para finalizar o agendamento.</p>
+              </div>
             </div>
-            <p className="mt-1 text-[11px] text-amber-700">
-              Ao confirmar, a vaga é fixada e uma notificação de confirmação com orientações é disparada imediatamente para o WhatsApp do responsável.
+            <p className="mt-2 rounded border border-amber-200 bg-amber-100/70 p-2 text-[11px] font-medium text-amber-900">
+              💬 Ao clicar em <strong>Confirmar e Enviar WhatsApp</strong>, o agendamento é confirmado no sistema e uma mensagem com as orientações completas (documentos necessários, antecedência, etc.) é enviada automaticamente para o WhatsApp do responsável.
             </p>
             <div className="mt-3 flex flex-wrap justify-end gap-2">
               {appointment.offerId && onRejectOffer && (
@@ -666,11 +673,10 @@ function EditAppointmentDialog({
                 type="button"
                 onClick={onConfirmProvisional}
                 disabled={pending}
-                className="btn flex items-center gap-1.5 text-xs font-bold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
-                style={{ background: "var(--color-success)" }}
+                className="btn flex items-center gap-1.5 text-xs font-bold text-white shadow-sm hover:opacity-95 disabled:opacity-50 bg-emerald-600 hover:bg-emerald-700"
               >
-                <CheckCircle className="h-3.5 w-3.5" />
-                {pending ? "Confirmando…" : "Confirmar agendamento (Enviar WhatsApp)"}
+                <CheckCircle className="h-4 w-4" />
+                {pending ? "Confirmando e enviando..." : "Confirmar e Enviar WhatsApp"}
               </button>
             </div>
           </div>
@@ -752,15 +758,15 @@ export function EvaluationCalendar({
   const [offers, setOffers] = useState(initialOffers);
   // Cards que o responsável acabou de escolher (aguardando OK): piscam por 2 min.
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
+  const [pendingConfirmations, setPendingConfirmations] = useState<PendingConfirmationItem[]>([]);
   // Relógio da tela (1 min) pra "há X h" das ofertas sem render impuro.
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [countsVersion, setCountsVersion] = useState(0);
   const { toast } = useToast();
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
-  // União das janelas de todos os avaliadores; `unconfigured` = algum ainda sem janela (vale o expediente inteiro).
+  // União das janelas de todos os avaliadores.
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TherapistAvailabilityBlock[]>([]);
-  const [availabilityUnconfigured, setAvailabilityUnconfigured] = useState(false);
   // dataTransfer.getData() não é legível no dragover (só no drop) — o
   // payload fica num ref pra prévia saber a duração e o tipo do arraste.
   const dragPayloadRef = useRef<DragPayload | null>(null);
@@ -804,6 +810,9 @@ export function EvaluationCalendar({
     if (res.success) {
       setPool(res.pool);
       setOffers(res.offers);
+      if ("pendingConfirmations" in res && res.pendingConfirmations) {
+        setPendingConfirmations(res.pendingConfirmations);
+      }
     }
   }
 
@@ -894,8 +903,8 @@ export function EvaluationCalendar({
     getEvaluatorsAvailabilityAction().then((res) => {
       if (cancelled) return;
       setAvailabilityBlocks(res.success ? res.blocks : []);
-      setAvailabilityUnconfigured(res.success ? res.unconfigured : false);
     });
+    void fetchPool();
     return () => {
       cancelled = true;
     };
@@ -910,11 +919,9 @@ export function EvaluationCalendar({
   // Ofertas cujo paciente não aparece na fila (o card da fila já mostra a faixa de status).
   const orphanOffers = offers.filter((o) => !pool.some((p) => p.offer?.id === o.id));
 
-  // Se algum avaliador não tem NENHUM bloco cadastrado, a disponibilidade dele
-  // ainda não foi configurada — vale o horário comercial inteiro, mesmo
-  // comportamento do trigger appointments_availability_guard no banco; então
-  // nada é pintado como bloqueado.
-  const hasAvailabilityConfigured = availabilityBlocks.length > 0 && !availabilityUnconfigured;
+  // Avaliador sem bloco cadastrado não atende (allocateEvaluator ignora): a
+  // grade pinta como livre só a união das janelas cadastradas.
+  const hasAvailabilityConfigured = availabilityBlocks.length > 0;
   const blockedRangesByDay = useMemo(() => {
     if (!hasAvailabilityConfigured) return [] as [number, number][][];
     return week.days.map((_, dayIndex) => {
@@ -1188,6 +1195,76 @@ export function EvaluationCalendar({
           )}{" "}
           Clique num horário vazio ou arraste um paciente: o sistema escolhe o avaliador.
         </p>
+      )}
+
+      {pendingConfirmations.length > 0 && (
+        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 shadow-sm animate-in fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500 text-lg text-white shadow-xs animate-bounce">
+                ⚡
+              </span>
+              <div>
+                <h4 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                  {pendingConfirmations.length === 1
+                    ? "1 agendamento escolhido pela família aguardando confirmação"
+                    : `${pendingConfirmations.length} agendamentos escolhidos pela família aguardando confirmação`}
+                  <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-extrabold text-amber-900 uppercase tracking-wider">
+                    Ação Necessária
+                  </span>
+                </h4>
+                <p className="mt-0.5 text-xs text-amber-800">
+                  Os responsáveis já escolheram a data via WhatsApp. Clique em <strong>Confirmar</strong> para aprovar a vaga e enviar a notificação com as orientações à família.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2.5 border-t border-amber-200">
+            {pendingConfirmations.map((p) => {
+              const dt = new Date(p.startsAt);
+              const dateFormatted = dt.toLocaleDateString("pt-BR", { timeZone: CLINIC_TIMEZONE, weekday: "short", day: "2-digit", month: "2-digit" });
+              const timeFormatted = timeLabel(p.startsAt, CLINIC_TIMEZONE);
+              return (
+                <div
+                  key={p.appointmentId}
+                  className="flex items-center justify-between gap-3 rounded-lg border-2 border-amber-300 bg-white p-3 shadow-xs hover:border-amber-500 hover:shadow-sm transition-all"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-bold text-slate-900">{p.patientName}</p>
+                    <p className="text-[11px] font-semibold text-amber-900">
+                      📅 {dateFormatted} às {timeFormatted}
+                    </p>
+                    <p className="truncate text-[10px] text-slate-500">
+                      👤 {p.therapistName} · {p.roomName}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAppointment({
+                        id: p.appointmentId,
+                        patientId: p.patientId,
+                        patientName: p.patientName,
+                        startsAt: p.startsAt,
+                        endsAt: p.endsAt,
+                        therapistName: p.therapistName,
+                        roomId: p.roomId,
+                        roomName: p.roomName,
+                        isProvisional: true,
+                        offerId: p.offerId,
+                      });
+                    }}
+                    className="btn shrink-0 flex items-center gap-1.5 text-xs font-bold text-white shadow-xs bg-amber-600 hover:bg-amber-700"
+                    title="Clique para abrir e confirmar o agendamento"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    Confirmar
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       <div className="flex gap-4">
@@ -1561,9 +1638,11 @@ export function EvaluationCalendar({
                             dragPayloadRef.current = payload;
                             e.dataTransfer.setData("application/json", JSON.stringify(payload));
                           }}
-                          className={`grid-cell-focusable absolute left-1 right-1 cursor-pointer overflow-hidden rounded-[14px] border p-2 text-xs shadow-xs hover:ring-2 hover:ring-chart/50 active:cursor-grabbing transition-transform hover:scale-[1.01] ${
-                            a.isProvisional ? "border-amber-500 bg-[#fff9eb]" : ""
-                          } ${flashIds.has(a.id) ? "animate-pulse ring-2 ring-amber-400" : ""}`}
+                          className={`grid-cell-focusable absolute left-1 right-1 cursor-pointer overflow-hidden rounded-[14px] p-2 text-xs shadow-xs hover:ring-2 active:cursor-grabbing transition-all hover:scale-[1.01] ${
+                            a.isProvisional
+                              ? "border-2 border-amber-500 bg-[#fff9eb] ring-2 ring-amber-400/50 hover:ring-amber-500 shadow-md"
+                              : "border border-[#4a6358] bg-[#fdf6e9] hover:ring-chart/50"
+                          } ${flashIds.has(a.id) ? "animate-pulse ring-4 ring-amber-500" : ""}`}
                           style={{
                             top,
                             height,
@@ -1571,20 +1650,28 @@ export function EvaluationCalendar({
                             borderColor: a.isProvisional ? "#f59e0b" : "#4a6358",
                           }}
                           title={`${a.patientName} · ${timeLabel(a.startsAt, CLINIC_TIMEZONE)} · ${a.therapistName} · ${a.roomName}${
-                            a.isProvisional ? " (⏳ Aguardando aprovação do supervisor)" : ""
+                            a.isProvisional ? " (⏳ Aguardando aprovação do supervisor — clique para confirmar e enviar WhatsApp)" : ""
                           } — clique para editar/confirmar/desmarcar`}
                         >
                           <div className="flex items-center justify-between gap-1 leading-snug">
-                            <p className="truncate font-semibold text-slate-800 text-[12px]">{a.patientName}</p>
+                            <p className="truncate font-bold text-slate-900 text-[12px]">{a.patientName}</p>
                             {a.isProvisional && (
-                              <span className="shrink-0 rounded bg-amber-200 px-1 py-0.5 text-[9px] font-bold text-amber-900">
-                                {a.offerId ? "⏳ Escolhido pelo responsável" : "⏳ Provisório"}
+                              <span className="shrink-0 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-xs animate-pulse">
+                                ⚡ PENDENTE
                               </span>
                             )}
                           </div>
-                          <p className="truncate text-slate-600 text-[11px] mt-0.5 font-normal">
+                          <p className="truncate text-slate-700 text-[11px] mt-0.5 font-medium">
                             {timeLabel(a.startsAt, CLINIC_TIMEZONE)} · {a.therapistName}
                           </p>
+                          {a.isProvisional && (
+                            <div className="mt-1 flex items-center justify-between gap-1 rounded bg-amber-200/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-950 border border-amber-300">
+                              <span className="flex items-center gap-1 truncate">
+                                👉 Clique p/ confirmar
+                              </span>
+                              <span className="shrink-0 text-[9px] text-amber-800">💬 WhatsApp</span>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1675,8 +1762,11 @@ export function EvaluationCalendar({
               toast(res.error, "error");
               return;
             }
-            toast(`Agendamento de ${editingAppointment.patientName} confirmado! Notificação enviada por WhatsApp.`, "success");
-            if (res.warning) toast(res.warning, "info");
+            if (res.warning) {
+              toast(`Agendamento de ${editingAppointment.patientName} confirmado, mas atenção: ${res.warning}`, "warning");
+            } else {
+              toast(`Agendamento de ${editingAppointment.patientName} confirmado! Notificação enviada por WhatsApp ao responsável.`, "success");
+            }
             setEditingAppointment(null);
             await Promise.all([fetchWeek(), fetchPool()]);
           }}

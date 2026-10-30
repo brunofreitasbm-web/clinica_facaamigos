@@ -80,13 +80,91 @@ export async function getEvaluationDayCountsAction(
   }
 }
 
+export type PendingConfirmationItem = {
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  startsAt: string;
+  endsAt: string;
+  therapistId: string;
+  therapistName: string;
+  roomId: string;
+  roomName: string;
+  offerId?: string;
+};
+
+export async function getPendingConfirmationsAction(): Promise<
+  { success: true; pending: PendingConfirmationItem[] } | { success: false; error: string }
+> {
+  try {
+    const admin = createAdminClient();
+    const { data: appointments, error } = await admin
+      .from("appointments")
+      .select("id, patient_id, therapist_id, room_id, starts_at, ends_at, is_provisional, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)")
+      .eq("is_provisional", true)
+      .eq("is_evaluation", true)
+      .not("status", "in", "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,remarcada)")
+      .order("starts_at", { ascending: true });
+
+    if (error) {
+      console.error("[getPendingConfirmationsAction] error:", error);
+      return { success: true, pending: [] };
+    }
+
+    const apptIds = (appointments ?? []).map((a) => a.id);
+    let offerByAppt = new Map<string, string>();
+    if (apptIds.length > 0) {
+      const { data: offers } = await (admin as unknown as { from: (table: string) => any })
+        .from("evaluation_offers")
+        .select("id, appointment_id")
+        .in("appointment_id", apptIds)
+        .eq("status", "aguardando_supervisor");
+      if (offers) {
+        offerByAppt = new Map(offers.map((o: { id: string; appointment_id: string }) => [o.appointment_id, o.id]));
+      }
+    }
+
+    const pending: PendingConfirmationItem[] = (appointments ?? []).map((a: any) => {
+      const patient = Array.isArray(a.patients) ? a.patients[0] : a.patients;
+      const therapist = Array.isArray(a.therapist) ? a.therapist[0] : a.therapist;
+      const room = Array.isArray(a.rooms) ? a.rooms[0] : a.rooms;
+      return {
+        appointmentId: a.id,
+        patientId: a.patient_id,
+        patientName: patient?.full_name ?? "Paciente",
+        startsAt: a.starts_at,
+        endsAt: a.ends_at,
+        therapistId: a.therapist_id,
+        therapistName: therapist?.full_name ?? "Avaliador",
+        roomId: a.room_id,
+        roomName: room?.name ?? "Sala",
+        offerId: offerByAppt.get(a.id),
+      };
+    });
+
+    return { success: true, pending };
+  } catch (err) {
+    console.error("[getPendingConfirmationsAction] unexpected error:", err);
+    return { success: false, error: "Não foi possível carregar as confirmações pendentes." };
+  }
+}
+
 export async function getEvaluationPoolAction(): Promise<
-  { success: true; pool: EvaluationPoolItem[]; offers: EvaluationOfferItem[] } | { success: false; error: string }
+  { success: true; pool: EvaluationPoolItem[]; offers: EvaluationOfferItem[]; pendingConfirmations: PendingConfirmationItem[] } | { success: false; error: string }
 > {
   try {
     const supabase = await createClient();
-    const [pool, offers] = await Promise.all([getEvaluationPool(supabase, DEV_CLINIC_ID), getEvaluationOffers(supabase)]);
-    return { success: true, pool, offers };
+    const [pool, offers, pendingRes] = await Promise.all([
+      getEvaluationPool(supabase, DEV_CLINIC_ID),
+      getEvaluationOffers(supabase),
+      getPendingConfirmationsAction(),
+    ]);
+    return {
+      success: true,
+      pool,
+      offers,
+      pendingConfirmations: pendingRes.success ? pendingRes.pending : [],
+    };
   } catch {
     return { success: false, error: "Não foi possível carregar a fila de agendamento." };
   }
@@ -100,11 +178,10 @@ export type TherapistAvailabilityBlock = { dayOfWeek: number; startTime: string;
  * — mesma tabela que já bloqueia agendamento fora do expediente no banco via
  * appointments_availability_guard. A grade pinta como livre o que algum
  * avaliador cobre (união das janelas); a escolha de quem atende é do servidor
- * (allocateEvaluator). `unconfigured`: algum avaliador ainda não cadastrou
- * janela e por isso vale o expediente da clínica inteiro — nada é bloqueado.
+ * (allocateEvaluator). Avaliador sem janela cadastrada não atende e não pinta.
  */
 export async function getEvaluatorsAvailabilityAction(): Promise<
-  { success: true; blocks: TherapistAvailabilityBlock[]; unconfigured: boolean } | { success: false; error: string }
+  { success: true; blocks: TherapistAvailabilityBlock[] } | { success: false; error: string }
 > {
   try {
     const supabase = await createClient();
@@ -117,7 +194,7 @@ export async function getEvaluatorsAvailabilityAction(): Promise<
     if (evaluatorsErr) return { success: false, error: "Não foi possível carregar a disponibilidade dos avaliadores." };
 
     const ids = (evaluators ?? []).map((e) => e.id);
-    if (ids.length === 0) return { success: true, blocks: [], unconfigured: false };
+    if (ids.length === 0) return { success: true, blocks: [] };
 
     const { data, error } = await supabase
       .from("professional_availability")
@@ -126,11 +203,9 @@ export async function getEvaluatorsAvailabilityAction(): Promise<
       .eq("active", true);
     if (error) return { success: false, error: "Não foi possível carregar a disponibilidade dos avaliadores." };
 
-    const configured = new Set((data ?? []).map((b) => b.profile_id));
     return {
       success: true,
       blocks: (data ?? []).map((b) => ({ dayOfWeek: b.day_of_week, startTime: b.start_time, endTime: b.end_time })),
-      unconfigured: ids.some((id) => !configured.has(id)),
     };
   } catch {
     return { success: false, error: "Não foi possível carregar a disponibilidade dos avaliadores." };

@@ -10,7 +10,7 @@ const MIN = 60_000;
 // Segunda 2026-11-02, 09:00–09:50 (minutos 540–590); dow = 1.
 const base = { dayOfWeek: 1, startMin: 540, endMin: 590, startMs: 1_000 * MIN, endMs: 1_050 * MIN };
 
-const open = (id: string): OfferTherapist => ({ id, windows: null });
+const open = (id: string): OfferTherapist => ({ id, windows: new Map([[1, [[0, 1440]]]]) });
 const busyFor = (therapistId: string, startMs: number, endMs: number): BusyRange => ({
   therapistId,
   roomId: null,
@@ -65,6 +65,13 @@ test("janela cadastrada que cobre o horário vale", () => {
   const morning: OfferTherapist = { id: "A", windows: new Map([[1, [[480, 720]]]]) };
   const id = pickEvaluatorForSlot({ ...base, therapists: [morning], busy: [], weekLoad: new Map() });
   assert.equal(id, "A");
+});
+
+test("avaliador sem nenhuma janela cadastrada nunca é alocado", () => {
+  const noWindows: OfferTherapist = { id: "A", windows: null };
+  const id = pickEvaluatorForSlot({ ...base, therapists: [noWindows, open("B")], busy: [], weekLoad: new Map() });
+  assert.equal(id, "B");
+  assert.equal(pickEvaluatorForSlot({ ...base, therapists: [noWindows], busy: [], weekLoad: new Map() }), null);
 });
 
 test("ninguém livre → null", () => {

@@ -1,6 +1,5 @@
 import { SupervisaoTabProvider } from "./supervisao-tab-context";
 import { SupervisaoHeader } from "@/components/supervisao-header";
-import { SupervisaoKnowledgeBaseDrawer } from "@/components/supervisao-knowledge-base-drawer";
 import { BonusFloatingWidget } from "@/components/bonus-floating-widget";
 
 /**
@@ -13,7 +12,6 @@ export default function SupervisaoLayout({ children }: { children: React.ReactNo
       <div className="flex min-h-0 flex-1 flex-col">
         <SupervisaoHeader />
         {children}
-        <SupervisaoKnowledgeBaseDrawer />
         <BonusFloatingWidget />
       </div>
     </SupervisaoTabProvider>

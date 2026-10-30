@@ -3,7 +3,6 @@ import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
 import { getReceptionQueue, isAuthorizationQueueItem, isPendingQueueItem } from "@/lib/reception-queue";
 import { RecepcaoNav } from "@/components/recepcao-nav";
-import { KnowledgeBaseDrawer } from "@/components/knowledge-base-drawer";
 import { BonusFloatingWidget } from "@/components/bonus-floating-widget";
 import { DoorListAutoPrint } from "@/components/door-list-auto-print";
 
@@ -39,7 +38,6 @@ export default async function RecepcaoLayout({ children, modal }: { children: Re
       <RecepcaoNav pendingCount={pendingCount} chegadasCount={chegadasCount ?? 0} toAuthorizeCount={toAuthorizeCount} />
       {children}
       {modal}
-      <KnowledgeBaseDrawer />
       <BonusFloatingWidget />
       <DoorListAutoPrint />
     </div>

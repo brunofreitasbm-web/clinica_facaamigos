@@ -74,7 +74,7 @@ const NOW = Date.parse("2026-11-01T12:00:00-03:00");
 function gen(overrides: Partial<Parameters<typeof generateEvaluationCandidates>[0]> = {}) {
   return generateEvaluationCandidates({
     days: ["2026-11-04"], // quarta, mais de 24h depois de NOW
-    therapists: [{ id: "A", windows: null }],
+    therapists: [{ id: "A", windows: new Map(GRADE.map((g) => [g.day_of_week, [[480, 1140]] as [number, number][]])) }],
     roomIds: ["R1"],
     busy: [],
     businessHours: GRADE,

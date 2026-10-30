@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { TerapeutaBottomNav } from "@/components/terapeuta-bottom-nav";
-import { TherapistKnowledgeBaseDrawer } from "@/components/therapist-knowledge-base-drawer";
 
 /**
  * Layout do módulo Terapeuta — monta a nav (TerapeutaBottomNav) em toda tela
@@ -28,7 +27,6 @@ export default function TerapeutaLayout({ children }: { children: React.ReactNod
         <TerapeutaNavByRole />
       </Suspense>
       {children}
-      <TherapistKnowledgeBaseDrawer />
     </>
   );
 }
