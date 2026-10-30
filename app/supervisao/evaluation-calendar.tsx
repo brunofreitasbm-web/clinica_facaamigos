@@ -1240,22 +1240,24 @@ export function EvaluationCalendar({
                   </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      setEditingAppointment({
-                        id: p.appointmentId,
-                        patientId: p.patientId,
-                        patientName: p.patientName,
-                        startsAt: p.startsAt,
-                        endsAt: p.endsAt,
-                        therapistName: p.therapistName,
-                        roomId: p.roomId,
-                        roomName: p.roomName,
-                        isProvisional: true,
-                        offerId: p.offerId,
-                      });
+                    disabled={pendingEdit}
+                    onClick={async () => {
+                      setPendingEdit(true);
+                      const res = await confirmEvaluationAppointmentAction(p.appointmentId);
+                      setPendingEdit(false);
+                      if (!res.success) {
+                        toast(res.error, "error");
+                        return;
+                      }
+                      if (res.warning) {
+                        toast(`Agendamento de ${p.patientName} confirmado, mas atenção: ${res.warning}`, "info");
+                      } else {
+                        toast(`Agendamento de ${p.patientName} confirmado! Notificação enviada por WhatsApp ao responsável.`, "success");
+                      }
+                      await Promise.all([fetchWeek(), fetchPool()]);
                     }}
-                    className="btn shrink-0 flex items-center gap-1.5 text-xs font-bold text-white shadow-xs bg-amber-600 hover:bg-amber-700"
-                    title="Clique para abrir e confirmar o agendamento"
+                    className="btn shrink-0 flex items-center gap-1.5 text-xs font-bold text-white shadow-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50"
+                    title="Confirma o agendamento e envia as orientações por WhatsApp"
                   >
                     <CheckCircle className="h-4 w-4" />
                     Confirmar
@@ -1763,7 +1765,7 @@ export function EvaluationCalendar({
               return;
             }
             if (res.warning) {
-              toast(`Agendamento de ${editingAppointment.patientName} confirmado, mas atenção: ${res.warning}`, "warning");
+              toast(`Agendamento de ${editingAppointment.patientName} confirmado, mas atenção: ${res.warning}`, "info");
             } else {
               toast(`Agendamento de ${editingAppointment.patientName} confirmado! Notificação enviada por WhatsApp ao responsável.`, "success");
             }
