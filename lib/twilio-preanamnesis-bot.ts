@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatE164Phone } from "@/lib/twilio";
+import { CLINIC_MAPS_URL, CLINIC_NAME, getClinicIdentity } from "@/lib/clinic-identity";
 import { PRE_ANAMNESIS_QUESTIONS as QUESTIONS, PREANAM_BUTTON_NO } from "@/lib/pre-anamnesis-questions";
 
 // As perguntas moram em lib/pre-anamnesis-questions.ts (puro, também usado pelas telas de 1ª avaliação).
@@ -150,11 +151,30 @@ export async function processPreAnamnesisStep(params: {
         .eq("phone_number", phone),
     ]);
 
+    // Endereço vem do cadastro da clínica do paciente; sem endereço, a
+    // mensagem sai sem o bloco de localização (nada é inventado).
+    let locationBlock = "";
+    try {
+      const { data: prefill } = await db
+        .from("anamnesis_prefill_requests")
+        .select("patients(clinic_id)")
+        .eq("id", requestId)
+        .maybeSingle();
+      const patient = prefill?.patients as { clinic_id?: string | null } | null | undefined;
+      const clinic = await getClinicIdentity(admin, patient?.clinic_id);
+      if (clinic.endereco) {
+        locationBlock = `\n\n📍 *${CLINIC_NAME}*\n${clinic.endereco}\nComo chegar: ${CLINIC_MAPS_URL}`;
+      }
+    } catch (error) {
+      console.error("[Pre-anamnesis] Falha ao montar endereço da clínica:", error);
+    }
+
     return {
       handled: true,
       replyMessage:
         `Muito obrigado! 🙏 Recebemos as informações sobre *${childName}*.\n\n` +
-        "Nossa equipe revisará tudo para a consulta. Até breve! 💙",
+        `Nossa equipe revisará tudo para a consulta. Aguardamos vocês no ${CLINIC_NAME} no dia agendado! 💙` +
+        locationBlock,
     };
   }
 
