@@ -68,9 +68,13 @@ export function compareCandidates(a: OfferCandidate, b: OfferCandidate, occupanc
 }
 
 /**
- * Ordena todos os candidatos e devolve a página `page` (0 = os 3 primeiros,
- * 1 = "Nenhum serve" → os 3 seguintes...). Menos de 3 restantes devolve o que
- * houver; página além do fim devolve lista vazia.
+ * Ordena todos os candidatos e devolve a página `page`. A página 0 (os 3
+ * primeiros) segue o preenchimento de turno. A partir da 1 ("Nenhum serve"),
+ * a prioridade é VARIAR O DIA: quem recusou os 3 horários não quer outros
+ * horários dos mesmos dias, então vêm primeiro os melhores horários de dias
+ * ainda não oferecidos (um por dia, em ordem de data); só depois, se o
+ * calendário acabar, voltam a aparecer dias já oferecidos (outros horários).
+ * Menos de 3 restantes devolve o que houver; página além do fim devolve [].
  */
 export function pickOfferPage(
   candidates: OfferCandidate[],
@@ -79,7 +83,20 @@ export function pickOfferPage(
   size = OFFER_PAGE_SIZE,
 ): OfferCandidate[] {
   const sorted = [...candidates].sort((a, b) => compareCandidates(a, b, occupancy));
-  return sorted.slice(page * size, page * size + size);
+  if (page === 0) return sorted.slice(0, size);
+
+  const first = sorted.slice(0, size);
+  const offeredDays = new Set(first.map((c) => c.date));
+  const seenInDay = new Map<string, number>();
+  const ranked = sorted.slice(size).map((c, order) => {
+    const nth = seenInDay.get(c.date) ?? 0;
+    seenInDay.set(c.date, nth + 1);
+    // Dia já oferecido na página 0 perde uma "rodada": só volta depois que os dias novos
+    // tiveram a vez. `order` mantém o preenchimento de turno como desempate.
+    return { c, round: nth + (offeredDays.has(c.date) ? 1 : 0), order };
+  });
+  ranked.sort((x, y) => x.round - y.round || (x.c.date < y.c.date ? -1 : x.c.date > y.c.date ? 1 : 0) || x.order - y.order);
+  return ranked.slice((page - 1) * size, page * size).map((r) => r.c);
 }
 
 export const EVALUATION_DURATION_MIN = 50;
