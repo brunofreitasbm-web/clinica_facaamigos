@@ -11,10 +11,12 @@ import {
   collectMediaItems,
   filterIngestibleMedia,
   isAudioOnlyMessage,
+  isDuplicateContent,
   isPdfPointer,
   planColdMedia,
   splitCardPointers,
   summarizeMediaSave,
+  DUPLICATE_MEDIA_REPLY,
   RETRY_MEDIA_REPLY,
   UNSUPPORTED_MEDIA_REPLY,
 } from "../lib/whatsapp-media-pure.ts";
@@ -181,4 +183,22 @@ test("áudio com legenda de texto ou junto de outra mídia segue o fluxo normal"
     false,
   );
   assert.equal(isAudioOnlyMessage([], ""), false);
+});
+
+test("isDuplicateContent compara o hash e ignora hash ausente", () => {
+  assert.equal(isDuplicateContent(["a1", null, "b2"], "b2"), true);
+  assert.equal(isDuplicateContent(["a1"], "zz"), false);
+  assert.equal(isDuplicateContent([null, undefined], "a1"), false);
+  assert.equal(isDuplicateContent(["a1"], null), false);
+  assert.equal(isDuplicateContent([], undefined), false);
+});
+
+test("reenvio do mesmo conteúdo não avança etapa e pede só o aviso", () => {
+  const counts = { saved: 0, duplicates: 0, contentDuplicates: 1, unsupported: 0, failed: 0, adopted: 0, storagePaths: [] };
+  assert.deepEqual(summarizeMediaSave(counts), { status: "content_duplicate" });
+  // reentrega do webhook (mesma URL) continua avançando
+  assert.equal(summarizeMediaSave({ ...counts, contentDuplicates: 0, duplicates: 1, storagePaths: ["p.pdf"] }).status, "saved");
+  // arquivo novo + cópia na mesma mensagem: salva o novo
+  assert.equal(summarizeMediaSave({ ...counts, saved: 1, storagePaths: ["p.pdf"] }).status, "saved");
+  assert.equal(coldPatientReply({ saved: 0, duplicates: 0, unsupported: 0, contentDuplicates: 2 }), DUPLICATE_MEDIA_REPLY);
 });

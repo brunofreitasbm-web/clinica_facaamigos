@@ -20,6 +20,7 @@ import {
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { registerBotDraftFiles, syncBotDraft } from "@/lib/registration-drafts-bot";
 import {
+  DUPLICATE_MEDIA_REPLY,
   PARTIAL_UNSUPPORTED_NOTE,
   RETRY_MEDIA_REPLY,
   UNSUPPORTED_MEDIA_REPLY,
@@ -142,6 +143,9 @@ async function saveStepMedia(
 
   const summary = summarizeMediaSave(result);
   if (summary.status === "unsupported") return { ok: false, reply: UNSUPPORTED_MEDIA_REPLY };
+  // Mesmo arquivo reenviado (carteirinha na etapa do RG, por exemplo): avisa e
+  // mantém a etapa — avançar com ele gravaria o documento errado.
+  if (summary.status === "content_duplicate") return { ok: false, reply: DUPLICATE_MEDIA_REPLY };
   if (summary.status === "retry") return { ok: false, reply: RETRY_MEDIA_REPLY };
 
   // Reentrega do Twilio (mesma MediaUrl) de um arquivo de etapa ANTERIOR: o

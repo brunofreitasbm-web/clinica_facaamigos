@@ -12,6 +12,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildMessagePreview, formatE164Phone, findOrCreateConversation } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { DUPLICATE_MEDIA_REPLY, isDuplicateContent } from "@/lib/whatsapp-media-pure";
 import { downloadTwilioMedia, ALLOWED_MIME_TYPES, extensionFor, MAX_FILE_BYTES } from "@/lib/registration-drafts-ingest";
 import { sanitizeFileName } from "@/lib/file-name";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
@@ -39,6 +40,11 @@ type OfferedSlot = {
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
+async function getLeadFileHashes(admin: AdminClient, leadId: string): Promise<string[]> {
+  const { data } = await admin.from("insurance_intake_lead_files").select("content_sha256").eq("lead_id", leadId);
+  return (data ?? []).map((r) => r.content_sha256).filter((h): h is string => Boolean(h));
+}
+
 async function getLeadFileCount(admin: AdminClient, leadId: string): Promise<number> {
   const { count } = await admin.from("insurance_intake_lead_files").select("id", { count: "exact", head: true }).eq("lead_id", leadId);
   return count ?? 0;
@@ -50,9 +56,11 @@ async function getLeadFileCount(admin: AdminClient, leadId: string): Promise<num
  * leitura por IA de cada um.
  */
 async function attachExtraFiles(admin: AdminClient, leadId: string, media: { url: string; contentType?: string }[]): Promise<void> {
+  const knownHashes = await getLeadFileHashes(admin, leadId);
   for (const item of media) {
     const downloaded = await downloadTwilioMedia(item.url, item.contentType);
     if (!downloaded || !ALLOWED_MIME_TYPES.has(downloaded.mime) || downloaded.buffer.byteLength > MAX_FILE_BYTES) continue;
+    if (isDuplicateContent(knownHashes, downloaded.sha256)) continue;
     const existingCount = await getLeadFileCount(admin, leadId);
     const fileName = `${existingCount}-${Date.now()}.${extensionFor(downloaded.mime)}`;
     const storagePath = `intake/leads/${leadId}/${fileName}`;
@@ -67,10 +75,14 @@ async function attachExtraFiles(admin: AdminClient, leadId: string, media: { url
           size_bytes: downloaded.buffer.byteLength,
           original_name: sanitizeFileName(fileName),
           twilio_media_url: item.url,
+          content_sha256: downloaded.sha256,
         })
         .select("id")
         .single();
-      if (insertedFile) void runLaudoExtraction(insertedFile.id);
+      if (insertedFile) {
+        knownHashes.push(downloaded.sha256);
+        void runLaudoExtraction(insertedFile.id);
+      }
       await admin.from("insurance_intake_leads").update({ last_file_at: new Date().toISOString() }).eq("id", leadId);
     }
   }
@@ -337,6 +349,8 @@ export async function processIntakeBotStep(params: { from: string; body: string;
     let savedCount = 0;
     let sawUnsupported = false;
     let sawDownloadFailure = false;
+    let sawDuplicate = false;
+    const knownHashes = await getLeadFileHashes(admin, leadIdStr);
 
     for (const item of media) {
       const downloaded = await downloadTwilioMedia(item.url, item.contentType);
@@ -346,6 +360,11 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       }
       if (!ALLOWED_MIME_TYPES.has(downloaded.mime) || downloaded.buffer.byteLength > MAX_FILE_BYTES) {
         sawUnsupported = true;
+        continue;
+      }
+      // Reenvio do mesmo arquivo (a MediaUrl muda a cada envio): ignora.
+      if (isDuplicateContent(knownHashes, downloaded.sha256)) {
+        sawDuplicate = true;
         continue;
       }
 
@@ -371,6 +390,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
           size_bytes: downloaded.buffer.byteLength,
           original_name: sanitizeFileName(fileName),
           twilio_media_url: item.url,
+          content_sha256: downloaded.sha256,
         })
         .select("id")
         .single();
@@ -378,6 +398,7 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       // o arquivo — erro de violação de unicidade é esperado e ignorado.
       if (!insertError) {
         savedCount++;
+        knownHashes.push(downloaded.sha256);
         // Fire-and-forget: o agente de IA já lê o laudo/guia assim que
         // chega, pra a validação do supervisor (app/supervisao) já vir com
         // o resumo pronto — não faz o responsável esperar no WhatsApp pela
@@ -419,6 +440,9 @@ export async function processIntakeBotStep(params: { from: string; body: string;
       };
     }
 
+    if (sawDuplicate && !sawUnsupported && !sawDownloadFailure) {
+      return { handled: true, replyMessage: DUPLICATE_MEDIA_REPLY };
+    }
     if (sawUnsupported) {
       return { handled: true, replyMessage: "Só conseguimos ler fotos (JPG/PNG) e PDF, até 25MB. Pode reenviar nesse formato?" };
     }

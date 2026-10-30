@@ -49,6 +49,7 @@ import {
   type LeadCandidate,
   type LeadDocKind,
 } from "@/lib/whatsapp-lead-pure";
+import { isDuplicateContent } from "@/lib/whatsapp-media-pure";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
 const LEAD_ENTRY_SOURCE = "chatbot_whatsapp";
@@ -296,6 +297,8 @@ export async function attachLeadDocument(params: {
   sourceKey: string;
   originalName?: string;
   contentTypeHint?: string;
+  /** sha256 dos bytes originais (antes do WebP); gravado para detectar reenvio do mesmo arquivo. */
+  contentSha256?: string;
 }): Promise<AttachLeadDocumentResult> {
   try {
     const { patientId, phone, buffer, kind, sourceKey } = params;
@@ -345,6 +348,7 @@ export async function attachLeadDocument(params: {
         source_key: sourceKey,
         original_name: originalName,
         mime_type: sniffed.mime,
+        content_sha256: params.contentSha256 ?? null,
       })
       .select("id")
       .single();
@@ -482,6 +486,8 @@ export async function adoptPendingLeadFiles(params: {
 export type RegisterLeadMediaResult = {
   saved: number;
   duplicates: number;
+  /** Reenvio do mesmo arquivo (conteúdo já guardado): ignorado, não avança etapa. */
+  contentDuplicates: number;
   unsupported: number;
   failed: number;
   patientId: string | null;
@@ -506,6 +512,7 @@ export async function registerLeadMedia(params: {
   const result: RegisterLeadMediaResult = {
     saved: 0,
     duplicates: 0,
+    contentDuplicates: 0,
     unsupported: 0,
     failed: 0,
     patientId: null,
@@ -549,6 +556,19 @@ export async function registerLeadMedia(params: {
       }
 
       if (lead) {
+        // Reenvio do MESMO arquivo (URL nova, mesmos bytes): não grava de novo
+        // nem devolve ponteiro — o bot não pode avançar de etapa com ele.
+        const { data: sameContent } = await loose(admin)
+          .from("documents")
+          .select("content_sha256")
+          .eq("patient_id", lead.patientId)
+          .eq("content_sha256", downloaded.sha256)
+          .limit(1);
+        if (isDuplicateContent(((sameContent ?? []) as { content_sha256: string | null }[]).map((r) => r.content_sha256), downloaded.sha256)) {
+          result.contentDuplicates++;
+          continue;
+        }
+
         const attached = await attachLeadDocument({
           patientId: lead.patientId,
           phone,
@@ -556,6 +576,7 @@ export async function registerLeadMedia(params: {
           kind: params.kind,
           sourceKey: item.url,
           contentTypeHint: downloaded.mime,
+          contentSha256: downloaded.sha256,
         });
         if (attached.ok) {
           if (attached.duplicate) result.duplicates++;
@@ -577,7 +598,7 @@ export async function registerLeadMedia(params: {
     }
   } catch (err) {
     console.error("[WhatsApp Lead] Exceção em registerLeadMedia:", err);
-    const handled = result.saved + result.duplicates + result.unsupported + result.failed;
+    const handled = result.saved + result.duplicates + result.contentDuplicates + result.unsupported + result.failed;
     result.failed += Math.max(0, params.media.length - handled);
   }
   return result;

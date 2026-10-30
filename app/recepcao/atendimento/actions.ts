@@ -1046,7 +1046,7 @@ async function extractFromConversationFiles(
 
     const downloads = await Promise.all(urls.map((u) => downloadTwilioMedia(u)));
     const files = downloads
-      .filter((d): d is { buffer: Buffer; mime: string } => Boolean(d) && ATTACHMENT_MIMES.has(d!.mime))
+      .filter((d): d is NonNullable<typeof d> => d !== null && ATTACHMENT_MIMES.has(d.mime))
       .map((d, index) => ({ base64: d.buffer.toString("base64"), mimeType: d.mime, index }));
     if (files.length === 0) return null;
 

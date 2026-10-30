@@ -7,12 +7,14 @@
 // webhook responder (lib/whatsapp-cold-media.ts) e, como rede de segurança,
 // pelo cron — pra não segurar a resposta do webhook além dos ~15s que a Twilio
 // tolera.
+import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatE164Phone, resolvePatientFromPhone } from "@/lib/twilio";
 import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
 import { sanitizeFileName } from "@/lib/file-name";
 import { optimizeIncomingImage } from "@/lib/media-optimize";
+import { DUPLICATE_MEDIA_REPLY, isDuplicateContent } from "@/lib/whatsapp-media-pure";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -43,7 +45,10 @@ export function extensionFor(mime: string): string {
  * credenciais da conta), devolvendo o buffer em memória — quem chama decide
  * o destino (sempre o bucket privado `clinic-documents`).
  */
-export async function downloadTwilioMedia(url: string, contentTypeHint?: string): Promise<{ buffer: Buffer; mime: string } | null> {
+export async function downloadTwilioMedia(
+  url: string,
+  contentTypeHint?: string,
+): Promise<{ buffer: Buffer; mime: string; sha256: string } | null> {
   try {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -65,8 +70,14 @@ export async function downloadTwilioMedia(url: string, contentTypeHint?: string)
       return null;
     }
 
+    // Hash dos bytes ORIGINAIS: a conversão para WebP abaixo muda o conteúdo,
+    // então só o hash de antes dela identifica o mesmo arquivo reenviado.
+    const original = Buffer.from(arrayBuffer);
+    const sha256 = createHash("sha256").update(original).digest("hex");
+
     // Único caminho sem navegador: JPEG/PNG/WebP viram WebP aqui (HEIC/PDF intactos).
-    return await optimizeIncomingImage(Buffer.from(arrayBuffer), mime);
+    const optimized = await optimizeIncomingImage(original, mime);
+    return { ...optimized, sha256 };
   } catch (err) {
     console.error("[Registration Draft] Exceção ao baixar mídia Twilio:", err);
     return null;
@@ -144,12 +155,14 @@ export async function ingestWhatsappMedia(params: {
   const draftId = open.id;
 
   let existingFileCount = 0;
+  const knownHashes: string[] = [];
   if (!open.created) {
-    const { count } = await admin
+    const { data: existingFiles } = await admin
       .from("registration_draft_files")
-      .select("id", { count: "exact", head: true })
+      .select("content_sha256")
       .eq("draft_id", draftId);
-    existingFileCount = count ?? 0;
+    existingFileCount = existingFiles?.length ?? 0;
+    for (const f of existingFiles ?? []) if (f.content_sha256) knownHashes.push(f.content_sha256);
   }
 
   if (existingFileCount >= MAX_FILES_PER_DRAFT) {
@@ -163,6 +176,7 @@ export async function ingestWhatsappMedia(params: {
   let savedCount = 0;
   let sawUnsupported = false;
   let sawDownloadFailure = false;
+  let sawDuplicate = false;
 
   for (const item of params.media) {
     if (existingFileCount + savedCount >= MAX_FILES_PER_DRAFT) break;
@@ -174,6 +188,11 @@ export async function ingestWhatsappMedia(params: {
     }
     if (!ALLOWED_MIME_TYPES.has(downloaded.mime)) {
       sawUnsupported = true;
+      continue;
+    }
+    // Mesmo conteúdo já no rascunho (reenvio, ou 2 cópias na mesma mensagem).
+    if (isDuplicateContent(knownHashes, downloaded.sha256)) {
+      sawDuplicate = true;
       continue;
     }
 
@@ -191,18 +210,34 @@ export async function ingestWhatsappMedia(params: {
       continue;
     }
 
-    await admin.from("registration_draft_files").insert({
+    const { error: insertError } = await admin.from("registration_draft_files").insert({
       draft_id: draftId,
       storage_path: storagePath,
       mime_type: downloaded.mime,
       size_bytes: downloaded.buffer.byteLength,
       original_name: sanitizeFileName(fileName),
       twilio_media_url: item.url,
+      content_sha256: downloaded.sha256,
     });
+    if (insertError) {
+      // Sem objeto órfão no Storage nem arquivo contado como salvo. 23505 =
+      // reentrega do webhook (mesma twilio_media_url): não é falha para o usuário.
+      await admin.storage.from(DOCUMENTS_BUCKET).remove([storagePath]);
+      if (insertError.code === "23505") sawDuplicate = true;
+      else {
+        console.error("[Registration Draft] Falha ao registrar arquivo do rascunho:", insertError.message);
+        sawDownloadFailure = true;
+      }
+      continue;
+    }
+    knownHashes.push(downloaded.sha256);
     savedCount++;
   }
 
   if (savedCount === 0) {
+    if (sawDuplicate && !sawUnsupported && !sawDownloadFailure) {
+      return { draftId, replyMessage: DUPLICATE_MEDIA_REPLY };
+    }
     if (sawUnsupported) {
       return { replyMessage: "Só conseguimos ler fotos (JPG/PNG) e PDF. Pode reenviar nesse formato?" };
     }

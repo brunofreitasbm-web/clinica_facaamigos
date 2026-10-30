@@ -2288,6 +2288,7 @@ export type Database = {
           uploaded_at: string
           uploaded_by: string
           valid_until: string | null
+          content_sha256: string | null
         }
         Insert: {
           category: string
@@ -2301,6 +2302,7 @@ export type Database = {
           uploaded_at?: string
           uploaded_by: string
           valid_until?: string | null
+          content_sha256?: string | null
         }
         Update: {
           category?: string
@@ -2314,6 +2316,7 @@ export type Database = {
           uploaded_at?: string
           uploaded_by?: string
           valid_until?: string | null
+          content_sha256?: string | null
         }
         Relationships: [
           {
@@ -4124,6 +4127,7 @@ export type Database = {
           size_bytes: number | null
           storage_path: string
           twilio_media_url: string | null
+          content_sha256: string | null
         }
         Insert: {
           created_at?: string
@@ -4142,6 +4146,7 @@ export type Database = {
           size_bytes?: number | null
           storage_path: string
           twilio_media_url?: string | null
+          content_sha256?: string | null
         }
         Update: {
           created_at?: string
@@ -4160,6 +4165,7 @@ export type Database = {
           size_bytes?: number | null
           storage_path?: string
           twilio_media_url?: string | null
+          content_sha256?: string | null
         }
         Relationships: [
           {
@@ -6976,6 +6982,7 @@ export type Database = {
           size_bytes: number | null
           storage_path: string
           twilio_media_url: string | null
+          content_sha256: string | null
         }
         Insert: {
           created_at?: string
@@ -6988,6 +6995,7 @@ export type Database = {
           size_bytes?: number | null
           storage_path: string
           twilio_media_url?: string | null
+          content_sha256?: string | null
         }
         Update: {
           created_at?: string
@@ -7000,6 +7008,7 @@ export type Database = {
           size_bytes?: number | null
           storage_path?: string
           twilio_media_url?: string | null
+          content_sha256?: string | null
         }
         Relationships: [
           {

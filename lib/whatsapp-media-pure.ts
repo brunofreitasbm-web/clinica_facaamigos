@@ -106,9 +106,25 @@ export function planColdMedia(input: {
 // Resultado de salvar os anexos
 // ---------------------------------------------------------------------
 
+/**
+ * Mesmo conteúdo já guardado (hash sha256 dos bytes). Diferente de reentrega do
+ * webhook (mesma MediaUrl), o WhatsApp dá uma URL nova a cada envio — por isso
+ * a comparação é pelo conteúdo. Hash ausente nunca conta como duplicado.
+ */
+export function isDuplicateContent(existingHashes: ReadonlyArray<string | null | undefined>, hash: string | null | undefined): boolean {
+  if (!hash) return false;
+  return existingHashes.some((h) => h === hash);
+}
+
 export type MediaSaveCounts = {
   saved: number;
   duplicates: number;
+  /**
+   * Arquivos cujo CONTEÚDO já estava guardado (reenvio pelo responsável). Fora de
+   * `duplicates` de propósito: reentrega do webhook ainda avança a etapa; reenvio
+   * do mesmo arquivo não — senão a carteirinha reenviada vira o "RG".
+   */
+  contentDuplicates?: number;
   unsupported: number;
   failed: number;
   /** Arquivos pendentes antigos adotados nesta chamada (vêm ANTES dos desta mensagem em `storagePaths`). */
@@ -119,6 +135,7 @@ export type MediaSaveCounts = {
 export type MediaSaveSummary =
   | { status: "saved"; pointers: string[]; unsupportedNote: boolean }
   | { status: "unsupported" }
+  | { status: "content_duplicate" }
   | { status: "retry" };
 
 /**
@@ -129,6 +146,7 @@ export type MediaSaveSummary =
  */
 export function summarizeMediaSave(counts: MediaSaveCounts): MediaSaveSummary {
   if (counts.saved + counts.duplicates === 0) {
+    if ((counts.contentDuplicates ?? 0) > 0) return { status: "content_duplicate" };
     return counts.unsupported > 0 ? { status: "unsupported" } : { status: "retry" };
   }
   const own = counts.storagePaths.slice(Math.max(0, counts.adopted));
@@ -145,6 +163,8 @@ export const UNSUPPORTED_MEDIA_REPLY =
   "Só conseguimos ler fotos (JPG/PNG) e PDF. 🙏 Pode reenviar nesse formato?";
 export const RETRY_MEDIA_REPLY =
   "Não conseguimos salvar o arquivo agora. 😕 Reenvie a foto ou o PDF (até 25MB) por aqui, por favor.";
+export const DUPLICATE_MEDIA_REPLY =
+  "Já recebemos esse arquivo, obrigado! 🙏 Se for outro documento, pode enviar por aqui.";
 export const PARTIAL_UNSUPPORTED_NOTE =
   "\n\n(Algum arquivo não pôde ser lido — só aceitamos fotos JPG/PNG e PDF.)";
 
@@ -166,7 +186,10 @@ export function splitCardPointers(pointers: string[]): { front: string; back: st
 // ---------------------------------------------------------------------
 
 /** Resposta quando o anexo foi direto para o cadastro de um responsável já conhecido. */
-export function coldPatientReply(counts: Pick<MediaSaveCounts, "saved" | "duplicates" | "unsupported">): string {
+export function coldPatientReply(
+  counts: Pick<MediaSaveCounts, "saved" | "duplicates" | "unsupported"> & { contentDuplicates?: number },
+): string {
+  if (counts.saved + counts.duplicates === 0 && (counts.contentDuplicates ?? 0) > 0) return DUPLICATE_MEDIA_REPLY;
   if (counts.saved + counts.duplicates > 0) {
     return (
       "Recebido! 📄 Já anexamos ao cadastro da família e a recepção vai conferir. " +
