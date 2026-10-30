@@ -41,7 +41,21 @@ test("completa a manhã, depois a tarde, depois o dia seguinte", () => {
   const page0 = pickOfferPage(all, new Map());
   assert.deepEqual(page0.map(label), ["2026-11-04 08:00 A", "2026-11-04 08:50 A", "2026-11-04 14:00 A"]);
   const page1 = pickOfferPage(all, new Map(), 1);
-  assert.deepEqual(page1.map(label), ["2026-11-04 15:00 A", "2026-11-05 08:00 A"]);
+  // "Nenhum serve": dia novo primeiro; o que sobra do dia já oferecido fica por último.
+  assert.deepEqual(page1.map(label), ["2026-11-05 08:00 A", "2026-11-04 15:00 A"]);
+});
+
+test("'Nenhum serve' sugere outros dias, um horário por dia, antes de repetir dia já oferecido", () => {
+  const all = [
+    cand("2026-11-04", "08:00"), cand("2026-11-04", "08:50"), cand("2026-11-04", "09:40"), cand("2026-11-04", "10:30"),
+    cand("2026-11-05", "08:00"), cand("2026-11-05", "08:50"),
+    cand("2026-11-06", "08:00"),
+    cand("2026-11-09", "08:00"),
+  ];
+  assert.deepEqual(pickOfferPage(all, new Map()).map(label), ["2026-11-04 08:00 A", "2026-11-04 08:50 A", "2026-11-04 09:40 A"]);
+  assert.deepEqual(pickOfferPage(all, new Map(), 1).map(label), ["2026-11-05 08:00 A", "2026-11-06 08:00 A", "2026-11-09 08:00 A"]);
+  // Dias novos esgotados: voltam outros horários.
+  assert.deepEqual(pickOfferPage(all, new Map(), 2).map(label), ["2026-11-04 10:30 A", "2026-11-05 08:50 A"]);
 });
 
 test("mesmo turno: avaliadora mais ocupada vem primeiro", () => {

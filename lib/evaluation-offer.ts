@@ -21,6 +21,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { buildMessagePreview, findOrCreateConversation, formatE164Phone, getTwilioContentSidForCategory } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { computeEvaluationOfferSlots, type EvaluationOfferSlot } from "@/lib/evaluation-offer-slots";
+import { isPhoneFreeForOffer } from "@/lib/evaluation-offer-session-pure";
 import { parseInterestReply, parseSlotReply } from "@/lib/evaluation-offer-reply-pure";
 
 export const EVAL_OFFER_FLOW = "eval_offer";
@@ -205,8 +206,8 @@ export async function startEvaluationOffer(params: {
     return { status: "no_phone", offerId, error: "Responsável sem telefone cadastrado." };
   }
 
-  const { data: session } = await admin.from("chatbot_sessions").select("current_step, flow").eq("phone_number", phone).maybeSingle();
-  const free = !session || ["idle", "completed"].includes(session.current_step ?? "idle") || session.flow === EVAL_OFFER_FLOW;
+  const { data: session } = await admin.from("chatbot_sessions").select("current_step, flow, updated_at").eq("phone_number", phone).maybeSingle();
+  const free = isPhoneFreeForOffer(session, EVAL_OFFER_FLOW, Date.now());
   if (!free) {
     const error = "Este telefone está em outro atendimento automático no momento.";
     const offerId = await recordFailure("falhou", error);
