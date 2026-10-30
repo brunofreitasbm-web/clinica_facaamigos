@@ -8,7 +8,6 @@ import { getActiveAuthorizationId } from "@/lib/active-authorization";
 import { CANCELLED_APPOINTMENT_STATUSES, promoteToPatient } from "@/lib/patient-stage";
 import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
-import { sendEvaluationGuidanceNotification } from "@/lib/evaluation-guidance";
 import { releaseOfferForManualScheduling } from "@/lib/evaluation-offer";
 import { getSchedulingGates } from "@/lib/evaluation-agenda";
 import { shouldPromoteOnScheduling } from "@/lib/scheduling-promotion-pure";
@@ -73,9 +72,8 @@ export async function scheduleEvaluation(
   const gate = (await getSchedulingGates(supabase, [patientId])).get(patientId);
   if (shouldPromoteOnScheduling(gate)) await promoteToPatient(supabase, patientId);
 
-  // Ao responsável: com o template único configurado, UMA mensagem leva a confirmação, as
-  // orientações do dia e o convite da pré-anamnese. Sem ele, a ordem antiga:
-  // confirmação do horário → orientações do dia → convite da pré-anamnese.
+  // Ao responsável: confirmação do horário (já com as orientações do dia) e convite da
+  // pré-anamnese. Com o template único configurado, é UMA mensagem; sem ele, duas em ordem.
   const notice = await sendEvaluationConfirmationNotification({
     patientId,
     therapistId,
@@ -86,13 +84,11 @@ export async function scheduleEvaluation(
     bundlePreAnamnesis: true,
   });
 
+  // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
+  // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia
+  // o agendamento se falhar (Twilio fora do ar, sem responsável cadastrado
+  // etc.), a anamnese continua acontecendo presencialmente.
   if (!(notice.sent && notice.bundled)) {
-    await sendEvaluationGuidanceNotification(patientId);
-
-    // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
-    // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia
-    // o agendamento se falhar (Twilio fora do ar, sem responsável cadastrado
-    // etc.), a anamnese continua acontecendo presencialmente.
     await dispatchAnamnesisPrefillRequest({
       patientId,
       appointmentId: appointment.id,

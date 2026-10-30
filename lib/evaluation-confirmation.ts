@@ -1,14 +1,19 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildMessagePreview, findOrCreateConversation, formatE164Phone } from "@/lib/twilio";
 import { sendWhatsApp, getWhatsAppTemplateForCategory } from "@/lib/whatsapp";
-import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { EvaluationBookInput } from "@/lib/evaluation-agenda";
+import {
+  buildEvaluationBundleMessage,
+  buildEvaluationConfirmationMessage,
+  buildEvaluationRescheduleMessage,
+  formatEvaluationDateShort,
+} from "@/lib/evaluation-confirmation-pure";
 import { pickEvaluationRecipient } from "@/lib/evaluation-recipient-pure";
 import { armPrefillSession, discardPrefillRequest, registerPrefillRequest } from "@/lib/anamnesis-prefill";
 
 /** Resultado do aviso: a supervisão precisa saber quando o responsável NÃO foi avisado. */
 export type EvaluationNotificationOutcome =
-  /** `bundled`: a mensagem já levou as orientações do dia e o convite da pré-anamnese — o chamador não manda os dois de novo. */
+  /** `bundled`: a mensagem já levou o convite da pré-anamnese — o chamador não manda o convite de novo. */
   | { sent: true; bundled?: boolean }
   | { sent: false; reason: string };
 
@@ -24,57 +29,11 @@ export interface EvaluationNotificationParams {
   /** Vincula a mensagem registrada em `messages` ao agendamento. */
   appointmentId?: string;
   /**
-   * Manda numa mensagem só a confirmação, as orientações do dia e o convite da
-   * pré-anamnese (template `confirmacao_completa`, com botões). Só vale com
-   * `patientId` + `appointmentId`, fora de remarcação e com o template
-   * configurado; senão a confirmação segue sozinha e o chamador manda o resto.
+   * Manda numa mensagem só a confirmação e o convite da pré-anamnese (template `confirmacao_completa`,
+   * com botões). Só vale com `patientId` + `appointmentId`, fora de remarcação e com o template
+   * configurado; senão a confirmação segue sozinha e o chamador manda o convite.
    */
   bundlePreAnamnesis?: boolean;
-}
-
-/** Texto do template único (`confirmacao_completa`): confirmação + orientações + convite. Igual ao corpo aprovado na Meta. */
-export function buildEvaluationBundleMessage(params: {
-  guardianFirstName: string;
-  patientName: string;
-  formattedDate: string;
-  therapistName: string;
-}): string {
-  return (
-    `Olá, ${params.guardianFirstName}! 💙\n\n` +
-    `A 1ª avaliação de ${params.patientName} está confirmada.\n\n` +
-    `📅 Data e horário: ${params.formattedDate}\n` +
-    `👤 Profissional: ${params.therapistName}\n\n` +
-    "Chegue com 15 minutos de antecedência e traga documento com foto do responsável e da criança, além de exames, laudos e relatórios anteriores.\n\n" +
-    "Para o terapeuta chegar mais preparado, podemos fazer 5 perguntas rápidas por aqui? As respostas não substituem a avaliação presencial.\n\n" +
-    "FaçaAmigos - Centro de Terapia Comportamental"
-  );
-}
-
-export function buildEvaluationConfirmationMessage(params: {
-  patientName: string;
-  formattedDate: string;
-  therapistName?: string;
-  roomName?: string;
-  isReschedule?: boolean;
-}): string {
-  const therapistInfo = params.therapistName ? ` com o(a) especialista *${params.therapistName}*` : "";
-  const roomInfo = params.roomName ? ` (${params.roomName})` : "";
-  const intro = params.isReschedule
-    ? `Olá! 💙 A data da 1ª Avaliação de *${params.patientName}* foi *alterada*. Confira os novos detalhes abaixo!`
-    : `Olá! 💙 A 1ª Avaliação de *${params.patientName}* foi agendada e confirmada com muito carinho para a sua família!`;
-
-  return (
-    `🗓️ *${params.isReschedule ? "Alteração" : "Confirmação"} de Agendamento - FaçaAmigos - Centro de Terapia Comportamental*\n\n` +
-    `${intro}\n\n` +
-    `📅 *Data e Horário:* ${params.formattedDate}\n` +
-    `👤 *Profissional / Sala:*${therapistInfo}${roomInfo}\n\n` +
-    `📌 *Orientações importantes para a família:*\n` +
-    `• Chegue com 15 minutos de antecedência para recepção e acolhimento da família.\n` +
-    `• Traga documento oficial com foto do responsável e da criança ou adolescente (RG ou Certidão de Nascimento).\n` +
-    `• Caso possua laudos anteriores, encaminhamentos médicos ou relatórios escolares/terapêuticos, traga-os impressos.\n` +
-    `• Em caso de dúvidas ou imprevistos, nossa equipe está sempre à disposição para ajudar.\n\n` +
-    `Estamos ansiosos para acolher vocês e fazer parte desta jornada de desenvolvimento! 🧩✨`
-  );
 }
 
 /**
@@ -170,7 +129,6 @@ export async function sendEvaluationConfirmationNotification(
 
     // 2. Buscar detalhes do terapeuta e da sala
     let therapistName = "";
-    let roomName = "";
 
     if (params.therapistId) {
       const { data: profile } = await admin
@@ -181,31 +139,19 @@ export async function sendEvaluationConfirmationNotification(
       if (profile?.full_name) therapistName = profile.full_name;
     }
 
-    if (params.roomId) {
-      const { data: room } = await admin
-        .from("rooms")
-        .select("name")
-        .eq("id", params.roomId)
-        .maybeSingle();
-      if (room?.name) roomName = room.name;
-    }
+    // 3. Data/hora curta ("sex, 30/10 às 14h30"); `date`/`time` já estão no fuso da clínica.
+    const formattedDate = formatEvaluationDateShort(params.date, params.time);
 
-    // 3. Formatar data/hora
-    const isoDateTimeStr = `${params.date}T${params.time}:00`;
-    const formattedDate = new Date(isoDateTimeStr).toLocaleString("pt-BR", {
-      timeZone: CLINIC_TIMEZONE,
-      dateStyle: "full",
-      timeStyle: "short",
-    });
-
-    // 4. Construir mensagem
-    const message = buildEvaluationConfirmationMessage({
+    // 4. Construir mensagem (única: confirmação + orientações do dia)
+    const messageParams = {
+      guardianFirstName: guardianFirstName || "família",
       patientName,
       formattedDate,
-      therapistName,
-      roomName,
-      isReschedule: params.isReschedule,
-    });
+      therapistName: therapistName || "equipe FaçaAmigos",
+    };
+    const message = params.isReschedule
+      ? buildEvaluationRescheduleMessage(messageParams)
+      : buildEvaluationConfirmationMessage(messageParams);
 
     // Antes nada ficava registrado: falha de envio (ex.: fora da janela de 24h
     // sem template) era invisível pra supervisão e pra Recepção.
@@ -230,8 +176,8 @@ export async function sendEvaluationConfirmationNotification(
       }
     };
 
-    // 5a. Mensagem única (confirmação + orientações + convite da pré-anamnese): 1 envio no
-    // lugar de 3. Qualquer impedimento cai no envio avulso abaixo, que o chamador completa.
+    // 5a. Mensagem única (confirmação + convite da pré-anamnese): 1 envio no lugar de 2. Qualquer
+    // impedimento cai no envio avulso abaixo, que o chamador completa com o convite.
     const bundleSid =
       params.bundlePreAnamnesis && !params.isReschedule && params.patientId && params.appointmentId && guardianId
         ? getWhatsAppTemplateForCategory("confirmacao_completa")
@@ -244,19 +190,18 @@ export async function sendEvaluationConfirmationNotification(
         phone: formattedPhone,
       });
       if (registered.ok) {
-        const therapistLabel = therapistName || "equipe FaçaAmigos";
-        const bundleBody = buildEvaluationBundleMessage({
-          guardianFirstName: guardianFirstName || "família",
-          patientName,
-          formattedDate,
-          therapistName: therapistLabel,
-        });
+        const bundleBody = buildEvaluationBundleMessage(messageParams);
         const bundled = await sendWhatsApp({
           to: formattedPhone,
           message: bundleBody,
           contentSid: bundleSid,
-          // 1 = responsável, 2 = criança, 3 = data e hora, 4 = profissional.
-          contentVariables: { "1": guardianFirstName || "família", "2": patientName, "3": formattedDate, "4": therapistLabel },
+          // 1 = responsável, 2 = criança, 3 = data curta, 4 = profissional.
+          contentVariables: {
+            "1": messageParams.guardianFirstName,
+            "2": patientName,
+            "3": formattedDate,
+            "4": messageParams.therapistName,
+          },
         });
         await logOutbound(bundleBody, bundled);
         if (bundled.success) {
@@ -268,25 +213,26 @@ export async function sendEvaluationConfirmationNotification(
       }
     }
 
-    // 5. Disparar via Twilio WhatsApp
-    const contentSid = getWhatsAppTemplateForCategory("confirmacao_d1");
+    // 5. Disparar via Twilio WhatsApp. Remarcação vai em texto livre: o template diz "confirmado".
+    const contentSid = params.isReschedule ? undefined : getWhatsAppTemplateForCategory("confirmacao_d1");
     const result = await sendWhatsApp({
       to: formattedPhone,
       message,
       ...(contentSid
         ? {
             contentSid,
-            // Template `confirmacao_avaliacao` (scripts/create-eval-offer-template.ts):
-            // 1 = primeiro nome do responsável, 2 = criança, 3 = data e hora, 4 = profissional.
+            // Template `fa_clinica_avaliacao_confirmada_v2` (scripts/create-eval-offer-template.ts):
+            // 1 = primeiro nome do responsável, 2 = criança, 3 = data curta, 4 = profissional.
             contentVariables: {
-              "1": guardianFirstName || "família",
+              "1": messageParams.guardianFirstName,
               "2": patientName,
               "3": formattedDate,
-              "4": therapistName || "equipe FaçaAmigos",
+              "4": messageParams.therapistName,
             },
           }
         : {}),
     });
+
     await logOutbound(message, result);
 
     return result.success ? { sent: true } : { sent: false, reason: result.error ?? "O WhatsApp não aceitou a mensagem." };

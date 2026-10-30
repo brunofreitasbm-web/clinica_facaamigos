@@ -188,9 +188,6 @@ export function getTwilioContentSidForCategory(category: string): string | undef
       return process.env.TWILIO_EVAL_REMINDER_TEMPLATE_CONTENT_SID;
     case "confirmacao_d1":
       return process.env.TWILIO_EVAL_CONFIRM_TEMPLATE_CONTENT_SID;
-    // Orientações do dia da 1ª avaliação (lib/evaluation-guidance.ts).
-    case "orientacoes_avaliacao":
-      return process.env.TWILIO_EVAL_GUIDANCE_TEMPLATE_CONTENT_SID;
     // Convite da pré-anamnese por WhatsApp (lib/anamnesis-prefill.ts): texto livre
     // falha fora da janela de 24h, então o convite vai por template.
     case "convite_pre_anamnese":

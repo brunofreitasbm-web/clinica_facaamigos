@@ -1,12 +1,12 @@
 // scripts/create-eval-offer-template.ts
 //
-// Cria na Twilio (Content API) os 4 conteúdos do fluxo automático de oferta da
-// 1ª avaliação (lib/evaluation-offer.ts) e envia os 3 que exigem aprovação para
+// Cria na Twilio (Content API) os conteúdos do fluxo automático de oferta da
+// 1ª avaliação (lib/evaluation-offer.ts) e envia os que exigem aprovação para
 // a Meta como UTILITY:
 //
 //   offer     "O plano autorizou o atendimento de {{2}} — podemos agendar?"     [Quero agendar] [Agora não]
 //   reminder  lembrete com 24h sem resposta                                      [Ver horários]  [Agora não]
-//   confirm   confirmação final do horário (substitui a mensagem livre)          (sem botões)
+//   confirm   confirmação final do horário + orientações do dia (v2)             (sem botões)
 //   list      menu com 3 horários — mensagem de SESSÃO (janela de 24h aberta pela
 //             resposta do responsável): é criada, mas não passa pela Meta.
 //
@@ -44,7 +44,7 @@ if (fs.existsSync(envPath)) {
 const BRAND_LINE = "FaçaAmigos - Centro de Terapia Comportamental";
 
 type Template = {
-  key: "offer" | "reminder" | "confirm" | "list" | "invite" | "guidance" | "bundle";
+  key: "offer" | "reminder" | "confirm" | "list" | "invite" | "bundle";
   /** Nome na Meta (minúsculas, números e _). */
   metaName: string;
   friendlyName: string;
@@ -70,13 +70,14 @@ const REMINDER_BODY =
   "Toque em uma das opções abaixo.\n\n" +
   BRAND_LINE;
 
+// Confirmação única (já com as orientações do dia). Idêntico a
+// lib/evaluation-confirmation-pure.ts::buildEvaluationConfirmationMessage; {{3}} = data curta ("sex, 30/10 às 14h30").
 const CONFIRM_BODY =
   "Olá, {{1}}! 💙\n\n" +
-  "A 1ª avaliação de {{2}} está confirmada.\n\n" +
-  "📅 Data e horário: {{3}}\n" +
-  "👤 Profissional: {{4}}\n\n" +
-  "Chegue com 15 minutos de antecedência e traga documento com foto do responsável e da criança. " +
-  "Se tiver laudos, encaminhamentos ou relatórios anteriores, traga-os também.\n\n" +
+  "✅ Agendamento confirmado!\n" +
+  "A 1ª avaliação de {{2}} será em {{3}}, com {{4}}.\n\n" +
+  "⏰ Chegue 15 minutos antes.\n" +
+  "📂 Traga documento com foto e laudos, exames ou relatórios anteriores.\n\n" +
   BRAND_LINE;
 
 // Convite da pré-anamnese (lib/anamnesis-prefill.ts): enviado junto com a confirmação do horário.
@@ -88,22 +89,14 @@ const INVITE_BODY =
   "Podemos começar?\n\n" +
   BRAND_LINE;
 
-// Orientações (lib/evaluation-guidance-pure.ts): entre a confirmação e o convite da pré-anamnese.
-const GUIDANCE_BODY =
-  "✅ Seu 1º agendamento está confirmado! 🎉\n\n" +
-  "⏰ No dia da avaliação, chegue com 15 minutos de antecedência.\n\n" +
-  "📂 Traga todos os exames, laudos e documentações de {{1}}. 🧩💙\n\n" +
-  BRAND_LINE;
-
-// Mensagem única (lib/evaluation-confirmation.ts::buildEvaluationBundleMessage): confirmação +
-// orientações do dia + convite da pré-anamnese, no lugar de 3 envios. O texto precisa ser idêntico
-// ao de buildEvaluationBundleMessage. Os ids dos botões são lidos por lib/twilio-preanamnesis-bot.ts.
+// Mensagem única: confirmação + convite da pré-anamnese (1 envio no lugar de 2). Idêntico a
+// lib/evaluation-confirmation-pure.ts::buildEvaluationBundleMessage. Botões lidos por lib/twilio-preanamnesis-bot.ts.
 const BUNDLE_BODY =
   "Olá, {{1}}! 💙\n\n" +
-  "A 1ª avaliação de {{2}} está confirmada.\n\n" +
-  "📅 Data e horário: {{3}}\n" +
-  "👤 Profissional: {{4}}\n\n" +
-  "Chegue com 15 minutos de antecedência e traga documento com foto do responsável e da criança, além de exames, laudos e relatórios anteriores.\n\n" +
+  "✅ Agendamento confirmado!\n" +
+  "A 1ª avaliação de {{2}} será em {{3}}, com {{4}}.\n\n" +
+  "⏰ Chegue 15 minutos antes.\n" +
+  "📂 Traga documento com foto e laudos, exames ou relatórios anteriores.\n\n" +
   "Para o terapeuta chegar mais preparado, podemos fazer 5 perguntas rápidas por aqui? As respostas não substituem a avaliação presencial.\n\n" +
   BRAND_LINE;
 
@@ -149,23 +142,14 @@ const TEMPLATES: Template[] = [
   },
   {
     key: "confirm",
-    metaName: "fa_clinica_avaliacao_confirmada",
-    friendlyName: "fa_clinica_avaliacao_confirmada_v1",
+    // v2: texto novo = template novo na Meta (o v1 aprovado não pode ser editado).
+    metaName: "fa_clinica_avaliacao_confirmada_v2",
+    friendlyName: "fa_clinica_avaliacao_confirmada_v2",
     envVar: "TWILIO_EVAL_CONFIRM_TEMPLATE_CONTENT_SID",
     needsApproval: true,
     variables: { "1": "Nome do responsável", "2": "Nome da criança", "3": "Data e horário", "4": "Profissional" },
     types: { "twilio/text": { body: CONFIRM_BODY } },
     preview: CONFIRM_BODY,
-  },
-  {
-    key: "guidance",
-    metaName: "fa_clinica_orientacoes_avaliacao",
-    friendlyName: "fa_clinica_orientacoes_avaliacao_v1",
-    envVar: "TWILIO_EVAL_GUIDANCE_TEMPLATE_CONTENT_SID",
-    needsApproval: true,
-    variables: { "1": "Nome da criança" },
-    types: { "twilio/text": { body: GUIDANCE_BODY } },
-    preview: GUIDANCE_BODY,
   },
   {
     key: "bundle",
