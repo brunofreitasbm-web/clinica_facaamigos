@@ -145,3 +145,11 @@ test("pickLeadCandidate: irmãos no mesmo telefone não se misturam", () => {
   assert.equal(pickLeadCandidate([a, b], {})?.patientId, "b");
   assert.equal(pickLeadCandidate([], {}), null);
 });
+
+test("pickLeadCandidate: gêmeo com mesmo nascimento e primeiro nome diferente NÃO cai no outro paciente", () => {
+  const a = { patientId: "a", fullName: "Agnes Caroline Pinto Machado", birthDate: "2018-05-14", status: "interessado", createdAt: "2026-10-01T10:00:00Z" };
+  assert.equal(pickLeadCandidate([a], { childName: "Agda Fernanda Pinto Machado", childBirthDate: "2018-05-14" }), null);
+  // mesma criança com grafia diferente continua sendo o mesmo paciente
+  const s = { patientId: "s", fullName: "Sophia Amorim Pastana da Costa", birthDate: "2016-07-26", status: "interessado", createdAt: "2026-10-01T10:00:00Z" };
+  assert.equal(pickLeadCandidate([s], { childName: "Sofia Amorim", childBirthDate: "2016-07-26" })?.patientId, "s");
+});

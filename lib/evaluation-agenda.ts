@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPendingPatients } from "@/lib/patient-stage";
 import { GRID_EXCLUDED_STATUSES } from "@/app/supervisao/grade-data";
 import type { PoolOffer } from "@/lib/evaluation-offer-badge-pure";
+import { collapseByChild } from "@/lib/patient-duplicates-pure";
 import { pickEvaluationRecipient, type GuardianContact } from "@/lib/evaluation-recipient-pure";
 
 type Supa = SupabaseClient<Database>;
@@ -467,7 +468,16 @@ export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_C
 
   // Paciente que veio por contato de documentos (WhatsApp/portal) só entra na
   // fila depois do "ok" da Recepção confirmando a autorização do plano.
-  const allItems = [...anamnesisItems, ...intakeItems, ...presencialItems].filter((item) => !item.gate || item.gate === "habilitado" || item.ready);
+  const gated = [...anamnesisItems, ...intakeItems, ...presencialItems].filter((item) => !item.gate || item.gate === "habilitado" || item.ready);
+
+  // A mesma criança pode chegar por mais de uma origem (bot de anamnese, acolhimento
+  // por PDF, cadastro presencial) — um card só, o mais adiantado: oferta em andamento
+  // > pronto para agendar > o resto.
+  const allItems = collapseByChild(gated, (item) => ({
+    name: item.patientName,
+    phone: item.recipient?.phone ?? item.facts?.phone,
+    score: (item.offer ? 4 : 0) + (item.ready ? 2 : 0) + (item.gate === "habilitado" ? 1 : 0),
+  }));
 
   // Pacientes presenciais (origin === "presencial") sempre sobem pro TOPO da fila com prioridade alta!
   // Exceto quem veio de contato de documentos (gate): não está na clínica, e enquanto

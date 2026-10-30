@@ -50,6 +50,7 @@ import {
   type LeadDocKind,
 } from "@/lib/whatsapp-lead-pure";
 import { isDuplicateContent } from "@/lib/whatsapp-media-pure";
+import { mergeDuplicatesOf } from "@/lib/patient-merge";
 
 const DOCUMENTS_BUCKET = "clinic-documents";
 const LEAD_ENTRY_SOURCE = "chatbot_whatsapp";
@@ -253,6 +254,20 @@ export async function upsertWhatsappLead(
       await discardNewLead(admin, patient.id, guardian.id);
       await fillGuardianBlanks(admin, winnerGuardian, { name: guardianName, cpf: guardianCpf, email: guardianEmail });
       return { patientId: winner.patientId, guardianId: winnerGuardian.id, created: false };
+    }
+
+    // Mesma criança já cadastrada por outro caminho (rascunho validado, presencial...)?
+    // Fica um cadastro só, no ponto mais avançado do fluxo.
+    const survivorId = await mergeDuplicatesOf(patient.id);
+    if (survivorId !== patient.id) {
+      const { data: survivorGuardian } = await admin
+        .from("guardians")
+        .select("id")
+        .eq("patient_id", survivorId)
+        .order("is_financial", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (survivorGuardian) return { patientId: survivorId, guardianId: survivorGuardian.id, created: false };
     }
 
     // A criação já fica no audit_log pelo trigger genérico (action INSERT).

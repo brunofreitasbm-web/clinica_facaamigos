@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { mergeDuplicatesOf } from "@/lib/patient-merge";
 
 export async function createInteressado(
   formData: FormData,
@@ -61,7 +62,8 @@ export async function createInteressado(
     return { success: false, error: "Paciente salvo, mas houve erro ao salvar o responsável." };
   }
 
-  return { success: true, patientId: patient.id };
+  // Mesma criança já cadastrada por outro caminho? Fica um só, no ponto mais avançado.
+  return { success: true, patientId: await mergeDuplicatesOf(patient.id) };
 }
 
 /**

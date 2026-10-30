@@ -11,6 +11,7 @@ import { normalizeCpf, parseBrDate, normalizeUf, normalizeCep, normalizePhone } 
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { parseGuideProcedures } from "@/lib/reception-queue";
 import { promoteToPatient } from "@/lib/patient-stage";
+import { mergeDuplicatesOf } from "@/lib/patient-merge";
 import { startEvaluationOffer } from "@/lib/evaluation-offer";
 
 type ActionResult = { success: true; patientId: string; warnings: string[] } | { success: false; error: string };
@@ -281,6 +282,11 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
       }
     }
   }
+
+  // Mesma criança já cadastrada por outro caminho (WhatsApp, presencial...)? Funde
+  // no cadastro mais avançado ANTES de promover/ofertar, para guia, oferta e
+  // agendamento ficarem todos no mesmo paciente.
+  patientId = await mergeDuplicatesOf(patientId);
 
   if (authorizationId || draft.authorization_id) {
     await promoteToPatient(supabase, patientId);

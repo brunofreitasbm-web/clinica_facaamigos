@@ -9,6 +9,8 @@
 // Tipo real do arquivo (magic bytes)
 // ---------------------------------------------------------------------
 
+import { sameChildName } from "./patient-duplicates-pure.ts";
+
 export type SniffedFileType = { mime: string; ext: string };
 
 function startsWith(buf: Uint8Array, bytes: number[], offset = 0): boolean {
@@ -240,15 +242,6 @@ export function isLeadIdentityComplete(identity: {
   return normalizeFullName(identity.childName) !== null && normalizeBirthDate(identity.childBirthDate) !== null;
 }
 
-function firstNameToken(name: string | null | undefined): string {
-  return (name ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .trim()
-    .split(/\s+/)[0] ?? "";
-}
-
 export type LeadCandidate = {
   patientId: string;
   fullName: string;
@@ -277,14 +270,17 @@ export function pickLeadCandidate(
     const sameBirth = byOldest.filter((c) => c.birthDate === birth);
     if (sameBirth.length === 0) return null;
     if (name) {
-      const sameName = sameBirth.find((c) => firstNameToken(c.fullName) === firstNameToken(name));
+      const sameName = sameBirth.find((c) => sameChildName(c.fullName, name));
       if (sameName) return sameName;
+      // Nome informado, mesmo nascimento, mas o primeiro nome NÃO bate: gêmeo/irmão.
+      // A prova final da identidade é o nome da criança — não junta no outro paciente.
+      return null;
     }
     return sameBirth[0];
   }
 
   if (name) {
-    return byOldest.find((c) => firstNameToken(c.fullName) === firstNameToken(name)) ?? null;
+    return byOldest.find((c) => sameChildName(c.fullName, name)) ?? null;
   }
 
   // Sem nome nem nascimento: o lead mais recente ainda em "interessado", senão o mais recente.

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { logRecordAccess } from "@/lib/record-access-log";
+import { mergeDuplicatesOf } from "@/lib/patient-merge";
 
 export type CreateInteressadoInput = {
   fullName: string;
@@ -87,10 +88,13 @@ export async function createInteressadoAction(input: CreateInteressadoInput): Pr
       };
     }
 
+    // Já existia a mesma criança (mesmo responsável/telefone/nascimento)? Fica um só.
+    const survivorId = await mergeDuplicatesOf(patient.id);
+
     revalidatePath("/recepcao");
     revalidatePath("/recepcao/pacientes");
 
-    return { success: true, patientId: patient.id };
+    return { success: true, patientId: survivorId };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro inesperado ao criar interessado.";
     return { success: false, error: msg };

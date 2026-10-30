@@ -21,6 +21,7 @@ import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions"
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
 import { allocateEvaluator } from "@/lib/evaluation-allocation";
+import { sweepDuplicatePatients } from "@/lib/patient-merge";
 import { computeEvaluationOfferSlots } from "@/lib/evaluation-offer-slots";
 import { loadClinicCalendar } from "@/lib/clinic-calendar";
 import type { ClinicClosure } from "@/lib/clinic-calendar-pure";
@@ -548,3 +549,20 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
   return { success: true, warning };
 }
 
+
+/**
+ * Varre a clínica e funde cadastros duplicados da mesma criança (mesmo responsável,
+ * telefone, nascimento e primeiro nome), ficando o mais avançado no fluxo. Irmãos e
+ * gêmeos não são tocados. Cobre o que já está duplicado — daqui em diante a fusão é
+ * automática na criação do paciente (lib/patient-merge.ts).
+ */
+export async function mergeDuplicatePatientsAction(): Promise<
+  { success: true; merged: number; failed: number } | { success: false; error: string }
+> {
+  const auth = await requireManager();
+  if ("error" in auth) return { success: false, error: auth.error };
+  const outcomes = await sweepDuplicatePatients();
+  revalidatePath("/supervisao");
+  revalidatePath("/recepcao/pacientes");
+  return { success: true, merged: outcomes.filter((o) => o.ok).length, failed: outcomes.filter((o) => !o.ok).length };
+}
