@@ -115,14 +115,14 @@ export function hasStrongJobSignal(text: string): boolean {
 }
 
 /** Resposta fixa (sem IA) para currículo/vaga de emprego. O rótulo é o do site
- * ("Venha fazer parte do nosso time", mantido da main); o link é o DIRETO da
+ * ("Faça parte do nosso time", nome atual do formulário no site); o link é o DIRETO da
  * página de candidatura (6 candidatos em outubro disseram não achar o botão no
  * site). Currículo só é recebido pelo formulário do site: NÃO oferecer e-mail
  * nem WhatsApp como alternativa. */
 export const JOB_INQUIRY_REPLY =
   "Olá! 💙 Agradecemos o seu interesse em fazer parte do *FaçaAmigos*!\n\n" +
   "Por aqui no WhatsApp não recebemos currículos. Para se candidatar, preencha o formulário " +
-  "*Venha fazer parte do nosso time* (currículo em PDF):\n" +
+  "*Faça parte do nosso time* (currículo em PDF):\n" +
   "https://institutofacaamigos.com.br/trabalhe-conosco\n\n" +
   "Boa sorte! 🌱";
 

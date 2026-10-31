@@ -16,6 +16,8 @@ const ESCALATION_LABELS: Record<string, string> = {
   pediu_humano: "A pessoa pediu para falar com alguém da equipe.",
   relatorio: "Pedido de relatório/documento — dados coletados na última mensagem do bot, veja a conversa.",
   lista_espera: "Quer entrar na lista de espera — nome, idade, plano e terapia estão no resumo da última mensagem do bot.",
+  particular: "Venda particular: quer falar com um atendente sobre o atendimento particular.",
+  particular_agendar: "Venda particular: quer agendar a avaliação — nome, idade e queixa estão na última mensagem da família.",
 };
 
 type ConvenioInfo = { insurerName: string; planName: string | null };

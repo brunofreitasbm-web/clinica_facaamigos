@@ -18,6 +18,7 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
   const greetingFallback = String(formData.get("greetingFallback") ?? "").trim();
   const botAutoResumeHoursRaw = String(formData.get("botAutoResumeHours") ?? "0").trim();
   const agendaStatusNote = String(formData.get("agendaStatusNote") ?? "").trim();
+  const particularPricesImageUrl = String(formData.get("particularPricesImageUrl") ?? "").trim();
 
   const dailyReplyLimit = Number(dailyReplyLimitRaw);
   if (!Number.isInteger(dailyReplyLimit) || dailyReplyLimit < 1) {
@@ -33,6 +34,11 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
     return { success: false, error: "A situação da agenda deve ter até 600 caracteres (1 a 3 frases curtas)." };
   }
 
+  // O Twilio busca a imagem pela URL: só https, com cara de imagem.
+  if (particularPricesImageUrl && !/^https:\/\/\S+\.(jpe?g|png)(\?\S*)?$/i.test(particularPricesImageUrl)) {
+    return { success: false, error: "A imagem de valores deve ser uma URL https de um arquivo JPEG ou PNG." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -46,6 +52,7 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
       greeting_fallback: greetingFallback || null,
       bot_auto_resume_hours: botAutoResumeHours || null,
       agenda_status_note: agendaStatusNote || null,
+      particular_prices_image_url: particularPricesImageUrl || null,
       updated_at: new Date().toISOString(),
       updated_by: user?.id ?? null,
     },
