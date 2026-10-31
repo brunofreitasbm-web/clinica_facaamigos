@@ -9,6 +9,7 @@ export type ChatbotSettingsRow = {
   greetingFallback: string | null;
   botAutoResumeHours: number | null;
   agendaStatusNote: string | null;
+  particularPricesImageUrl: string | null;
 };
 
 export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
@@ -103,6 +104,24 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
             É a única fonte que o assistente usa para responder &ldquo;tem vaga?&rdquo;, &ldquo;qual a previsão?&rdquo; e
             pedidos de lista de espera. Em branco, ele não promete prazo nem vaga e passa a dúvida para a recepção.
             Atualize sempre que a agenda mudar.
+          </span>
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
+          Imagem de valores particulares (URL)
+          <input
+            type="url"
+            name="particularPricesImageUrl"
+            defaultValue={settings.particularPricesImageUrl ?? ""}
+            placeholder="https://… (JPEG ou PNG). Em branco, usa a arte padrão do sistema."
+            className="input"
+          />
+          <span className="text-xs font-normal text-ink-faint">
+            Arte enviada na opção Atendimento particular &gt; Valores das sessões. O WhatsApp aceita só JPEG ou PNG, e
+            quanto menor o arquivo, mais rápido ela chega (use{" "}
+            <code>npx tsx scripts/optimize-chatbot-image.ts arte.png</code>). Ao trocar a arte, use um endereço novo:
+            o WhatsApp guarda a imagem pelo endereço. Os preços do texto vêm da tabela de preços do convênio
+            Particular; atualize a imagem junto sempre que um valor mudar.
           </span>
         </label>
 

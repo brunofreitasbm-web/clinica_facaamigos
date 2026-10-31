@@ -115,6 +115,11 @@ test("parseExitCommand: parar x atendente", () => {
   assert.equal(parseExitCommand("Atendente"), "human");
   assert.equal(parseExitCommand("quero falar com alguem"), "human");
   assert.equal(parseExitCommand("falar com atendente por favor"), "human");
+  // VOLTAR/MENU saem do fluxo e reabrem o menu inicial.
+  assert.equal(parseExitCommand("VOLTAR"), "back");
+  assert.equal(parseExitCommand("menu"), "back");
+  assert.equal(parseExitCommand("voltar ao menu"), "back");
+  assert.equal(parseExitCommand("quero voltar para casa amanhã cedo"), null);
   assert.equal(parseExitCommand("Maria Silva"), null);
   assert.equal(parseExitCommand("qual o telefone da recepção?"), null);
   assert.equal(parseExitCommand("a recepção abre que horas"), null);

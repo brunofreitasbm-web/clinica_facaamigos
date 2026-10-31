@@ -9,8 +9,6 @@ import {
 } from "@/lib/whatsapp-media-pure";
 import {
   GREETING_REPEAT_WINDOW_MS,
-  INITIAL_GREETING_INTENT,
-  INITIAL_GREETING_REPLY,
   SITE_PREFILL_REPLIES,
   detectSitePrefill,
   isPureGreeting,
@@ -764,6 +762,20 @@ export async function handleTwilioIncomingMessage(params: {
     if (isAudioOnlyMessage(audioItems, body)) {
       return { intent: "audio_nao_suportado", replyMessage: AUDIO_NOT_SUPPORTED_REPLY };
     }
+
+    // 0.9 Menu inicial: escolha numa lista/botão (ou número/título digitado),
+    // VOLTAR e MENU. Só age com o telefone fora de outro fluxo do bot, então
+    // nunca atravessa o AGENDAR, a oferta de horários nem a pré-anamnese. Uma
+    // falha aqui não derruba o atendimento: segue para os demais bots.
+    if (!(media && media.length > 0)) {
+      try {
+        const { processWelcomeMenuStep } = await import("./welcome-menu");
+        const menuResult = await processWelcomeMenuStep({ from, body, listId, buttonPayload, conversationId });
+        if (menuResult.handled) return { intent: menuResult.intent, replyMessage: menuResult.replyMessage };
+      } catch (err) {
+        console.error("[Twilio Welcome Menu Error]:", err);
+      }
+    }
   } catch (err) {
     console.error("[Twilio Central Multicanal Error]:", err);
     // Fail-closed: se a Central (passo 0) falhou, o gate humano
@@ -855,8 +867,15 @@ export async function handleTwilioIncomingMessage(params: {
     if (prefill && prefill !== "info") {
       return { intent: sitePrefillIntent(prefill), replyMessage: SITE_PREFILL_REPLIES[prefill] };
     }
-    if (isPureGreeting(body) && !(await hasRecentOutbound(conversationId))) {
-      return { intent: INITIAL_GREETING_INTENT, replyMessage: INITIAL_GREETING_REPLY };
+    // Menu inicial: todo contato novo (nenhuma resposta da clínica nas últimas
+    // 6 h) recebe o menu, mesmo que já traga uma pergunta — a resposta vem depois
+    // da escolha. Quem já é paciente só recebe o menu numa saudação pura; a
+    // pergunta dele segue para o agente de FAQ, com o histórico.
+    const isPatient = conversationKind === "patient";
+    if ((!isPatient || isPureGreeting(body)) && !(await hasRecentOutbound(conversationId))) {
+      const { sendMainMenu } = await import("./welcome-menu");
+      const menu = await sendMainMenu({ phone, conversationId });
+      return { intent: "menu_inicial", replyMessage: menu.replyMessage };
     }
   } catch (err) {
     console.error("[Twilio Initial Greeting Error]:", err);
@@ -910,13 +929,13 @@ export async function handleTwilioIncomingMessage(params: {
     intent: "atendimento_geral",
     replyMessage:
       "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩\n\n" +
-      "• Para marcar uma avaliação, responda *AGENDAR*.\n" +
+      "• Para ver as opções, responda *MENU*.\n" +
       "• Para falar com a equipe, responda *ATENDENTE*.\n\n" +
       "Ou escreva sua dúvida por aqui! ✨",
   };
 }
 
 const FALLBACK_SHORT_REPLY =
-  "Não consegui responder agora. 💙 Para marcar a avaliação, responda *AGENDAR*; para falar com a equipe, responda *ATENDENTE*.";
+  "Não consegui responder agora. 💙 Para ver as opções, responda *MENU*; para falar com a equipe, responda *ATENDENTE*.";
 
 

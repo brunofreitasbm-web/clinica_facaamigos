@@ -184,7 +184,7 @@ export function assignDocumentSlots(files: { pointer: string; category: string |
   return slots;
 }
 
-export type ExitCommand = "stop" | "human" | null;
+export type ExitCommand = "stop" | "human" | "back" | null;
 
 /**
  * PARAR/SAIR/CANCELAR encerram o fluxo; ATENDENTE/HUMANO pedem a equipe. Só
@@ -198,6 +198,8 @@ export function parseExitCommand(raw: string | null | undefined): ExitCommand {
     return "human";
   }
   if (/^(parar|pare|sair|cancelar|cancela|encerrar|stop)( (o )?(agendamento|atendimento|fluxo|tudo))?$/.test(text)) return "stop";
+  // VOLTAR/MENU: sai do fluxo e reabre o menu inicial (o rascunho é guardado como no PARAR).
+  if (/^(voltar|volta|menu|voltar ao menu|menu anterior|retornar|0)$/.test(text)) return "back";
   return null;
 }
 

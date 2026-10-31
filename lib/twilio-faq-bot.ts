@@ -22,10 +22,9 @@
  *
  * Currículo/vaga de EMPREGO (não confundir com vaga na agenda — a
  * desambiguação está em lib/job-inquiry-pure.ts) é o único assunto com saída
- * própria: o bot manda
- * a mensagem do "Trabalhe Conosco" do site e DESLIGA o atendimento automático
- * da conversa (`is_bot_active=false`, `status='closed'`) sem escalar — não é
- * caso de recepção, e nenhuma mensagem seguinte desse contato é respondida.
+ * própria: o bot manda a mensagem do formulário "Faça parte do nosso time" do
+ * site e ENCERRA a conversa na Central (`status='closed'`) sem escalar — não é
+ * caso de recepção. O bot segue ligado: o menu continua acessível por VOLTAR/MENU.
  *
  * A regra "nunca invente" é o ponto mais importante do prompt: perguntas sem
  * resposta na base (endereço, horário etc., enquanto o gestor não preencher)
@@ -66,6 +65,9 @@ export type ChatbotSettings = {
    * SITUAÇÃO ATUAL DA AGENDA. Sem isso o bot prometia "responda AGENDAR"
    * enquanto a recepção dizia "ainda estamos montando a agenda". */
   agendaStatusNote: string | null;
+  /** URL pública da arte de valores particulares (JPEG/PNG) enviada no submenu
+   * Particular. Sem valor, vale `DEFAULT_PARTICULAR_PRICES_IMAGE_PATH` do app. */
+  particularPricesImageUrl: string | null;
 };
 
 type SettingsCacheEntry = { settings: ChatbotSettings; expiresAt: number };
@@ -86,7 +88,7 @@ export async function getChatbotSettings(clinicId: string): Promise<ChatbotSetti
 
   const { data } = await supabase
     .from("chatbot_settings")
-    .select("bot_enabled, daily_reply_limit, greeting_fallback, agenda_status_note")
+    .select("bot_enabled, daily_reply_limit, greeting_fallback, agenda_status_note, particular_prices_image_url")
     .eq("clinic_id", clinicId)
     .maybeSingle();
 
@@ -95,13 +97,14 @@ export async function getChatbotSettings(clinicId: string): Promise<ChatbotSetti
     dailyReplyLimit: data?.daily_reply_limit ?? DEFAULT_DAILY_REPLY_LIMIT,
     greetingFallback: data?.greeting_fallback ?? null,
     agendaStatusNote: data?.agenda_status_note?.trim() || null,
+    particularPricesImageUrl: data?.particular_prices_image_url?.trim() || null,
   };
 
   settingsCache.set(clinicId, { settings, expiresAt: Date.now() + SETTINGS_TTL_MS });
   return settings;
 }
 
-export type FaqEscalationReason = "fora_da_base" | "clinico" | "pediu_humano" | "relatorio" | "lista_espera";
+export type FaqEscalationReason = "fora_da_base" | "clinico" | "pediu_humano" | "relatorio" | "lista_espera" | "particular" | "particular_agendar";
 
 /** Público de uma entrada do `clinic_faq`: regras de paciente (portal da
  * família, faltas) não entram no prompt de um lead, e vice-versa. */
@@ -124,6 +127,30 @@ const knowledgeCache = new Map<string, KnowledgeCacheEntry>();
 
 function knowledgeKey(clinicId: string, kind: ConversationKind): string {
   return `${clinicId}:${kind}`;
+}
+
+/** Linha de `insurer_price_tables` do convênio Particular (só os campos usados no prompt). */
+type ParticularPriceRow = { procedure_code: string; procedure_name: string; price: number | string; session_frequency_note: string | null };
+
+/**
+ * Bloco "VALORES PARTICULAR" do prompt: só os PLANOS MENSAIS (`PART-PLANO-*`) e a
+ * avaliação neuropsicológica (`PART-AVAL-NEURO`). As linhas por terapia (R$ 190
+ * cada, usadas só no faturamento por sessão) ficam de fora para a IA não citar
+ * preço por terapia. O número de sessões vem do início da observação ("8 sessões/mês").
+ */
+export function buildParticularPricesBlock(rows: ParticularPriceRow[]): string {
+  const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  const plans = rows
+    .filter((r) => r.procedure_code.startsWith("PART-PLANO-"))
+    .map((r) => ({ name: r.procedure_name.replace(/^Plano /, ""), price: Number(r.price), sessions: Number(/^(\d+) sess/.exec(r.session_frequency_note ?? "")?.[1] ?? 0) }))
+    .sort((a, b) => a.price - b.price);
+  const lines = plans.map((p) => {
+    const perSession = p.sessions > 1 ? ` (cerca de ${brl.format(p.price / p.sessions)} por sessão)` : "";
+    return p.sessions > 0 ? `${p.name} — ${p.sessions} sessão(ões)/mês: ${brl.format(p.price)}${perSession}` : `${p.name}: ${brl.format(p.price)}`;
+  });
+  const neuro = rows.find((r) => r.procedure_code === "PART-AVAL-NEURO");
+  if (neuro) lines.push(`Avaliação Neuropsicológica (valor fechado, fora dos planos): ${brl.format(Number(neuro.price))}`);
+  return lines.join("; ");
 }
 
 /**
@@ -182,7 +209,7 @@ async function loadFaqKnowledge(
     // particular PODE ser informado direto no WhatsApp (regra 6 do prompt).
     supabase
       .from("insurer_price_tables")
-      .select("procedure_name, price, duration_minutes, valid_from, valid_to, insurers!inner(name, clinic_id, active)")
+      .select("procedure_code, procedure_name, price, duration_minutes, valid_from, valid_to, session_frequency_note, insurers!inner(name, clinic_id, active)")
       .eq("insurers.clinic_id", clinicId)
       .eq("insurers.active", true)
       .ilike("insurers.name", PARTICULAR_INSURER_NAME)
@@ -225,15 +252,10 @@ async function loadFaqKnowledge(
 
   const businessHoursBlock = formatBusinessHours(hoursRes.data ?? []);
 
-  const priceFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
   const today = new Date().toISOString().slice(0, 10);
-  const particularPricesBlock = (particularPricesRes.data ?? [])
-    .filter((p) => p.valid_from <= today && (!p.valid_to || p.valid_to >= today))
-    .map((p) => {
-      const duration = p.duration_minutes ? ` (${p.duration_minutes} min)` : "";
-      return `${p.procedure_name}: ${priceFormatter.format(Number(p.price))}${duration}`;
-    })
-    .join(", ");
+  const particularPricesBlock = buildParticularPricesBlock(
+    (particularPricesRes.data ?? []).filter((p) => p.valid_from <= today && (!p.valid_to || p.valid_to >= today)),
+  );
 
   const agendaStatusNote = (await getChatbotSettings(clinicId)).agendaStatusNote;
 
@@ -247,7 +269,7 @@ async function loadFaqKnowledge(
     "=== TIPOS DE ATENDIMENTO E DURAÇÃO ===",
     typesBlock || "(não cadastrado)",
     "",
-    "=== VALORES PARTICULAR (sem convênio), por terapia ===",
+    "=== VALORES PARTICULAR (sem convênio): PLANOS MENSAIS ===",
     particularPricesBlock || "(nenhum valor particular cadastrado — escale pra equipe humana se perguntarem)",
     "",
     "=== HORÁRIO COMERCIAL DA RECEPÇÃO (atendimento humano) ===",
@@ -287,14 +309,14 @@ REGRAS OBRIGATÓRIAS:
 3. ATENDIMENTO EMPÁTICO AOS PAIS E RESPONSÁVEIS: Fale diretamente com o pai, mãe ou responsável legal. Trate a família com carinho, respeito, clareza e acolhimento.
 4. EMOJIS ACOLHEDORES: Use emojis integrativos e carinhosos (ex.: 💙, 🧩, 🎈, 🌱, 🤝, ✨) de forma harmoniosa nas mensagens.
 5. NUNCA INVENTE: Responda APENAS com base nas informações acima. Se a resposta não estiver ali ou a dúvida não for coberta pela base, NUNCA invente: escale para a equipe humana.
-6. POLÍTICA DE VALORES: Quando a pessoa perguntar o valor de atendimento PARTICULAR (sem convênio), informe diretamente o valor e a duração da terapia, usando exatamente os números da seção "VALORES PARTICULAR" acima — nunca arredonde ou estime, e não escale por isso. Valores de convênio (reembolso, coparticipação, tabela do plano) NÃO estão nesta base e NUNCA devem ser informados: escale para a equipe humana ("escalar": true, "motivo": "fora_da_base").
+6. POLÍTICA DE VALORES: Quando a pessoa perguntar o valor de atendimento PARTICULAR (sem convênio), informe os PLANOS MENSAIS da seção "VALORES PARTICULAR" acima, com exatamente esses números — nunca arredonde ou estime, e não escale por isso. O valor NÃO varia por terapia. Regras dos planos: (a) o plano é um número de sessões por mês e a família pode combinar terapias diferentes dentro dele (ex.: 4 de Fono + 4 de TO); (b) a avaliação inicial conta como 1 sessão do plano contratado, e sem plano é uma sessão avulsa de R$ 190; (c) cada bloco de Treino ABA (3 sessões seguidas) conta como 3 sessões do plano; (d) a avaliação neuropsicológica tem valor fechado, fora dos planos; (e) parcelamos em até 3x no cartão. Apresente o valor do cuidado antes do preço e convide a pessoa a agendar a avaliação. Valores de convênio (reembolso, coparticipação, tabela do plano) NÃO estão nesta base e NUNCA devem ser informados: escale para a equipe humana ("escalar": true, "motivo": "fora_da_base").
 7. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
 8. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
 9. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
 10. AGENDAMENTO E INÍCIO DE ATENDIMENTO 100% VIA BOT/WHATSAPP: O agendamento de avaliações e o início do atendimento acontecem integralmente POR AQUI no WhatsApp! NUNCA direcione a pessoa para o site para agendar, saber como iniciar ou marcar consultas. Se a pessoa perguntar sobre convênios (ex.: "vocês atendem PROASA?") ou demonstrar interesse em iniciar/agendar, responda confirmando o convênio e convide-a a agendar diretamente por aqui mesmo, orientando a responder *AGENDAR* — EXCETO se a seção "SITUAÇÃO ATUAL DA AGENDA" disser que a agenda está fechada, em montagem ou em lista de espera: nesse caso siga a regra 17 e não mande responder AGENDAR.
 11. NUNCA DIRECIONE PARA O SITE PARA AGENDAR OU INICIAR: O site oficial (www.institutofacaamigos.com.br) é EXCLUSIVAMENTE para consulta institucional/conhecer a clínica e deve ser incluído apenas como assinatura/despedida ao encerrar ou finalizar a conversa (Ex: "Conheça mais sobre nossa clínica em www.institutofacaamigos.com.br 🌐💙"). NUNCA associe o site a agendamentos, início de processo ou tira-dúvidas operacionais.
 12. DOCUMENTOS DE CONVÊNIO: sempre que a conversa envolver um plano de saúde que NÃO seja particular, oriente que é preciso a *carteirinha do plano* (foto frente e verso) e o *número do cartão*. A *guia autorizada NÃO é obrigatória*: se a pessoa já tiver, ótimo; se não tiver, diga que a clínica faz a autorização — nunca condicione o agendamento à guia. Para atendimento particular, nada disso é necessário.
-13. CURRÍCULO E VAGA DE EMPREGO (cuidado: "vaga" é palavra ambígua, leia o item 13.1 antes de usar): quando a pessoa fala de TRABALHO — quer enviar currículo, pergunta se a clínica está contratando, procura estágio ou oportunidade de emprego —, responda UMA ÚNICA mensagem, com "intent": "emprego" e "escalar": false, dizendo que não recebemos currículos nem tratamos de vagas de trabalho por aqui e que ela deve acessar www.institutofacaamigos.com.br e clicar em *Venha fazer parte do nosso time*. Essa mensagem ENCERRA o assunto: não faça perguntas, não ofereça ajuda extra, não chame a equipe humana e NUNCA peça que o currículo seja enviado por este WhatsApp — depois dela o atendimento automático é desligado e nada mais é respondido. Esta é a ÚNICA situação em que o site pode ser indicado como caminho para resolver algo (a regra 11 continua valendo para tudo o mais).
+13. CURRÍCULO E VAGA DE EMPREGO (cuidado: "vaga" é palavra ambígua, leia o item 13.1 antes de usar): quando a pessoa fala de TRABALHO — quer enviar currículo, pergunta se a clínica está contratando, procura estágio ou oportunidade de emprego —, responda UMA ÚNICA mensagem, com "intent": "emprego" e "escalar": false, dizendo que não recebemos currículos nem tratamos de vagas de trabalho por aqui e que ela deve acessar www.institutofacaamigos.com.br e clicar em *Faça parte do nosso time*. Essa mensagem ENCERRA o assunto: não faça perguntas, não ofereça ajuda extra, não chame a equipe humana e NUNCA peça que o currículo seja enviado por este WhatsApp — depois dela a conversa é encerrada (o menu continua disponível se a pessoa responder VOLTAR ou MENU). Esta é a ÚNICA situação em que o site pode ser indicado como caminho para resolver algo (a regra 11 continua valendo para tudo o mais).
 13.1 VAGA DE EMPREGO ≠ VAGA NA AGENDA: a maioria das pessoas que escreve "vaga" está perguntando por HORÁRIO DISPONÍVEL para atendimento do filho — isso é agendamento (regra 10), NUNCA "emprego". Exemplos que são AGENDAMENTO ("intent": "agendamento" ou "horarios", nunca "emprego"): "vocês têm vaga para avaliação?", "tem vaga essa semana?", "abriu vaga na terça de manhã?", "estão com vaga para fono?", "tem vaga pelo plano?", "quando abre vaga para ABA?". Exemplos que são EMPREGO: "vocês têm vaga de emprego?", "estão contratando psicóloga?", "posso mandar meu currículo?", "tem vaga para estágio?", "sou fonoaudióloga recém-formada, tem oportunidade de trabalho aí?". Só use "emprego" quando a mensagem disser com todas as letras que é trabalho/currículo/estágio/contratação — a palavra "vaga" sozinha NUNCA basta. Se ficar genuinamente em dúvida (ex.: "vocês têm vaga?" e o histórico não esclarece), NÃO use "emprego": pergunte em uma frase curta se é vaga na nossa agenda de atendimento ou vaga de trabalho ("intent": "outro", "escalar": false) e siga a resposta da pessoa.
 14. MENSAGENS DE ÁUDIO: este contato não recebe mensagens de áudio — ninguém ouve notas de voz por aqui. Se a pessoa mandar áudio ou disser que vai mandar, peça com carinho que escreva a dúvida em texto. Nunca diga que vai ouvir depois nem que a equipe vai escutar o áudio.
 15. HORÁRIO DO ATENDIMENTO HUMANO: sempre que avisar que a equipe/recepção vai responder (qualquer escalonamento, inclusive pedido de relatório), diga que o retorno acontece em horário comercial, citando exatamente a grade da seção "HORÁRIO COMERCIAL DA RECEPÇÃO" acima. Se a seção estiver vazia, diga apenas "em horário comercial", sem inventar horários. Você (assistente virtual) continua respondendo a qualquer hora — o horário vale para a resposta humana.
@@ -591,7 +613,7 @@ export async function escalateConversation(conversationId: string, reason: FaqEs
  * o tempo de resposta humana) em vez de duplicar a lógica de dia-da-semana
  * em TS, então o que o bot informa e o que o KPI cobra nunca divergem.
  */
-async function isWithinBusinessHoursNow(clinicId: string): Promise<boolean> {
+export async function isWithinBusinessHoursNow(clinicId: string): Promise<boolean> {
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
@@ -617,25 +639,22 @@ async function isWithinBusinessHoursNow(clinicId: string): Promise<boolean> {
 // expediente — sem isto a família ficava esperando resposta imediata à
 // noite/fim de semana. Fixo (não depende do modelo) para nunca prometer
 // hora errada.
-const OUT_OF_HOURS_ESCALATION_SUFFIX =
+export const OUT_OF_HOURS_ESCALATION_SUFFIX =
   "\n\nEstamos fora do horário de atendimento da recepção agora — a equipe responde no próximo expediente. 💛";
 
 /**
  * Assunto que o bot responde de uma vez e ENCERRA (hoje: currículo/vagas —
- * regra 13 do prompt). Diferente de escalar: ninguém é chamado, a conversa
- * não vai para a fila de pendências da recepção; o atendimento automático é
- * só desligado (`is_bot_active=false`) para que nenhuma outra mensagem desse
- * contato seja respondida. Se for engano (uma família de verdade que só
- * perguntou de vaga), a recepção religa o bot pelo toggle da Central.
+ * regra 13 do prompt e opção Currículos do menu). Diferente de escalar: ninguém
+ * é chamado e a conversa não vai para a fila de pendências da recepção; ela só
+ * é encerrada na Central. O bot continua ligado (decisão do dono, nov/2026):
+ * quem tocou em Currículos por engano ainda consegue voltar ao menu, e quem
+ * mandar o PDF depois recebe de novo a mensagem do site.
  */
-async function closeConversationAfterFinalReply(conversationId: string): Promise<void> {
+export async function closeConversationAfterFinalReply(conversationId: string): Promise<void> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
-  await supabase
-    .from("twilio_conversations")
-    .update({ is_bot_active: false, status: "closed" })
-    .eq("id", conversationId);
+  await supabase.from("twilio_conversations").update({ status: "closed" }).eq("id", conversationId);
 }
 
 /** Aviso quando a IA não responde (503, JSON inválido). A pergunta vai para a

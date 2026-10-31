@@ -410,7 +410,7 @@ const HUMAN_HANDOFF_REPLY = "Certo! 💙 Chamei a nossa equipe, que continua o a
 const CHILD_NAME_QUESTION = "Qual o *nome completo da criança ou adolescente* que fará a avaliação?";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function loadActiveInsurers(supabase: any): Promise<PlanOption[]> {
+export async function loadActiveInsurers(supabase: any): Promise<PlanOption[]> {
   const { data } = await supabase
     .from("insurers")
     .select("id, name")
@@ -559,6 +559,27 @@ async function resetSession(supabase: any, phone: string): Promise<void> {
 }
 
 /**
+ * Abre o fluxo AGENDAR para um telefone (mesmo update da palavra AGENDAR): cria a
+ * sessão se ainda não existir e deixa a etapa em `awaiting_guardian_name`. Usado
+ * pela opção "Plano de saúde" do menu inicial (lib/welcome-menu.ts), que envia a
+ * própria pergunta do nome.
+ */
+export async function startAnamnesisFlow(rawPhone: string): Promise<void> {
+  const phone = formatE164Phone(rawPhone);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createAdminClient() as any;
+  await supabase.from("chatbot_sessions").upsert(
+    {
+      phone_number: phone,
+      current_step: "awaiting_guardian_name",
+      collected_data: { started_at: new Date().toISOString() },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "phone_number" },
+  );
+}
+
+/**
  * Processador principal da máquina de estados de agendamento de Anamnese via WhatsApp.
  *
  * Fluxo enxuto (auditoria out/2026): nome do responsável → criança → nascimento
@@ -626,7 +647,7 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
       replyMessage:
         "Vamos agendar a avaliação! 🧩\n\n" +
         "Qual o seu *nome completo* (responsável)?\n\n" +
-        "_Para falar com a equipe a qualquer momento, responda ATENDENTE._",
+        "_Para falar com a equipe a qualquer momento, responda ATENDENTE. Para voltar ao menu, responda VOLTAR._",
     };
   }
 
@@ -646,6 +667,14 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
       escalate: true,
       replyMessage: HUMAN_HANDOFF_REPLY,
     };
+  }
+  if (exit === "back" && collecting) {
+    await syncBotDraft({ phone, data, step: storedStep });
+    await resetSession(supabase, phone);
+    // Import dinâmico: lib/welcome-menu.ts importa este arquivo (ciclo).
+    const { sendMainMenu } = await import("./welcome-menu");
+    const menu = await sendMainMenu({ phone, conversationId: params.conversationId ?? null });
+    return { handled: true, replyMessage: menu.replyMessage };
   }
   if (exit === "stop" && collecting) {
     await syncBotDraft({ phone, data, step: storedStep });

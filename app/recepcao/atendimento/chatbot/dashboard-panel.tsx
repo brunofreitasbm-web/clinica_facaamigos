@@ -4,6 +4,8 @@ const ESCALATION_LABEL: Record<string, string> = {
   pediu_humano: "Pediu atendimento humano",
   relatorio: "Pedido de relatório/documento",
   lista_espera: "Quer entrar na lista de espera",
+  particular: "Venda particular (atendente)",
+  particular_agendar: "Venda particular: agendar avaliação",
 };
 
 export type ChatbotDashboardStats = {
