@@ -117,13 +117,14 @@ export function hasStrongJobSignal(text: string): boolean {
 /** Resposta fixa (sem IA) para currículo/vaga de emprego. O rótulo é o do site
  * ("Venha fazer parte do nosso time", mantido da main); o link é o DIRETO da
  * página de candidatura (6 candidatos em outubro disseram não achar o botão no
- * site) e o e-mail fica como alternativa. */
+ * site). Currículo só é recebido pelo formulário do site: NÃO oferecer e-mail
+ * nem WhatsApp como alternativa. */
 export const JOB_INQUIRY_REPLY =
   "Olá! 💙 Agradecemos o seu interesse em fazer parte do *FaçaAmigos*!\n\n" +
   "Por aqui no WhatsApp não recebemos currículos. Para se candidatar, preencha o formulário " +
   "*Venha fazer parte do nosso time* (currículo em PDF):\n" +
   "https://institutofacaamigos.com.br/trabalhe-conosco\n\n" +
-  "Se o link não abrir, envie o currículo para institutofacaamigos@gmail.com. Boa sorte! 🌱";
+  "Boa sorte! 🌱";
 
 /** Quando o modelo diz "emprego" mas a mensagem não tem marca explícita de
  * trabalho ("Vaga está disponível?", "Em busca de uma oportunidade"), o bot
