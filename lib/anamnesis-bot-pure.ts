@@ -117,6 +117,73 @@ export function isNoDocumentAnswer(raw: string | null | undefined): boolean {
   return parseYesNo(raw) === "no" || LATER.test(text);
 }
 
+const DONE = /^(pronto|prontos|pronta|feito|terminei|terminamos|finalizei|finalizado|era isso|so isso|e isso|e so|enviei tudo|mandei tudo|ja enviei|ja mandei|ja enviei tudo|ja mandei tudo)( obrigad[oa])?$/;
+
+/** "PRONTO" (e variações curtas) ao fim do envio de documentos, na etapa que junta todos os anexos. */
+export function isDoneAnswer(raw: string | null | undefined): boolean {
+  return DONE.test(normalizeAnswer(raw));
+}
+
+export type DocumentSlots = {
+  laudo?: string;
+  guia?: string;
+  carteirinha_frente?: string;
+  carteirinha_verso?: string;
+  documento_identidade?: string;
+};
+
+/**
+ * Distribui os arquivos enviados de uma vez (já em ordem de chegada, com a categoria que a IA
+ * deu a cada um) nos campos da solicitação. Categoria reconhecida manda: laudo/pedido médico →
+ * laudo, autorização → guia, carteirinha → frente/verso, documento_identidade → RG. Quem ainda
+ * está como "outro" (IA não leu a tempo) ocupa os campos que sobraram, na ordem
+ * laudo → carteirinha (frente, verso) → RG: é palpite — a supervisão confere no painel.
+ */
+export function assignDocumentSlots(files: { pointer: string; category: string | null }[]): DocumentSlots {
+  const slots: DocumentSlots = {};
+  const cards: string[] = [];
+  const unclassified: string[] = [];
+
+  for (const file of files) {
+    switch (file.category) {
+      case "laudo":
+      case "pedido_medico":
+        slots.laudo ??= file.pointer;
+        break;
+      case "autorizacao":
+        slots.guia ??= file.pointer;
+        break;
+      case "carteirinha":
+        cards.push(file.pointer);
+        break;
+      case "documento_identidade":
+        slots.documento_identidade ??= file.pointer;
+        break;
+      case "outro":
+      case null:
+      case undefined:
+        unclassified.push(file.pointer);
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (cards[0]) {
+    slots.carteirinha_frente = cards[0];
+    // PDF único cobre frente e verso; senão a segunda foto é o verso.
+    slots.carteirinha_verso = cards[1] ?? (cards[0].toLowerCase().endsWith(".pdf") ? cards[0] : undefined);
+  }
+
+  const queue = [...unclassified];
+  if (!slots.laudo && queue.length > 0) slots.laudo = queue.shift();
+  if (!slots.carteirinha_frente && queue.length > 0) slots.carteirinha_frente = queue.shift();
+  if (slots.carteirinha_frente && !slots.carteirinha_verso && queue.length > 0) slots.carteirinha_verso = queue.shift();
+  if (!slots.documento_identidade && queue.length > 0) slots.documento_identidade = queue.shift();
+
+  return slots;
+}
+
 export type ExitCommand = "stop" | "human" | null;
 
 /**

@@ -72,8 +72,8 @@ export async function scheduleEvaluation(
   const gate = (await getSchedulingGates(supabase, [patientId])).get(patientId);
   if (shouldPromoteOnScheduling(gate)) await promoteToPatient(supabase, patientId);
 
-  // Ordem das mensagens ao responsável: confirmação do horário (já com as orientações
-  // do dia) → convite da pré-anamnese.
+  // Ao responsável: confirmação do horário (já com as orientações do dia) e convite da
+  // pré-anamnese. Com o template único configurado, é UMA mensagem; sem ele, duas em ordem.
   const notice = await sendEvaluationConfirmationNotification({
     patientId,
     therapistId,
@@ -81,17 +81,20 @@ export async function scheduleEvaluation(
     date,
     time,
     appointmentId: appointment.id,
+    bundlePreAnamnesis: true,
   });
 
   // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
   // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia
   // o agendamento se falhar (Twilio fora do ar, sem responsável cadastrado
   // etc.), a anamnese continua acontecendo presencialmente.
-  await dispatchAnamnesisPrefillRequest({
-    patientId,
-    appointmentId: appointment.id,
-    startsAt: startsAt.toISOString(),
-  });
+  if (!(notice.sent && notice.bundled)) {
+    await dispatchAnamnesisPrefillRequest({
+      patientId,
+      appointmentId: appointment.id,
+      startsAt: startsAt.toISOString(),
+    });
+  }
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
   return notice.sent ? { success: true } : { success: true, warning: notice.reason };

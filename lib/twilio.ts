@@ -157,6 +157,9 @@ export function getTwilioContentSidForCategory(category: string): string | undef
   switch (category) {
     case "otp":
       return process.env.TWILIO_OTP_TEMPLATE_CONTENT_SID;
+    // OTP do portal da família por WhatsApp (template de autenticação; `{{1}}` = código). SMS é o reserva.
+    case "otp_whatsapp":
+      return process.env.TWILIO_OTP_WHATSAPP_TEMPLATE_CONTENT_SID;
     case "falta":
       return process.env.TWILIO_ABSENCE_TEMPLATE_CONTENT_SID;
     case "pre_anamnese":
@@ -178,6 +181,9 @@ export function getTwilioContentSidForCategory(category: string): string | undef
     // Oferta automática de horários da 1ª avaliação (lib/evaluation-offer.ts).
     case "agendamento_avaliacao":
       return process.env.TWILIO_EVAL_OFFER_TEMPLATE_CONTENT_SID;
+    // Mensagem única: confirmação + orientações do dia + convite da pré-anamnese (botões).
+    case "confirmacao_completa":
+      return process.env.TWILIO_EVAL_CONFIRM_FULL_TEMPLATE_CONTENT_SID;
     case "lembrete_avaliacao":
       return process.env.TWILIO_EVAL_REMINDER_TEMPLATE_CONTENT_SID;
     case "confirmacao_d1":
@@ -485,7 +491,8 @@ export async function resolvePatientFromPhone(phone: string): Promise<{ patientI
 // plano de saúde, lib/twilio-intake-bot.ts) já são tratados antes, no passo
 // 0.6, mas também entram aqui como rede de segurança.
 const ANAMNESIS_AWAITING_ATTACHMENT_STEPS = new Set([
-  // Fluxo enxuto (lib/twilio-anamnesis-bot.ts).
+  // Fluxo enxuto (lib/twilio-anamnesis-bot.ts): todos os documentos numa etapa só.
+  "awaiting_documents",
   "awaiting_laudo",
   "awaiting_carteirinha",
   // Faltava aqui: a foto do RG caía na ingestão "a frio" ("Recebido! 📄") e o

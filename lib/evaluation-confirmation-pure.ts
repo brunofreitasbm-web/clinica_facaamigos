@@ -50,3 +50,25 @@ export function buildEvaluationRescheduleMessage(params: {
     BRAND_LINE
   );
 }
+
+/**
+ * Mensagem única: confirmação (já com as orientações do dia) + convite da pré-anamnese, no lugar
+ * de duas mensagens seguidas. Os botões (preanam_yes/preanam_no) vêm do template; o texto precisa
+ * ser idêntico a BUNDLE_BODY de scripts/create-eval-offer-template.ts.
+ */
+export function buildEvaluationBundleMessage(params: {
+  guardianFirstName: string;
+  patientName: string;
+  formattedDate: string;
+  therapistName: string;
+}): string {
+  return (
+    `Olá, ${params.guardianFirstName}! 💙\n\n` +
+    "✅ Agendamento confirmado!\n" +
+    `A 1ª avaliação de ${params.patientName} será em ${params.formattedDate}, com ${params.therapistName}.\n\n` +
+    "⏰ Chegue 15 minutos antes.\n" +
+    "📂 Traga documento com foto e laudos, exames ou relatórios anteriores.\n\n" +
+    "Para o terapeuta chegar mais preparado, podemos fazer 5 perguntas rápidas por aqui? As respostas não substituem a avaliação presencial.\n\n" +
+    BRAND_LINE
+  );
+}

@@ -526,7 +526,8 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
     .split(" ");
   const time = fullTime.slice(0, 5);
 
-  // Disparar WhatsApp com a confirmação final e orientações
+  // Disparar WhatsApp com a confirmação final (já com as orientações). Com o template único
+  // configurado, a mesma mensagem leva o convite da pré-anamnese (1 envio, não 2).
   const notice = await sendEvaluationConfirmationNotification({
     patientId: appointment.patient_id,
     therapistId: appointment.therapist_id,
@@ -534,10 +535,11 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
     date,
     time,
     appointmentId,
+    bundlePreAnamnesis: Boolean(offer),
   });
 
   let warning: string | undefined = notice.sent ? undefined : notice.reason;
-  if (offer) {
+  if (offer && !(notice.sent && notice.bundled)) {
     const invite = await dispatchAnamnesisPrefillRequest({ patientId: appointment.patient_id, appointmentId, startsAt: appointment.starts_at });
     if (!invite.sent) {
       const inviteWarning = `O convite da pré-anamnese não foi enviado: ${invite.reason ?? "motivo desconhecido"}.`;

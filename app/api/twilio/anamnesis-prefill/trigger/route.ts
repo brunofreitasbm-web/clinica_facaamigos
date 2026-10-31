@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendWhatsApp } from "@/lib/whatsapp";
+import { getWhatsAppTemplateForCategory, sendWhatsApp } from "@/lib/whatsapp";
 import { buildReminderMessage } from "@/lib/anamnesis-prefill";
+import { isWhatsAppWindowOpen } from "@/lib/whatsapp-window";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
 
 /**
  * Lembrete de anamnese pré-consulta, disparado a cada 30min pelo pg_cron
@@ -30,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     const { data: pending } = await db
       .from("anamnesis_prefill_requests")
-      .select("id, patient_id, phone_number")
+      .select("id, patient_id, appointment_id, guardian_id, phone_number")
       .eq("status", "enviado")
       .is("reminder_sent_at", null)
       .lte("sent_at", cutoffISO);
@@ -43,10 +45,33 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       const childName = patient?.full_name ?? "seu(sua) filho(a)";
-      const result = await sendWhatsApp({
-        to: request.phone_number,
-        message: buildReminderMessage(childName),
-      });
+
+      // 48h depois do convite a janela de 24h já fechou (a menos que a família tenha escrito): texto
+      // livre seria recusado e o pedido ficaria marcado como "lembrete enviado" sem ninguém receber.
+      // O lembrete reenvia o template do convite (com os botões); sem ele, só vai com a janela aberta.
+      const inviteSid = getWhatsAppTemplateForCategory("convite_pre_anamnese");
+      let result: { success: boolean };
+      if (inviteSid) {
+        const [{ data: guardian }, { data: appointment }] = await Promise.all([
+          db.from("guardians").select("full_name").eq("id", request.guardian_id).maybeSingle(),
+          db.from("appointments").select("starts_at").eq("id", request.appointment_id).maybeSingle(),
+        ]);
+        const guardianFirstName = ((guardian?.full_name as string | null) ?? "").trim().split(/\s+/)[0] || "família";
+        const formattedDate = appointment?.starts_at
+          ? new Date(appointment.starts_at as string).toLocaleString("pt-BR", { timeZone: CLINIC_TIMEZONE, dateStyle: "full", timeStyle: "short" })
+          : "a data combinada";
+        result = await sendWhatsApp({
+          to: request.phone_number,
+          message: buildReminderMessage(childName),
+          contentSid: inviteSid,
+          contentVariables: { "1": guardianFirstName, "2": childName, "3": formattedDate },
+        });
+      } else if (await isWhatsAppWindowOpen(request.phone_number)) {
+        result = await sendWhatsApp({ to: request.phone_number, message: buildReminderMessage(childName) });
+      } else {
+        failed += 1;
+        continue;
+      }
 
       if (result.success) {
         await db

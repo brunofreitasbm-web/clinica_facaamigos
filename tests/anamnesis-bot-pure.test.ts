@@ -6,9 +6,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   BOT_THERAPY_VALUES,
+  assignDocumentSlots,
   canonicalAnamnesisStep,
   decideGuardianEmailStep,
   isAgendarIntent,
+  isDoneAnswer,
   isNoDocumentAnswer,
   isSkipAnswer,
   parseExitCommand,
@@ -195,4 +197,46 @@ test("BOT_THERAPY_VALUES: sem repetidas e cada posição da lista é reconhecida
     const answer = parseTherapiesAnswer(String(index + 1), options);
     assert.deepEqual(answer, { kind: "therapies", values: [option.value], labels: [option.label] });
   });
+});
+
+test("isDoneAnswer reconhece o PRONTO e variações curtas, nada além", () => {
+  for (const ok of ["PRONTO", "pronto!", "Pronto, obrigada", "feito", "Era isso", "já enviei tudo", "terminei"]) {
+    assert.equal(isDoneAnswer(ok), true, ok);
+  }
+  for (const no of ["", "ainda não", "qual o endereço?", "estou mandando", "sim", "não tenho"]) {
+    assert.equal(isDoneAnswer(no), false, no);
+  }
+});
+
+test("assignDocumentSlots respeita a categoria da IA e usa a ordem só para o que sobrou", () => {
+  const classified = assignDocumentSlots([
+    { pointer: "p/rg", category: "documento_identidade" },
+    { pointer: "p/cart1", category: "carteirinha" },
+    { pointer: "p/laudo", category: "laudo" },
+    { pointer: "p/cart2", category: "carteirinha" },
+    { pointer: "p/guia", category: "autorizacao" },
+  ]);
+  assert.deepEqual(classified, {
+    laudo: "p/laudo",
+    guia: "p/guia",
+    carteirinha_frente: "p/cart1",
+    carteirinha_verso: "p/cart2",
+    documento_identidade: "p/rg",
+  });
+
+  const guess = assignDocumentSlots([
+    { pointer: "p/a", category: "outro" },
+    { pointer: "p/b", category: "outro" },
+    { pointer: "p/c", category: "outro" },
+    { pointer: "p/d", category: "outro" },
+  ]);
+  assert.deepEqual(guess, { laudo: "p/a", carteirinha_frente: "p/b", carteirinha_verso: "p/c", documento_identidade: "p/d" });
+
+  const mixed = assignDocumentSlots([
+    { pointer: "p/x", category: "outro" },
+    { pointer: "p/cart.pdf", category: "carteirinha" },
+  ]);
+  assert.deepEqual(mixed, { laudo: "p/x", carteirinha_frente: "p/cart.pdf", carteirinha_verso: "p/cart.pdf" });
+
+  assert.deepEqual(assignDocumentSlots([]), {});
 });

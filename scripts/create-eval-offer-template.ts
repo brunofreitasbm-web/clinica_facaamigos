@@ -44,7 +44,7 @@ if (fs.existsSync(envPath)) {
 const BRAND_LINE = "FaçaAmigos - Centro de Terapia Comportamental";
 
 type Template = {
-  key: "offer" | "reminder" | "confirm" | "list" | "invite";
+  key: "offer" | "reminder" | "confirm" | "list" | "invite" | "bundle";
   /** Nome na Meta (minúsculas, números e _). */
   metaName: string;
   friendlyName: string;
@@ -87,6 +87,17 @@ const INVITE_BODY =
   "A 1ª avaliação de {{2}} está marcada para {{3}}. Para o terapeuta chegar mais preparado, gostaríamos de fazer 5 perguntas rápidas por aqui. " +
   "As respostas serão aprofundadas na consulta e não substituem a avaliação presencial.\n\n" +
   "Podemos começar?\n\n" +
+  BRAND_LINE;
+
+// Mensagem única: confirmação + convite da pré-anamnese (1 envio no lugar de 2). Idêntico a
+// lib/evaluation-confirmation-pure.ts::buildEvaluationBundleMessage. Botões lidos por lib/twilio-preanamnesis-bot.ts.
+const BUNDLE_BODY =
+  "Olá, {{1}}! 💙\n\n" +
+  "✅ Agendamento confirmado!\n" +
+  "A 1ª avaliação de {{2}} será em {{3}}, com {{4}}.\n\n" +
+  "⏰ Chegue 15 minutos antes.\n" +
+  "📂 Traga documento com foto e laudos, exames ou relatórios anteriores.\n\n" +
+  "Para o terapeuta chegar mais preparado, podemos fazer 5 perguntas rápidas por aqui? As respostas não substituem a avaliação presencial.\n\n" +
   BRAND_LINE;
 
 // Mensagem de sessão: o corpo pode abrir com variável (não passa pela Meta).
@@ -139,6 +150,24 @@ const TEMPLATES: Template[] = [
     variables: { "1": "Nome do responsável", "2": "Nome da criança", "3": "Data e horário", "4": "Profissional" },
     types: { "twilio/text": { body: CONFIRM_BODY } },
     preview: CONFIRM_BODY,
+  },
+  {
+    key: "bundle",
+    metaName: "fa_clinica_confirmacao_completa",
+    friendlyName: "fa_clinica_confirmacao_completa_v1",
+    envVar: "TWILIO_EVAL_CONFIRM_FULL_TEMPLATE_CONTENT_SID",
+    needsApproval: true,
+    variables: { "1": "Nome do responsável", "2": "Nome da criança", "3": "Data e horário", "4": "Profissional" },
+    types: {
+      "twilio/quick-reply": {
+        body: BUNDLE_BODY,
+        actions: [
+          { title: "Sim, vamos começar", id: "preanam_yes" },
+          { title: "Preencher na clínica", id: "preanam_no" },
+        ],
+      },
+    },
+    preview: BUNDLE_BODY + "\n[ Sim, vamos começar ]  [ Preencher na clínica ]",
   },
   {
     key: "invite",

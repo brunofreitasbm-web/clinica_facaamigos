@@ -269,13 +269,19 @@ export async function approveAnamnesisDocumentAction(
       `${slotListText}\n\n` +
       `Responda apenas com o número desejado (ex: 1).`;
 
-    await sendWhatsApp({
+    const sent = await sendWhatsApp({
       to: formattedPhone.replace("whatsapp:", ""),
       message: messageText,
     });
 
     revalidatePath("/supervisao");
     revalidatePath("/recepcao");
+
+    // O status já avançou; só a entrega falhou (tipicamente janela de 24h fechada: texto livre não
+    // chega). Sem este aviso a supervisão achava que a família tinha sido avisada.
+    if (!sent.success) {
+      return { success: false, error: "A documentação foi aprovada, mas o WhatsApp com os horários não foi entregue. Avise o responsável pela Central de Atendimento." };
+    }
 
     return { success: true };
   } catch (err) {
@@ -360,13 +366,19 @@ export async function rejectAnamnesisDocumentAction(
       `📌 *Motivo:* ${rejectionReason}\n\n` +
       `Por favor, envie o documento corrigido por aqui assim que puder. 💙`;
 
-    await sendWhatsApp({
+    const sent = await sendWhatsApp({
       to: formattedPhone.replace("whatsapp:", ""),
       message: messageText,
     });
 
     revalidatePath("/supervisao");
     revalidatePath("/recepcao");
+
+    // O status já avançou; só a entrega falhou (tipicamente janela de 24h fechada: texto livre não
+    // chega). Sem este aviso a supervisão achava que a família tinha sido avisada.
+    if (!sent.success) {
+      return { success: false, error: "A documentação foi rejeitada, mas o WhatsApp com o motivo não foi entregue. Avise o responsável pela Central de Atendimento." };
+    }
 
     return { success: true };
   } catch (err) {

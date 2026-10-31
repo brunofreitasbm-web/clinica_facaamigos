@@ -13,6 +13,7 @@ import { parseGuideProcedures } from "@/lib/reception-queue";
 import { promoteToPatient } from "@/lib/patient-stage";
 import { mergeDuplicatesOf } from "@/lib/patient-merge";
 import { startEvaluationOffer } from "@/lib/evaluation-offer";
+import { isWhatsAppWindowOpen } from "@/lib/whatsapp-window";
 
 type ActionResult = { success: true; patientId: string; warnings: string[] } | { success: false; error: string };
 type SimpleResult = { success: true } | { success: false; error: string };
@@ -288,6 +289,9 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
   // agendamento ficarem todos no mesmo paciente.
   patientId = await mergeDuplicatesOf(patientId);
 
+  // Oferta de horários enviada (ou já em andamento): ela já avisa a família, então o
+  // "cadastro conferido" abaixo seria uma 2ª mensagem seguida, e ainda fora de ordem.
+  let offerReachedFamily = false;
   if (authorizationId || draft.authorization_id) {
     await promoteToPatient(supabase, patientId);
 
@@ -299,6 +303,8 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
       const started = await startEvaluationOffer({ patientId, draftId });
       if (started.status !== "sent" && started.status !== "duplicate") {
         warnings.push(`Oferta automática de horários não enviada: ${started.error}`);
+      } else {
+        offerReachedFamily = true;
       }
     } catch (err) {
       console.error("[pre-cadastros] oferta de horários:", err);
@@ -375,7 +381,8 @@ export async function validateRegistrationDraft(draftId: string, formData: FormD
     after: { patient_id: patientId, warnings },
   });
 
-  if (draft.source_phone) {
+  // Texto livre só chega com a janela de 24h aberta; fora dela seria um envio recusado pela Meta.
+  if (draft.source_phone && !offerReachedFamily && (await isWhatsAppWindowOpen(draft.source_phone))) {
     const { data: patient } = await supabase.from("patients").select("full_name").eq("id", patientId).maybeSingle();
     await sendWhatsApp({
       to: draft.source_phone,

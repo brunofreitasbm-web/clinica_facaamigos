@@ -73,6 +73,8 @@ export function AnamnesisValidationPanel() {
         type: "error",
         text: res.error || "Erro ao aprovar documentação.",
       });
+      // O status pode ter avançado mesmo com o aviso de falha no WhatsApp.
+      fetchRequests();
     }
   };
 
@@ -96,6 +98,7 @@ export function AnamnesisValidationPanel() {
         type: "error",
         text: res.error || "Erro ao rejeitar documentação.",
       });
+      fetchRequests();
     }
   };
 

@@ -25,8 +25,7 @@ function revalidateChegadasViews() {
  * Confirma uma chegada declarada pelo QR: encadeia undoAutoFalta() (se a
  * rotina de 5min já tiver marcado falta enquanto a família esperava) e
  * checkIn() — a MESMA porta que o botão manual da agenda usa, para não
- * duplicar a checagem de guia (buildAuthorizationWarning) nem o WhatsApp ao
- * terapeuta (notifyTherapistOfFirstCheckIn). O `warning` de guia devolvido
+ * duplicar a checagem de guia (buildAuthorizationWarning). O `warning` de guia devolvido
  * por checkIn() precisa ser exibido pela UI — é o único ponto do fluxo do QR
  * em que a recepção olha a autorização antes do atendimento (ver F22 do plano).
  */

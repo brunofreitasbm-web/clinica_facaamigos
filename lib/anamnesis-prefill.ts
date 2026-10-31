@@ -44,27 +44,9 @@ export async function dispatchAnamnesisPrefillRequest(params: {
       timeStyle: "short",
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const db = admin as any;
-
-    const { data: request, error: requestError } = await db
-      .from("anamnesis_prefill_requests")
-      .insert({
-        patient_id: patientId,
-        appointment_id: appointmentId,
-        guardian_id: guardian.id,
-        phone_number: phone,
-      })
-      .select("id")
-      .single();
-
-    if (requestError || !request) {
-      // 23505 = já existe pedido pra este appointment (unique index) — não é erro real.
-      if (requestError && requestError.code !== "23505") {
-        console.error("[Anamnesis Prefill] Falha ao criar solicitação:", requestError.message);
-      }
-      return { sent: false, reason: requestError?.code === "23505" ? "Convite já criado para este agendamento." : "Falha ao registrar o convite." };
-    }
+    const registered = await registerPrefillRequest({ patientId, appointmentId, guardianId: guardian.id, phone });
+    if (!registered.ok) return { sent: false, reason: registered.reason };
+    const request = { id: registered.requestId };
 
     const consentMessage = buildConsentMessage(childName, formattedDate);
     // Template (convite_pre_anamnese) quando configurado: texto livre só é entregue com a
@@ -81,24 +63,69 @@ export async function dispatchAnamnesisPrefillRequest(params: {
       console.error("[Anamnesis Prefill] Falha ao enviar WhatsApp:", sendResult.error);
       // Sem entrega, o pedido não pode ficar como "enviado": as telas mostrariam um convite
       // que a família nunca recebeu. Removido, o convite pode ser disparado de novo.
-      await db.from("anamnesis_prefill_requests").delete().eq("id", request.id);
+      await discardPrefillRequest(request.id);
       return { sent: false, reason: sendResult.error ?? "Falha ao enviar o convite por WhatsApp." };
     }
 
-    await db.from("chatbot_sessions").upsert(
-      {
-        phone_number: phone,
-        current_step: "pre_anamnesis_consent",
-        collected_data: { prefill_request_id: request.id, child_name: childName },
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "phone_number" },
-    );
+    await armPrefillSession({ phone, requestId: request.id, childName });
     return { sent: true };
   } catch (err) {
     console.error("[Anamnesis Prefill] Exceção ao disparar convite:", err);
     return { sent: false, reason: "Erro inesperado ao disparar o convite." };
   }
+}
+
+
+/**
+ * Registra o pedido de pré-anamnese (um por agendamento). `ok: false` com
+ * "Convite já criado…" quando o índice único já tem o pedido (23505) — não é erro real.
+ */
+export async function registerPrefillRequest(params: {
+  patientId: string;
+  appointmentId: string;
+  guardianId: string;
+  phone: string;
+}): Promise<{ ok: true; requestId: string } | { ok: false; reason: string }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = createAdminClient() as any;
+  const { data: request, error: requestError } = await db
+    .from("anamnesis_prefill_requests")
+    .insert({
+      patient_id: params.patientId,
+      appointment_id: params.appointmentId,
+      guardian_id: params.guardianId,
+      phone_number: params.phone,
+    })
+    .select("id")
+    .single();
+
+  if (requestError || !request) {
+    if (requestError && requestError.code !== "23505") {
+      console.error("[Anamnesis Prefill] Falha ao criar solicitação:", requestError.message);
+    }
+    return { ok: false, reason: requestError?.code === "23505" ? "Convite já criado para este agendamento." : "Falha ao registrar o convite." };
+  }
+  return { ok: true, requestId: request.id as string };
+}
+
+/** Sem entrega, o pedido não pode ficar como "enviado": removido, o convite pode ser disparado de novo. */
+export async function discardPrefillRequest(requestId: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createAdminClient() as any).from("anamnesis_prefill_requests").delete().eq("id", requestId);
+}
+
+/** Coloca o telefone na etapa de consentimento: é o que faz o bot tratar o "Sim"/"Preencher na clínica". */
+export async function armPrefillSession(params: { phone: string; requestId: string; childName: string }): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createAdminClient() as any).from("chatbot_sessions").upsert(
+    {
+      phone_number: params.phone,
+      current_step: "pre_anamnesis_consent",
+      collected_data: { prefill_request_id: params.requestId, child_name: params.childName },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "phone_number" },
+  );
 }
 
 /**

@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatE164Phone } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { isWhatsAppWindowOpen } from "@/lib/whatsapp-window";
 
 export async function dispatchAbsenceRescheduleOffer(params: {
   patientId: string;
@@ -18,6 +19,9 @@ export async function dispatchAbsenceRescheduleOffer(params: {
     .select("full_name")
     .eq("id", params.patientId)
     .maybeSingle();
+
+  // Texto livre só é entregue com a janela de 24h aberta; fora dela a Meta recusa, então nem envia.
+  if (!(await isWhatsAppWindowOpen(phoneE164))) return;
 
   const rawName = patient?.full_name?.trim();
   const childName = rawName ? rawName.split(" ")[0] : "a criança";
