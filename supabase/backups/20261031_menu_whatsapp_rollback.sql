@@ -22,3 +22,9 @@ update clinic_faq set answer = E'Somos uma equipe multidisciplinar de desenvolvi
 commit;
 -- Preços antigos (todas valid_from 2026-09-17): FONO-ABA 200, FONO-CONV 150, IS 200, MUSICO 200,
 -- PSI-ABA 200, PSICOMOT 200, PSICOTER 150 (30 min), TO-ABA 200, TO-CONV 150.
+
+-- Faturamento pelo valor do pacote (migration 20261031234723_particular_package_billing):
+-- para desfazer, restaure generate_package_invoices ao cálculo antigo (unit_price * sessions_per_month,
+-- só contratos com unit_price e sessions_per_month) e os preços de specialty_prices:
+--   psicologia_aba/fonoaudiologia/terapia_ocupacional/integracao_sensorial/musicoterapia/psicomotricidade = 200
+--   fono_convencional/to_convencional/psicoterapia = 150

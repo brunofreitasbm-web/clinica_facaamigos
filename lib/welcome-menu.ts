@@ -17,6 +17,7 @@ import { APP_ORIGIN, CLINIC_MAPS_URL, getClinicIdentity } from "@/lib/clinic-ide
 import { formatBusinessHours } from "@/lib/business-hours-pure";
 import { buildMessagePreview, formatE164Phone } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { loadParticularPlanCatalog } from "@/lib/particular-plans";
 import { loadActiveInsurers, startAnamnesisFlow } from "@/lib/twilio-anamnesis-bot";
 import {
   BACK_TO_MENU_FOOTER,
@@ -164,28 +165,8 @@ async function isSessionIdle(phone: string): Promise<boolean> {
 
 /** Valores vigentes do convênio "Particular" (planos mensais); reserva em código. */
 export async function loadParticularPlans(): Promise<ParticularPlan[]> {
-  try {
-    const { data } = await createAdminClient()
-      .from("insurer_price_tables")
-      .select("procedure_code, procedure_name, price, valid_from, valid_to, session_frequency_note, insurers!inner(name, clinic_id)")
-      .eq("insurers.clinic_id", DEV_CLINIC_ID)
-      .ilike("insurers.name", "particular")
-      .like("procedure_code", "PART-PLANO-%");
-    const today = new Date().toISOString().slice(0, 10);
-    const plans = (data ?? [])
-      .filter((r) => r.valid_from <= today && (!r.valid_to || r.valid_to >= today))
-      .map((r) => ({
-        name: r.procedure_name.replace(/^Plano /, ""),
-        price: Number(r.price),
-        sessions: Number(/^(\d+) sess/.exec(r.session_frequency_note ?? "")?.[1] ?? 0),
-      }))
-      .filter((p) => p.sessions > 0 && p.price > 0)
-      .sort((a, b) => a.sessions - b.sessions);
-    return plans.length > 0 ? plans : PARTICULAR_PLANS;
-  } catch (err) {
-    console.error("[Welcome Menu] Falha ao ler planos particulares:", err);
-    return PARTICULAR_PLANS;
-  }
+  const catalog = await loadParticularPlanCatalog(createAdminClient());
+  return catalog.length > 0 ? catalog.map((p) => ({ name: p.name, sessions: p.sessions, price: p.price })) : PARTICULAR_PLANS;
 }
 
 async function handoff(conversationId: string | null, reason: "pediu_humano" | "particular" | "particular_agendar", text: string): Promise<string> {

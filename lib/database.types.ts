@@ -5499,6 +5499,11 @@ export type Database = {
           start_date: string
           status: string
           updated_at: string
+          billing_mode: string
+          invoice_day: number
+          sessions_per_month: number | null
+          specialty_value: string | null
+          unit_price: number | null
         }
         Insert: {
           clinic_id: string
@@ -5513,6 +5518,11 @@ export type Database = {
           start_date?: string
           status?: string
           updated_at?: string
+          billing_mode?: string
+          invoice_day?: number
+          sessions_per_month?: number | null
+          specialty_value?: string | null
+          unit_price?: number | null
         }
         Update: {
           clinic_id?: string
@@ -5527,6 +5537,11 @@ export type Database = {
           start_date?: string
           status?: string
           updated_at?: string
+          billing_mode?: string
+          invoice_day?: number
+          sessions_per_month?: number | null
+          specialty_value?: string | null
+          unit_price?: number | null
         }
         Relationships: [
           {

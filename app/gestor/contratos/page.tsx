@@ -5,6 +5,7 @@ import { FileText, Clock, CreditCard } from "lucide-react";
 import { NewContractDialog } from "./new-contract-dialog";
 import { GenerateInvoiceButton, MarkInvoicePaidButton } from "./invoice-actions";
 import { PageContainer } from "@/components/page-container";
+import { loadParticularPlanCatalog } from "@/lib/particular-plans";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,8 @@ export default async function ContratosPage() {
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("full_name", { ascending: true });
 
+  const plans = await loadParticularPlanCatalog(supabase);
+
   return (
     <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
       <FinanceiroSubnav activeTab="contratos" />
@@ -93,7 +96,7 @@ export default async function ContratosPage() {
             </h6>
             <h1 className="m-0">Gestão de Contratos e Cobrança Particular</h1>
           </div>
-          <NewContractDialog patients={allPatients ?? []} />
+          <NewContractDialog patients={allPatients ?? []} plans={plans} />
         </div>
 
         <section className="grid grid-cols-1 gap-6 sm:grid-cols-3">
