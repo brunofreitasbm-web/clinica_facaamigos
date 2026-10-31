@@ -68,6 +68,14 @@ export type ChatbotSettings = {
   /** URL pública da arte de valores particulares (JPEG/PNG) enviada no submenu
    * Particular. Sem valor, vale `DEFAULT_PARTICULAR_PRICES_IMAGE_PATH` do app. */
   particularPricesImageUrl: string | null;
+  /** Content SIDs (HX...) do menu interativo, gravados pelo botão em Chatbot > Configurações.
+   * Nulo = o menu sai em texto numerado (ou usa a variável de ambiente equivalente). */
+  menuContentSids: {
+    welcomeMenu: string | null;
+    particularMenu: string | null;
+    navBack: string | null;
+    particularActions: string | null;
+  };
 };
 
 type SettingsCacheEntry = { settings: ChatbotSettings; expiresAt: number };
@@ -88,7 +96,7 @@ export async function getChatbotSettings(clinicId: string): Promise<ChatbotSetti
 
   const { data } = await supabase
     .from("chatbot_settings")
-    .select("bot_enabled, daily_reply_limit, greeting_fallback, agenda_status_note, particular_prices_image_url")
+    .select("bot_enabled, daily_reply_limit, greeting_fallback, agenda_status_note, particular_prices_image_url, welcome_menu_content_sid, particular_menu_content_sid, nav_back_content_sid, particular_actions_content_sid")
     .eq("clinic_id", clinicId)
     .maybeSingle();
 
@@ -98,6 +106,12 @@ export async function getChatbotSettings(clinicId: string): Promise<ChatbotSetti
     greetingFallback: data?.greeting_fallback ?? null,
     agendaStatusNote: data?.agenda_status_note?.trim() || null,
     particularPricesImageUrl: data?.particular_prices_image_url?.trim() || null,
+    menuContentSids: {
+      welcomeMenu: data?.welcome_menu_content_sid?.trim() || null,
+      particularMenu: data?.particular_menu_content_sid?.trim() || null,
+      navBack: data?.nav_back_content_sid?.trim() || null,
+      particularActions: data?.particular_actions_content_sid?.trim() || null,
+    },
   };
 
   settingsCache.set(clinicId, { settings, expiresAt: Date.now() + SETTINGS_TTL_MS });

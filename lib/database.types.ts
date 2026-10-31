@@ -1557,6 +1557,10 @@ export type Database = {
         Row: {
           agenda_status_note: string | null
           particular_prices_image_url: string | null
+          welcome_menu_content_sid: string | null
+          particular_menu_content_sid: string | null
+          nav_back_content_sid: string | null
+          particular_actions_content_sid: string | null
           bot_auto_resume_hours: number | null
           bot_enabled: boolean
           clinic_id: string
@@ -1568,6 +1572,10 @@ export type Database = {
         Insert: {
           agenda_status_note?: string | null
           particular_prices_image_url?: string | null
+          welcome_menu_content_sid?: string | null
+          particular_menu_content_sid?: string | null
+          nav_back_content_sid?: string | null
+          particular_actions_content_sid?: string | null
           bot_auto_resume_hours?: number | null
           bot_enabled?: boolean
           clinic_id: string
@@ -1579,6 +1587,10 @@ export type Database = {
         Update: {
           agenda_status_note?: string | null
           particular_prices_image_url?: string | null
+          welcome_menu_content_sid?: string | null
+          particular_menu_content_sid?: string | null
+          nav_back_content_sid?: string | null
+          particular_actions_content_sid?: string | null
           bot_auto_resume_hours?: number | null
           bot_enabled?: boolean
           clinic_id?: string

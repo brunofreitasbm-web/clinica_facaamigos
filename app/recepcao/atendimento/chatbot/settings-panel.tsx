@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateChatbotSettings } from "./settings-actions";
+import { createWelcomeMenuContents, updateChatbotSettings } from "./settings-actions";
+import { WELCOME_CONTENTS, type WelcomeContentColumn } from "@/lib/welcome-menu-contents-pure";
 
 export type ChatbotSettingsRow = {
   botEnabled: boolean;
@@ -10,7 +11,67 @@ export type ChatbotSettingsRow = {
   botAutoResumeHours: number | null;
   agendaStatusNote: string | null;
   particularPricesImageUrl: string | null;
+  menuContentSids: Record<WelcomeContentColumn, string | null>;
 };
+
+
+function MenuContentsSection({ sids }: { sids: Record<WelcomeContentColumn, string | null> }) {
+  const [isPending, startTransition] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const configured = WELCOME_CONTENTS.filter((c) => sids[c.column]).length;
+  const allConfigured = configured === WELCOME_CONTENTS.length;
+
+  function run(replace: boolean) {
+    if (replace && !window.confirm("Criar novos conteúdos na Twilio e passar a usá-los no lugar dos atuais?")) return;
+    setMessage(null);
+    setError(null);
+    startTransition(async () => {
+      const result = await createWelcomeMenuContents(replace);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      const parts = [];
+      if (result.created.length) parts.push(`Criados: ${result.created.join(", ")}.`);
+      if (result.skipped.length) parts.push(`Já existiam: ${result.skipped.join(", ")}.`);
+      if (result.failed.length) setError(`Falhou: ${result.failed.map((f) => `${f.label} (${f.error})`).join("; ")}`);
+      setMessage(parts.join(" ") || "Nada a criar.");
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-line p-4">
+      <h4 className="m-0">Menu interativo do WhatsApp</h4>
+      <p className="m-0 text-xs text-ink-faint">
+        Sem estes conteúdos o menu funciona em texto numerado (a pessoa responde com o número). Com eles, aparecem o botão
+        &ldquo;Ver opções&rdquo; e os botões de voltar. São mensagens de sessão: a Meta não precisa aprovar. O botão cria os
+        conteúdos na Twilio e guarda os identificadores aqui; é seguro clicar de novo, só cria o que falta.
+      </p>
+      <ul className="m-0 list-none p-0 text-xs">
+        {WELCOME_CONTENTS.map((c) => (
+          <li key={c.key} className="flex items-center gap-2 py-0.5">
+            <span aria-hidden>{sids[c.column] ? "✅" : "▫️"}</span>
+            <span className="font-semibold">{c.label}</span>
+            <span className="text-ink-faint">{sids[c.column] ? `…${sids[c.column]!.slice(-6)}` : "texto numerado"}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-primary" disabled={isPending || allConfigured} onClick={() => run(false)}>
+          {isPending ? "Criando…" : "Criar menu interativo"}
+        </button>
+        {configured > 0 && (
+          <button type="button" className="btn btn-secondary" disabled={isPending} onClick={() => run(true)}>
+            Recriar
+          </button>
+        )}
+      </div>
+      {error && <p className="m-0 text-xs text-status-negative-text">{error}</p>}
+      {message && !error && <p className="m-0 text-xs text-status-positive-text">{message}</p>}
+    </div>
+  );
+}
 
 export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
   const [botEnabled, setBotEnabled] = useState(settings.botEnabled);
@@ -147,6 +208,10 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
           {isPending ? "Salvando…" : "Salvar configurações"}
         </button>
       </form>
+
+      <div className="mt-6">
+        <MenuContentsSection sids={settings.menuContentSids} />
+      </div>
     </div>
   );
 }

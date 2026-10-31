@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { invalidateKnowledgeCache } from "@/lib/twilio-faq-bot";
+import { getTwilioClient } from "@/lib/twilio";
+import { WELCOME_CONTENTS, contentCreatePayload, type WelcomeContentColumn } from "@/lib/welcome-menu-contents-pure";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -72,4 +74,77 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
 
   revalidatePath("/recepcao/atendimento");
   return { success: true };
+}
+
+export type CreateMenuContentsResult =
+  | { success: true; created: string[]; skipped: string[]; failed: { label: string; error: string }[] }
+  | { success: false; error: string };
+
+/**
+ * Cria na Twilio (Content API) os 4 conteúdos do menu interativo do WhatsApp e grava os
+ * identificadores (HX...) em `chatbot_settings`, de onde o bot os lê (lib/welcome-menu.ts).
+ * É o equivalente ao script scripts/create-welcome-menu-template.ts, mas roda no servidor, onde
+ * as credenciais da Twilio já existem. São mensagens de sessão: sem aprovação da Meta.
+ *
+ * Idempotente: conteúdo já criado não é recriado, a menos que `replace` seja true (aí os
+ * antigos ficam na Twilio, sem uso, e o bot passa a usar os novos). Só supervisão/gestão.
+ */
+export async function createWelcomeMenuContents(replace = false): Promise<CreateMenuContentsResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Não autorizado." };
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (profile?.role !== "supervisor" && profile?.role !== "gestor") {
+    return { success: false, error: "Só supervisão ou gestão pode criar o menu interativo." };
+  }
+
+  const client = getTwilioClient();
+  if (!client) return { success: false, error: "As credenciais da Twilio não estão configuradas neste ambiente." };
+
+  const { data: current } = await supabase
+    .from("chatbot_settings")
+    .select("welcome_menu_content_sid, particular_menu_content_sid, nav_back_content_sid, particular_actions_content_sid")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .maybeSingle();
+
+  const saved: Partial<Record<WelcomeContentColumn, string>> = {};
+  const created: string[] = [];
+  const skipped: string[] = [];
+  const failed: { label: string; error: string }[] = [];
+
+  for (const def of WELCOME_CONTENTS) {
+    if (current?.[def.column] && !replace) {
+      skipped.push(def.label);
+      continue;
+    }
+    try {
+      // O SDK posta o corpo cru (snake_case); os tipos dele são camelCase, daí o cast.
+      const content = await client.content.v1.contents.create(contentCreatePayload(def) as never);
+      saved[def.column] = content.sid;
+      created.push(def.label);
+    } catch (err) {
+      const e = err as { message?: string; code?: number };
+      failed.push({ label: def.label, error: `${e.message ?? "erro desconhecido"}${e.code ? ` (código ${e.code})` : ""}` });
+    }
+  }
+
+  // Grava o que deu certo, mesmo que outro conteúdo tenha falhado (rodar de novo só cria o que falta).
+  if (Object.keys(saved).length > 0) {
+    const { error } = await supabase
+      .from("chatbot_settings")
+      .upsert({ clinic_id: DEV_CLINIC_ID, ...saved, updated_at: new Date().toISOString(), updated_by: user.id }, { onConflict: "clinic_id" });
+    if (error) {
+      return {
+        success: false,
+        error: `Os conteúdos foram criados na Twilio (${Object.values(saved).join(", ")}), mas não foi possível gravar os identificadores: cadastre-os na Vercel como variáveis de ambiente.`,
+      };
+    }
+  }
+
+  invalidateKnowledgeCache(DEV_CLINIC_ID);
+  revalidatePath("/recepcao/atendimento");
+  return { success: true, created, skipped, failed };
 }

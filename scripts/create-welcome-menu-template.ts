@@ -13,6 +13,10 @@
 // e são lidos por lib/welcome-menu-pure.ts — não mude sem mudar lá. Todas as
 // telas têm texto numerado de reserva: sem o SID configurado o bot usa o texto.
 //
+// Também dá para criar pelo botão "Criar menu interativo" em Chatbot > Configurações (guarda os
+// identificadores no banco, sem variável de ambiente). As duas rotas usam as mesmas definições
+// (lib/welcome-menu-contents-pure.ts).
+//
 // Por padrão só MOSTRA o que seria criado. Para criar de verdade:
 //   npx tsx scripts/create-welcome-menu-template.ts --confirm            (os 4)
 //   npx tsx scripts/create-welcome-menu-template.ts --confirm --only=main
@@ -20,16 +24,7 @@
 import fs from "fs";
 import path from "path";
 import twilio from "twilio";
-import {
-  LIST_DESCRIPTION_MAX,
-  LIST_ITEMS_MAX,
-  LIST_TITLE_MAX,
-  PARTICULAR_MENU_BODY,
-  PARTICULAR_MENU_OPTIONS,
-  WELCOME_MENU_BODY,
-  WELCOME_MENU_OPTIONS,
-  type MenuOption,
-} from "../lib/welcome-menu-pure.ts";
+import { WELCOME_CONTENTS as TEMPLATES, contentCreatePayload } from "../lib/welcome-menu-contents-pure.ts";
 
 const envPath = path.resolve(process.cwd(), ".env.local");
 if (fs.existsSync(envPath)) {
@@ -42,69 +37,6 @@ if (fs.existsSync(envPath)) {
     }
   }
 }
-
-type Template = {
-  key: "main" | "particular" | "navback" | "actions";
-  friendlyName: string;
-  envVar: string;
-  variables: Record<string, string>;
-  types: Record<string, unknown>;
-  preview: string;
-};
-
-function listItems(options: MenuOption[]) {
-  if (options.length > LIST_ITEMS_MAX) throw new Error(`Lista com ${options.length} itens (máximo ${LIST_ITEMS_MAX}).`);
-  return options.map((o) => {
-    if (o.title.length > LIST_TITLE_MAX) throw new Error(`Título "${o.title}" passa de ${LIST_TITLE_MAX} caracteres.`);
-    if ((o.description ?? "").length > LIST_DESCRIPTION_MAX) throw new Error(`Descrição de "${o.title}" passa de ${LIST_DESCRIPTION_MAX} caracteres.`);
-    return { item: o.title, id: o.id, description: o.description ?? "" };
-  });
-}
-
-const preview = (body: string, options: MenuOption[]) => `${body}\n[ ☰ Ver opções ] → ${options.map((o) => o.title).join(" · ")}`;
-
-const TEMPLATES: Template[] = [
-  {
-    key: "main",
-    friendlyName: "fa_clinica_menu_inicial_v1",
-    envVar: "TWILIO_WELCOME_MENU_CONTENT_SID",
-    variables: {},
-    types: { "twilio/list-picker": { body: WELCOME_MENU_BODY, button: "Ver opções", items: listItems(WELCOME_MENU_OPTIONS) } },
-    preview: preview(WELCOME_MENU_BODY, WELCOME_MENU_OPTIONS),
-  },
-  {
-    key: "particular",
-    friendlyName: "fa_clinica_menu_particular_v1",
-    envVar: "TWILIO_PARTICULAR_MENU_CONTENT_SID",
-    variables: {},
-    types: { "twilio/list-picker": { body: PARTICULAR_MENU_BODY, button: "Ver opções", items: listItems(PARTICULAR_MENU_OPTIONS) } },
-    preview: preview(PARTICULAR_MENU_BODY, PARTICULAR_MENU_OPTIONS),
-  },
-  {
-    key: "navback",
-    friendlyName: "fa_clinica_menu_voltar_v1",
-    envVar: "TWILIO_NAV_BACK_CONTENT_SID",
-    variables: { "1": "Texto da tela" },
-    types: { "twilio/quick-reply": { body: "{{1}}", actions: [{ title: "↩ Voltar ao menu", id: "nav_back" }] } },
-    preview: "{{1}}\n[ ↩ Voltar ao menu ]",
-  },
-  {
-    key: "actions",
-    friendlyName: "fa_clinica_menu_particular_acoes_v1",
-    envVar: "TWILIO_PARTICULAR_ACTIONS_CONTENT_SID",
-    variables: { "1": "Texto da tela" },
-    types: {
-      "twilio/quick-reply": {
-        body: "{{1}}",
-        actions: [
-          { title: "Agendar avaliação", id: "part_agendar" },
-          { title: "↩ Voltar", id: "nav_back" },
-        ],
-      },
-    },
-    preview: "{{1}}\n[ Agendar avaliação ]  [ ↩ Voltar ]",
-  },
-];
 
 async function main() {
   const only = process.argv.find((a) => a.startsWith("--only="))?.slice("--only=".length);
@@ -136,12 +68,7 @@ async function main() {
   for (const t of selected) {
     try {
       // Corpo cru da REST API (snake_case); os tipos do SDK são camelCase, daí o cast.
-      const content = await client.content.v1.contents.create({
-        friendly_name: t.friendlyName,
-        language: "pt_BR",
-        variables: t.variables,
-        types: t.types,
-      } as never);
+      const content = await client.content.v1.contents.create(contentCreatePayload(t) as never);
       console.log(`[${t.key}] conteúdo criado: ${content.sid}`);
       results.push({ envVar: t.envVar, sid: content.sid });
     } catch (err) {

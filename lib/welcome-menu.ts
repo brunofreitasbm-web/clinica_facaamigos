@@ -58,14 +58,19 @@ const NOT_HANDLED: MenuStepResult = { handled: false, replyMessage: "", intent: 
 /** Padrão da arte de valores: arquivo servido pelo próprio app (public/chatbot). */
 export const DEFAULT_PARTICULAR_PRICES_IMAGE_PATH = "/chatbot/planos-particular.jpg";
 
-// Content SIDs (criados por scripts/create-welcome-menu-template.ts). Todos
-// opcionais: sem o SID, a tela sai como texto numerado.
-const contentSid = {
-  mainMenu: () => process.env.TWILIO_WELCOME_MENU_CONTENT_SID,
-  particularMenu: () => process.env.TWILIO_PARTICULAR_MENU_CONTENT_SID,
-  navBack: () => process.env.TWILIO_NAV_BACK_CONTENT_SID,
-  particularActions: () => process.env.TWILIO_PARTICULAR_ACTIONS_CONTENT_SID,
-};
+// Content SIDs: criados pelo botão "Criar menu interativo" (Chatbot > Configurações, gravados em
+// `chatbot_settings`) ou pelo script scripts/create-welcome-menu-template.ts (variável de ambiente).
+// Todos opcionais: sem o SID, a tela sai como texto numerado.
+async function menuSids() {
+  const { getChatbotSettings } = await import("./twilio-faq-bot");
+  const saved = (await getChatbotSettings(DEV_CLINIC_ID)).menuContentSids;
+  return {
+    mainMenu: saved.welcomeMenu ?? process.env.TWILIO_WELCOME_MENU_CONTENT_SID,
+    particularMenu: saved.particularMenu ?? process.env.TWILIO_PARTICULAR_MENU_CONTENT_SID,
+    navBack: saved.navBack ?? process.env.TWILIO_NAV_BACK_CONTENT_SID,
+    particularActions: saved.particularActions ?? process.env.TWILIO_PARTICULAR_ACTIONS_CONTENT_SID,
+  };
+}
 
 type Delivery = {
   phone: string;
@@ -129,18 +134,18 @@ async function deliver(d: Delivery): Promise<MenuStepResult> {
 }
 
 export async function sendMainMenu(params: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {
-  const sid = contentSid.mainMenu();
+  const sid = (await menuSids()).mainMenu;
   return deliver({ ...params, text: WELCOME_MENU_TEXT, intent: MENU_INTENT, contentSid: sid });
 }
 
 async function sendParticularMenu(params: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {
-  const sid = contentSid.particularMenu();
+  const sid = (await menuSids()).particularMenu;
   return deliver({ ...params, text: PARTICULAR_MENU_TEXT, intent: PARTICULAR_MENU_INTENT, contentSid: sid });
 }
 
 /** Tela de texto com botão "Voltar ao menu" (quando o quick-reply existe). */
-function screenWithNavBack(params: { phone: string; conversationId: string | null }, text: string, intent: string): Promise<MenuStepResult> {
-  const sid = contentSid.navBack();
+async function screenWithNavBack(params: { phone: string; conversationId: string | null }, text: string, intent: string): Promise<MenuStepResult> {
+  const sid = (await menuSids()).navBack;
   return deliver({ ...params, text, intent, ...(sid ? { contentSid: sid, contentVariables: { "1": text } } : {}) });
 }
 
@@ -237,7 +242,7 @@ async function runChoice(id: string, ctx: { phone: string; conversationId: strin
       return { handled: true, replyMessage: await handoff(ctx.conversationId, "pediu_humano", HUMANO_HANDOFF), intent: "menu_outros" };
 
     case "part_como_funciona": {
-      const sid = contentSid.particularActions();
+      const sid = (await menuSids()).particularActions;
       return deliver({
         ...ctx,
         text: PARTICULAR_COMO_FUNCIONA,
