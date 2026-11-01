@@ -8,6 +8,7 @@ import { SubNavBadges, ConversationFilter } from "@/src/components/Reception/Nav
 import type { ConversationRow } from "@/app/recepcao/atendimento/atendimento-shell";
 import { LastSenderIndicator } from "@/components/atendimento/last-sender-indicator";
 import { waitingSince } from "@/lib/atendimento/waiting";
+import { isPriorityEscalation, priorityLabel } from "@/lib/atendimento/priority-pure";
 
 const WAIT_ALERT_MINUTES = 15;
 
@@ -69,7 +70,8 @@ const ConversationItem = React.memo(function ConversationItem({
 }: ConversationItemProps) {
   const waitStart = waitingSince(c);
   const waitMinutes = now !== null && waitStart ? minutesSince(waitStart) : null;
-  const waitAlert = waitMinutes !== null && waitMinutes >= WAIT_ALERT_MINUTES;
+  const isPriority = isPriorityEscalation(c);
+  const waitAlert = isPriority || (waitMinutes !== null && waitMinutes >= WAIT_ALERT_MINUTES);
   const assigneeName = c.assignedTo
     ? c.assignedTo === currentUserId
       ? "você"
@@ -137,7 +139,11 @@ const ConversationItem = React.memo(function ConversationItem({
           )}
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] font-semibold">
-          {waitMinutes !== null ? (
+          {isPriority ? (
+            <span className="shrink-0 rounded-full bg-red-600 px-1.5 py-0.5 text-white motion-safe:animate-pulse">
+              {priorityLabel(c.escalationReason)}
+            </span>
+          ) : waitMinutes !== null ? (
             <span
               className={`shrink-0 rounded-full px-1.5 py-0.5 ${
                 waitAlert ? "bg-red-600 text-white" : "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300"
