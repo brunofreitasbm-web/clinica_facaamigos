@@ -7,6 +7,7 @@ import { HealthPlanBadge } from "@/components/health-plan-badge";
 import type { ConversationFilter } from "@/lib/atendimento/filters";
 import type { ConversationRow } from "@/lib/atendimento/types";
 import { waitingSince } from "@/lib/atendimento/waiting";
+import { isPriorityEscalation, priorityLabel } from "@/lib/atendimento/priority-pure";
 import { LastSenderIndicator } from "@/components/atendimento/last-sender-indicator";
 
 export type MobileTab = "conversas" | "leads" | "encerradas";
@@ -296,7 +297,8 @@ export function MobileQueue({
           conversations.map((c) => {
             const waitStart = waitingSince(c);
             const waitMinutes = now !== null && waitStart ? minutesSince(waitStart) : null;
-            const waitAlert = waitMinutes !== null && waitMinutes >= WAIT_ALERT_MINUTES;
+            const isPriority = isPriorityEscalation(c);
+            const waitAlert = isPriority || (waitMinutes !== null && waitMinutes >= WAIT_ALERT_MINUTES);
             const assigneeName = c.assignedTo
               ? c.assignedTo === currentUserId
                 ? "você"
@@ -355,7 +357,14 @@ export function MobileQueue({
                     className="mt-0.5 flex items-center gap-1.5 truncate text-[13px]"
                     style={{ color: "var(--color-neutral-500)" }}
                   >
-                    {waitMinutes !== null && (
+                    {isPriority ? (
+                      <span
+                        className="shrink-0 rounded-full text-[10px] font-extrabold motion-safe:animate-pulse"
+                        style={{ padding: "1px 6px", background: "var(--color-error)", color: "#fff" }}
+                      >
+                        {priorityLabel(c.escalationReason)}
+                      </span>
+                    ) : waitMinutes !== null && (
                       <span
                         className="shrink-0 rounded-full text-[10px] font-extrabold"
                         style={{

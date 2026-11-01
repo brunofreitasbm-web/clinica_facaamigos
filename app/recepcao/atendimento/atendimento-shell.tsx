@@ -1,5 +1,6 @@
 "use client";
 
+import { prioritizeConversations } from "@/lib/atendimento/priority-pure";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -209,7 +210,10 @@ export function AtendimentoShell({
   }, [conversations, currentUserId]);
 
   const visibleConversations = useMemo(
-    () => conversations.filter((c) => matchesFilter(c, filter, currentUserId) && matchesSearch(c, search)),
+    () =>
+      prioritizeConversations(
+        conversations.filter((c) => matchesFilter(c, filter, currentUserId) && matchesSearch(c, search)),
+      ),
     [conversations, filter, search, currentUserId],
   );
 

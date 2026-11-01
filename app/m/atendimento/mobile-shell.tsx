@@ -1,5 +1,6 @@
 "use client";
 
+import { prioritizeConversations } from "@/lib/atendimento/priority-pure";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -162,8 +163,8 @@ export function MobileShell({
 
   // Com texto digitado, a busca ignora a aba/chip atual e olha abertas + encerradas.
   const visibleConversations = useMemo(() => {
-    if (search.trim()) return conversations.filter((c) => matchesSearch(c, search));
-    return conversations.filter((c) => matchesFilter(c, chipFilterForTab, currentUserId));
+    if (search.trim()) return prioritizeConversations(conversations.filter((c) => matchesSearch(c, search)));
+    return prioritizeConversations(conversations.filter((c) => matchesFilter(c, chipFilterForTab, currentUserId)));
   }, [conversations, chipFilterForTab, search, currentUserId]);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
