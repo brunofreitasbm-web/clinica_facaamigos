@@ -17,6 +17,7 @@ import { APP_ORIGIN, CLINIC_MAPS_URL, getClinicIdentity } from "@/lib/clinic-ide
 import { formatBusinessHours } from "@/lib/business-hours-pure";
 import { buildMessagePreview, formatE164Phone } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { loadParticularPlanCatalog } from "@/lib/particular-plans";
 import { loadActiveInsurers, startAnamnesisFlow } from "@/lib/twilio-anamnesis-bot";
 import {
   BACK_TO_MENU_FOOTER,
@@ -57,14 +58,19 @@ const NOT_HANDLED: MenuStepResult = { handled: false, replyMessage: "", intent: 
 /** Padrão da arte de valores: arquivo servido pelo próprio app (public/chatbot). */
 export const DEFAULT_PARTICULAR_PRICES_IMAGE_PATH = "/chatbot/planos-particular.jpg";
 
-// Content SIDs (criados por scripts/create-welcome-menu-template.ts). Todos
-// opcionais: sem o SID, a tela sai como texto numerado.
-const contentSid = {
-  mainMenu: () => process.env.TWILIO_WELCOME_MENU_CONTENT_SID,
-  particularMenu: () => process.env.TWILIO_PARTICULAR_MENU_CONTENT_SID,
-  navBack: () => process.env.TWILIO_NAV_BACK_CONTENT_SID,
-  particularActions: () => process.env.TWILIO_PARTICULAR_ACTIONS_CONTENT_SID,
-};
+// Content SIDs: criados pelo botão "Criar menu interativo" (Chatbot > Configurações, gravados em
+// `chatbot_settings`) ou pelo script scripts/create-welcome-menu-template.ts (variável de ambiente).
+// Todos opcionais: sem o SID, a tela sai como texto numerado.
+async function menuSids() {
+  const { getChatbotSettings } = await import("./twilio-faq-bot");
+  const saved = (await getChatbotSettings(DEV_CLINIC_ID)).menuContentSids;
+  return {
+    mainMenu: saved.welcomeMenu ?? process.env.TWILIO_WELCOME_MENU_CONTENT_SID,
+    particularMenu: saved.particularMenu ?? process.env.TWILIO_PARTICULAR_MENU_CONTENT_SID,
+    navBack: saved.navBack ?? process.env.TWILIO_NAV_BACK_CONTENT_SID,
+    particularActions: saved.particularActions ?? process.env.TWILIO_PARTICULAR_ACTIONS_CONTENT_SID,
+  };
+}
 
 type Delivery = {
   phone: string;
@@ -128,18 +134,18 @@ async function deliver(d: Delivery): Promise<MenuStepResult> {
 }
 
 export async function sendMainMenu(params: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {
-  const sid = contentSid.mainMenu();
+  const sid = (await menuSids()).mainMenu;
   return deliver({ ...params, text: WELCOME_MENU_TEXT, intent: MENU_INTENT, contentSid: sid });
 }
 
 async function sendParticularMenu(params: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {
-  const sid = contentSid.particularMenu();
+  const sid = (await menuSids()).particularMenu;
   return deliver({ ...params, text: PARTICULAR_MENU_TEXT, intent: PARTICULAR_MENU_INTENT, contentSid: sid });
 }
 
 /** Tela de texto com botão "Voltar ao menu" (quando o quick-reply existe). */
-function screenWithNavBack(params: { phone: string; conversationId: string | null }, text: string, intent: string): Promise<MenuStepResult> {
-  const sid = contentSid.navBack();
+async function screenWithNavBack(params: { phone: string; conversationId: string | null }, text: string, intent: string): Promise<MenuStepResult> {
+  const sid = (await menuSids()).navBack;
   return deliver({ ...params, text, intent, ...(sid ? { contentSid: sid, contentVariables: { "1": text } } : {}) });
 }
 
@@ -164,28 +170,8 @@ async function isSessionIdle(phone: string): Promise<boolean> {
 
 /** Valores vigentes do convênio "Particular" (planos mensais); reserva em código. */
 export async function loadParticularPlans(): Promise<ParticularPlan[]> {
-  try {
-    const { data } = await createAdminClient()
-      .from("insurer_price_tables")
-      .select("procedure_code, procedure_name, price, valid_from, valid_to, session_frequency_note, insurers!inner(name, clinic_id)")
-      .eq("insurers.clinic_id", DEV_CLINIC_ID)
-      .ilike("insurers.name", "particular")
-      .like("procedure_code", "PART-PLANO-%");
-    const today = new Date().toISOString().slice(0, 10);
-    const plans = (data ?? [])
-      .filter((r) => r.valid_from <= today && (!r.valid_to || r.valid_to >= today))
-      .map((r) => ({
-        name: r.procedure_name.replace(/^Plano /, ""),
-        price: Number(r.price),
-        sessions: Number(/^(\d+) sess/.exec(r.session_frequency_note ?? "")?.[1] ?? 0),
-      }))
-      .filter((p) => p.sessions > 0 && p.price > 0)
-      .sort((a, b) => a.sessions - b.sessions);
-    return plans.length > 0 ? plans : PARTICULAR_PLANS;
-  } catch (err) {
-    console.error("[Welcome Menu] Falha ao ler planos particulares:", err);
-    return PARTICULAR_PLANS;
-  }
+  const catalog = await loadParticularPlanCatalog(createAdminClient());
+  return catalog.length > 0 ? catalog.map((p) => ({ name: p.name, sessions: p.sessions, price: p.price })) : PARTICULAR_PLANS;
 }
 
 async function handoff(conversationId: string | null, reason: "pediu_humano" | "particular" | "particular_agendar", text: string): Promise<string> {
@@ -256,7 +242,7 @@ async function runChoice(id: string, ctx: { phone: string; conversationId: strin
       return { handled: true, replyMessage: await handoff(ctx.conversationId, "pediu_humano", HUMANO_HANDOFF), intent: "menu_outros" };
 
     case "part_como_funciona": {
-      const sid = contentSid.particularActions();
+      const sid = (await menuSids()).particularActions;
       return deliver({
         ...ctx,
         text: PARTICULAR_COMO_FUNCIONA,

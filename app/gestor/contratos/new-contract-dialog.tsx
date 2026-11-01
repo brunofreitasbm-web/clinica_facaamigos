@@ -4,14 +4,20 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { createContract } from "./actions";
+import type { CatalogPlan } from "@/lib/particular-plans-pure";
 
 type PatientOption = { id: string; full_name: string };
 
-export function NewContractDialog({ patients }: { patients: PatientOption[] }) {
+export function NewContractDialog({ patients, plans }: { patients: PatientOption[]; plans: CatalogPlan[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [planType, setPlanType] = useState("particular");
+  const [packageCode, setPackageCode] = useState("");
+  // Particular puro: a mensalidade é o valor do pacote (global), não digitada.
+  const isParticular = planType === "particular";
+  const selectedPlan = plans.find((p) => p.code === packageCode);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -65,17 +71,42 @@ export function NewContractDialog({ patients }: { patients: PatientOption[] }) {
 
               <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
                 Modalidade
-                <select name="planType" required className="input" defaultValue="particular">
+                <select name="planType" required className="input" value={planType} onChange={(e) => setPlanType(e.target.value)}>
                   <option value="particular">Particular Puro</option>
                   <option value="reembolso_assistido">Reembolso Assistido</option>
                   <option value="coparticipacao">Co-participação</option>
                 </select>
               </label>
 
+              {isParticular && (
+                <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
+                  Pacote
+                  <select name="packageCode" required className="input" value={packageCode} onChange={(e) => setPackageCode(e.target.value)}>
+                    <option value="" disabled>
+                      Selecione o pacote
+                    </option>
+                    {plans.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.name} · {p.sessions} {p.sessions === 1 ? "sessão" : "sessões"}/mês ·{" "}
+                        {p.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[11px] font-normal text-ink-faint">
+                    Valor global do pacote, igual para qualquer terapia. A avaliação inicial conta como 1 sessão e cada
+                    bloco de Treino ABA conta como 3.
+                  </span>
+                </label>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
                   Mensalidade (R$)
-                  <input type="number" name="monthlyFee" step="0.01" min="0.01" required className="input" />
+                  {isParticular ? (
+                    <input type="text" readOnly className="input" value={selectedPlan ? selectedPlan.price.toFixed(2).replace(".", ",") : ""} placeholder="Defina pelo pacote" />
+                  ) : (
+                    <input type="number" name="monthlyFee" step="0.01" min="0.01" required className="input" />
+                  )}
                 </label>
                 <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
                   Dia de vencimento

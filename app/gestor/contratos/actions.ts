@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { loadParticularPlanCatalog } from "@/lib/particular-plans";
+import { billingModeForPlan } from "@/lib/particular-plans-pure";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -15,7 +17,8 @@ const PLAN_TYPES = ["particular", "reembolso_assistido", "coparticipacao"] as co
 export async function createContract(formData: FormData): Promise<ActionResult> {
   const patientId = String(formData.get("patientId") ?? "").trim();
   const planType = String(formData.get("planType") ?? "");
-  const monthlyFee = Number(formData.get("monthlyFee"));
+  let monthlyFee = Number(formData.get("monthlyFee"));
+  const packageCode = String(formData.get("packageCode") ?? "").trim();
   const paymentDay = Number(formData.get("paymentDay"));
   const startDate = String(formData.get("startDate") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
@@ -24,14 +27,30 @@ export async function createContract(formData: FormData): Promise<ActionResult> 
   if (!PLAN_TYPES.includes(planType as (typeof PLAN_TYPES)[number])) {
     return { success: false, error: "Selecione uma modalidade válida." };
   }
+  const supabase = await createClient();
+
+  // Particular puro: o valor é o do PACOTE (catálogo global, igual para qualquer
+  // terapia). O valor digitado no formulário é ignorado, para a mensalidade nunca
+  // divergir da tabela que o bot e o faturamento usam. As demais modalidades
+  // (reembolso assistido, co-participação) seguem com mensalidade informada.
+  let packageFields: { billing_mode: "avulsa" | "pacote"; sessions_per_month: number; unit_price: number } | null = null;
+  if (planType === "particular") {
+    const plan = (await loadParticularPlanCatalog(supabase)).find((p) => p.code === packageCode);
+    if (!plan) return { success: false, error: "Selecione o pacote do contrato." };
+    monthlyFee = plan.price;
+    packageFields = {
+      billing_mode: billingModeForPlan(plan),
+      sessions_per_month: plan.sessions,
+      unit_price: Math.round((plan.price / plan.sessions) * 100) / 100,
+    };
+  }
+
   if (!Number.isFinite(monthlyFee) || monthlyFee <= 0) {
     return { success: false, error: "Informe uma mensalidade válida." };
   }
   if (!Number.isInteger(paymentDay) || paymentDay < 1 || paymentDay > 31) {
     return { success: false, error: "O dia de vencimento precisa ser entre 1 e 31." };
   }
-
-  const supabase = await createClient();
 
   // Paciente com plano de saúde não entra em contrato "particular puro".
   if (planType === "particular") {
@@ -58,6 +77,7 @@ export async function createContract(formData: FormData): Promise<ActionResult> 
     payment_day: paymentDay,
     start_date: startDate || undefined,
     notes: notes || null,
+    ...(packageFields ?? {}),
   });
 
   if (error) {
