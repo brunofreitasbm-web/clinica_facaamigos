@@ -14,6 +14,7 @@ import {
   isPureGreeting,
   sitePrefillIntent,
 } from "@/lib/greeting-pure";
+import { isInactiveForMenuReset, shouldDiscardSession } from "@/lib/menu-reset-pure";
 
 /**
  * Cliente Twilio configurado via variáveis de ambiente.
@@ -678,6 +679,33 @@ export async function handleTwilioIncomingMessage(params: {
     // Exceção: `intake_awaiting_documents` — ali o arquivo é do lead e só entra
     // no prontuário depois da aprovação da supervisão.
     const hasMedia = Boolean(media && media.length > 0);
+    // 0.55 Reinício do menu após 48 h de silêncio do contato: descarta a sessão
+    // de fluxo esquecida (AGENDAR, pré-anamnese, acolhimento...) e manda o menu
+    // do zero, valendo também para paciente. Roda antes dos passos 0.6/0.65,
+    // senão a sessão velha captura o "Oi". Não age com humano na conversa, com o
+    // bot pausado, nem em mensagem com anexo (o documento segue para o bot dono).
+    // `conversation.last_inbound_at` ainda é o da mensagem ANTERIOR (o update
+    // acima só afeta o banco).
+    if (conversation.is_bot_active && !hasMedia && isInactiveForMenuReset(conversation.last_inbound_at, Date.now())) {
+      try {
+        const { getChatbotSettings: loadBotSettings } = await import("./twilio-faq-bot");
+        if ((await loadBotSettings(DEV_CLINIC_ID)).botEnabled) {
+          const { data: session } = await supabase.from("chatbot_sessions").select("current_step, flow").eq("phone_number", phone).maybeSingle();
+          if (shouldDiscardSession(session)) {
+            await supabase
+              .from("chatbot_sessions")
+              .update({ current_step: "idle", flow: null, lead_id: null, collected_data: {}, updated_at: new Date().toISOString() })
+              .eq("phone_number", phone);
+          }
+          const { sendMainMenu } = await import("./welcome-menu");
+          const menu = await sendMainMenu({ phone, conversationId });
+          return { intent: "menu_inicial", replyMessage: menu.replyMessage };
+        }
+      } catch (err) {
+        console.error("[Twilio Menu Reset Error]:", err);
+      }
+    }
+
     const stepBeforeBots = hasMedia && patientId ? await readSessionStep(phone) : "";
     const mirrorIfPatient = async () => {
       if (!hasMedia || !patientId || !media) return;
