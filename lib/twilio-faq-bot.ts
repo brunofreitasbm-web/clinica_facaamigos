@@ -143,30 +143,6 @@ function knowledgeKey(clinicId: string, kind: ConversationKind): string {
   return `${clinicId}:${kind}`;
 }
 
-/** Linha de `insurer_price_tables` do convênio Particular (só os campos usados no prompt). */
-type ParticularPriceRow = { procedure_code: string; procedure_name: string; price: number | string; session_frequency_note: string | null };
-
-/**
- * Bloco "VALORES PARTICULAR" do prompt: só os PLANOS MENSAIS (`PART-PLANO-*`) e a
- * avaliação neuropsicológica (`PART-AVAL-NEURO`). As linhas por terapia (R$ 190
- * cada, usadas só no faturamento por sessão) ficam de fora para a IA não citar
- * preço por terapia. O número de sessões vem do início da observação ("8 sessões/mês").
- */
-export function buildParticularPricesBlock(rows: ParticularPriceRow[]): string {
-  const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-  const plans = rows
-    .filter((r) => r.procedure_code.startsWith("PART-PLANO-"))
-    .map((r) => ({ name: r.procedure_name.replace(/^Plano /, ""), price: Number(r.price), sessions: Number(/^(\d+) sess/.exec(r.session_frequency_note ?? "")?.[1] ?? 0) }))
-    .sort((a, b) => a.price - b.price);
-  const lines = plans.map((p) => {
-    const perSession = p.sessions > 1 ? ` (cerca de ${brl.format(p.price / p.sessions)} por sessão)` : "";
-    return p.sessions > 0 ? `${p.name} — ${p.sessions} sessão(ões)/mês: ${brl.format(p.price)}${perSession}` : `${p.name}: ${brl.format(p.price)}`;
-  });
-  const neuro = rows.find((r) => r.procedure_code === "PART-AVAL-NEURO");
-  if (neuro) lines.push(`Avaliação Neuropsicológica (valor fechado, fora dos planos): ${brl.format(Number(neuro.price))}`);
-  return lines.join("; ");
-}
-
 /**
  * Invalida imediatamente o cache de conhecimento e de configurações do chatbot
  * para garantir sincronização em tempo real quando FAQs, terapias ou salas mudam.
@@ -202,7 +178,7 @@ async function loadFaqKnowledge(
   // família" (ele não tem portal).
   const audiences: FaqAudience[] = ["ambos", kind === "patient" ? "paciente" : "lead"];
 
-  const [faqRes, insurersRes, typesRes, particularPricesRes, hoursRes] = await Promise.all([
+  const [faqRes, insurersRes, typesRes, hoursRes] = await Promise.all([
     supabase
       .from("clinic_faq")
       .select("question, answer, keywords, category, audience")
@@ -217,17 +193,6 @@ async function loadFaqKnowledge(
       .eq("clinic_id", clinicId)
       .eq("active", true)
       .order("name"),
-    // Preço particular por terapia — tabela de preços do convênio
-    // "Particular" (/gestor/cadastros/convenios/[id]/precos). Diferente dos
-    // demais convênios (nunca expostos pelo bot), o gestor decidiu que o valor
-    // particular PODE ser informado direto no WhatsApp (regra 6 do prompt).
-    supabase
-      .from("insurer_price_tables")
-      .select("procedure_code, procedure_name, price, duration_minutes, valid_from, valid_to, session_frequency_note, insurers!inner(name, clinic_id, active)")
-      .eq("insurers.clinic_id", clinicId)
-      .eq("insurers.active", true)
-      .ilike("insurers.name", PARTICULAR_INSURER_NAME)
-      .order("procedure_name"),
     // Horário comercial da recepção (clinic_business_hours, migration
     // 20260920000000) — é o mesmo relógio que mede o tempo de resposta
     // humana, então o que o bot promete e o que o KPI cobra não divergem.
@@ -266,11 +231,6 @@ async function loadFaqKnowledge(
 
   const businessHoursBlock = formatBusinessHours(hoursRes.data ?? []);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const particularPricesBlock = buildParticularPricesBlock(
-    (particularPricesRes.data ?? []).filter((p) => p.valid_from <= today && (!p.valid_to || p.valid_to >= today)),
-  );
-
   const agendaStatusNote = (await getChatbotSettings(clinicId)).agendaStatusNote;
 
   const text = [
@@ -283,8 +243,8 @@ async function loadFaqKnowledge(
     "=== TIPOS DE ATENDIMENTO E DURAÇÃO ===",
     typesBlock || "(não cadastrado)",
     "",
-    "=== VALORES PARTICULAR (sem convênio): PLANOS MENSAIS ===",
-    particularPricesBlock || "(nenhum valor particular cadastrado — escale pra equipe humana se perguntarem)",
+    "=== VALORES PARTICULAR ===",
+    "(valores NÃO são escritos em texto: o bot envia a arte dos pacotes — ver regra 6)",
     "",
     "=== HORÁRIO COMERCIAL DA RECEPÇÃO (atendimento humano) ===",
     businessHoursBlock || "(não cadastrado — não prometa horário nenhum)",
@@ -323,7 +283,7 @@ REGRAS OBRIGATÓRIAS:
 3. ATENDIMENTO EMPÁTICO AOS PAIS E RESPONSÁVEIS: Fale diretamente com o pai, mãe ou responsável legal. Trate a família com carinho, respeito, clareza e acolhimento.
 4. EMOJIS ACOLHEDORES: Use emojis integrativos e carinhosos (ex.: 💙, 🧩, 🎈, 🌱, 🤝, ✨) de forma harmoniosa nas mensagens.
 5. NUNCA INVENTE: Responda APENAS com base nas informações acima. Se a resposta não estiver ali ou a dúvida não for coberta pela base, NUNCA invente: escale para a equipe humana.
-6. POLÍTICA DE VALORES: Quando a pessoa perguntar o valor de atendimento PARTICULAR (sem convênio), informe os PLANOS MENSAIS da seção "VALORES PARTICULAR" acima, com exatamente esses números — nunca arredonde ou estime, e não escale por isso. O valor NÃO varia por terapia. Regras dos planos: (a) o plano é um número de sessões por mês e a família pode combinar terapias diferentes dentro dele (ex.: 4 de Fono + 4 de TO); (b) a avaliação inicial conta como 1 sessão do plano contratado, e sem plano é uma sessão avulsa de R$ 190; (c) cada bloco de Treino ABA (3 sessões seguidas) conta como 3 sessões do plano; (d) a avaliação neuropsicológica tem valor fechado, fora dos planos; (e) parcelamos em até 3x no cartão. Apresente o valor do cuidado antes do preço e convide a pessoa a agendar a avaliação. Valores de convênio (reembolso, coparticipação, tabela do plano) NÃO estão nesta base e NUNCA devem ser informados: escale para a equipe humana ("escalar": true, "motivo": "fora_da_base").
+6. POLÍTICA DE VALORES: preço é venda consultiva e NUNCA vai escrito em texto. Quando a pessoa perguntar valor, preço, pacote ou plano de atendimento PARTICULAR, responda curto e acolhedor SEM números e marque "enviar_arte_precos": true (o sistema envia a arte dos pacotes e passa a conversa para a equipe; não escale por conta própria). Se não estiver claro se é convênio ou particular, pergunte primeiro em uma frase ("é por convênio ou particular?") com "enviar_arte_precos": false. Valores de convênio (reembolso, coparticipação, tabela do plano) NÃO estão nesta base e NUNCA devem ser informados: escale para a equipe humana ("escalar": true, "motivo": "fora_da_base"). Regras que você pode explicar sem citar valores: a avaliação inicial conta como 1 sessão do plano; o plano é um número de sessões por mês e a família combina terapias dentro dele; parcelamos em até 3x no cartão.
 7. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
 8. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
 9. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
@@ -334,7 +294,7 @@ REGRAS OBRIGATÓRIAS:
 13.1 VAGA DE EMPREGO ≠ VAGA NA AGENDA: a maioria das pessoas que escreve "vaga" está perguntando por HORÁRIO DISPONÍVEL para atendimento do filho — isso é agendamento (regra 10), NUNCA "emprego". Exemplos que são AGENDAMENTO ("intent": "agendamento" ou "horarios", nunca "emprego"): "vocês têm vaga para avaliação?", "tem vaga essa semana?", "abriu vaga na terça de manhã?", "estão com vaga para fono?", "tem vaga pelo plano?", "quando abre vaga para ABA?". Exemplos que são EMPREGO: "vocês têm vaga de emprego?", "estão contratando psicóloga?", "posso mandar meu currículo?", "tem vaga para estágio?", "sou fonoaudióloga recém-formada, tem oportunidade de trabalho aí?". Só use "emprego" quando a mensagem disser com todas as letras que é trabalho/currículo/estágio/contratação — a palavra "vaga" sozinha NUNCA basta. Se ficar genuinamente em dúvida (ex.: "vocês têm vaga?" e o histórico não esclarece), NÃO use "emprego": pergunte em uma frase curta se é vaga na nossa agenda de atendimento ou vaga de trabalho ("intent": "outro", "escalar": false) e siga a resposta da pessoa.
 14. MENSAGENS DE ÁUDIO: este contato não recebe mensagens de áudio — ninguém ouve notas de voz por aqui. Se a pessoa mandar áudio ou disser que vai mandar, peça com carinho que escreva a dúvida em texto. Nunca diga que vai ouvir depois nem que a equipe vai escutar o áudio.
 15. HORÁRIO DO ATENDIMENTO HUMANO: sempre que avisar que a equipe/recepção vai responder (qualquer escalonamento, inclusive pedido de relatório), diga que o retorno acontece em horário comercial, citando exatamente a grade da seção "HORÁRIO COMERCIAL DA RECEPÇÃO" acima. Se a seção estiver vazia, diga apenas "em horário comercial", sem inventar horários. Você (assistente virtual) continua respondendo a qualquer hora — o horário vale para a resposta humana.
-16. PLANO QUE NÃO ATENDEMOS (inclusive SUS): se a pessoa perguntar por um plano que NÃO está na seção "CONVÊNIOS ATENDIDOS" (ex.: Unimed, Hapvida, Amazônia Saúde, SUS), responda com clareza que hoje não atendemos esse plano diretamente, que o atendimento seria PARTICULAR e que emitimos nota fiscal e relatório para ela pedir o reembolso ao plano dela. Ofereça os valores particulares da seção "VALORES PARTICULAR". NÃO escale por isso ("escalar": false, "intent": "planos") e deixe "convenio" como null — nunca diga que "em breve" atenderemos o plano, a menos que a base diga isso.
+16. PLANO QUE NÃO ATENDEMOS (inclusive SUS): se a pessoa perguntar por um plano que NÃO está na seção "CONVÊNIOS ATENDIDOS" (ex.: Unimed, Hapvida, Amazônia Saúde, SUS), responda com clareza que hoje não atendemos esse plano diretamente, que o atendimento seria PARTICULAR e que emitimos nota fiscal e relatório para ela pedir o reembolso ao plano dela. Se pedirem os valores, siga a regra 6 (arte dos pacotes). NÃO escale por isso ("escalar": false, "intent": "planos") e deixe "convenio" como null — nunca diga que "em breve" atenderemos o plano, a menos que a base diga isso.
 17. LISTA DE ESPERA E PREVISÃO DE AGENDA: a seção "SITUAÇÃO ATUAL DA AGENDA" é a única fonte sobre vagas, prazos e previsão de início — cite-a quando perguntarem "tem vaga?", "qual a previsão?", "quero entrar na lista de espera". Se ela estiver vazia, diga que a recepção confirma a disponibilidade e NUNCA invente prazo. Quando a pessoa quiser entrar na lista de espera (ou a seção disser que a agenda está em lista de espera e ela quiser iniciar), reúna em UMA mensagem o que ainda não foi dito no histórico — nome e idade da criança, plano de saúde (ou particular) e terapia/avaliação desejada — e, com esses dados (mesmo incompletos após uma segunda tentativa), ESCALE com "escalar": true, "motivo": "lista_espera", "intent": "lista_espera", resumindo o que foi coletado no campo "resposta" (ex.: "Anotado! 💛 *Criança:* João, 5 anos · *Plano:* IASEP · *Terapia:* fono. A recepção confirma sua entrada na lista e retorna por aqui em horário comercial.").
 18. O QUE A BASE NÃO DIZ: faixa etária atendida, se atendemos adultos, terapias que não estão nas seções acima (ex.: fisioterapia, TCC, acompanhante terapêutico), quais terapias cada convênio autoriza, visita à clínica e número de sessões por semana — se a base não responder explicitamente, escale ("fora_da_base") sem afirmar nem negar. NUNCA diga "atendemos só crianças" nem "não temos essa terapia" por conta própria.
 19. MAPEAMENTO COMPORTAMENTAL: é o questionário gratuito e educativo do site (não é diagnóstico). Quem o cita quer conversar sobre o resultado: acolha, colete nome e idade da criança e o plano (ou particular) e siga a regra 17 (lista de espera) ou a regra 10 (agendar), conforme a situação da agenda.
@@ -357,11 +317,12 @@ Ao escalar por "fora_da_base", "clinico" ou "pediu_humano", o campo "resposta" d
 IDENTIFICAÇÃO DO PLANO: sempre que a pessoa disser QUAL plano de saúde a criança/paciente tem (ex.: "meu filho tem Unimed", "somos particular"), preencha "convenio" com o nome do plano exatamente como está na lista de CONVÊNIOS cadastrados acima (ou "Particular" se ela disser que é particular e esse nome estiver na lista). Perguntar se a clínica atende um plano NÃO conta — só quando ela afirma que possui o plano. Se o plano citado não estiver na lista, ou se ainda não souber, use null (e mantenha o valor se já foi dito antes no histórico).
 
 Responda SEMPRE em JSON válido, exatamente neste formato:
-{"resposta": "texto para enviar no WhatsApp", "escalar": false, "motivo": null, "intent": "planos", "convenio": null, "relatorio_dados": null, "concluido": false}
+{"resposta": "texto para enviar no WhatsApp", "escalar": false, "motivo": null, "intent": "planos", "convenio": null, "relatorio_dados": null, "concluido": false, "enviar_arte_precos": false}
 
 "motivo" é null quando escalar for false, senão um de: "fora_da_base", "clinico", "pediu_humano", "relatorio", "lista_espera".
 "intent" é um de: "planos", "valores", "local", "horarios", "terapias", "agendamento", "lista_espera", "relatorio", "emprego", "outro". Use "emprego" APENAS para currículo/contratação/estágio (regras 13 e 13.1) — é sempre a última mensagem do bot naquela conversa; pergunta sobre vaga/horário disponível para atendimento é "agendamento" ou "horarios".
 "relatorio_dados" é null exceto quando motivo="relatorio", caso em que é um objeto {"crianca": string ou null, "plano": string ou null, "carteirinha": string ou null (número do cartão do plano; null se particular ou não informado), "documento": string ou null, "terapeuta": string ou null}.
+"enviar_arte_precos" é true SOMENTE quando a pessoa pergunta preço/valor/pacote de atendimento PARTICULAR (regra 6); em qualquer outro caso é false.
 "concluido" é true SOMENTE quando a pessoa deu a conversa por encerrada (ex.: "obrigada, era só isso", "tchau", "ok, vou pensar") e a sua "resposta" é apenas a despedida, sem fazer nenhuma pergunta nem deixar nada pendente; em qualquer outro caso é false. Nunca é true junto com "escalar": true.`;
 }
 
@@ -392,7 +353,22 @@ type FaqModelOutput = {
   convenio?: string | null;
   relatorio_dados?: ReportRequestData | null;
   concluido?: boolean;
+  /** true quando pergunta preço de atendimento PARTICULAR: envia a arte dos pacotes e passa para a equipe. */
+  enviar_arte_precos?: boolean;
 };
+
+/** A arte de preços já foi enviada nesta conversa (menu Particular ou pergunta livre)? */
+async function alreadySentPricesArt(conversationId: string): Promise<boolean> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const { data } = await createAdminClient()
+    .from("messages")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "outbound")
+    .in("intent", ["part_valores", "faq_valores_particular"])
+    .limit(1);
+  return (data ?? []).length > 0;
+}
 
 async function loadHistory(conversationId: string): Promise<Array<{ role: "user" | "model"; content: string }>> {
   const { createAdminClient } = await import("@/lib/supabase/admin");
@@ -783,6 +759,15 @@ export async function processFaqBotStep(params: {
     }
     if (conversationId) await closeConversationAfterFinalReply(conversationId);
     return { handled: true, replyMessage: reply, intent: "faq_emprego", escalated: false, concluded: true };
+  }
+
+  // Pergunta de preço PARTICULAR: preço é venda consultiva. Nenhum valor vai em
+  // texto — o bot manda a arte dos pacotes e passa para a equipe. A arte sai
+  // uma vez por conversa; se já foi enviada, só segue o fluxo normal.
+  if (parsed.enviar_arte_precos === true && conversationId && !(await alreadySentPricesArt(conversationId))) {
+    const { sendParticularPricesArtAndHandoff, FAQ_PRICES_ART_INTENT } = await import("./welcome-menu");
+    const art = await sendParticularPricesArtAndHandoff({ phone, conversationId });
+    return { handled: true, replyMessage: art.replyMessage, intent: FAQ_PRICES_ART_INTENT, escalated: true };
   }
 
   const shouldEscalate = parsed.escalar === true;

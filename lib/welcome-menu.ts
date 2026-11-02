@@ -198,6 +198,26 @@ async function sendParticularValues(ctx: { phone: string; conversationId: string
   });
 }
 
+/** Intent da arte de preços enviada a partir de pergunta livre (fora do menu). */
+export const FAQ_PRICES_ART_INTENT = "faq_valores_particular";
+
+const PRICES_ART_CAPTION =
+  "Estes são os nossos pacotes mensais. 💙 A quantidade e a distribuição das terapias dependem de cada criança: " +
+  "a equipe vai conversar com você para montar a melhor opção. Parcelamos em até 3x no cartão.";
+
+/**
+ * Pergunta livre de preço particular (agente de FAQ): envia a arte dos pacotes
+ * e passa a conversa para a equipe humana (venda consultiva). Nenhum valor vai
+ * escrito em texto: o preço mora só na arte. Sem imagem, vai só o texto.
+ */
+export async function sendParticularPricesArtAndHandoff(ctx: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {
+  const { getChatbotSettings } = await import("./twilio-faq-bot");
+  const settings = await getChatbotSettings(DEV_CLINIC_ID);
+  const imageUrl = settings.particularPricesImageUrl || `${APP_ORIGIN}${DEFAULT_PARTICULAR_PRICES_IMAGE_PATH}`;
+  const text = await handoff(ctx.conversationId, "particular", PRICES_ART_CAPTION);
+  return deliver({ ...ctx, text, intent: FAQ_PRICES_ART_INTENT, mediaUrl: imageUrl });
+}
+
 async function runChoice(id: string, ctx: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {
   switch (id) {
     case "menu_particular":
