@@ -17,6 +17,8 @@ import { RequestReschedule } from "./request-reschedule";
 import { UploadDocument } from "./upload-document";
 import { PatientPhotoUpload } from "./patient-photo-upload";
 import { LgpdConsentGate } from "./lgpd-consent-gate";
+import { WifiCouponCard } from "./wifi-coupon-card";
+import { fetchWifiCoupon } from "@/lib/wifi-coupon";
 import { ImageConsentToggle } from "./image-consent-toggle";
 import { FAMILY_GUIDANCE_LABEL } from "@/lib/session-note-fields";
 import { BrandLockup } from "@/components/brand/brand-lockup";
@@ -219,7 +221,7 @@ export default async function FamiliaPage({
     // Ponte responsável → guardian_id (+ consentimento LGPD/imagem, §3.9)
     supabase
       .from("guardians")
-      .select("id, lgpd_consent_at, image_consent")
+      .select("id, full_name, phone, email, lgpd_consent_at, image_consent")
       .eq("patient_id", patientId)
       .eq("profile_id", user.id)
       .maybeSingle(),
@@ -310,6 +312,10 @@ export default async function FamiliaPage({
         .maybeSingle()
     : { data: null };
   const showSurveyPrompt = !!guardianRow && !existingSurvey;
+  // Cupom do Wi-Fi (só consulta; quem gera é o botão "Pegar meu cupom"). Falha ou ausência de config = não mostra.
+  const wifiCoupon = guardianRow?.lgpd_consent_at
+    ? await fetchWifiCoupon(guardianRow, { issue: false }).catch(() => null)
+    : null;
 
   // NPS Externo (evento/mensal) — disparado por /api/twilio/nps/trigger e
   // /api/twilio/nps-mensal/trigger, mas respondido só aqui no portal (nunca
@@ -560,6 +566,8 @@ export default async function FamiliaPage({
         {pendingNpsSurvey && (
           <NpsSurveyPrompt surveyId={pendingNpsSurvey.id} triggerType={pendingNpsSurvey.trigger_type ?? "evaluation"} />
         )}
+
+        {wifiCoupon && <WifiCouponCard coupon={wifiCoupon} />}
 
         {showSurveyPrompt && guardianRow && (
           <SurveyPrompt patientId={patientId} guardianId={guardianRow.id} />
