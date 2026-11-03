@@ -41,7 +41,15 @@ const toAlert = (r: ConversationRecord): ParticularAlertConversation => ({
  * agir — marcar como particular, assumir a conversa ou ela ser encerrada.
  * RLS de twilio_conversations já limita o que o canal realtime entrega.
  */
-export function ParticularSaleAlert() {
+export function ParticularSaleAlert({
+  conversationHref = (id) => `/recepcao/atendimento?c=${id}`,
+  placement = "bottom",
+}: {
+  /** Destino do "Abrir conversa" — o PWA mobile tem rota própria por conversa. */
+  conversationHref?: (conversationId: string) => string;
+  /** No celular fica no topo (respeitando a área segura) para não cobrir o campo de mensagem. */
+  placement?: "bottom" | "top";
+} = {}) {
   const router = useRouter();
   const [items, setItems] = useState<ParticularAlertConversation[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +116,9 @@ export function ParticularSaleAlert() {
   if (items.length === 0) return null;
 
   return (
-    <div role="alertdialog" aria-live="assertive" aria-label="Venda particular aguardando" className="fixed bottom-4 right-4 z-40 flex w-[min(92vw,22rem)] flex-col gap-2">
+    <div role="alertdialog" aria-live="assertive" aria-label="Venda particular aguardando" className={`fixed right-4 z-40 flex w-[min(92vw,22rem)] flex-col gap-2 ${placement === "top" ? "" : "bottom-4"}`}
+      style={placement === "top" ? { top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" } : undefined}
+    >
       {items.map((c) => (
         <div
           key={c.id}
@@ -126,7 +136,7 @@ export function ParticularSaleAlert() {
             <button type="button" disabled={isPending} onClick={() => markParticular(c.id)} className="btn btn-primary text-xs">
               {isPending ? "Marcando…" : "Marcar particular e agendar"}
             </button>
-            <Link href={`/recepcao/atendimento?c=${c.id}`} className="btn text-xs">
+            <Link href={conversationHref(c.id)} className="btn text-xs">
               Abrir conversa
             </Link>
           </div>

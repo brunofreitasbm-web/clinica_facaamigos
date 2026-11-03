@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { ParticularSaleAlert } from "@/components/particular-sale-alert";
 
 /**
  * Layout do PWA "Atendimento" (mobile). Diferente de app/recepcao/layout.tsx,
@@ -26,5 +27,10 @@ export const viewport: Viewport = {
 };
 
 export default function MobileAtendimentoLayout({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {children}
+      <ParticularSaleAlert placement="top" conversationHref={(id) => `/m/atendimento/${id}`} />
+    </div>
+  );
 }
