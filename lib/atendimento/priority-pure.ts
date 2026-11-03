@@ -24,6 +24,13 @@ export function priorityLabel(reason: string | null): string {
   return reason === "pediu_humano" ? "Prioridade · Pediu humano" : "Prioridade · Particular";
 }
 
+/** Atendimento particular tem identidade visual própria (violeta, pisca mais rápido) para não se confundir com "pediu humano" (vermelho). */
+export function isParticularPriority(reason: string | null): boolean {
+  return reason !== "pediu_humano";
+}
+
+export const PARTICULAR_PRIORITY_COLOR = "#7c3aed";
+
 /** Prioridades primeiro; dentro de cada grupo mantém a ordem recebida (já por última mensagem). */
 export function prioritizeConversations<T extends PriorityInput>(rows: T[]): T[] {
   return [...rows.filter(isPriorityEscalation), ...rows.filter((c) => !isPriorityEscalation(c))];
