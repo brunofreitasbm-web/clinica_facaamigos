@@ -5,6 +5,7 @@ import { getReceptionQueue, isAuthorizationQueueItem, isPendingQueueItem } from 
 import { RecepcaoNav } from "@/components/recepcao-nav";
 import { BonusFloatingWidget } from "@/components/bonus-floating-widget";
 import { DoorListAutoPrint } from "@/components/door-list-auto-print";
+import { ParticularSaleAlert } from "@/components/particular-sale-alert";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export default async function RecepcaoLayout({ children, modal }: { children: Re
       {modal}
       <BonusFloatingWidget />
       <DoorListAutoPrint />
+      <ParticularSaleAlert />
     </div>
   );
 }

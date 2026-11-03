@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ClipboardList, Copy, FileText } from "lucide-react";
+import { CalendarCheck, ClipboardList, Copy, FileText } from "lucide-react";
+import { markConversationParticularAndSchedule } from "@/app/recepcao/pacientes/pendencias/draft-pipeline-actions";
 import { createClient } from "@/lib/supabase/client";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
@@ -98,6 +99,20 @@ export function ContactSheet({
       return;
     }
     router.push(`/recepcao/pacientes/pendencias?lead=${result.draftId}`);
+  };
+
+  const handleMarkParticular = async () => {
+    if (!window.confirm("Marcar como particular? O contato pula as Autorizações e vai direto para o agendamento da 1ª avaliação.")) return;
+    setError(null);
+    setIsPending(true);
+    const result = await markConversationParticularAndSchedule(conversation.id);
+    setIsPending(false);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    onPatch({ escalationReason: null });
+    router.push(`/recepcao/pre-cadastros/${result.draftId}`);
   };
 
   return (
@@ -247,6 +262,16 @@ export function ContactSheet({
             >
               <ClipboardList size={16} />
               {isPending ? "Abrindo…" : "Resolver pendências"}
+            </button>
+
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleMarkParticular}
+              className="btn btn-secondary w-full justify-center gap-1.5"
+            >
+              <CalendarCheck size={16} />
+              Particular: agendar direto
             </button>
           </>
         )}

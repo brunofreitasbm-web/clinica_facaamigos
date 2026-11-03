@@ -8,6 +8,8 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { promoteToPatient } from "@/lib/patient-stage";
 import { parseAuthorizedGuideText, type GuideProcedure, type ParsedAuthorizedGuide } from "@/lib/authorized-guide-parser";
 import { startEvaluationOffer } from "@/lib/evaluation-offer";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
 
 /**
  * Etapas 2, 3 e 4 da linha do tempo de cada contato da fila de pendências
@@ -407,6 +409,15 @@ export async function undoDraftAuthorization(draftId: string): Promise<ActionRes
  * (autorizada ou dispensada) — agendar sem isso é o que gerava atendimento sem guia.
  */
 export async function enableDraftScheduling(draftId: string): Promise<ActionResult> {
+  return enableDraftSchedulingImpl(draftId, {});
+}
+
+/**
+ * `skipOffer`: habilita sem disparar a oferta automática de 3 horários por
+ * WhatsApp — usado no fluxo "particular direto do chat", em que o supervisor
+ * escolhe e oferta os horários na Agenda 1ª Avaliação.
+ */
+async function enableDraftSchedulingImpl(draftId: string, opts: { skipOffer?: boolean }): Promise<ActionResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
 
@@ -442,7 +453,7 @@ export async function enableDraftScheduling(draftId: string): Promise<ActionResu
   // recepção ainda pode avisar a família pelo botão de WhatsApp manual.
   let offer: "sent" | "duplicate" | "failed" | undefined;
   let offerNote: string | undefined;
-  if ((draft.plan_authorized_at || draft.authorization_waived) && draft.patient_id) {
+  if (!opts.skipOffer && (draft.plan_authorized_at || draft.authorization_waived) && draft.patient_id) {
     try {
       const started = await startEvaluationOffer({ patientId: draft.patient_id, draftId });
       if (started.status === "sent") {
@@ -485,4 +496,68 @@ export async function disableDraftScheduling(draftId: string): Promise<ActionRes
 
   refresh();
   return { success: true };
+}
+
+/**
+ * Particular direto do chat: quem atende (supervisor ou recepção) marca a
+ * conversa como venda particular e o contato pula a fila de Autorizações —
+ * vira rascunho já dispensado e habilitado para a Agenda 1ª Avaliação, sem
+ * oferta automática de horários (o supervisor oferta pela agenda).
+ *
+ * Regra de duplicidade (AGENTS.md #3): se o telefone já tem processo de
+ * agendamento habilitado, não abre rascunho paralelo — devolve o existente.
+ * Contato com plano de saúde é barrado por waiveDraftAuthorization.
+ */
+export async function markConversationParticularAndSchedule(
+  conversationId: string,
+): Promise<{ success: true; draftId: string; note?: string } | { success: false; error: string }> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+
+  const { data: conversation } = await supabase
+    .from("twilio_conversations")
+    .select("id, phone_number, patient_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (!conversation) return { success: false, error: "Conversa não encontrada." };
+  if (!conversation.phone_number) return { success: false, error: "Contato sem telefone." };
+
+  const { data: scheduled } = await supabase
+    .from("registration_drafts")
+    .select("id")
+    .eq("source", "whatsapp")
+    .eq("source_phone", conversation.phone_number)
+    .not("scheduling_enabled_at", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let draftId = scheduled?.id ?? null;
+  let note: string | undefined;
+  if (draftId) {
+    note = "Este número já tem agendamento habilitado — nada foi duplicado.";
+  } else {
+    const draft = await findOrCreateOpenWhatsappDraft(createAdminClient(), conversation.phone_number, {
+      patientId: conversation.patient_id,
+      status: "pending",
+    });
+    if (!draft) return { success: false, error: "Não foi possível abrir o cadastro deste contato." };
+    draftId = draft.id;
+
+    const waived = await waiveDraftAuthorization(draftId);
+    if (!waived.success) return waived;
+    const enabled = await enableDraftSchedulingImpl(draftId, { skipOffer: true });
+    if (!enabled.success) return enabled;
+    note = enabled.note;
+  }
+
+  // Encerra o destaque/pop-up: a conversa deixa de ser "particular_agendar" pendente.
+  await supabase
+    .from("twilio_conversations")
+    .update({ escalation_reason: null, assigned_to: user.id, is_bot_active: false })
+    .eq("id", conversationId);
+
+  refresh();
+  revalidatePath("/recepcao/atendimento");
+  return { success: true, draftId, note };
 }

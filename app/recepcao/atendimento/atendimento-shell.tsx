@@ -48,6 +48,7 @@ export type ChatbotAdminData = {
 
 export function AtendimentoShell({
   initialConversations,
+  initialSelectedId = null,
   chatbotAdmin,
   currentUserId,
   staffNames,
@@ -55,6 +56,8 @@ export function AtendimentoShell({
   loadError = null,
 }: {
   initialConversations: ConversationRow[];
+  /** Conversa a abrir já selecionada (link do pop-up de venda particular: ?c=<id>). */
+  initialSelectedId?: string | null;
   chatbotAdmin: ChatbotAdminData | null;
   currentUserId: string | null;
   staffNames: Record<string, string>;
@@ -62,7 +65,9 @@ export function AtendimentoShell({
   loadError?: string | null;
 }) {
   const [conversations, setConversations] = useState<ConversationRow[]>(initialConversations);
-  const [selectedId, setSelectedId] = useState<string | null>(initialConversations[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialConversations.find((c) => c.id === initialSelectedId)?.id ?? initialConversations[0]?.id ?? null,
+  );
   const [activeTab, setActiveTab] = useState<"conversas" | "chatbot">("conversas");
   const [filter, setFilter] = useState<ConversationFilter>("abertas");
   const [search, setSearch] = useState("");
