@@ -4,7 +4,7 @@
 // 1ª avaliação (lib/evaluation-offer.ts) e envia os que exigem aprovação para
 // a Meta como UTILITY:
 //
-//   offer     "O plano autorizou o atendimento de {{2}} — podemos agendar?"     [Quero agendar] [Agora não]
+//   offer     "A 1ª avaliação de {{2}} está liberada para agendamento — podemos agendar?"  [Quero agendar] [Agora não]
 //   reminder  lembrete com 24h sem resposta                                      [Ver horários]  [Agora não]
 //   confirm   confirmação final do horário + orientações do dia (v2)             (sem botões)
 //   list      menu com 3 horários — mensagem de SESSÃO (janela de 24h aberta pela
@@ -58,15 +58,17 @@ type Template = {
 
 // Regras da Meta para aprovar: corpo não começa nem termina com variável e
 // nenhuma variável fica ao lado de outra. Por isso todos fecham com a BRAND_LINE.
+// Texto NEUTRO de propósito: o mesmo template atende convênio e particular. A versão anterior
+// ("O plano de saúde autorizou…") era falsa para famílias particulares. Texto novo = template novo na Meta.
 const OFFER_BODY =
   "Olá, {{1}}! 💙\n\n" +
-  "O plano de saúde autorizou o atendimento de {{2}} no FaçaAmigos.\n\n" +
-  "Podemos agendar a 1ª avaliação agora? Toque em uma das opções abaixo.\n\n" +
+  "A 1ª avaliação de {{2}} no FaçaAmigos está liberada para agendamento.\n\n" +
+  "Podemos agendar agora? Toque em uma das opções abaixo.\n\n" +
   BRAND_LINE;
 
 const REMINDER_BODY =
   "Olá, {{1}}! 💙\n\n" +
-  "Ainda aguardamos sua resposta para agendar a 1ª avaliação de {{2}}, autorizada pelo plano de saúde. " +
+  "Ainda aguardamos sua resposta para agendar a 1ª avaliação de {{2}}. " +
   "Toque em uma das opções abaixo.\n\n" +
   BRAND_LINE;
 
@@ -106,8 +108,8 @@ const LIST_BODY = "{{1}}\n\n" + BRAND_LINE;
 const TEMPLATES: Template[] = [
   {
     key: "offer",
-    metaName: "fa_clinica_plano_autorizado",
-    friendlyName: "fa_clinica_plano_autorizado_v1",
+    metaName: "fa_clinica_avaliacao_liberada",
+    friendlyName: "fa_clinica_avaliacao_liberada_v1",
     envVar: "TWILIO_EVAL_OFFER_TEMPLATE_CONTENT_SID",
     needsApproval: true,
     variables: { "1": "Nome do responsável", "2": "Nome da criança" },
@@ -124,8 +126,8 @@ const TEMPLATES: Template[] = [
   },
   {
     key: "reminder",
-    metaName: "fa_clinica_lembrete_agendamento",
-    friendlyName: "fa_clinica_lembrete_agendamento_v1",
+    metaName: "fa_clinica_lembrete_agendamento_v2",
+    friendlyName: "fa_clinica_lembrete_agendamento_v2",
     envVar: "TWILIO_EVAL_REMINDER_TEMPLATE_CONTENT_SID",
     needsApproval: true,
     variables: { "1": "Nome do responsável", "2": "Nome da criança" },

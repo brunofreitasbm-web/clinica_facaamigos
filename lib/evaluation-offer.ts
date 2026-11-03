@@ -572,7 +572,7 @@ export async function tickEvaluationOffers(nowMs: number = Date.now()): Promise<
       const { guardianName, childName } = await getOfferNames(admin, row.patient_id);
       const text =
         `Olá, ${guardianName}! 💙\n\n` +
-        `Ainda aguardamos sua resposta para agendar a 1ª avaliação de *${childName}*, autorizada pelo plano de saúde. ` +
+        `Ainda aguardamos sua resposta para agendar a 1ª avaliação de *${childName}*. ` +
         // Em texto livre, "1" já é o 1º horário de quem recebeu a lista; os botões do template (Ver horários) valem nos dois estados.
         (row.status === "aguardando_interesse"
           ? `Responda *1* para ver os horários, ou *2* se preferir deixar para depois.`
