@@ -8,7 +8,12 @@ import { SubNavBadges, ConversationFilter } from "@/src/components/Reception/Nav
 import type { ConversationRow } from "@/app/recepcao/atendimento/atendimento-shell";
 import { LastSenderIndicator } from "@/components/atendimento/last-sender-indicator";
 import { waitingSince } from "@/lib/atendimento/waiting";
-import { isPriorityEscalation, priorityLabel } from "@/lib/atendimento/priority-pure";
+import {
+  isParticularPriority,
+  isPriorityEscalation,
+  PARTICULAR_PRIORITY_COLOR,
+  priorityLabel,
+} from "@/lib/atendimento/priority-pure";
 
 const WAIT_ALERT_MINUTES = 15;
 
@@ -82,7 +87,9 @@ const ConversationItem = React.memo(function ConversationItem({
   // ainda empurrava o conteúdo 4px). Agora tudo é inset shadow: a urgência
   // (vermelho) prevalece na faixa, e a seleção também aparece no contorno.
   const shadows: string[] = [];
-  if (waitAlert) shadows.push("inset 4px 0 0 #dc2626");
+  const isParticular = isPriority && isParticularPriority(c.escalationReason);
+  if (isParticular) shadows.push(`inset 4px 0 0 ${PARTICULAR_PRIORITY_COLOR}`);
+  else if (waitAlert) shadows.push("inset 4px 0 0 #dc2626");
   else if (isSelected) shadows.push("inset 4px 0 0 #0d9488");
   if (isSelected && waitAlert) shadows.push("inset 0 0 0 2px #0d9488");
 
@@ -139,7 +146,12 @@ const ConversationItem = React.memo(function ConversationItem({
           )}
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] font-semibold">
-          {isPriority ? (
+          {isParticular ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-600 px-1.5 py-0.5 text-white animate-priority-blink">
+              <span aria-hidden className="h-[7px] w-[7px] rotate-45 bg-white" />
+              {priorityLabel(c.escalationReason)}
+            </span>
+          ) : isPriority ? (
             <span className="shrink-0 rounded-full bg-red-600 px-1.5 py-0.5 text-white motion-safe:animate-pulse">
               {priorityLabel(c.escalationReason)}
             </span>

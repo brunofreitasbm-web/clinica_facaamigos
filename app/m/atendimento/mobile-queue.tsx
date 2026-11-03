@@ -7,7 +7,12 @@ import { HealthPlanBadge } from "@/components/health-plan-badge";
 import type { ConversationFilter } from "@/lib/atendimento/filters";
 import type { ConversationRow } from "@/lib/atendimento/types";
 import { waitingSince } from "@/lib/atendimento/waiting";
-import { isPriorityEscalation, priorityLabel } from "@/lib/atendimento/priority-pure";
+import {
+  isParticularPriority,
+  isPriorityEscalation,
+  PARTICULAR_PRIORITY_COLOR,
+  priorityLabel,
+} from "@/lib/atendimento/priority-pure";
 import { LastSenderIndicator } from "@/components/atendimento/last-sender-indicator";
 
 export type MobileTab = "conversas" | "leads" | "encerradas";
@@ -299,6 +304,7 @@ export function MobileQueue({
             const waitMinutes = now !== null && waitStart ? minutesSince(waitStart) : null;
             const isPriority = isPriorityEscalation(c);
             const waitAlert = isPriority || (waitMinutes !== null && waitMinutes >= WAIT_ALERT_MINUTES);
+            const isParticular = isPriority && isParticularPriority(c.escalationReason);
             const assigneeName = c.assignedTo
               ? c.assignedTo === currentUserId
                 ? "você"
@@ -316,7 +322,11 @@ export function MobileQueue({
                   minHeight: 64,
                   padding: "10px 16px",
                   borderBottom: "1px solid var(--color-paper-line)",
-                  boxShadow: waitAlert ? "inset 3px 0 0 var(--color-error)" : undefined,
+                  boxShadow: isParticular
+                    ? `inset 3px 0 0 ${PARTICULAR_PRIORITY_COLOR}`
+                    : waitAlert
+                      ? "inset 3px 0 0 var(--color-error)"
+                      : undefined,
                 }}
               >
                 <span
@@ -357,7 +367,18 @@ export function MobileQueue({
                     className="mt-0.5 flex items-center gap-1.5 truncate text-[13px]"
                     style={{ color: "var(--color-neutral-500)" }}
                   >
-                    {isPriority ? (
+                    {isParticular ? (
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full text-[10px] font-extrabold animate-priority-blink"
+                        style={{ padding: "1px 6px", background: PARTICULAR_PRIORITY_COLOR, color: "#fff" }}
+                      >
+                        <span
+                          aria-hidden
+                          style={{ width: 6, height: 6, background: "#fff", transform: "rotate(45deg)" }}
+                        />
+                        {priorityLabel(c.escalationReason)}
+                      </span>
+                    ) : isPriority ? (
                       <span
                         className="shrink-0 rounded-full text-[10px] font-extrabold motion-safe:animate-pulse"
                         style={{ padding: "1px 6px", background: "var(--color-error)", color: "#fff" }}
