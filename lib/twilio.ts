@@ -881,23 +881,23 @@ export async function handleTwilioIncomingMessage(params: {
   // nesta conversa há pouco, não repete as boas-vindas: segue para o FAQ, cujo
   // prompt já considera o histórico.
   try {
-    // Botões "lista de espera", "mapeamento" e "menor de 4 anos" do site: o
-    // texto pronto já diz o que a pessoa quer — resposta fixa própria, sem IA
-    // (antes caíam no Gemini, que não conhece a lista de espera, ou no
-    // fallback de boas-vindas).
-    const prefill = detectSitePrefill(body);
-    if (prefill && prefill !== "info") {
-      return { intent: sitePrefillIntent(prefill), replyMessage: SITE_PREFILL_REPLIES[prefill] };
-    }
     // Menu inicial: todo contato novo (nenhuma resposta da clínica nas últimas
-    // 6 h) recebe o menu, mesmo que já traga uma pergunta — a resposta vem depois
-    // da escolha. Quem já é paciente só recebe o menu numa saudação pura; a
-    // pergunta dele segue para o agente de FAQ, com o histórico.
+    // 6 h) recebe o menu, qualquer que seja a mensagem de acionamento (texto
+    // livre, pergunta ou botão do site) — a resposta vem depois da escolha. Quem
+    // já é paciente só recebe o menu numa saudação pura; a pergunta dele segue
+    // para o agente de FAQ, com o histórico.
     const isPatient = conversationKind === "patient";
     if ((!isPatient || isPureGreeting(body)) && !(await hasRecentOutbound(conversationId))) {
       const { sendMainMenu } = await import("./welcome-menu");
       const menu = await sendMainMenu({ phone, conversationId });
       return { intent: "menu_inicial", replyMessage: menu.replyMessage };
+    }
+    // Botões "lista de espera", "mapeamento" e "menor de 4 anos" do site, quando
+    // o menu não cabe (conversa em andamento ou paciente): o texto pronto já diz
+    // o que a pessoa quer — resposta fixa própria, sem IA.
+    const prefill = detectSitePrefill(body);
+    if (prefill && prefill !== "info") {
+      return { intent: sitePrefillIntent(prefill), replyMessage: SITE_PREFILL_REPLIES[prefill] };
     }
   } catch (err) {
     console.error("[Twilio Initial Greeting Error]:", err);

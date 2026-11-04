@@ -9,6 +9,7 @@ import {
   assignDocumentSlots,
   canonicalAnamnesisStep,
   isAgendarIntent,
+  isBareAgendarCommand,
   isDoneAnswer,
   isNoDocumentAnswer,
   parseExitCommand,
@@ -630,7 +631,10 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
     if (parseExitCommand(rawBody) === "human") {
       return { handled: true, escalate: true, replyMessage: HUMAN_HANDOFF_REPLY };
     }
-    if (!isAgendarIntent(rawBody)) return { handled: false, replyMessage: "" };
+    // Só a palavra AGENDAR avulsa abre o fluxo. Frase livre ("Quero agendar uma
+    // avaliação (vim pelo site)") segue para o menu inicial, que é a porta de
+    // entrada de qualquer contato.
+    if (!isBareAgendarCommand(rawBody)) return { handled: false, replyMessage: "" };
 
     await supabase
       .from("chatbot_sessions")
