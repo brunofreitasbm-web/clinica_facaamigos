@@ -20,6 +20,7 @@ import { ChecklistEntradaDialog } from "./checklist-entrada-dialog";
 import { AcolhimentoPresencialDialog } from "./acolhimento-presencial-dialog";
 import { getIntakeChecklistRows } from "@/lib/intake-checklist";
 import { ChegadasBanner } from "./chegadas-banner";
+import { DAY_LIST_HIDDEN_STATUSES } from "@/lib/appointment-cancel-reasons";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -231,7 +232,9 @@ export default async function RecepcaoPage({
     }
   }
 
-  const sessions: TodaySession[] = appointments.map((a) => {
+  const sessions: TodaySession[] = appointments
+    .filter((a) => !DAY_LIST_HIDDEN_STATUSES.includes(a.status))
+    .map((a) => {
     const ins = insuranceByPatient.get(a.patientId);
     return {
       id: a.id,
