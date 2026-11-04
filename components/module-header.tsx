@@ -99,7 +99,7 @@ const MODULE_COLORS: Record<string, string> = {
   "Recepção": "var(--color-accent)",
   "Gestão": "#3730a3",
   "Faturamento": "#166534",
-  "Coordenação": "#6b21a8",
+  "Coordenação": "#a16207",
   "Acompanhamento Terapêutico": "#9a3412",
 };
 
