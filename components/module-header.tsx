@@ -91,16 +91,18 @@ function resolveActive(pathname: string | null, items: readonly ModuleNavItem[],
 }
 
 /**
- * Cor da faixa por módulo — pra saber de relance em qual módulo se está.
- * Todas passam de 4.5:1 contra o texto branco. Módulo fora da lista cai no
- * `--color-accent` (petróleo, o da Recepção).
+ * Cor da faixa por módulo, só com tokens da marca FaçaAmigos (globals.css) —
+ * pra saber de relance em qual módulo se está. O logo do cabeçalho é o vetor
+ * branco, então todas precisam passar de 4.5:1 contra branco: por isso o
+ * amarelo da marca vira o âmbar escuro (`--color-accent-2-700`) e o teal
+ * entra escurecido. Módulo fora da lista cai no `--color-accent` (petróleo).
  */
 const MODULE_COLORS: Record<string, string> = {
-  "Recepção": "var(--color-accent)",
-  "Gestão": "#3730a3",
-  "Faturamento": "#166534",
-  "Coordenação": "#a16207",
-  "Acompanhamento Terapêutico": "#9a3412",
+  "Recepção": "var(--color-petroleo)",
+  "Gestão": "var(--color-dark)",
+  "Faturamento": "var(--color-pink-hover)",
+  "Coordenação": "var(--color-accent-2-700)",
+  "Acompanhamento Terapêutico": "color-mix(in srgb, var(--color-teal) 60%, #0b2a24)",
 };
 
 function Badge({ value, urgent }: { value: number; urgent?: boolean }) {
