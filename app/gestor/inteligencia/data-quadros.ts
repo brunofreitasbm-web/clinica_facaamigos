@@ -243,7 +243,7 @@ export type TeamProductivity = {
   avgNote24hPct: number | null;
 };
 
-const DENOM_STATUSES = ["realizada", "falta_familia", "cancelada_familia", "cancelada_terapeuta", "cancelada_clinica"];
+const DENOM_STATUSES = ["realizada", "falta_familia"];
 
 export async function getTeamProductivity(
   supabase: Supa,
