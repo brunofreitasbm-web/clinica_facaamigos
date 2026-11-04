@@ -15,7 +15,6 @@ import {
   type EvaluationPoolItem,
 } from "@/lib/evaluation-agenda";
 import { cancelEvaluationOffer, getActiveOfferForAppointment, reofferAfterRejection, startEvaluationOffer } from "@/lib/evaluation-offer";
-import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { revalidatePath } from "next/cache";
 import { scheduleEvaluation } from "@/app/recepcao/pacientes/[id]/stage-actions";
 import { rescheduleAppointmentAction } from "@/app/recepcao/agenda/session-actions";
@@ -526,8 +525,8 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
     .split(" ");
   const time = fullTime.slice(0, 5);
 
-  // Disparar WhatsApp com a confirmação final (já com as orientações). Com o template único
-  // configurado, a mesma mensagem leva o convite da pré-anamnese (1 envio, não 2).
+  // Disparar WhatsApp com a confirmação final (já com as orientações). É a mensagem final:
+  // sem convite/botões de pré-anamnese (fluxo descontinuado).
   const notice = await sendEvaluationConfirmationNotification({
     patientId: appointment.patient_id,
     therapistId: appointment.therapist_id,
@@ -535,17 +534,9 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
     date,
     time,
     appointmentId,
-    bundlePreAnamnesis: Boolean(offer),
   });
 
-  let warning: string | undefined = notice.sent ? undefined : notice.reason;
-  if (offer && !(notice.sent && notice.bundled)) {
-    const invite = await dispatchAnamnesisPrefillRequest({ patientId: appointment.patient_id, appointmentId, startsAt: appointment.starts_at });
-    if (!invite.sent) {
-      const inviteWarning = `O convite da pré-anamnese não foi enviado: ${invite.reason ?? "motivo desconhecido"}.`;
-      warning = warning ? `${warning} ${inviteWarning}` : inviteWarning;
-    }
-  }
+  const warning: string | undefined = notice.sent ? undefined : notice.reason;
 
   revalidatePath("/supervisao");
   return { success: true, warning };

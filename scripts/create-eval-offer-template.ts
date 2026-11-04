@@ -6,7 +6,7 @@
 //
 //   offer     "O plano autorizou o atendimento de {{2}} — podemos agendar?"     [Quero agendar] [Agora não]
 //   reminder  lembrete com 24h sem resposta                                      [Ver horários]  [Agora não]
-//   confirm   confirmação final do horário + orientações do dia (v2)             (sem botões)
+//   confirm   confirmação final do horário + orientações do dia (v2)             (sem botões — mensagem final)
 //   list      menu com 3 horários — mensagem de SESSÃO (janela de 24h aberta pela
 //             resposta do responsável): é criada, mas não passa pela Meta.
 //
@@ -44,12 +44,14 @@ if (fs.existsSync(envPath)) {
 const BRAND_LINE = "FaçaAmigos - Centro de Terapia Comportamental";
 
 type Template = {
-  key: "offer" | "reminder" | "confirm" | "list" | "invite" | "bundle";
+  key: "offer" | "reminder" | "confirm" | "list" | "opener";
   /** Nome na Meta (minúsculas, números e _). */
   metaName: string;
   friendlyName: string;
   envVar: string;
   needsApproval: boolean;
+  /** Categoria na Meta. Padrão UTILITY. */
+  category?: "UTILITY" | "MARKETING";
   variables: Record<string, string>;
   // Corpo do `types` no formato da REST API da Content API.
   types: Record<string, unknown>;
@@ -80,24 +82,13 @@ const CONFIRM_BODY =
   "📂 Traga documento com foto e laudos, exames ou relatórios anteriores.\n\n" +
   BRAND_LINE;
 
-// Convite da pré-anamnese (lib/anamnesis-prefill.ts): enviado junto com a confirmação do horário.
-// Os ids dos botões (preanam_yes/preanam_no) são lidos por lib/twilio-preanamnesis-bot.ts.
-const INVITE_BODY =
-  "Olá, {{1}}! 💙\n\n" +
-  "A 1ª avaliação de {{2}} está marcada para {{3}}. Para o terapeuta chegar mais preparado, gostaríamos de fazer 5 perguntas rápidas por aqui. " +
-  "As respostas serão aprofundadas na consulta e não substituem a avaliação presencial.\n\n" +
-  "Podemos começar?\n\n" +
-  BRAND_LINE;
-
-// Mensagem única: confirmação + convite da pré-anamnese (1 envio no lugar de 2). Idêntico a
-// lib/evaluation-confirmation-pure.ts::buildEvaluationBundleMessage. Botões lidos por lib/twilio-preanamnesis-bot.ts.
-const BUNDLE_BODY =
-  "Olá, {{1}}! 💙\n\n" +
-  "✅ Agendamento confirmado!\n" +
-  "A 1ª avaliação de {{2}} será em {{3}}, com {{4}}.\n\n" +
-  "⏰ Chegue 15 minutos antes.\n" +
-  "📂 Traga documento com foto e laudos, exames ou relatórios anteriores.\n\n" +
-  "Para o terapeuta chegar mais preparado, podemos fazer 5 perguntas rápidas por aqui? As respostas não substituem a avaliação presencial.\n\n" +
+// Abertura de contato (janela de 24h fechada), assunto livre. Sem variável: a recepção
+// escolhe o modelo na conversa e a família só precisa responder para reabrir a janela.
+// Idêntico a lib/contact-opener-pure.ts::CONTACT_OPENER_MESSAGE.
+const OPENER_BODY =
+  "Olá! 💙\n\n" +
+  "Aqui é do FaçaAmigos. Temos um assunto para tratar com você e queremos conversar com calma, por aqui mesmo.\n\n" +
+  "Pode responder esta mensagem? Assim abrimos a conversa e a nossa equipe segue com você. 🙂\n\n" +
   BRAND_LINE;
 
 // Mensagem de sessão: o corpo pode abrir com variável (não passa pela Meta).
@@ -152,40 +143,14 @@ const TEMPLATES: Template[] = [
     preview: CONFIRM_BODY,
   },
   {
-    key: "bundle",
-    metaName: "fa_clinica_confirmacao_completa",
-    friendlyName: "fa_clinica_confirmacao_completa_v1",
-    envVar: "TWILIO_EVAL_CONFIRM_FULL_TEMPLATE_CONTENT_SID",
+    key: "opener",
+    metaName: "fa_clinica_abertura_contato",
+    friendlyName: "fa_clinica_abertura_contato_v1",
+    envVar: "TWILIO_CONTACT_OPENER_TEMPLATE_CONTENT_SID",
     needsApproval: true,
-    variables: { "1": "Nome do responsável", "2": "Nome da criança", "3": "Data e horário", "4": "Profissional" },
-    types: {
-      "twilio/quick-reply": {
-        body: BUNDLE_BODY,
-        actions: [
-          { title: "Sim, vamos começar", id: "preanam_yes" },
-          { title: "Preencher na clínica", id: "preanam_no" },
-        ],
-      },
-    },
-    preview: BUNDLE_BODY + "\n[ Sim, vamos começar ]  [ Preencher na clínica ]",
-  },
-  {
-    key: "invite",
-    metaName: "fa_clinica_convite_pre_anamnese",
-    friendlyName: "fa_clinica_convite_pre_anamnese_v1",
-    envVar: "TWILIO_PREANAMNESE_INVITE_TEMPLATE_CONTENT_SID",
-    needsApproval: true,
-    variables: { "1": "Nome do responsável", "2": "Nome da criança", "3": "Data e horário" },
-    types: {
-      "twilio/quick-reply": {
-        body: INVITE_BODY,
-        actions: [
-          { title: "Sim, vamos começar", id: "preanam_yes" },
-          { title: "Preencher na clínica", id: "preanam_no" },
-        ],
-      },
-    },
-    preview: INVITE_BODY + "\n[ Sim, vamos começar ]  [ Preencher na clínica ]",
+    variables: {},
+    types: { "twilio/text": { body: OPENER_BODY } },
+    preview: OPENER_BODY,
   },
   {
     key: "list",
@@ -256,7 +221,7 @@ async function main() {
       if (t.needsApproval) {
         const approval = await client.content.v1.contents(content.sid).approvalCreate.create({
           name: t.metaName,
-          category: "UTILITY",
+          category: t.category ?? "UTILITY",
           allow_category_change: false,
         } as never);
         console.log(`[${t.key}] enviado à Meta. Status: ${approval.status} | Categoria: ${approval.category}`);

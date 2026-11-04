@@ -16,7 +16,6 @@ import { parsePythonIntakeRecords, mapPythonRecordsToIntakeExtraction } from "@/
 import { computeEvaluationOfferSlots } from "@/lib/evaluation-offer-slots";
 import { computeAbaTrainingSlots } from "@/lib/aba-training-slots";
 import { startIntakeConversation, pushIntakeUpdate, setIntakeAwaitingSlot } from "@/lib/twilio-intake-bot";
-import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { runLaudoExtraction } from "@/lib/laudo-extraction";
 import { REJECT_REASON_LABEL, isRejectReasonCode } from "@/lib/intake-reject-reasons";
 import { promoteToPatient } from "@/lib/patient-stage";
@@ -904,16 +903,8 @@ export async function confirmIntakeLeadAppointment(leadId: string): Promise<Simp
     `✅ *AVALIAÇÃO CONFIRMADA!*\n\n` +
     `👤 *Paciente:* ${lead.patient_full_name ?? "—"}\n` +
     (formattedDate ? `📅 *Data e horário:* ${formattedDate}\n\n` : "\n") +
-    "Traga os documentos originais no dia. Em instantes você recebe por aqui o convite para preencher a anamnese antes da consulta. Qualquer dúvida, é só responder por aqui. Até breve!";
+    "Traga os documentos originais no dia. Qualquer dúvida, é só responder por aqui. Até breve!";
 
-  // Cumpre o que o bot prometeu ao oferecer os horários (lib/twilio-intake-bot.ts):
-  // "você receberá a confirmação final ... junto com o link para o formulário de
-  // anamnese". Mesmo disparo usado no agendamento manual pela recepção
-  // (app/recepcao/pacientes/[id]/stage-actions.ts::scheduleEvaluation) — falha
-  // graciosamente sem bloquear a confirmação se não houver responsável/Twilio.
-  if (lead.patient_id && lead.appointment_id && appt?.starts_at) {
-    await dispatchAnamnesisPrefillRequest({ patientId: lead.patient_id, appointmentId: lead.appointment_id, startsAt: appt.starts_at });
-  }
   const pushResult = await pushIntakeUpdate(leadId, messageText);
 
   await admin.from("audit_log").insert({

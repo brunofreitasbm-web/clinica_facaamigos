@@ -6,7 +6,6 @@ import { CLINIC_TIMEZONE, STANDARD_SESSION_DURATION_MINUTES } from "@/lib/consta
 import { zonedDateTimeToUtc } from "@/lib/timezone";
 import { getActiveAuthorizationId } from "@/lib/active-authorization";
 import { CANCELLED_APPOINTMENT_STATUSES, promoteToPatient } from "@/lib/patient-stage";
-import { dispatchAnamnesisPrefillRequest } from "@/lib/anamnesis-prefill";
 import { sendEvaluationConfirmationNotification } from "@/lib/evaluation-confirmation";
 import { releaseOfferForManualScheduling } from "@/lib/evaluation-offer";
 import { getSchedulingGates } from "@/lib/evaluation-agenda";
@@ -72,8 +71,8 @@ export async function scheduleEvaluation(
   const gate = (await getSchedulingGates(supabase, [patientId])).get(patientId);
   if (shouldPromoteOnScheduling(gate)) await promoteToPatient(supabase, patientId);
 
-  // Ao responsável: confirmação do horário (já com as orientações do dia) e convite da
-  // pré-anamnese. Com o template único configurado, é UMA mensagem; sem ele, duas em ordem.
+  // Ao responsável: confirmação do horário (já com as orientações do dia). É a mensagem final:
+  // o convite da pré-anamnese por WhatsApp foi descontinuado (anamnese é presencial).
   const notice = await sendEvaluationConfirmationNotification({
     patientId,
     therapistId,
@@ -81,20 +80,7 @@ export async function scheduleEvaluation(
     date,
     time,
     appointmentId: appointment.id,
-    bundlePreAnamnesis: true,
   });
-
-  // Convite de anamnese assíncrona por WhatsApp (ver lib/anamnesis-prefill.ts)
-  // — reforço opcional para o terapeuta chegar mais preparado; não bloqueia
-  // o agendamento se falhar (Twilio fora do ar, sem responsável cadastrado
-  // etc.), a anamnese continua acontecendo presencialmente.
-  if (!(notice.sent && notice.bundled)) {
-    await dispatchAnamnesisPrefillRequest({
-      patientId,
-      appointmentId: appointment.id,
-      startsAt: startsAt.toISOString(),
-    });
-  }
 
   revalidatePath(`/recepcao/pacientes/${patientId}`);
   return notice.sent ? { success: true } : { success: true, warning: notice.reason };
