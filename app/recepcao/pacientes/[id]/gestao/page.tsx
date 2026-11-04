@@ -1,3 +1,4 @@
+import { NON_OCCURRED_IN_FILTER } from "@/lib/appointment-visibility";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -83,6 +84,7 @@ export default async function GestaoPacientePage({
       .from("appointments")
       .select("id, starts_at, status")
       .eq("patient_id", id)
+      .not("status", "in", NON_OCCURRED_IN_FILTER)
       .order("starts_at", { ascending: false })
       .limit(30),
     supabase

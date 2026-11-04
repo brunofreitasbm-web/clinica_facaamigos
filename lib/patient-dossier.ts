@@ -1,3 +1,4 @@
+import { NON_OCCURRED_IN_FILTER } from "@/lib/appointment-visibility";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import type { FrequencyDay, GoalRow, EvolutionNote, BillingRow } from "@/components/prontuario/patient-tabs";
@@ -110,6 +111,7 @@ export async function getPatientDossier(
       .from("appointments")
       .select("id, starts_at, status")
       .eq("patient_id", patientId)
+      .not("status", "in", NON_OCCURRED_IN_FILTER)
       .order("starts_at", { ascending: false })
       .limit(20),
     supabase

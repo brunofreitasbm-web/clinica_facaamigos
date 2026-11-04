@@ -1,4 +1,5 @@
 // lib/appointment-cancel-reasons.ts
+import { NON_OCCURRED_STATUSES } from "./appointment-visibility.ts";
 /**
  * Lista fechada de motivos de falta/cancelamento — PRD §9.2. Usada tanto na
  * validação server-side (session-actions.ts) quanto no formulário
@@ -37,9 +38,4 @@ export const NEGATIVE_STATUSES = [
  * reaparece no dia novo). `falta_familia` fica visível de propósito: tem filtro
  * próprio e a recepção ainda precisa acompanhar a remarcação.
  */
-export const DAY_LIST_HIDDEN_STATUSES: readonly string[] = [
-  "cancelada_familia",
-  "cancelada_terapeuta",
-  "cancelada_clinica",
-  "remarcada",
-];
+export const DAY_LIST_HIDDEN_STATUSES: readonly string[] = NON_OCCURRED_STATUSES;

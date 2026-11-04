@@ -1,3 +1,4 @@
+import { NON_OCCURRED_IN_FILTER } from "@/lib/appointment-visibility";
 import { redirect } from "next/navigation";
 import { RealtimeAppointmentToast } from "@/components/realtime-appointment-toast";
 import { createClient } from "@/lib/supabase/server";
@@ -85,6 +86,7 @@ export default async function TerapeutaPage({
         .eq("therapist_id", therapistId)
         .gte("starts_at", dayStart)
         .lt("starts_at", dayEnd)
+        .not("status", "in", NON_OCCURRED_IN_FILTER)
         .order("starts_at")
     : { data: null };
 

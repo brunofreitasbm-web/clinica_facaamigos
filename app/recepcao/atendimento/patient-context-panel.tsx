@@ -1,5 +1,6 @@
 "use client";
 
+import { NON_OCCURRED_IN_FILTER } from "@/lib/appointment-visibility";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -30,6 +31,7 @@ export function PatientContextPanel({ conversation }: { conversation: Conversati
         .select("id, starts_at, status")
         .eq("patient_id", patientId)
         .gt("starts_at", new Date().toISOString())
+        .not("status", "in", NON_OCCURRED_IN_FILTER)
         .order("starts_at", { ascending: true })
         .limit(3),
     ]).then(([insuranceRes, appointmentsRes]) => {

@@ -463,7 +463,7 @@ export async function getBonusRows(supabase: Supa, clinicId: string): Promise<Bo
     .gte("starts_at", startISO)
     .lt("starts_at", endISO);
   const list = monthAppointments ?? [];
-  const consideredStatuses = ["realizada", "falta_familia", "cancelada_familia", "cancelada_terapeuta", "cancelada_clinica"];
+  const consideredStatuses = ["realizada", "falta_familia"];
   const denom = list.filter((a) => consideredStatuses.includes(a.status));
 
   const scheduledHours = denom.reduce((sum, a) => sum + hoursBetween(a.starts_at, a.ends_at), 0);
