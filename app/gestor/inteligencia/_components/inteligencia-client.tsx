@@ -354,7 +354,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                         className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/70 hover:bg-slate-50 transition-all"
                       >
                         <div>
-                          <p className="text-xs font-bold text-slate-900">{room.roomName}</p>
+                          <p className="text-xs font-bold text-slate-900">{room.roomName}{room.isEvaluationRoom && <span className="ml-1.5 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">Avaliação</span>}</p>
                           <p className="text-[11px] text-slate-500">Capacidade: {room.capacity} criança(s)</p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
@@ -908,7 +908,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
               <div>
                 <span className="text-xs font-bold tracking-wider text-indigo-500 uppercase">Indicador em Destaque</span>
                 <h3 className="text-base font-bold text-slate-900">Capacidade Operacional da Clínica</h3>
-                <p className="text-xs text-slate-600">Ocupação combinada de todas as salas (exceto Sala de Avaliação)</p>
+                <p className="text-xs text-slate-600">Ocupação combinada de todas as salas (inclui Sala de Avaliação)</p>
               </div>
               <div className="flex rounded-full border border-indigo-200 bg-white p-1 text-xs font-semibold">
                 {metrics.clinicCapacity.map((item) => (
@@ -1061,7 +1061,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                         <tr key={room.roomId} className="border-t border-slate-100 hover:bg-slate-50">
                           <td className="px-5 py-3 font-semibold text-slate-500">{medal ?? idx + 1}</td>
                           <td className="px-5 py-3">
-                            <span className="font-semibold text-slate-900">{room.roomName}</span>
+                            <span className="font-semibold text-slate-900">{room.roomName}</span>{room.isEvaluationRoom && <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">Avaliação</span>}
                             <p className="text-xs text-slate-500">capacidade {room.capacity} criança(s)</p>
                           </td>
                           <td className="px-5 py-3 text-right tabular-nums text-slate-900 font-bold">
@@ -1099,7 +1099,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
               </div>
             )}
             <p className="px-5 py-4 text-[11px] text-slate-400">
-              Taxa de ocupação estimada sobre horário comercial de 08h–18h (10h/dia útil). A Sala de Avaliação possui uso e finalidade diferentes e fica fora deste ranking.
+              Taxa de ocupação estimada sobre horário comercial de 08h–18h (10h/dia útil). A Sala de Avaliação atende 1 paciente por vez e é identificada com a etiqueta "Avaliação".
             </p>
           </div>
         </div>
