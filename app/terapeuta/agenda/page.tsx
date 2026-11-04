@@ -1,3 +1,4 @@
+import { NON_OCCURRED_IN_FILTER } from "@/lib/appointment-visibility";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
@@ -111,6 +112,7 @@ export default async function TerapeutaAgendaPage({
         .eq("therapist_id", therapistId)
         .gte("starts_at", rangeStartUtc)
         .lt("starts_at", rangeEndUtc)
+        .not("status", "in", NON_OCCURRED_IN_FILTER)
         .order("starts_at")
     : { data: null };
 
