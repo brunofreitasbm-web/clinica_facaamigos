@@ -255,16 +255,22 @@ function primaryAction(item: PendingQueueItem) {
 
 export function buildWorkspaceItems(
   queue: PendingQueueItem[],
-  ctx: { reassignCandidates: { id: string; full_name: string }[] | null; userId: string | null },
+  ctx: {
+    reassignCandidates: { id: string; full_name: string }[] | null;
+    userId: string | null;
+    /** Pendências (paciente com prontuário): sem trilha de autorização, etapa nem conversa. */
+    patientMode?: boolean;
+  },
 ): WorkspaceItem[] {
   const { reassignCandidates } = ctx;
+  const patientMode = Boolean(ctx.patientMode);
   const user = ctx.userId ? { id: ctx.userId } : null;
   const now = new Date();
     return queue.map((item) => {
     const draft = item.draft;
     const escalated = Boolean(item.escalatedAt);
     const overdue = escalated || Boolean(item.overdue);
-    const stage = draftStage(item);
+    const stage = patientMode ? null : draftStage(item);
     const action = primaryAction(item);
     const due = dueText(item);
 
@@ -304,7 +310,7 @@ export function buildWorkspaceItems(
               </span>
             )}
             {draft && <SummaryChip pendencies={draft.pendencies} />}
-            {draft && <DraftPipelineMini pipeline={draft.pipeline} />}
+            {draft && !patientMode && <DraftPipelineMini pipeline={draft.pipeline} />}
           </div>
           <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-ink-soft">
             <span>
@@ -375,7 +381,7 @@ export function buildWorkspaceItems(
           )}
         </section>
 
-        {draft && <DraftIntakeCard draft={draft} focus hideReviewLink />}
+        {draft && <DraftIntakeCard draft={draft} focus hideReviewLink variant={patientMode ? "paciente" : "lead"} />}
       </article>
     );
 

@@ -12,7 +12,7 @@ import {
 } from "@/lib/reception-queue";
 import { AutorizacaoWizard } from "./autorizacao-wizard";
 import { PageContainer } from "@/components/page-container";
-import { QueueWorkspace, type QueueStage } from "./queue-workspace";
+import { QueueWorkspace } from "./queue-workspace";
 import { buildWorkspaceItems } from "./queue-items";
 
 export const dynamic = "force-dynamic";
@@ -41,9 +41,6 @@ const CATEGORY_ORDER: PendingQueueCategory[] = [
   "remarcacao_solicitada",
   "renovacao_solicitada",
 ];
-
-const QUEUE_STAGES: QueueStage[] = ["docs", "autorizacao", "agendar", "liberado"];
-
 
 export default async function PendenciasPage({
   searchParams,
@@ -86,9 +83,7 @@ export default async function PendenciasPage({
   const attention = authorizations.filter((a) => a.status === "attention" && !a.renewal).length;
   const awaitingInsurer = authorizations.filter((a) => a.renewal).length;
 
-  const items = buildWorkspaceItems(queue, { reassignCandidates, userId: user?.id ?? null });
-
-  const etapa = QUEUE_STAGES.includes(params.etapa as QueueStage) ? (params.etapa as QueueStage) : null;
+  const items = buildWorkspaceItems(queue, { reassignCandidates, userId: user?.id ?? null, patientMode: true });
 
   return (
     <main className="flex flex-1 flex-col">
@@ -128,7 +123,7 @@ export default async function PendenciasPage({
             initial={{
               q: params.q ?? "",
               tipo: params.tipo && CATEGORY_ORDER.includes(params.tipo as PendingQueueCategory) ? params.tipo : null,
-              etapa,
+              etapa: null,
               dono: params.dono ?? null,
               meus: params.meus === "1",
               item: leadItem?.id ?? requestedItem,
