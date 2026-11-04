@@ -17,6 +17,7 @@ import {
 import { CLINIC_BRAND, CLINIC_NAME, CLINIC_SUPPORT_EMAIL } from "@/lib/clinic-identity";
 import { Logo } from "@/components/brand/logo";
 import { PageContainer } from "@/components/page-container";
+import { PatientSearch } from "./patient-search";
 
 export interface PatientOption {
   id: string;
@@ -155,7 +156,9 @@ export function DocumentosManager({
   clinicInfo?: ClinicInfo;
 }) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<DocumentType>("comparecimento_paciente");
-  const [selectedPatientId, setSelectedPatientId] = useState<string>(patients[0]?.id || "");
+  // Começa vazio de propósito: pré-selecionar um paciente fazia o documento
+  // oficial sair com dados de uma criança que ninguém escolheu.
+  const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
   const activeTemplate = DOCUMENT_TEMPLATES.find((t) => t.id === selectedTemplateId)!;
@@ -167,10 +170,10 @@ export function DocumentosManager({
   const [attendanceDate, setAttendanceDate] = useState<string>(todayIso);
   const [startTime, setStartTime] = useState<string>("14:00");
   const [endTime, setEndTime] = useState<string>("15:00");
-  const [customPatientName, setCustomPatientName] = useState<string>(patients[0]?.fullName || "");
-  const [patientBirthDate, setPatientBirthDate] = useState<string>(patients[0]?.birthDate || "");
-  const [customGuardianName, setCustomGuardianName] = useState<string>(patients[0]?.guardianName || "");
-  const [guardianCpf, setGuardianCpf] = useState<string>(patients[0]?.guardianCpf || "");
+  const [customPatientName, setCustomPatientName] = useState<string>("");
+  const [patientBirthDate, setPatientBirthDate] = useState<string>("");
+  const [customGuardianName, setCustomGuardianName] = useState<string>("");
+  const [guardianCpf, setGuardianCpf] = useState<string>("");
   const [purpose, setPurpose] = useState<string>(activeTemplate.defaultPurpose);
   const [validity, setValidity] = useState<string>(activeTemplate.defaultValidity);
   const [receptionistName, setReceptionistName] = useState<string>(
@@ -195,6 +198,16 @@ export function DocumentosManager({
       setCustomGuardianName(p.guardianName || "");
       setGuardianCpf(p.guardianCpf || "");
     }
+  };
+
+  // Limpar a seleção também zera os campos preenchidos por ela, para não
+  // misturar dados do paciente anterior com uma digitação avulsa.
+  const handleClearPatient = () => {
+    setSelectedPatientId("");
+    setCustomPatientName("");
+    setPatientBirthDate("");
+    setCustomGuardianName("");
+    setGuardianCpf("");
   };
 
   // Switch template reset defaults
@@ -427,20 +440,15 @@ export function DocumentosManager({
                 <label className="text-xs font-semibold text-gray-700">
                   Selecionar Paciente Cadastrado
                 </label>
-                <div className="relative">
-                  <select
-                    value={selectedPatientId}
-                    onChange={(e) => handleSelectPatient(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-sm font-medium text-gray-800 focus:bg-white focus:border-pink-500 focus:outline-none transition-all"
-                  >
-                    <option value="">-- Digitação Manual / Paciente Avulso --</option>
-                    {patients.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.fullName} {p.guardianName ? `(Resp: ${p.guardianName})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <PatientSearch
+                  patients={patients}
+                  selected={currentPatient}
+                  onSelect={handleSelectPatient}
+                  onClear={handleClearPatient}
+                />
+                <p className="text-[11px] text-gray-400">
+                  Ou preencha os dados manualmente abaixo para um paciente avulso.
+                </p>
               </div>
 
               {/* Formulários dinâmicos baseados no tipo de documento */}
