@@ -11,7 +11,7 @@
 // Sem import com alias `@/` para rodar em `node --test --experimental-strip-types`
 // (tests/faq-rules-pure.test.ts).
 
-export type FaqRuleEntry = { question: string; answer: string; keywords: string[] };
+export type FaqRuleEntry = { question: string; answer: string; keywords: string[]; category?: string | null };
 
 export type FaqRuleData = {
   /** Convênios ativos (sem o "Particular"). */
@@ -171,4 +171,19 @@ export function expandFaqTokens(answer: string, insurers: string[]): string {
 export function isPlaceholderAnswer(answer: string): boolean {
   const trimmed = answer.trim();
   return trimmed.startsWith("⚠️") || /^todo\b/i.test(trimmed) || trimmed.includes("TODO:");
+}
+
+/** Categorias de `clinic_faq` que são FATO fixo (onde fica, horário): o bot pode
+ * responder mesmo com humano na conversa, porque não há decisão nem promessa. */
+export const FIXED_FACT_CATEGORIES = ["local", "horarios"];
+
+/**
+ * Conversa com humano (bot pausado): só endereço/horário cadastrados pelo gestor
+ * e só quando UMA entrada casa. Convênio, valor, agenda, clínico etc. continuam
+ * exclusivos da equipe. Reaproveita todos os filtros de `matchFaqRule`.
+ */
+export function matchFixedFactRule(text: string, data: FaqRuleData): FaqRuleMatch | null {
+  const facts = data.faq.filter((e) => e.category && FIXED_FACT_CATEGORIES.includes(e.category));
+  if (facts.length === 0) return null;
+  return matchFaqRule(text, { insurers: [], faq: facts });
 }

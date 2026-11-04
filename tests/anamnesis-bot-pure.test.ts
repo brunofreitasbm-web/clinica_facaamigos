@@ -10,6 +10,7 @@ import {
   canonicalAnamnesisStep,
   decideGuardianEmailStep,
   isAgendarIntent,
+  isBareAgendarCommand,
   isDoneAnswer,
   isNoDocumentAnswer,
   isSkipAnswer,
@@ -101,6 +102,19 @@ test("isAgendarIntent: palavra inteira e sem negação", () => {
   }
   for (const raw of ["reagendar", "preciso reagendar a sessão", "não quero agendar", "nao vou agendar agora", "como funciona o agendamento?", "oi", ""]) {
     assert.equal(isAgendarIntent(raw), false, raw);
+  }
+});
+
+test("isBareAgendarCommand: só a palavra sozinha abre o fluxo", () => {
+  for (const raw of ["AGENDAR", "agendar!", " Agendar ", "anamnese"]) assert.equal(isBareAgendarCommand(raw), true, raw);
+  for (const raw of [
+    "Olá! Quero agendar uma avaliação no Centro de Terapia Comportamental FaçaAmigos (vim pelo site).",
+    "Quero agendar",
+    "marcar avaliação",
+    "reagendar",
+    "",
+  ]) {
+    assert.equal(isBareAgendarCommand(raw), false, raw);
   }
 });
 
