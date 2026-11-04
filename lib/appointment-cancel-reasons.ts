@@ -30,3 +30,16 @@ export const NEGATIVE_STATUSES = [
   { value: "cancelada_clinica", label: "Cancelada pela clínica" },
   { value: "remarcada", label: "Remarcada" },
 ] as const;
+
+/**
+ * Status que NÃO aparecem na lista da Agenda do dia da recepção: a sessão foi
+ * cancelada ou remarcada, então o horário já não existe naquele dia (a remarcada
+ * reaparece no dia novo). `falta_familia` fica visível de propósito: tem filtro
+ * próprio e a recepção ainda precisa acompanhar a remarcação.
+ */
+export const DAY_LIST_HIDDEN_STATUSES: readonly string[] = [
+  "cancelada_familia",
+  "cancelada_terapeuta",
+  "cancelada_clinica",
+  "remarcada",
+];
