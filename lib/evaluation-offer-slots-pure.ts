@@ -99,6 +99,19 @@ export function pickOfferPage(
   return ranked.slice((page - 1) * size, page * size).map((r) => r.c);
 }
 
+/**
+ * Piso da agenda de 1ª avaliação: a clínica só começa a agendar a partir desta
+ * data, para TODOS os fluxos (bot, onda, agendamento do acolhimento). Nada
+ * anterior é oferecido. Dia 06 sem encaixe → o dia útil seguinte (09, 10…),
+ * o que já resulta da ordenação por data + dias fechados (fim de semana).
+ */
+export const FIRST_EVALUATION_EARLIEST_DATE = "2026-11-06";
+
+/** Primeiro dia varrido: hoje, ou o piso se ele for mais tarde ("YYYY-MM-DD" compara como texto). */
+export function firstOfferDay(today: string, floor: string = FIRST_EVALUATION_EARLIEST_DATE): string {
+  return floor > today ? floor : today;
+}
+
 export const EVALUATION_DURATION_MIN = 50;
 /** Antecedência mínima: nunca oferecer um horário daqui a menos de 24h. */
 export const MIN_LEAD_MS = 24 * 60 * 60 * 1000;
