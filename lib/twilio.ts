@@ -761,6 +761,18 @@ export async function handleTwilioIncomingMessage(params: {
 
     if (!conversation.is_bot_active) {
       await notifyStaff(conversation.id);
+      // Com humano na conversa o bot só responde FATO fixo (endereço/horário do
+      // clinic_faq): era a recepção digitando o endereço à mão. O bot continua
+      // pausado; a equipe segue avisada acima. Chave-geral desligada = silêncio.
+      try {
+        const { getChatbotSettings: loadSettings, answerFixedFactWhileHumanHandling } = await import("./twilio-faq-bot");
+        if ((await loadSettings(DEV_CLINIC_ID)).botEnabled) {
+          const fact = await answerFixedFactWhileHumanHandling({ body, conversationId: conversation.id, conversationKind });
+          if (fact) return fact;
+        }
+      } catch (err) {
+        console.error("[Twilio Fixed Fact While Human Error]:", err);
+      }
       return { replyMessage: "", intent: "human_handled" };
     }
 

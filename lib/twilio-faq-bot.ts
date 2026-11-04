@@ -38,7 +38,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
 import { hasExplicitJobSignal, hasStrongJobSignal, JOB_AMBIGUOUS_REPLY, JOB_INQUIRY_REPLY } from "@/lib/job-inquiry-pure";
 import { generateChatResponse, isChatAiConfigured } from "@/lib/chat-llm";
-import { expandFaqTokens, isPlaceholderAnswer, matchFaqRule, type FaqRuleData } from "@/lib/faq-rules-pure";
+import { expandFaqTokens, isPlaceholderAnswer, matchFaqRule, matchFixedFactRule, type FaqRuleData } from "@/lib/faq-rules-pure";
 
 /** Quantas mensagens da thread vão como contexto (~6 turnos). */
 const HISTORY_LIMIT = 12;
@@ -304,6 +304,7 @@ async function loadFaqKnowledge(
       question: row.question,
       answer: row.answer,
       keywords: row.keywords ?? [],
+      category: row.category,
     })),
   };
 
@@ -822,4 +823,41 @@ export async function processFaqBotStep(params: {
     escalated: shouldEscalate,
     concluded: parsed.concluido === true && !shouldEscalate,
   };
+}
+
+
+/** Janela em que uma mensagem recente da equipe impede o bot de responder junto. */
+const HUMAN_RECENT_WINDOW_MS = 2 * 60 * 1000;
+
+/**
+ * Conversa assumida por humano (is_bot_active=false): responde SÓ fato fixo
+ * (endereço/horário do `clinic_faq`), sem IA e sem religar o bot. Não responde se
+ * a equipe escreveu nos últimos 2 min (evita resposta duplicada/confusa).
+ * Devolve null quando não deve responder.
+ */
+export async function answerFixedFactWhileHumanHandling(params: {
+  body: string;
+  conversationId: string | null;
+  conversationKind?: ConversationKind | null;
+}): Promise<{ replyMessage: string; intent: string } | null> {
+  const { body, conversationId } = params;
+  if (!conversationId || !body.trim()) return null;
+  const kind: ConversationKind = params.conversationKind === "patient" ? "patient" : "lead";
+  const { rules } = await loadFaqKnowledge(DEV_CLINIC_ID, kind);
+  const match = matchFixedFactRule(body, rules);
+  if (!match) return null;
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const since = new Date(Date.now() - HUMAN_RECENT_WINDOW_MS).toISOString();
+  const { data } = await createAdminClient()
+    .from("messages")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "outbound")
+    .eq("sender_type", "agent")
+    .gte("sent_at", since)
+    .limit(1);
+  if ((data?.length ?? 0) > 0) return null;
+
+  return { replyMessage: match.reply, intent: "faq_fato_fixo_com_humano" };
 }

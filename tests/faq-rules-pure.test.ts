@@ -4,7 +4,7 @@
 // ambiguidade tem que devolver null (segue para a IA).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { expandFaqTokens, isPlaceholderAnswer, matchFaqRule, type FaqRuleData } from "../lib/faq-rules-pure.ts";
+import { expandFaqTokens, isPlaceholderAnswer, matchFaqRule, matchFixedFactRule, type FaqRuleData } from "../lib/faq-rules-pure.ts";
 
 const data: FaqRuleData = {
   insurers: ["Unimed", "Amazônia Saúde", "PROASA"],
@@ -123,4 +123,21 @@ test("{{convenios}} é trocado pela lista cadastrada e some sem convênios", () 
   assert.equal(expandFaqTokens(tpl, ["A", "B", "C"]), "Atendemos *A, B e C*; estamos credenciando outros planos. Reembolso por nota fiscal.");
   assert.equal(expandFaqTokens(tpl, []), "estamos credenciando outros planos. Reembolso por nota fiscal.");
   assert.equal(expandFaqTokens("Sem token", ["IASEP"]), "Sem token");
+});
+
+test("matchFixedFactRule: com humano só endereço/horário, nada de convênio, valor ou agenda", () => {
+  const withCat: FaqRuleData = {
+    insurers: ["Unimed"],
+    faq: [
+      { question: "Onde fica a clínica?", answer: "Rua Boaventura da Silva, 1573.", keywords: ["endereço", "onde fica"], category: "local" },
+      { question: "Horário", answer: "Seg a Sex 8h às 19h.", keywords: ["horário de funcionamento"], category: "horarios" },
+      { question: "Estacionamento", answer: "Sim.", keywords: ["estacionamento"], category: "regras" },
+    ],
+  };
+  assert.equal(matchFixedFactRule("Me manda o endereço", withCat)?.reply, "Rua Boaventura da Silva, 1573.");
+  assert.equal(matchFixedFactRule("qual o horário de funcionamento?", withCat)?.reply, "Seg a Sex 8h às 19h.");
+  for (const msg of ["Vocês atendem Unimed?", "tem estacionamento?", "quanto custa a sessão?", "quero falar com um humano", "Me manda o endereço, e o laudo?"]) {
+    assert.equal(matchFixedFactRule(msg, withCat), null, msg);
+  }
+  assert.equal(matchFixedFactRule("Me manda o endereço", data), null); // sem categoria cadastrada
 });
