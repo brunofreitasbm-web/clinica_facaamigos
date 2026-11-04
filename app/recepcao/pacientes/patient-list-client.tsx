@@ -19,6 +19,8 @@ import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patien
 import { formatDateBR } from "@/lib/format";
 import { inactivatePatient, deletePatient } from "./actions";
 import { PageContainer } from "@/components/page-container";
+import type { PatientPill } from "@/lib/patient-pills-pure";
+import { PatientPendenciesDialog, PillChip, type PatientPanel } from "./patient-pendencies-dialog";
 
 export interface PatientRow {
   id: string;
@@ -33,11 +35,19 @@ export interface PatientRow {
   insurer_name?: string | null;
   insurer_color?: string | null;
   journey_label: string;
+  /** Pendências do paciente (RG, laudo, guia vencendo...), já ordenadas por urgência. */
+  pills: PatientPill[];
 }
 
 interface PatientListClientProps {
   rows: PatientRow[];
+  /** Painéis de ação por paciente (resolver falta, renovar guia...), montados no servidor. */
+  panelsByPatient?: Record<string, PatientPanel[]>;
+  /** Abre o diálogo de pendências deste paciente ao carregar (?abrir=). */
+  initialOpenId?: string | null;
 }
+
+const MAX_VISIBLE_PILLS = 3;
 
 /**
  * Modal de Confirmação para inativação de paciente
@@ -105,10 +115,12 @@ export const PatientListItem = React.memo(function PatientListItem({
   patient,
   onInactivate,
   onDelete,
+  onOpenPills,
 }: {
   patient: PatientRow;
   onInactivate: (p: PatientRow) => void;
   onDelete: (p: PatientRow) => void;
+  onOpenPills: (p: PatientRow) => void;
 }) {
   const router = useRouter();
 
@@ -165,6 +177,28 @@ export const PatientListItem = React.memo(function PatientListItem({
             }
           />
         </div>
+
+        {/* Pílulas de pendência: entre o CPF e o nascimento */}
+        {patient.pills.length > 0 && (
+          <div className="flex min-w-0 shrink items-center gap-1 overflow-hidden sm:px-1" aria-label="Pendências do paciente">
+            {patient.pills.slice(0, MAX_VISIBLE_PILLS).map((pill) => (
+              <PillChip key={pill.key} pill={pill} onClick={() => onOpenPills(patient)} />
+            ))}
+            {patient.pills.length > MAX_VISIBLE_PILLS && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenPills(patient);
+                }}
+                title={patient.pills.slice(MAX_VISIBLE_PILLS).map((p) => p.label).join(", ")}
+                className="shrink-0 rounded-full bg-paper-line px-2 py-0.5 text-[11px] font-semibold leading-4 text-ink-soft"
+              >
+                +{patient.pills.length - MAX_VISIBLE_PILLS}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Coluna 2: Data de Nascimento */}
         <div className="flex items-center gap-1.5 text-xs text-ink-soft font-mono shrink-0 sm:px-3">
@@ -235,6 +269,7 @@ interface VirtualizedItemData {
   items: PatientRow[];
   onInactivate: (p: PatientRow) => void;
   onDelete: (p: PatientRow) => void;
+  onOpenPills: (p: PatientRow) => void;
 }
 
 const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildComponentProps<VirtualizedItemData>) => {
@@ -242,13 +277,13 @@ const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildCompo
   if (!patient) return null;
   return (
     <div style={{ ...style, paddingBottom: "8px" }}>
-      <PatientListItem patient={patient} onInactivate={data.onInactivate} onDelete={data.onDelete} />
+      <PatientListItem patient={patient} onInactivate={data.onInactivate} onDelete={data.onDelete} onOpenPills={data.onOpenPills} />
     </div>
   );
 });
 VirtualizedPatientRow.displayName = "VirtualizedPatientRow";
 
-export function PatientListClient({ rows }: PatientListClientProps) {
+export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = null }: PatientListClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
@@ -256,6 +291,7 @@ export function PatientListClient({ rows }: PatientListClientProps) {
   const [pageSize, setPageSize] = useState(20);
 
   // Estado para Modal de Confirmação de Inativação e Exclusão
+  const [pillsPatientId, setPillsPatientId] = useState<string | null>(initialOpenId);
   const [targetPatient, setTargetPatient] = useState<PatientRow | null>(null);
   const [deleteTargetPatient, setDeleteTargetPatient] = useState<PatientRow | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -335,6 +371,7 @@ export function PatientListClient({ rows }: PatientListClientProps) {
       items: paginatedRows,
       onInactivate: (p: PatientRow) => setTargetPatient(p),
       onDelete: (p: PatientRow) => setDeleteTargetPatient(p),
+      onOpenPills: (p: PatientRow) => setPillsPatientId(p.id),
     }),
     [paginatedRows]
   );
@@ -578,6 +615,19 @@ export function PatientListClient({ rows }: PatientListClientProps) {
           </div>
         </div>
       )}
+      {pillsPatientId && (() => {
+        const target = rows.find((r) => r.id === pillsPatientId);
+        if (!target) return null;
+        return (
+          <PatientPendenciesDialog
+            patientId={target.id}
+            patientName={target.full_name}
+            pills={target.pills}
+            panels={panelsByPatient[target.id] ?? []}
+            onClose={() => setPillsPatientId(null)}
+          />
+        );
+      })()}
     </PageContainer>
   );
 }
