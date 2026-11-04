@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { User, PenLine, CalendarClock, X, UserCheck, XCircle, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert, Search, Printer } from "lucide-react";
+import { User, PenLine, CalendarClock, X, UserCheck, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert, Search, Printer } from "lucide-react";
 import { GuiaQuickActionModal } from "./guia-quick-action-modal";
 import { ChegadaAvaliacaoModal } from "./chegada-avaliacao-modal";
 
@@ -928,44 +928,49 @@ function SessionRow({
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {/* Só duas ações: a pessoa chegou (check-in) ou não vem (falta/cancelou).
-            "Aguardando"/"Confirmado" deixaram de ser botões: a confirmação vem da
-            família/WhatsApp e aparece no selo de status; quem não fez check-in
-            ainda não chegou. */}
+        {/* Um botão só: "Chegou". Depois dele o selo de status ao lado segue
+            sozinho — Na recepção → Em atendimento → Realizada (check-out do
+            terapeuta) — sem nada para a recepção clicar. Falta/cancelamento é um
+            link discreto, só enquanto o paciente não chegou. */}
         {isActive && (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={session.isEvaluation ? () => setShowChegadaModal(true) : handleCheckIn}
-            className="btn btn-primary inline-flex min-h-[38px] items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold"
-            title={
-              session.isEvaluation
-                ? "Registrar chegada (guia e laudo opcionais) e imprimir cupom"
-                : "Registrar a chegada do paciente na recepção"
-            }
-          >
-            <UserCheck className="h-3.5 w-3.5" />
-            <span>Check-in</span>
-          </button>
-        )}
-
-        {isCheckedIn && (
           <>
-            <span className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-emerald-700 bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white">
-              <UserCheck className="h-3.5 w-3.5" />
-              Check-in feito
-            </span>
             <button
               type="button"
               disabled={isPending}
-              onClick={handleReprintCoupon}
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
-              title="Reimprimir cupom de check-in"
+              onClick={session.isEvaluation ? () => setShowChegadaModal(true) : handleCheckIn}
+              className="btn btn-primary inline-flex min-h-[38px] items-center gap-1.5 rounded-full px-5 py-1.5 text-xs font-semibold"
+              title={
+                session.isEvaluation
+                  ? "Registrar chegada (guia e laudo opcionais) e imprimir cupom"
+                  : "Registrar a chegada do paciente na recepção"
+              }
             >
-              <Printer className="h-3.5 w-3.5 text-slate-500" />
-              <span>Reimprimir cupom</span>
+              <UserCheck className="h-3.5 w-3.5" />
+              <span>Chegou</span>
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => setShowFaltaForm((v) => !v)}
+              className="text-[11px] font-medium text-ink-soft underline decoration-dotted hover:text-rose-700 disabled:opacity-50"
+              title="Registrar que o paciente faltou ou cancelou"
+            >
+              Faltou / cancelou
             </button>
           </>
+        )}
+
+        {isCheckedIn && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleReprintCoupon}
+            className="inline-flex h-[38px] w-[38px] items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+            title="Reimprimir cupom de check-in"
+            aria-label="Reimprimir cupom de check-in"
+          >
+            <Printer className="h-4 w-4" />
+          </button>
         )}
 
         {session.isEvaluation && showChegadaModal && (
@@ -977,23 +982,6 @@ function SessionRow({
             patientName={session.patientName}
             onConfirmed={handleChegadaConfirmed}
           />
-        )}
-
-        {isActive && (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => setShowFaltaForm((v) => !v)}
-            className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 ${
-              showFaltaForm
-                ? "border border-rose-700 bg-rose-600 text-white"
-                : "border border-slate-300 bg-white text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
-            }`}
-            title="Registrar que o paciente faltou ou cancelou"
-          >
-            <XCircle className={`h-3.5 w-3.5 ${showFaltaForm ? "text-white" : "text-rose-600"}`} />
-            <span>Falta / Cancelar</span>
-          </button>
         )}
       </div>
     </div>
