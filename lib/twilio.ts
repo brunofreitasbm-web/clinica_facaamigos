@@ -169,8 +169,9 @@ export function getTwilioContentSidForCategory(category: string): string | undef
       return process.env.TWILIO_NPS_TEMPLATE_CONTENT_SID;
     case "renovacao_guia":
       return process.env.TWILIO_RENEWAL_TEMPLATE_CONTENT_SID;
-    case "cobranca":
-      return process.env.TWILIO_BILLING_TEMPLATE_CONTENT_SID;
+    // Abertura de contato genérica (janela de 24h fechada, assunto livre).
+    case "abertura_contato":
+      return process.env.TWILIO_CONTACT_OPENER_TEMPLATE_CONTENT_SID;
     case "reuniao_responsavel":
       return process.env.TWILIO_MEETING_TEMPLATE_CONTENT_SID;
     case "devolutiva_paciente":
@@ -180,17 +181,10 @@ export function getTwilioContentSidForCategory(category: string): string | undef
     // Oferta automática de horários da 1ª avaliação (lib/evaluation-offer.ts).
     case "agendamento_avaliacao":
       return process.env.TWILIO_EVAL_OFFER_TEMPLATE_CONTENT_SID;
-    // Mensagem única: confirmação + orientações do dia + convite da pré-anamnese (botões).
-    case "confirmacao_completa":
-      return process.env.TWILIO_EVAL_CONFIRM_FULL_TEMPLATE_CONTENT_SID;
     case "lembrete_avaliacao":
       return process.env.TWILIO_EVAL_REMINDER_TEMPLATE_CONTENT_SID;
     case "confirmacao_d1":
       return process.env.TWILIO_EVAL_CONFIRM_TEMPLATE_CONTENT_SID;
-    // Convite da pré-anamnese por WhatsApp (lib/anamnesis-prefill.ts): texto livre
-    // falha fora da janela de 24h, então o convite vai por template.
-    case "convite_pre_anamnese":
-      return process.env.TWILIO_PREANAMNESE_INVITE_TEMPLATE_CONTENT_SID;
     default:
       return undefined;
   }
