@@ -90,6 +90,19 @@ function resolveActive(pathname: string | null, items: readonly ModuleNavItem[],
   return best;
 }
 
+/**
+ * Cor da faixa por módulo — pra saber de relance em qual módulo se está.
+ * Todas passam de 4.5:1 contra o texto branco. Módulo fora da lista cai no
+ * `--color-accent` (petróleo, o da Recepção).
+ */
+const MODULE_COLORS: Record<string, string> = {
+  "Recepção": "var(--color-accent)",
+  "Gestão": "#3730a3",
+  "Faturamento": "#166534",
+  "Coordenação": "#6b21a8",
+  "Acompanhamento Terapêutico": "#9a3412",
+};
+
 function Badge({ value, urgent }: { value: number; urgent?: boolean }) {
   return (
     <span
@@ -123,6 +136,7 @@ export function ModuleHeader({
 }) {
   const pathname = usePathname();
   const active = resolveActive(pathname, items, noActiveOn);
+  const moduleColor = MODULE_COLORS[module] ?? "var(--color-accent)";
 
   const isCurrentOf = (item: ModuleNavItem) => (isTab(item) ? item.selected : active === item.key);
 
@@ -139,7 +153,7 @@ export function ModuleHeader({
   return (
     <div className="sticky top-0 z-20 shrink-0 print:hidden">
       <header
-        style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}
+        style={{ background: moduleColor, color: "var(--color-bg)" }}
         className="flex h-16 items-center gap-6 px-6 shadow-sm sm:px-10"
       >
         <BrandLockup module={module} href={homeHref} className="mr-auto" />
@@ -197,7 +211,7 @@ export function ModuleHeader({
         {items.map((item) => {
           const isCurrent = isCurrentOf(item);
           const style = {
-            background: isCurrent ? "var(--color-accent)" : "var(--color-neutral-100)",
+            background: isCurrent ? moduleColor : "var(--color-neutral-100)",
             color: isCurrent ? "#fff" : "var(--color-ink)",
           };
           const cls = "inline-flex items-center justify-center min-h-[44px] rounded-full px-3.5 py-1.5 text-xs font-semibold no-underline transition-all duration-150 active:scale-95 shadow-2xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
