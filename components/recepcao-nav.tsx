@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Users, AlertCircle, ShieldCheck, MessageSquare, FileText, DoorOpen, Trophy } from "lucide-react";
+import { CalendarDays, Users, ShieldCheck, MessageSquare, FileText, DoorOpen, Trophy } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -14,25 +14,22 @@ const NAV_ITEMS = [
   { key: "agenda", label: "Agenda do dia", href: "/recepcao", match: ["/recepcao", "/recepcao/agenda"], icon: CalendarDays },
   { key: "chegadas", label: "Chegadas", href: "/recepcao/chegadas", icon: DoorOpen },
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
-  { key: "pendencias", label: "Pendências", href: "/recepcao/pacientes/pendencias", icon: AlertCircle },
   { key: "a-autorizar", label: "Autorizações", href: "/recepcao/a-autorizar", icon: ShieldCheck },
   { key: "atendimento", label: "Chat", href: "/recepcao/atendimento", icon: MessageSquare },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText },
   // "Cadastro IA" (/recepcao/pre-cadastros) saiu da navegação em 20/09/2026:
   // a fila mostrava "Aguardando IA" em quase todo pré-cadastro e a recepção
   // ainda precisava abrir o chat pra entender o contato. Os mesmos rascunhos
-  // agora entram em Pendências já com arquivos, dados e conversa — ver
-  // app/recepcao/pacientes/pendencias/draft-intake-card.tsx. A tela de
+  // agora entram em Autorizações. A tela "Pendências" também saiu da navegação
+  // (04/11/2026): as pendências viraram pílulas na lista de Pacientes. A tela de
   // validação individual continua em /recepcao/pre-cadastros/[draftId].
   { key: "metricas", label: "Minha bonificação", href: "/recepcao/metricas", icon: Trophy },
 ] as const;
 
 export function RecepcaoNav({
-  pendingCount,
   chegadasCount,
   toAuthorizeCount,
 }: {
-  pendingCount: number;
   /** Leads do WhatsApp aguardando autorização do plano — ver app/recepcao/a-autorizar. */
   toAuthorizeCount?: number;
   /** Chegadas declaradas pelo QR ainda não confirmadas — ver app/recepcao/chegadas. */
@@ -40,7 +37,7 @@ export function RecepcaoNav({
 }) {
   const items: ModuleNavItem[] = NAV_ITEMS.map((item) => ({
     ...item,
-    badge: item.key === "pendencias" ? pendingCount : item.key === "chegadas" ? chegadasCount : item.key === "a-autorizar" ? toAuthorizeCount : undefined,
+    badge: item.key === "chegadas" ? chegadasCount : item.key === "a-autorizar" ? toAuthorizeCount : undefined,
   }));
 
   return (
