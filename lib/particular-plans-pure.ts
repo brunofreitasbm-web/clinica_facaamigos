@@ -39,7 +39,7 @@ export function parsePlanRows(rows: PlanRow[], today: string): CatalogPlan[] {
     .filter((r) => r.valid_from <= today && (!r.valid_to || r.valid_to >= today))
     .map((r) => ({
       code: r.procedure_code,
-      name: r.procedure_name.replace(/^Plano /, ""),
+      name: r.procedure_name.replace(/^(Plano|Pacote) /, ""),
       sessions: sessionsFromNote(r.session_frequency_note),
       price: Number(r.price),
     }))

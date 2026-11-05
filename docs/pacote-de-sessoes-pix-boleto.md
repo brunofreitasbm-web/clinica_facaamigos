@@ -1,4 +1,4 @@
-# Plano Próprio Faça Amigos: pacotes particulares por Pix Automático e boleto
+# Pacote de Sessões Faça Amigos: venda particular por Pix Automático e boleto
 
 Plano de negócios, riscos, cobrança automatizada, segurança, blindagem e marketing.
 
@@ -10,10 +10,12 @@ Plano de negócios, riscos, cobrança automatizada, segurança, blindagem e mark
 
 **Vale fazer**, mas não do jeito que costuma ser feito. A receita particular é a única linha da clínica sem glosa, sem guia e sem prazo de convênio, e por isso é a melhor margem e o melhor caixa. Ela só funciona se quatro condições forem cumpridas:
 
-1. **É pacote de sessões, não plano de saúde.** O nome "Plano Próprio" é o maior risco jurídico do projeto (ver §2.1). A marca pode ficar, mas com a trava "pacote mensal de sessões, não é plano de saúde" em todo contrato e peça.
+1. **É sempre Pacote de Sessões:** quantidade fixa de sessões por mês, valor fechado. A linguagem é controlada (§2.1) e a cláusula de natureza do serviço fica só no contrato (§8).
 2. **O pagamento é antecipado.** A família paga o mês antes de usá-lo. Pós-pago no boleto é dar crédito sem análise a um público que, por definição, não tem cartão.
 3. **O Pix Automático é o padrão, e o boleto é exceção.** Boleto depende da família lembrar de pagar todo mês. O Pix Automático não depende.
 4. **Hoje o sistema não cobra sozinho.** Vender antes de automatizar (§6) vai gerar inadimplência invisível: ninguém percebe atraso porque nada marca "atrasado".
+
+Há ainda um **pacote exclusivo de 6 sessões, o Pacote Ponte (R$ 1.050), vendido só por Pix Automático** (§1.4).
 
 No cenário conservador, as particulares geram **cerca de R$ 96 mil brutos e R$ 17 mil de resultado em 12 meses**, depois de pagar mídia, e chegam a uma receita mensal recorrente (MRR) de **R$ 14,5 mil** no mês 12. O cenário de estresse fica perto do zero a zero (R$ 1,4 mil). Isso significa que o negócio não quebra, mas também não se sustenta se a inadimplência passar de 10%.
 
@@ -29,6 +31,7 @@ Fonte: `chatbot-base-conhecimento.md:79`, tabela `insurer_price_tables`, código
 |---|---:|---:|---:|---:|
 | Encontro (avulso) | 1 | 190 | 190 | 0% |
 | Primeiro Passo | 4 | 720 | 180 | 5% |
+| **Ponte** (exclusivo Pix Automático) | 6 | 1.050 | 175 | 8% |
 | **Laço** (âncora) | 8 | 1.400 | 175 | 8% |
 | Vínculo | 12 | 1.990 | 166 | 13% |
 | Turma | 16 | 2.580 | 161 | 15% |
@@ -46,10 +49,13 @@ Premissas desta tabela:
 | Pacote | Receita | − Terapeuta | − Impostos | − Perda 5% | **Contribuição** | % |
 |---|---:|---:|---:|---:|---:|---:|
 | Primeiro Passo | 720 | 320 | 101 | 36 | **261** | 36% |
+| **Ponte** (perda 2,5%, só Pix) | 1.050 | 480 | 147 | 26 | **395** | 38% |
 | Laço | 1.400 | 640 | 196 | 70 | **492** | 35% |
 | Vínculo | 1.990 | 960 | 279 | 100 | **649** | 33% |
 | Abraço | 3.120 | 1.600 | 437 | 156 | **925** | 30% |
 | Voo Livre | 3.640 | 1.920 | 510 | 182 | **1.026** | 28% |
+
+A Ponte tem a **melhor margem percentual** do catálogo porque só existe no Pix Automático, onde a perda esperada é menor.
 
 **Insight que contraria a intuição:** os pacotes grandes dão mais reais por família e **menos margem percentual**. Também concentram risco: uma família do Voo Livre inadimplente equivale a cinco do Primeiro Passo. A política de crédito (§3.3) precisa ficar mais rígida à medida que o pacote cresce, e não mais frouxa porque "é o cliente mais valioso".
 
@@ -62,27 +68,36 @@ Premissas desta tabela:
   - Paga-se se o Pix reduzir a perda em mais de 3 pontos percentuais em relação ao boleto, o que é realista: o débito automático elimina o esquecimento, que é a principal causa de atraso em boleto.
   - **Gate:** se a adesão ao Pix Automático passar de 70% sem desconto, removê-lo para novos contratos.
 
+### 1.4 Pacote Ponte: 6 sessões, exclusivo do Pix Automático
+
+- **O que é:** porta de entrada entre o Primeiro Passo (4) e o Laço (8). R$ 1.050/mês, R$ 175/sessão. O código interno é `PART-PLANO-PONTE`.
+- **Agenda:** 2 sessões por semana em 3 semanas; a 4ª semana fica livre para reposição e feriado. Terapia infantil é semanal, e 6 sessões não cabem em 4 semanas sem essa regra.
+- **Por que só Pix Automático:** é o incentivo de adesão. A família que quer o pacote de entrada aceita o débito automático, e a clínica fica com a melhor margem do catálogo. O sistema bloqueia boleto neste pacote (tela e banco).
+- **Ressalvas:**
+  - **Canibalização do Laço:** o R$/sessão é o mesmo do Laço (R$ 175). Gate: se mais de 20% das famílias do Laço migrarem para a Ponte, ou se os contratos novos da Ponte superarem os do Laço por 2 meses seguidos, subir a Ponte para R$ 1.068.
+  - **Constância:** a 4ª semana sem sessão quebra a rotina. A indicação da Ponte vem da devolutiva clínica ("6 sessões fazem sentido para este caso"), nunca de argumento de preço.
+  - **Revogação do Pix Automático:** a família pode cancelar o débito no próprio banco. No Pacote Ponte isso **não** vira boleto automaticamente: o contrato entra em revisão para o gestor conversar com a família (migrar para o Primeiro Passo ou o Laço com boleto, ou reautorizar).
+  - **Reajuste:** a autorização tem valor fixo; mudar o preço exige cancelar e a família autorizar de novo.
+
 ---
 
 ## 2. Os pontos fracos, antes de tudo
 
-### 2.1 "Plano Próprio" × ANS (risco mais grave)
+### 2.1 Natureza do serviço e linguagem (risco mais grave)
 
-A Lei 9.656/98 define plano de saúde como prestação continuada de serviços **para cobrir custos de atendimento**, por preço pré ou pós-estabelecido. Uma clínica que vende "plano" com cara de cobertura pode ser vista como operadora sem registro, o que leva a autuação, multa e Procon.
+O produto é a venda de **sessões em quantidade fixa por valor mensal fechado**. O risco é a linguagem e a estrutura sugerirem outra coisa, o que traria questionamento regulatório (ANS) e do Procon. O que mantém o produto claro:
+- quantidade **fixa** de sessões por mês, que a família sabe o que compra;
+- nenhuma promessa para evento futuro e incerto, como "se precisar de X, está incluso";
+- nenhum rateio de custo entre famílias;
+- nenhuma rede credenciada, reembolso próprio ou "uso ilimitado".
 
-**O que mantém o produto fora da definição:**
-- quantidade **fixa** de sessões por mês, que o cliente sabe o que compra;
-- nenhuma cobertura de evento futuro e incerto: não há "se precisar de X, está incluso";
-- nenhum mutualismo: o preço de uma família não financia a outra;
-- nenhuma carência, rede, reembolso ou "uso ilimitado".
+**Regras de redação (contrato, site, posts, bot, WhatsApp):**
+- ✅ "Pacote de Sessões Faça Amigos", "Pacote Laço: 8 sessões por mês", "sessões com valor mensal fixo".
+- ❌ "plano", "cobertura", "carência", "convênio próprio", "seu plano cobre", "atendimento ilimitado".
 
-**Regras de redação (contrato, site, posts, bot):**
-- ✅ "Plano Próprio Faça Amigos: pacote mensal de 8 sessões".
-- ✅ "Sessões terapêuticas com valor mensal fixo".
-- ❌ "plano de saúde", "cobertura", "carência", "convênio próprio", "seu plano cobre", "atendimento ilimitado".
-- O contrato deve trazer a cláusula: *"Este contrato é de prestação de serviços terapêuticos em quantidade determinada e não constitui plano privado de assistência à saúde nos termos da Lei 9.656/98."*
+A cláusula de natureza do serviço fica **somente no contrato** (§8). Nenhuma peça de marketing a menciona.
 
-⚖️ **ADVOGADO:** validar o nome comercial "Plano Próprio". O plano B é "Programa Faça Amigos" ou "Pacote Faça Amigos".
+⚖️ **ADVOGADO:** validar a linguagem do contrato e dos nomes comerciais.
 
 ### 2.2 Público sem cartão comprando pacotes de R$ 1.400 a R$ 3.640
 
@@ -108,7 +123,9 @@ Boleto e Pix trafegam por banco, app do pagador, extrato e DDA. Se a descrição
 
 ### 2.5 O sistema hoje não sustenta a venda
 
-Fonte: exploração do repositório.
+Fonte: leitura do repositório, conferida arquivo a arquivo.
+
+**Correção em relação a uma versão anterior deste documento:** contratos e faturas **já são acessíveis só pelo gestor** (`20260908060000_onda1_contracts_inventory_rls.sql`). Terapeuta não lê o financeiro particular; as cobranças avulsas (`patient_charges`) são restritas a gestor, supervisor, recepção e faturamento. Aquela afirmação estava errada e foi removida.
 
 | Achado | Onde | Consequência |
 |---|---|---|
@@ -116,8 +133,7 @@ Fonte: exploração do repositório.
 | `pix_code` e `boleto_url` existem e nunca são preenchidos | `contract_invoices` (`20260908050000_new_modules.sql`) | Família não recebe cobrança pelo sistema |
 | `generate_package_invoices()` sem `cron.schedule` | `20261031234723_particular_package_billing.sql` | Fatura do mês só existe se alguém lembrar |
 | Nada move fatura para `atrasado` | — | Inadimplência invisível |
-| RLS só por clínica, não por papel | `patient_contracts` e `contract_invoices` | **Terapeuta lê valores e faturas de todas as famílias** |
-| Colunas usadas sem migration (`billing_mode`, `invoice_day`, `unit_price`, `sessions_per_month`, `reference_month`, `description`) | `lib/database.types.ts` × migrations | Ambiente novo ou restore quebra a cobrança |
+| Colunas usadas sem migration (`billing_mode`, `invoice_day`, `unit_price`, `sessions_per_month`, `specialty_value`, `reference_month`, `description`) | `lib/database.types.ts` × migrations | Ambiente novo ou restore quebra a cobrança |
 | View de faturamento ignora particular e lê `billing_batches` inexistente | `20260918_metabase_bi_views.sql` | Gestor não enxerga a receita particular |
 | Template de cobrança removido | `20261104120000_remove_cobranca_template.sql` | Não há mensagem aprovada para a régua |
 
@@ -211,6 +227,7 @@ Fixos considerados: impostos de 14% 🧾, taxa de R$ 3 por boleto e de R$ 1,50 p
 | Perda final > D+60 (% da receita) | vs meta | ≤ 5% |
 | Adesão ao Pix Automático | vs mês anterior | ≥ 50% |
 | Churn mensal | vs média de 3 meses | ≤ 6% |
+| Contratos novos: Ponte × Laço | vs mês anterior | Ponte não supera o Laço por 2 meses seguidos |
 | CAC | vs CAC máximo (LTV/3) | ≤ R$ 1.500 |
 | Conversão avaliação → pacote | vs mês anterior | ≥ 35% |
 | Aging (0–15 / 16–30 / 31–60 / >60) | vs mês anterior | > 60 dias: zero |
@@ -223,14 +240,14 @@ Escala: P = probabilidade, I = impacto (1–5).
 
 | # | Risco | P | I | Mitigação |
 |---|---|:-:|:-:|---|
-| 1 | Enquadramento como plano de saúde (ANS/Procon) | 2 | 5 | Regras de redação (§2.1), cláusula expressa, pacote fixo ⚖️ |
+| 1 | Natureza do serviço questionada (regulatório/Procon) | 2 | 5 | Regras de redação (§2.1), cláusula contratual, pacote fixo ⚖️ |
 | 2 | Inadimplência acima de 10% | 3 | 4 | Pré-pago, Pix Automático, crédito por pacote, régua automática |
 | 3 | Golpe do boleto falso via WhatsApp | 3 | 4 | Só número oficial verificado; 2ª via só no portal da família (OTP); conferir CNPJ do beneficiário em toda mensagem; preferir Pix Automático |
 | 4 | Cobrança vexatória (CDC art. 42) | 2 | 4 | Templates aprovados; nunca cobrar na frente da criança, na recepção cheia ou em grupo |
 | 5 | Negativação sem notificação (CDC art. 43 §2º; Súmula 359 STJ) | 2 | 4 | Notificação formal D+15 com prazo de 10 dias, feita pelo bureau/gateway |
 | 6 | Cláusula abusiva (fidelidade, multa) | 2 | 3 | Sem fidelidade; aviso de 30 dias ⚖️ |
 | 7 | Exposição de dado de saúde no boleto/NFS-e | 3 | 4 | Descrição genérica (§2.4) |
-| 8 | Funcionário lê o financeiro de todas as famílias | **5 (ocorre hoje)** | 3 | RLS por papel (§7) |
+| 8 | Funcionário não gestor lê o financeiro particular | 1 (já restrito ao gestor) | 3 | Manter RLS; testar após cada migration (§7) |
 | 9 | Baixa manual indevida ou desvio | 2 | 4 | Baixa só por webhook; baixa manual exige gestor + motivo + `audit_log` |
 | 10 | Interrupção terapêutica questionada no conselho | 2 | 4 | Protocolo de transição (§2.3) |
 | 11 | Fiscal: NFS-e emitida fora do mês ou sem emissão | 3 | 3 | Emissão automática na confirmação do pagamento 🧾 |
@@ -239,25 +256,37 @@ Escala: P = probabilidade, I = impacto (1–5).
 
 ---
 
-## 6. Automação de cobrança (especificação da fase 2)
+## 6. Automação de cobrança (implementada, testada em sandbox)
 
-### 6.1 Gateway: critérios, não marca
+### 6.1 Gateway: comparação (pesquisa em nov/2026)
 
-Requisitos mínimos: **Pix Automático** (jornada de autorização + cobrança recorrente), **boleto com QR Pix**, **webhook assinado**, **negativação/protesto integrados**, **NFS-e** (desejável), sandbox.
+Requisitos: **Pix Automático** (autorização + cobrança recorrente), **boleto com QR Pix**, **webhook assinado**, **negativação/protesto**, **NFS-e** (desejável), ambiente de testes.
 
-Candidatos a comparar (verificar preços e recursos atuais antes de escolher): Asaas, Efí (ex-Gerencianet), Banco Inter PJ, Cora, Pagar.me. Critério de desempate: confiabilidade do webhook e suporte a Pix Automático, não a tarifa (§4.3).
+| Gateway | Pix Automático na API | Boleto | Pix | Veredito |
+|---|---|---|---|---|
+| **Asaas** | **Documentado** (`docs.asaas.com/docs/pix-automatico`): autorização + cobrança por ciclo | ≈ R$ 1,99 (blogs; divergem) | taxa fixa (R$ 0,99 a R$ 1,99 conforme a fonte) | **Escolhido** |
+| Efí | "Disponível na plataforma e na API Pix" (blog da própria Efí) | não confirmado | não confirmado | **Reserva** |
+| Mercado Pago | Não confirmado na documentação lida | ≈ R$ 3,49 | 0,99% (≈ R$ 10,40 numa fatura de R$ 1.050) | Descartado por ora |
+| Stripe | Não confirmado | ≈ R$ 3,45 | 1,19%, só por convite | Descartado |
+| "Paguelá" | Não encontrei gateway com esse nome (PagBank? Pagar.me? PagBrasil?) | — | — | Pendente: o Bruno confirma qual é |
+
+**Limites desta pesquisa:** os preços vêm de blogs comparativos e de páginas dos próprios gateways, e divergem entre si. Antes de contratar, conferir a tabela oficial de cada um e negociar. O Asaas exige CNPJ e conta aprovada.
+
+**Duas particularidades do Asaas Pix Automático que moldaram o código:**
+1. O Asaas **não gera sozinho as cobranças mensais**: o sistema cria uma cobrança por ciclo, referenciando a autorização, de **2 a 10 dias úteis antes do vencimento** e só com a autorização ACTIVE.
+2. A autorização só vira ACTIVE **depois** que a família paga o QR da 1ª mensalidade e o banco dela confirma. Valor fixo: para mudar o preço, cancela e cria outra.
 
 ### 6.2 Arquitetura, reaproveitando o que já existe
 
 ```
-pg_cron (dia 15) ──► generate_package_invoices()  [já existe; falta agendar]
+pg_cron (dia 10) ──► generate_package_invoices()  [competência seguinte; agendada na migration]
         │                    │
         │                    ▼
         │         contract_invoices (pendente)
         │                    │  API route /api/billing/emit  (x-cron-secret, padrão 20260921040000)
         │                    ▼
         │         Gateway: cria cobrança Pix Automático ou boleto+QR
-        │                    │  grava pix_code / boleto_url / gateway_id  [colunas já existem]
+        │                    │  grava pix_code / boleto_url / gateway_charge_id
         ▼                    ▼
 pg_cron diário ──► régua (Twilio Content templates, lib/twilio.ts + lib/whatsapp-window.ts)
                              │
@@ -297,15 +326,15 @@ Regras da régua:
 
 Pré-requisitos antes de ligar a cobrança automática:
 
-1. **RLS por papel** em `patient_contracts`, `contract_invoices` e `patient_charges`: leitura para gestor, faturamento e recepção; escrita de status só para o service role (webhook) e para o gestor. **Terapeuta: nenhum acesso.**
-2. **Migration de correção do drift:** criar oficialmente `billing_mode`, `invoice_day`, `unit_price`, `sessions_per_month`, `reference_month` e `description`, mais `gateway_id`, `gateway_event_id UNIQUE`, `paid_at`, `paid_amount` e `payment_method`.
+1. **Acesso por papel:** contratos e faturas já são só do gestor. As novas tabelas `payment_events` e `dunning_log` seguem o mesmo padrão (leitura só do gestor; escrita só pelo service role).
+2. **Migration de correção do drift:** criar oficialmente `billing_mode`, `invoice_day`, `unit_price`, `sessions_per_month`, `reference_month` e `description`, mais as colunas do gateway (`gateway_charge_id` único, autorização Pix, valores pagos, régua).
 3. **Webhook:** validar assinatura/HMAC e IP do gateway; usar idempotência por `gateway_event_id`; nunca confiar no valor vindo do cliente.
 4. **Segredos:** chave do gateway só em variável de ambiente do servidor/Vault, nunca no client; token restrito (sem permissão de transferência/saque).
 5. **Saque e transferência no gateway:** só pelo dono, com 2FA. Conta de saque fixa e alteração com carência.
 6. **Baixa manual:** só gestor, com motivo obrigatório e `audit_log` (`fn_audit_log()` já existe).
 7. **Segregação:** quem dá desconto ou acordo não é quem concilia.
 8. **LGPD:** base legal "execução de contrato" para os dados financeiros, separada do consentimento de saúde; consentimento explícito para consulta de crédito; retenção fiscal de 5 anos para financeiro e 20 para prontuário.
-9. **BI:** nova view `v_particular_receivables` com `security_invoker` (padrão `20261001012045`), alimentando o dashboard do gestor (§4.4).
+9. **Painel:** `/gestor/financeiro/cobranca` lê as tabelas com a sessão do gestor (RLS), sem view nova, com os KPIs de §4.4 e seus comparativos.
 
 ---
 
@@ -313,7 +342,7 @@ Pré-requisitos antes de ligar a cobrança automática:
 
 - [ ] Contrato com **responsável financeiro** identificado (CPF), distinto do paciente.
 - [ ] Assinatura eletrônica com trilha (IP, hora, e-mail/telefone). Validar com advogado a força executiva (CPC art. 784 e entendimento do STJ sobre contrato eletrônico sem testemunhas).
-- [ ] Cláusula "não é plano de saúde" (§2.1).
+- [ ] Cláusula de natureza do serviço, **só no contrato**: "Este contrato é de prestação de serviços terapêuticos em quantidade determinada e não constitui plano privado de assistência à saúde nos termos da Lei 9.656/98." ⚖️ validar o texto.
 - [ ] Quantidade de sessões, política de faltas e reposição (§3.2) **no corpo do contrato**, não só no site.
 - [ ] Encargos (2% + 1% ao mês), índice de reajuste, aviso de cancelamento de 30 dias, sem fidelidade.
 - [ ] Consentimento para consulta de crédito e para comunicação de cobrança por WhatsApp/e-mail.
@@ -324,13 +353,13 @@ Pré-requisitos antes de ligar a cobrança automática:
 
 ---
 
-## 9. Marketing completo do Plano Próprio
+## 9. Marketing do Pacote de Sessões
 
 ### 9.1 Posicionamento
 
 > **"Terapia com previsibilidade: a mesma equipe, no mesmo horário, todo mês, sem esperar autorização."**
 
-O inimigo não são outras clínicas. É a **imprevisibilidade do convênio**: guia negada, fila, troca de terapeuta, sessão cortada no meio do tratamento. O Plano Próprio vende **continuidade**, que é o que mais pesa no resultado terapêutico infantil.
+O inimigo não são outras clínicas. É a **imprevisibilidade do convênio**: guia negada, fila, troca de terapeuta, sessão cortada no meio do tratamento. O Pacote de Sessões vende **continuidade**, que é o que mais pesa no resultado terapêutico infantil.
 
 **Cuidado com a mensagem:** não falar mal de convênio. A clínica vive de convênio (§0). A mensagem é "você escolhe", não "convênio é ruim".
 
@@ -387,13 +416,13 @@ A regra de prevenção de duplicidade do projeto (AGENTS.md §3) vale aqui: um l
 ### 9.6 Peças e roteiros
 
 **Post/carrossel ("Previsibilidade"):**
-> 1/ Sessão autorizada hoje, negada amanhã? 2/ Terapia infantil funciona com constância. 3/ Plano Próprio Faça Amigos: pacote mensal de sessões, mesma equipe, mesmo horário. 4/ A partir de R$ 720/mês, no Pix Automático ou boleto. 5/ NFS-e no seu CPF para declarar no IR. 6/ *Pacote mensal de sessões. Não é plano de saúde.* Agende a avaliação pelo WhatsApp.
+> 1/ Sessão autorizada hoje, negada amanhã? 2/ Terapia infantil funciona com constância. 3/ Pacote de Sessões Faça Amigos: valor mensal fechado, mesma equipe, mesmo horário. 4/ A partir de R$ 720/mês, no Pix Automático ou boleto. 5/ NFS-e no seu CPF para declarar no IR. 6/ Agende a avaliação pelo WhatsApp.
 
 **Anúncio (Meta, até 125 caracteres):**
 > Terapia infantil com valor mensal fixo e a mesma equipe todo mês. Pix Automático ou boleto. Agende a avaliação.
 
 **Script de WhatsApp (pós-devolutiva):**
-> "Oi, [nome]! Pela avaliação do [criança], a equipe indicou [N] sessões por mês. No Plano Próprio isso fica no **[Pacote]**, por **R$ [valor]/mês**. Você pode pagar no **Pix Automático**: autoriza uma vez, debita todo dia 25 e sai 3% mais barato. Se preferir, mandamos **boleto**. Não tem fidelidade: para cancelar, é só avisar com 30 dias. Te mando o contrato para assinar pelo celular?"
+> "Oi, [nome]! Pela avaliação do [criança], a equipe indicou [N] sessões por mês. No Pacote de Sessões isso fica no **[Pacote]**, por **R$ [valor]/mês**. Você pode pagar no **Pix Automático**: autoriza uma vez, debita todo dia 25 e sai 3% mais barato. Se preferir, mandamos **boleto**. Não tem fidelidade: para cancelar, é só avisar com 30 dias. Te mando o contrato para assinar pelo celular?"
 
 **Explicando o Pix Automático (objeção "isso é seguro?"):**
 > "O Pix Automático é do Banco Central. Você autoriza no app do **seu** banco, vê o valor máximo e pode cancelar quando quiser, direto no banco. A gente não tem acesso à sua conta."
@@ -403,9 +432,10 @@ A regra de prevenção de duplicidade do projeto (AGENTS.md §3) vale aqui: um l
 | Objeção | Resposta |
 |---|---|
 | "Está caro" | Mostrar o R$/sessão vs avulso; começar no Primeiro Passo; lembrar da dedução no IR |
-| "Por que não pelo convênio?" | "Pode ser pelos dois. O Plano Próprio complementa o que o convênio não autoriza." |
+| "Por que não pelo convênio?" | "Pode ser pelos dois. O Pacote de Sessões complementa o que o convênio não autoriza." |
 | "E se ele faltar?" | Política clara de reposição com 24h de aviso (§3.2) |
 | "E se eu quiser sair?" | Aviso de 30 dias, sem multa |
+| "Por que a Ponte só no Pix Automático?" | "Para manter o valor fechado e você nunca esquecer o vencimento. Você autoriza uma vez no seu banco e pode cancelar quando quiser." |
 | "Recebi um boleto estranho" | "Só enviamos pelo número oficial, e o beneficiário é sempre o CNPJ do Instituto. Na dúvida, baixe no portal." |
 
 **Restrições de publicidade (conselhos profissionais e LGPD):**
@@ -428,6 +458,7 @@ A regra de prevenção de duplicidade do projeto (AGENTS.md §3) vale aqui: um l
 | Custo por lead (WhatsApp) | ≤ R$ 25 | vs mês anterior |
 | Lead → avaliação | ≥ 20% | vs meta |
 | Avaliação → pacote | ≥ 35% | vs meta |
+| Famílias que migram do Laço para a Ponte | ≤ 20% | vs mês anterior (gate de preço, §1.4) |
 | CAC | ≤ R$ 1.500 (teto do estresse) | vs CAC máximo (§4.2) |
 | % de vendas vindas de indicação | ≥ 30% no mês 6 | vs mês anterior |
 
@@ -448,7 +479,7 @@ A regra de prevenção de duplicidade do projeto (AGENTS.md §3) vale aqui: um l
 | Fase | Prazo | Entregas | Gate para avançar |
 |---|---|---|---|
 | **0: Base** | Dias 0–30 | Revisão ⚖️ e 🧾; contrato; escolha do gateway; RLS por papel; migration do drift; agendar `generate_package_invoices` | Contrato aprovado; terapeuta sem acesso ao financeiro |
-| **1: Cobrança** | Dias 30–60 | Integração com o gateway (Pix Automático + boleto+QR); webhook; cron de atraso; régua com templates aprovados; portal da família; dashboard | Teste ponta a ponta no sandbox; 0 baixa manual em 2 semanas de piloto |
+| **1: Cobrança** | Dias 30–60 | **Código pronto** (gateway Asaas, webhook, atraso, régua, painel). Falta: conta e chaves, templates aprovados na Meta, **portal da família** (faturas e 2ª via), piloto em sandbox. Passo a passo em `docs/runbooks/ativar-cobranca-asaas.md` | Teste ponta a ponta no sandbox; 0 baixa manual em 2 semanas de piloto |
 | **2: Venda** | Dias 45–90 | Lançamento (§9.5) com até 15 famílias fundadoras | Inadimplência > D+5 ≤ 8%; adesão Pix ≥ 50% |
 | **3: Escala** | Dia 90+ | Mídia paga contínua, pacotes grandes com política de crédito | CAC ≤ R$ 1.500; perda > D+60 ≤ 5% |
 

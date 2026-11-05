@@ -1,6 +1,6 @@
 -- Cobrança automática dos Pacotes de Sessões particulares (gateway Asaas: Pix Automático + boleto).
 --
--- 1. Fecha o drift: billing_mode, invoice_day, unit_price, sessions_per_month (patient_contracts) e
+-- 1. Fecha o drift: billing_mode, invoice_day, unit_price, sessions_per_month, specialty_value (patient_contracts) e
 --    reference_month, description (contract_invoices) eram usadas por 20261031234723 e por
 --    lib/database.types.ts, mas nenhuma migration as criava. `add column if not exists` é
 --    no-op onde já foram aplicadas à mão.
@@ -23,7 +23,8 @@ alter table public.patient_contracts
   add column if not exists billing_mode text not null default 'pacote',
   add column if not exists invoice_day integer not null default 25,
   add column if not exists unit_price numeric(10,2),
-  add column if not exists sessions_per_month integer;
+  add column if not exists sessions_per_month integer,
+  add column if not exists specialty_value text;
 
 alter table public.contract_invoices
   add column if not exists reference_month date,

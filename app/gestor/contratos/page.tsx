@@ -3,7 +3,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { FinanceiroSubnav } from "@/components/financeiro-subnav";
 import { FileText, Clock, CreditCard } from "lucide-react";
 import { NewContractDialog } from "./new-contract-dialog";
-import { GenerateInvoiceButton, MarkInvoicePaidButton } from "./invoice-actions";
+import { GenerateInvoiceButton, MarkInvoicePaidButton, PixAuthorizationButton } from "./invoice-actions";
 import { PageContainer } from "@/components/page-container";
 import { loadParticularPlanCatalog } from "@/lib/particular-plans";
 
@@ -19,6 +19,14 @@ const PLAN_LABEL: Record<string, string> = {
   coparticipacao: "Co-participação",
 };
 
+const PIX_STATUS_LABEL: Record<string, string> = {
+  CREATED: "aguardando 1º pagamento",
+  ACTIVE: "autorizado",
+  CANCELLED: "cancelado pela família",
+  REFUSED: "recusado",
+  EXPIRED: "expirado",
+};
+
 const INVOICE_STATUS_TAG: Record<string, string> = {
   pendente: "st-agendada",
   pago: "st-realizada",
@@ -31,7 +39,7 @@ export default async function ContratosPage() {
 
   const { data: contractRows } = await supabase
     .from("patient_contracts")
-    .select("id, plan_type, monthly_fee, payment_day, status, start_date, patient_id, patients(full_name, cpf)")
+    .select("id, plan_type, monthly_fee, payment_day, status, start_date, patient_id, payment_method, pix_authorization_status, needs_review, needs_review_reason, patients(full_name, cpf)")
     .eq("clinic_id", DEV_CLINIC_ID)
     .order("created_at", { ascending: false });
 
@@ -160,7 +168,24 @@ export default async function ContratosPage() {
                         <div className="font-semibold">{(c.patients as any)?.full_name ?? "—"}</div>
                         <div className="text-xs text-ink-faint">CPF: {(c.patients as any)?.cpf || "não informado"}</div>
                       </td>
-                      <td className="text-xs font-medium">{PLAN_LABEL[c.plan_type] ?? c.plan_type}</td>
+                      <td className="text-xs font-medium">
+                        {PLAN_LABEL[c.plan_type] ?? c.plan_type}
+                        {c.plan_type === "particular" && (
+                          <div className="text-[11px] text-ink-faint">
+                            {c.payment_method === "pix_automatico"
+                              ? `Pix Automático · ${PIX_STATUS_LABEL[c.pix_authorization_status ?? ""] ?? "aguardando autorização"}`
+                              : "Boleto"}
+                          </div>
+                        )}
+                        {c.needs_review && (
+                          <div className="text-[11px]" style={{ color: "var(--status-falta)" }}>
+                            Revisar: {c.needs_review_reason}
+                          </div>
+                        )}
+                        {c.status === "ativo" &&
+                          c.payment_method === "pix_automatico" &&
+                          !["CREATED", "ACTIVE"].includes(c.pix_authorization_status ?? "") && <PixAuthorizationButton contractId={c.id} />}
+                      </td>
                       <td className="tabular-figure font-bold text-sm">{formatCurrency(Number(c.monthly_fee))}</td>
                       <td className="tabular-figure text-xs">Todo dia {c.payment_day}</td>
                       <td className="tabular-figure text-xs text-ink-faint">{c.start_date}</td>
