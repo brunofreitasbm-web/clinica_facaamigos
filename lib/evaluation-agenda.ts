@@ -312,18 +312,23 @@ async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<str
   return availableCandidates.map((p) => {
     const gate = gates.get(p.id);
     const profile = profiles.get(p.id);
-    // Com contato de documentos (gate), só "habilitado" (clique em "Pronto para agendar")
-    // libera — nem status "avaliacao" fura. Sem contato (presencial puro) não há ok a esperar.
-    const isReady = gate ? gate === "habilitado" : true;
-    const isApto = gate ? gate === "habilitado" : p.status === "avaliacao";
+    // Regra padrão: só entra na fila após o clique em "Pronto para agendar" (gate
+    // "habilitado"). Nem status "avaliacao" nem a ausência de gate (ex.: rascunho
+    // rejeitado/sem contato) furam. Única exceção: PARTICULAR de fato (cobertura
+    // is_private), que não tem plano a verificar.
+    const isParticular = profile?.isParticular === true;
+    const isReady = isParticular || gate === "habilitado";
+    const isApto = gate === "habilitado";
     const statusLabel = isApto
       ? "Apto para 1ª avaliação"
       : gate
         ? GATE_STATUS_LABEL[gate]
-        : "🚨 PRESENCIAL NA CLÍNICA";
+        : isParticular
+          ? "Particular — sem plano a verificar"
+          : "Aguardando o clique em \"Pronto para agendar\"";
 
     const detail = isApto
-      ? "Apto para 1ª avaliação · plano autorizado"
+      ? "Apto para 1ª avaliação · liberado pela recepção"
       : gate
         ? `Documentos por WhatsApp/portal · cadastrado há ${p.daysSinceCreated} dia(s)`
         : `Cadastrado há ${p.daysSinceCreated} dia(s)`;
@@ -355,6 +360,8 @@ type PoolPatientProfile = {
   guardianName: string | null;
   phone: string | null;
   recipient: EvaluationRecipientPreview | null;
+  /** Alguma cobertura marcada como particular (is_private): sem plano a verificar. */
+  isParticular: boolean;
 };
 
 /** Convênio, idade e contato do responsável dos candidatos da fila, numa consulta só. */
@@ -413,6 +420,7 @@ async function getPoolPatientProfiles(
         })
         .find(Boolean) ?? null;
 
+    const isParticular = coverages.some((c) => c.is_private === true);
     const gInfo = guardianByPatient.get(p.id) ?? draftByPatient.get(p.id);
     const recipient = pickEvaluationRecipient(guardiansByPatientList.get(p.id) ?? []);
 
@@ -422,6 +430,7 @@ async function getPoolPatientProfiles(
       guardianName: gInfo?.name ?? null,
       phone: gInfo?.phone ?? null,
       recipient: recipient ? { name: recipient.name, phone: recipient.phone } : null,
+      isParticular,
     });
   }
   return profiles;
@@ -470,7 +479,7 @@ export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_C
 
   // Paciente que veio por contato de documentos (WhatsApp/portal) só entra na
   // fila depois do "ok" da Recepção confirmando a autorização do plano.
-  const gated = [...anamnesisItems, ...intakeItems, ...presencialItems].filter((item) => !item.gate || item.gate === "habilitado");
+  const gated = [...anamnesisItems, ...intakeItems, ...presencialItems].filter((item) => (item.origin === "presencial" ? item.ready : !item.gate || item.gate === "habilitado"));
 
   // A mesma criança pode chegar por mais de uma origem (bot de anamnese, acolhimento
   // por PDF, cadastro presencial) — um card só, o mais adiantado: oferta em andamento
