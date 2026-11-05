@@ -13,6 +13,7 @@ import { computeLeadPendencies, desiredTherapiesFromBot, isBotDatumPresent, type
 import { isJobInquiryLead } from "@/lib/job-inquiry-pure";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
 import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
+import { groupExpiringGuides, type ActiveGuide } from "@/lib/expiring-guides-pure";
 
 type Supa = SupabaseClient<Database>;
 
@@ -133,8 +134,8 @@ export type ExpiringAuthorization = {
 };
 
 /**
- * Autorizações ativas vencendo em 15 dias ou com ≤4 sessões restantes
- * (§9.3 do PRD). Auto-contida (busca patients/patient_insurance/authorizations
+ * Autorizações ativas vencendo em 15 dias ou com saldo ≤4 sessões (§9.3 do
+ * PRD; regra em lib/expiring-guides-pure.ts). Auto-contida (busca patients/patient_insurance/authorizations
  * por conta própria) pra poder ser reusada tanto na home da recepção quanto
  * na fila completa, sem depender do que a página já tiver carregado.
  */
@@ -157,33 +158,40 @@ export async function getExpiringAuthorizations(supabase: Supa, clinicId: string
 
   const { data: activeAuths } = await supabase
     .from("authorizations")
-    .select("id, patient_insurance_id, sessions_used, sessions_authorized, valid_to")
+    .select("id, patient_insurance_id, procedure_code, guide_number, sessions_used, sessions_authorized, valid_to")
     .in("patient_insurance_id", insuranceIds)
     .eq("status", "ativa");
 
-  const result: ExpiringAuthorization[] = [];
+  const guides: ActiveGuide[] = [];
   for (const auth of activeAuths ?? []) {
     const insurance = insuranceById.get(auth.patient_insurance_id);
     if (!insurance) continue;
-    const insurerName =
-      (Array.isArray(insurance.insurers) ? insurance.insurers[0]?.name : insurance.insurers?.name) ?? "Plano de Saúde";
-    const sessionsRemaining = auth.sessions_authorized - auth.sessions_used;
-    const expiringSoon = auth.valid_to >= today && auth.valid_to <= fifteenDaysStr;
-    const fewSessionsLeft = sessionsRemaining <= 4;
-    if (!expiringSoon && !fewSessionsLeft) continue;
-
-    result.push({
+    guides.push({
       id: auth.id,
       patientId: insurance.patient_id,
       patientName: patientNameById.get(insurance.patient_id) ?? "—",
-      insurerName,
+      insurerName:
+        (Array.isArray(insurance.insurers) ? insurance.insurers[0]?.name : insurance.insurers?.name) ?? "Plano de Saúde",
+      procedureCode: auth.procedure_code,
+      guideNumber: auth.guide_number,
       sessionsUsed: auth.sessions_used,
       sessionsAuthorized: auth.sessions_authorized,
       validTo: auth.valid_to,
-      reason: expiringSoon ? "vencendo" : "poucas_sessoes",
     });
   }
-  return result;
+
+  return groupExpiringGuides(guides, today, fifteenDaysStr).flatMap((group) =>
+    group.guides.map((g) => ({
+      id: g.id,
+      patientId: g.patientId,
+      patientName: g.patientName,
+      insurerName: g.insurerName,
+      sessionsUsed: g.sessionsUsed,
+      sessionsAuthorized: g.sessionsAuthorized,
+      validTo: g.validTo,
+      reason: g.reason,
+    })),
+  );
 }
 
 export type AuthorizationWizardItem = {
