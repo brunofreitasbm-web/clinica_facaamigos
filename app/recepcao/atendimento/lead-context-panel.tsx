@@ -3,7 +3,8 @@
 import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Check, Copy, FileText, ImageIcon, Paperclip, Pencil, Sparkles, Loader2 } from "lucide-react";
+import { ClipboardList, Check, Copy, FileText, ImageIcon, Paperclip, Pencil, Sparkles, Loader2, CalendarCheck } from "lucide-react";
+import { markConversationParticularAndSchedule } from "../pacientes/pendencias/draft-pipeline-actions";
 import { openLeadPendency, getLeadDraftByConversationId, updateConversationContactName, extractLeadInfoFromChat, type LeadDraftInfo } from "./actions";
 import { formatConversationPhone } from "./format-phone";
 import { ConversationNote } from "./conversation-note";
@@ -182,6 +183,20 @@ export function LeadContextPanel({
     });
   };
 
+  const handleMarkParticular = () => {
+    if (!window.confirm("Marcar como particular? O contato pula as Autorizações e vai direto para o agendamento da 1ª avaliação.")) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await markConversationParticularAndSchedule(conversation.id);
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
+      onPatch({ escalationReason: null });
+      router.push(`/recepcao/pre-cadastros/${res.draftId}`);
+    });
+  };
+
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
       <div>
@@ -284,6 +299,19 @@ export function LeadContextPanel({
               {isPending ? "Abrindo…" : "Resolver pendências"}
             </button>
             <HelpHint text="Abre a fila de pendências já focada neste contato — dados, documentos e o que falta antes do cadastro." />
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={isPending}
+              className="btn flex-1 justify-center gap-1.5 text-sm"
+              onClick={handleMarkParticular}
+            >
+              <CalendarCheck size={14} />
+              Particular: agendar direto
+            </button>
+            <HelpHint text="Sem plano de saúde: não passa por Autorizações, vai direto para a Agenda 1ª Avaliação." />
           </div>
         </div>
         {error && <p className="mt-2 text-xs text-red-600">⚠️ {error}</p>}

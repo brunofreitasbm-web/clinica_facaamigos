@@ -164,7 +164,8 @@ async function loadChatbotAdminData(
   };
 }
 
-export default async function AtendimentoPage() {
+export default async function AtendimentoPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
+  const { c: initialSelectedId } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -186,6 +187,7 @@ export default async function AtendimentoPage() {
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <AtendimentoShell
         initialConversations={conversations}
+        initialSelectedId={initialSelectedId ?? null}
         chatbotAdmin={chatbotAdmin}
         currentUserId={user?.id ?? null}
         staffNames={staffNames}
