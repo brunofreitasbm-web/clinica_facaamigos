@@ -342,6 +342,18 @@ export default async function RecepcaoPage({
         .select("patient_id, full_name, phone, is_financial")
         .in("patient_id", expiringPatientIds)
     : { data: [] as { patient_id: string; full_name: string; phone: string | null; is_financial: boolean }[] };
+  // Último "Renovar guia" por paciente (só os dos últimos 30 dias: um contato antigo
+  // não deve mascarar um alerta novo).
+  const { data: renewalContacts } = expiringPatientIds.length
+    ? await supabase
+        .from("guide_renewal_contacts")
+        .select("patient_id, contacted_at")
+        .in("patient_id", expiringPatientIds)
+        .gte("contacted_at", new Date(now.getTime() - 30 * 86_400_000).toISOString())
+        .order("contacted_at", { ascending: false })
+    : { data: [] as { patient_id: string; contacted_at: string }[] };
+  const lastContactByPatient = new Map<string, string>();
+  for (const c of renewalContacts ?? []) if (!lastContactByPatient.has(c.patient_id)) lastContactByPatient.set(c.patient_id, c.contacted_at);
   const expiringRows: ExpiringGuideRow[] = expiringGroups.map((group) => {
     const list = (expiringGuardians ?? []).filter((g) => g.patient_id === group.patientId && g.phone);
     const guardian = list.find((g) => g.is_financial) ?? list[0];
@@ -354,7 +366,11 @@ export default async function RecepcaoPage({
       validTo: group.reason === "vencendo" ? first.validTo : null,
       sessionsRemaining: group.lowestBalance,
     });
-    return { ...group, renewUrl: guardian?.phone ? buildWhatsappLink(guardian.phone, message) : null };
+    return {
+      ...group,
+      renewUrl: guardian?.phone ? buildWhatsappLink(guardian.phone, message) : null,
+      lastContactedAt: lastContactByPatient.get(group.patientId) ?? null,
+    };
   });
 
   const abaBalanceByPatient: Record<string, AbaBalance> = {};

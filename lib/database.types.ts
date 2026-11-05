@@ -3843,6 +3843,38 @@ export type Database = {
           },
         ]
       }
+      guide_renewal_contacts: {
+        Row: {
+          clinic_id: string
+          contacted_at: string
+          contacted_by: string | null
+          id: string
+          patient_id: string
+        }
+        Insert: {
+          clinic_id: string
+          contacted_at?: string
+          contacted_by?: string | null
+          id?: string
+          patient_id: string
+        }
+        Update: {
+          clinic_id?: string
+          contacted_at?: string
+          contacted_by?: string | null
+          id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guide_renewal_contacts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guardians: {
         Row: {
           cpf: string | null

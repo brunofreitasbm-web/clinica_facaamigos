@@ -1,9 +1,17 @@
 import type { ExpiringPatientGroup } from "@/lib/expiring-guides-pure";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { RenewGuideLink } from "./renew-guide-link";
 
 export type ExpiringGuideRow = ExpiringPatientGroup & {
   /** wa.me com o pedido de renovação pronto; null quando não há telefone do responsável. */
   renewUrl: string | null;
+  /** Último contato de renovação (ISO) dentro da janela de exibição; null se não houve. */
+  lastContactedAt: string | null;
 };
+
+function fmtContact(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: CLINIC_TIMEZONE });
+}
 
 function fmtDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
@@ -44,17 +52,14 @@ export function ExpiringGuidesCard({ rows }: { rows: ExpiringGuideRow[] }) {
                 </li>
               ))}
             </ul>
-            <div className="flex justify-end">
+            <div className="flex items-center justify-end gap-3">
+              {row.lastContactedAt && (
+                <span className="text-[11px] font-medium text-emerald-700">
+                  ✓ Responsável acionado em {fmtContact(row.lastContactedAt)}
+                </span>
+              )}
               {row.renewUrl ? (
-                <a
-                  href={row.renewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-secondary no-underline"
-                  title="Abre o WhatsApp com o pedido de renovação pronto para o responsável"
-                >
-                  Renovar guia
-                </a>
+                <RenewGuideLink patientId={row.patientId} href={row.renewUrl} contacted={Boolean(row.lastContactedAt)} />
               ) : (
                 <span className="text-[11px] italic text-slate-500">Sem telefone do responsável — avise manualmente</span>
               )}
