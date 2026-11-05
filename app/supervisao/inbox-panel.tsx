@@ -259,7 +259,7 @@ export function InboxPanel({
     <div className="flex flex-col gap-8">
       {/* QUADRO DE AVISOS DE AUSÊNCIAS DA FAMÍLIA */}
       <section className="card p-5 border-l-4 border-l-amber-500 bg-amber-50/30">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-xl">📢</span>
             <h2 className="text-lg font-bold text-ink-strong m-0">
@@ -273,7 +273,6 @@ export function InboxPanel({
             </span>
           )}
         </div>
-        <div className="mb-4" />
 
         {absenceReports.length === 0 ? (
           <p className="text-xs text-ink-faint italic">Nenhum aviso de ausência.</p>
@@ -288,7 +287,7 @@ export function InboxPanel({
 
       {/* DOCUMENTOS ENVIADOS PELA FAMÍLIA — conferência no prontuário (saiu da fila da recepção) */}
       <section className="card p-5">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-1">
             <h2 className="text-lg font-bold text-ink-strong m-0">Documentos enviados pela família</h2>
             <HelpHint text="Enviados pelo portal. Abra o prontuário, confira o documento e marque como revisado." label="Sobre os documentos" />
@@ -299,7 +298,6 @@ export function InboxPanel({
             </span>
           )}
         </div>
-        <div className="mb-4" />
         {familyDocuments.length === 0 ? (
           <p className="text-xs text-ink-faint italic">Nenhum documento aguardando conferência.</p>
         ) : (

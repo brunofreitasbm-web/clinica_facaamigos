@@ -105,7 +105,7 @@ export function NewEntryDialog({
               <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
                 <span className="flex items-center gap-1">
                   Prioridade
-                  <HelpHint text="0 = normal, 10 = urgente." />
+                  <HelpHint label="Escala de prioridade" text="0 = normal, 10 = urgente." />
                 </span>
                 <input type="number" name="priority" min="0" max="10" defaultValue={0} className="input" />
               </label>

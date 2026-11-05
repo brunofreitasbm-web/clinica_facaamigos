@@ -70,7 +70,8 @@ type Tool =
   // agora abrem o mesmo conteúdo pelo overlay "Agenda Manual".
   | { label: string; openManualSchedule: true; icon: ReactNode; primary?: boolean; needsPatient?: false };
 
-type Step = { title: string; detail: string; tools?: Tool[] };
+// `warning`: regra de negócio que precisa ficar visível (fora do bloco recolhido).
+type Step = { title: string; detail: string; warning?: string; tools?: Tool[] };
 
 type Flow = {
   key: string;
@@ -117,7 +118,8 @@ const FLOWS: Flow[] = [
     steps: [
       {
         title: "Checar a guia vigente do paciente",
-        detail: "Abra a ficha e confira sessões restantes e validade antes de oferecer horário. Sem guia ativa, agende como provisória.",
+        detail: "Abra a ficha e confira sessões restantes e validade antes de oferecer horário.",
+        warning: "Sem guia ativa, agende como provisória.",
         tools: [{ label: "Ficha · Guias", hrefFor: (id) => `/recepcao/pacientes/${id}#guias`, icon: icon(<FileText />), needsPatient: true }],
       },
       {
@@ -232,7 +234,8 @@ const FLOWS: Flow[] = [
       },
       {
         title: "Registrar guia e autorização",
-        detail: "Plano de saúde, procedimento, sessões autorizadas, vigência e senha. Enquanto pendente, só sessão provisória.",
+        detail: "Plano de saúde, procedimento, sessões autorizadas, vigência e senha.",
+        warning: "Enquanto pendente, só sessão provisória.",
         tools: [{ label: "Registrar guia", hrefFor: (id) => `/recepcao/pacientes/${id}#proximo-passo`, icon: icon(<FileText />), needsPatient: true }],
       },
       {
@@ -266,7 +269,8 @@ const FLOWS: Flow[] = [
     steps: [
       {
         title: "Traduzir a avaliação em metas",
-        detail: "Item de protocolo para ABA/Denver; meta SMART por domínio próprio para as demais disciplinas. Data de revisão obrigatória.",
+        detail: "Item de protocolo para ABA/Denver; meta SMART por domínio próprio para as demais disciplinas.",
+        warning: "Data de revisão obrigatória.",
         tools: [{ label: "Montar PTS", hrefFor: (id) => `/supervisao/planos/novo?paciente=${id}`, icon: icon(<Target />), needsPatient: true, primary: true }],
       },
       {
@@ -325,7 +329,8 @@ const FLOWS: Flow[] = [
       },
       {
         title: "Consultar o contexto do paciente",
-        detail: "Faltas relatadas, guia, mural e próximas sessões ficam na ficha. Não responda sem olhar o histórico.",
+        detail: "Faltas relatadas, guia, mural e próximas sessões ficam na ficha.",
+        warning: "Não responda sem olhar o histórico.",
         tools: [{ label: "Ficha do paciente", hrefFor: (id) => `/recepcao/pacientes/${id}`, icon: icon(<Users />), needsPatient: true }],
       },
       {
@@ -352,6 +357,8 @@ const FLOWS: Flow[] = [
     ],
   },
 ];
+
+const NEEDS_PATIENT_HINT = "Busque e selecione um paciente na barra acima para habilitar os atalhos desabilitados.";
 
 const TONE_CLASS: Record<"pending" | "negative" | "neutral" | "positive", string> = {
   pending: "st-agendada",
@@ -386,9 +393,9 @@ function ToolButton({ tool, patientId, compact }: { tool: Tool; patientId: strin
 
   if (tool.needsPatient) {
     if (!patientId) {
-      const hint = "Busque e selecione um paciente na barra acima para habilitar este atalho";
+      const hint = NEEDS_PATIENT_HINT;
       return (
-        <span className="inline-flex items-center gap-0.5">
+        <span className="inline-flex items-center">
           <button
             type="button"
             aria-disabled="true"
@@ -403,7 +410,6 @@ function ToolButton({ tool, patientId, compact }: { tool: Tool; patientId: strin
           <span id={tooltipId} className="sr-only">
             {hint}
           </span>
-          <HelpHint text={hint} label={`Por que "${tool.label}" está desabilitado`} />
         </span>
       );
     }
@@ -600,9 +606,15 @@ export function FluxosPanel({ patients, counters }: { patients: FlowPatient[]; c
                         {s.tools.map((t) => (
                           <ToolButton key={t.label} tool={t} patientId={patientId} compact />
                         ))}
+                        {!patientId && s.tools.some((t) => t.needsPatient) && (
+                          <HelpHint text={NEEDS_PATIENT_HINT} label="Por que há atalhos desabilitados" />
+                        )}
                       </div>
                     )}
                   </div>
+                  {s.warning && (
+                    <p className="m-0 mt-1 text-xs font-semibold text-status-pending-text">{s.warning}</p>
+                  )}
                   <details className="group mt-0.5">
                     <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded text-xs font-semibold text-ink-soft hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden [@media(pointer:coarse)]:min-h-[44px]">
                       <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" aria-hidden="true" />
@@ -619,8 +631,11 @@ export function FluxosPanel({ patients, counters }: { patients: FlowPatient[]; c
         <aside className="flex flex-col gap-4">
           <div className="card">
             <div className="card-kicker">Acesso rápido</div>
-            <div className="card-title" style={{ fontSize: 16 }}>
+            <div className="card-title flex items-center gap-1.5" style={{ fontSize: 16 }}>
               Ferramentas do fluxo
+              {!patientId && current.tools.some((t) => t.needsPatient) && (
+                <HelpHint text={NEEDS_PATIENT_HINT} label="Por que há atalhos desabilitados" side="bottom" />
+              )}
             </div>
             <div className="mt-3 flex flex-col gap-2">
               {current.tools.map((t) => (

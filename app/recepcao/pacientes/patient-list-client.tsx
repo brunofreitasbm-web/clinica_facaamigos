@@ -524,10 +524,9 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
           <div className="rounded-full bg-paper-line/50 p-3 mb-3 text-ink-faint">
             <UserX className="h-8 w-8" />
           </div>
-          <h3 className="text-base font-semibold text-ink mb-1">
+          <h3 className="text-base font-semibold text-ink mb-4">
             Nenhum paciente encontrado
           </h3>
-          <div className="mb-4" />
           {(searchQuery || statusFilter !== "todos") && (
             <button
               onClick={() => {

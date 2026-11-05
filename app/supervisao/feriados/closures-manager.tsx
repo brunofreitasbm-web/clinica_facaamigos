@@ -84,7 +84,7 @@ export function ClosuresManager({ holidays, closures }: { holidays: NationalHoli
         </label>
         <label className="text-xs font-semibold text-ink-soft sm:col-span-1">
           Das (opcional)
-          <HelpHint className="ml-1" text="Sem horário = clínica fechada o dia inteiro." />
+          <HelpHint className="ml-1" label="Sobre horário em branco" text="Sem horário = clínica fechada o dia inteiro." />
           <input type="time" name="start_time" className={inputClass} />
         </label>
         <label className="text-xs font-semibold text-ink-soft sm:col-span-1">
@@ -134,7 +134,7 @@ export function ClosuresManager({ holidays, closures }: { holidays: NationalHoli
       <section className="rounded-lg border border-paper-line-strong bg-paper/60 p-5">
         <h2 className="flex items-center gap-1 text-sm font-bold text-ink">
           Feriados nacionais (automáticos)
-          <HelpHint text="Calculados pelo sistema, inclusive Carnaval e Corpus Christi. Não precisam de cadastro e já são bloqueados automaticamente." />
+          <HelpHint label="Sobre feriados nacionais" text="Calculados pelo sistema, inclusive Carnaval e Corpus Christi. Não precisam de cadastro e já são bloqueados automaticamente." />
         </h2>
         <ul className="mt-3 grid gap-1 text-sm sm:grid-cols-2">
           {holidays.map((h) => (

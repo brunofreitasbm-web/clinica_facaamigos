@@ -202,7 +202,7 @@ export function FamilyMeetingButton({ message, rooms }: { message: FamilyMeeting
                   <button type="button" className="btn btn-primary" disabled={isPending || !phone.trim()} onClick={handleTemplateSend}>
                     {isPending ? "Enviando…" : "Enviar template"}
                   </button>
-                  <HelpHint text="Envia um template pré-aprovado pela Meta via Twilio. Use quando a janela de 24h de atendimento já fechou." />
+                  <HelpHint label="Quando usar o template" text="Envia um template pré-aprovado pela Meta via Twilio. Use quando a janela de 24h de atendimento já fechou." />
                 </div>
               </div>
             )}
