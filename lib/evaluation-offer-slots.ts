@@ -10,6 +10,7 @@ import { loadClinicCalendar } from "@/lib/clinic-calendar";
 import { minutesToHHMM, timeToMinutes, weekdayOf } from "@/lib/clinic-calendar-pure";
 import {
   buildOccupancy,
+  firstOfferDay,
   generateEvaluationCandidates,
   pickOfferPage,
   type BusyRange,
@@ -62,7 +63,7 @@ export async function computeEvaluationOfferSlots(
   const nowMs = opts.nowMs ?? Date.now();
 
   const days: string[] = [];
-  let cursor = todayInTimeZone(CLINIC_TIMEZONE);
+  let cursor = firstOfferDay(todayInTimeZone(CLINIC_TIMEZONE));
   for (let i = 0; i < HORIZON_DAYS; i++) {
     days.push(cursor);
     cursor = nextCalendarDay(cursor);

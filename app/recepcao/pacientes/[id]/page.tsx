@@ -1,3 +1,4 @@
+import { NON_OCCURRED_IN_FILTER } from "@/lib/appointment-visibility";
 import { notFound, redirect } from "next/navigation";
 import { BackButton } from "@/components/back-button";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
@@ -249,6 +250,7 @@ export default async function PacientePage({
       .from("appointments")
       .select("id, starts_at, status")
       .eq("patient_id", id)
+      .not("status", "in", NON_OCCURRED_IN_FILTER)
       .order("starts_at", { ascending: false })
       .limit(20),
     supabase

@@ -38,8 +38,7 @@ export default async function QrCheckinPage() {
             Cartaz de check-in
           </h1>
           <p className="text-sm text-ink-soft">
-            Imprima e fixe na entrada da clínica. Se o link vazar ou o cartaz precisar ser trocado, gire o token abaixo
-            — o cartaz antigo para de funcionar imediatamente.
+            Girar o token desativa o cartaz antigo imediatamente.
           </p>
         </div>
         <div className="flex gap-2">
@@ -66,7 +65,7 @@ export default async function QrCheckinPage() {
           </p>
           <ol className="text-left text-sm" style={{ maxWidth: 340 }}>
             <li>1. Aponte a câmera do celular para o QR.</li>
-            <li>2. Informe seu primeiro nome e data de nascimento.</li>
+            <li>2. Informe o primeiro nome e a data de nascimento do paciente.</li>
             <li>3. Anote a senha — a chamada segue o horário agendado, não a ordem de chegada.</li>
           </ol>
           <p className="card-body" style={{ fontSize: "0.7rem", opacity: 0.6 }}>

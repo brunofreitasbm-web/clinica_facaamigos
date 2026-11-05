@@ -5,26 +5,45 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { fmtDateTime } from "@/lib/format";
 import { computeJourney, type JourneyEvaluation } from "@/lib/patient-journey-pure";
 import { PatientListClient } from "./patient-list-client";
+import { AuthorizedPackagesPanel } from "@/components/authorized-packages-panel";
+import {
+  getReceptionQueue,
+  isPendingQueueItem,
+} from "@/lib/reception-queue";
+import {
+  mergePills,
+  PANEL_CATEGORIES,
+  pillForQueueCategory,
+  pillsFromLeadPendencies,
+  registrationPills,
+  type PatientPill,
+} from "@/lib/patient-pills-pure";
+import { buildWorkspaceItems } from "./pendencias/queue-items";
+import type { PatientPanel } from "./patient-pendencies-dialog";
 
 export const dynamic = "force-dynamic";
 
-export default async function PacientesPage() {
+/** Pacientes que saíram da rotina: não cobramos documento deles. */
+const NO_PILLS_STATUSES = ["arquivado", "alta", "evadido", "inativo"];
+
+export default async function PacientesPage({ searchParams }: { searchParams: Promise<{ abrir?: string }> }) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const { data: patients } = await supabase
     .from("patients")
     .select(
-      "id, full_name, status, birth_date, cpf, created_at, evaluated_at, first_session_at, guardians(full_name, is_financial), patient_insurance(is_private, insurers(name, badge_color))",
+      "id, full_name, status, birth_date, cpf, created_at, evaluated_at, first_session_at, guardians(full_name, is_financial, email), patient_insurance(is_private, insurers(name, badge_color))",
     )
     .eq("clinic_id", DEV_CLINIC_ID)
-    // Interessado ainda não é paciente (sem prontuário): vive nas Pendências até a
+    // Interessado ainda não é paciente (sem prontuário): vive em Autorizações até a
     // guia ser autorizada (promoteToPatient → "avaliacao").
     .neq("status", "interessado")
     .order("full_name");
 
   const patientIds = (patients ?? []).map((p) => p.id);
 
-  const [{ data: evalAppointments }, { data: activeAuths }, { data: drafts }] = patientIds.length
+  const [{ data: evalAppointments }, { data: activeAuths }, { data: drafts }, { data: patientDocs }] = patientIds.length
     ? await Promise.all([
         supabase.from("appointments").select("patient_id, starts_at, status").in("patient_id", patientIds).eq("is_evaluation", true),
         supabase
@@ -37,8 +56,45 @@ export default async function PacientesPage() {
           .select("patient_id, guide_sent_at, plan_authorized_at, authorization_waived, scheduling_enabled_at")
           .in("patient_id", patientIds)
           .neq("status", "rejected"),
+        supabase.from("documents").select("patient_id, category").in("patient_id", patientIds),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+
+  // Fila da recepção (a mesma que alimentava o menu Pendências): vira pílulas e
+  // painéis de ação do paciente.
+  const fullQueue = await getReceptionQueue(supabase);
+  const queue = fullQueue.filter(isPendingQueueItem);
+  const { data: reassignCandidates } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .eq("active", true)
+    .in("role", ["recepcao", "supervisor", "gestor"])
+    .order("full_name", { ascending: true });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const workspaceItems = buildWorkspaceItems(queue, { reassignCandidates, userId: user?.id ?? null, patientMode: true });
+
+  const queuePills = new Map<string, PatientPill[]>();
+  const leadPills = new Map<string, PatientPill[]>();
+  const panelsByPatient: Record<string, PatientPanel[]> = {};
+  queue.forEach((item, index) => {
+    if (!item.patientId) return;
+    const pill = pillForQueueCategory(item.category);
+    if (pill) queuePills.set(item.patientId, [...(queuePills.get(item.patientId) ?? []), pill]);
+    if (item.category === "cadastro_assistido_ia" && item.draft) {
+      leadPills.set(item.patientId, [...(leadPills.get(item.patientId) ?? []), ...pillsFromLeadPendencies(item.draft.pendencies.pills)]);
+    }
+    if (PANEL_CATEGORIES.includes(item.category)) {
+      (panelsByPatient[item.patientId] ??= []).push({ id: item.id, label: item.categoryLabel, node: workspaceItems[index].detail });
+    }
+  });
+  const docCategoriesByPatient = new Map<string, string[]>();
+  for (const d of patientDocs ?? []) {
+    docCategoriesByPatient.set(d.patient_id, [...(docCategoriesByPatient.get(d.patient_id) ?? []), d.category]);
+  }
+
 
   const evaluationsByPatient = new Map<string, JourneyEvaluation[]>();
   for (const a of evalAppointments ?? []) {
@@ -68,9 +124,23 @@ export default async function PacientesPage() {
     const insurerName = mainInsurance?.is_private ? "Particular" : (insurerObj?.name ?? null);
     const insurerColor = mainInsurance?.is_private ? "#64748b" : (insurerObj?.badge_color ?? null);
 
+    // Contato do WhatsApp ainda pendente: vale a leitura dele (arquivos ainda não
+    // anexados ao paciente). Sem contato pendente: cadastro e documentos do paciente.
+    const cadastroPills = leadPills.has(p.id)
+      ? (leadPills.get(p.id) ?? [])
+      : NO_PILLS_STATUSES.includes(p.status ?? "")
+        ? []
+        : registrationPills({
+            docCategories: docCategoriesByPatient.get(p.id) ?? [],
+            guardianEmails: guardiansList.map((g: any) => g.email),
+            insurancePrivateFlags: insuranceList.map((i: any) => Boolean(i.is_private)),
+          });
+    const pills = mergePills(queuePills.get(p.id) ?? [], cadastroPills);
+
     return {
       id: p.id,
       full_name: p.full_name,
+      pills,
       status: p.status,
       birth_date: p.birth_date,
       cpf: p.cpf,
@@ -99,9 +169,10 @@ export default async function PacientesPage() {
       <PageHeader
         axisLabel="Recepção"
         title="Pacientes"
-        description="Pacientes da clínica (plano autorizado), com estágio atual do cadastro contínuo. Interessados ficam nas Pendências."
+        description="Pacientes da clínica (plano autorizado). Interessados ficam em Autorizações."
       />
-      <PatientListClient rows={rows} />
+      <AuthorizedPackagesPanel />
+      <PatientListClient rows={rows} panelsByPatient={panelsByPatient} initialOpenId={params.abrir ?? null} />
     </main>
   );
 }

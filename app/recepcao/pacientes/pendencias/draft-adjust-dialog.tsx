@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, UserPlus, X } from "lucide-react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { useToast } from "@/components/toast-provider";
 import {
   loadDraftAdjustment,
@@ -169,14 +170,15 @@ function DraftAdjustDialog({ draftId, onClose }: { draftId: string; onClose: () 
             >
               <input type="hidden" name="guardian_id" value={data.guardian.id ?? ""} />
               <input type="hidden" name="insurance_id" value={data.insurance.id ?? ""} />
-              {!data.patient.id && (
-                <p className="m-0 rounded-md bg-paper-line/40 px-3 py-2 text-xs text-ink-soft">
-                  Esta criança ainda não tem prontuário: as correções valem para a fila e entram no cadastro quando
-                  você usar “Conferir e cadastrar”.
-                </p>
-              )}
               <fieldset className="grid grid-cols-2 gap-3 border-0 p-0">
-                <legend className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">Criança</legend>
+                <legend className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
+                  Criança
+                </legend>
+                {!data.patient.id && (
+                  <p className="col-span-2 m-0 text-xs text-ink-soft">
+                    Esta criança ainda não tem prontuário: as correções valem para a fila e entram no cadastro quando você usar “Conferir e cadastrar”.
+                  </p>
+                )}
                 <Field label="Nome completo" name="patient_full_name" defaultValue={data.patient.fullName} required wide />
                 <Field label="Nascimento" name="patient_birth_date" type="date" defaultValue={data.patient.birthDate} />
                 <Field label="CPF" name="patient_cpf" defaultValue={data.patient.cpf} />
@@ -216,10 +218,12 @@ function DraftAdjustDialog({ draftId, onClose }: { draftId: string; onClose: () 
               className="flex flex-col gap-4"
               action={(formData) => run(() => splitSiblingFromDraft(draftId, formData), "Irmão cadastrado.")}
             >
-              <p className="m-0 rounded-md bg-paper-line/40 px-3 py-2 text-xs text-ink-soft">
-                Use quando duas crianças vieram no mesmo contato e só uma aparece. O irmão é criado como paciente
-                próprio, com o mesmo responsável e convênio, e entra na fila com a autorização já liberada para o
-                contato de origem.
+              <p className="m-0 flex items-center gap-1 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
+                Dados do irmão
+                <HelpHint
+                  label="Ajuda: separar irmão"
+                  text="Use quando duas crianças vieram no mesmo contato e só uma aparece. O irmão é criado como paciente próprio, com o mesmo responsável e convênio, e entra na fila com a autorização já liberada para o contato de origem."
+                />
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Nome completo do irmão" name="sibling_full_name" required wide />

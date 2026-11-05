@@ -5,6 +5,7 @@ import Link from "next/link";
 import { NewEntryDialog } from "./new-entry-dialog";
 import { EntryRowActions } from "./entry-row-actions";
 import { PageContainer } from "@/components/page-container";
+import { HelpHint } from "@/components/ui/help-hint";
 
 export const dynamic = "force-dynamic";
 
@@ -82,21 +83,21 @@ export default async function ListaEsperaPage() {
           <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
             <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-2">
               <Users size={18} className="text-blue-600" /> Aguardando Vaga
+              <HelpHint label="Sobre Aguardando Vaga" text="Na fila ordenada por prioridade." />
             </div>
             <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)" }}>
               {waiting.length} paciente{waiting.length === 1 ? "" : "s"}
             </div>
-            <span className="text-xs text-ink-faint mt-1 block">Na fila ordenada por prioridade</span>
           </div>
 
           <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
             <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-2">
               <Clock size={18} className="text-amber-500" /> Tempo Médio de Espera
+              <HelpHint label="Sobre Tempo Médio de Espera" text="Entre a entrada na fila e hoje, para quem ainda aguarda." />
             </div>
             <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)" }}>
               {avgWaitDays === null ? "—" : `${avgWaitDays} dias`}
             </div>
-            <span className="text-xs text-ink-faint mt-1 block">Entre entrada na fila e hoje, para quem ainda aguarda</span>
           </div>
 
           <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
@@ -106,7 +107,6 @@ export default async function ListaEsperaPage() {
             <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--color-accent-2-600)" }}>
               {offered.length}
             </div>
-            <span className="text-xs text-ink-faint mt-1 block">Aguardando confirmação da família</span>
           </div>
         </section>
 

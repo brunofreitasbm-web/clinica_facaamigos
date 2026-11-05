@@ -13,8 +13,8 @@ import { sendTemplateMessage } from "./actions";
 // TWILIO_*_TEMPLATE_CONTENT_SID configurado no ambiente falha com um erro
 // claro (getTwilioContentSidForCategory retorna undefined).
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: "abertura_contato", label: "Abertura de contato (janela fechada)" },
   { value: "renovacao_guia", label: "Renovação de guia" },
-  { value: "cobranca", label: "Cobrança" },
   { value: "reuniao_responsavel", label: "Reunião com responsável" },
   { value: "devolutiva_paciente", label: "Devolutiva ao paciente" },
   { value: "nps", label: "Pesquisa de satisfação (NPS)" },
@@ -71,7 +71,7 @@ export function TemplateSendPicker({
       </div>
       <input
         className="input text-sm"
-        placeholder="Nota interna sobre este envio (opcional — não é o texto do modelo)"
+        placeholder="Nota interna (opcional)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
         disabled={isPending}

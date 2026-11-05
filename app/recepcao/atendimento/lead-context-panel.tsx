@@ -11,6 +11,7 @@ import { ConversationNote } from "./conversation-note";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
 import { LeadFocusDialog } from "../pacientes/pendencias/lead-focus-dialog";
 import { DraftIntakeCard } from "../pacientes/pendencias/draft-intake-card";
+import { HelpHint } from "@/components/ui/help-hint";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
 
 const ESCALATION_LABELS: Record<string, string> = {
@@ -230,6 +231,7 @@ export function LeadContextPanel({
             <Pencil size={12} className="text-ink-faint opacity-60 group-hover:opacity-100" />
           </button>
         )}
+        <div className="mt-0.5 flex items-center gap-1.5">
         <button
           type="button"
           onClick={() => {
@@ -238,15 +240,14 @@ export function LeadContextPanel({
               setTimeout(() => setCopied(false), 1500);
             });
           }}
-          className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink"
+          className="flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink"
           title="Copiar telefone"
         >
           {phone}
           {copied ? <Check size={12} className="text-status-active" /> : <Copy size={12} className="opacity-60" />}
         </button>
-        <p className="mt-2 text-xs text-ink-faint">
-          Ainda não é paciente: este número não está vinculado a nenhum responsável cadastrado.
-        </p>
+        <HelpHint text="Ainda não é paciente: este número não está vinculado a nenhum responsável cadastrado." />
+        </div>
       </div>
 
       {escalationLabel && (
@@ -287,31 +288,31 @@ export function LeadContextPanel({
 
           <DraftAttachments draft={draft} />
 
-          <button
-            type="button"
-            disabled={isPending}
-            className="btn btn-primary w-full justify-center gap-1.5 text-sm"
-            onClick={handleResolverPendencias}
-          >
-            <ClipboardList size={14} />
-            {isPending ? "Abrindo…" : "Resolver pendências"}
-          </button>
-          <p className="text-xs text-ink-faint">
-            Abre a fila de pendências já focada neste contato — dados, documentos e o que falta antes do cadastro.
-          </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={isPending}
+              className="btn btn-primary flex-1 justify-center gap-1.5 text-sm"
+              onClick={handleResolverPendencias}
+            >
+              <ClipboardList size={14} />
+              {isPending ? "Abrindo…" : "Resolver pendências"}
+            </button>
+            <HelpHint text="Abre a fila de pendências já focada neste contato — dados, documentos e o que falta antes do cadastro." />
+          </div>
 
-          <button
-            type="button"
-            disabled={isPending}
-            className="btn w-full justify-center gap-1.5 text-sm"
-            onClick={handleMarkParticular}
-          >
-            <CalendarCheck size={14} />
-            Particular: agendar direto
-          </button>
-          <p className="text-xs text-ink-faint">
-            Sem plano de saúde: não passa por Autorizações, vai direto para a Agenda 1ª Avaliação.
-          </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={isPending}
+              className="btn flex-1 justify-center gap-1.5 text-sm"
+              onClick={handleMarkParticular}
+            >
+              <CalendarCheck size={14} />
+              Particular: agendar direto
+            </button>
+            <HelpHint text="Sem plano de saúde: não passa por Autorizações, vai direto para a Agenda 1ª Avaliação." />
+          </div>
         </div>
         {error && <p className="mt-2 text-xs text-red-600">⚠️ {error}</p>}
       </div>

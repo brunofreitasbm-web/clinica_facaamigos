@@ -67,7 +67,7 @@ export function CheckinForm({ token }: { token: string }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!birthDate || firstName.trim().length < 2) {
-      setError("Preencha seu primeiro nome e data de nascimento.");
+      setError("Preencha o primeiro nome e a data de nascimento do paciente.");
       return;
     }
     setError(null);
@@ -142,11 +142,11 @@ export function CheckinForm({ token }: { token: string }) {
     <form onSubmit={handleSubmit} className="card gap-4 p-8">
       <div className="text-center">
         <p className="card-title" style={{ fontSize: "1.5rem" }}>Bem-vindo(a)!</p>
-        <p className="card-body">Informe seus dados para fazer o check-in.</p>
+        <p className="card-body">Informe os dados do paciente que vai ser atendido.</p>
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium">Seu primeiro nome</span>
+        <span className="text-sm font-medium">Primeiro nome do paciente</span>
         <input
           className="input"
           style={{ fontSize: "1.25rem", padding: "0.75rem" }}
@@ -159,7 +159,7 @@ export function CheckinForm({ token }: { token: string }) {
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium">Data de nascimento</span>
+        <span className="text-sm font-medium">Data de nascimento do paciente</span>
         <BirthDateSelects onChange={setBirthDate} />
       </label>
 

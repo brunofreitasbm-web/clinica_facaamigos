@@ -149,9 +149,6 @@ export function InteressadoRapidoDialog({
                 <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-lg font-bold flex items-center gap-2">
                   ⚡ Novo Paciente sem Avaliação
                 </h3>
-                <p className="text-xs text-neutral-500">
-                  Preencha apenas os dados essenciais para iniciar a jornada.
-                </p>
               </div>
               <button
                 type="button"

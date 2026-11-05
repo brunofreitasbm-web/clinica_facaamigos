@@ -6,6 +6,7 @@ import { RESOURCE_CATEGORY_LABEL } from "@/lib/resource-categories";
 import { BookResourceForm } from "./book-resource-form";
 import { ResourceBookingsList, type ResourceBookingRow } from "./resource-bookings-list";
 import { PageContainer } from "@/components/page-container";
+import { HelpHint } from "@/components/ui/help-hint";
 
 export const dynamic = "force-dynamic";
 
@@ -46,11 +47,10 @@ export default async function RecursosPage() {
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
             Coordenação
           </h6>
-          <h1 className="m-0">Recursos e reservas</h1>
-          <p className="mt-2 max-w-[640px] text-sm text-ink-soft">
-            Brinquedos sensoriais, testes padronizados e pranchas de comunicação — reserva com bloqueio automático de
-            conflito de horário. Salas continuam reservadas junto com a sessão, na Agenda.
-          </p>
+          <h1 className="m-0 flex items-center gap-2">
+            Recursos e reservas
+            <HelpHint text="Brinquedos sensoriais, testes padronizados e pranchas de comunicação, com bloqueio automático de conflito de horário. Salas continuam reservadas junto com a sessão, na Agenda." />
+          </h1>
           <Link href="/supervisao/recursos/qr-checkin" className="mt-3 inline-block text-sm text-chart no-underline hover:underline">
             Cartaz de check-in por QR da entrada →
           </Link>

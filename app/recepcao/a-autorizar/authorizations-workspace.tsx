@@ -26,6 +26,7 @@ import { useToast } from "@/components/toast-provider";
 import { extractDraftOnDemand } from "../pacientes/pendencias/draft-pipeline-actions";
 import { highlightSegments, matchesSearch } from "../pacientes/pendencias/queue-filters-pure";
 import { MoveToLastButton } from "../pacientes/pendencias/move-to-last-button";
+import { HelpHint } from "@/components/ui/help-hint";
 import type { WorkspaceItem } from "../pacientes/pendencias/queue-workspace";
 import type { PendingQueueItem } from "@/lib/reception-queue";
 
@@ -713,7 +714,6 @@ export function AuthorizationsWorkspace({
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-2xs">
               <Inbox className="h-8 w-8 text-slate-400 mb-2" />
               <p className="m-0 text-sm font-semibold text-slate-700">Nenhum lead encontrado com estes filtros</p>
-              <p className="m-0 mt-1 text-xs text-slate-500">Tente ajustar a busca ou limpar os filtros aplicados.</p>
               <button
                 type="button"
                 onClick={clearAllFilters}
@@ -756,8 +756,8 @@ export function AuthorizationsWorkspace({
                           >
                             {list.length}
                           </span>
+                          <HelpHint text={config.description} label={`Ajuda: ${config.title}`} side="bottom" />
                         </div>
-                        <p className="m-0 truncate text-[11px] text-slate-500">{config.description}</p>
                       </div>
                     </div>
                     <ChevronDown
@@ -801,7 +801,7 @@ export function AuthorizationsWorkspace({
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
                   Leads de Autorização ({visibleItems.length})
                 </span>
-                <span className="text-xs text-slate-400">Ordem de prioridade</span>
+                <HelpHint text="Ordem de prioridade." label="Ajuda: ordem da lista" side="bottom" />
               </div>
               <ul className="m-0 list-none divide-y divide-slate-100 p-0">
                 {visibleItems.map((item) => (
@@ -823,17 +823,16 @@ export function AuthorizationsWorkspace({
           )}
 
           {/* Dicas de Atalho */}
-          <div className="hidden md:flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <kbd className="rounded border bg-white px-1 font-mono text-[10px]">↑</kbd>
-              <kbd className="rounded border bg-white px-1 font-mono text-[10px]">↓</kbd> navegar
-            </span>
-            <span className="flex items-center gap-1.5">
-              <kbd className="rounded border bg-white px-1 font-mono text-[10px]">/</kbd> buscar
-            </span>
-            <span className="flex items-center gap-1.5">
-              <kbd className="rounded border bg-white px-1 font-mono text-[10px]">Esc</kbd> foco
-            </span>
+          <div className="hidden justify-end md:flex">
+            <HelpHint
+              label="Atalhos de teclado"
+              text={
+                <>
+                  Atalhos: <kbd className="font-mono">↑</kbd> <kbd className="font-mono">↓</kbd> navegar,{" "}
+                  <kbd className="font-mono">/</kbd> buscar, <kbd className="font-mono">Esc</kbd> voltar o foco à lista.
+                </>
+              }
+            />
           </div>
         </div>
 
@@ -937,9 +936,7 @@ export function AuthorizationsWorkspace({
             <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
               <Inbox className="h-10 w-10 text-slate-400 mb-3" />
               <h3 className="m-0 text-base font-bold text-slate-800">Selecione uma autorização</h3>
-              <p className="m-0 mt-1 max-w-sm text-xs text-slate-500">
-                Os dados completos do WhatsApp, documentos, mensagens da família e a linha do tempo aparecerão aqui.
-              </p>
+              <p className="m-0 mt-1 max-w-sm text-xs text-slate-500">Os dados do lead aparecerão aqui.</p>
             </div>
           )}
         </div>

@@ -761,6 +761,20 @@ label:has(> input.sr-only:focus-visible) { outline: 2px solid var(--color-accent
   animation: pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
 }
 
+/* Prioridade "Particular": pisca mais rápido (0,7 s ≈ 1,4 Hz, abaixo do limite de 3 Hz do WCAG 2.3.1) que o "Pediu humano" (1,8 s). */
+@keyframes priority-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.animate-priority-blink {
+  animation: priority-blink 0.7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-priority-blink { animation: none; }
+}
+
 
 
 

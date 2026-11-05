@@ -1,5 +1,6 @@
 "use client";
 
+import { HelpHint } from "@/components/ui/help-hint";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -18,7 +19,6 @@ export type TemplateRow = {
 const CATEGORY_LABEL: Record<string, string> = {
   confirmacao_d1: "Confirmação D-1",
   falta: "Alerta de Falta",
-  cobranca: "Cobrança",
   aniversario: "Aniversário",
   renovacao_guia: "Renovação de Guia",
   outro: "Outro",
@@ -78,7 +78,10 @@ function NewTemplateForm() {
         <input type="text" name="name" required className="input" placeholder="Ex.: Lembrete de confirmação D-1" />
       </label>
       <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-        Texto (use {"{{nome}}"}, {"{{data}}"}, {"{{horario}}"} como variáveis)
+        <span className="flex items-center gap-1">
+          Texto
+          <HelpHint text={<>Use {"{{nome}}"}, {"{{data}}"} e {"{{horario}}"} como variáveis.</>} />
+        </span>
         <textarea name="body" required rows={3} className="input" />
       </label>
       {error && <p className="text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}

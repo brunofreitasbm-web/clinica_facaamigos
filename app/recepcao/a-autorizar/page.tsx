@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { HelpHint } from "@/components/ui/help-hint";
 import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getReceptionQueue, isAuthorizationQueueItem } from "@/lib/reception-queue";
+import { dropLeadsWithClosedChat } from "@/lib/closed-chat-filter";
 import { buildWorkspaceItems } from "../pacientes/pendencias/queue-items";
 import { AuthorizationsWorkspace, type AuthFilterStatus, type AuthFilterPendency, type AuthFilterForwarding } from "./authorizations-workspace";
 import { ShieldCheck, ArrowRight, CalendarDays } from "lucide-react";
@@ -33,7 +35,11 @@ export default async function AAutorizarPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const queue = (await getReceptionQueue(supabase)).filter(isAuthorizationQueueItem);
+  const authorizationQueue = (await getReceptionQueue(supabase)).filter(isAuthorizationQueueItem);
+
+  // Cruza com o chat: lead com conversa já encerrada e sem guia andando sai do painel
+  // (volta sozinho se a família escrever de novo).
+  const { visible: queue, hiddenCount: hiddenByClosedChat } = await dropLeadsWithClosedChat(supabase, authorizationQueue);
 
   const { data: reassignCandidates } = await supabase
     .from("profiles")
@@ -62,9 +68,14 @@ export default async function AAutorizarPage({
       <PageHeader
         axisLabel="Recepção"
         title="Autorizações"
-        description="Painel inteligente de autorizações e leads do WhatsApp com filtros por status, separação de não atendidos e quadros coloridos."
       />
       <PageContainer className="gap-5">
+        {hiddenByClosedChat > 0 && (
+          <p className="m-0 flex items-center gap-1 text-xs text-slate-500">
+            {hiddenByClosedChat} {hiddenByClosedChat === 1 ? "lead oculto" : "leads ocultos"}
+            <HelpHint text="Conversa já encerrada no chat e sem guia em andamento. Voltam se a família escrever de novo." />
+          </p>
+        )}
         {queue.length === 0 ? (
           <div className="my-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-14 text-center shadow-2xs">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-xs">
@@ -72,7 +83,7 @@ export default async function AAutorizarPage({
             </div>
             <h2 className="m-0 text-xl font-bold text-slate-800">Nenhuma autorização pendente</h2>
             <p className="m-0 mt-2 max-w-md text-sm text-slate-600">
-              Todos os contatos do WhatsApp foram processados ou já possuem guia autorizada. Novos leads com documentos aparecerão automaticamente aqui.
+              Todos os contatos do WhatsApp foram processados ou já possuem guia autorizada.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Link

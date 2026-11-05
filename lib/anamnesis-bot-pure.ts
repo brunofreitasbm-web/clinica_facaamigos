@@ -96,6 +96,16 @@ export function isAgendarIntent(raw: string | null | undefined): boolean {
   return /\b(agendar|anamnese)\b/.test(text) || /\bmarcar (a |uma )?(avaliacao|consulta)\b/.test(text);
 }
 
+/**
+ * Comando AGENDAR digitado SOZINHO ("AGENDAR", "agendar!", "anamnese"). É o
+ * único jeito de abrir o fluxo a partir do estado ocioso: frase livre como o
+ * texto do botão do site ("Quero agendar uma avaliação… (vim pelo site)") não
+ * pode pular o menu inicial e cair direto em "Qual o seu nome completo?".
+ */
+export function isBareAgendarCommand(raw: string | null | undefined): boolean {
+  return /^(agendar|anamnese)$/.test(normalizeAnswer(raw));
+}
+
 export type YesNo = "yes" | "no" | null;
 
 const YES = /^(sim|s|ss|tenho|possuo|claro|yes|positivo|ja tenho|tenho sim|sim tenho|sim ja tenho|sim possuo)$/;

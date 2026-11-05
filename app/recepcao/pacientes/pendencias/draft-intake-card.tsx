@@ -39,41 +39,22 @@ export function DraftIntakeCard({
   draft,
   focus = false,
   hideReviewLink = false,
+  variant = "lead",
 }: {
   draft: PendingRegistrationDraft;
   focus?: boolean;
+  /**
+   * "lead" (Autorizações, Atendimento): mostra a trilha de etapas (documentos →
+   * plano → habilitado) e a conversa. "paciente" (Pendências): paciente que já
+   * tem prontuário, então só documentos, dados e pendências — sem trilha de
+   * autorização nem transcrição de mensagens.
+   */
+  variant?: "lead" | "paciente";
   /** O chamador já mostra "Conferir e cadastrar" no cabeçalho, ao lado do nome. */
   hideReviewLink?: boolean;
 }) {
-  return (
-    // Quem recolhe/expande é a linha do contato (CollapsibleQueueRow, em
-    // page.tsx): com vários contatos na fila ao mesmo tempo, o cartão aberto
-    // empurrava as outras pendências para fora da tela. Com `focus` (painel
-    // flutuante do lead, lead-focus-dialog.tsx) o cartão já É a tela — sem
-    // borda de encaixe.
-    <div className={focus ? "text-sm" : "mt-3 border-t border-paper-line-strong pt-3 text-sm"}>
-      <div className="flex flex-col gap-3">
-        {draft.mergedDraftsCount && draft.mergedDraftsCount > 1 ? (
-          <div className="flex items-center gap-2 rounded-md bg-paper-line/40 px-3 py-1.5 text-xs text-ink-soft">
-            <span className="font-bold text-ink">Informações unificadas:</span>
-            <span>Dados e arquivos combinados de {draft.mergedDraftsCount} conversas enviadas pelo responsável.</span>
-          </div>
-        ) : null}
-
-        {draft.guardianMessage && (
-          <p className="rounded-md bg-paper-line/40 px-3 py-2 text-ink">
-            <span className="text-[13px] font-semibold uppercase tracking-wide text-ink-soft">Mensagem da família: </span>
-            {draft.guardianMessage}
-          </p>
-        )}
-
-        <PendencyGrid pendencies={draft.pendencies} />
-
-        {/* Linha do tempo: documentos → autorização do plano → habilitado para
-            agendamento. A coluna 1 é o que antes era o cartão inteiro. */}
-        <DraftPipelineColumns
-          draft={draft}
-          documents={
+  const isPaciente = variant === "paciente";
+  const documentsBlock = (
             <div className="flex flex-col gap-3">
               <div>
                 <h4 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
@@ -113,7 +94,7 @@ export function DraftIntakeCard({
                 </h4>
                 {draft.facts.length === 0 ? (
                   <p className="m-0 text-ink-faint">
-                    Nada lido automaticamente ainda — abra os arquivos acima e a conversa abaixo para conferir.
+                    Nada lido automaticamente ainda.
                   </p>
                 ) : (
                   <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2">
@@ -138,10 +119,38 @@ export function DraftIntakeCard({
                 )}
               </div>
             </div>
-          }
-        />
+          
+  );
 
-        {draft.messages.length > 0 && (
+  return (
+    // Quem recolhe/expande é a linha do contato (CollapsibleQueueRow, em
+    // page.tsx): com vários contatos na fila ao mesmo tempo, o cartão aberto
+    // empurrava as outras pendências para fora da tela. Com `focus` (painel
+    // flutuante do lead, lead-focus-dialog.tsx) o cartão já É a tela — sem
+    // borda de encaixe.
+    <div className={focus ? "text-sm" : "mt-3 border-t border-paper-line-strong pt-3 text-sm"}>
+      <div className="flex flex-col gap-3">
+        {draft.mergedDraftsCount && draft.mergedDraftsCount > 1 ? (
+          <div className="flex items-center gap-2 rounded-md bg-paper-line/40 px-3 py-1.5 text-xs text-ink-soft">
+            <span className="font-bold text-ink">Informações unificadas:</span>
+            <span>Dados e arquivos combinados de {draft.mergedDraftsCount} conversas enviadas pelo responsável.</span>
+          </div>
+        ) : null}
+
+        {draft.guardianMessage && (
+          <p className="rounded-md bg-paper-line/40 px-3 py-2 text-ink">
+            <span className="text-[13px] font-semibold uppercase tracking-wide text-ink-soft">Mensagem da família: </span>
+            {draft.guardianMessage}
+          </p>
+        )}
+
+        <PendencyGrid pendencies={draft.pendencies} />
+
+        {/* Linha do tempo: documentos → autorização do plano → habilitado para
+            agendamento. A coluna 1 é o que antes era o cartão inteiro. */}
+        {isPaciente ? documentsBlock : <DraftPipelineColumns draft={draft} documents={documentsBlock} />}
+
+        {!isPaciente && draft.messages.length > 0 && (
           <details open={focus} className="rounded-md border border-paper-line-strong bg-paper/40 px-3 py-2">
             <summary className="cursor-pointer text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
               Conversa ({draft.messages.length} últimas mensagens)

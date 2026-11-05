@@ -38,7 +38,7 @@ export default async function TerapeutaAnamnesePage({ params }: { params: Promis
 
   return (
     <main className="flex flex-1 flex-col gap-6 pb-10">
-      <PageHeader axisLabel="Terapeuta" title="1ª Avaliação (Anamnese ampliada)" description={patient.full_name} />
+      <PageHeader axisLabel="Terapeuta" title="1ª Avaliação (Anamnese ampliada)" description={patient.full_name} descriptionVisible />
       <div className="px-6 sm:px-10">
         <Link href={`/terapeuta/paciente/${patientId}`} className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
           ← Ficha de {patient.full_name}

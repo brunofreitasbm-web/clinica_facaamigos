@@ -169,8 +169,9 @@ export function getTwilioContentSidForCategory(category: string): string | undef
       return process.env.TWILIO_NPS_TEMPLATE_CONTENT_SID;
     case "renovacao_guia":
       return process.env.TWILIO_RENEWAL_TEMPLATE_CONTENT_SID;
-    case "cobranca":
-      return process.env.TWILIO_BILLING_TEMPLATE_CONTENT_SID;
+    // Abertura de contato genérica (janela de 24h fechada, assunto livre).
+    case "abertura_contato":
+      return process.env.TWILIO_CONTACT_OPENER_TEMPLATE_CONTENT_SID;
     case "reuniao_responsavel":
       return process.env.TWILIO_MEETING_TEMPLATE_CONTENT_SID;
     case "devolutiva_paciente":
@@ -180,17 +181,10 @@ export function getTwilioContentSidForCategory(category: string): string | undef
     // Oferta automática de horários da 1ª avaliação (lib/evaluation-offer.ts).
     case "agendamento_avaliacao":
       return process.env.TWILIO_EVAL_OFFER_TEMPLATE_CONTENT_SID;
-    // Mensagem única: confirmação + orientações do dia + convite da pré-anamnese (botões).
-    case "confirmacao_completa":
-      return process.env.TWILIO_EVAL_CONFIRM_FULL_TEMPLATE_CONTENT_SID;
     case "lembrete_avaliacao":
       return process.env.TWILIO_EVAL_REMINDER_TEMPLATE_CONTENT_SID;
     case "confirmacao_d1":
       return process.env.TWILIO_EVAL_CONFIRM_TEMPLATE_CONTENT_SID;
-    // Convite da pré-anamnese por WhatsApp (lib/anamnesis-prefill.ts): texto livre
-    // falha fora da janela de 24h, então o convite vai por template.
-    case "convite_pre_anamnese":
-      return process.env.TWILIO_PREANAMNESE_INVITE_TEMPLATE_CONTENT_SID;
     default:
       return undefined;
   }
@@ -767,6 +761,18 @@ export async function handleTwilioIncomingMessage(params: {
 
     if (!conversation.is_bot_active) {
       await notifyStaff(conversation.id);
+      // Com humano na conversa o bot só responde FATO fixo (endereço/horário do
+      // clinic_faq): era a recepção digitando o endereço à mão. O bot continua
+      // pausado; a equipe segue avisada acima. Chave-geral desligada = silêncio.
+      try {
+        const { getChatbotSettings: loadSettings, answerFixedFactWhileHumanHandling } = await import("./twilio-faq-bot");
+        if ((await loadSettings(DEV_CLINIC_ID)).botEnabled) {
+          const fact = await answerFixedFactWhileHumanHandling({ body, conversationId: conversation.id, conversationKind });
+          if (fact) return fact;
+        }
+      } catch (err) {
+        console.error("[Twilio Fixed Fact While Human Error]:", err);
+      }
       return { replyMessage: "", intent: "human_handled" };
     }
 
@@ -887,23 +893,23 @@ export async function handleTwilioIncomingMessage(params: {
   // nesta conversa há pouco, não repete as boas-vindas: segue para o FAQ, cujo
   // prompt já considera o histórico.
   try {
-    // Botões "lista de espera", "mapeamento" e "menor de 4 anos" do site: o
-    // texto pronto já diz o que a pessoa quer — resposta fixa própria, sem IA
-    // (antes caíam no Gemini, que não conhece a lista de espera, ou no
-    // fallback de boas-vindas).
-    const prefill = detectSitePrefill(body);
-    if (prefill && prefill !== "info") {
-      return { intent: sitePrefillIntent(prefill), replyMessage: SITE_PREFILL_REPLIES[prefill] };
-    }
     // Menu inicial: todo contato novo (nenhuma resposta da clínica nas últimas
-    // 6 h) recebe o menu, mesmo que já traga uma pergunta — a resposta vem depois
-    // da escolha. Quem já é paciente só recebe o menu numa saudação pura; a
-    // pergunta dele segue para o agente de FAQ, com o histórico.
+    // 6 h) recebe o menu, qualquer que seja a mensagem de acionamento (texto
+    // livre, pergunta ou botão do site) — a resposta vem depois da escolha. Quem
+    // já é paciente só recebe o menu numa saudação pura; a pergunta dele segue
+    // para o agente de FAQ, com o histórico.
     const isPatient = conversationKind === "patient";
     if ((!isPatient || isPureGreeting(body)) && !(await hasRecentOutbound(conversationId))) {
       const { sendMainMenu } = await import("./welcome-menu");
       const menu = await sendMainMenu({ phone, conversationId });
       return { intent: "menu_inicial", replyMessage: menu.replyMessage };
+    }
+    // Botões "lista de espera", "mapeamento" e "menor de 4 anos" do site, quando
+    // o menu não cabe (conversa em andamento ou paciente): o texto pronto já diz
+    // o que a pessoa quer — resposta fixa própria, sem IA.
+    const prefill = detectSitePrefill(body);
+    if (prefill && prefill !== "info") {
+      return { intent: sitePrefillIntent(prefill), replyMessage: SITE_PREFILL_REPLIES[prefill] };
     }
   } catch (err) {
     console.error("[Twilio Initial Greeting Error]:", err);

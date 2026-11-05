@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { HelpHint } from "@/components/ui/help-hint";
 import { WEEKDAY_LABEL, KIND_STYLE, type AppointmentKind } from "./grade-data";
 import { publishGradeAction, swapAppointmentPatientsAction } from "./grade-actions";
 
@@ -446,17 +447,15 @@ export function GradePanel({
           style={{ borderColor: "var(--color-accent)" }}
         >
           <div>
-            <div className="font-bold text-ink">Modo Edição — permuta manual de pacientes</div>
-            <p className="m-0 mt-0.5 text-ink-soft">
-              Selecione 2 ou 3 sessões (agendadas/confirmadas) pra trocar os pacientes entre elas, cruzadamente —
-              terapeuta, sala e horário de cada sessão continuam os mesmos. A permuta só é aceita se o PTS aprovado de
-              cada paciente já previr a disciplina da sessão que ele vai ocupar (a agenda nasce do PTS, não o
-              contrário). Os responsáveis são avisados automaticamente no mural e por e-mail. Use só em exceções (ex.:
-              reorganização de horários na revisão de PTS de 6 meses).
-              {swapSelection.length > 0 && (
-                <span className="ml-1 font-semibold text-ink">{swapSelection.length} de 3 selecionadas.</span>
-              )}
-            </p>
+            <div className="flex items-center gap-1 font-bold text-ink">
+              Modo Edição — permuta manual de pacientes
+              <HelpHint
+                text="Selecione 2 ou 3 sessões para trocar os pacientes entre elas; terapeuta, sala e horário continuam os mesmos. A troca só vale se o PTS aprovado do paciente prever a disciplina da nova sessão. Use só em exceções."
+              />
+            </div>
+            {swapSelection.length > 0 && (
+              <p className="m-0 mt-0.5 font-semibold text-ink">{swapSelection.length} de 3 selecionadas.</p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button type="button" className="btn btn-ghost text-xs" onClick={() => setSwapSelection([])} disabled={swapSelection.length === 0}>
@@ -470,6 +469,7 @@ export function GradePanel({
             >
               {isSwapping ? "Permutando..." : `Confirmar permuta (${swapSelection.length})`}
             </button>
+            <span className="text-ink-soft">Os responsáveis são avisados automaticamente por e-mail.</span>
           </div>
         </div>
       )}
@@ -710,7 +710,7 @@ export function GradePanel({
             </div>
             
             {/* KPI Evolução em 24h com cores semânticas e tooltip educativo */}
-            <div className="relative group cursor-help">
+            <div>
               <div
                 className="tabular-figure text-3xl font-semibold flex items-center gap-1 transition-colors"
                 style={{
@@ -726,17 +726,12 @@ export function GradePanel({
                 }}
               >
                 <span>{carteira.onTimePercent === null ? "—" : `${carteira.onTimePercent}%`}</span>
-                <span className="text-xs text-ink-soft opacity-70">ℹ️</span>
               </div>
               <div className="text-xs text-ink-soft flex items-center gap-1">
                 <span>Evolução em 24h</span>
+                <HelpHint label="Sobre Evolução em 24h" text="Percentual de prontuários evoluídos em até 24 horas após o término da sessão. Meta ideal: 100%." />
               </div>
-
-              {/* Tooltip educativo ao passar o mouse ou focar */}
-              <div className="absolute left-0 bottom-full mb-2 hidden w-64 rounded-md bg-slate-900 p-2.5 text-[11px] leading-relaxed text-white shadow-lg group-hover:block group-focus-within:block z-30 dark:bg-slate-800 border border-slate-700">
-                <div className="font-semibold text-amber-300 mb-0.5">ℹ️ Sobre o indicador</div>
-                Percentual de prontuários que foram evoluídos no prazo limite de 24 horas após o término da sessão. Meta ideal: <strong>100%</strong>.
-              </div>
+              <div className="text-[11px] text-ink-faint">Meta: 100%</div>
             </div>
           </div>
         </div>

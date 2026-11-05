@@ -53,6 +53,7 @@ export default async function SociallySavvyAssessmentDetailPage({
             ? `Aplicação ${assessment.round} · rascunho — continue o preenchimento e conclua quando estiver pronto.`
             : `Aplicação ${assessment.round} · concluída.`
         }
+        descriptionVisible
       />
       <div className="p-5 sm:p-10 print:p-0">
         {isDraft ? (

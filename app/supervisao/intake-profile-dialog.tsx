@@ -1,5 +1,6 @@
 "use client";
 
+import { HelpHint } from "@/components/ui/help-hint";
 import { useState, useTransition } from "react";
 import { setInsurerIntakeProfile } from "@/app/gestor/cadastros/convenios/actions";
 import { INTAKE_FIELD_LABEL, type IntakeExtractionProfile, type IntakeFieldKey } from "@/lib/insurance-intake-profile";
@@ -67,14 +68,14 @@ export function IntakeProfileDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-ink">Campos por plano de saúde — {insurerName}</h3>
+          <h3 className="flex items-center gap-1 text-sm font-bold text-ink">
+            Campos por plano de saúde — {insurerName}
+            <HelpHint text="Opcional: dicas sobre o layout do PDF que este plano envia, para ajudar a IA a ler certo. Sem preencher nada, a extração continua funcionando com um prompt genérico." label="Sobre os campos do plano" />
+          </h3>
           <button type="button" onClick={onClose} className="text-xs text-ink-faint hover:text-ink">
             Fechar ✕
           </button>
         </div>
-        <p className="mb-4 text-xs text-ink-soft">
-          Opcional: dicas sobre o layout do PDF que este plano de saúde envia, pra ajudar a IA a ler certo. Sem preencher nada, a extração continua funcionando com um prompt genérico.
-        </p>
 
         {feedback && (
           <div className={`mb-4 rounded-md border p-3 text-xs ${feedback.type === "success" ? "border-status-positive-text/40 bg-status-positive-soft/40 text-status-positive-text" : "border-status-negative-text/40 bg-status-negative-soft/40 text-status-negative-text"}`}>

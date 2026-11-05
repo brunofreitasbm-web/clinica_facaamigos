@@ -2,6 +2,7 @@
 
 import React, { useId, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { HelpHint } from "@/components/ui/help-hint";
 import { createTreatmentPlan } from "./actions";
 import { DISCIPLINES } from "./disciplines";
 import type { SuggestedGoal, TeamSuggestion } from "@/lib/plan-suggestions";
@@ -785,8 +786,8 @@ export function PlanForm({
             <div className="rounded-lg border border-paper-line-strong bg-paper/60 p-4 shadow-sm space-y-2">
               <div className="text-xs font-bold uppercase tracking-wide text-ink flex items-center gap-2">
                 <span>👥</span> Equipe de avaliação já definida
+                <HelpHint text="Disciplinas abaixo já vêm marcadas conforme a equipe avaliadora." label="Sobre a equipe de avaliação" />
               </div>
-              <p className="text-xs text-ink-faint m-0">Disciplinas abaixo já vêm marcadas conforme a equipe avaliadora.</p>
               <ul className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-ink">
                 {teamSuggestions.map((t, i) => (
                   <li key={i} className="bg-white border border-paper-line rounded-md p-2 flex flex-col">
@@ -805,10 +806,8 @@ export function PlanForm({
             <div className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm space-y-3 flex-1 flex flex-col">
               <div className="text-xs font-bold uppercase tracking-wide text-ink flex items-center gap-2 border-b border-paper-line pb-2">
                 <span>💡</span> Sugestões de metas (da Avaliação do Paciente)
+                <HelpHint text="Itens pendentes dos protocolos aplicados na avaliação. Adicione diretamente às metas SMART." label="Sobre as sugestões de metas" />
               </div>
-              <p className="text-xs text-ink-faint m-0">
-                Itens pendentes dos protocolos aplicados na avaliação. Adicione diretamente às metas SMART.
-              </p>
               <ul className="flex flex-col gap-2.5 overflow-y-auto max-h-[360px] pr-1 flex-1">
                 {suggestedGoals.map((s) => {
                   const added = addedSuggestionKeys.includes(s.key);
@@ -834,15 +833,7 @@ export function PlanForm({
                 })}
               </ul>
             </div>
-          ) : (
-            <div className="rounded-lg border border-paper-line-strong bg-paper/30 p-5 shadow-sm space-y-2 flex-1 flex flex-col items-center justify-center text-center">
-              <span className="text-2xl">📋</span>
-              <div className="text-xs font-bold uppercase tracking-wider text-ink-soft">Pronto para Planejamento</div>
-              <p className="text-xs text-ink-faint max-w-xs m-0">
-                Preencha a grade semanal e adicione as metas SMART abaixo para concluir a elaboração do PTS.
-              </p>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -852,10 +843,8 @@ export function PlanForm({
           <div>
             <h2 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2 m-0">
               <span className="text-base">📋</span> Grade de Sessões Semanais do PTS
+              <HelpHint text="Configure a especialidade, quantidade de sessões, dias disponíveis (Seg-Sáb), turno e terapeuta direcionado." label="Sobre a grade de sessões" />
             </h2>
-            <p className="text-xs text-ink-soft mt-0.5 m-0">
-              Configure a especialidade, quantidade de sessões, dias disponíveis (Seg-Sáb), turno e terapeuta direcionado.
-            </p>
           </div>
           <button
             type="button"
@@ -1102,10 +1091,8 @@ export function PlanForm({
           <div>
             <h2 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2 m-0">
               <span>🎯</span> Metas SMART e Programas ABA
+              <HelpHint text="Defina os objetivos específicos, critérios de domínio, estratégias e programas para coleta." label="Sobre as metas SMART" />
             </h2>
-            <p className="text-xs text-ink-soft mt-0.5 m-0">
-              Defina os objetivos específicos, critérios de domínio, estratégias e programas para coleta.
-            </p>
           </div>
           <button
             type="button"
@@ -1254,12 +1241,10 @@ export function PlanForm({
                 <div className="mt-4 border-t border-paper-line-strong pt-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">
+                      <h3 className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-ink-soft">
                         Programas ABA (coleta por tentativa)
+                        <HelpHint text="Alvos de coleta registrados tentativa a tentativa pelo terapeuta." label="Sobre os programas ABA" />
                       </h3>
-                      <p className="text-[11px] text-ink-faint m-0">
-                        Alvos de coleta registrados tentativa a tentativa pelo terapeuta.
-                      </p>
                     </div>
                     <button
                       type="button"
@@ -1351,11 +1336,7 @@ export function PlanForm({
             <p className="text-xs font-semibold text-status-negative-text flex items-center gap-1.5 m-0">
               <span>⚠️</span> {error}
             </p>
-          ) : (
-            <p className="text-xs text-ink-soft m-0">
-              Revise a grade de atendimento e as metas SMART antes de salvar o PTS.
-            </p>
-          )}
+          ) : null}
           {manualSessionsCount > 0 && (
             <label className="mt-2 flex items-start gap-2 text-xs text-ink-soft">
               <input

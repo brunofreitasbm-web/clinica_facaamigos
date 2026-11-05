@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { DISCIPLINES } from "./disciplines";
 import type { PtsTemplate } from "@/lib/pts-templates";
 import { fetchPtsTemplatesAction } from "@/app/supervisao/pts-template-actions";
@@ -56,10 +57,8 @@ export function PtsTemplateModal({
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2 m-0">
               <span className="text-base">💡</span> Banco de Templates do PTS
+              <HelpHint text="Selecione um objetivo pré-cadastrado para preencher Domínio, Meta, Linha de Base e Estratégia automaticamente." label="Sobre o banco de templates" />
             </h3>
-            <p className="text-xs text-ink-soft m-0 mt-0.5">
-              Selecione um objetivo pré-cadastrado para preencher Domínio, Meta, Linha de Base e Estratégia automaticamente.
-            </p>
           </div>
           <button
             type="button"
@@ -114,9 +113,6 @@ export function PtsTemplateModal({
             <div className="py-12 text-center space-y-2">
               <span className="text-3xl">🔍</span>
               <div className="text-xs font-bold uppercase text-ink-soft">Nenhum template encontrado</div>
-              <p className="text-xs text-ink-faint max-w-sm mx-auto">
-                Tente ajustar os filtros acima ou crie uma nova meta personalizada direto no formulário.
-              </p>
             </div>
           ) : (
             filteredTemplates.map((template) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { resolveMessage, sendReply } from "./inbox-actions";
 import { approveReportFromSupervisao } from "./report-review-actions";
 import { NpsAlertsPanel, type NpsAlertRow } from "./nps-alerts-panel";
@@ -258,12 +259,13 @@ export function InboxPanel({
     <div className="flex flex-col gap-8">
       {/* QUADRO DE AVISOS DE AUSÊNCIAS DA FAMÍLIA */}
       <section className="card p-5 border-l-4 border-l-amber-500 bg-amber-50/30">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-xl">📢</span>
             <h2 className="text-lg font-bold text-ink-strong m-0">
-              Quadro de Avisos · Ausências Notificadas pela Família
+              Ausências notificadas
             </h2>
+            <HelpHint text="Avisos de faltas reportados pela família com cancelamento automático na agenda. Verifique os comprovantes enviados e dê ciência." label="Sobre as ausências" />
           </div>
           {pendingAbsencesCount > 0 && (
             <span className="px-2.5 py-1 text-xs font-bold bg-amber-600 text-white rounded-full">
@@ -271,12 +273,9 @@ export function InboxPanel({
             </span>
           )}
         </div>
-        <p className="text-xs text-ink-soft mb-4">
-          Avisos de faltas reportados pela família com cancelamento automático na agenda. Verifique os comprovantes enviados e dê ciência.
-        </p>
 
         {absenceReports.length === 0 ? (
-          <p className="text-xs text-ink-faint italic">Nenhum aviso de ausência registrado pela família no momento.</p>
+          <p className="text-xs text-ink-faint italic">Nenhum aviso de ausência.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {absenceReports.map((report) => (
@@ -288,17 +287,17 @@ export function InboxPanel({
 
       {/* DOCUMENTOS ENVIADOS PELA FAMÍLIA — conferência no prontuário (saiu da fila da recepção) */}
       <section className="card p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-ink-strong m-0">Documentos enviados pela família</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-1">
+            <h2 className="text-lg font-bold text-ink-strong m-0">Documentos enviados pela família</h2>
+            <HelpHint text="Enviados pelo portal. Abra o prontuário, confira o documento e marque como revisado." label="Sobre os documentos" />
+          </div>
           {familyDocuments.length > 0 && (
             <span className="px-2.5 py-1 text-xs font-bold bg-amber-600 text-white rounded-full">
               {familyDocuments.length} para conferir
             </span>
           )}
         </div>
-        <p className="text-xs text-ink-soft mb-4">
-          Enviados pelo portal. Abra o prontuário, confira o documento e marque como revisado.
-        </p>
         {familyDocuments.length === 0 ? (
           <p className="text-xs text-ink-faint italic">Nenhum documento aguardando conferência.</p>
         ) : (
@@ -432,10 +431,11 @@ export function InboxPanel({
         <div className="card">
           <div className="flex items-center justify-between mb-3">
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">Ciclo Semestral</h6>
-            <span className="tag-status st-agendada">reassessment_alerts</span>
           </div>
-          <h3 className="text-lg font-semibold mb-2">Alertas de Reavaliação Periódica</h3>
-          <p className="text-xs text-ink-soft mb-4">Pacientes com ciclo de plano clínico prestes a expirar.</p>
+          <h3 className="mb-4 flex items-center gap-1 text-lg font-semibold">
+            Alertas de Reavaliação Periódica
+            <HelpHint text="Pacientes com ciclo de plano clínico prestes a expirar." label="Sobre os alertas de reavaliação" />
+          </h3>
           <div className="flex flex-col gap-2 text-sm">
             {reassessments.length === 0 && (
               <p className="text-xs text-ink-faint">Nenhuma reavaliação vencendo no momento.</p>
@@ -458,10 +458,11 @@ export function InboxPanel({
         <div className="card">
           <div className="flex items-center justify-between mb-3">
             <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">Revisão Devolutivo</h6>
-            <span className="tag-status st-confirmada">draft_reports</span>
           </div>
-          <h3 className="text-lg font-semibold mb-2">Relatórios Devolutivos Pendentes</h3>
-          <p className="text-xs text-ink-soft mb-4">Relatórios gerados pelos terapeutas aguardando aprovação antes de ir pro mural da família.</p>
+          <h3 className="mb-4 flex items-center gap-1 text-lg font-semibold">
+            Relatórios Devolutivos Pendentes
+            <HelpHint text="Relatórios gerados pelos terapeutas aguardando aprovação antes de ir pro mural da família." label="Sobre os relatórios devolutivos" />
+          </h3>
           <div className="flex flex-col gap-2 text-sm">
             {pendingReports.length === 0 && (
               <p className="text-xs text-ink-faint">Nenhum relatório aguardando aprovação.</p>

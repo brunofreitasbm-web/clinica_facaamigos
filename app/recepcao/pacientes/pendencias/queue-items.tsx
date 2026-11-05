@@ -255,16 +255,22 @@ function primaryAction(item: PendingQueueItem) {
 
 export function buildWorkspaceItems(
   queue: PendingQueueItem[],
-  ctx: { reassignCandidates: { id: string; full_name: string }[] | null; userId: string | null },
+  ctx: {
+    reassignCandidates: { id: string; full_name: string }[] | null;
+    userId: string | null;
+    /** Pendências (paciente com prontuário): sem trilha de autorização, etapa nem conversa. */
+    patientMode?: boolean;
+  },
 ): WorkspaceItem[] {
   const { reassignCandidates } = ctx;
+  const patientMode = Boolean(ctx.patientMode);
   const user = ctx.userId ? { id: ctx.userId } : null;
   const now = new Date();
     return queue.map((item) => {
     const draft = item.draft;
     const escalated = Boolean(item.escalatedAt);
     const overdue = escalated || Boolean(item.overdue);
-    const stage = draftStage(item);
+    const stage = patientMode ? null : draftStage(item);
     const action = primaryAction(item);
     const due = dueText(item);
 
@@ -304,7 +310,7 @@ export function buildWorkspaceItems(
               </span>
             )}
             {draft && <SummaryChip pendencies={draft.pendencies} />}
-            {draft && <DraftPipelineMini pipeline={draft.pipeline} />}
+            {draft && !patientMode && <DraftPipelineMini pipeline={draft.pipeline} />}
           </div>
           <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-ink-soft">
             <span>
@@ -337,8 +343,13 @@ export function buildWorkspaceItems(
             <span className="text-xs font-semibold text-ink-faint">·</span>
             <span className="text-xs font-medium text-ink-soft">{item.categoryLabel}</span>
           </div>
-          <h3 className="m-0 text-base font-bold text-ink">{guidance.problemTitle}</h3>
-          <p className="m-0 mt-1.5 text-sm leading-relaxed text-ink-soft">{guidance.problemDescription}</p>
+          <h3 className="m-0 flex items-center gap-1.5 text-base font-bold text-ink">
+            {guidance.problemTitle}
+          </h3>
+          {/* Classe B: traz o dado da pendência (vencimento, saldo, o que falta) e a consequência. */}
+          {guidance.problemDescription ? (
+            <p className="m-0 mt-1 text-sm text-ink-soft">{guidance.problemDescription}</p>
+          ) : null}
         </section>
 
         {/* Bloco 2: Ação para fazer */}
@@ -350,13 +361,18 @@ export function buildWorkspaceItems(
             </span>
           </div>
           <p className="m-0 text-sm font-semibold text-ink">{guidance.actionTitle}</p>
-          <ol className="m-0 mt-2 list-decimal space-y-1.5 pl-4 text-sm leading-relaxed text-ink-soft">
-            {guidance.actionSteps.map((step, idx) => (
-              <li key={idx}>
-                <span className="text-ink">{step}</span>
-              </li>
-            ))}
-          </ol>
+          {guidance.actionSteps.length > 0 ? (
+            <details className="mt-1 text-sm text-ink-soft">
+              <summary className="cursor-pointer select-none py-1 text-xs font-semibold text-ink-faint hover:text-ink [@media(pointer:coarse)]:min-h-[44px]">
+                Passo a passo
+              </summary>
+              <ol className="m-0 list-decimal space-y-1 pl-5">
+                {guidance.actionSteps.map((step, idx) => (
+                  <li key={idx}>{step}</li>
+                ))}
+              </ol>
+            </details>
+          ) : null}
 
           {!draft && (
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-paper-line pt-3">
@@ -375,7 +391,7 @@ export function buildWorkspaceItems(
           )}
         </section>
 
-        {draft && <DraftIntakeCard draft={draft} focus hideReviewLink />}
+        {draft && <DraftIntakeCard draft={draft} focus hideReviewLink variant={patientMode ? "paciente" : "lead"} />}
       </article>
     );
 

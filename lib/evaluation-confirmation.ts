@@ -3,18 +3,15 @@ import { buildMessagePreview, findOrCreateConversation, formatE164Phone } from "
 import { sendWhatsApp, getWhatsAppTemplateForCategory } from "@/lib/whatsapp";
 import type { EvaluationBookInput } from "@/lib/evaluation-agenda";
 import {
-  buildEvaluationBundleMessage,
   buildEvaluationConfirmationMessage,
   buildEvaluationRescheduleMessage,
   formatEvaluationDateShort,
 } from "@/lib/evaluation-confirmation-pure";
 import { pickEvaluationRecipient } from "@/lib/evaluation-recipient-pure";
-import { armPrefillSession, discardPrefillRequest, registerPrefillRequest } from "@/lib/anamnesis-prefill";
 
 /** Resultado do aviso: a supervisão precisa saber quando o responsável NÃO foi avisado. */
 export type EvaluationNotificationOutcome =
-  /** `bundled`: a mensagem já levou o convite da pré-anamnese — o chamador não manda o convite de novo. */
-  | { sent: true; bundled?: boolean }
+  | { sent: true }
   | { sent: false; reason: string };
 
 export interface EvaluationNotificationParams {
@@ -28,12 +25,6 @@ export interface EvaluationNotificationParams {
   isReschedule?: boolean;
   /** Vincula a mensagem registrada em `messages` ao agendamento. */
   appointmentId?: string;
-  /**
-   * Manda numa mensagem só a confirmação e o convite da pré-anamnese (template `confirmacao_completa`,
-   * com botões). Só vale com `patientId` + `appointmentId`, fora de remarcação e com o template
-   * configurado; senão a confirmação segue sozinha e o chamador manda o convite.
-   */
-  bundlePreAnamnesis?: boolean;
 }
 
 /**
@@ -48,8 +39,7 @@ export async function sendEvaluationConfirmationNotification(
     let patientName = "Paciente";
     let phoneToNotify = "";
     let guardianFirstName = "";
-    let guardianId: string | null = null;
-    let loggedPatientId: string | null = null;
+        let loggedPatientId: string | null = null;
 
     // 1. Obter nome do paciente e telefone com base na origem ou patientId
     if (params.patientId) {
@@ -64,7 +54,6 @@ export async function sendEvaluationConfirmationNotification(
       if (recipient) {
         phoneToNotify = recipient.phone;
         guardianFirstName = recipient.firstName;
-        guardianId = (guardians ?? []).find((g) => g.phone === recipient.phone)?.id ?? null;
       }
     } else if (params.bookInput) {
       if (params.bookInput.origin === "whatsapp_anamnese") {
@@ -175,43 +164,6 @@ export async function sendEvaluationConfirmationNotification(
         console.error("[Twilio Evaluation Notification] Falha ao registrar mensagem:", logError);
       }
     };
-
-    // 5a. Mensagem única (confirmação + convite da pré-anamnese): 1 envio no lugar de 2. Qualquer
-    // impedimento cai no envio avulso abaixo, que o chamador completa com o convite.
-    const bundleSid =
-      params.bundlePreAnamnesis && !params.isReschedule && params.patientId && params.appointmentId && guardianId
-        ? getWhatsAppTemplateForCategory("confirmacao_completa")
-        : undefined;
-    if (bundleSid && params.patientId && params.appointmentId && guardianId) {
-      const registered = await registerPrefillRequest({
-        patientId: params.patientId,
-        appointmentId: params.appointmentId,
-        guardianId,
-        phone: formattedPhone,
-      });
-      if (registered.ok) {
-        const bundleBody = buildEvaluationBundleMessage(messageParams);
-        const bundled = await sendWhatsApp({
-          to: formattedPhone,
-          message: bundleBody,
-          contentSid: bundleSid,
-          // 1 = responsável, 2 = criança, 3 = data curta, 4 = profissional.
-          contentVariables: {
-            "1": messageParams.guardianFirstName,
-            "2": patientName,
-            "3": formattedDate,
-            "4": messageParams.therapistName,
-          },
-        });
-        await logOutbound(bundleBody, bundled);
-        if (bundled.success) {
-          await armPrefillSession({ phone: formattedPhone, requestId: registered.requestId, childName: patientName });
-          return { sent: true, bundled: true };
-        }
-        console.error("[Twilio Evaluation Notification] Mensagem única falhou, caindo no envio avulso:", bundled.error);
-        await discardPrefillRequest(registered.requestId);
-      }
-    }
 
     // 5. Disparar via Twilio WhatsApp. Remarcação vai em texto livre: o template diz "confirmado".
     const contentSid = params.isReschedule ? undefined : getWhatsAppTemplateForCategory("confirmacao_d1");

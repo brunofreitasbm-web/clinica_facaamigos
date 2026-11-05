@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!isValidDeclaredName(firstName)) {
-    return rejectResponse(400, "Digite seu primeiro nome.");
+    return rejectResponse(400, "Digite o primeiro nome do paciente.");
   }
   if (!isValidBirthDate(birthDate, todayStr)) {
     return rejectResponse(400, "Data de nascimento inválida.");

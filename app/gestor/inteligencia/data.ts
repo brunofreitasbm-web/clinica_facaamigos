@@ -42,6 +42,7 @@ export type HourlyFlowItem = {
 export type LiveRoomItem = {
   roomId: string;
   roomName: string;
+  isEvaluationRoom: boolean;
   activePatientsCount: number;
   capacity: number;
   occupancyStatus: "livre" | "movimentada" | "lotada";
@@ -87,6 +88,7 @@ export type EvadedPatientsStat = {
 export type RoomRankingItem = {
   roomId: string;
   roomName: string;
+  isEvaluationRoom: boolean;
   capacity: number;
   totalRevenue: number;
   paidRevenue: number;
@@ -332,7 +334,7 @@ export async function getInteligenciaMetrics(
     // Salas da clínica
     supabase
       .from("rooms")
-      .select("id, name, capacity, specialty_id")
+      .select("id, name, capacity, specialty_id, is_evaluation_room")
       .eq("clinic_id", clinicId),
 
     // Atendimentos por Sala no período
@@ -622,8 +624,10 @@ export async function getInteligenciaMetrics(
     }
   }
 
-  const isEvaluationRoom = (roomName: string) => /avalia/i.test(roomName);
-  const rooms = (roomsList ?? []).filter((r) => !isEvaluationRoom(r.name));
+  // A Sala de Avaliação (rooms.is_evaluation_room) entra na visão operacional como
+  // qualquer outra sala — antes era removida por regex no nome, o que a escondia
+  // de "Salas em Tempo Real", do ranking e dos alertas de capacidade.
+  const rooms = roomsList ?? [];
 
   const liveRoomsRaw: LiveRoomItem[] = rooms.map((r) => {
     const activePatientsCount = liveRoomCounts.get(r.id) ?? 0;
@@ -638,6 +642,7 @@ export async function getInteligenciaMetrics(
     return {
       roomId: r.id,
       roomName: r.name,
+      isEvaluationRoom: r.is_evaluation_room,
       activePatientsCount,
       capacity,
       occupancyStatus,
@@ -796,6 +801,7 @@ export async function getInteligenciaMetrics(
   type RoomAcc = {
     roomName: string;
     capacity: number;
+    isEvaluationRoom: boolean;
     totalRevenue: number;
     paidRevenue: number;
     pendingRevenue: number;
@@ -805,10 +811,10 @@ export async function getInteligenciaMetrics(
   const roomAcc = new Map<string, RoomAcc>();
 
   for (const room of roomsList ?? []) {
-    if (isEvaluationRoom(room.name)) continue;
     roomAcc.set(room.id, {
       roomName: room.name,
       capacity: room.capacity,
+      isEvaluationRoom: room.is_evaluation_room,
       totalRevenue: 0,
       paidRevenue: 0,
       pendingRevenue: 0,
@@ -846,6 +852,7 @@ export async function getInteligenciaMetrics(
       roomId,
       roomName: acc.roomName,
       capacity: acc.capacity,
+      isEvaluationRoom: acc.isEvaluationRoom,
       totalRevenue: acc.totalRevenue,
       paidRevenue: acc.paidRevenue,
       pendingRevenue: acc.pendingRevenue,

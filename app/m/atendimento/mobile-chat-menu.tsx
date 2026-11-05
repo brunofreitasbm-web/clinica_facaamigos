@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, CheckCircle2, RotateCcw, User, UserCheck, UserMinus } from "lucide-react";
+import { Bot, CheckCircle2, ListOrdered, RotateCcw, User, UserCheck, UserMinus } from "lucide-react";
 import type { ConversationRow } from "@/lib/atendimento/types";
 
 export function MobileChatMenu({
@@ -10,6 +10,7 @@ export function MobileChatMenu({
   onClose,
   onAssignToggle,
   onBotToggle,
+  onSendMenu,
   onViewContact,
   onCloseConversation,
   onReopenConversation,
@@ -20,6 +21,7 @@ export function MobileChatMenu({
   onClose: () => void;
   onAssignToggle: (shouldAssign: boolean) => void;
   onBotToggle: (shouldEnableBot: boolean) => void;
+  onSendMenu: () => void;
   onViewContact: () => void;
   onCloseConversation: () => void;
   onReopenConversation: () => void;
@@ -80,6 +82,24 @@ export function MobileChatMenu({
             />
           </span>
         </button>
+
+        {!isClosed && (
+          <button
+            type="button"
+            role="menuitem"
+            className="flex items-center gap-3 rounded-[12px] px-3 text-left text-[15px] font-bold"
+            style={{ minHeight: 48, color: "var(--color-text)" }}
+            onClick={() => {
+              // Enviar o menu devolve a conversa ao bot: confirma se havia humano no controle.
+              if (!conversation.isBotActive && !window.confirm("Enviar o menu devolve a conversa ao bot. Continuar?")) return;
+              onSendMenu();
+              onClose();
+            }}
+          >
+            <ListOrdered size={18} color="var(--color-accent)" />
+            Enviar menu inicial
+          </button>
+        )}
 
         <button
           type="button"

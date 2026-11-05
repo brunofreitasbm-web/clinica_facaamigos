@@ -1,3 +1,4 @@
+import { NON_OCCURRED_IN_FILTER } from "@/lib/appointment-visibility";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -210,6 +211,7 @@ export default async function FamiliaPage({
       .eq("patient_id", patientId)
       .gte("starts_at", weekStartIso)
       .lt("starts_at", weekEndIso)
+      .not("status", "in", NON_OCCURRED_IN_FILTER)
       .order("starts_at", { ascending: true }),
     supabase
       .from("appointments")
@@ -217,6 +219,7 @@ export default async function FamiliaPage({
       .eq("patient_id", patientId)
       .gte("starts_at", monthStartIso)
       .lt("starts_at", monthEndIso)
+      .not("status", "in", NON_OCCURRED_IN_FILTER)
       .order("starts_at", { ascending: true }),
     // Ponte responsável → guardian_id (+ consentimento LGPD/imagem, §3.9)
     supabase
@@ -271,6 +274,7 @@ export default async function FamiliaPage({
       .select("id, starts_at, status, discipline, therapist:profiles!therapist_id(full_name)")
       .eq("patient_id", patientId)
       .gte("starts_at", nowIso)
+      .not("status", "in", NON_OCCURRED_IN_FILTER)
       .order("starts_at", { ascending: true })
       .limit(6),
   ]);

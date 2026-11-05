@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/page-container";
+import { HelpHint } from "@/components/ui/help-hint";
 
 // Sem date-fns: o projeto formata data/hora com Intl de propósito, para não
 // depender do fuso do processo Node (ver lib/timezone.ts e lib/age.ts).
@@ -41,10 +42,12 @@ export default async function ReagendamentosPendentesPage() {
 
   return (
     <PageContainer>
-      <h1 className="text-2xl font-semibold">Fila de Reagendamentos Pendentes</h1>
+      <h1 className="flex items-center gap-2 text-2xl font-semibold">
+        Fila de Reagendamentos Pendentes
+        <HelpHint text="Reagendamentos e horários escolhidos pelas famílias via WhatsApp." />
+      </h1>
       <p className="text-muted-foreground text-sm">
-        Esta fila exibe reagendamentos e horários escolhidos pelas famílias via WhatsApp.
-        Você precisa aprovar o agendamento para liberar a confirmação final.
+        Aprove o agendamento para liberar a confirmação final.
       </p>
 
       {(!pendentes || pendentes.length === 0) ? (

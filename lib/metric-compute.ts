@@ -44,7 +44,7 @@ export async function computeLiveMetric(
       .gte("starts_at", startISO)
       .lt("starts_at", endISO);
     const list = data ?? [];
-    const consideredStatuses = ["realizada", "falta_familia", "cancelada_familia", "cancelada_terapeuta", "cancelada_clinica"];
+    const consideredStatuses = ["realizada", "falta_familia"];
     const denom = list.filter((a) => consideredStatuses.includes(a.status));
 
     if (metricKey === "no_show_rate") {

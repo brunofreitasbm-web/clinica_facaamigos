@@ -1,175 +1,32 @@
-import { ChevronRight } from "lucide-react";
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
-import { DEV_CLINIC_ID } from "@/lib/constants";
-import {
-  getReceptionQueue,
-  getAuthorizationWizardItems,
-  isAuthorizationQueueItem,
-  isPendingQueueItem,
-  type PendingQueueCategory,
-} from "@/lib/reception-queue";
-import { AutorizacaoWizard } from "./autorizacao-wizard";
-import { PageContainer } from "@/components/page-container";
-import { QueueWorkspace, type QueueStage } from "./queue-workspace";
-import { buildWorkspaceItems } from "./queue-items";
+import { getReceptionQueue, isAuthorizationQueueItem } from "@/lib/reception-queue";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Ordem das categorias no filtro "Tipo". Toda categoria de PendingQueueCategory
- * precisa estar aqui: getReceptionQueue conta o que falta no badge do menu, e
- * uma categoria esquecida aqui some do filtro (foi o que aconteceu com
- * cadastro_assistido_ia e chegada_nao_confirmada até 20/09/2026). A ordem da
- * LISTA é por urgência (faixas Agora/Hoje/Depois em queue-workspace.tsx).
+ * A tela Pendências saiu do menu (04/11/2026): as pendências viraram pílulas ao
+ * lado do nome na lista de Pacientes (/recepcao/pacientes). A rota fica só para
+ * não quebrar links antigos:
+ *  - ?lead=<draftId> (botão "Resolver pendências" do Atendimento): contato que
+ *    ainda espera o plano vai para Autorizações; paciente com prontuário abre o
+ *    diálogo de pendências dele em Pacientes (?abrir=<patientId>);
+ *  - o resto vai para a lista de Pacientes.
  */
-const CATEGORY_ORDER: PendingQueueCategory[] = [
-  // Tem gente esperando no balcão agora (prazo de 15min em
-  // DUE_MINUTES_BY_CATEGORY) — sempre cai na faixa "Agora".
-  "chegada_nao_confirmada",
-  // O que chega pelo WhatsApp fora do expediente — ponto de partida de quem
-  // abre a clínica (20/09/2026, quando a aba "Cadastro IA" saiu da navegação).
-  "cadastro_assistido_ia",
-  "guia_vencendo",
-  "guia_poucas_sessoes",
-  "cadastro_incompleto",
-  "evolucao_atrasada",
-  "documento_vencido",
-  "interessado_sem_retorno",
-  "falta_sem_motivo",
-  "remarcacao_solicitada",
-  "renovacao_solicitada",
-];
-
-const QUEUE_STAGES: QueueStage[] = ["docs", "autorizacao", "agendar", "liberado"];
-
-
-export default async function PendenciasPage({
+export default async function PendenciasRedirectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ lead?: string; item?: string; q?: string; tipo?: string; etapa?: string; dono?: string; meus?: string }>;
+  searchParams: Promise<{ lead?: string }>;
 }) {
   const params = await searchParams;
-  const supabase = await createClient();
-  const fullQueue = await getReceptionQueue(supabase);
-  // Lead que só espera o plano mora em /recepcao/a-autorizar; links antigos (?lead=) seguem para lá.
-  const movedLead = params.lead ? fullQueue.find((item) => item.draft?.id === params.lead && isAuthorizationQueueItem(item)) : undefined;
-  if (movedLead) redirect(`/recepcao/a-autorizar?item=${encodeURIComponent(movedLead.id)}`);
-  const queue = fullQueue.filter(isPendingQueueItem);
-  const authorizations = await getAuthorizationWizardItems(supabase, DEV_CLINIC_ID);
-
-  // Candidatos pra reatribuição manual (§9.1 "dono + prazo"): mesmo conjunto
-  // de papéis que pode ler/escrever pending_queue_assignments
-  // (recepcao/supervisor/gestor) — não só recepção, pra um item escalado
-  // poder ser assumido por supervisor/gestor sem depender de outra recepção.
-  const { data: reassignCandidates } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .eq("clinic_id", DEV_CLINIC_ID)
-    .eq("active", true)
-    .in("role", ["recepcao", "supervisor", "gestor"])
-    .order("full_name", { ascending: true });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // ?lead=<draftId> — chegada pelo botão "Resolver pendências" do Atendimento
-  // (app/recepcao/atendimento/lead-context-panel.tsx): abre o contato no painel.
-  // O item pode não estar mais na fila (resolvido entre o clique e a navegação).
-  const leadItem = params.lead ? queue.find((item) => item.draft?.id === params.lead) : undefined;
-  const requestedItem = params.item && queue.some((item) => item.id === params.item) ? params.item : null;
-
-  // Guia com renovação já pedida não conta como crítica: está aguardando o plano.
-  const critical = authorizations.filter((a) => a.status === "critical" && !a.renewal).length;
-  const attention = authorizations.filter((a) => a.status === "attention" && !a.renewal).length;
-  const awaitingInsurer = authorizations.filter((a) => a.renewal).length;
-
-  const items = buildWorkspaceItems(queue, { reassignCandidates, userId: user?.id ?? null });
-
-  const etapa = QUEUE_STAGES.includes(params.etapa as QueueStage) ? (params.etapa as QueueStage) : null;
-
-  return (
-    <main className="flex flex-1 flex-col">
-      <PageHeader
-        axisLabel="Recepção"
-        title="Pendências"
-        description="Pacientes com prontuário: documentos, guias, faltas, remarcações e cadastros em andamento. Leads novos do WhatsApp ficam em Autorizações."
-      />
-      <PageContainer className="gap-5">
-        {critical > 0 && (
-          <a
-            href="#pacotes"
-            className="m-0 flex items-center justify-between gap-3 rounded-md bg-status-negative-soft px-4 py-3 text-[15px] font-semibold text-status-negative-text no-underline shadow-sm"
-          >
-            <span>
-              {critical} {critical === 1 ? "pacote de horas em estado crítico" : "pacotes de horas em estado crítico"}
-            </span>
-            <span className="underline underline-offset-2">Ver abaixo</span>
-          </a>
-        )}
-        {params.lead && !leadItem && (
-          <p className="m-0 rounded-md bg-paper-surface px-4 py-3 text-[15px] text-ink shadow-sm">
-            Este contato não tem mais pendências abertas.
-          </p>
-        )}
-        {queue.length === 0 ? (
-          <div className="rounded-lg bg-paper-surface px-6 py-10 text-center shadow-sm">
-            <p className="m-0 text-lg font-bold text-ink">Nenhuma pendência no momento.</p>
-            <p className="m-0 mt-1 text-[15px] text-ink-soft">Quando algo precisar da recepção, aparece aqui por ordem de urgência.</p>
-          </div>
-        ) : (
-          <QueueWorkspace
-            items={items}
-            split
-            categoryOrder={CATEGORY_ORDER}
-            owners={(reassignCandidates ?? []).map((c) => ({ id: c.id, name: c.full_name }))}
-            initial={{
-              q: params.q ?? "",
-              tipo: params.tipo && CATEGORY_ORDER.includes(params.tipo as PendingQueueCategory) ? params.tipo : null,
-              etapa,
-              dono: params.dono ?? null,
-              meus: params.meus === "1",
-              item: leadItem?.id ?? requestedItem,
-            }}
-          />
-        )}
-        {authorizations.length > 0 && (
-          <details id="pacotes" open={critical > 0} className="group rounded-lg bg-paper-surface shadow-sm">
-            <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-5 py-4 text-base focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] [&::-webkit-details-marker]:hidden">
-              <ChevronRight className="h-5 w-5 text-ink-soft transition-transform group-open:rotate-90" aria-hidden="true" />
-              <span className="font-bold text-ink">Pacotes de horas autorizadas</span>
-              {critical > 0 && (
-                <span className="rounded-full bg-status-negative-soft px-3 py-0.5 text-sm font-bold text-status-negative-text">
-                  {critical} {critical === 1 ? "crítico" : "críticos"}
-                </span>
-              )}
-              {attention > 0 && (
-                <span className="rounded-full bg-status-pending-soft px-3 py-0.5 text-sm font-bold text-status-pending-text">
-                  {attention} em atenção
-                </span>
-              )}
-              {awaitingInsurer > 0 && (
-                <span className="rounded-full bg-paper px-3 py-0.5 text-sm font-bold text-ink-soft">
-                  {awaitingInsurer} aguardando o plano
-                </span>
-              )}
-              {critical === 0 && attention === 0 && awaitingInsurer === 0 && (
-                <span className="rounded-full bg-status-positive-soft px-3 py-0.5 text-sm font-bold text-status-positive-text">
-                  em dia
-                </span>
-              )}
-              <span className="ml-auto text-sm text-ink-soft">
-                {authorizations.length} {authorizations.length === 1 ? "pacote ativo" : "pacotes ativos"}
-              </span>
-            </summary>
-            <div className="border-t border-paper-line px-5 py-5">
-              <AutorizacaoWizard initialItems={authorizations} />
-            </div>
-          </details>
-        )}
-      </PageContainer>
-    </main>
-  );
+  if (params.lead) {
+    const supabase = await createClient();
+    const queue = await getReceptionQueue(supabase);
+    const item = queue.find((i) => i.draft?.id === params.lead);
+    if (item) {
+      if (isAuthorizationQueueItem(item)) redirect(`/recepcao/a-autorizar?item=${encodeURIComponent(item.id)}`);
+      if (item.patientId) redirect(`/recepcao/pacientes?abrir=${encodeURIComponent(item.patientId)}`);
+    }
+  }
+  redirect("/recepcao/pacientes");
 }

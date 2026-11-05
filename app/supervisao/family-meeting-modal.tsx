@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { CalendarHeart } from "lucide-react";
+import { HelpHint } from "@/components/ui/help-hint";
 import {
   getSupervisorsAction,
   getGuardianPhoneAction,
@@ -193,16 +194,16 @@ export function FamilyMeetingButton({ message, rooms }: { message: FamilyMeeting
 
             {option === "whatsapp_template" && (
               <div className="space-y-3">
-                <p className="text-xs text-ink-soft">
-                  Envia um template pré-aprovado pela Meta via Twilio — use quando a janela de 24h de atendimento já fechou.
-                </p>
                 <div className="field">
                   <label>Telefone do responsável</label>
                   <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+55..." />
                 </div>
-                <button type="button" className="btn btn-primary" disabled={isPending || !phone.trim()} onClick={handleTemplateSend}>
-                  {isPending ? "Enviando…" : "Enviar template"}
-                </button>
+                <div className="flex items-center gap-1">
+                  <button type="button" className="btn btn-primary" disabled={isPending || !phone.trim()} onClick={handleTemplateSend}>
+                    {isPending ? "Enviando…" : "Enviar template"}
+                  </button>
+                  <HelpHint label="Quando usar o template" text="Envia um template pré-aprovado pela Meta via Twilio. Use quando a janela de 24h de atendimento já fechou." />
+                </div>
               </div>
             )}
 

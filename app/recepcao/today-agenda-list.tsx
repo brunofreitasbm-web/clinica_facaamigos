@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { User, PenLine, CalendarClock, X, Clock, CheckCircle2, UserCheck, XCircle, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert, Search, Printer } from "lucide-react";
+import { User, PenLine, CalendarClock, X, UserCheck, MessageCircle, AlertCircle, FileText, Plus, ShieldAlert, Search, Printer } from "lucide-react";
 import { GuiaQuickActionModal } from "./guia-quick-action-modal";
 import { ChegadaAvaliacaoModal } from "./chegada-avaliacao-modal";
 
@@ -17,8 +17,6 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 import {
-  confirmAppointment,
-  setAguardando,
   checkIn,
   checkOut,
   markMissedOrCancelled,
@@ -473,9 +471,6 @@ export function TodayAgendaList({
                 <Search className="h-6 w-6" />
               </div>
               <h4 className="text-sm font-semibold text-slate-800">Nenhum atendimento corresponde aos filtros selecionados.</h4>
-              <p className="mt-1 max-w-sm text-xs text-slate-600">
-                Tente ajustar a busca ou remover os filtros aplicados para visualizar outros agendamentos.
-              </p>
               <button
                 type="button"
                 onClick={clearAllFilters}
@@ -492,9 +487,6 @@ export function TodayAgendaList({
                 <CalendarClock className="h-6 w-6" />
               </div>
               <h4 className="text-sm font-semibold text-slate-800">Nenhuma sessão agendada para este dia.</h4>
-              <p className="mt-1 max-w-sm text-xs text-slate-600">
-                Não há atendimentos programados no momento nesta data. Você pode iniciar um novo agendamento abaixo.
-              </p>
               <button
                 type="button"
                 onClick={() => {
@@ -695,7 +687,6 @@ function SessionRow({
   const uiState = uiStateOf(session);
   const display = statusDisplay(session);
 
-  const canConfirm = session.status === "agendada";
   const canCheckin = (session.status === "agendada" || session.status === "confirmada") && !session.checkinAt;
   const canCheckout = Boolean(session.checkinAt) && !session.checkoutAt;
   const canReschedule = uiState === "aguardando" || uiState === "na_recepcao" || uiState === "em_atendimento";
@@ -704,10 +695,9 @@ function SessionRow({
   const canLinkGuide = !session.authorizationId && !session.isProvisional && !session.isEvaluation;
   const canUndoAutoFalta = session.status === "falta_familia" && session.autoMarked && !session.checkoutAt;
 
-  const isAguardando = session.status === "agendada" && !session.checkinAt;
-  const isConfirmado = session.status === "confirmada" && !session.checkinAt;
   const isCheckedIn = Boolean(session.checkinAt);
-  const isFaltaOrCancelled = NEGATIVE_STATUSES.some((s) => s.value === session.status) || session.status === "falta_familia";
+  // Ainda dá para registrar chegada ou falta: sessão viva e paciente não chegou.
+  const isActive = canCheckin;
 
   function runAction(action: () => Promise<{ success: true; warning?: string } | { success: false; error: string }>) {
     setError(null);
@@ -932,54 +922,50 @@ function SessionRow({
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          disabled={isPending || isAguardando}
-          onClick={() => runAction(() => setAguardando(session.id))}
-          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 ${
-            isAguardando
-              ? "bg-amber-500 text-white border border-amber-600 shadow-xs"
-              : "bg-white text-slate-700 border border-slate-300 hover:bg-amber-50 hover:text-amber-800 hover:border-amber-300"
-          }`}
-          title="Marcar paciente aguardando na recepção"
-        >
-          <Clock className={`h-3.5 w-3.5 ${isAguardando ? "text-white" : "text-amber-600"}`} />
-          <span>Aguardando</span>
-        </button>
+        {/* Um botão só: "Chegou". Depois dele o selo de status ao lado segue
+            sozinho — Na recepção → Em atendimento → Realizada (check-out do
+            terapeuta) — sem nada para a recepção clicar. Falta/cancelamento é um
+            link discreto, só enquanto o paciente não chegou. */}
+        {isActive && (
+          <>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={session.isEvaluation ? () => setShowChegadaModal(true) : handleCheckIn}
+              className="btn btn-primary inline-flex min-h-[38px] items-center gap-1.5 rounded-full px-5 py-1.5 text-xs font-semibold"
+              title={
+                session.isEvaluation
+                  ? "Registrar chegada (guia e laudo opcionais) e imprimir cupom"
+                  : "Registrar a chegada do paciente na recepção"
+              }
+            >
+              <UserCheck className="h-3.5 w-3.5" />
+              <span>Chegou</span>
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => setShowFaltaForm((v) => !v)}
+              className="text-[11px] font-medium text-ink-soft underline decoration-dotted hover:text-rose-700 disabled:opacity-50"
+              title="Registrar que o paciente faltou ou cancelou"
+            >
+              Faltou / cancelou
+            </button>
+          </>
+        )}
 
-        <button
-          type="button"
-          disabled={isPending || isConfirmado}
-          onClick={() => runAction(() => confirmAppointment(session.id))}
-          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 ${
-            isConfirmado
-              ? "bg-sky-600 text-white border border-sky-700 shadow-xs"
-              : "bg-white text-slate-700 border border-slate-300 hover:bg-sky-50 hover:text-sky-800 hover:border-sky-300"
-          }`}
-          title="Confirmar presença agendada"
-        >
-          <CheckCircle2 className={`h-3.5 w-3.5 ${isConfirmado ? "text-white" : "text-sky-600"}`} />
-          <span>Confirmado</span>
-        </button>
-
-        <button
-          type="button"
-          disabled={isPending || isCheckedIn}
-          onClick={session.isEvaluation ? () => setShowChegadaModal(true) : handleCheckIn}
-          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 ${
-            isCheckedIn
-              ? "bg-emerald-600 text-white border border-emerald-700 shadow-xs"
-              : "bg-white text-slate-700 border border-slate-300 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300"
-          }`}
-          title={
-            session.isEvaluation
-              ? "Registrar chegada (guia e laudo opcionais) e imprimir cupom"
-              : "Realizar check-in de entrada"
-          }
-        >
-          <UserCheck className={`h-3.5 w-3.5 ${isCheckedIn ? "text-white" : "text-emerald-600"}`} />
-          <span>{session.isEvaluation ? "Chegada" : "Check-in"}</span>
-        </button>
+        {isCheckedIn && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleReprintCoupon}
+            className="inline-flex h-[38px] w-[38px] items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+            title="Reimprimir cupom de check-in"
+            aria-label="Reimprimir cupom de check-in"
+          >
+            <Printer className="h-4 w-4" />
+          </button>
+        )}
 
         {session.isEvaluation && showChegadaModal && (
           <ChegadaAvaliacaoModal
@@ -991,34 +977,6 @@ function SessionRow({
             onConfirmed={handleChegadaConfirmed}
           />
         )}
-
-        {isCheckedIn && (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={handleReprintCoupon}
-            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all duration-200 ease-in-out transform active:scale-95 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1"
-            title="Reimprimir cupom de check-in"
-          >
-            <Printer className="h-3.5 w-3.5 text-slate-500" />
-            <span>Reimprimir cupom</span>
-          </button>
-        )}
-
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => setShowFaltaForm((v) => !v)}
-          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ease-in-out transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 ${
-            isFaltaOrCancelled || showFaltaForm
-              ? "bg-rose-600 text-white border border-rose-700 shadow-xs"
-              : "bg-white text-slate-700 border border-slate-300 hover:bg-rose-50 hover:text-rose-800 hover:border-rose-300"
-          }`}
-          title="Registrar falta ou cancelamento da sessão"
-        >
-          <XCircle className={`h-3.5 w-3.5 ${isFaltaOrCancelled || showFaltaForm ? "text-white" : "text-rose-600"}`} />
-          <span>Falta / Cancelar</span>
-        </button>
       </div>
     </div>
   );

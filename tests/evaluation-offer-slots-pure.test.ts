@@ -149,3 +149,11 @@ test("menos de 3 devolve o que houver; página além do fim, vazio", () => {
   assert.equal(pickOfferPage(all, new Map(), 1).length, 0);
   assert.equal(pickOfferPage([], new Map()).length, 0);
 });
+
+test("piso da 1ª avaliação: nada antes de 06/11/2026", async () => {
+  const { firstOfferDay } = await import("../lib/evaluation-offer-slots-pure.ts");
+  assert.equal(firstOfferDay("2026-11-04"), "2026-11-06");
+  assert.equal(firstOfferDay("2026-11-05"), "2026-11-06");
+  assert.equal(firstOfferDay("2026-11-06"), "2026-11-06");
+  assert.equal(firstOfferDay("2026-11-09"), "2026-11-09");
+});

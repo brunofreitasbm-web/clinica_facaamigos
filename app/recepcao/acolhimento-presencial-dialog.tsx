@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { useRouter } from "next/navigation";
 import {
   createPresencialAcolhimentoAction,
@@ -177,9 +178,6 @@ export function AcolhimentoPresencialDialog({
                 <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-base font-bold flex items-center gap-2">
                   <span>📍</span> Cadastrar Acolhimento Presencial (Na Clínica)
                 </h3>
-                <p className="text-xs text-amber-100 mt-0.5">
-                  Paciente fisicamente na recepção com laudo, guia autorizada e documentações impressas.
-                </p>
               </div>
               <button
                 type="button"
@@ -224,9 +222,7 @@ export function AcolhimentoPresencialDialog({
                       <div className="font-bold flex items-center gap-1.5">
                         <span>🚨</span> Enviado ao Supervisor com PRIORIDADE ALTA
                       </div>
-                      <p>
-                        Este acolhimento foi destacado no topo da tela da Supervisão como paciente presente na clínica para agendamento prioritário.
-                      </p>
+                      <p>Destacado no topo da Supervisão para agendamento prioritário.</p>
                     </div>
                   )}
 
@@ -616,10 +612,11 @@ export function AcolhimentoPresencialDialog({
                         className="rounded text-amber-600 focus:ring-amber-500 h-4 w-4"
                       />
                       <span>🗓️ Agendar 1ª Avaliação agora mesmo na Recepção</span>
+                      <HelpHint
+                        label="Ajuda: agendar agora"
+                        text="Marque esta opção para definir a data de agendamento no ato do atendimento presencial."
+                      />
                     </label>
-                    <p className="text-xs text-slate-500 pl-6">
-                      Marque esta opção para definir a data de agendamento no ato do atendimento presencial.
-                    </p>
 
                     {scheduleNow && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">

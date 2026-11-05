@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import {
   FileText,
   CheckCircle2,
@@ -109,10 +110,7 @@ export function AnamnesisValidationPanel() {
     <div className="flex flex-col gap-6">
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <p className="text-xs text-ink-faint">
-          Valide laudos e guias recebidos via robô de WhatsApp para liberar horários de agendamento.
-        </p>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:ml-auto sm:self-auto">
           <button
             type="button"
             onClick={fetchRequests}
@@ -153,6 +151,7 @@ export function AnamnesisValidationPanel() {
         <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
           <Clock className="h-3.5 w-3.5 text-accent-2" />
           Pendentes de validação ({pendingRequests.length})
+          <HelpHint text="Valide laudos e guias recebidos via robô de WhatsApp para liberar horários de agendamento." label="Sobre a validação" />
         </h3>
 
         {loading ? (
@@ -164,9 +163,6 @@ export function AnamnesisValidationPanel() {
             <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500 opacity-80" />
             <div>
               <p className="text-sm font-medium text-ink">Nenhum documento pendente no momento!</p>
-              <p className="text-xs text-ink-faint mt-1">
-                Todas as triagens de anamnese recebidas via WhatsApp já foram processadas.
-              </p>
             </div>
             <button
               type="button"

@@ -56,7 +56,7 @@ export default async function NovaSociallySavvyAssessmentPage({
       <PageHeader
         axisLabel="Terapeuta"
         title={`Aplicação ${round} — ${SOCIALLY_SAVVY_LABEL}`}
-        description={`${patient.full_name} · pontue habilidade a habilidade; áreas e PEI saem automaticamente.`}
+        description={`${patient.full_name} · pontue habilidade a habilidade; áreas e PEI saem automaticamente.`} descriptionVisible
       />
       <div className="p-5 sm:p-10">
         <SociallySavvyAssessmentForm patientId={patientId} round={round} assessment={null} />

@@ -7,6 +7,7 @@ import { logProntuarioAccess } from "./actions";
 import { PrintButton } from "./print-button";
 import { ShareFamilyButton } from "./share-family-button";
 import { PageContainer } from "@/components/page-container";
+import { HelpHint } from "@/components/ui/help-hint";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { SearchAsYouTypeInput } from "@/components/search-as-you-type-input";
 import { PatientTabs } from "@/components/prontuario/patient-tabs";
@@ -268,9 +269,6 @@ export default async function ProntuarioUnificadoPage({
       <PageContainer>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-              Conformidade Regulatória CFP / ANS / LGPD
-            </h6>
             <h1 className="m-0">Prontuário Eletrônico Unificado & Trilha de Auditoria</h1>
           </div>
           {selectedPatient && (
@@ -340,27 +338,27 @@ export default async function ProntuarioUnificadoPage({
                   <div className="rounded-xl border p-5 bg-white shadow-sm">
                     <div className="flex items-center gap-2 text-xs font-semibold text-ink-faint mb-1">
                       <ShieldCheck size={16} className="text-emerald-600" /> Evoluções Assinadas
+                      <HelpHint label="Sobre Evoluções Assinadas" text="Últimas evoluções clínicas registradas." />
                     </div>
                     <div className="text-lg font-bold text-emerald-700">
                       {signedNotesCount} de {totalNotesCount}
                     </div>
-                    <span className="text-[11px] text-ink-faint">Últimas evoluções clínicas registradas</span>
                   </div>
 
                   <div className="rounded-xl border p-5 bg-white shadow-sm">
                     <div className="flex items-center gap-2 text-xs font-semibold text-ink-faint mb-1">
                       <FileCheck size={16} className="text-blue-600" /> Versionamento
+                      <HelpHint label="Sobre Versionamento" text="Toda edição gera uma nova versão encadeada." />
                     </div>
                     <div className="text-lg font-bold text-blue-700">Imutável por versão</div>
-                    <span className="text-[11px] text-ink-faint">Toda edição gera nova versão encadeada</span>
                   </div>
 
                   <div className="rounded-xl border p-5 bg-white shadow-sm">
                     <div className="flex items-center gap-2 text-xs font-semibold text-ink-faint mb-1">
                       <Lock size={16} className="text-purple-600" /> Acessos ao Prontuário (30 dias)
+                      <HelpHint label="Sobre Acessos ao Prontuário" text="Trilha LGPD: cada acesso ao prontuário fica registrado." />
                     </div>
                     <div className="text-lg font-bold text-purple-700">{accessCount30d} acesso{accessCount30d === 1 ? "" : "s"}</div>
-                    <span className="text-[11px] text-ink-faint">Trilha LGPD — registrado em record_access_log</span>
                   </div>
                 </div>
 

@@ -51,61 +51,6 @@ function revalidateAgendaViews() {
   revalidatePath("/recepcao");
 }
 
-export async function confirmAppointment(appointmentId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-
-  const { data: appointment } = await supabase
-    .from("appointments")
-    .select("id, status")
-    .eq("id", appointmentId)
-    .maybeSingle();
-
-  if (!appointment) {
-    return { success: false, error: "Sessão não encontrada." };
-  }
-  if (appointment.status !== "agendada") {
-    return { success: false, error: "Só é possível confirmar sessão ainda a confirmar." };
-  }
-
-  const { error } = await supabase
-    .from("appointments")
-    .update({ status: "confirmada", confirmed_at: new Date().toISOString(), confirmed_via: "recepcao" })
-    .eq("id", appointmentId);
-
-  if (error) {
-    return { success: false, error: "Não foi possível confirmar. Tente de novo." };
-  }
-
-  revalidateAgendaViews();
-  return { success: true };
-}
-
-export async function setAguardando(appointmentId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-
-  const { data: appointment } = await supabase
-    .from("appointments")
-    .select("id, status")
-    .eq("id", appointmentId)
-    .maybeSingle();
-
-  if (!appointment) {
-    return { success: false, error: "Sessão não encontrada." };
-  }
-
-  const { error } = await supabase
-    .from("appointments")
-    .update({ status: "agendada", confirmed_at: null, confirmed_via: null })
-    .eq("id", appointmentId);
-
-  if (error) {
-    return { success: false, error: "Não foi possível alterar para aguardando." };
-  }
-
-  revalidateAgendaViews();
-  return { success: true };
-}
-
 /**
  * Checagem da guia no check-in (Gap 3 do audit de recepção): não bloqueia o
  * check-in — a família já está na clínica e a recepção pode preferir deixar

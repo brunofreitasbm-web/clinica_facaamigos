@@ -7,6 +7,7 @@ import {
   removeAvailabilityBlock,
   replicateDayToWeekdays,
 } from "./actions";
+import { HelpHint } from "@/components/ui/help-hint";
 
 export type TherapistOption = { id: string; full_name: string };
 export type AvailabilityBlock = {
@@ -151,10 +152,7 @@ export function AvailabilityManager({
             </button>
           ))}
         </div>
-        <p className="m-0 ml-auto max-w-md text-xs text-ink-faint">
-          Terapeuta sem nenhuma janela cadastrada não é bloqueado por horário — o agendamento só
-          passa a ser barrado depois do primeiro bloco.
-        </p>
+        <HelpHint text="Terapeuta sem nenhuma janela cadastrada não é bloqueado por horário — o agendamento só passa a ser barrado depois do primeiro bloco." />
       </div>
 
       {error && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { createFaq, updateFaq, toggleFaqActive, deleteFaq, type FaqCategory } from "./faq-actions";
 
 export type FaqRow = {
@@ -207,12 +208,10 @@ export function FaqManager({ faqs, unanswered }: { faqs: FaqRow[]; unanswered: U
 
   return (
     <div>
-      <h3 className="mb-1">FAQ do WhatsApp</h3>
-      <p className="mb-2 text-sm text-ink-soft">
-        Base de conhecimento do assistente de WhatsApp: cada pergunta cadastrada aqui é o que a IA (Gemini) usa para
-        responder às famílias sobre planos de saúde, terapias, valores e regras. Quando a dúvida não estiver aqui, o bot
-        escala automaticamente para a recepção em vez de inventar uma resposta.
-      </p>
+      <div className="mb-2 flex items-center gap-1">
+        <h3 className="m-0">FAQ do WhatsApp</h3>
+        <HelpHint text="Base de conhecimento do assistente de WhatsApp: cada pergunta cadastrada aqui é o que a IA (Gemini) usa para responder às famílias sobre planos, terapias, valores e regras. Quando a dúvida não está aqui, o bot escala para a recepção em vez de inventar uma resposta." />
+      </div>
       {pendingCount > 0 && (
         <p className="mb-6 text-sm font-semibold text-status-negative-text">
           ⚠️ {pendingCount} pergunta(s) com resposta pendente de preencher (endereço, horário, valores, telefone) — o
@@ -221,11 +220,10 @@ export function FaqManager({ faqs, unanswered }: { faqs: FaqRow[]; unanswered: U
       )}
 
       <section className="mb-8">
-        <h4 className="mb-1 text-sm font-semibold">Perguntas que o bot não soube responder (últimos 30 dias)</h4>
-        <p className="mb-3 text-xs text-ink-faint">
-          Mensagens reais das famílias que caíram em resposta genérica, IA fora do ar ou escalonamento &ldquo;fora da
-          base&rdquo;. As mais repetidas primeiro: cada uma é uma resposta que falta nesta base.
-        </p>
+        <h4 className="mb-3 flex items-center gap-1 text-sm font-semibold">
+          Perguntas que o bot não soube responder (últimos 30 dias)
+          <HelpHint text="Mensagens reais das famílias que caíram em resposta genérica, IA fora do ar ou escalonamento “fora da base”. As mais repetidas primeiro: cada uma é uma resposta que falta nesta base." />
+        </h4>
         {unanswered.length === 0 ? (
           <p className="text-sm text-ink-faint">Nenhuma pergunta sem resposta nos últimos 30 dias.</p>
         ) : (

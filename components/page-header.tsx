@@ -1,14 +1,27 @@
+import type { ReactNode } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
+
+/**
+ * Cabeçalho de página. A descrição vira um "?" ao lado do título (menos texto
+ * na tela, Lei de Hick/Miller). Use `descriptionVisible` apenas quando a
+ * descrição carrega dado dinâmico ou aviso que precisa ficar à vista
+ * (Von Restorff).
+ */
 export function PageHeader({
   axisLabel,
   title,
   description,
+  descriptionVisible = false,
 }: {
   axisLabel: string;
   title: string;
-  description: string;
+  description?: ReactNode;
+  descriptionVisible?: boolean;
 }) {
+  const hasDescription =
+    description !== undefined && description !== null && description !== "";
   return (
-    <header className="px-6 py-5 sm:px-10">
+    <header className="px-6 py-2 sm:px-10">
       <div className="flex items-center gap-2">
         <span className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-chart">
           {axisLabel}
@@ -43,10 +56,17 @@ export function PageHeader({
           ))}
         </svg>
       </div>
-      <h1 className="mt-2 text-2xl font-semibold text-ink sm:text-3xl">
-        {title}
-      </h1>
-      <p className="mt-1 text-sm text-ink-soft">{description}</p>
+      <div className="mt-1 flex items-center gap-1.5">
+        <h1 className="text-xl font-semibold leading-tight text-ink sm:text-2xl">
+          {title}
+        </h1>
+        {hasDescription && !descriptionVisible ? (
+          <HelpHint text={description} label={`Sobre ${title}`} side="bottom" />
+        ) : null}
+      </div>
+      {hasDescription && descriptionVisible ? (
+        <p className="mt-0.5 text-xs text-ink-soft">{description}</p>
+      ) : null}
     </header>
   );
 }

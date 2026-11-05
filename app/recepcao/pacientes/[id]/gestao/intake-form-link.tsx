@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { createIntakeFormLink } from "./actions";
 
 /**
@@ -44,13 +45,13 @@ export function IntakeFormLink({ patientId, patientName }: { patientId: string; 
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0">
+        <h6 style={{ color: "var(--color-accent-2-600)" }} className="m-0 flex items-center gap-1">
           Ficha pela família
+          <HelpHint
+            label="Ajuda: ficha pela família"
+            text={`Gera um link para a família de ${patientName} preencher a ficha. Vale por 30 dias, serve uma vez só, e gerar um novo desativa o anterior.`}
+          />
         </h6>
-        <p className="m-0 mt-1 text-[13px] text-ink-soft">
-          Gera um link para a família de {patientName} preencher a ficha. Vale por 30 dias, serve uma
-          vez só, e gerar um novo desativa o anterior.
-        </p>
       </div>
 
       {erro && (

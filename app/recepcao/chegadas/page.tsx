@@ -1,3 +1,4 @@
+import { HelpHint } from "@/components/ui/help-hint";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
@@ -127,12 +128,12 @@ export default async function ChegadasPage() {
   return (
     <PageContainer>
       <div>
-        <h1 style={{ fontFamily: "var(--font-heading)" }} className="text-xl font-semibold text-ink">
-          Chegadas
-        </h1>
-        <p className="text-sm text-ink-soft">
-          Pacientes que fizeram check-in pelo QR da entrada. A chamada segue o horário agendado, não a ordem de chegada.
-        </p>
+        <div className="flex items-center gap-1">
+          <h1 style={{ fontFamily: "var(--font-heading)" }} className="text-xl font-semibold text-ink">
+            Chegadas
+          </h1>
+          <HelpHint text="Pacientes que fizeram check-in pelo QR da entrada. A chamada segue o horário agendado, não a ordem de chegada." />
+        </div>
       </div>
       <ChegadasList initialItems={items} clinicId={DEV_CLINIC_ID} />
     </PageContainer>
