@@ -110,8 +110,7 @@ export function AnamnesisValidationPanel() {
     <div className="flex flex-col gap-6">
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <span aria-hidden />
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:ml-auto sm:self-auto">
           <button
             type="button"
             onClick={fetchRequests}

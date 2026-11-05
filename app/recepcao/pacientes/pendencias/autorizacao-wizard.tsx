@@ -329,8 +329,7 @@ function RequestRenewalDialog({ item, onClose, onDone }: { item: AuthorizationIt
               onChange={(e) => setJustification(e.target.value)}
               className="w-full rounded-md border border-paper-line-strong bg-paper-surface p-3 text-[15px] text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
             />
-            <div className="flex items-center justify-between gap-3">
-              <span aria-hidden="true" />
+            <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => {

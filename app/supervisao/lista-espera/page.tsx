@@ -83,7 +83,7 @@ export default async function ListaEsperaPage() {
           <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
             <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-2">
               <Users size={18} className="text-blue-600" /> Aguardando Vaga
-              <HelpHint text="Na fila ordenada por prioridade." />
+              <HelpHint label="Sobre Aguardando Vaga" text="Na fila ordenada por prioridade." />
             </div>
             <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)" }}>
               {waiting.length} paciente{waiting.length === 1 ? "" : "s"}
@@ -93,7 +93,7 @@ export default async function ListaEsperaPage() {
           <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
             <div className="flex items-center gap-2 text-sm font-semibold text-ink-faint mb-2">
               <Clock size={18} className="text-amber-500" /> Tempo Médio de Espera
-              <HelpHint text="Entre a entrada na fila e hoje, para quem ainda aguarda." />
+              <HelpHint label="Sobre Tempo Médio de Espera" text="Entre a entrada na fila e hoje, para quem ainda aguarda." />
             </div>
             <div className="tabular-figure text-3xl font-bold" style={{ fontFamily: "var(--font-heading)" }}>
               {avgWaitDays === null ? "—" : `${avgWaitDays} dias`}

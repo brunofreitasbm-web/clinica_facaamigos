@@ -729,8 +729,9 @@ export function GradePanel({
               </div>
               <div className="text-xs text-ink-soft flex items-center gap-1">
                 <span>Evolução em 24h</span>
-                <HelpHint text="Percentual de prontuários evoluídos em até 24 horas após o término da sessão. Meta ideal: 100%." />
+                <HelpHint label="Sobre Evolução em 24h" text="Percentual de prontuários evoluídos em até 24 horas após o término da sessão. Meta ideal: 100%." />
               </div>
+              <div className="text-[11px] text-ink-faint">Meta: 100%</div>
             </div>
           </div>
         </div>

@@ -570,13 +570,11 @@ export function EvaluationQuickViewPanel({
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-paper-line px-3.5 py-2.5">
-          {item.ready ? (
-            <span />
-          ) : (
+          {item.ready ? null : (
             <p className="text-[10px] text-ink-faint">Aprove a documentação antes de agendar.</p>
           )}
           {view?.patientHref && (
-            <Link href={view.patientHref} className="shrink-0 text-[11px] font-semibold text-accent underline underline-offset-2 hover:no-underline">
+            <Link href={view.patientHref} className="ml-auto shrink-0 text-[11px] font-semibold text-accent underline underline-offset-2 hover:no-underline">
               Prontuário
             </Link>
           )}
