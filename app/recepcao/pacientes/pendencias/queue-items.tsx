@@ -346,10 +346,11 @@ export function buildWorkspaceItems(
           </div>
           <h3 className="m-0 flex items-center gap-1.5 text-base font-bold text-ink">
             {guidance.problemTitle}
-            {guidance.problemDescription ? (
-              <HelpHint text={guidance.problemDescription} label="Ajuda: pendência" side="bottom" />
-            ) : null}
           </h3>
+          {/* Classe B: traz o dado da pendência (vencimento, saldo, o que falta) e a consequência. */}
+          {guidance.problemDescription ? (
+            <p className="m-0 mt-1 text-sm text-ink-soft">{guidance.problemDescription}</p>
+          ) : null}
         </section>
 
         {/* Bloco 2: Ação para fazer */}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import type { IntakeChecklistRow } from "@/lib/intake-checklist";
 
 /**
@@ -40,12 +41,13 @@ export function ChecklistEntradaDialog({ rows }: { rows: IntakeChecklistRow[] })
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between border-b pb-3">
               <div>
-                <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-base font-bold text-neutral-900">
+                <h3 style={{ fontFamily: "var(--font-heading)" }} className="flex items-center gap-1.5 text-base font-bold text-neutral-900">
                   Checklist de Entrada
+                  <HelpHint
+                    label="Ajuda: checklist de entrada"
+                    text="Documentos obrigatórios antes da 1ª sessão; conta na meta da recepção."
+                  />
                 </h3>
-                <p className="text-xs text-neutral-500">
-                  Documentos obrigatórios antes da 1ª sessão · conta na meta da recepção
-                </p>
               </div>
               <button
                 type="button"
@@ -78,7 +80,13 @@ export function ChecklistEntradaDialog({ rows }: { rows: IntakeChecklistRow[] })
                 </label>
 
                 <div className="mb-4 flex items-center justify-between rounded-lg bg-neutral-100 p-3">
-                  <span className="text-xs font-semibold text-neutral-700">Anexos na ficha</span>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-neutral-700">
+                    Anexos na ficha
+                    <HelpHint
+                      label="Ajuda: anexos na ficha"
+                      text="Um item só fica concluído quando o documento é anexado na ficha do paciente."
+                    />
+                  </span>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
                       selected.complete ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
@@ -112,10 +120,6 @@ export function ChecklistEntradaDialog({ rows }: { rows: IntakeChecklistRow[] })
                     </div>
                   ))}
                 </div>
-
-                <p className="mt-4 text-[11px] text-neutral-500">
-                  Um item só fica concluído quando o documento é anexado na ficha do paciente.
-                </p>
 
                 <div className="mt-5 flex justify-end gap-2">
                   <button
