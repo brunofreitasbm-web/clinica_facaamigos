@@ -7,6 +7,7 @@ import { GRID_EXCLUDED_STATUSES } from "@/app/supervisao/grade-data";
 import type { PoolOffer } from "@/lib/evaluation-offer-badge-pure";
 import { collapseByChild } from "@/lib/patient-duplicates-pure";
 import { pickEvaluationRecipient, type GuardianContact } from "@/lib/evaluation-recipient-pure";
+import { computeDraftGate } from "@/lib/scheduling-promotion-pure";
 
 type Supa = SupabaseClient<Database>;
 
@@ -245,14 +246,13 @@ export async function getSchedulingGates(supabase: Supa, patientIds: string[]): 
   };
   for (const d of drafts ?? []) {
     if (!d.patient_id) continue;
-    const isPlanAuthorized = Boolean(
-      d.plan_authorized_at || d.authorization_waived || d.scheduling_enabled_at || patientsWithActiveAuth.has(d.patient_id)
-    );
-    const gate: EvaluationSchedulingGate = isPlanAuthorized
-      ? "habilitado"
-      : d.guide_sent_at
-        ? "aguardando_autorizacao"
-        : "aguardando_envio_guia";
+    const gate: EvaluationSchedulingGate = computeDraftGate({
+      guide_sent_at: d.guide_sent_at,
+      plan_authorized_at: d.plan_authorized_at,
+      authorization_waived: d.authorization_waived,
+      scheduling_enabled_at: d.scheduling_enabled_at,
+      hasActiveAuth: patientsWithActiveAuth.has(d.patient_id),
+    });
     const current = gates.get(d.patient_id);
     if (!current || rank[gate] > rank[current]) gates.set(d.patient_id, gate);
   }
@@ -312,16 +312,23 @@ async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<str
   return availableCandidates.map((p) => {
     const gate = gates.get(p.id);
     const profile = profiles.get(p.id);
-    const isReady = !gate || gate === "habilitado" || p.status === "avaliacao";
-    const isApto = gate === "habilitado" || p.status === "avaliacao";
+    // Regra padrão: só entra na fila após o clique em "Pronto para agendar" (gate
+    // "habilitado"). Nem status "avaliacao" nem a ausência de gate (ex.: rascunho
+    // rejeitado/sem contato) furam. Única exceção: PARTICULAR de fato (cobertura
+    // is_private), que não tem plano a verificar.
+    const isParticular = profile?.isParticular === true;
+    const isReady = isParticular || gate === "habilitado";
+    const isApto = gate === "habilitado";
     const statusLabel = isApto
       ? "Apto para 1ª avaliação"
       : gate
         ? GATE_STATUS_LABEL[gate]
-        : "🚨 PRESENCIAL NA CLÍNICA";
+        : isParticular
+          ? "Particular — sem plano a verificar"
+          : "Aguardando o clique em \"Pronto para agendar\"";
 
     const detail = isApto
-      ? "Apto para 1ª avaliação · plano autorizado"
+      ? "Apto para 1ª avaliação · liberado pela recepção"
       : gate
         ? `Documentos por WhatsApp/portal · cadastrado há ${p.daysSinceCreated} dia(s)`
         : `Cadastrado há ${p.daysSinceCreated} dia(s)`;
@@ -353,6 +360,8 @@ type PoolPatientProfile = {
   guardianName: string | null;
   phone: string | null;
   recipient: EvaluationRecipientPreview | null;
+  /** Alguma cobertura marcada como particular (is_private): sem plano a verificar. */
+  isParticular: boolean;
 };
 
 /** Convênio, idade e contato do responsável dos candidatos da fila, numa consulta só. */
@@ -411,6 +420,7 @@ async function getPoolPatientProfiles(
         })
         .find(Boolean) ?? null;
 
+    const isParticular = coverages.some((c) => c.is_private === true);
     const gInfo = guardianByPatient.get(p.id) ?? draftByPatient.get(p.id);
     const recipient = pickEvaluationRecipient(guardiansByPatientList.get(p.id) ?? []);
 
@@ -420,6 +430,7 @@ async function getPoolPatientProfiles(
       guardianName: gInfo?.name ?? null,
       phone: gInfo?.phone ?? null,
       recipient: recipient ? { name: recipient.name, phone: recipient.phone } : null,
+      isParticular,
     });
   }
   return profiles;
@@ -468,7 +479,7 @@ export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_C
 
   // Paciente que veio por contato de documentos (WhatsApp/portal) só entra na
   // fila depois do "ok" da Recepção confirmando a autorização do plano.
-  const gated = [...anamnesisItems, ...intakeItems, ...presencialItems].filter((item) => !item.gate || item.gate === "habilitado" || item.ready);
+  const gated = [...anamnesisItems, ...intakeItems, ...presencialItems].filter((item) => (item.origin === "presencial" ? item.ready : !item.gate || item.gate === "habilitado"));
 
   // A mesma criança pode chegar por mais de uma origem (bot de anamnese, acolhimento
   // por PDF, cadastro presencial) — um card só, o mais adiantado: oferta em andamento
