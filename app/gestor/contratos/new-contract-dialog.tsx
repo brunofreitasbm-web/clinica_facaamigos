@@ -18,6 +18,10 @@ export function NewContractDialog({ patients, plans }: { patients: PatientOption
   // Particular puro: a mensalidade é o valor do pacote (global), não digitada.
   const isParticular = planType === "particular";
   const selectedPlan = plans.find((p) => p.code === packageCode);
+  const [paymentMethod, setPaymentMethod] = useState("pix_automatico");
+  // Pacote Ponte (6 sessões): só Pix Automático.
+  const pixOnly = selectedPlan?.code === "PART-PLANO-PONTE";
+  const effectiveMethod = pixOnly ? "pix_automatico" : paymentMethod;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -99,6 +103,39 @@ export function NewContractDialog({ patients, plans }: { patients: PatientOption
                 </label>
               )}
 
+              {isParticular && (
+                <>
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
+                    Forma de pagamento
+                    <select
+                      name="paymentMethod"
+                      className="input"
+                      value={effectiveMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      disabled={pixOnly}
+                    >
+                      <option value="pix_automatico">Pix Automático (recomendado)</option>
+                      <option value="boleto">Boleto com QR Pix</option>
+                    </select>
+                    {pixOnly && (
+                      <>
+                        <input type="hidden" name="paymentMethod" value="pix_automatico" />
+                        <span className="text-[11px] font-normal text-ink-faint">O Pacote Ponte é exclusivo do Pix Automático.</span>
+                      </>
+                    )}
+                  </label>
+                  <fieldset className="flex flex-col gap-3 rounded-lg border p-3" style={{ borderColor: "var(--color-neutral-200)" }}>
+                    <legend className="px-1 text-xs font-semibold text-ink-faint">Responsável financeiro (quem paga)</legend>
+                    <input name="respName" required className="input" placeholder="Nome completo" autoComplete="off" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input name="respCpf" required className="input" placeholder="CPF" inputMode="numeric" autoComplete="off" />
+                      <input name="respPhone" className="input" placeholder="WhatsApp (DDD + número)" inputMode="tel" autoComplete="off" />
+                    </div>
+                    <input name="respEmail" type="email" className="input" placeholder="E-mail (reserva da cobrança)" autoComplete="off" />
+                  </fieldset>
+                </>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
                   Mensalidade (R$)
@@ -109,8 +146,8 @@ export function NewContractDialog({ patients, plans }: { patients: PatientOption
                   )}
                 </label>
                 <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-                  Dia de vencimento
-                  <input type="number" name="paymentDay" min="1" max="31" required className="input" defaultValue={5} />
+                  Vence no dia (do mês anterior)
+                  <input type="number" name="paymentDay" min="1" max="31" required className="input" defaultValue={25} />
                 </label>
               </div>
 

@@ -1,12 +1,13 @@
 import Link from "next/link";
 
 interface FinanceiroSubnavProps {
-  activeTab: "repasses" | "contratos" | "contas-a-pagar" | "dre";
+  activeTab: "repasses" | "contratos" | "cobranca" | "contas-a-pagar" | "dre";
 }
 
 const ITEMS = [
   { key: "repasses", label: "Repasses & Glosas", href: "/gestor/financeiro" },
   { key: "contratos", label: "Contratos Particulares", href: "/gestor/contratos" },
+  { key: "cobranca", label: "Cobrança", href: "/gestor/financeiro/cobranca" },
   { key: "contas-a-pagar", label: "Contas a Pagar", href: "/gestor/financeiro/contas-a-pagar" },
   { key: "dre", label: "DRE & Fluxo de Caixa", href: "/gestor/financeiro/dre" },
 ] as const;
