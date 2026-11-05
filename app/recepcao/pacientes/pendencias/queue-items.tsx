@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertCircle, CheckSquare } from "lucide-react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingQueueItem } from "@/lib/reception-queue";
 import { fmtDueShort, fmtWaitingDays } from "@/lib/format";
@@ -343,8 +344,12 @@ export function buildWorkspaceItems(
             <span className="text-xs font-semibold text-ink-faint">·</span>
             <span className="text-xs font-medium text-ink-soft">{item.categoryLabel}</span>
           </div>
-          <h3 className="m-0 text-base font-bold text-ink">{guidance.problemTitle}</h3>
-          <p className="m-0 mt-1.5 text-sm leading-relaxed text-ink-soft">{guidance.problemDescription}</p>
+          <h3 className="m-0 flex items-center gap-1.5 text-base font-bold text-ink">
+            {guidance.problemTitle}
+            {guidance.problemDescription ? (
+              <HelpHint text={guidance.problemDescription} label="Ajuda: pendência" side="bottom" />
+            ) : null}
+          </h3>
         </section>
 
         {/* Bloco 2: Ação para fazer */}
@@ -355,14 +360,22 @@ export function buildWorkspaceItems(
               Ação para fazer
             </span>
           </div>
-          <p className="m-0 text-sm font-semibold text-ink">{guidance.actionTitle}</p>
-          <ol className="m-0 mt-2 list-decimal space-y-1.5 pl-4 text-sm leading-relaxed text-ink-soft">
-            {guidance.actionSteps.map((step, idx) => (
-              <li key={idx}>
-                <span className="text-ink">{step}</span>
-              </li>
-            ))}
-          </ol>
+          <p className="m-0 flex items-center gap-1.5 text-sm font-semibold text-ink">
+            {guidance.actionTitle}
+            {guidance.actionSteps.length > 0 ? (
+              <HelpHint
+                label="Ajuda: passos da ação"
+                side="bottom"
+                text={
+                  <ol className="m-0 list-decimal space-y-1 pl-4">
+                    {guidance.actionSteps.map((step, idx) => (
+                      <li key={idx}>{step}</li>
+                    ))}
+                  </ol>
+                }
+              />
+            ) : null}
+          </p>
 
           {!draft && (
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-paper-line pt-3">

@@ -471,9 +471,6 @@ export function TodayAgendaList({
                 <Search className="h-6 w-6" />
               </div>
               <h4 className="text-sm font-semibold text-slate-800">Nenhum atendimento corresponde aos filtros selecionados.</h4>
-              <p className="mt-1 max-w-sm text-xs text-slate-600">
-                Tente ajustar a busca ou remover os filtros aplicados para visualizar outros agendamentos.
-              </p>
               <button
                 type="button"
                 onClick={clearAllFilters}
@@ -490,9 +487,6 @@ export function TodayAgendaList({
                 <CalendarClock className="h-6 w-6" />
               </div>
               <h4 className="text-sm font-semibold text-slate-800">Nenhuma sessão agendada para este dia.</h4>
-              <p className="mt-1 max-w-sm text-xs text-slate-600">
-                Não há atendimentos programados no momento nesta data. Você pode iniciar um novo agendamento abaixo.
-              </p>
               <button
                 type="button"
                 onClick={() => {

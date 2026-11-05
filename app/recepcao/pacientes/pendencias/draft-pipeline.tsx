@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingRegistrationDraft, DraftAuthorizedGuide } from "@/lib/reception-queue";
+import { HelpHint } from "@/components/ui/help-hint";
 import { visiblePills } from "@/lib/lead-pendencies";
 import { buildPlanAuthorizedMessage, buildWhatsappLink } from "@/lib/whatsapp-message";
 import {
@@ -571,9 +572,6 @@ export function DraftPipelineColumns({
       <StepShell index={2} state={sentState} status={sentStatus}>
         {pipeline.authorization === "pendente" && (
           <>
-            <p className="m-0 text-sm text-ink-faint">
-              Envie a guia de autorização ao plano (portal, e-mail ou telefone) e marque aqui.
-            </p>
             {missingLabels.length > 0 && (
               <p className="m-0 text-sm text-status-pending-text">Ainda falta: {missingLabels.join(", ")}.</p>
             )}
@@ -581,6 +579,10 @@ export function DraftPipelineColumns({
               <StepButton primary onClick={handleMarkGuideSent} disabled={isPending}>
                 Guia enviada ao plano
               </StepButton>
+              <HelpHint
+                text="Envie a guia de autorização ao plano (portal, e-mail ou telefone) e marque aqui."
+                label="Ajuda: guia enviada ao plano"
+              />
               {!draft.pendencies.hasPlan && (
                 <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
                   Particular / sem guia
@@ -610,14 +612,14 @@ export function DraftPipelineColumns({
       <StepShell index={3} state={authState} status={authStatus}>
         {(pipeline.authorization === "enviada" || pipeline.authorization === "pendente") && (
           <>
-            <p className="m-0 text-sm text-ink-faint">
-              Confira a autorização junto ao plano (portal ou telefone). Quando o plano autorizar, suba a guia em PDF: o sistema
-              habilita o agendamento e abre o WhatsApp com o aviso ao responsável.
-            </p>
             <div className="flex flex-wrap gap-2">
               <StepButton primary onClick={() => setShowGuideDialog(true)} disabled={isPending}>
                 Plano autorizou
               </StepButton>
+              <HelpHint
+                text="Confira a autorização junto ao plano (portal ou telefone). Quando o plano autorizar, suba a guia em PDF: o sistema habilita o agendamento e abre o WhatsApp com o aviso ao responsável."
+                label="Ajuda: plano autorizou"
+              />
               {!draft.pendencies.hasPlan && (
                 <StepButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
                   Particular / sem guia
@@ -702,11 +704,12 @@ export function DraftPipelineColumns({
       <StepShell index={4} state={schedState} status={schedStatus}>
         {schedState === "locked" && (
           <>
-            <p className="m-0 text-sm text-ink-faint">
-              🔒 Só libera depois que o plano autorizar (ou a autorização for dispensada).
-            </p>
-            <p className="m-0 text-[13px] font-semibold text-ink-soft">
+            <p className="m-0 flex items-center gap-1 text-[13px] font-semibold text-ink-soft">
               Faltam {authState === "done" ? 0 : sentState === "done" ? 1 : 2} etapa(s) para destravar.
+              <HelpHint
+                text="Só libera depois que o plano autorizar (ou a autorização for dispensada)."
+                label="Ajuda: etapa bloqueada"
+              />
             </p>
           </>
         )}
@@ -714,7 +717,7 @@ export function DraftPipelineColumns({
         {schedState === "current" && (
           <>
             <p className="m-0 text-sm text-ink">
-              Falta só este passo! Ao habilitar, a Supervisão vê o “ok” na Agenda 1ª Avaliação e já pode marcar.
+              Falta só este passo: a Supervisão passa a ver o “ok” na agenda.
             </p>
             <button
               type="button"
@@ -731,7 +734,7 @@ export function DraftPipelineColumns({
         {schedState === "done" && (
           <>
             <p className="quest-pop m-0 text-sm font-bold text-status-positive-text">
-              🏆 Missão cumprida! A Supervisão já vê o “ok” na Agenda 1ª Avaliação.
+              🏆 Missão cumprida! A Supervisão já vê o “ok”.
             </p>
             <div>
               <StepButton onClick={() => run(() => disableDraftScheduling(draft.id))} disabled={isPending}>
