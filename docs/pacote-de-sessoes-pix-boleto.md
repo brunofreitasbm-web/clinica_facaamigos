@@ -398,18 +398,22 @@ Indicação─► programa "Amigo Indica"
 
 A regra de prevenção de duplicidade do projeto (AGENTS.md §3) vale aqui: um lead que já tem `patient_id` ou avaliação agendada não pode abrir um segundo funil.
 
-### 9.5 Lançamento (pré-abertura em dezembro de 2026)
+### 9.5 Lançamento: calendário em torno da abertura (D)
 
-| Semana | Ação |
-|---|---|
-| S−6 | Landing page e lista de espera; posts de bastidores da obra/equipe |
-| S−5 | Parcerias: visita a 15 pediatras/neuropediatras e 10 escolas com kit e cartão de indicação |
-| S−4 | Abertura das **Vagas Fundadoras** (PREMISSA: 15 vagas, preço travado por 12 meses e avaliação com 50% de desconto) |
-| S−3 | Live/encontro com a coordenação clínica: "Como escolher a frequência certa de terapia" |
-| S−2 | Open house com agendamento de avaliações |
-| S−1 | Lembretes para a lista de espera; fechamento das vagas fundadoras |
-| S0 | Abertura; depoimentos só após consentimento formal |
-| S+4 | Programa "Amigo Indica" ativo |
+A clínica abre **de 1 a 15 de dezembro** e hoje é 5 de novembro, então o pré-lançamento de 6 semanas não cabe. O calendário abaixo assume **D = 1º de dezembro** (pior caso: restam 3 semanas e meia). Se a abertura for até 15/12, use as semanas extras para esticar parceiros, anúncios da lista de espera e o open house. **Nunca para antecipar vendas antes do contrato aprovado.**
+
+| Quando | O que acontece | Quem |
+|---|---|---|
+| **Semana 0** (5–8/nov) | Fechar agência ou freelancer por **90 dias** e entregar o briefing (§9.9). Passar os acessos (Instagram, Google Perfil, Meta Business). **Começar hoje** o contrato com o advogado e a conta Asaas: são o prazo mais longo | Bruno |
+| **Semana 1** (9–15/nov) | Ficha do Google Perfil otimizada (serviços, horário, link do WhatsApp, fotos sem rosto de criança). Lista de espera no ar e pixel instalado. Primeiro pacote de peças em aprovação. Lista de 25 parceiros (15 pediatras/neuropediatras, 10 escolas) e kit. Posts de bastidores no Instagram | Agência + coordenação clínica |
+| **Semana 2** (16–22/nov) | Visitas aos parceiros (feitas pela coordenação clínica, não pela agência). Anúncios de captação para a lista de espera. **Contrato aprovado pelo advogado** (condição para o próximo passo). Abrir as **Vagas Fundadoras** (teto de 15, cobrança manual, PREMISSA: preço travado por 12 meses e avaliação com 50% de desconto) | Coordenação + Bruno |
+| **Semana 3** (23–29/nov) | Live ou encontro "Como escolher a frequência certa de terapia". Open house com agendamento de avaliações. Lembretes à lista de espera. **Fechar as vagas fundadoras em 29/11** | Coordenação + recepção |
+| **D** (1/12 no pior caso) | Post e anúncio de abertura. Primeiras avaliações | Todos |
+| **D+1 a D+4 semanas** | Conteúdo educativo; depoimentos só com consentimento formal; relatório semanal (§9.9) | Agência |
+| **D+4 semanas** | Programa "Amigo Indica" ativo (precisa de famílias que já pagaram a 2ª mensalidade) | Recepção |
+| **D+8 semanas** | **Revisão do CAC e da conversão** (gate de renovação da agência, §9.7) | Bruno |
+
+**Dependências que travam o lançamento:** sem contrato aprovado não há Vaga Fundadora; sem conta Asaas aprovada a cobrança é toda manual (aceitável só para o teto de 15); sem template de WhatsApp aprovado na Meta a régua usa e-mail (`docs/runbooks/ativar-cobranca-asaas.md`).
 
 **Amigo Indica:** a família que indica ganha **1 sessão de crédito** quando a família indicada paga a 2ª mensalidade. Crédito em serviço, nunca em dinheiro. A 2ª mensalidade é o gatilho para evitar fraude e premiar só indicação que fica.
 
@@ -451,7 +455,10 @@ A regra de prevenção de duplicidade do projeto (AGENTS.md §3) vale aqui: um l
 | Meta Ads (Belém, raio de 8 km) | 900 |
 | Google Perfil + Ads de busca "terapia infantil Belém" | 400 |
 | Material para parceiros (kits, cartões) | 200 |
-| **Total** | **1.500** |
+| **Total de mídia e material** | **1.500** |
+| Agência ou freelancer (execução) | **1.500 a 3.000 (PREMISSA: pedir orçamento)** |
+
+O R$ 1.500 é **só mídia e material**. A execução por agência ou freelancer é um custo à parte e muda o resultado:
 
 | Métrica | Meta | Comparativo |
 |---|---|---|
@@ -464,13 +471,79 @@ A regra de prevenção de duplicidade do projeto (AGENTS.md §3) vale aqui: um l
 
 **Regra de corte:** dois meses seguidos com CAC acima de R$ 1.500 ⇒ cortar a mídia paga pela metade e redirecionar para parcerias e indicação.
 
-### 9.8 Calendário de 90 dias
+**Sensibilidade do resultado em 12 meses ao custo da agência (R$):**
 
-| Mês | Foco | Conteúdo (3 posts/semana) | Ação |
+| Cenário de contratação | Estresse | Conservador | Base |
+|---|---:|---:|---:|
+| Hoje: só mídia (R$ 18 mil no ano) | 1.419 | 17.129 | 51.981 |
+| Agência R$ 1.500/mês, **só nos 3 primeiros meses** | −3.081 | 12.629 | 47.481 |
+| Agência R$ 3.000/mês, **só nos 3 primeiros meses** | −7.581 | 8.129 | 42.981 |
+| Agência R$ 1.500/mês nos 12 meses | −16.581 | −871 | 33.981 |
+| Agência R$ 3.000/mês nos 12 meses | −34.581 | −18.871 | 15.981 |
+
+**Leitura:** com agência o ano inteiro, o cenário conservador deixa de dar resultado. Por isso a recomendação é um **contrato de 90 dias**, com escopo e metas por escrito, renovado **só se** o CAC ficar ≤ R$ 1.500 e a conversão avaliação→pacote ≥ 35% na revisão de D+8 semanas. A conta atribui todo o custo ao particular, o que é conservador: a marca também traz pacientes de convênio.
+
+### 9.8 Calendário de conteúdo (3 posts por semana)
+
+| Período | Foco | Conteúdo | Ação |
 |---|---|---|---|
-| 1 | Lançamento | Bastidores, equipe, "como funciona o pacote", Pix Automático explicado | Vagas Fundadoras, open house |
-| 2 | Educação | Frequência ideal de terapia, sinais de TEA/TDAH, IR e reembolso | Live com a coordenação; 1ª rodada de parceiros |
-| 3 | Prova | Depoimentos consentidos de pais (sem a criança), rotina da clínica | Amigo Indica; revisão do CAC (gate) |
+| 5/nov até D | Lançamento | Bastidores, equipe, "como funciona o pacote", Pix Automático explicado | Lista de espera, parceiros, Vagas Fundadoras, live, open house |
+| D até D+4 semanas | Educação | Frequência ideal de terapia, sinais de TEA e TDAH, IR e reembolso | Primeiras avaliações; segunda rodada de parceiros |
+| D+4 até D+8 semanas | Prova | Depoimentos consentidos de pais (sem a criança), rotina da clínica | Amigo Indica; revisão do CAC (gate) |
+
+### 9.9 Plano de execução: briefing para a agência ou freelancer
+
+**Objetivo (90 dias):** encher a lista de espera antes da abertura, converter as 15 Vagas Fundadoras e chegar a D+8 semanas com CAC ≤ R$ 1.500 e conversão avaliação→pacote ≥ 35%.
+
+**Público e mensagem:** famílias de crianças com TEA ou TDAH em Belém (perfis em §9.2). Mensagem central: *"Terapia com previsibilidade: a mesma equipe, no mesmo horário, todo mês."* Tom: acolhedor, direto, sem jargão clínico e sem culpa.
+
+**Regras que a agência não pode quebrar** (a quebra de qualquer uma bloqueia a publicação):
+- Nunca usar as palavras "plano", "cobertura", "carência", "ilimitado" nem "convênio próprio". O produto é sempre **"Pacote de Sessões"** (§2.1). A cláusula contratual não aparece em nenhuma peça.
+- Nenhuma promessa de resultado ("seu filho vai falar"), nenhum antes e depois, nenhuma foto reconhecível de criança.
+- Preço só os da tabela aprovada (§1.1), nunca promoção com prazo inventado.
+- Depoimento só com termo de consentimento assinado (a clínica já tem o consentimento de imagem).
+- A agência **não acessa** prontuários, cadastros de pacientes nem o financeiro. Contatos da lista de espera só são usados com o consentimento dado no cadastro. O contrato com a agência deve ter cláusula de confidencialidade e de proteção de dados (LGPD). ⚖️
+
+**Entregáveis por semana** (PREMISSA: quantidades a ajustar ao orçamento da agência):
+
+| Semana | Entregas |
+|---|---|
+| 0–1 | Ficha do Google Perfil otimizada; página da lista de espera; pixel; 6 posts, 2 carrosséis e 1 reel de bastidores; arte e texto do kit de parceiros |
+| 2 | 5 posts, 1 carrossel e 2 reels; 3 criativos de anúncio para a lista de espera; arte das Vagas Fundadoras (com a regra de teto e prazo real) |
+| 3 | Divulgação da live e do open house (3 artes + stories); anúncio do open house; lembretes à lista |
+| D | Post e anúncio de abertura; 3 posts da primeira semana |
+| D+1 a D+8 | 3 posts por semana conforme §9.8; 1 reel por semana; ajuste semanal de anúncios |
+
+**Aprovação:** toda peça passa pela **coordenação clínica** (alegações sobre terapia) e pelo **Bruno** (preço e marca) antes de publicar. Prazo de resposta: 24 horas. Peça publicada sem aprovação é refeita por conta da agência.
+
+**Quem faz o quê:**
+
+| Responsável | Tarefas |
+|---|---|
+| Bruno | Aprovar mensagem, preços e regras; contratar a agência; decidir a renovação em D+8 semanas |
+| Coordenação clínica | Validar as alegações; visitar os parceiros; fazer a live; indicar a Ponte só quando fizer sentido clínico |
+| Recepção | Atender o WhatsApp; manter a lista de espera; agendar avaliações; registrar de onde veio cada contato |
+| Agência ou freelancer | Produzir e publicar as peças; operar anúncios; entregar o relatório semanal |
+| Advogado ⚖️ | Contrato com as famílias e contrato com a agência (LGPD) |
+| Contador 🧾 | Regime tributário e emissão de nota |
+
+**Relatório semanal (1 página, toda segunda-feira), sempre com comparativo:**
+
+| Métrica | Comparativo | Meta |
+|---|---|---|
+| Leads (conversas no WhatsApp) | vs semana anterior | Crescer semana a semana na lista de espera |
+| Custo por lead | vs semana anterior e vs meta | ≤ R$ 25 |
+| Lead → avaliação agendada | vs meta | ≥ 20% |
+| Avaliação → pacote | vs meta | ≥ 35% |
+| CAC (todo o custo de marketing ÷ pacotes vendidos) | vs teto | ≤ R$ 1.500 |
+| Origem das vendas (anúncio, parceiro, indicação, orgânico) | vs semana anterior | Indicação ≥ 30% no mês 6 |
+
+**O que entregar à agência no dia 1:**
+- [ ] Acesso de administrador ao Instagram, ao Google Perfil e ao Meta Business.
+- [ ] Logo, cores e fotos do espaço (sem rosto de criança).
+- [ ] Tabela de preços aprovada e este documento (§2.1, §9.1 a §9.9).
+- [ ] Contato de aprovação (Bruno e coordenação clínica) e a data D.
+- [ ] Contrato assinado com escopo de 90 dias, metas, confidencialidade e LGPD.
 
 ---
 
@@ -478,9 +551,9 @@ A regra de prevenção de duplicidade do projeto (AGENTS.md §3) vale aqui: um l
 
 | Fase | Prazo | Entregas | Gate para avançar |
 |---|---|---|---|
-| **0: Base** | Dias 0–30 | Revisão ⚖️ e 🧾; contrato; escolha do gateway; RLS por papel; migration do drift; agendar `generate_package_invoices` | Contrato aprovado; terapeuta sem acesso ao financeiro |
+| **0: Base** | Agora até D | Revisão ⚖️ e 🧾; contrato com as famílias; **abrir a conta Asaas** (migration e agendamento da geração de faturas já estão no PR #91) | Contrato aprovado pelo advogado |
 | **1: Cobrança** | Dias 30–60 | **Código pronto** (gateway Asaas, webhook, atraso, régua, painel). Falta: conta e chaves, templates aprovados na Meta, **portal da família** (faturas e 2ª via), piloto em sandbox. Passo a passo em `docs/runbooks/ativar-cobranca-asaas.md` | Teste ponta a ponta no sandbox; 0 baixa manual em 2 semanas de piloto |
-| **2: Venda** | Dias 45–90 | Lançamento (§9.5) com até 15 famílias fundadoras | Inadimplência > D+5 ≤ 8%; adesão Pix ≥ 50% |
+| **2: Venda** | D−3 semanas até D+8 semanas | Lançamento (§9.5), Vagas Fundadoras (teto de 15), revisão do CAC em D+8 semanas | Inadimplência > D+5 ≤ 8%; adesão Pix ≥ 50%; CAC ≤ R$ 1.500 |
 | **3: Escala** | Dia 90+ | Mídia paga contínua, pacotes grandes com política de crédito | CAC ≤ R$ 1.500; perda > D+60 ≤ 5% |
 
 **Não vender antes do fim da fase 1, exceto as Vagas Fundadoras, cobradas manualmente e no máximo 15 contratos.**
@@ -493,4 +566,6 @@ A regra de prevenção de duplicidade do projeto (AGENTS.md §3) vale aqui: um l
 - Regime tributário e alíquota efetiva 🧾.
 - Tarifas atuais dos gateways candidatos.
 - Demanda real: tamanho da lista de espera, quantos leads do bot pediram valor particular (dado já disponível nas conversas Twilio).
+- **Data exata de abertura** (1 a 15/12) e orçamento real da agência ou freelancer.
+- Tamanho atual do Instagram e da lista de espera.
 - Capacidade ociosa de salas e horários: o particular deveria ocupar primeiro horários vazios de convênio, e não competir com eles.
