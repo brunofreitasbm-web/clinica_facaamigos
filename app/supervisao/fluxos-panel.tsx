@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   CalendarDays,
   CalendarPlus,
+  ChevronRight,
   ClipboardList,
   FileText,
   Inbox,
@@ -18,6 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { useSupervisaoTab } from "./supervisao-shell";
 
 /**
@@ -358,32 +360,6 @@ const TONE_CLASS: Record<"pending" | "negative" | "neutral" | "positive", string
   positive: "st-confirmada",
 };
 
-/** Envolve um atalho desabilitado com uma dica visível no hover e no foco por teclado. */
-function DisabledHint({ id, message, children }: { id: string; message: string; children: ReactNode }) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <span
-      className="relative inline-flex"
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
-      onFocus={() => setVisible(true)}
-      onBlur={() => setVisible(false)}
-    >
-      {children}
-      {visible && (
-        <span
-          id={id}
-          role="tooltip"
-          className="absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-[220px] -translate-x-1/2 rounded-[var(--radius-md)] px-3 py-2 text-xs font-semibold leading-snug"
-          style={{ background: "var(--color-ink)", color: "var(--color-bg)", boxShadow: "var(--shadow-md)" }}
-        >
-          {message}
-        </span>
-      )}
-    </span>
-  );
-}
-
 function ToolButton({ tool, patientId, compact }: { tool: Tool; patientId: string | null; compact?: boolean }) {
   const { setTab, setManualScheduleOpen } = useSupervisaoTab();
   const cls = `btn ${tool.primary ? "btn-primary" : "btn-secondary"} ${compact ? "text-xs" : "text-sm"}`;
@@ -412,7 +388,7 @@ function ToolButton({ tool, patientId, compact }: { tool: Tool; patientId: strin
     if (!patientId) {
       const hint = "Busque e selecione um paciente na barra acima para habilitar este atalho";
       return (
-        <DisabledHint id={tooltipId} message={hint}>
+        <span className="inline-flex items-center gap-0.5">
           <button
             type="button"
             aria-disabled="true"
@@ -424,7 +400,11 @@ function ToolButton({ tool, patientId, compact }: { tool: Tool; patientId: strin
             {tool.icon}
             {tool.label}
           </button>
-        </DisabledHint>
+          <span id={tooltipId} className="sr-only">
+            {hint}
+          </span>
+          <HelpHint text={hint} label={`Por que "${tool.label}" está desabilitado`} />
+        </span>
       );
     }
     return (
@@ -496,7 +476,7 @@ function PatientPicker({
         )}
         <input
           className="input flex-1"
-          placeholder="Buscar paciente para apontar os atalhos (ficha, protocolo, PTS, relatórios)…"
+          placeholder="Buscar paciente…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-busy={isSearching}
@@ -542,15 +522,12 @@ export function FluxosPanel({ patients, counters }: { patients: FlowPatient[]; c
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h6 style={{ color: "var(--color-accent-2-600)" }}>Passo a passo com atalhos</h6>
-          <h1 className="m-0">Fluxos da coordenação</h1>
-        </div>
-        <p className="max-w-[520px] text-sm text-ink-soft">
-          Cinco fluxos consolidados, cada passo com a ferramenta que o executa. Escolha um paciente para os atalhos
-          apontarem direto para a ficha, o protocolo, o PTS e os relatórios dele.
-        </p>
+      <div className="flex items-center gap-1">
+        <h1 className="m-0">Fluxos da coordenação</h1>
+        <HelpHint
+          label="Sobre os fluxos"
+          text="Cinco fluxos consolidados, cada passo com a ferramenta que o executa. Escolha um paciente para os atalhos apontarem direto para a ficha, o protocolo, o PTS e os relatórios dele."
+        />
       </div>
 
       <div className="card">
@@ -598,11 +575,13 @@ export function FluxosPanel({ patients, counters }: { patients: FlowPatient[]; c
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
         <div className="card">
           <div className="card-kicker">{current.kicker}</div>
-          <h2 className="m-0 flex items-center gap-3">
-            {current.icon}
-            {current.title}
-          </h2>
-          <p className="card-body mt-2 mb-6">{current.summary}</p>
+          <div className="mb-6 flex items-center gap-1">
+            <h2 className="m-0 flex items-center gap-3">
+              {current.icon}
+              {current.title}
+            </h2>
+            <HelpHint label={`Sobre o fluxo ${current.title}`} text={current.summary} />
+          </div>
 
           <ol className="flex flex-col gap-5">
             {current.steps.map((s, i) => (
@@ -614,15 +593,23 @@ export function FluxosPanel({ patients, counters }: { patients: FlowPatient[]; c
                   {i + 1}
                 </span>
                 <div>
-                  <div className="font-bold text-ink">{s.title}</div>
-                  <p className="m-0 mt-0.5 text-sm text-ink-soft">{s.detail}</p>
-                  {s.tools && s.tools.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {s.tools.map((t) => (
-                        <ToolButton key={t.label} tool={t} patientId={patientId} compact />
-                      ))}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="font-bold text-ink">{s.title}</span>
+                    {s.tools && s.tools.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {s.tools.map((t) => (
+                          <ToolButton key={t.label} tool={t} patientId={patientId} compact />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <details className="group mt-0.5">
+                    <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded text-xs font-semibold text-ink-soft hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden [@media(pointer:coarse)]:min-h-[44px]">
+                      <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" aria-hidden="true" />
+                      Como fazer
+                    </summary>
+                    <p className="m-0 mt-1 text-sm text-ink-soft">{s.detail}</p>
+                  </details>
                 </div>
               </li>
             ))}
@@ -640,11 +627,6 @@ export function FluxosPanel({ patients, counters }: { patients: FlowPatient[]; c
                 <ToolButton key={t.label} tool={t} patientId={patientId} />
               ))}
             </div>
-            {!patientId && current.tools.some((t) => "needsPatient" in t && t.needsPatient) && (
-              <p className="mt-3 text-xs text-ink-faint">
-                Atalhos apagados dependem de um paciente. Busque o nome no topo.
-              </p>
-            )}
           </div>
 
           {selected && (
