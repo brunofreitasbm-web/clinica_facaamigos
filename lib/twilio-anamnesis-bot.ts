@@ -271,11 +271,12 @@ async function findUnclaimedLeadDocument(
 
 /**
  * Mensagem única enviada ao lead de convênio após receber documentos e
- * informações. O prazo de 7 dias é o da devolutiva da autorização do plano.
+ * informações. Não prometemos prazo: a devolutiva depende da autorização do
+ * plano de saúde, que não está sob controle da clínica.
  */
 const CONVENIO_DOCS_RECEIVED_MESSAGE =
-  "Tudo certo! 🎉 Recebemos os documentos. A supervisão vai conferir e pedir a autorização ao plano.\n\n" +
-  "Em até *7 dias* te damos o retorno por aqui para marcarmos a avaliação. 💙";
+  "Tudo certo! 🎉 Recebemos os documentos. A supervisão vai conferir e solicitar a autorização ao plano.\n\n" +
+  "O prazo depende da liberação do plano de saúde. Assim que a autorização sair, avisamos por aqui para marcarmos a avaliação. 💙";
 
 const PENDING_STATUS_MESSAGE =
   "Sua solicitação está em análise pela supervisão. 💙 Assim que for validada, enviamos os horários por aqui. " +
