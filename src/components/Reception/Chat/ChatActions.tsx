@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Loader2, RotateCcw, UserCheck, UserMinus } from "lucide-react";
+import { CheckCircle2, ListOrdered, Loader2, RotateCcw, UserCheck, UserMinus } from "lucide-react";
 import type { AttendanceManualOutcome } from "@/lib/conversation-attendance";
 
 const OUTCOME_OPTIONS: { value: AttendanceManualOutcome; label: string }[] = [
@@ -22,6 +22,8 @@ export interface ChatActionsProps {
   onAssignToggle: (shouldAssign: boolean) => Promise<void>;
   onCloseToggle: (shouldClose: boolean, outcome?: AttendanceManualOutcome, note?: string) => Promise<void>;
   onBotToggle: (shouldEnableBot: boolean) => Promise<void>;
+  /** Envia o menu inicial como se fosse o bot e devolve a conversa ao bot. */
+  onSendMenu?: () => Promise<void>;
 }
 
 export function ChatActions({
@@ -34,6 +36,7 @@ export function ChatActions({
   onAssignToggle,
   onCloseToggle,
   onBotToggle,
+  onSendMenu,
 }: ChatActionsProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [outcome, setOutcome] = useState<AttendanceManualOutcome | null>(null);
@@ -41,10 +44,29 @@ export function ChatActions({
   const [isAssigning, setIsAssigning] = useState(false);
   const [isTerminating, setIsTerminating] = useState(false);
   const [isTogglingBot, setIsTogglingBot] = useState(false);
+  const [isSendingMenu, setIsSendingMenu] = useState(false);
+  const [confirmMenu, setConfirmMenu] = useState(false);
 
   const isClosed = status === "closed";
   const isMine = Boolean(currentUserId) && assignedTo === currentUserId;
-  const isBusy = isPending || isAssigning || isTerminating || isTogglingBot;
+  const isBusy = isPending || isAssigning || isTerminating || isTogglingBot || isSendingMenu;
+
+  const handleSendMenuClick = async () => {
+    if (isBusy || !onSendMenu) return;
+    // Enviar o menu devolve a conversa ao bot: exige um segundo clique para não
+    // acionar por engano no meio de um atendimento humano.
+    if (!isBotActive && !confirmMenu) {
+      setConfirmMenu(true);
+      return;
+    }
+    setConfirmMenu(false);
+    setIsSendingMenu(true);
+    try {
+      await onSendMenu();
+    } finally {
+      setIsSendingMenu(false);
+    }
+  };
 
   const handleAssignClick = async () => {
     if (isBusy) return;
@@ -161,6 +183,21 @@ export function ChatActions({
           >
             {isTerminating ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
             <span>Encerrar</span>
+          </button>
+        )}
+
+        {/* Enviar menu inicial (aparece para o lead como mensagem do bot) */}
+        {!isClosed && onSendMenu && (
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={handleSendMenuClick}
+            onBlur={() => setConfirmMenu(false)}
+            className="btn btn-secondary flex min-h-9 items-center gap-1.5 text-xs focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Envia o menu inicial ao contato como se fosse o bot e devolve a conversa ao bot"
+          >
+            {isSendingMenu ? <Loader2 size={14} className="animate-spin" /> : <ListOrdered size={14} />}
+            <span>{confirmMenu ? "Confirmar: bot assume" : "Enviar menu"}</span>
           </button>
         )}
 

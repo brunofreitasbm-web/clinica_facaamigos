@@ -10,6 +10,7 @@ import { sendWhatsApp, getWhatsAppTemplateForCategory, isWhatsAppWindowClosedErr
 import { createInteressadoAction, type CreateInteressadoInput } from "../actions";
 import { generateChatResponse, isChatAiConfigured } from "@/lib/chat-llm";
 import { formatConversationPhone } from "./format-phone";
+import { shouldDiscardSession } from "@/lib/menu-reset-pure";
 import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
@@ -223,6 +224,61 @@ export async function sendTemplateMessage(
       escalation_reason: null,
       is_bot_active: false,
     })
+    .eq("id", conversationId);
+
+  revalidatePath("/recepcao/atendimento");
+  return { success: true as const };
+}
+
+/**
+ * Recepção manda o MENU INICIAL como se fosse o bot (lead que dispara várias
+ * perguntas e o bot perde o fio). A mensagem é gravada como `bot` e o bot é
+ * reativado: com `is_bot_active=false` o webhook ignora a escolha do lead no menu.
+ * Uma sessão de fluxo esquecida (AGENDAR, anamnese...) é descartada, senão ela
+ * capturaria a resposta antes do menu; sessões da equipe/oferta são preservadas.
+ */
+export async function sendMenuToLead(conversationId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false as const, error: "Sessão expirada." };
+
+  const { data: conversation } = await supabase
+    .from("twilio_conversations")
+    .select("id, phone_number")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (!conversation) return { success: false as const, error: "Conversa não encontrada." };
+
+  const { sendMainMenuNow } = await import("@/lib/welcome-menu");
+  const result = await sendMainMenuNow({ phone: conversation.phone_number, conversationId: conversation.id });
+  if (!result.success) {
+    if (isWhatsAppWindowClosedError(result.errorCode)) {
+      return {
+        success: false as const,
+        error: "Essa conversa está fora da janela de 24h do WhatsApp — envie um modelo aprovado para reabri-la.",
+      };
+    }
+    return { success: false as const, error: result.error };
+  }
+
+  const admin = createAdminClient();
+  const { data: session } = await admin
+    .from("chatbot_sessions")
+    .select("current_step, flow")
+    .eq("phone_number", conversation.phone_number)
+    .maybeSingle();
+  if (shouldDiscardSession(session)) {
+    await admin
+      .from("chatbot_sessions")
+      .update({ current_step: "idle", flow: null, lead_id: null, collected_data: {}, updated_at: new Date().toISOString() })
+      .eq("phone_number", conversation.phone_number);
+  }
+
+  await supabase
+    .from("twilio_conversations")
+    .update({ is_bot_active: true, status: "open", escalation_reason: null })
     .eq("id", conversationId);
 
   revalidatePath("/recepcao/atendimento");
