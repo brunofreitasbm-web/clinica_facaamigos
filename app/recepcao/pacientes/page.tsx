@@ -5,10 +5,8 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { fmtDateTime } from "@/lib/format";
 import { computeJourney, type JourneyEvaluation } from "@/lib/patient-journey-pure";
 import { PatientListClient } from "./patient-list-client";
-import { ChevronRight } from "lucide-react";
-import { PageContainer } from "@/components/page-container";
+import { AuthorizedPackagesPanel } from "@/components/authorized-packages-panel";
 import {
-  getAuthorizationWizardItems,
   getReceptionQueue,
   isPendingQueueItem,
 } from "@/lib/reception-queue";
@@ -20,7 +18,6 @@ import {
   registrationPills,
   type PatientPill,
 } from "@/lib/patient-pills-pure";
-import { AutorizacaoWizard } from "./pendencias/autorizacao-wizard";
 import { buildWorkspaceItems } from "./pendencias/queue-items";
 import type { PatientPanel } from "./patient-pendencies-dialog";
 
@@ -98,7 +95,6 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
     docCategoriesByPatient.set(d.patient_id, [...(docCategoriesByPatient.get(d.patient_id) ?? []), d.category]);
   }
 
-  const authorizations = await getAuthorizationWizardItems(supabase, DEV_CLINIC_ID);
 
   const evaluationsByPatient = new Map<string, JourneyEvaluation[]>();
   for (const a of evalAppointments ?? []) {
@@ -175,23 +171,8 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
         title="Pacientes"
         description="Pacientes da clínica (plano autorizado), com estágio atual do cadastro contínuo e as pendências em pílulas. Interessados ficam em Autorizações."
       />
+      <AuthorizedPackagesPanel />
       <PatientListClient rows={rows} panelsByPatient={panelsByPatient} initialOpenId={params.abrir ?? null} />
-      {authorizations.length > 0 && (
-        <PageContainer>
-          <details id="pacotes" className="group rounded-lg bg-paper-surface shadow-sm">
-            <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-5 py-4 text-base [&::-webkit-details-marker]:hidden">
-              <ChevronRight className="h-5 w-5 text-ink-soft transition-transform group-open:rotate-90" aria-hidden="true" />
-              <span className="font-bold text-ink">Pacotes de horas autorizadas</span>
-              <span className="ml-auto text-sm text-ink-soft">
-                {authorizations.length} {authorizations.length === 1 ? "pacote ativo" : "pacotes ativos"}
-              </span>
-            </summary>
-            <div className="border-t border-paper-line px-5 py-5">
-              <AutorizacaoWizard initialItems={authorizations} />
-            </div>
-          </details>
-        </PageContainer>
-      )}
     </main>
   );
 }

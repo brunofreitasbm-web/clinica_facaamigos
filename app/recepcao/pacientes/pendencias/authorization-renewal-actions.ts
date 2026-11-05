@@ -13,6 +13,8 @@ type ActionResult = { success: true; whatsappUrl?: string; note?: string } | { s
 function revalidateQueue() {
   revalidatePath("/recepcao");
   revalidatePath("/recepcao/pacientes/pendencias");
+  revalidatePath("/recepcao/pacientes");
+  revalidatePath("/supervisao");
 }
 
 /**
