@@ -1,3 +1,4 @@
+import { HelpHint } from "@/components/ui/help-hint";
 import { getWhatsappHistory } from "./actions";
 import { PageContainer } from "@/components/page-container";
 
@@ -11,12 +12,10 @@ export default async function WhatsappDashboardPage() {
     <PageContainer>
       {/* Cabeçalho + atalhos globais da recepção vêm do layout (RecepcaoNav). */}
       <div>
-          <h1 className="mt-1 text-2xl font-bold text-ink">Confirmação D-1 por WhatsApp</h1>
-          <p className="text-sm text-ink-soft">
-            Envio manual: cada card abre o WhatsApp já logado no seu celular/computador com a
-            mensagem pronta. Não há integração automática (Meta Cloud API/Z-API) — você confere
-            e aperta enviar.
-          </p>
+          <div className="mt-1 flex items-center gap-1">
+            <h1 className="text-2xl font-bold text-ink">Confirmação D-1 por WhatsApp</h1>
+            <HelpHint text="Envio manual: cada card abre o WhatsApp já logado no seu celular ou computador com a mensagem pronta. Não há envio automático; você confere e aperta enviar." />
+          </div>
         </div>
 
         {/* Métricas Principais */}

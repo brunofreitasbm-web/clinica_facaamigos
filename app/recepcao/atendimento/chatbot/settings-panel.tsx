@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createWelcomeMenuContents, updateChatbotSettings } from "./settings-actions";
+import { HelpHint } from "@/components/ui/help-hint";
 import { WELCOME_CONTENTS, type WelcomeContentColumn } from "@/lib/welcome-menu-contents-pure";
 
 export type ChatbotSettingsRow = {
@@ -42,12 +43,12 @@ function MenuContentsSection({ sids }: { sids: Record<WelcomeContentColumn, stri
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-line p-4">
-      <h4 className="m-0">Menu interativo do WhatsApp</h4>
-      <p className="m-0 text-xs text-ink-faint">
-        Sem estes conteúdos o menu funciona em texto numerado (a pessoa responde com o número). Com eles, aparecem o botão
-        &ldquo;Ver opções&rdquo; e os botões de voltar. São mensagens de sessão: a Meta não precisa aprovar. O botão cria os
-        conteúdos na Twilio e guarda os identificadores aqui; é seguro clicar de novo, só cria o que falta.
-      </p>
+      <div className="flex items-center gap-1">
+        <h4 className="m-0">Menu interativo do WhatsApp</h4>
+        <HelpHint
+          text="Sem estes conteúdos o menu funciona em texto numerado (a pessoa responde com o número). Com eles, aparecem o botão “Ver opções” e os botões de voltar. São mensagens de sessão (a Meta não precisa aprovar); o botão cria só o que falta, então é seguro clicar de novo."
+        />
+      </div>
       <ul className="m-0 list-none p-0 text-xs">
         {WELCOME_CONTENTS.map((c) => (
           <li key={c.key} className="flex items-center gap-2 py-0.5">
@@ -81,13 +82,12 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
 
   return (
     <div>
-      <h3 className="mb-1">Configurações do Chatbot</h3>
-      <p className="mb-6 text-sm text-ink-soft">
-        Parâmetros gerais do assistente virtual de WhatsApp. O controle de bot ativo/humano por conversa individual
-        continua no cabeçalho de cada chat, na aba Conversas — o interruptor abaixo é a chave-geral, para os casos
-        raros em que é preciso pausar todos os atendimentos automáticos de uma vez (ex.: um incidente ou uma decisão
-        de suspender o bot temporariamente).
-      </p>
+      <div className="mb-6 flex items-center gap-1">
+        <h3 className="m-0">Configurações do Chatbot</h3>
+        <HelpHint
+          text="O bot ativo/humano de cada conversa fica no cabeçalho do chat, na aba Conversas. O interruptor abaixo é a chave-geral, para pausar todos os atendimentos automáticos de uma vez (ex.: incidente ou suspensão temporária)."
+        />
+      </div>
 
       <form
         className="flex max-w-xl flex-col gap-5 rounded-md border border-paper-line-strong bg-paper/60 p-5"
@@ -113,16 +113,18 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
             className="h-4 w-4"
           />
           <span className="text-sm">
-            <span className="font-semibold">Bot ativo globalmente</span>
-            <br />
-            <span className="text-xs text-ink-faint">
-              Desligado, nenhuma conversa recebe resposta automática — tudo cai direto para atendimento humano.
+            <span className="inline-flex items-center gap-1 font-semibold">
+              Bot ativo globalmente
+              <HelpHint text="Desligado, nenhuma conversa recebe resposta automática — tudo cai direto para atendimento humano." />
             </span>
           </span>
         </label>
 
         <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-          Teto diário de respostas automáticas por telefone
+          <span className="flex items-center gap-1">
+            Teto diário de respostas automáticas por telefone
+            <HelpHint text="Limite de respostas do bot de FAQ por número de telefone por dia, para conter custo de API em caso de loop ou uso abusivo. Ao atingir o teto, a conversa cai para a resposta padrão de boas-vindas." />
+          </span>
           <input
             type="number"
             name="dailyReplyLimit"
@@ -130,14 +132,13 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
             defaultValue={settings.dailyReplyLimit}
             className="input max-w-[160px]"
           />
-          <span className="text-xs font-normal text-ink-faint">
-            Limite de respostas do bot de FAQ por número de telefone por dia, para conter custo de API em caso de
-            loop ou uso abusivo. Ao atingir o teto, a conversa cai para a resposta padrão de boas-vindas.
-          </span>
         </label>
 
         <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-          Saudação de fallback (opcional)
+          <span className="flex items-center gap-1">
+            Saudação de fallback (opcional)
+            <HelpHint text="Mensagem enviada quando nenhum outro fluxo do bot reconhece o pedido (ex.: Gemini indisponível ou teto diário atingido). Em branco, usa o texto padrão do sistema." />
+          </span>
           <textarea
             name="greetingFallback"
             rows={4}
@@ -145,14 +146,13 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
             placeholder="Deixe em branco para usar o texto padrão do sistema"
             className="input"
           />
-          <span className="text-xs font-normal text-ink-faint">
-            Mensagem enviada quando nenhum outro fluxo do bot reconhece o pedido (ex.: Gemini indisponível ou teto
-            diário atingido). Em branco, usa o texto padrão do sistema.
-          </span>
         </label>
 
         <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-          Situação atual da agenda (aparece no assistente)
+          <span className="flex items-center gap-1">
+            Situação atual da agenda (aparece no assistente)
+            <HelpHint text="É a única fonte que o assistente usa para responder “tem vaga?”, “qual a previsão?” e pedidos de lista de espera. Em branco, ele não promete prazo nem vaga e passa a dúvida para a recepção. Atualize sempre que a agenda mudar." />
+          </span>
           <textarea
             name="agendaStatusNote"
             rows={3}
@@ -161,15 +161,23 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
             placeholder="Ex.: Agenda em montagem; previsão de início das sessões em novembro. Novas famílias entram na lista de espera."
             className="input"
           />
-          <span className="text-xs font-normal text-ink-faint">
-            É a única fonte que o assistente usa para responder &ldquo;tem vaga?&rdquo;, &ldquo;qual a previsão?&rdquo; e
-            pedidos de lista de espera. Em branco, ele não promete prazo nem vaga e passa a dúvida para a recepção.
-            Atualize sempre que a agenda mudar.
-          </span>
         </label>
 
         <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-          Imagem de valores particulares (URL)
+          <span className="flex items-center gap-1">
+            Imagem de valores particulares (URL)
+            <HelpHint
+              text={
+                <>
+                  Arte enviada na opção Atendimento particular &gt; Valores das sessões. O WhatsApp aceita só JPEG ou PNG, e
+                  quanto menor o arquivo, mais rápido ela chega (use{" "}
+                  <code>npx tsx scripts/optimize-chatbot-image.ts arte.png</code>). Ao trocar a arte, use um endereço novo:
+                  o WhatsApp guarda a imagem pelo endereço. Os preços do texto vêm da tabela de preços do convênio
+                  Particular; atualize a imagem junto sempre que um valor mudar.
+                </>
+              }
+            />
+          </span>
           <input
             type="url"
             name="particularPricesImageUrl"
@@ -177,17 +185,13 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
             placeholder="https://… (JPEG ou PNG). Em branco, usa a arte padrão do sistema."
             className="input"
           />
-          <span className="text-xs font-normal text-ink-faint">
-            Arte enviada na opção Atendimento particular &gt; Valores das sessões. O WhatsApp aceita só JPEG ou PNG, e
-            quanto menor o arquivo, mais rápido ela chega (use{" "}
-            <code>npx tsx scripts/optimize-chatbot-image.ts arte.png</code>). Ao trocar a arte, use um endereço novo:
-            o WhatsApp guarda a imagem pelo endereço. Os preços do texto vêm da tabela de preços do convênio
-            Particular; atualize a imagem junto sempre que um valor mudar.
-          </span>
         </label>
 
         <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-          Retomada automática do bot em conversas escaladas (horas)
+          <span className="flex items-center gap-1">
+            Retomada automática do bot em conversas escaladas (horas)
+            <HelpHint text="Quando uma conversa é escalada para um humano e ninguém responde nesse prazo, o bot volta a atender sozinho (rodado a cada hora). 0 = desligado: a conversa só reabre manualmente pela recepção." />
+          </span>
           <input
             type="number"
             name="botAutoResumeHours"
@@ -195,10 +199,6 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
             defaultValue={settings.botAutoResumeHours ?? 0}
             className="input max-w-[160px]"
           />
-          <span className="text-xs font-normal text-ink-faint">
-            Quando uma conversa é escalada para um humano e ninguém responde nesse prazo, o bot volta a atender
-            sozinho (rodado a cada hora). 0 = desligado — a conversa só reabre manualmente pela recepção, como hoje.
-          </span>
         </label>
 
         {error && <p className="text-xs text-status-negative-text">{error}</p>}

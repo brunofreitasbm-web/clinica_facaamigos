@@ -24,10 +24,6 @@ export default async function EmergenciasPage() {
           Recepção
         </h6>
         <h1 className="m-0">Aviso em Massa — Ausência de Terapeuta</h1>
-        <p className="mt-1 text-[13px] text-ink-soft">
-          Ocorreu uma falta de última hora de terapeuta? Dispare avisos automáticos por ligação de voz ou mensagem para
-          os responsáveis dos pacientes afetados.
-        </p>
       </div>
 
       <EmergencyForm therapists={(therapists ?? []).map((t) => ({ id: t.id, name: t.full_name }))} />

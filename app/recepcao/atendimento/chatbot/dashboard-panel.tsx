@@ -1,3 +1,5 @@
+import { HelpHint } from "@/components/ui/help-hint";
+
 const ESCALATION_LABEL: Record<string, string> = {
   fora_da_base: "Fora da base de conhecimento",
   clinico: "Pergunta clínica",
@@ -100,8 +102,7 @@ export function DashboardPanel({ stats }: { stats: ChatbotDashboardStats }) {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h3 className="mb-1">Painel do Chatbot</h3>
-        <p className="mb-4 text-sm text-ink-soft">Visão geral das conversas e do uso do bot de WhatsApp.</p>
+        <h3 className="mb-4">Painel do Chatbot</h3>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label="Conversas totais" value={totalConversations} />
@@ -113,13 +114,13 @@ export function DashboardPanel({ stats }: { stats: ChatbotDashboardStats }) {
 
       {stats.weekly && (
         <div>
-          <h4 className="mb-1 text-sm font-semibold">
-            Qualidade do bot na semana de {stats.weekly.semana ? new Date(`${stats.weekly.semana}T12:00:00`).toLocaleDateString("pt-BR") : "—"}
-            {stats.weekly.semana_em_andamento ? " (em andamento)" : ""}
+          <h4 className="mb-3 flex items-center gap-1 text-sm font-semibold">
+            <span>
+              Qualidade do bot na semana de {stats.weekly.semana ? new Date(`${stats.weekly.semana}T12:00:00`).toLocaleDateString("pt-BR") : "—"}
+              {stats.weekly.semana_em_andamento ? " (em andamento)" : ""}
+            </span>
+            <HelpHint text="Cada indicador é comparado com a semana anterior. Semana em andamento ainda está incompleta." />
           </h4>
-          <p className="mb-3 text-xs text-ink-faint">
-            Cada indicador é comparado com a semana anterior. Semana em andamento ainda está incompleta.
-          </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <KpiCard
               label="Respostas genéricas (bot não soube tratar)"

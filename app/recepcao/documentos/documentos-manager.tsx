@@ -1,5 +1,6 @@
 "use client";
 
+import { HelpHint } from "@/components/ui/help-hint";
 import { useState } from "react";
 import {
   FileText,
@@ -332,12 +333,12 @@ export function DocumentosManager({
               <FileText className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 tracking-tight">
-                Emissão de Documentos Rápidos
-              </h1>
-              <p className="text-sm text-gray-500">
-                Selecione o modelo, escolha o paciente para auto-preencher e imprima o documento oficial com timbre da clínica.
-              </p>
+              <div className="flex items-center gap-1">
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                  Emissão de Documentos Rápidos
+                </h1>
+                <HelpHint text="Selecione o modelo, escolha o paciente para auto-preencher e imprima o documento oficial com timbre da clínica." />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -437,18 +438,18 @@ export function DocumentosManager({
 
               {/* Busca e Seletor de Paciente */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-gray-700">
-                  Selecionar Paciente Cadastrado
-                </label>
+                <div className="flex items-center gap-1">
+                  <label className="text-xs font-semibold text-gray-700">
+                    Selecionar Paciente Cadastrado
+                  </label>
+                  <HelpHint text="Ou preencha os dados manualmente abaixo para um paciente avulso." />
+                </div>
                 <PatientSearch
                   patients={patients}
                   selected={currentPatient}
                   onSelect={handleSelectPatient}
                   onClear={handleClearPatient}
                 />
-                <p className="text-[11px] text-gray-400">
-                  Ou preencha os dados manualmente abaixo para um paciente avulso.
-                </p>
               </div>
 
               {/* Formulários dinâmicos baseados no tipo de documento */}
