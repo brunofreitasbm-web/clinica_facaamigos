@@ -18,3 +18,23 @@ export type SchedulingGate = "aguardando_envio_guia" | "aguardando_autorizacao" 
 export function shouldPromoteOnScheduling(gate: SchedulingGate | undefined): boolean {
   return gate === undefined || gate === "habilitado";
 }
+
+export type DraftGateInput = {
+  guide_sent_at: string | null;
+  plan_authorized_at: string | null;
+  authorization_waived: boolean | null;
+  scheduling_enabled_at: string | null;
+  hasActiveAuth: boolean;
+};
+
+/**
+ * Regra padrão da fila "Prontos para agendar" (Supervisão): contato vindo de
+ * documentos só vira "habilitado" quando a Recepção clica em "Pronto para
+ * agendar" (scheduling_enabled_at). Guia enviada, plano autorizado, dispensa ou
+ * autorização ativa NÃO liberam sozinhos — no máximo "aguardando_habilitacao".
+ */
+export function computeDraftGate(d: DraftGateInput): SchedulingGate {
+  if (d.scheduling_enabled_at) return "habilitado";
+  if (d.plan_authorized_at || d.authorization_waived || d.hasActiveAuth) return "aguardando_habilitacao";
+  return d.guide_sent_at ? "aguardando_autorizacao" : "aguardando_envio_guia";
+}
