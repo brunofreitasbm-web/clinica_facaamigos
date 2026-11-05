@@ -16,7 +16,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { APP_ORIGIN, CLINIC_MAPS_URL, getClinicIdentity } from "@/lib/clinic-identity";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
 import { buildMessagePreview, formatE164Phone } from "@/lib/twilio";
-import { sendWhatsApp } from "@/lib/whatsapp";
+import { sendWhatsApp, isWhatsAppWindowClosedError } from "@/lib/whatsapp";
 import { loadParticularPlanCatalog } from "@/lib/particular-plans";
 import { loadActiveInsurers, startAnamnesisFlow } from "@/lib/twilio-anamnesis-bot";
 import {
@@ -136,6 +136,58 @@ async function deliver(d: Delivery): Promise<MenuStepResult> {
 export async function sendMainMenu(params: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {
   const sid = (await menuSids()).mainMenu;
   return deliver({ ...params, text: WELCOME_MENU_TEXT, intent: MENU_INTENT, contentSid: sid });
+}
+
+/**
+ * Envio MANUAL do menu inicial, acionado pela recepção no chat (botão "Enviar menu").
+ * Diferente de sendMainMenu, que devolve o texto ao webhook, aqui não há webhook para
+ * enviar: manda na hora (lista interativa; texto numerado se a lista falhar ou não
+ * existir) e registra como mensagem do BOT, para a família não notar a intervenção.
+ */
+export async function sendMainMenuNow(params: {
+  phone: string;
+  conversationId: string;
+}): Promise<{ success: true } | { success: false; error: string; errorCode?: number }> {
+  const sid = (await menuSids()).mainMenu;
+  const attempts = sid ? [{ contentSid: sid }, {}] : [{}];
+  let last: { error?: string; errorCode?: number } = {};
+  for (const extra of attempts) {
+    const send = await sendWhatsApp({ to: params.phone, message: WELCOME_MENU_TEXT, ...extra });
+    if (send.success) {
+      try {
+        const admin = createAdminClient();
+        const { data: conversation } = await admin
+          .from("twilio_conversations")
+          .select("patient_id, guardian_id")
+          .eq("id", params.conversationId)
+          .maybeSingle();
+        await admin.from("messages").insert({
+          patient_id: conversation?.patient_id ?? null,
+          guardian_id: conversation?.guardian_id ?? null,
+          conversation_id: params.conversationId,
+          sender_type: "bot",
+          channel: "whatsapp",
+          direction: "outbound",
+          body: WELCOME_MENU_TEXT,
+          sent_at: new Date().toISOString(),
+          twilio_sid: send.messageId ?? null,
+          delivery_status: "sent",
+          intent: MENU_INTENT,
+        });
+        await admin
+          .from("twilio_conversations")
+          .update({ last_message_at: new Date().toISOString(), last_message_preview: buildMessagePreview(WELCOME_MENU_TEXT) })
+          .eq("id", params.conversationId);
+      } catch (err) {
+        console.error("[Welcome Menu] Falha ao registrar menu manual:", err);
+      }
+      return { success: true };
+    }
+    last = send;
+    // Janela de 24h fechada: o texto também falharia.
+    if (send.errorCode !== undefined && isWhatsAppWindowClosedError(send.errorCode)) break;
+  }
+  return { success: false, error: last.error ?? "Falha ao enviar o menu.", errorCode: last.errorCode };
 }
 
 async function sendParticularMenu(params: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {

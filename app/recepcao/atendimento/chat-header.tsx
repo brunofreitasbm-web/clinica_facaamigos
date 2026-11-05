@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { assignConversation, setConversationClosed, toggleBotActive } from "./actions";
+import { assignConversation, sendMenuToLead, setConversationClosed, toggleBotActive } from "./actions";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
 import { hasPatientRecord } from "@/lib/atendimento/types";
 import { HealthPlanBadge } from "@/components/health-plan-badge";
@@ -94,6 +94,21 @@ export function ChatHeader({
     });
   };
 
+  const handleSendMenu = async () => {
+    setError(null);
+    return new Promise<void>((resolve) => {
+      startTransition(async () => {
+        const result = await sendMenuToLead(conversation.id);
+        if (result.success) {
+          onPatch({ isBotActive: true, status: "open", escalationReason: null, assignedTo: null });
+        } else {
+          setError(result.error ?? "Não foi possível enviar o menu.");
+        }
+        resolve();
+      });
+    });
+  };
+
   return (
     <div className="border-b border-paper-line-strong px-5 py-3 bg-white dark:bg-slate-900">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -140,6 +155,7 @@ export function ChatHeader({
           onAssignToggle={handleAssignToggle}
           onCloseToggle={handleCloseToggle}
           onBotToggle={handleBotToggle}
+          onSendMenu={handleSendMenu}
         />
       </div>
       {error && <p className="mt-2 text-xs text-red-600">⚠️ {error}</p>}
