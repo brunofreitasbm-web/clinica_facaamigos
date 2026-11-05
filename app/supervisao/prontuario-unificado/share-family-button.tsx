@@ -108,8 +108,7 @@ export function ShareFamilyButton({
             ) : (
               <>
                 <p className="text-xs text-ink-faint mb-4">
-                  Selecione o que deseja incluir no PDF. Evoluções clínicas e avaliações de protocolo não estão
-                  disponíveis para este compartilhamento.
+                  Selecione o que incluir no PDF. Evoluções clínicas e avaliações de protocolo não podem ser compartilhadas.
                 </p>
 
                 <div className="flex flex-col gap-5">

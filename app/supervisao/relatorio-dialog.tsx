@@ -91,9 +91,6 @@ export function RelatorioReavaliacaoDialog({
                 <h2 className="text-lg font-bold text-ink">
                   Pré-visualização do Relatório para Plano de Saúde
                 </h2>
-                <p className="text-xs text-ink-soft">
-                  Relatório oficial formatado para renovação de autorização.
-                </p>
               </div>
               <div className="flex items-center gap-3">
                 <button

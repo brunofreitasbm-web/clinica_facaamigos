@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { uploadIntakeBatch, uploadIntakeExtractedBatch, reprocessIntakeBatch, approveIntakeLeadsAndStartContact, cancelIntakeLead, deleteIntakeBatch } from "./acolhimento-actions";
 import { AcolhimentoLeadDrawer, type LeadRow } from "./acolhimento-lead-drawer";
 import { IntakeProfileDialog } from "./intake-profile-dialog";
@@ -189,12 +190,6 @@ export function AcolhimentosPanel({
 
   return (
     <div className="flex flex-col gap-8">
-      <p className="text-xs text-ink-soft">
-        Envie o PDF com a relação de pacientes encaminhados pelo plano de saúde — a IA extrai os dados de cada beneficiário
-        (paciente, responsável, carteirinha e guia) automaticamente. Confira aqui os documentos extraídos, aprove os
-        que estiverem corretos e acompanhe o contato via WhatsApp até o agendamento da 1ª avaliação.
-      </p>
-
       {presencialLeads.length > 0 && (
         <section className="rounded-lg border border-amber-400 bg-amber-50 p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -204,9 +199,6 @@ export function AcolhimentosPanel({
                 <h2 className="text-sm font-bold text-amber-900">
                   {presencialLeads.length} Paciente(s) Presencial(is) na Recepção Aguardando Agendamento!
                 </h2>
-                <p className="text-xs text-amber-800">
-                  Cliente fisicamente na clínica com laudo e guia autorizada digitados pela recepção. Prioridade máxima para agendar a 1ª Avaliação.
-                </p>
               </div>
             </div>
           </div>
@@ -244,7 +236,10 @@ export function AcolhimentosPanel({
       )}
 
       <section className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-bold text-ink">Nova remessa</h2>
+        <h2 className="mb-3 flex items-center gap-1 text-sm font-bold text-ink">
+          Nova remessa
+          <HelpHint text="Envie o PDF com a relação de pacientes encaminhados pelo plano de saúde: a IA extrai os dados de cada beneficiário (paciente, responsável, carteirinha e guia). Confira os documentos extraídos, aprove os corretos e acompanhe o contato via WhatsApp até o agendamento da 1ª avaliação." label="Como funciona a remessa" />
+        </h2>
         <form
           action={(fd) => handleUpload(fd)}
           className="flex flex-wrap items-end gap-3"
@@ -277,13 +272,12 @@ export function AcolhimentosPanel({
           <p className={`mt-3 text-xs ${uploadFeedback.type === "success" ? "text-status-positive-text" : "text-status-negative-text"}`}>{uploadFeedback.text}</p>
         )}
 
-        <div className="mt-4 border-t border-paper-line pt-4">
-          <p className="mb-2 text-xs text-ink-soft">
-            Alternativa para layouts conhecidos (ex.: relação NAU/Unimed "CONTROLE ... TERAPIAS"): rode{" "}
-            <code className="rounded bg-paper-soft px-1 py-0.5">scripts/extract_convenio_patients.py</code> localmente sobre o PDF e importe o
-            .json gerado — pula a IA e cria os leads direto, usando o plano de saúde selecionado acima.
-          </p>
-          <form action={(fd) => handleUploadExtractedJson(fd)} className="flex flex-wrap items-end gap-3">
+        <details className="mt-4 border-t border-paper-line pt-4">
+          <summary className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-ink-soft">
+            Importar JSON
+            <HelpHint text='Alternativa para layouts conhecidos (ex.: relação NAU/Unimed "CONTROLE ... TERAPIAS"): rode scripts/extract_convenio_patients.py localmente sobre o PDF e importe o .json gerado. Pula a IA e cria os leads direto, usando o plano de saúde selecionado acima.' label="Quando usar a importação de JSON" />
+          </summary>
+          <form action={(fd) => handleUploadExtractedJson(fd)} className="mt-2 flex flex-wrap items-end gap-3">
             <div>
               <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">JSON extraído pelo script</label>
               <input type="file" name="file" accept="application/json,.json" required className="input mt-1" />
@@ -292,7 +286,7 @@ export function AcolhimentosPanel({
               Importar JSON
             </button>
           </form>
-        </div>
+        </details>
       </section>
 
       <section>

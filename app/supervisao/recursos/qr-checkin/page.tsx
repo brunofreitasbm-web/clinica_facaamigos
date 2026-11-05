@@ -38,8 +38,7 @@ export default async function QrCheckinPage() {
             Cartaz de check-in
           </h1>
           <p className="text-sm text-ink-soft">
-            Imprima e fixe na entrada da clínica. Se o link vazar ou o cartaz precisar ser trocado, gire o token abaixo
-            — o cartaz antigo para de funcionar imediatamente.
+            Girar o token desativa o cartaz antigo imediatamente.
           </p>
         </div>
         <div className="flex gap-2">
