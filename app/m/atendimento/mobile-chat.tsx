@@ -8,6 +8,7 @@ import { HealthPlanBadge } from "@/components/health-plan-badge";
 import {
   assignConversation,
   sendManualMessage,
+  sendMenuToLead,
   setConversationClosed,
   toggleBotActive,
 } from "@/app/recepcao/atendimento/actions";
@@ -332,6 +333,16 @@ export function MobileChat({
     }
   };
 
+  const handleSendMenu = async () => {
+    setError(null);
+    const result = await sendMenuToLead(conversation.id);
+    if (result.success) {
+      onPatch({ isBotActive: true, status: "open", escalationReason: null });
+    } else {
+      setError(result.error ?? "Não foi possível enviar o menu.");
+    }
+  };
+
   const handleClose = async (shouldClose: boolean, outcome?: AttendanceManualOutcome, note?: string) => {
     setError(null);
     const patch = shouldClose
@@ -560,6 +571,7 @@ export function MobileChat({
           onClose={() => setMenuOpen(false)}
           onAssignToggle={handleAssignToggle}
           onBotToggle={handleBotToggle}
+          onSendMenu={handleSendMenu}
           onViewContact={() => {
             setMenuOpen(false);
             setSheetOpen(true);
