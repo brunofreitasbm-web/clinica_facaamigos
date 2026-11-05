@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
 import { getReceptionQueue, isAuthorizationQueueItem } from "@/lib/reception-queue";
+import { dropLeadsWithClosedChat } from "@/lib/closed-chat-filter";
 import { RecepcaoNav } from "@/components/recepcao-nav";
 import { BonusFloatingWidget } from "@/components/bonus-floating-widget";
 import { DoorListAutoPrint } from "@/components/door-list-auto-print";
@@ -29,7 +30,7 @@ export default async function RecepcaoLayout({ children, modal }: { children: Re
       .eq("status", "aguardando"),
   ]);
 
-  const toAuthorizeCount = queue.filter(isAuthorizationQueueItem).length;
+  const toAuthorizeCount = (await dropLeadsWithClosedChat(supabase, queue.filter(isAuthorizationQueueItem))).visible.length;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
