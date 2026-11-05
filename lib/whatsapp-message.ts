@@ -95,6 +95,34 @@ export function buildAuthorizationApprovedMessage(params: {
   return `${greeting(params.guardianName)} Boa notícia: ${plan} autorizou a avaliação${patient}. 💙 Em breve entramos em contato para combinar o melhor horário.`;
 }
 
+/**
+ * Pedido manual (wa.me) ao responsável: a guia está acabando e precisamos do
+ * pedido médico atualizado para pedir a renovação ao plano. `validTo` em
+ * AAAA-MM-DD (só quando o motivo é a validade).
+ */
+export function buildRenewalRequestMessage(params: {
+  guardianName?: string | null;
+  patientName?: string | null;
+  insurerName?: string | null;
+  reason: "vencendo" | "poucas_sessoes";
+  validTo?: string | null;
+  sessionsRemaining?: number | null;
+}): string {
+  const plan = params.insurerName?.trim() ? ` do plano ${params.insurerName.trim()}` : "";
+  const patient = params.patientName?.trim() ? ` de ${params.patientName.trim()}` : "";
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(params.validTo ?? "");
+  let situation: string;
+  if (params.reason === "vencendo" && iso) {
+    situation = `vence em ${iso[3]}/${iso[2]}/${iso[1]}`;
+  } else if (typeof params.sessionsRemaining === "number") {
+    const n = Math.max(0, params.sessionsRemaining);
+    situation = `está chegando ao fim (${n === 1 ? "resta 1 sessão" : `restam ${n} sessões`})`;
+  } else {
+    situation = "está chegando ao fim";
+  }
+  return `${greeting(params.guardianName)} A guia${plan}${patient} ${situation}. 💙 Para pedirmos a renovação ao plano sem interromper as terapias, pode nos enviar o pedido médico atualizado (e o relatório, se já tiver)? Qualquer dúvida, é só chamar por aqui.`;
+}
+
 /** Aviso manual (wa.me) de que a renovação da guia saiu. `validTo` em AAAA-MM-DD. */
 export function buildRenewalApprovedMessage(params: {
   guardianName?: string | null;

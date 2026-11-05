@@ -10,6 +10,9 @@ import {
 } from "@/lib/timezone";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getReceptionQueue } from "@/lib/reception-queue";
+import { groupExpiringGuides, type ActiveGuide } from "@/lib/expiring-guides-pure";
+import { buildRenewalRequestMessage, buildWhatsappLink } from "@/lib/whatsapp-message";
+import { ExpiringGuidesCard, type ExpiringGuideRow } from "./expiring-guides-card";
 import { NovaSessaoDialog, type GuideSummary } from "./nova-sessao-dialog";
 import { computeAbaBalance, type AbaBalance, type AbaClassOption } from "@/lib/aba-training";
 import { TodayAgendaList, type TodaySession, type GuardianContact } from "./today-agenda-list";
@@ -44,11 +47,6 @@ function fmtDateLabel(dateStr: string): string {
     timeZone: "UTC",
   });
   return `${WEEKDAY_PT[weekdayEn] ?? weekdayEn}, ${d} ${MONTH_PT[m - 1]} ${y}`;
-}
-
-function fmtShortDate(dateStr: string): string {
-  const [, m, d] = dateStr.split("-").map(Number);
-  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
 
 export default async function RecepcaoPage({
@@ -296,14 +294,7 @@ export default async function RecepcaoPage({
   // paciente na home. O número que decide o fechamento continua sendo o do
   // banco (`aba_training_consume_pool`).
   const abaAuthsByPatient = new Map<string, { procedureCode: string; sessionsAuthorized: number; sessionsUsed: number; validFrom: string; validTo: string }[]>();
-  const expiringGuides: {
-    patientName: string;
-    insurerName: string;
-    sessionsUsed: number;
-    sessionsAuthorized: number;
-    validTo: string;
-    reason: "vencendo" | "poucas_sessoes";
-  }[] = [];
+  const activeGuides: ActiveGuide[] = [];
 
   for (const auth of activeAuths ?? []) {
     const insurance = insuranceById.get(auth.patient_insurance_id);
@@ -329,21 +320,59 @@ export default async function RecepcaoPage({
     });
     abaAuthsByPatient.set(insurance.patient_id, abaList);
 
-    const sessionsRemaining = auth.sessions_authorized - auth.sessions_used;
-    const expiringSoon = auth.valid_to >= today && auth.valid_to <= fifteenDaysStr;
-    const fewSessionsLeft = sessionsRemaining <= 4;
-    if (expiringSoon || fewSessionsLeft) {
-      expiringGuides.push({
-        patientName: patientNameById.get(insurance.patient_id) ?? "—",
-        insurerName,
-        sessionsUsed: auth.sessions_used,
-        sessionsAuthorized: auth.sessions_authorized,
-        validTo: auth.valid_to,
-        reason: expiringSoon ? "vencendo" : "poucas_sessoes",
-      });
-    }
+    activeGuides.push({
+      id: auth.id,
+      patientId: insurance.patient_id,
+      patientName: patientNameById.get(insurance.patient_id) ?? "—",
+      insurerName,
+      procedureCode: auth.procedure_code,
+      guideNumber: auth.guide_number,
+      sessionsUsed: auth.sessions_used,
+      sessionsAuthorized: auth.sessions_authorized,
+      validTo: auth.valid_to,
+    });
   }
-  expiringGuides.sort((a, b) => a.validTo.localeCompare(b.validTo));
+
+  // Uma linha por paciente (regra em lib/expiring-guides-pure.ts) + link de
+  // WhatsApp "Renovar guia" para o responsável (financeiro primeiro).
+  const expiringGroups = groupExpiringGuides(activeGuides, today, fifteenDaysStr);
+  const expiringPatientIds = expiringGroups.map((g) => g.patientId);
+  const { data: expiringGuardians } = expiringPatientIds.length
+    ? await supabase
+        .from("guardians")
+        .select("patient_id, full_name, phone, is_financial")
+        .in("patient_id", expiringPatientIds)
+    : { data: [] as { patient_id: string; full_name: string; phone: string | null; is_financial: boolean }[] };
+  // Último "Renovar guia" por paciente (só os dos últimos 30 dias: um contato antigo
+  // não deve mascarar um alerta novo).
+  const { data: renewalContacts } = expiringPatientIds.length
+    ? await supabase
+        .from("guide_renewal_contacts")
+        .select("patient_id, contacted_at")
+        .in("patient_id", expiringPatientIds)
+        .gte("contacted_at", new Date(now.getTime() - 30 * 86_400_000).toISOString())
+        .order("contacted_at", { ascending: false })
+    : { data: [] as { patient_id: string; contacted_at: string }[] };
+  const lastContactByPatient = new Map<string, string>();
+  for (const c of renewalContacts ?? []) if (!lastContactByPatient.has(c.patient_id)) lastContactByPatient.set(c.patient_id, c.contacted_at);
+  const expiringRows: ExpiringGuideRow[] = expiringGroups.map((group) => {
+    const list = (expiringGuardians ?? []).filter((g) => g.patient_id === group.patientId && g.phone);
+    const guardian = list.find((g) => g.is_financial) ?? list[0];
+    const first = group.guides.find((g) => g.validTo === group.nextValidTo) ?? group.guides[0];
+    const message = buildRenewalRequestMessage({
+      guardianName: guardian?.full_name,
+      patientName: group.patientName,
+      insurerName: group.insurerName,
+      reason: group.reason,
+      validTo: group.reason === "vencendo" ? first.validTo : null,
+      sessionsRemaining: group.lowestBalance,
+    });
+    return {
+      ...group,
+      renewUrl: guardian?.phone ? buildWhatsappLink(guardian.phone, message) : null,
+      lastContactedAt: lastContactByPatient.get(group.patientId) ?? null,
+    };
+  });
 
   const abaBalanceByPatient: Record<string, AbaBalance> = {};
   for (const [patientId, auths] of abaAuthsByPatient) {
