@@ -115,7 +115,9 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
           <span className="text-sm">
             <span className="inline-flex items-center gap-1 font-semibold">
               Bot ativo globalmente
-              <HelpHint text="Desligado, nenhuma conversa recebe resposta automática — tudo cai direto para atendimento humano." />
+            </span>
+            <span className="block text-xs font-normal text-ink-faint">
+              Desligado, nenhuma conversa recebe resposta automática.
             </span>
           </span>
         </label>

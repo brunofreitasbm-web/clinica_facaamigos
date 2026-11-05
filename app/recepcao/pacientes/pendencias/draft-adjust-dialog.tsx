@@ -173,14 +173,12 @@ function DraftAdjustDialog({ draftId, onClose }: { draftId: string; onClose: () 
               <fieldset className="grid grid-cols-2 gap-3 border-0 p-0">
                 <legend className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
                   Criança
-                  {!data.patient.id && (
-                    <HelpHint
-                      className="ml-1"
-                      label="Ajuda: criança sem prontuário"
-                      text="Esta criança ainda não tem prontuário: as correções valem para a fila e entram no cadastro quando você usar “Conferir e cadastrar”."
-                    />
-                  )}
                 </legend>
+                {!data.patient.id && (
+                  <p className="col-span-2 m-0 text-xs text-ink-soft">
+                    Esta criança ainda não tem prontuário: as correções valem para a fila e entram no cadastro quando você usar “Conferir e cadastrar”.
+                  </p>
+                )}
                 <Field label="Nome completo" name="patient_full_name" defaultValue={data.patient.fullName} required wide />
                 <Field label="Nascimento" name="patient_birth_date" type="date" defaultValue={data.patient.birthDate} />
                 <Field label="CPF" name="patient_cpf" defaultValue={data.patient.cpf} />

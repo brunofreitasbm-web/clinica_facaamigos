@@ -320,8 +320,8 @@ function RequestRenewalDialog({ item, onClose, onDone }: { item: AuthorizationIt
           <div className="flex flex-col gap-1">
             <label htmlFor="renewal-justification" className="flex items-center gap-1 text-sm font-semibold text-ink">
               Texto para o pedido ao plano
-              <HelpHint text="Não fica salvo aqui: copie e cole no portal ou e-mail do plano." label="Ajuda: texto do pedido" />
             </label>
+            <p className="m-0 text-xs text-ink-soft">Não fica salvo aqui: copie e cole no portal ou e-mail do plano.</p>
             <textarea
               id="renewal-justification"
               rows={4}

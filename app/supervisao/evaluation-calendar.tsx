@@ -677,9 +677,11 @@ function EditAppointmentDialog({
               >
                 <CheckCircle className="h-4 w-4" />
                 {pending ? "Confirmando e enviando..." : "Confirmar e Enviar WhatsApp"}
-                <HelpHint className="text-white/80 hover:text-white" text="Confirma o agendamento no sistema e envia ao WhatsApp do responsável as orientações completas (documentos necessários, antecedência etc.)." label="O que acontece ao confirmar" />
               </button>
             </div>
+            <p className="mt-1 text-right text-[11px] text-ink-soft">
+              Confirma o agendamento e envia as orientações ao WhatsApp do responsável.
+            </p>
           </div>
         )}
 

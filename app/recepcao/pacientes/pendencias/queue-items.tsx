@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AlertCircle, CheckSquare } from "lucide-react";
-import { HelpHint } from "@/components/ui/help-hint";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import type { PendingQueueItem } from "@/lib/reception-queue";
 import { fmtDueShort, fmtWaitingDays } from "@/lib/format";
@@ -361,22 +360,19 @@ export function buildWorkspaceItems(
               Ação para fazer
             </span>
           </div>
-          <p className="m-0 flex items-center gap-1.5 text-sm font-semibold text-ink">
-            {guidance.actionTitle}
-            {guidance.actionSteps.length > 0 ? (
-              <HelpHint
-                label="Ajuda: passos da ação"
-                side="bottom"
-                text={
-                  <ol className="m-0 list-decimal space-y-1 pl-4">
-                    {guidance.actionSteps.map((step, idx) => (
-                      <li key={idx}>{step}</li>
-                    ))}
-                  </ol>
-                }
-              />
-            ) : null}
-          </p>
+          <p className="m-0 text-sm font-semibold text-ink">{guidance.actionTitle}</p>
+          {guidance.actionSteps.length > 0 ? (
+            <details className="mt-1 text-sm text-ink-soft">
+              <summary className="cursor-pointer select-none py-1 text-xs font-semibold text-ink-faint hover:text-ink [@media(pointer:coarse)]:min-h-[44px]">
+                Passo a passo
+              </summary>
+              <ol className="m-0 list-decimal space-y-1 pl-5">
+                {guidance.actionSteps.map((step, idx) => (
+                  <li key={idx}>{step}</li>
+                ))}
+              </ol>
+            </details>
+          ) : null}
 
           {!draft && (
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-paper-line pt-3">

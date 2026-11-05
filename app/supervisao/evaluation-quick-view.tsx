@@ -237,8 +237,8 @@ function ReviewActions({
         <div className="flex flex-col gap-2 rounded-md border border-red-300 bg-red-50 p-2.5">
           <label className="flex items-center gap-1 text-[11px] font-semibold text-red-700" htmlFor={`reject-reason-${item.id}`}>
             Motivo da rejeição
-            <HelpHint text="O responsável recebe o motivo por WhatsApp e pode reenviar os documentos." label="O que acontece ao rejeitar" />
           </label>
+          <p className="m-0 text-[11px] text-red-700">O responsável recebe o motivo por WhatsApp e pode reenviar os documentos.</p>
           <select
             id={`reject-reason-${item.id}`}
             value={reason}
