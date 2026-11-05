@@ -53,7 +53,7 @@ export default async function FonoAssessmentDetailPage({
       <PageHeader
         axisLabel="Terapeuta"
         title={`${FONO_INSTRUMENT_LABEL[instrument]} — ${patient.full_name}`}
-        description={isDraft ? "Rascunho — continue o preenchimento e conclua quando estiver pronto." : "Avaliação concluída."}
+        description={isDraft ? "Rascunho — continue o preenchimento e conclua quando estiver pronto." : "Avaliação concluída."} descriptionVisible
       />
       <div className="p-5 sm:p-10 print:p-0">
         {instrument === "proc" ? (
