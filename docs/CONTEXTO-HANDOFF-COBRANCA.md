@@ -42,7 +42,7 @@ Catálogo: Encontro (avulso) R$ 190 · Primeiro Passo 4/mês R$ 720 · **Ponte 6
 5. **Templates de WhatsApp** aprovados na Meta e suas variáveis de ambiente.
 6. **Conta e chaves do Asaas**, webhook cadastrado, piloto (ver runbook).
 7. **Artefato publicado está desatualizado:** https://claude.ai/artifact/X8Xsj9kKRhFQfBJo8UYvNY ainda tem "Plano Próprio", fala em "plano de saúde" e traz a **afirmação errada** sobre acesso do terapeuta (item 5.1). Precisa ser republicado a partir de `docs/pacote-de-sessoes-pix-boleto.md`.
-8. `next build` completo não rodou no ambiente de desenvolvimento (sem acesso ao Google Fonts). O CI do PR é a conferência.
+8. **Build:** `next build --webpack` com fontes do Google simuladas (`NEXT_FONT_GOOGLE_MOCKED_RESPONSES`) compilou e listou as 5 rotas novas. **Não** foi testado o bundler padrão (Turbopack, que `npm run build` usa): ele busca as fontes por conta própria e falha neste ambiente sem rede. O workflow de CI (`.github/workflows/ci.yml`) roda só `npm ci`, `typecheck` e `npm test`, sem build. Rodar `npm run build` com rede (ou conferir o deploy de preview) antes de mergear.
 
 ## 5. Erros e correções (leia para não repetir)
 1. **Acesso ao financeiro:** uma exploração inicial concluiu que contratos e faturas tinham RLS só por clínica, e isso foi repetido ao usuário. **Está errado.** `20260908060000_onda1_contracts_inventory_rls.sql` restringe `patient_contracts` e `contract_invoices` ao gestor. Verifique o arquivo mais recente que mexe numa política antes de afirmar algo sobre RLS.

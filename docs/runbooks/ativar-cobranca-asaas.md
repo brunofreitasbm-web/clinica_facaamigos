@@ -7,7 +7,7 @@ Faça **primeiro no sandbox**, depois em produção, com **1 família**.
 - **Verificado em teste automático:** regras de cobrança, régua, normalização do webhook, formato das chamadas ao Asaas (com resposta simulada), migration aplicada duas vezes num Postgres de teste, geração de fatura pré-paga.
 - **Documentação oficial lida:** autorização do Pix Automático, cobrança vinculada à autorização, cancelamento, eventos do webhook, header `asaas-access-token`.
 - **NÃO verificado (confirmar no sandbox antes de produção):** criação de cliente (`/v3/customers`), QR Pix da cobrança (`/v3/payments/{id}/pixQrCode`), cancelamento de cobrança (`DELETE /v3/payments/{id}`), busca por `externalReference`, campos `fine`/`interest` do boleto, URL de produção do Asaas, o payload real de `PAYMENT_RECEIVED` do 1º pagamento da autorização (o casamento por cliente+valor é uma suposição defensiva).
-- **Não testado:** envio real por WhatsApp/e-mail, os jobs do `pg_cron`, `next build` completo (o ambiente de desenvolvimento não alcança o Google Fonts; o CI do PR cobre).
+- **Não testado:** envio real por WhatsApp/e-mail, os jobs do `pg_cron` e `npm run build` com o Turbopack (o build com webpack e fontes simuladas passou; o CI não executa build).
 
 ## 1. Conta Asaas
 1. Abrir conta PJ (CNPJ do Instituto) e concluir a aprovação.
