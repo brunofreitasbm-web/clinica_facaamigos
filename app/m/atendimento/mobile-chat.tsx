@@ -337,7 +337,7 @@ export function MobileChat({
     setError(null);
     const result = await sendMenuToLead(conversation.id);
     if (result.success) {
-      onPatch({ isBotActive: true, status: "open", escalationReason: null });
+      onPatch({ isBotActive: true, status: "open", escalationReason: null, assignedTo: null });
     } else {
       setError(result.error ?? "Não foi possível enviar o menu.");
     }

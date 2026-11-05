@@ -278,7 +278,7 @@ export async function sendMenuToLead(conversationId: string) {
 
   await supabase
     .from("twilio_conversations")
-    .update({ is_bot_active: true, status: "open", escalation_reason: null })
+    .update({ is_bot_active: true, status: "open", escalation_reason: null, assigned_to: null })
     .eq("id", conversationId);
 
   revalidatePath("/recepcao/atendimento");
