@@ -26,6 +26,7 @@ import {
 } from "./inbox-panel";
 import { getPendingFamilyDocuments } from "@/lib/reception-queue";
 import type { NpsAlertRow } from "./nps-alerts-panel";
+import { AuthorizedPackagesPanel } from "@/components/authorized-packages-panel";
 import { SupervisaoShell } from "./supervisao-shell";
 import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
 import { Suspense } from "react";
@@ -474,6 +475,8 @@ export default async function SupervisaoPage() {
   const intakeInsurers = (rawInsurers ?? []).map((i) => ({ id: i.id, name: i.name, intake_extraction_profile: i.intake_extraction_profile }));
 
   return (
+    <>
+    <AuthorizedPackagesPanel />
     <SupervisaoShell
       nPlanos={plans.length}
       nInbox={openFamilyMessages}
@@ -536,5 +539,6 @@ export default async function SupervisaoPage() {
         />
       }
     />
+    </>
   );
 }
