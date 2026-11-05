@@ -3867,6 +3867,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "guide_renewal_contacts_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guide_renewal_contacts_contacted_by_fkey"
+            columns: ["contacted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "guide_renewal_contacts_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
