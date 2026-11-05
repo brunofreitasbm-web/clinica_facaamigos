@@ -25,7 +25,6 @@ import { getIntakeChecklistRows } from "@/lib/intake-checklist";
 import { ChegadasBanner } from "./chegadas-banner";
 import { DAY_LIST_HIDDEN_STATUSES } from "@/lib/appointment-cancel-reasons";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { HelpHint } from "@/components/ui/help-hint";
 
 export const dynamic = "force-dynamic";
 
@@ -528,32 +527,7 @@ export default async function RecepcaoPage({
 
         <aside className="flex flex-col gap-6 pt-2">
           {/* Card: Guias Vencendo */}
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-2xs">
-            <h6 className="mb-3.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-slate-700">
-              Guias vencendo ou acabando
-              <HelpHint text="Guias que vencem em até 15 dias ou com poucas sessões restantes." label="Ajuda: guias vencendo" />
-            </h6>
-            <div className="flex flex-col gap-3.5">
-              {expiringGuides.length === 0 && (
-                <p className="text-xs text-slate-500 italic">Nenhuma guia vencendo ou acabando.</p>
-              )}
-              {expiringGuides.map((g, i) => (
-                <div key={i} className="flex items-baseline justify-between gap-3 text-xs border-b border-slate-100 pb-2 last:border-0">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-800">
-                      {g.patientName}
-                    </div>
-                    <div className="text-[11px] text-slate-600">
-                      {g.insurerName} · {g.sessionsUsed} de {g.sessionsAuthorized} sessões
-                    </div>
-                  </div>
-                  <span className="whitespace-nowrap text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    {g.reason === "vencendo" ? `até ${fmtShortDate(g.validTo)}` : "poucas sessões"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ExpiringGuidesCard rows={expiringRows} />
 
           {/* Card: Outras Pendências */}
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-2xs">
