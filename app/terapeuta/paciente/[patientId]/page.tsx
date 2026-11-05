@@ -192,7 +192,7 @@ export default async function TerapeutaFichaPacientePage({
 
   return (
     <main className="flex flex-1 flex-col pb-24 md:pb-10">
-      <PageHeader axisLabel="Terapeuta" title={patient.full_name} description={`Ficha do paciente · ${journey.label}`} />
+      <PageHeader axisLabel="Terapeuta" title={patient.full_name} description={`Ficha do paciente · ${journey.label}`} descriptionVisible />
 
       <div className="mx-auto w-full max-w-[1720px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12">

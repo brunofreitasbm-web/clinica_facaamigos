@@ -50,7 +50,7 @@ export default async function RelatorioDevolutivoPage({
       <PageHeader
         axisLabel="Terapeuta"
         title={`Relatório devolutivo — ${patient.full_name}`}
-        description="A IA gera um rascunho a partir das evoluções e metas do período — revise e aprove antes de enviar."
+        description="A IA gera um rascunho a partir das evoluções e metas do período — revise e aprove antes de enviar." descriptionVisible
       />
       <div className="p-6 sm:p-10">
         <ReportEditor patientId={patient.id} latestReport={latestReport} />

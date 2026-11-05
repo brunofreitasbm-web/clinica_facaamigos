@@ -86,7 +86,7 @@ export function ReagendamentoDialog({
                   Assistente de Sugestão de Reagendamento
                 </h3>
                 <p className="text-xs text-ink-soft">
-                  Recuperação imediata de vaga para {patientName} com {therapistName}.
+                  {patientName} · {therapistName}
                 </p>
               </div>
               <button

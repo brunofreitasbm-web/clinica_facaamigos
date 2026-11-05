@@ -86,7 +86,6 @@ export function PatientFeedbackButton() {
             <div className="flex items-center justify-between border-b border-paper-line pb-3">
               <div>
                 <h3 className="text-base font-bold text-ink">Marcar devolutiva do paciente</h3>
-                <p className="text-xs text-ink-soft">Conversa da Supervisão com os pais sobre o acompanhamento — só a Supervisão marca.</p>
               </div>
               <button onClick={close} className="text-ink-soft hover:text-ink text-sm font-bold">
                 ✕

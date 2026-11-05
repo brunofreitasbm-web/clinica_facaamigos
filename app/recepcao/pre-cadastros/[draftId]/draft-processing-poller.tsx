@@ -121,11 +121,6 @@ export function DraftProcessingPoller({ draftId, status }: { draftId: string; st
           {errorMsg}
         </div>
       )}
-
-      <div className="mt-6 flex items-center gap-2 text-xs text-ink-faint">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-        Atualização automática em tempo real ativa
-      </div>
     </div>
   );
 }

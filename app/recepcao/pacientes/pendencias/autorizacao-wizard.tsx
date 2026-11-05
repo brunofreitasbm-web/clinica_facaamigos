@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, X } from "lucide-react";
+import { HelpHint } from "@/components/ui/help-hint";
 import type { AuthorizationWizardItem } from "@/lib/reception-queue";
 import { registerAuthorizationRenewalResponse, requestAuthorizationRenewal } from "./authorization-renewal-actions";
 import { finishWhatsappWindow, preOpenWhatsappWindow } from "./open-whatsapp";
@@ -53,8 +54,9 @@ export function AutorizacaoWizard({ initialItems = [] }: { initialItems?: Author
         </div>
       )}
 
-      <p className="m-0 text-[15px] text-ink-soft">
-        Saldo das guias ativas, agrupado por paciente. O agendamento é bloqueado quando as sessões autorizadas acabam.
+      <p className="m-0 flex items-center gap-1 text-[15px] text-ink-soft">
+        Saldo das guias ativas, agrupado por paciente.
+        <HelpHint text="O agendamento é bloqueado quando as sessões autorizadas acabam." label="Ajuda: saldo das guias" />
       </p>
 
       {initialItems.length === 0 ? (
@@ -316,9 +318,10 @@ function RequestRenewalDialog({ item, onClose, onDone }: { item: AuthorizationIt
         <div className="flex flex-col gap-4">
           <PeriodFields {...form} sessionsLabel="Sessões pedidas" onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
           <div className="flex flex-col gap-1">
-            <label htmlFor="renewal-justification" className="text-sm font-semibold text-ink">
+            <label htmlFor="renewal-justification" className="flex items-center gap-1 text-sm font-semibold text-ink">
               Texto para o pedido ao plano
             </label>
+            <p className="m-0 text-xs text-ink-soft">Não fica salvo aqui: copie e cole no portal ou e-mail do plano.</p>
             <textarea
               id="renewal-justification"
               rows={4}
@@ -327,7 +330,7 @@ function RequestRenewalDialog({ item, onClose, onDone }: { item: AuthorizationIt
               className="w-full rounded-md border border-paper-line-strong bg-paper-surface p-3 text-[15px] text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[13px] text-ink-soft">Não fica salvo aqui: copie e cole no portal ou e-mail do plano.</span>
+              <span aria-hidden="true" />
               <button
                 type="button"
                 onClick={() => {
@@ -344,7 +347,7 @@ function RequestRenewalDialog({ item, onClose, onDone }: { item: AuthorizationIt
             </div>
           </div>
           <p className="m-0 rounded-md bg-status-pending-soft px-4 py-3 text-sm text-status-pending-text">
-            Isto registra que a clínica pediu a renovação. As sessões novas só entram quando você registrar a resposta do plano.
+            Isto só registra o pedido; as sessões novas entram quando você registrar a resposta do plano.
           </p>
           {error && (
             <p role="alert" className="m-0 text-sm font-semibold text-status-negative-text">

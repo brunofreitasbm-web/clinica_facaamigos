@@ -169,7 +169,7 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
       <PageHeader
         axisLabel="Recepção"
         title="Pacientes"
-        description="Pacientes da clínica (plano autorizado), com estágio atual do cadastro contínuo e as pendências em pílulas. Interessados ficam em Autorizações."
+        description="Pacientes da clínica (plano autorizado). Interessados ficam em Autorizações."
       />
       <AuthorizedPackagesPanel />
       <PatientListClient rows={rows} panelsByPatient={panelsByPatient} initialOpenId={params.abrir ?? null} />

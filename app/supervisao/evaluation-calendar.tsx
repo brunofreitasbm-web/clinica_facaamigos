@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { HelpHint } from "@/components/ui/help-hint";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/timezone";
 import { closureReason, type ClinicClosure } from "@/lib/clinic-calendar-pure";
@@ -302,7 +303,9 @@ function MonthPicker({
           );
         })}
       </div>
-      <p className="mt-1.5 text-[10px] text-ink-faint">Ponto = dia com avaliação agendada.</p>
+      <div className="mt-1 flex justify-end">
+        <HelpHint text="Ponto = dia com avaliação agendada." label="Legenda do calendário" />
+      </div>
     </div>
   );
 }
@@ -473,8 +476,9 @@ function ScheduleDialog({
               ))}
             </select>
           </label>
-          <p className="text-[11px] text-ink-faint">
-            Duração: {EVALUATION_DURATION_MINUTES} min · O avaliador é definido automaticamente (menos avaliações na semana entre os livres).
+          <p className="flex items-center gap-1 text-[11px] text-ink-faint">
+            Duração: {EVALUATION_DURATION_MINUTES} min
+            <HelpHint text="O avaliador é definido automaticamente: entre os livres, o que tem menos avaliações na semana." label="Como o avaliador é escolhido" />
           </p>
           {recipient ? (
             <p className="text-[11px] text-ink-soft">
@@ -638,8 +642,7 @@ function EditAppointmentDialog({
           </label>
 
           <p className="text-[11px] text-ink-faint">
-            Duração padrão: {EVALUATION_DURATION_MINUTES} min · Horário de término previsto:{" "}
-            {minutesToTime(parseTimeToMinutes(time) + EVALUATION_DURATION_MINUTES)}.
+            Término previsto {minutesToTime(parseTimeToMinutes(time) + EVALUATION_DURATION_MINUTES)}
           </p>
         </div>
 
@@ -654,9 +657,6 @@ function EditAppointmentDialog({
                 <p className="text-[11px] text-amber-800">Aguardando sua confirmação para finalizar o agendamento.</p>
               </div>
             </div>
-            <p className="mt-2 rounded border border-amber-200 bg-amber-100/70 p-2 text-[11px] font-medium text-amber-900">
-              💬 Ao clicar em <strong>Confirmar e Enviar WhatsApp</strong>, o agendamento é confirmado no sistema e uma mensagem com as orientações completas (documentos necessários, antecedência, etc.) é enviada automaticamente para o WhatsApp do responsável.
-            </p>
             <div className="mt-3 flex flex-wrap justify-end gap-2">
               {appointment.offerId && onRejectOffer && (
                 <button
@@ -679,6 +679,9 @@ function EditAppointmentDialog({
                 {pending ? "Confirmando e enviando..." : "Confirmar e Enviar WhatsApp"}
               </button>
             </div>
+            <p className="mt-1 text-right text-[11px] text-ink-soft">
+              Confirma o agendamento e envia as orientações ao WhatsApp do responsável.
+            </p>
           </div>
         )}
 
@@ -1184,17 +1187,17 @@ export function EvaluationCalendar({
       )}
 
       {hasEvaluators && (
-        <p className="text-[11px] text-ink-faint">
-          {hasAvailabilityConfigured ? (
-            <>
-              <span style={{ color: "var(--color-success)" }} className="font-semibold">Verde</span> é horário em que algum avaliador atende,{" "}
-              <span style={{ color: "var(--color-error)" }} className="font-semibold">vermelho</span> é fora do expediente ou fechado.
-            </>
-          ) : (
-            <>Avaliador sem disponibilidade cadastrada — vale só o horário comercial.</>
-          )}{" "}
-          Clique num horário vazio ou arraste um paciente: o sistema escolhe o avaliador.
-        </p>
+        <div className="flex items-center gap-1 text-[11px] text-ink-faint">
+          {!hasAvailabilityConfigured && <p>Avaliador sem disponibilidade cadastrada — vale só o horário comercial.</p>}
+          <HelpHint
+            label="Como ler a grade"
+            text={`${
+              hasAvailabilityConfigured
+                ? "Verde é horário em que algum avaliador atende; vermelho é fora do expediente ou fechado. "
+                : ""
+            }Clique num horário vazio ou arraste um paciente: o sistema escolhe o avaliador.`}
+          />
+        </div>
       )}
 
       {pendingConfirmations.length > 0 && (
@@ -1213,9 +1216,6 @@ export function EvaluationCalendar({
                     Ação Necessária
                   </span>
                 </h4>
-                <p className="mt-0.5 text-xs text-amber-800">
-                  Os responsáveis já escolheram a data via WhatsApp. Clique em <strong>Confirmar</strong> para aprovar a vaga e enviar a notificação com as orientações à família.
-                </p>
               </div>
             </div>
           </div>
@@ -1272,8 +1272,10 @@ export function EvaluationCalendar({
       <div className="flex gap-4">
         {/* Fila lateral — origem do agendamento vem antes da navegação por mês. */}
         <aside className="w-64 shrink-0">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">Prontos para agendar ({readyPool.length})</h3>
-          <p className="mb-2 mt-0.5 text-[10px] text-ink-faint">Cards com faixa colorida seguem o agendamento automático pelo WhatsApp: nada a fazer, o horário aparece na agenda para você confirmar. Nos demais, clique para ver documentos e arraste para a grade ou use Agendar.</p>
+          <h3 className="mb-2 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-ink-soft">
+            Prontos para agendar ({readyPool.length})
+            <HelpHint text="Cards com faixa colorida seguem o agendamento automático pelo WhatsApp: nada a fazer, o horário aparece na agenda para você confirmar. Nos demais, clique para ver documentos e arraste para a grade ou use Agendar." label="Como agendar" />
+          </h3>
           <div className="flex flex-col gap-2">
             {readyPool.map((item) => {
               const automatic = hasLiveOffer(item);
@@ -1333,8 +1335,7 @@ export function EvaluationCalendar({
                 </div>
                 {item.offer && <OfferStatusBand badge={offerBadge(item.offer, nowMs)} />}
                 {automatic && item.offer && (
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <p className="text-[10px] text-ink-faint">Nada a fazer: você confirma quando o horário aparecer na agenda.</p>
+                  <div className="mt-1 flex items-center justify-end gap-2">
                     <button
                       type="button"
                       className="shrink-0 text-[10px] font-semibold text-ink-soft underline underline-offset-2 hover:no-underline"
@@ -1377,8 +1378,10 @@ export function EvaluationCalendar({
 
           {orphanOffers.length > 0 && (
             <>
-              <h3 className="mt-4 text-xs font-bold uppercase tracking-wide text-ink-soft">Aguardando responsável ({orphanOffers.length})</h3>
-              <p className="mb-2 mt-0.5 text-[10px] text-ink-faint">Receberam as opções de horário por WhatsApp e ainda não escolheram.</p>
+              <h3 className="mb-2 mt-4 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-ink-soft">
+                Aguardando responsável ({orphanOffers.length})
+                <HelpHint text="Receberam as opções de horário por WhatsApp e ainda não escolheram." label="Sobre esta lista" />
+              </h3>
               <div className="flex flex-col gap-2">
                 {orphanOffers.map((o) => {
                   const problem = o.status === "falhou" || o.status === "sem_horario";
@@ -1432,8 +1435,10 @@ export function EvaluationCalendar({
 
           {waitingPool.length > 0 && (
             <>
-              <h3 className="mt-4 text-xs font-bold uppercase tracking-wide text-ink-soft">Aguardando liberação ({waitingPool.length})</h3>
-              <p className="mb-2 mt-0.5 text-[10px] text-ink-faint">Ainda não podem ser agendados — aprovação ou OK da Recepção pendente.</p>
+              <h3 className="mb-2 mt-4 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-ink-soft">
+                Aguardando liberação ({waitingPool.length})
+                <HelpHint text="Ainda não podem ser agendados — aprovação ou OK da Recepção pendente." label="Sobre esta lista" />
+              </h3>
               <div className="flex flex-col gap-2">
                 {waitingPool.map((item) => (
                   <div

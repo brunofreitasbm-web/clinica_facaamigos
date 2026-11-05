@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { addClosure, removeClosure } from "./actions";
 
 export type ClosureRow = {
@@ -83,14 +84,14 @@ export function ClosuresManager({ holidays, closures }: { holidays: NationalHoli
         </label>
         <label className="text-xs font-semibold text-ink-soft sm:col-span-1">
           Das (opcional)
+          <HelpHint className="ml-1" text="Sem horário = clínica fechada o dia inteiro." />
           <input type="time" name="start_time" className={inputClass} />
         </label>
         <label className="text-xs font-semibold text-ink-soft sm:col-span-1">
           Até (opcional)
           <input type="time" name="end_time" className={inputClass} />
         </label>
-        <div className="flex items-center justify-between gap-3 sm:col-span-6">
-          <p className="text-xs text-ink-faint">Sem horário = clínica fechada o dia inteiro.</p>
+        <div className="flex items-center justify-end gap-3 sm:col-span-6">
           <button
             type="submit"
             disabled={pending}
@@ -106,7 +107,7 @@ export function ClosuresManager({ holidays, closures }: { holidays: NationalHoli
       <section className="rounded-lg border border-paper-line-strong bg-white p-5 shadow-sm">
         <h2 className="text-sm font-bold text-ink">Fechamentos cadastrados</h2>
         {closures.length === 0 ? (
-          <p className="mt-2 text-xs text-ink-faint">Nenhum. Feriados nacionais já são bloqueados automaticamente.</p>
+          <p className="mt-2 text-xs text-ink-faint">Nenhum.</p>
         ) : (
           <ul className="mt-3 divide-y divide-paper-line">
             {closures.map((c) => (
@@ -131,8 +132,10 @@ export function ClosuresManager({ holidays, closures }: { holidays: NationalHoli
       </section>
 
       <section className="rounded-lg border border-paper-line-strong bg-paper/60 p-5">
-        <h2 className="text-sm font-bold text-ink">Feriados nacionais (automáticos)</h2>
-        <p className="mt-1 text-xs text-ink-faint">Calculados pelo sistema, inclusive Carnaval e Corpus Christi. Não precisam de cadastro.</p>
+        <h2 className="flex items-center gap-1 text-sm font-bold text-ink">
+          Feriados nacionais (automáticos)
+          <HelpHint text="Calculados pelo sistema, inclusive Carnaval e Corpus Christi. Não precisam de cadastro e já são bloqueados automaticamente." />
+        </h2>
         <ul className="mt-3 grid gap-1 text-sm sm:grid-cols-2">
           {holidays.map((h) => (
             <li key={h.date} className="flex gap-2">

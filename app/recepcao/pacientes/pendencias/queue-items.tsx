@@ -343,8 +343,13 @@ export function buildWorkspaceItems(
             <span className="text-xs font-semibold text-ink-faint">·</span>
             <span className="text-xs font-medium text-ink-soft">{item.categoryLabel}</span>
           </div>
-          <h3 className="m-0 text-base font-bold text-ink">{guidance.problemTitle}</h3>
-          <p className="m-0 mt-1.5 text-sm leading-relaxed text-ink-soft">{guidance.problemDescription}</p>
+          <h3 className="m-0 flex items-center gap-1.5 text-base font-bold text-ink">
+            {guidance.problemTitle}
+          </h3>
+          {/* Classe B: traz o dado da pendência (vencimento, saldo, o que falta) e a consequência. */}
+          {guidance.problemDescription ? (
+            <p className="m-0 mt-1 text-sm text-ink-soft">{guidance.problemDescription}</p>
+          ) : null}
         </section>
 
         {/* Bloco 2: Ação para fazer */}
@@ -356,13 +361,18 @@ export function buildWorkspaceItems(
             </span>
           </div>
           <p className="m-0 text-sm font-semibold text-ink">{guidance.actionTitle}</p>
-          <ol className="m-0 mt-2 list-decimal space-y-1.5 pl-4 text-sm leading-relaxed text-ink-soft">
-            {guidance.actionSteps.map((step, idx) => (
-              <li key={idx}>
-                <span className="text-ink">{step}</span>
-              </li>
-            ))}
-          </ol>
+          {guidance.actionSteps.length > 0 ? (
+            <details className="mt-1 text-sm text-ink-soft">
+              <summary className="cursor-pointer select-none py-1 text-xs font-semibold text-ink-faint hover:text-ink [@media(pointer:coarse)]:min-h-[44px]">
+                Passo a passo
+              </summary>
+              <ol className="m-0 list-decimal space-y-1 pl-5">
+                {guidance.actionSteps.map((step, idx) => (
+                  <li key={idx}>{step}</li>
+                ))}
+              </ol>
+            </details>
+          ) : null}
 
           {!draft && (
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-paper-line pt-3">

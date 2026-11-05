@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { updateGuardianEmail, updateGuardianCalendarOptIn } from "./actions";
 
 export type GuardianRow = {
@@ -20,12 +21,13 @@ export type GuardianRow = {
 export function GuardiansPanel({ patientId, guardians }: { patientId: string; guardians: GuardianRow[] }) {
   return (
     <div id="convites-agenda" className="card max-w-[720px] scroll-mt-6">
-      <div className="card-kicker">Convites de agenda (Google Calendar)</div>
-      <p className="text-xs text-ink-soft mb-3">
-        Quando ativado, o responsável recebe um convite de calendário por e-mail para cada atendimento
-        agendado, reagendado ou cancelado. Funciona melhor com contas Gmail/Google Workspace — outros
-        provedores de e-mail também recebem o convite, mas sem a integração automática ao calendário.
-      </p>
+      <div className="card-kicker mb-3 flex items-center gap-1">
+        Convites de agenda (Google Calendar)
+        <HelpHint
+          label="Ajuda: convites de agenda"
+          text="Quando ativado, o responsável recebe um convite de calendário por e-mail para cada atendimento agendado, reagendado ou cancelado. Funciona melhor com contas Gmail/Google Workspace; outros provedores também recebem o convite, mas sem a integração automática ao calendário."
+        />
+      </div>
       <ul className="flex flex-col gap-3">
         {guardians.map((g) => (
           <GuardianRowItem key={g.id} patientId={patientId} guardian={g} />

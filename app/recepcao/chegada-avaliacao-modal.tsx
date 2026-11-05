@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { UserCheck, X, UploadCloud, Check, AlertCircle, FileText } from "lucide-react";
 import { GuiaSection } from "./guia-quick-action-modal";
 import { uploadDocument } from "./pacientes/[id]/documents-actions";
@@ -101,13 +102,13 @@ export function ChegadaAvaliacaoModal({
 
         {/* Content Body - Scrollable */}
         <div className="p-5 overflow-y-auto space-y-6 flex-1">
-          <p className="text-xs text-ink-soft">
-            Guia autorizada e laudo são opcionais aqui — só cadastre se o responsável já trouxe. Isso não impede o check-in.
-          </p>
-
           <div>
             <h4 className="mb-2.5 text-xs font-bold uppercase tracking-wider text-ink-soft flex items-center gap-1.5">
               Guia autorizada (opcional)
+              <HelpHint
+                label="Ajuda: guia e laudo"
+                text="Guia autorizada e laudo são opcionais aqui — só cadastre se o responsável já trouxe. Isso não impede o check-in."
+              />
             </h4>
             <GuiaSection patientId={patientId} appointmentId={appointmentId} />
           </div>

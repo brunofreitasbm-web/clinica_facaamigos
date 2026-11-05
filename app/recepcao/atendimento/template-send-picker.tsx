@@ -71,7 +71,7 @@ export function TemplateSendPicker({
       </div>
       <input
         className="input text-sm"
-        placeholder="Nota interna sobre este envio (opcional — não é o texto do modelo)"
+        placeholder="Nota interna (opcional)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
         disabled={isPending}

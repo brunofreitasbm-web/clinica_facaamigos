@@ -14,7 +14,7 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
       <PageHeader
         axisLabel="Recepção"
         title={data.currentPatient?.full_name ?? "Pré-cadastro"}
-        description={draftReviewDescription(data.draft)}
+        description={draftReviewDescription(data.draft)} descriptionVisible
       />
       <PageContainer>
         <Link href="/recepcao/pacientes/pendencias" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>

@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { HelpHint } from "@/components/ui/help-hint";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -234,9 +235,10 @@ function ReviewActions({
 
       {mode === "reject" && (
         <div className="flex flex-col gap-2 rounded-md border border-red-300 bg-red-50 p-2.5">
-          <label className="text-[11px] font-semibold text-red-700" htmlFor={`reject-reason-${item.id}`}>
+          <label className="flex items-center gap-1 text-[11px] font-semibold text-red-700" htmlFor={`reject-reason-${item.id}`}>
             Motivo da rejeição
           </label>
+          <p className="m-0 text-[11px] text-red-700">O responsável recebe o motivo por WhatsApp e pode reenviar os documentos.</p>
           <select
             id={`reject-reason-${item.id}`}
             value={reason}
@@ -262,7 +264,6 @@ function ReviewActions({
             className="input text-xs"
             aria-label="Observação sobre a rejeição"
           />
-          <p className="text-[10px] text-red-700/80">O responsável recebe o motivo por WhatsApp e pode reenviar os documentos.</p>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setMode("idle")} disabled={busy} className="btn btn-ghost px-2.5 py-1 text-xs">
               Cancelar
@@ -349,8 +350,9 @@ function ReturnToReception({ patientId, onResolved }: { patientId: string; onRes
         </button>
       ) : (
         <div className="flex flex-col gap-2 rounded-md border border-paper-line-strong bg-paper/40 p-2.5">
-          <label className="text-[11px] font-semibold text-ink" htmlFor="return-reason">
+          <label className="flex items-center gap-1 text-[11px] font-semibold text-ink" htmlFor="return-reason">
             Motivo para a Recepção
+            <HelpHint text="Texto interno: só a equipe vê, a família não recebe." label="Quem vê este texto" />
           </label>
           <textarea
             id="return-reason"
@@ -361,7 +363,6 @@ function ReturnToReception({ patientId, onResolved }: { patientId: string; onRes
             placeholder="Ex.: marcado como particular por engano — o paciente tem plano."
             className="input text-xs"
           />
-          <p className="text-[10px] text-ink-faint">Texto interno: só a equipe vê, a família não recebe.</p>
           {error && (
             <p role="alert" className="text-[11px] text-status-negative-text">
               {error}
@@ -569,9 +570,11 @@ export function EvaluationQuickViewPanel({
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-paper-line px-3.5 py-2.5">
-          <p className="text-[10px] text-ink-faint">
-            {item.ready ? "Arraste o card para o calendário para agendar." : "Aprove a documentação antes de agendar."}
-          </p>
+          {item.ready ? (
+            <span />
+          ) : (
+            <p className="text-[10px] text-ink-faint">Aprove a documentação antes de agendar.</p>
+          )}
           {view?.patientHref && (
             <Link href={view.patientHref} className="shrink-0 text-[11px] font-semibold text-accent underline underline-offset-2 hover:no-underline">
               Prontuário

@@ -42,7 +42,7 @@ export default async function NovaFonoAssessmentPage({
       <PageHeader
         axisLabel="Terapeuta"
         title={`Nova aplicação — ${FONO_INSTRUMENT_LABEL[instrument]}`}
-        description={`${patient.full_name} · preencha item a item; os totais e escores brutos são calculados automaticamente.`}
+        description={`${patient.full_name} · preencha item a item; os totais e escores brutos são calculados automaticamente.`} descriptionVisible
       />
       <div className="p-5 sm:p-10">
         {instrument === "proc" ? (

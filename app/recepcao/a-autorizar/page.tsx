@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HelpHint } from "@/components/ui/help-hint";
 import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
@@ -67,12 +68,12 @@ export default async function AAutorizarPage({
       <PageHeader
         axisLabel="Recepção"
         title="Autorizações"
-        description="Painel inteligente de autorizações e leads do WhatsApp com filtros por status, separação de não atendidos e quadros coloridos."
       />
       <PageContainer className="gap-5">
         {hiddenByClosedChat > 0 && (
-          <p className="m-0 text-xs text-slate-500">
-            {hiddenByClosedChat} {hiddenByClosedChat === 1 ? "lead oculto" : "leads ocultos"}: conversa já encerrada no chat e sem guia em andamento. Voltam se a família escrever de novo.
+          <p className="m-0 flex items-center gap-1 text-xs text-slate-500">
+            {hiddenByClosedChat} {hiddenByClosedChat === 1 ? "lead oculto" : "leads ocultos"}
+            <HelpHint text="Conversa já encerrada no chat e sem guia em andamento. Voltam se a família escrever de novo." />
           </p>
         )}
         {queue.length === 0 ? (
@@ -82,7 +83,7 @@ export default async function AAutorizarPage({
             </div>
             <h2 className="m-0 text-xl font-bold text-slate-800">Nenhuma autorização pendente</h2>
             <p className="m-0 mt-2 max-w-md text-sm text-slate-600">
-              Todos os contatos do WhatsApp foram processados ou já possuem guia autorizada. Novos leads com documentos aparecerão automaticamente aqui.
+              Todos os contatos do WhatsApp foram processados ou já possuem guia autorizada.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Link

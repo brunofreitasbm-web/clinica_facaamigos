@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-export function DraftModalShell({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+export function DraftModalShell({ title, description, children }: { title: string; description: ReactNode; children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export function DraftModalShell({ title, description, children }: { title: strin
         <header className="flex items-start justify-between gap-3 border-b border-paper-line px-5 py-4">
           <div className="min-w-0">
             <h2 className="m-0 text-lg font-bold text-ink">{title}</h2>
-            <p className="m-0 mt-1 text-sm text-ink-soft">{description}</p>
+            <p className="m-0 mt-1 flex items-center gap-1 text-sm text-ink-soft">{description}</p>
           </div>
           <button
             type="button"

@@ -527,11 +527,7 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
           <h3 className="text-base font-semibold text-ink mb-1">
             Nenhum paciente encontrado
           </h3>
-          <p className="text-sm text-ink-faint max-w-md mb-4">
-            {searchQuery || statusFilter !== "todos"
-              ? `Não foi possível encontrar nenhum paciente que corresponda aos filtros aplicados.`
-              : "Nenhum paciente cadastrado até o momento."}
-          </p>
+          <div className="mb-4" />
           {(searchQuery || statusFilter !== "todos") && (
             <button
               onClick={() => {

@@ -15,7 +15,7 @@ export default function NovoPacientePage() {
       <PageHeader
         axisLabel="Recepção"
         title="Novo paciente"
-        description="Cadastro mínimo — meta é 30 segundos. Resto dos dados vem depois, na ficha do paciente."
+        description="Cadastro mínimo; o resto vem depois, na ficha."
       />
       <form
         className="flex max-w-xl flex-col gap-4 p-6 sm:p-10"

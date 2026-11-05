@@ -1,3 +1,4 @@
+import { HelpHint } from "@/components/ui/help-hint";
 import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/page-container";
 import { BonusProgressCard } from "@/components/bonus-progress-card";
@@ -37,11 +38,10 @@ export default async function RecepcaoMetricasPage() {
     <div className="flex min-h-0 flex-1 flex-col bg-canvas">
       <PageContainer className="max-w-[720px]">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Minha bonificação</h1>
-          <p className="text-sm text-ink-soft">
-            Progresso do mês corrente nas métricas de bonificação parametrizadas pelo gestor para a
-            Recepção. Atualiza a cada carregamento — o valor oficial é fechado no dia 1.
-          </p>
+          <div className="flex items-center gap-1">
+            <h1 className="text-2xl font-bold text-ink">Minha bonificação</h1>
+            <HelpHint text="Progresso do mês corrente nas métricas de bonificação definidas pelo gestor para a Recepção. Atualiza a cada carregamento; o valor oficial é fechado no dia 1." />
+          </div>
         </div>
         <BonusProgressCard progress={progress} />
       </PageContainer>

@@ -10,6 +10,7 @@ import {
   type MissingDocumentKey,
 } from "@/lib/document-request-templates";
 import type { PendingDraftDocumentRequest } from "@/lib/reception-queue";
+import { HelpHint } from "@/components/ui/help-hint";
 import { openDocumentConversation, requestMissingDocument } from "./document-request-actions";
 
 /**
@@ -116,11 +117,12 @@ export function DocumentRequestButtons({
     <section className="rounded-md border border-paper-line-strong bg-paper/40 px-3 py-3">
       <h3 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
         Cobrar documento pelo WhatsApp
+        <HelpHint
+          className="ml-1"
+          label="Ajuda: cobrar documento"
+          text="Um clique envia a mensagem para a família explicando qual documento falta e que a autorização junto ao plano fica parada até ele chegar."
+        />
       </h3>
-      <p className="m-0 mb-2 text-sm text-ink-faint">
-        Um clique envia a mensagem para a família explicando qual documento falta e que a autorização
-        junto ao plano fica parada até ele chegar.
-      </p>
 
       {missing.length === 0 ? (
         <p className="m-0 mb-1 text-sm text-status-positive-text">
@@ -152,10 +154,10 @@ export function DocumentRequestButtons({
             <span className="font-normal text-white/80">· aberta {fmtDateTime(openedAt, CLINIC_TIMEZONE)}</span>
           )}
         </button>
-        <span className="text-sm text-ink-faint">
-          Envia um modelo aprovado pedindo para a família responder — use quando a conversa estiver parada ou
-          fechada.
-        </span>
+        <HelpHint
+          label="Ajuda: abrir conversa"
+          text="Envia um modelo aprovado pedindo para a família responder — use quando a conversa estiver parada ou fechada."
+        />
       </div>
 
       {!hasPhone && (

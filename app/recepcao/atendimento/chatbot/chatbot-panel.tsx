@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { TwilioChatbotTestPanel } from "@/components/twilio-chatbot-test-panel";
 import { DashboardPanel, type ChatbotDashboardStats } from "./dashboard-panel";
@@ -88,13 +89,10 @@ export function ChatbotPanel({
         {section === "modelos" && (
           <div className="flex flex-col gap-10">
             <section>
-              <h3 className="mb-1">Modelos de Mensagem</h3>
-              <p className="text-xs text-ink-faint mb-4">
-                Catálogo interno de textos por categoria. A aprovação da Meta é marcada manualmente aqui — não há
-                integração automática com a API de aprovação de templates do WhatsApp Business. Os disparos
-                automáticos (D-1, faltas, NPS) continuam usando o texto fixo já implementado em cada rotina — este
-                catálogo ainda não está religado a eles.
-              </p>
+              <div className="mb-4 flex items-center gap-1">
+                <h3 className="m-0">Modelos de Mensagem</h3>
+                <HelpHint text="Catálogo interno de textos por categoria. A aprovação da Meta é marcada manualmente aqui, sem integração automática com o WhatsApp Business. Os disparos automáticos (D-1, faltas, NPS) continuam usando o texto fixo de cada rotina; este catálogo ainda não está religado a eles." />
+              </div>
               <TemplatesManager templates={templates} />
             </section>
 

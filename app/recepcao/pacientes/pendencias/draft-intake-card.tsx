@@ -94,7 +94,7 @@ export function DraftIntakeCard({
                 </h4>
                 {draft.facts.length === 0 ? (
                   <p className="m-0 text-ink-faint">
-                    {isPaciente ? "Nada lido automaticamente ainda — abra os arquivos acima para conferir." : "Nada lido automaticamente ainda — abra os arquivos acima e a conversa abaixo para conferir."}
+                    Nada lido automaticamente ainda.
                   </p>
                 ) : (
                   <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2">

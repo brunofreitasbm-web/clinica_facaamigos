@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { HelpHint } from "@/components/ui/help-hint";
 import { createQuickResponse, updateQuickResponse, deleteQuickResponse } from "../actions";
 
 export type QuickResponseRow = { id: string; shortcut: string; title: string; contentText: string };
@@ -94,11 +95,10 @@ export function QuickResponsesManager({ clinicId, responses }: { clinicId: strin
 
   return (
     <div>
-      <h3 className="mb-1">Respostas Rápidas</h3>
-      <p className="mb-6 text-sm text-ink-soft">
-        Atalhos de texto que aparecem como botões acima da caixa de mensagem e no menu &quot;/&quot; da Central de
-        Atendimento — úteis para respostas repetitivas (endereço, valores, planos de saúde) que a recepção envia manualmente.
-      </p>
+      <div className="mb-6 flex items-center gap-1">
+        <h3 className="m-0">Respostas Rápidas</h3>
+        <HelpHint text='Atalhos de texto que aparecem como botões acima da caixa de mensagem e no menu "/" da Central de Atendimento. Úteis para respostas repetitivas (endereço, valores, planos de saúde) que a recepção envia manualmente.' />
+      </div>
 
       <table className="table mb-6">
         <thead>

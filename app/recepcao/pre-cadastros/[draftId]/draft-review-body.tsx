@@ -1,4 +1,6 @@
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { HelpHint } from "@/components/ui/help-hint";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { logRecordAccess } from "@/lib/record-access-log";
@@ -72,10 +74,15 @@ export async function loadDraftReview(draftId: string) {
 
 export type DraftReviewData = Awaited<ReturnType<typeof loadDraftReview>>;
 
-export function draftReviewDescription(draft: DraftReviewData["draft"]): string {
-  return draft.source === "whatsapp"
-    ? `Documentos recebidos por WhatsApp${draft.source_phone ? ` (${draft.source_phone})` : ""}. Confira os dados extraídos antes de confirmar.`
-    : "Documentos enviados pelo portal da família. Confira os dados extraídos antes de confirmar.";
+export function draftReviewDescription(draft: DraftReviewData["draft"]): ReactNode {
+  return (
+    <>
+      {draft.source === "whatsapp"
+        ? `WhatsApp${draft.source_phone ? ` (${draft.source_phone})` : ""}`
+        : "Portal da família"}{" "}
+      <HelpHint text="Confira os dados extraídos antes de confirmar." label="Ajuda: conferir dados" side="bottom" />
+    </>
+  );
 }
 
 export function DraftReviewBody({ data }: { data: DraftReviewData }) {
