@@ -107,7 +107,8 @@ export function findMetricDef(role: string, metricKey: string): MetricDef | unde
 
 export function formatMetricValue(value: number, unit: MetricDef["unit"]): string {
   if (unit === "pct") return `${(value * 100).toFixed(1)}%`;
-  if (unit === "dias") return `${value.toFixed(0)} dia(s)`;
-  if (unit === "min") return `${value.toFixed(0)} min`;
+  // Math.round + "|| 0" evita "-0" quando o valor negativo arredonda para zero.
+  if (unit === "dias") return `${Math.round(value) || 0} dia(s)`;
+  if (unit === "min") return `${Math.round(value) || 0} min`;
   return value.toFixed(1);
 }

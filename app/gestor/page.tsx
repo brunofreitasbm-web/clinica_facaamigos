@@ -1,3 +1,4 @@
+import { ACTIVE_PATIENT_STATUSES } from "@/lib/patient-status";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getLeakCards, getBonusRows, getTierProgression, getOperationalAlerts, currentMonthRange } from "./data";
@@ -14,11 +15,13 @@ const BONUS_STATUS_TAG: Record<string, string> = {
   atingida: "st-realizada",
   perto: "st-agendada",
   abaixo: "st-falta",
+  sem_dado: "st-cancelada",
 };
 const BONUS_STATUS_LABEL: Record<string, string> = {
   atingida: "Atingida",
   perto: "Perto",
   abaixo: "Abaixo",
+  sem_dado: "Sem dado",
 };
 
 export default async function GestorPage() {
@@ -31,12 +34,12 @@ export default async function GestorPage() {
     .from("patients")
     .select("id", { count: "exact", head: true })
     .eq("clinic_id", DEV_CLINIC_ID)
-    .eq("status", "ativo");
+    .in("status", [...ACTIVE_PATIENT_STATUSES]);
 
   const { data: insuranceRows } = await supabase
     .from("patient_insurance")
     .select("patient_id, insurer_id, patients!inner(status, clinic_id)")
-    .eq("patients.status", "ativo")
+    .in("patients.status", [...ACTIVE_PATIENT_STATUSES])
     .eq("patients.clinic_id", DEV_CLINIC_ID)
     .eq("is_private", false)
     .not("insurer_id", "is", null);

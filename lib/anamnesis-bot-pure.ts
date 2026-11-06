@@ -71,7 +71,20 @@ export function decideGuardianEmailStep(
 
 /** Nome completo (>= 2 palavras) ou null — mesma regra do lead (`normalizeFullName`). */
 export function parseFullNameAnswer(raw: string | null | undefined, normalizeFullName: Normalizer): string | null {
-  return normalizeFullName(raw);
+  const name = normalizeFullName(raw);
+  if (!name) return null;
+  // Auditoria UX (P0-3): frases de chat ("Qual o endereço da clínica?") eram
+  // gravadas como nome. Nome real não tem pontuação de frase, é curto e não
+  // começa com palavra de pergunta/pedido.
+  if (/[?!:;]/.test(name) || name.split(/\s+/).length > 7) return null;
+  const first = normalizeAnswer(name).split(" ")[0] ?? "";
+  const SENTENCE_STARTERS = new Set([
+    "qual", "quais", "onde", "como", "quando", "quanto", "quanta", "quem", "que", "porque", "oi", "ola",
+    "bom", "boa", "quero", "queria", "gostaria", "preciso", "tem", "tenho", "voces", "vcs", "pode", "podem",
+    "aceita", "aceitam", "vi", "estou", "sou",
+  ]);
+  if (SENTENCE_STARTERS.has(first)) return null;
+  return name;
 }
 
 // ---------------------------------------------------------------------

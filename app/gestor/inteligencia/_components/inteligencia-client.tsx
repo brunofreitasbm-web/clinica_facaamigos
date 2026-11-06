@@ -27,13 +27,22 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
   const [capacityPeriod, setCapacityPeriod] = useState<"manha" | "tarde" | "dia" | "semana" | "mes">("semana");
 
   // Período selecionado
+  // "Mês atual" = mês civil corrente em UTC, igual a currentMonthRange() no servidor.
+  const monthRangeLabel = (() => {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const mm = String(m + 1).padStart(2, "0");
+    return `01/${mm} - ${String(last).padStart(2, "0")}/${mm} (Mês Atual)`;
+  })();
   const PERIOD_LABELS: Record<string, string> = {
-    month: "06/08 - 05/09 (Mês Atual)",
+    month: monthRangeLabel,
     "30days": "Últimos 30 Dias",
     prev_month: "Mês Anterior",
   };
 
-  const selectedPeriodLabel = PERIOD_LABELS[currentPeriodKey] || "06/08 - 05/09";
+  const selectedPeriodLabel = PERIOD_LABELS[currentPeriodKey] || monthRangeLabel;
 
   const handleSelectPeriod = (periodKey: string) => {
     setDateFilterOpen(false);
@@ -90,7 +99,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
       {/* Topo / Header */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">INTELICÊNCIA BI & CLINICAL DASHBOARD</p>
+          <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">INTELIGÊNCIA BI & CLINICAL DASHBOARD</p>
           <h1 className="text-2xl font-bold text-slate-900">Visão Geral Operacional</h1>
         </div>
 
@@ -111,7 +120,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             <div className="absolute right-0 top-10 z-20 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
               <p className="px-2 py-1 text-xs font-bold text-slate-400 uppercase">SELECIONE O PERÍODO</p>
               {[
-                { label: "06/08 - 05/09 (Mês Atual)", key: "month" },
+                { label: monthRangeLabel, key: "month" },
                 { label: "Últimos 30 Dias", key: "30days" },
                 { label: "Mês Anterior", key: "prev_month" },
               ].map((item) => (
@@ -240,10 +249,22 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 </span>
                 <p className="mt-1 text-xs text-slate-600">período selecionado</p>
               </div>
-              <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
-                <span>↑ {metrics.growthPct}%</span>
-                <span className="font-normal text-slate-600">vs. período anterior ({metrics.prevMonthAppointments})</span>
-              </div>
+              {metrics.prevMonthAppointments < 5 ? (
+                <div className="mt-3 text-xs text-slate-600">
+                  Base anterior pequena ({metrics.prevMonthAppointments}): variação % não confiável
+                </div>
+              ) : (
+                <div
+                  className={`mt-3 flex items-center gap-1.5 text-xs font-semibold ${
+                    metrics.growthPct >= 0 ? "text-emerald-600" : "text-rose-600"
+                  }`}
+                >
+                  <span>
+                    {metrics.growthPct >= 0 ? "↑" : "↓"} {Math.abs(metrics.growthPct)}%
+                  </span>
+                  <span className="font-normal text-slate-600">vs. período anterior ({metrics.prevMonthAppointments})</span>
+                </div>
+              )}
             </div>
 
             {/* Card 2: Agendamentos via WhatsApp */}
@@ -677,7 +698,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
               <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
-                <span>📊 Economizadas com Automações</span>
+                <span>📊 Tempo economizado com automações</span>
               </div>
               <div className="mt-3 text-center">
                 <span className="text-3xl font-extrabold text-slate-900 tabular-nums">

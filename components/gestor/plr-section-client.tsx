@@ -7,11 +7,13 @@ const STATUS_STYLE: Record<string, string> = {
   atingida: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
   perto: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   abaixo: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+  sem_dado: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
 const STATUS_LABEL: Record<string, string> = {
   atingida: "✓ Meta atingida",
   perto: "⚠ Perto da meta",
   abaixo: "✗ Abaixo da meta",
+  sem_dado: "— Sem dado no período",
 };
 
 interface PLRSectionClientProps {
@@ -19,7 +21,7 @@ interface PLRSectionClientProps {
     role: string;
     metricLabel: string;
     actualLabel: string;
-    status: "atingida" | "perto" | "abaixo";
+    status: "atingida" | "perto" | "abaixo" | "sem_dado";
     progressPct: number;
     weightPct: number;
     isEliminatory: boolean;
