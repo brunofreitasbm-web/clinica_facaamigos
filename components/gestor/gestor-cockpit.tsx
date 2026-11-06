@@ -94,11 +94,11 @@ export function GestorCockpit({
                 Novo Paciente
               </h4>
               <p className="mt-1 text-xs text-ink-soft line-clamp-2">
-                Cadastro guiado de anamnese, laudo CID-10, responsáveis e prescrição de horas.
+                Cadastro mínimo (5 campos). Anamnese, laudo e responsáveis seguem na ficha do paciente.
               </p>
             </div>
             <div className="mt-3 flex items-center text-xs font-semibold text-blue-600">
-              Iniciar Onboarding →
+              Abrir cadastro mínimo →
             </div>
           </Link>
 
@@ -109,7 +109,7 @@ export function GestorCockpit({
           >
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Etapa 2 · Guia TISS</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Etapa 2 · Convênios</span>
                 <span className="text-lg">📄</span>
               </div>
               <h4 className="m-0 text-sm font-bold text-ink group-hover:text-amber-600">
@@ -138,11 +138,11 @@ export function GestorCockpit({
                 Auditoria & Pendências
               </h4>
               <p className="mt-1 text-xs text-ink-soft line-clamp-2">
-                Fila de guias vencendo, evoluções atrasadas e cadastros incompletos escalados.
+                Pendências escaladas da recepção e registro de acessos a prontuários (LGPD).
               </p>
             </div>
             <div className="mt-3 flex items-center text-xs font-semibold text-emerald-600">
-              Auditar Pendências →
+              Ver pendências e acessos →
             </div>
           </Link>
 
