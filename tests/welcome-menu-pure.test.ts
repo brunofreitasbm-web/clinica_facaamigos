@@ -23,17 +23,13 @@ import {
   PARTICULAR_MENU_INTENT,
   PARTICULAR_MENU_OPTIONS,
   PARTICULAR_MENU_TEXT,
-  PARTICULAR_PLANS,
   PARTICULAR_VALORES_INTENT,
   WELCOME_MENU_BODY,
   WELCOME_MENU_OPTIONS,
   WELCOME_MENU_TEXT,
   buildConhecerMessage,
-  buildParticularPricesCaption,
-  buildParticularPricesText,
   buildPlanoIntro,
   buildTherapiesMessage,
-  lowestPricePerSession,
   parseNavReply,
   parseParticularActionReply,
   parseParticularMenuReply,
@@ -118,7 +114,7 @@ test("todo submenu tem a opção de voltar ao menu anterior", () => {
   for (const screen of [buildTherapiesMessage(), DUVIDAS_PROMPT, CURRICULO_REPLY + "\n\n" + DUVIDAS_PROMPT, buildConhecerMessage({})]) {
     assert.match(screen, /VOLTAR/, screen.slice(0, 40));
   }
-  for (const screen of [PARTICULAR_COMO_FUNCIONA, buildParticularPricesText(), buildParticularPricesCaption(), PARTICULAR_AGENDAR_COLETA]) {
+  for (const screen of [PARTICULAR_COMO_FUNCIONA, PARTICULAR_AGENDAR_COLETA]) {
     assert.match(screen, /\*2\* para voltar|\*VOLTAR\*/, screen.slice(0, 40));
   }
 });
@@ -135,8 +131,6 @@ test("mensagens fixas usam emojis do padrão FaçaAmigos e nenhum arco-íris", (
     PARTICULAR_COMO_FUNCIONA,
     PARTICULAR_AGENDAR_COLETA,
     buildTherapiesMessage(),
-    buildParticularPricesText(),
-    buildParticularPricesCaption(),
     buildPlanoIntro(["IASEP", "PROASA"]),
     buildConhecerMessage({ address: "Rua X, 1", mapsUrl: "https://maps", hours: "Seg a Sex" }),
   ];
@@ -161,21 +155,17 @@ test("terapias: 14 nomes comerciais, sem duplicata, dentro do limite do WhatsApp
   assert.ok(message.length < 4096);
 });
 
-test("planos particulares: valores do dono e menor valor por sessão", () => {
-  const byName = Object.fromEntries(PARTICULAR_PLANS.map((p) => [p.name, p]));
-  assert.equal(byName["Laço"].price, 1400);
-  assert.equal(byName["Voo Livre"].sessions, 24);
-  assert.equal(Math.round(lowestPricePerSession(PARTICULAR_PLANS) * 100) / 100, 151.67);
-
-  const text = buildParticularPricesText();
-  for (const price of ["R$ 190", "R$ 720", "R$ 1.400", "R$ 1.990", "R$ 2.580", "R$ 3.120", "R$ 3.640", "R$ 2.500"]) {
-    assert.ok(text.includes(price), price);
+test("telas fixas do menu não escrevem valor em reais (preço só pela arte)", () => {
+  for (const text of [PARTICULAR_COMO_FUNCIONA, PARTICULAR_AGENDAR_COLETA, PARTICULAR_MENU_TEXT, WELCOME_MENU_TEXT, DUVIDAS_PROMPT, HUMANO_HANDOFF]) {
+    assert.doesNotMatch(text, /R\$|reais/i, text.slice(0, 40));
   }
-  // Regras confirmadas: avaliação conta como 1 sessão, ABA conta 3, parcelamento em 3x.
-  assert.match(text, /avaliação inicial conta como 1 sessão/);
-  assert.match(text, /Treino ABA[^.]*3 sessões/);
-  assert.match(text, /3x no cartão/);
-  assert.match(buildParticularPricesCaption(), /R\$ 151,67/);
+});
+
+test("coleta da avaliação particular: responsável, criança (nome e idade) e queixa; o bot não agenda", () => {
+  assert.match(PARTICULAR_AGENDAR_COLETA, /responsável/);
+  assert.match(PARTICULAR_AGENDAR_COLETA, /nome e idade da criança/);
+  assert.match(PARTICULAR_AGENDAR_COLETA, /observado/);
+  assert.doesNotMatch(PARTICULAR_AGENDAR_COLETA, /manhã ou tarde|melhor período/);
 });
 
 test("plano de saúde: intro lista os convênios e pergunta o nome do responsável", () => {

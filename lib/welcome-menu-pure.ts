@@ -199,14 +199,14 @@ export const PARTICULAR_COMO_FUNCIONA =
   "1️⃣ *Avaliação inicial*: uma conversa com a família para entender a história e as necessidades da criança.\n" +
   "2️⃣ *Plano Terapêutico Singular (PTS)*: a equipe monta os objetivos e a frequência das sessões.\n" +
   "3️⃣ *Sessões de 40 minutos*, com a participação da família como parte do tratamento. 💙\n\n" +
-  "A avaliação inicial já faz parte do plano escolhido: ela conta como 1 das sessões do mês. Sem plano, é uma sessão avulsa de R$ 190. 🌱\n\n" +
+  "A avaliação inicial já faz parte do pacote escolhido: ela conta como 1 das sessões do mês. 🌱\n\n" +
   BACK_TO_PARTICULAR_FOOTER;
 
 export const PARTICULAR_AGENDAR_COLETA =
   "Vamos agendar a avaliação! 💙 Para a nossa equipe já chegar preparada, me conta em uma única mensagem:\n\n" +
+  "• seu nome (responsável);\n" +
   "• nome e idade da criança;\n" +
-  "• o que vocês têm observado;\n" +
-  "• o melhor período (manhã ou tarde).\n\n" +
+  "• o que vocês têm observado.\n\n" +
   "Para voltar, responda *VOLTAR*. 🧩";
 
 export const PARTICULAR_AGENDAR_OBRIGADO =
@@ -237,59 +237,6 @@ export const COMMERCIAL_THERAPIES: CommercialTherapy[] = [
 export function buildTherapiesMessage(): string {
   const lines = COMMERCIAL_THERAPIES.map((t) => `🧩 *${t.name}*: ${t.focus}`).join("\n");
   return `Estas são as terapias que atendemos no *${BRAND_NAME}*: ✨\n\n${lines}\n\n${BACK_TO_MENU_FOOTER}`;
-}
-
-// ---------------------------------------------------------------------------
-// Planos particulares (reserva em código; o bot lê os valores vigentes do banco)
-// ---------------------------------------------------------------------------
-export type ParticularPlan = { name: string; sessions: number; price: number };
-
-export const PARTICULAR_PLANS: ParticularPlan[] = [
-  { name: "Encontro (sessão avulsa)", sessions: 1, price: 190 },
-  { name: "Primeiro Passo", sessions: 4, price: 720 },
-  { name: "Laço", sessions: 8, price: 1400 },
-  { name: "Vínculo", sessions: 12, price: 1990 },
-  { name: "Turma", sessions: 16, price: 2580 },
-  { name: "Abraço", sessions: 20, price: 3120 },
-  { name: "Voo Livre", sessions: 24, price: 3640 },
-];
-
-export const NEURO_EVALUATION_PRICE = 2500;
-
-const brl = (value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: value % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
-
-export function formatBrl(value: number): string {
-  return brl(value);
-}
-
-/** Menor valor por sessão entre os planos (ex.: Voo Livre = R$ 151,67). */
-export function lowestPricePerSession(plans: ParticularPlan[]): number {
-  return Math.min(...plans.map((p) => p.price / p.sessions));
-}
-
-/** Texto de valores sem imagem: planos, regras e convite para a avaliação. */
-export function buildParticularPricesText(plans: ParticularPlan[] = PARTICULAR_PLANS): string {
-  const lines = plans
-    .map((p) => (p.sessions === 1 ? `💙 *${p.name}*: ${brl(p.price)}` : `💙 *${p.name}* · ${p.sessions} sessões/mês: ${brl(p.price)}`))
-    .join("\n");
-  return (
-    "Cada plano é montado após a avaliação e pensado para a evolução da criança. 🌱\n\n" +
-    `${lines}\n\n` +
-    `Quanto mais sessões, menor o valor de cada uma: a partir de ${brl(lowestPricePerSession(plans))} por sessão no plano mais completo. ` +
-    "As sessões podem combinar terapias diferentes, e a avaliação inicial conta como 1 sessão do plano. " +
-    "Cada bloco de Treino ABA (3 sessões seguidas) conta como 3 sessões. Parcelamos em até 3x no cartão. ✨\n\n" +
-    `A avaliação neuropsicológica tem valor fechado de ${brl(NEURO_EVALUATION_PRICE)}.\n\n` +
-    BACK_TO_PARTICULAR_FOOTER
-  );
-}
-
-/** Legenda curta da imagem de valores (a tabela completa está na arte). */
-export function buildParticularPricesCaption(plans: ParticularPlan[] = PARTICULAR_PLANS): string {
-  return (
-    "Cada plano é montado após a avaliação. 🌱 A avaliação inicial conta como 1 sessão do plano, " +
-    `e quanto mais sessões, menor o valor de cada uma (a partir de ${brl(lowestPricePerSession(plans))}). Parcelamos em até 3x no cartão. 💙\n\n` +
-    BACK_TO_PARTICULAR_FOOTER
-  );
 }
 
 // ---------------------------------------------------------------------------

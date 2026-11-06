@@ -13,11 +13,11 @@
 // qual tela a pessoa está.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
-import { APP_ORIGIN, CLINIC_MAPS_URL, getClinicIdentity } from "@/lib/clinic-identity";
+import { CLINIC_MAPS_URL, getClinicIdentity } from "@/lib/clinic-identity";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
 import { buildMessagePreview, formatE164Phone } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
-import { loadParticularPlanCatalog } from "@/lib/particular-plans";
+import { PRICE_ART_CAPTION, PRICE_ART_URL } from "@/lib/price-policy-pure";
 import { loadActiveInsurers, startAnamnesisFlow } from "@/lib/twilio-anamnesis-bot";
 import {
   BACK_TO_MENU_FOOTER,
@@ -33,13 +33,10 @@ import {
   PARTICULAR_COMO_FUNCIONA_INTENT,
   PARTICULAR_MENU_INTENT,
   PARTICULAR_MENU_TEXT,
-  PARTICULAR_PLANS,
   PARTICULAR_VALORES_INTENT,
   PART_AGENDAR_ID,
   WELCOME_MENU_TEXT,
   buildConhecerMessage,
-  buildParticularPricesCaption,
-  buildParticularPricesText,
   buildPlanoIntro,
   buildTherapiesMessage,
   normalizeMenuText,
@@ -48,15 +45,11 @@ import {
   parseParticularMenuReply,
   parseWelcomeMenuReply,
   previousMenuFor,
-  type ParticularPlan,
 } from "@/lib/welcome-menu-pure";
 
 export type MenuStepResult = { handled: boolean; replyMessage: string; intent: string };
 
 const NOT_HANDLED: MenuStepResult = { handled: false, replyMessage: "", intent: "" };
-
-/** Padrão da arte de valores: arquivo servido pelo próprio app (public/chatbot). */
-export const DEFAULT_PARTICULAR_PRICES_IMAGE_PATH = "/chatbot/planos-particular.jpg";
 
 // Content SIDs: criados pelo botão "Criar menu interativo" (Chatbot > Configurações, gravados em
 // `chatbot_settings`) ou pelo script scripts/create-welcome-menu-template.ts (variável de ambiente).
@@ -168,12 +161,6 @@ async function isSessionIdle(phone: string): Promise<boolean> {
   return !step || step === "idle" || step === "completed";
 }
 
-/** Valores vigentes do convênio "Particular" (planos mensais); reserva em código. */
-export async function loadParticularPlans(): Promise<ParticularPlan[]> {
-  const catalog = await loadParticularPlanCatalog(createAdminClient());
-  return catalog.length > 0 ? catalog.map((p) => ({ name: p.name, sessions: p.sessions, price: p.price })) : PARTICULAR_PLANS;
-}
-
 async function handoff(conversationId: string | null, reason: "pediu_humano" | "particular" | "particular_agendar", text: string): Promise<string> {
   if (!conversationId) return text;
   const { escalateConversation, isWithinBusinessHoursNow, OUT_OF_HOURS_ESCALATION_SUFFIX } = await import("./twilio-faq-bot");
@@ -181,20 +168,26 @@ async function handoff(conversationId: string | null, reason: "pediu_humano" | "
   return (await isWithinBusinessHoursNow(DEV_CLINIC_ID)) ? text : text + OUT_OF_HOURS_ESCALATION_SUFFIX;
 }
 
-async function sendParticularValues(ctx: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {
-  const plans = await loadParticularPlans();
+/**
+ * Arte dos pacotes particulares + frase fixa, e transbordo para a equipe. É o
+ * ÚNICO jeito de o bot mostrar preço: nunca em texto (lib/price-policy-pure.ts).
+ * A URL padrão é a da arte no site do Instituto; `chatbot_settings` pode trocá-la.
+ * O envio registra `messages.intent = part_valores` com `media_url`: é esse
+ * registro que diz depois "a arte já foi enviada" (lib/price-policy.ts).
+ */
+export async function sendPriceArtAndHandoff(ctx: { phone: string; conversationId: string | null }): Promise<MenuStepResult> {
   const { getChatbotSettings } = await import("./twilio-faq-bot");
   const settings = await getChatbotSettings(DEV_CLINIC_ID);
-  const imageUrl = settings.particularPricesImageUrl || `${APP_ORIGIN}${DEFAULT_PARTICULAR_PRICES_IMAGE_PATH}`;
-  const caption = buildParticularPricesCaption(plans);
-  // Imagem + legenda numa mensagem só (uma tarifa). Se a imagem não carregar,
-  // sai o texto completo dos planos.
+  const imageUrl = settings.particularPricesImageUrl || PRICE_ART_URL;
+  // O transbordo vai junto da arte: a legenda inclui o aviso de fora do expediente, se for o caso.
+  const caption = await handoff(ctx.conversationId, "particular", PRICE_ART_CAPTION);
+  // Se a imagem não carregar, sai só a frase (sem valor): a equipe envia os pacotes.
   return deliver({
     ...ctx,
     text: caption,
     intent: PARTICULAR_VALORES_INTENT,
     mediaUrl: imageUrl,
-    fallbackText: buildParticularPricesText(plans),
+    fallbackText: caption,
   });
 }
 
@@ -252,7 +245,7 @@ async function runChoice(id: string, ctx: { phone: string; conversationId: strin
     }
 
     case "part_valores":
-      return sendParticularValues(ctx);
+      return sendPriceArtAndHandoff(ctx);
 
     case "part_agendar":
       return { handled: true, replyMessage: PARTICULAR_AGENDAR_COLETA, intent: PARTICULAR_COLETA_INTENT };

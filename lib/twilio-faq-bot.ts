@@ -28,16 +28,17 @@
  *
  * A regra "nunca invente" é o ponto mais importante do prompt: perguntas sem
  * resposta na base (endereço, horário etc., enquanto o gestor não preencher)
- * viram atendimento humano em vez de alucinação. Valor particular é exceção
- * deliberada — vem da tabela de preços do convênio "Particular"
- * (`insurer_price_tables`) e PODE ser informado direto pelo bot; valor de
- * convênio nunca é exposto (não entra na base de conhecimento).
+ * viram atendimento humano em vez de alucinação. PREÇO: o bot nunca escreve
+ * valor em texto (nem particular, nem convênio). Pergunta de preço é tratada
+ * antes da IA por lib/price-policy.ts (pergunta "convênio ou particular?", envia
+ * a arte de pacotes e transborda), e toda resposta com "R$" é descartada.
  */
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
 import { hasExplicitJobSignal, hasStrongJobSignal, JOB_AMBIGUOUS_REPLY, JOB_INQUIRY_REPLY } from "@/lib/job-inquiry-pure";
 import { generateChatResponse, isChatAiConfigured } from "@/lib/chat-llm";
+import { processPriceStep, replacePriceLeak } from "@/lib/price-policy";
 import { expandFaqTokens, isPlaceholderAnswer, matchFaqRule, type FaqRuleData } from "@/lib/faq-rules-pure";
 
 /** Quantas mensagens da thread vão como contexto (~6 turnos). */
@@ -52,8 +53,8 @@ const DEFAULT_DAILY_REPLY_LIMIT = 20;
 const KNOWLEDGE_TTL_MS = 5 * 60 * 1000;
 const SETTINGS_TTL_MS = 5 * 60 * 1000;
 
-/** O atendimento particular é cadastrado como um convênio sem guia; é a
- * tabela de preços DELE que o bot pode divulgar. */
+/** O atendimento particular é cadastrado como um convênio sem guia; fica fora da
+ * lista de convênios atendidos. */
 const PARTICULAR_INSURER_NAME = "particular";
 
 export type ChatbotSettings = {
@@ -143,30 +144,6 @@ function knowledgeKey(clinicId: string, kind: ConversationKind): string {
   return `${clinicId}:${kind}`;
 }
 
-/** Linha de `insurer_price_tables` do convênio Particular (só os campos usados no prompt). */
-type ParticularPriceRow = { procedure_code: string; procedure_name: string; price: number | string; session_frequency_note: string | null };
-
-/**
- * Bloco "VALORES PARTICULAR" do prompt: só os PLANOS MENSAIS (`PART-PLANO-*`) e a
- * avaliação neuropsicológica (`PART-AVAL-NEURO`). As linhas por terapia (R$ 190
- * cada, usadas só no faturamento por sessão) ficam de fora para a IA não citar
- * preço por terapia. O número de sessões vem do início da observação ("8 sessões/mês").
- */
-export function buildParticularPricesBlock(rows: ParticularPriceRow[]): string {
-  const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-  const plans = rows
-    .filter((r) => r.procedure_code.startsWith("PART-PLANO-"))
-    .map((r) => ({ name: r.procedure_name.replace(/^Plano /, ""), price: Number(r.price), sessions: Number(/^(\d+) sess/.exec(r.session_frequency_note ?? "")?.[1] ?? 0) }))
-    .sort((a, b) => a.price - b.price);
-  const lines = plans.map((p) => {
-    const perSession = p.sessions > 1 ? ` (cerca de ${brl.format(p.price / p.sessions)} por sessão)` : "";
-    return p.sessions > 0 ? `${p.name} — ${p.sessions} sessão(ões)/mês: ${brl.format(p.price)}${perSession}` : `${p.name}: ${brl.format(p.price)}`;
-  });
-  const neuro = rows.find((r) => r.procedure_code === "PART-AVAL-NEURO");
-  if (neuro) lines.push(`Avaliação Neuropsicológica (valor fechado, fora dos planos): ${brl.format(Number(neuro.price))}`);
-  return lines.join("; ");
-}
-
 /**
  * Invalida imediatamente o cache de conhecimento e de configurações do chatbot
  * para garantir sincronização em tempo real quando FAQs, terapias ou salas mudam.
@@ -202,7 +179,7 @@ async function loadFaqKnowledge(
   // família" (ele não tem portal).
   const audiences: FaqAudience[] = ["ambos", kind === "patient" ? "paciente" : "lead"];
 
-  const [faqRes, insurersRes, typesRes, particularPricesRes, hoursRes] = await Promise.all([
+  const [faqRes, insurersRes, typesRes, hoursRes] = await Promise.all([
     supabase
       .from("clinic_faq")
       .select("question, answer, keywords, category, audience")
@@ -217,17 +194,6 @@ async function loadFaqKnowledge(
       .eq("clinic_id", clinicId)
       .eq("active", true)
       .order("name"),
-    // Preço particular por terapia — tabela de preços do convênio
-    // "Particular" (/gestor/cadastros/convenios/[id]/precos). Diferente dos
-    // demais convênios (nunca expostos pelo bot), o gestor decidiu que o valor
-    // particular PODE ser informado direto no WhatsApp (regra 6 do prompt).
-    supabase
-      .from("insurer_price_tables")
-      .select("procedure_code, procedure_name, price, duration_minutes, valid_from, valid_to, session_frequency_note, insurers!inner(name, clinic_id, active)")
-      .eq("insurers.clinic_id", clinicId)
-      .eq("insurers.active", true)
-      .ilike("insurers.name", PARTICULAR_INSURER_NAME)
-      .order("procedure_name"),
     // Horário comercial da recepção (clinic_business_hours, migration
     // 20260920000000) — é o mesmo relógio que mede o tempo de resposta
     // humana, então o que o bot promete e o que o KPI cobra não divergem.
@@ -266,11 +232,6 @@ async function loadFaqKnowledge(
 
   const businessHoursBlock = formatBusinessHours(hoursRes.data ?? []);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const particularPricesBlock = buildParticularPricesBlock(
-    (particularPricesRes.data ?? []).filter((p) => p.valid_from <= today && (!p.valid_to || p.valid_to >= today)),
-  );
-
   const agendaStatusNote = (await getChatbotSettings(clinicId)).agendaStatusNote;
 
   const text = [
@@ -283,8 +244,8 @@ async function loadFaqKnowledge(
     "=== TIPOS DE ATENDIMENTO E DURAÇÃO ===",
     typesBlock || "(não cadastrado)",
     "",
-    "=== VALORES PARTICULAR (sem convênio): PLANOS MENSAIS ===",
-    particularPricesBlock || "(nenhum valor particular cadastrado — escale pra equipe humana se perguntarem)",
+    "=== FAIXA ETÁRIA ATENDIDA ===",
+    "Crianças e adolescentes de 0 a 18 anos.",
     "",
     "=== HORÁRIO COMERCIAL DA RECEPÇÃO (atendimento humano) ===",
     businessHoursBlock || "(não cadastrado — não prometa horário nenhum)",
@@ -323,7 +284,7 @@ REGRAS OBRIGATÓRIAS:
 3. ATENDIMENTO EMPÁTICO AOS PAIS E RESPONSÁVEIS: Fale diretamente com o pai, mãe ou responsável legal. Trate a família com carinho, respeito, clareza e acolhimento.
 4. EMOJIS ACOLHEDORES: Use emojis integrativos e carinhosos (ex.: 💙, 🧩, 🎈, 🌱, 🤝, ✨) de forma harmoniosa nas mensagens.
 5. NUNCA INVENTE: Responda APENAS com base nas informações acima. Se a resposta não estiver ali ou a dúvida não for coberta pela base, NUNCA invente: escale para a equipe humana.
-6. POLÍTICA DE VALORES: Quando a pessoa perguntar o valor de atendimento PARTICULAR (sem convênio), informe os PLANOS MENSAIS da seção "VALORES PARTICULAR" acima, com exatamente esses números — nunca arredonde ou estime, e não escale por isso. O valor NÃO varia por terapia. Regras dos planos: (a) o plano é um número de sessões por mês e a família pode combinar terapias diferentes dentro dele (ex.: 4 de Fono + 4 de TO); (b) a avaliação inicial conta como 1 sessão do plano contratado, e sem plano é uma sessão avulsa de R$ 190; (c) cada bloco de Treino ABA (3 sessões seguidas) conta como 3 sessões do plano; (d) a avaliação neuropsicológica tem valor fechado, fora dos planos; (e) parcelamos em até 3x no cartão. Apresente o valor do cuidado antes do preço e convide a pessoa a agendar a avaliação. Valores de convênio (reembolso, coparticipação, tabela do plano) NÃO estão nesta base e NUNCA devem ser informados: escale para a equipe humana ("escalar": true, "motivo": "fora_da_base").
+6. POLÍTICA DE VALORES (REGRA ABSOLUTA): você NUNCA escreve valor em texto: nenhum número com "R$", nenhum "reais", nenhum preço de pacote, sessão avulsa, avaliação, plano mensal ou convênio, nem estimativa, faixa, "a partir de" ou desconto. Esta base não tem valores de propósito. Preço particular é mostrado só por uma imagem de pacotes que o sistema envia sozinho. Se a pergunta de valor chegar até você, não responda o número: se não souber se é convênio ou particular, pergunte apenas "É por convênio ou particular?"; se for convênio ou qualquer dúvida de preço, escale para a equipe humana ("escalar": true, "motivo": "pediu_humano") com uma frase curta de acolhimento. Você pode explicar as REGRAS dos pacotes particulares, sem valor: (a) o pacote é um número de sessões por mês e a família pode combinar terapias diferentes dentro dele (ex.: 4 de Fono + 4 de TO); (b) a avaliação inicial conta como 1 sessão do pacote contratado; (c) cada bloco de Treino ABA (3 sessões seguidas) conta como 3 sessões; (d) a avaliação neuropsicológica tem valor fechado, fora dos pacotes; (e) parcelamos em até 3x no cartão; (f) a quantidade e a distribuição das terapias dependem de cada criança.
 7. ISENÇÃO CLÍNICA: Jamais dê diagnóstico, opinião clínica, orientação médica ou conduta terapêutica. Qualquer pergunta clínica sobre a criança ou adolescente deve ser escalada para a equipe.
 8. PRECISÃO: Nunca prometa valores, horários, vagas ou prazos que não estejam explicitamente confirmados acima.
 9. HISTÓRICO: Considere o histórico da conversa: não repita a saudação nem reapresente a clínica se já conversou.
@@ -347,7 +308,7 @@ Isso não é uma dúvida que você responde — é um pedido que a recepção va
 4. Junto com o "escalar=true, motivo=relatorio", preencha TAMBÉM o campo "relatorio_dados" com o que foi coletado (use null no que não foi informado) — é esse campo, não o texto da "resposta", que vira o aviso de pendência para o Supervisor providenciar junto ao terapeuta correspondente.
 
 QUANDO ESCALAR (escalar = true):
-- "fora_da_base": a informação pedida não está acima, ou refere-se a valores de convênio/reembolso (nunca informe esses). Plano que não atendemos NÃO é "fora da base" (regra 16).
+- "fora_da_base": a informação pedida não está acima, ou refere-se a valores de convênio/reembolso (nunca informe esses; nenhum valor é informado em texto, regra 6). Plano que não atendemos NÃO é "fora da base" (regra 16).
 - "lista_espera": a pessoa quer entrar na lista de espera / iniciar com a agenda fechada, DEPOIS de reunir nome, idade, plano e terapia (regra 17).
 - "clinico": pergunta sobre sintoma, diagnóstico, evolução ou conduta da criança.
 - "pediu_humano": a pessoa pediu para falar com alguém, reclamou ou está claramente insatisfeita.
@@ -702,6 +663,17 @@ export async function processFaqBotStep(params: {
     return { handled: true, replyMessage: JOB_INQUIRY_REPLY, intent: "faq_emprego", escalated: false, concluded: true };
   }
 
+  // Preço: nunca em texto. Pergunta "convênio ou particular?", arte de pacotes e
+  // transbordo (lib/price-policy.ts). Antes das regras e da IA: funciona com a IA fora
+  // do ar e não gasta cota. Se falhar, segue adiante: a trava de saída abaixo ainda
+  // impede qualquer valor em texto.
+  try {
+    const price = await processPriceStep({ phone, body, conversationId });
+    if (price.handled) return { handled: true, replyMessage: price.replyMessage, intent: price.intent, escalated: price.intent !== "preco_pergunta_tipo" };
+  } catch (err) {
+    console.error("[Twilio FAQ Bot] Falha na regra de preço — seguindo para as demais camadas:", err);
+  }
+
   // Regras sem IA (lib/faq-rules-pure.ts): pergunta simples de convênio ou palavra-chave
   // do `clinic_faq` é respondida direto do banco — sem Gemini, sem cota diária, e funciona
   // com a IA fora do ar. Tudo que for ambíguo cai no agente abaixo. FAQ_RULES_DISABLED=1
@@ -711,6 +683,9 @@ export async function processFaqBotStep(params: {
       const { rules } = await loadFaqKnowledge(DEV_CLINIC_ID, conversationKind);
       const ruleMatch = matchFaqRule(body, rules);
       if (ruleMatch) {
+        // FAQ cadastrado pelo gestor pode ter preço escrito: nunca sai em texto.
+        const leak = await replacePriceLeak({ phone, body, reply: ruleMatch.reply, conversationId });
+        if (leak) return { handled: true, replyMessage: leak.replyMessage, intent: leak.intent, escalated: leak.intent !== "preco_pergunta_tipo" };
         return { handled: true, replyMessage: ruleMatch.reply, intent: ruleMatch.intent, escalated: false };
       }
     } catch (err) {
@@ -757,6 +732,10 @@ export async function processFaqBotStep(params: {
 
   const reply = (parsed.resposta ?? "").trim();
   if (!reply) return aiUnavailable();
+
+  // Trava de saída: a IA não pode mandar valor em texto, mesmo que o prompt tenha sido ignorado.
+  const leak = await replacePriceLeak({ phone, body, reply, conversationId });
+  if (leak) return { handled: true, replyMessage: leak.replyMessage, intent: leak.intent, escalated: leak.intent !== "preco_pergunta_tipo" };
 
   if (conversationId && typeof parsed.convenio === "string" && parsed.convenio.trim()) {
     await saveDetectedPlan(conversationId, DEV_CLINIC_ID, parsed.convenio);
