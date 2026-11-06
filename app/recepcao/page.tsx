@@ -1,3 +1,4 @@
+import { computeAppointmentUiState } from "@/lib/appointment-ui-state";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
@@ -403,7 +404,12 @@ export default async function RecepcaoPage({
   // sem ninguém no local, mostra a próxima sessão já em curso no horário.
   const roomsNow = (rooms ?? []).map((room) => {
     const roomAppointments = appointments.filter((a) => a.roomId === room.id);
-    const inRoom = roomAppointments.find((a) => a.checkinAt && !a.checkoutAt);
+    // Só ocupa a sala quem está com sessão viva: cancelada/falta/realizada
+    // libera, mesmo que o check-in tenha sido registrado antes.
+    const inRoom = roomAppointments.find((a) => {
+      const ui = computeAppointmentUiState(a);
+      return ui === "na_recepcao" || ui === "em_atendimento";
+    });
     const scheduledNow =
       inRoom ??
       roomAppointments.find(

@@ -1368,7 +1368,9 @@ export function EvaluationCalendar({
                 </div>
                 {!item.facts || item.gate ? <p className="mt-1 text-[11px] text-ink-faint">{item.detail}</p> : null}
                 {!item.offer && item.bookInput.origin === "presencial" && (
-                  <p className="mt-1 text-[10px] text-ink-faint">Convite automático por WhatsApp ainda não enviado.</p>
+                  <p className="mt-1 text-[10px] text-ink-faint">
+                    {item.recipient ? "Convite automático por WhatsApp ainda não enviado." : "Sem telefone do responsável para enviar o convite."}
+                  </p>
                 )}
               </div>
               );

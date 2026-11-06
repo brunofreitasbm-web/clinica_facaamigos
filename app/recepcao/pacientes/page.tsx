@@ -1,3 +1,4 @@
+import { maskCpf } from "@/lib/masks";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -143,7 +144,7 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
       pills,
       status: p.status,
       birth_date: p.birth_date,
-      cpf: p.cpf,
+      cpf: maskCpf(p.cpf),
       created_at: p.created_at,
       evaluated_at: p.evaluated_at,
       first_session_at: p.first_session_at,

@@ -103,7 +103,7 @@ export async function getPendingConfirmationsAction(): Promise<
       .select("id, patient_id, therapist_id, room_id, starts_at, ends_at, is_provisional, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)")
       .eq("is_provisional", true)
       .eq("is_evaluation", true)
-      .not("status", "in", "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,remarcada)")
+      .not("status", "in", "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,remarcada,realizada,falta_familia)")
       .order("starts_at", { ascending: true });
 
     if (error) {

@@ -6,6 +6,7 @@ import { getPendingPatients } from "@/lib/patient-stage";
 import { GRID_EXCLUDED_STATUSES } from "@/app/supervisao/grade-data";
 import type { PoolOffer } from "@/lib/evaluation-offer-badge-pure";
 import { collapseByChild } from "@/lib/patient-duplicates-pure";
+import { normalizeName } from "@/lib/draft-merge";
 import { pickEvaluationRecipient, type GuardianContact } from "@/lib/evaluation-recipient-pure";
 import { computeDraftGate } from "@/lib/scheduling-promotion-pure";
 
@@ -164,7 +165,37 @@ const INTAKE_STATUS_LABEL: Record<string, string> = {
  * tabela só libera service_role (policy anamnesis_requests_admin), por isso
  * usa createAdminClient() — mesmo padrão de getPendingAnamnesisRequestsAction.
  */
-async function getAnamnesisPoolItems(): Promise<EvaluationPoolItem[]> {
+type EvaluationDone = { ids: Set<string>; names: Set<string> };
+
+/**
+ * Crianças que já têm 1ª avaliação marcada, confirmada ou realizada (ou
+ * evaluated_at preenchido). Fonte única para tirar da fila "Prontos para
+ * agendar" quem não precisa mais de horário, em qualquer das três origens.
+ */
+async function getEvaluationDone(supabase: Supa): Promise<EvaluationDone> {
+  const [{ data: appts }, { data: evaluated }] = await Promise.all([
+    supabase
+      .from("appointments")
+      .select("patient_id, patients(full_name)")
+      .eq("is_evaluation", true)
+      .in("status", ["agendada", "confirmada", "realizada"]),
+    supabase.from("patients").select("id, full_name").not("evaluated_at", "is", null),
+  ]);
+  const ids = new Set<string>();
+  const names = new Set<string>();
+  for (const a of (appts ?? []) as any[]) {
+    ids.add(a.patient_id);
+    const pt = Array.isArray(a.patients) ? a.patients[0] : a.patients;
+    if (pt?.full_name) names.add(normalizeName(pt.full_name));
+  }
+  for (const p of evaluated ?? []) {
+    ids.add(p.id);
+    if (p.full_name) names.add(normalizeName(p.full_name));
+  }
+  return { ids, names };
+}
+
+async function getAnamnesisPoolItems(done: EvaluationDone): Promise<EvaluationPoolItem[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("anamnesis_scheduling_requests")
@@ -172,7 +203,9 @@ async function getAnamnesisPoolItems(): Promise<EvaluationPoolItem[]> {
     .in("status", ["pendente_supervisor", "aprovado"])
     .order("created_at", { ascending: true });
 
-  return (data ?? []).map((r) => ({
+  return (data ?? [])
+    .filter((r) => !done.names.has(normalizeName(r.child_name)))
+    .map((r) => ({
     id: `anamnese-${r.id}`,
     origin: "whatsapp_anamnese",
     patientName: r.child_name,
@@ -189,14 +222,17 @@ async function getAnamnesisPoolItems(): Promise<EvaluationPoolItem[]> {
  * WhatsApp) ainda sem agendamento — insurance_intake_leads. RLS já libera
  * supervisor, por isso usa o client normal recebido por parâmetro.
  */
-async function getIntakePoolItems(supabase: Supa): Promise<EvaluationPoolItem[]> {
-  const { data } = await supabase
+async function getIntakePoolItems(supabase: Supa, done: EvaluationDone): Promise<EvaluationPoolItem[]> {
+  const { data: rawLeads } = await supabase
     .from("insurance_intake_leads")
-    .select("id, patient_full_name, status, created_at, extra, phone_e164")
+    .select("id, patient_id, patient_full_name, status, created_at, extra, phone_e164")
     .not("status", "in", "(scheduled,cancelled,failed)")
     .order("created_at", { ascending: true });
 
-  return (data ?? []).map((l) => {
+  const data = (rawLeads ?? []).filter(
+    (l) => !(l.patient_id && done.ids.has(l.patient_id)) && !(l.patient_full_name && done.names.has(normalizeName(l.patient_full_name))),
+  );
+  return data.map((l) => {
     const isPresencial = (l.extra as Record<string, unknown> | null)?.is_presencial === true;
     return {
       id: `convenio-${l.id}`,
@@ -281,27 +317,16 @@ const GATE_STATUS_LABEL: Record<EvaluationSchedulingGate, string> = {
  * "ready" quando autorizado pelo plano ou com status 'avaliacao', sem
  * avaliação realizada prévia e sem agendamento futuro ativo.
  */
-async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<string>): Promise<EvaluationPoolItem[]> {
+async function getPresencialPoolItems(supabase: Supa, coveredPatientIds: Set<string>, done: EvaluationDone): Promise<EvaluationPoolItem[]> {
   const pending = await getPendingPatients(supabase, 0, { includeStage4: true, includePipelineDrafts: true });
   const candidates = pending.filter((p) => {
     if (coveredPatientIds.has(p.id)) return false;
     if (p.evaluated_at || p.first_session_at) return false;
     return p.stage === 1 || p.stage === 2 || p.stage === 4;
   });
-  const candidateIds = candidates.map((p) => p.id);
 
-  // Exclui apenas quem já possui agendamento ativo futuro de 1ª avaliação
-  const { data: activeEvals } = candidateIds.length
-    ? await supabase
-        .from("appointments")
-        .select("patient_id")
-        .in("patient_id", candidateIds)
-        .eq("is_evaluation", true)
-        .in("status", ["agendada", "confirmada"])
-    : { data: [] as { patient_id: string }[] };
-
-  const activeEvalIds = new Set((activeEvals ?? []).map((a) => a.patient_id));
-  const availableCandidates = candidates.filter((p) => !activeEvalIds.has(p.id));
+  // Exclui quem já tem 1ª avaliação marcada, confirmada ou realizada.
+  const availableCandidates = candidates.filter((p) => !done.ids.has(p.id));
   const availableCandidateIds = availableCandidates.map((p) => p.id);
 
   const [gates, profiles] = await Promise.all([
@@ -459,13 +484,14 @@ function formatChildAge(birthDate: string | null): string | null {
 export async function getEvaluationPool(supabase: Supa, clinicId: string = DEV_CLINIC_ID): Promise<EvaluationPoolItem[]> {
   void clinicId; // as três fontes já são escopadas por clínica em suas próprias queries/RLS
 
-  const [anamnesisItems, intakeItems] = await Promise.all([getAnamnesisPoolItems(), getIntakePoolItems(supabase)]);
+  const done = await getEvaluationDone(supabase);
+  const [anamnesisItems, intakeItems] = await Promise.all([getAnamnesisPoolItems(done), getIntakePoolItems(supabase, done)]);
 
   // Paciente com oferta automática em andamento continua na fila: o card mostra
   // em que passo o responsável está, e agendar manualmente cancela a oferta
   // (releaseOfferForManualScheduling). Quem já escolheu horário tem agendamento
   // provisório e sai da fila pelo filtro de agendamento ativo.
-  const [presencialItems, offers] = await Promise.all([getPresencialPoolItems(supabase, new Set()), getEvaluationOffers(supabase)]);
+  const [presencialItems, offers] = await Promise.all([getPresencialPoolItems(supabase, new Set(), done), getEvaluationOffers(supabase)]);
   const offerByPatient = new Map<string, PoolOffer>();
   for (const o of offers) {
     const live = o.status === "aguardando_interesse" || o.status === "aguardando_escolha";

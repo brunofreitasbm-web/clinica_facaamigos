@@ -418,9 +418,10 @@ export function PlanForm({
             if (dayBlocks.length > 0) {
               candidateSlots = dayBlocks.flatMap((b) => generate40MinSlotsInRange(b.start_time.slice(0, 5), b.end_time.slice(0, 5)));
             } else if (!hasAnyAvailabilityConfigured) {
-              // Terapeuta ainda sem disponibilidade cadastrada — sugere pelo
-              // turno escolhido, mas sinaliza que precisa ser configurada.
-              candidateSlots = fixedShiftSlots[row.shift];
+              // Terapeuta sem nenhuma janela cadastrada é bloqueado por padrão:
+              // não sugere horário até a Supervisão cadastrar a disponibilidade.
+              candidateSlots = [];
+              conflictNote = "Terapeuta sem janela de disponibilidade cadastrada — cadastre em Supervisão > Disponibilidade.";
             } else {
               candidateSlots = [];
             }
@@ -444,7 +445,9 @@ export function PlanForm({
 
             if (!assignedTimeSlot) {
               conflictStatus = "MANUAL_REQUIRED";
-              conflictNote = dayBlocks.length === 0 && hasAnyAvailabilityConfigured
+              conflictNote = !hasAnyAvailabilityConfigured
+                ? "Terapeuta sem janela de disponibilidade cadastrada — cadastre em Supervisão > Disponibilidade."
+                : dayBlocks.length === 0
                 ? "Terapeuta sem disponibilidade cadastrada para este dia da semana."
                 : "Terapeuta sem horário livre nesta data — todos os slots já usados neste calendário.";
               assignedTimeSlot = candidateSlots[0] || fixedShiftSlots[row.shift][0] || "";

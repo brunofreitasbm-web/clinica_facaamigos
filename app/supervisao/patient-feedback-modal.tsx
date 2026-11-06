@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { ClipboardCheck } from "lucide-react";
 import {
+  canBookPatientFeedbackAction,
   getActivePatientsForFeedbackAction,
   getEvaluationRoomsForFeedbackAction,
   bookPatientFeedbackAction,
@@ -16,6 +17,7 @@ import {
  * formulário (não vem de um chamado da Caixa de entrada).
  */
 export function PatientFeedbackButton() {
+  const [allowed, setAllowed] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [patients, setPatients] = useState<{ id: string; name: string }[] | null>(null);
   const [rooms, setRooms] = useState<{ id: string; name: string }[] | null>(null);
@@ -27,6 +29,10 @@ export function PatientFeedbackButton() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [done, setDone] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    canBookPatientFeedbackAction().then(setAllowed).catch(() => setAllowed(false));
+  }, []);
 
   useEffect(() => {
     if (!isOpen || patients !== null) return;
@@ -72,6 +78,8 @@ export function PatientFeedbackButton() {
       }
     });
   }
+
+  if (!allowed) return null;
 
   return (
     <>

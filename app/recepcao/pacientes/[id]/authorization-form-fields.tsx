@@ -52,6 +52,10 @@ export function AuthorizationFormFields({
         ))}
       </select>
       <input type="text" name="guide_number" placeholder="Número da guia" className="input" />
+      <label className="flex items-center gap-2 text-xs text-ink-faint">
+        <input type="checkbox" name="confirm_shared_guide" />
+        Guia compartilhada com outro paciente — confirmo
+      </label>
 
       <div className="flex flex-col gap-2">
         {procedureRows.map((rowId, index) => (

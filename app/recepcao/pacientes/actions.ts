@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { mergeDuplicatesOf } from "@/lib/patient-merge";
+import { logRecordAccess } from "@/lib/record-access-log";
 
 export async function createInteressado(
   formData: FormData,
@@ -188,4 +189,21 @@ export async function deletePatient(
   revalidatePath("/gestor/cadastros/pacientes");
   revalidatePath("/supervisao");
   return { success: true };
+}
+
+/** Revela o CPF completo de um paciente (LGPD): cada revelação fica em record_access_log. */
+export async function revealPatientCpfAction(
+  patientId: string,
+): Promise<{ success: true; cpf: string | null } | { success: false; error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Sessão expirada." };
+
+  const { data, error } = await supabase.from("patients").select("cpf").eq("id", patientId).maybeSingle();
+  if (error || !data) return { success: false, error: "Não foi possível carregar o CPF." };
+
+  await logRecordAccess(supabase, patientId, "Revelou CPF completo na lista de pacientes");
+  return { success: true, cpf: data.cpf };
 }

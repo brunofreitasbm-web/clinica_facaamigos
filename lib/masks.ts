@@ -13,3 +13,18 @@ export function formatPhoneMask(val: string): string {
   if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
+
+/** CPF para exibição em listas: ***.456.789-** (LGPD). Sem CPF válido devolve null. */
+export function maskCpf(val: string | null | undefined): string | null {
+  const digits = (val ?? "").replace(/\D/g, "");
+  if (digits.length !== 11) return val ? "***.***.***-**" : null;
+  return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
+}
+
+/** E-mail para exibição: j***@dominio.com. */
+export function maskEmail(val: string | null | undefined): string | null {
+  if (!val) return null;
+  const [user, domain] = val.split("@");
+  if (!domain) return "***";
+  return `${user.slice(0, 1)}***@${domain}`;
+}
