@@ -29,8 +29,8 @@ export function AcolhimentoPresencialDialog({
   const [patientFullName, setPatientFullName] = useState("");
   const [patientBirthDate, setPatientBirthDate] = useState("");
   const [patientCpf, setPatientCpf] = useState("");
-  const [patientSexo, setPatientSexo] = useState("M");
-  const [patientCid, setPatientCid] = useState("F84.0");
+  const [patientSexo, setPatientSexo] = useState("");
+  const [patientCid, setPatientCid] = useState("");
   const [patientSupportLevel, setPatientSupportLevel] = useState("");
   const [patientMedication, setPatientMedication] = useState("");
   const [patientAllergies, setPatientAllergies] = useState("");
@@ -43,13 +43,13 @@ export function AcolhimentoPresencialDialog({
   const [guardianRelationship, setGuardianRelationship] = useState("Mãe");
 
   // Form states - Convênio & Guia
-  const [insurerId, setInsurerId] = useState(insurers[0]?.id || "");
+  const [insurerId, setInsurerId] = useState("");
   const [planName, setPlanName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [cardValidUntil, setCardValidUntil] = useState("");
   const [guideNumber, setGuideNumber] = useState("");
-  const [procedureCode, setProcedureCode] = useState("40101010");
-  const [sessionsAuthorized, setSessionsAuthorized] = useState<number>(10);
+  const [procedureCode, setProcedureCode] = useState("");
+  const [sessionsAuthorized, setSessionsAuthorized] = useState("");
   const [validFrom, setValidFrom] = useState(new Date().toISOString().slice(0, 10));
   const [validTo, setValidTo] = useState("");
   const [authorizationPassword, setAuthorizationPassword] = useState("");
@@ -70,19 +70,19 @@ export function AcolhimentoPresencialDialog({
     setPatientFullName("");
     setPatientBirthDate("");
     setPatientCpf("");
-    setPatientSexo("M");
-    setPatientCid("F84.0");
+    setPatientSexo("");
+    setPatientCid("");
     setGuardianFullName("");
     setGuardianPhone("");
     setGuardianCpf("");
     setGuardianRelationship("Mãe");
-    setInsurerId(insurers[0]?.id || "");
+    setInsurerId("");
     setPlanName("");
     setCardNumber("");
     setCardValidUntil("");
     setGuideNumber("");
-    setProcedureCode("40101010");
-    setSessionsAuthorized(10);
+    setProcedureCode("");
+    setSessionsAuthorized("");
     setValidFrom(new Date().toISOString().slice(0, 10));
     setValidTo("");
     setAuthorizationPassword("");
@@ -124,7 +124,7 @@ export function AcolhimentoPresencialDialog({
       cardValidUntil: cardValidUntil || undefined,
       guideNumber,
       procedureCode: procedureCode || undefined,
-      sessionsAuthorized: Number(sessionsAuthorized) || 10,
+      sessionsAuthorized: Number(sessionsAuthorized),
       validFrom: validFrom || undefined,
       validTo: validTo || undefined,
       authorizationPassword: authorizationPassword || undefined,
@@ -304,13 +304,15 @@ export function AcolhimentoPresencialDialog({
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Sexo
+                          Sexo *
                         </label>
                         <select
+                          required
                           value={patientSexo}
                           onChange={(e) => setPatientSexo(e.target.value)}
                           className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs focus:border-amber-500 focus:outline-none bg-white"
                         >
+                          <option value="">Selecione…</option>
                           <option value="M">Masculino</option>
                           <option value="F">Feminino</option>
                           <option value="Outro">Outro</option>
@@ -462,7 +464,7 @@ export function AcolhimentoPresencialDialog({
                           onChange={(e) => setInsurerId(e.target.value)}
                           className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs focus:border-amber-500 focus:outline-none bg-white"
                         >
-                          {insurers.length === 0 && <option value="">Selecione o plano de saúde</option>}
+                          <option value="">Selecione…</option>
                           {insurers.map((ins) => (
                             <option key={ins.id} value={ins.id}>
                               {ins.name || ins.full_name}
@@ -513,10 +515,11 @@ export function AcolhimentoPresencialDialog({
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Código do Procedimento
+                          Código do Procedimento *
                         </label>
                         <input
                           type="text"
+                          required
                           value={procedureCode}
                           onChange={(e) => setProcedureCode(e.target.value)}
                           placeholder="Ex: 40101010"
@@ -526,12 +529,14 @@ export function AcolhimentoPresencialDialog({
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Sessões Autorizadas
+                          Sessões Autorizadas *
                         </label>
                         <input
                           type="number"
+                          required
+                          min={1}
                           value={sessionsAuthorized}
-                          onChange={(e) => setSessionsAuthorized(Number(e.target.value))}
+                          onChange={(e) => setSessionsAuthorized(e.target.value)}
                           placeholder="10"
                           className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs focus:border-amber-500 focus:outline-none"
                         />

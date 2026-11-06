@@ -101,6 +101,12 @@ export async function createPresencialAcolhimentoAction(
     if (!input.guideNumber.trim()) {
       return { success: false, error: "Número da guia autorizada é obrigatório." };
     }
+    if (!input.procedureCode?.trim()) {
+      return { success: false, error: "Código do procedimento é obrigatório." };
+    }
+    if (!input.sessionsAuthorized || input.sessionsAuthorized < 1) {
+      return { success: false, error: "Informe as sessões autorizadas." };
+    }
 
     const phoneE164 = normalizePhone(input.guardianPhone) || input.guardianPhone.trim();
 
@@ -175,8 +181,8 @@ export async function createPresencialAcolhimentoAction(
         .insert({
           patient_insurance_id: patientInsurance.id,
           guide_number: input.guideNumber.trim(),
-          procedure_code: input.procedureCode?.trim() || "40101010",
-          sessions_authorized: input.sessionsAuthorized || 10,
+          procedure_code: input.procedureCode!.trim(),
+          sessions_authorized: input.sessionsAuthorized,
           sessions_used: 0,
           valid_from: input.validFrom || todayIso,
           valid_to: input.validTo || "2099-12-31",
@@ -266,7 +272,7 @@ export async function createPresencialAcolhimentoAction(
         card_valid_until: input.cardValidUntil || null,
         guide_number: input.guideNumber.trim(),
         procedure_code: input.procedureCode?.trim() || null,
-        sessions_authorized: input.sessionsAuthorized || 10,
+        sessions_authorized: input.sessionsAuthorized,
         valid_from: input.validFrom || null,
         valid_to: input.validTo || null,
         authorization_password: input.authorizationPassword?.trim() || null,

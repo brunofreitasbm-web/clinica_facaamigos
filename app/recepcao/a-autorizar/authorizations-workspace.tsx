@@ -737,35 +737,42 @@ export function AuthorizationsWorkspace({
                   className={`overflow-hidden rounded-2xl border bg-white shadow-2xs transition-all ${config.borderClass}`}
                   aria-labelledby={`board-${category}`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setOpenBoards((prev) => ({ ...prev, [category]: !prev[category] }))}
-                    className={`flex w-full items-center justify-between px-3.5 py-3 text-left transition-colors ${config.bgHeaderClass}`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                  {/* Cabeçalho é div: HelpHint (button) não pode ficar dentro de button. */}
+                  <div className={`flex w-full items-center gap-2 px-3.5 py-3 transition-colors ${config.bgHeaderClass}`}>
+                    <button
+                      type="button"
+                      id={`board-${category}`}
+                      aria-expanded={isOpen}
+                      onClick={() => setOpenBoards((prev) => ({ ...prev, [category]: !prev[category] }))}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                    >
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/80 shadow-2xs">
                         <Icon className={`h-4 w-4 ${config.textClass}`} />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className={`m-0 truncate text-xs font-bold uppercase tracking-wider ${config.textClass}`}>
-                            {config.title}
-                          </h3>
-                          <span
-                            className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold ${config.badgeClass}`}
-                          >
-                            {list.length}
-                          </span>
-                          <HelpHint text={config.description} label={`Ajuda: ${config.title}`} side="bottom" />
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronDown
-                      className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${
-                        isOpen ? "rotate-0" : "-rotate-90"
-                      }`}
-                    />
-                  </button>
+                      <h3 className={`m-0 truncate text-xs font-bold uppercase tracking-wider ${config.textClass}`}>
+                        {config.title}
+                      </h3>
+                      <span
+                        className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold ${config.badgeClass}`}
+                      >
+                        {list.length}
+                      </span>
+                    </button>
+                    <HelpHint text={config.description} label={`Ajuda: ${config.title}`} side="bottom" />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      aria-hidden
+                      onClick={() => setOpenBoards((prev) => ({ ...prev, [category]: !prev[category] }))}
+                      className="shrink-0"
+                    >
+                      <ChevronDown
+                        className={`h-4 w-4 text-slate-500 transition-transform ${
+                          isOpen ? "rotate-0" : "-rotate-90"
+                        }`}
+                      />
+                    </button>
+                  </div>
 
                   {isOpen && (
                     <ul className="m-0 list-none divide-y divide-slate-100 p-0">

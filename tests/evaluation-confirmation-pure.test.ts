@@ -45,3 +45,17 @@ test("o corpo do template de abertura no script é idêntico ao texto do app", a
   const body = eval(match[1].replace("BRAND_LINE", '"FaçaAmigos - Centro de Terapia Comportamental"')) as string;
   assert.equal(body, CONTACT_OPENER_MESSAGE);
 });
+
+import { isDuplicateEvaluationNotice, isEvaluationSessionPast } from "../lib/evaluation-confirmation-pure.ts";
+
+test("sessão já iniciada não recebe confirmação", () => {
+  const now = new Date("2026-11-06T13:34:00Z");
+  assert.equal(isEvaluationSessionPast(new Date("2026-11-06T12:40:00Z"), now), true);
+  assert.equal(isEvaluationSessionPast(new Date("2026-11-06T15:00:00Z"), now), false);
+});
+
+test("mesmo texto para o mesmo agendamento é duplicado; falho ou texto diferente não", () => {
+  assert.equal(isDuplicateEvaluationNotice([{ body: "A", delivery_status: "sent" }], "A"), true);
+  assert.equal(isDuplicateEvaluationNotice([{ body: "A", delivery_status: "failed" }], "A"), false);
+  assert.equal(isDuplicateEvaluationNotice([{ body: "A", delivery_status: "sent" }], "B"), false);
+});

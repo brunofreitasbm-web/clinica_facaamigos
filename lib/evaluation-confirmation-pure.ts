@@ -48,3 +48,20 @@ export function buildEvaluationRescheduleMessage(params: {
     BRAND_LINE
   );
 }
+
+/** Confirmação de sessão que já começou não faz sentido: o aviso sairia depois do horário. */
+export function isEvaluationSessionPast(sessionStartUtc: Date, now: Date): boolean {
+  return sessionStartUtc.getTime() <= now.getTime();
+}
+
+/**
+ * Idempotência por agendamento + tipo de mensagem: já existe aviso outbound do
+ * mesmo texto (confirmação ou remarcação) para esse agendamento, não falho?
+ * Remarcação para outra data muda o texto, então não é bloqueada.
+ */
+export function isDuplicateEvaluationNotice(
+  existing: ReadonlyArray<{ body: string | null; delivery_status: string | null }>,
+  body: string,
+): boolean {
+  return existing.some((m) => m.body === body && m.delivery_status !== "failed");
+}

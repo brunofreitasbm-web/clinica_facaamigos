@@ -6,7 +6,11 @@ import {
   buildEvaluationConfirmationMessage,
   buildEvaluationRescheduleMessage,
   formatEvaluationDateShort,
+  isDuplicateEvaluationNotice,
+  isEvaluationSessionPast,
 } from "@/lib/evaluation-confirmation-pure";
+import { zonedDateTimeToUtc } from "@/lib/timezone";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { pickEvaluationRecipient } from "@/lib/evaluation-recipient-pure";
 
 /** Resultado do aviso: a supervisão precisa saber quando o responsável NÃO foi avisado. */
@@ -130,6 +134,24 @@ export async function sendEvaluationConfirmationNotification(
     const message = params.isReschedule
       ? buildEvaluationRescheduleMessage(messageParams)
       : buildEvaluationConfirmationMessage(messageParams);
+
+    // Horário já passado: não avisa (a confirmação chegaria depois da sessão).
+    if (isEvaluationSessionPast(zonedDateTimeToUtc(params.date, params.time, CLINIC_TIMEZONE), new Date())) {
+      return { sent: false, reason: "O horário da avaliação já passou; confirmação não enviada." };
+    }
+
+    // Idempotência: mesmo agendamento + mesmo texto já enviado = não reenvia.
+    if (params.appointmentId) {
+      const { data: previous } = await admin
+        .from("messages")
+        .select("body, delivery_status")
+        .eq("related_appointment_id", params.appointmentId)
+        .eq("direction", "outbound")
+        .eq("sender_type", "bot");
+      if (isDuplicateEvaluationNotice(previous ?? [], message)) {
+        return { sent: true };
+      }
+    }
 
     // Antes nada ficava registrado: falha de envio (ex.: fora da janela de 24h
     // sem template) era invisível pra supervisão e pra Recepção.

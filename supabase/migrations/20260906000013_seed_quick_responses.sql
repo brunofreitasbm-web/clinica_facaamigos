@@ -4,7 +4,7 @@
 -- neste ambiente, então o select em `clinics` sempre resolve para ela.
 
 insert into quick_responses (clinic_id, shortcut, title, content_text)
-select id, '/endereco', 'Endereço', 'Estamos localizados na Rua Exemplo, 123 - Bairro, Cidade/UF. Em frente ao portão principal há vagas de estacionamento para pacientes.'
+select id, '/endereco', 'Endereço', 'Estamos na Rua Boaventura da Silva, 1573, Umarizal, Belém/PA, entre a Alcindo Cacela e a 9 de Janeiro.'
 from clinics
 on conflict (clinic_id, shortcut) do nothing;
 
