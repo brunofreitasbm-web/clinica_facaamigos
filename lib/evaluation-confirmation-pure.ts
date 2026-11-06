@@ -4,7 +4,7 @@
 // `node --test --experimental-strip-types` (tests/evaluation-confirmation-pure.test.ts).
 // O texto do template aprovado na Meta (scripts/create-eval-offer-template.ts,
 // CONFIRM_BODY) precisa ser idêntico a este, com {{1}} = responsável, {{2}} = criança,
-// {{3}} = data curta, {{4}} = profissional.
+// {{3}} = data curta. Nenhuma mensagem cita o nome do profissional.
 
 const BRAND_LINE = "FaçaAmigos - Centro de Terapia Comportamental";
 
@@ -22,12 +22,11 @@ export function buildEvaluationConfirmationMessage(params: {
   guardianFirstName: string;
   patientName: string;
   formattedDate: string;
-  therapistName: string;
 }): string {
   return (
     `Olá, ${params.guardianFirstName}! 💙\n\n` +
     "✅ Agendamento confirmado!\n" +
-    `A 1ª avaliação de ${params.patientName} será em ${params.formattedDate}, com ${params.therapistName}.\n\n` +
+    `A 1ª avaliação de ${params.patientName} será em ${params.formattedDate}.\n\n` +
     "⏰ Chegue 15 minutos antes.\n" +
     "📂 Traga documento com foto e laudos, exames ou relatórios anteriores.\n\n" +
     BRAND_LINE
@@ -39,12 +38,11 @@ export function buildEvaluationRescheduleMessage(params: {
   guardianFirstName: string;
   patientName: string;
   formattedDate: string;
-  therapistName: string;
 }): string {
   return (
     `Olá, ${params.guardianFirstName}! 💙\n\n` +
     "🔄 A data da avaliação foi alterada.\n" +
-    `A 1ª avaliação de ${params.patientName} agora será em ${params.formattedDate}, com ${params.therapistName}.\n\n` +
+    `A 1ª avaliação de ${params.patientName} agora será em ${params.formattedDate}.\n\n` +
     "⏰ Chegue 15 minutos antes.\n" +
     "📂 Traga documento com foto e laudos, exames ou relatórios anteriores.\n\n" +
     BRAND_LINE

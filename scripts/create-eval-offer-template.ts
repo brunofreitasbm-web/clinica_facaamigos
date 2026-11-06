@@ -6,7 +6,7 @@
 //
 //   offer     "O plano autorizou o atendimento de {{2}} — podemos agendar?"     [Quero agendar] [Agora não]
 //   reminder  lembrete com 24h sem resposta                                      [Ver horários]  [Agora não]
-//   confirm   confirmação final do horário + orientações do dia (v2)             (sem botões — mensagem final)
+//   confirm   confirmação final do horário + orientações do dia (v3, sem nome do profissional)             (sem botões — mensagem final)
 //   list      menu com 3 horários — mensagem de SESSÃO (janela de 24h aberta pela
 //             resposta do responsável): é criada, mas não passa pela Meta.
 //
@@ -73,11 +73,11 @@ const REMINDER_BODY =
   BRAND_LINE;
 
 // Confirmação única (já com as orientações do dia). Idêntico a
-// lib/evaluation-confirmation-pure.ts::buildEvaluationConfirmationMessage; {{3}} = data curta ("sex, 30/10 às 14h30").
+// lib/evaluation-confirmation-pure.ts::buildEvaluationConfirmationMessage; {{3}} = data curta ("sex, 30/10 às 14h30"). Sem nome de profissional.
 const CONFIRM_BODY =
   "Olá, {{1}}! 💙\n\n" +
   "✅ Agendamento confirmado!\n" +
-  "A 1ª avaliação de {{2}} será em {{3}}, com {{4}}.\n\n" +
+  "A 1ª avaliação de {{2}} será em {{3}}.\n\n" +
   "⏰ Chegue 15 minutos antes.\n" +
   "📂 Traga documento com foto e laudos, exames ou relatórios anteriores.\n\n" +
   BRAND_LINE;
@@ -133,12 +133,12 @@ const TEMPLATES: Template[] = [
   },
   {
     key: "confirm",
-    // v2: texto novo = template novo na Meta (o v1 aprovado não pode ser editado).
-    metaName: "fa_clinica_avaliacao_confirmada_v2",
-    friendlyName: "fa_clinica_avaliacao_confirmada_v2",
+    // v3: texto novo = template novo na Meta (o v2 aprovado não pode ser editado).
+    metaName: "fa_clinica_avaliacao_confirmada_v3",
+    friendlyName: "fa_clinica_avaliacao_confirmada_v3",
     envVar: "TWILIO_EVAL_CONFIRM_TEMPLATE_CONTENT_SID",
     needsApproval: true,
-    variables: { "1": "Nome do responsável", "2": "Nome da criança", "3": "Data e horário", "4": "Profissional" },
+    variables: { "1": "Nome do responsável", "2": "Nome da criança", "3": "Data e horário" },
     types: { "twilio/text": { body: CONFIRM_BODY } },
     preview: CONFIRM_BODY,
   },

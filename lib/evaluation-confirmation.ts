@@ -116,17 +116,7 @@ export async function sendEvaluationConfirmationNotification(
       return { sent: false, reason: "Sem telefone do responsável cadastrado." };
     }
 
-    // 2. Buscar detalhes do terapeuta e da sala
-    let therapistName = "";
-
-    if (params.therapistId) {
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("full_name")
-        .eq("id", params.therapistId)
-        .maybeSingle();
-      if (profile?.full_name) therapistName = profile.full_name;
-    }
+    // 2. (O nome do profissional não vai na mensagem ao responsável.)
 
     // 3. Data/hora curta ("sex, 30/10 às 14h30"); `date`/`time` já estão no fuso da clínica.
     const formattedDate = formatEvaluationDateShort(params.date, params.time);
@@ -136,7 +126,6 @@ export async function sendEvaluationConfirmationNotification(
       guardianFirstName: guardianFirstName || "família",
       patientName,
       formattedDate,
-      therapistName: therapistName || "equipe FaçaAmigos",
     };
     const message = params.isReschedule
       ? buildEvaluationRescheduleMessage(messageParams)
@@ -173,13 +162,12 @@ export async function sendEvaluationConfirmationNotification(
       ...(contentSid
         ? {
             contentSid,
-            // Template `fa_clinica_avaliacao_confirmada_v2` (scripts/create-eval-offer-template.ts):
-            // 1 = primeiro nome do responsável, 2 = criança, 3 = data curta, 4 = profissional.
+            // Template `fa_clinica_avaliacao_confirmada_v3` (scripts/create-eval-offer-template.ts):
+            // 1 = primeiro nome do responsável, 2 = criança, 3 = data curta.
             contentVariables: {
               "1": messageParams.guardianFirstName,
               "2": patientName,
               "3": formattedDate,
-              "4": messageParams.therapistName,
             },
           }
         : {}),
