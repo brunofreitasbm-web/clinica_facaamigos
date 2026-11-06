@@ -79,6 +79,10 @@ export type EvaluationCalendarAppointment = {
   startsAt: string;
   endsAt: string;
   isProvisional?: boolean;
+  /** appointments.status — avaliação já realizada/confirmada nunca é "pendente", mesmo com is_provisional=true. */
+  status?: string;
+  confirmedAt?: string | null;
+  checkinAt?: string | null;
   /** Presente quando o horário foi escolhido pelo responsável na oferta automática do WhatsApp e aguarda o OK da Supervisão. */
   offerId?: string;
   /** Quando o responsável escolheu (ISO) — a agenda destaca escolhas recentes. */
@@ -547,7 +551,7 @@ export async function getEvaluationCalendarAppointments(
   const { data } = await supabase
     .from("appointments")
     .select(
-      "id, starts_at, ends_at, patient_id, therapist_id, room_id, is_provisional, is_family_meeting, is_patient_feedback, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
+      "id, starts_at, ends_at, patient_id, therapist_id, room_id, is_provisional, status, confirmed_at, checkin_at, is_family_meeting, is_patient_feedback, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)",
     )
     .or("is_evaluation.eq.true,is_family_meeting.eq.true,is_patient_feedback.eq.true")
     .gte("starts_at", weekStartIso)
@@ -603,6 +607,9 @@ export async function getEvaluationCalendarAppointments(
       startsAt: a.starts_at,
       endsAt: a.ends_at,
       isProvisional: Boolean(a.is_provisional),
+      status: a.status,
+      confirmedAt: a.confirmed_at,
+      checkinAt: a.checkin_at,
       offerId: offerByAppointment.get(a.id)?.id,
       chosenAt: offerByAppointment.get(a.id)?.chosen_at ?? undefined,
     };

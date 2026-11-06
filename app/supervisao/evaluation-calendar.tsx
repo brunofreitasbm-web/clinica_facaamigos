@@ -36,6 +36,7 @@ import type {
 } from "@/lib/evaluation-agenda";
 import { EvaluationQuickViewPanel } from "./evaluation-quick-view";
 import { AlertTriangle, CheckCircle } from "lucide-react";
+import { aguardaConfirmacao } from "@/lib/evaluation-pending-pure";
 import { isLiveOffer, offerBadge, type OfferBadge } from "@/lib/evaluation-offer-badge-pure";
 
 /**
@@ -646,7 +647,7 @@ function EditAppointmentDialog({
           </p>
         </div>
 
-        {appointment.isProvisional && onConfirmProvisional && (
+        {aguardaConfirmacao(appointment) && onConfirmProvisional && (
           <div className="mt-4 rounded-lg border-2 border-amber-400 bg-amber-50/90 p-3.5 shadow-xs">
             <div className="flex items-center gap-2.5 text-amber-950">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white shadow-xs">
@@ -1648,23 +1649,23 @@ export function EvaluationCalendar({
                             e.dataTransfer.setData("application/json", JSON.stringify(payload));
                           }}
                           className={`grid-cell-focusable absolute left-1 right-1 cursor-pointer overflow-hidden rounded-[14px] p-2 text-xs shadow-xs hover:ring-2 active:cursor-grabbing transition-all hover:scale-[1.01] ${
-                            a.isProvisional
+                            aguardaConfirmacao(a)
                               ? "border-2 border-amber-500 bg-[#fff9eb] ring-2 ring-amber-400/50 hover:ring-amber-500 shadow-md"
                               : "border border-[#4a6358] bg-[#fdf6e9] hover:ring-chart/50"
                           } ${flashIds.has(a.id) ? "animate-pulse ring-4 ring-amber-500" : ""}`}
                           style={{
                             top,
                             height,
-                            background: a.isProvisional ? "#fff9eb" : "#fdf6e9",
-                            borderColor: a.isProvisional ? "#f59e0b" : "#4a6358",
+                            background: aguardaConfirmacao(a) ? "#fff9eb" : "#fdf6e9",
+                            borderColor: aguardaConfirmacao(a) ? "#f59e0b" : "#4a6358",
                           }}
                           title={`${a.patientName} · ${timeLabel(a.startsAt, CLINIC_TIMEZONE)} · ${a.therapistName} · ${a.roomName}${
-                            a.isProvisional ? " (⏳ Aguardando aprovação do supervisor — clique para confirmar e enviar WhatsApp)" : ""
+                            aguardaConfirmacao(a) ? " (⏳ Aguardando aprovação do supervisor — clique para confirmar e enviar WhatsApp)" : ""
                           } — clique para editar/confirmar/desmarcar`}
                         >
                           <div className="flex items-center justify-between gap-1 leading-snug">
                             <p className="truncate font-bold text-slate-900 text-[12px]">{a.patientName}</p>
-                            {a.isProvisional && (
+                            {aguardaConfirmacao(a) && (
                               <span className="shrink-0 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-xs animate-pulse">
                                 ⚡ PENDENTE
                               </span>
@@ -1673,7 +1674,7 @@ export function EvaluationCalendar({
                           <p className="truncate text-slate-700 text-[11px] mt-0.5 font-medium">
                             {timeLabel(a.startsAt, CLINIC_TIMEZONE)} · {a.therapistName}
                           </p>
-                          {a.isProvisional && (
+                          {aguardaConfirmacao(a) && (
                             <div className="mt-1 flex items-center justify-between gap-1 rounded bg-amber-200/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-950 border border-amber-300">
                               <span className="flex items-center gap-1 truncate">
                                 👉 Clique p/ confirmar
