@@ -17,8 +17,8 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
         description={draftReviewDescription(data.draft)} descriptionVisible
       />
       <PageContainer>
-        <Link href="/recepcao/pacientes/pendencias" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
-          ← Fila de pendências
+        <Link href="/recepcao/a-autorizar" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
+          ← Voltar para Autorizações
         </Link>
         <DraftReviewBody data={data} />
       </PageContainer>
