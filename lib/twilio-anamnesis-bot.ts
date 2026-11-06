@@ -652,7 +652,7 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
       replyMessage:
         "Vamos agendar a avaliação! 🧩\n\n" +
         "Qual o seu *nome completo* (responsável)?\n\n" +
-        "_Para falar com a equipe a qualquer momento, responda ATENDENTE. Para voltar ao menu, responda VOLTAR._",
+        "_Para voltar ao menu, responda VOLTAR._",
     };
   }
 
@@ -770,7 +770,7 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
         handled: true,
         replyMessage:
           `Já identificamos que o atendimento é pelo plano *${answer.known.name}*, então não conseguimos seguir como particular por aqui. 💙\n\n` +
-          `Responda *${answer.known.name}* para continuar. Para falar com a equipe, responda *ATENDENTE*.`,
+          `Responda *${answer.known.name}* para continuar. Para voltar ao menu, responda *VOLTAR*.`,
       };
     }
 
@@ -790,8 +790,8 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
         replyMessage:
           `No momento não atendemos *${answer.typed}* pelo convênio — atendemos ${insurerList(insurers)}. 💙\n\n` +
           (known
-            ? "Para falar com a equipe, responda *ATENDENTE*."
-            : "Se quiser seguir pelo particular, responda *PARTICULAR*. Para falar com a equipe, responda *ATENDENTE*."),
+            ? "Para voltar ao menu, responda *VOLTAR*."
+            : "Se quiser seguir pelo particular, responda *PARTICULAR*. Para voltar ao menu, responda *VOLTAR*."),
       };
     }
 

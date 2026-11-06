@@ -56,7 +56,6 @@ export const PARTICULAR_MENU_OPTIONS: MenuOption[] = [
   { id: "part_como_funciona", title: "Como funciona", description: "Da avaliação às sessões" },
   { id: "part_valores", title: "Valores das sessões", description: "Planos mensais" },
   { id: "part_agendar", title: "Agendar avaliação", description: "Nossa equipe marca para você" },
-  { id: "part_humano", title: "Falar com atendente", description: "Atendimento humano" },
   { id: "nav_back", title: "↩ Voltar ao menu" },
 ];
 
@@ -301,7 +300,7 @@ export function buildPlanoIntro(insurerNames: string[]): string {
     `Que bom! 💙 Atendemos ${list}. Vou te ajudar a pedir a autorização da guia junto ao plano: ` +
     "preciso de alguns dados da criança e de fotos do laudo (ou pedido médico), da carteirinha e do RG ou CNH do responsável. 🧩\n\n" +
     "Qual o seu *nome completo* (responsável)?\n\n" +
-    "_Para voltar ao menu, responda VOLTAR. Para falar com a equipe, responda ATENDENTE._"
+    "_Para voltar ao menu, responda VOLTAR._"
   );
 }
 
@@ -310,6 +309,6 @@ export function buildConhecerMessage(params: { address?: string | null; mapsUrl?
   if (params.address) parts.push(`📍 ${params.address}`);
   if (params.mapsUrl) parts.push(`Como chegar: ${params.mapsUrl}`);
   if (params.hours) parts.push(`🕐 ${params.hours}`);
-  parts.push("Para agendar uma visita, responda *ATENDENTE* e a nossa equipe combina com você. 🤝\n\n" + BACK_TO_MENU_FOOTER);
+  parts.push("Para agendar uma visita, volte ao menu (responda *VOLTAR*) e escolha *Outros assuntos*: a nossa equipe combina com você. 🤝\n\n" + BACK_TO_MENU_FOOTER);
   return parts.join("\n\n");
 }

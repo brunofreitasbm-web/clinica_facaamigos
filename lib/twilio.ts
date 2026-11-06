@@ -963,13 +963,12 @@ export async function handleTwilioIncomingMessage(params: {
     intent: "atendimento_geral",
     replyMessage:
       "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩\n\n" +
-      "• Para ver as opções, responda *MENU*.\n" +
-      "• Para falar com a equipe, responda *ATENDENTE*.\n\n" +
+      "• Para ver as opções, responda *MENU*.\n\n" +
       "Ou escreva sua dúvida por aqui! ✨",
   };
 }
 
 const FALLBACK_SHORT_REPLY =
-  "Não consegui responder agora. 💙 Para ver as opções, responda *MENU*; para falar com a equipe, responda *ATENDENTE*.";
+  "Não consegui responder agora. 💙 Para ver as opções, responda *MENU*.";
 
 
