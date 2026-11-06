@@ -14,7 +14,7 @@ export default async function BonificacaoPage() {
       <PageContainer>
         <div>
           <h1 className="text-2xl font-bold text-ink">
-            Metrificação, PLR e Progressão de Faixas (PJ)
+            Pessoas & Desempenho: PLR e progressão de faixas (PJ)
           </h1>
           <p className="text-sm text-ink-soft">
             Indicadores calculados ao vivo sobre o mês corrente. No dia 1 de cada mês o

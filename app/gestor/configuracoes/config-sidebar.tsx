@@ -16,7 +16,7 @@ import { SectionSidebar } from "@/components/section-sidebar";
 const SIDEBAR_ITEMS = [
   { key: "dados-da-clinica", label: "Dados da Clínica", href: "/gestor/configuracoes/dados-da-clinica" },
   { key: "prioridades", label: "Regras de Agendamento", href: "/gestor/configuracoes/prioridades-avaliacao" },
-  { key: "profissionais", label: "Contratos & Valor-hora", href: "/gestor/configuracoes/profissionais" },
+  { key: "profissionais", label: "Contratos & Valor por módulo", href: "/gestor/configuracoes/profissionais" },
   { key: "usuarios", label: "Usuários & Permissões", href: "/gestor/cadastros/colaboradores", external: true },
   { key: "cupom-checkin", label: "Cupom de Check-in", href: "/gestor/configuracoes/cupom-checkin" },
 ] as const;

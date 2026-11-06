@@ -8,7 +8,7 @@ const ITEMS = [
   { key: "bonificacao", label: "PLR & Desempenho", href: "/gestor/bonificacao" },
   { key: "bonificacao-config", label: "Configurar & Simular", href: "/gestor/bonificacao/config" },
   { key: "metas", label: "Metas por Cargo", href: "/gestor/metas" },
-  { key: "faixas", label: "Contratos & Valor-hora", href: "/gestor/configuracoes/profissionais" },
+  { key: "faixas", label: "Contratos & Valor por módulo", href: "/gestor/configuracoes/profissionais" },
 ] as const;
 
 export function EquipeSubnav({ activeTab }: EquipeSubnavProps) {
