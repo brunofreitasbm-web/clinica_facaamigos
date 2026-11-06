@@ -30,20 +30,20 @@ export function NpsMetricsCards({
             {combinedScore10 ?? "—"}
           </span>
           <span className="text-xs text-ink-faint">
-            {combinedResponseCount ?? 0} respostas · Twilio + Avalie (família)
+            {combinedResponseCount ?? 0} respostas · WhatsApp + Avalie (família)
           </span>
         </div>
       )}
 
       <div className="card min-w-[180px]">
-        <span className="card-kicker">Satisfação Twilio (CSAT 1-5)</span>
+        <span className="card-kicker">Satisfação via WhatsApp (nota 1 a 5)</span>
         <span className="text-3xl font-bold text-ink" style={{ fontFamily: "var(--font-heading)" }}>
           {avgScore ? `${avgScore} ★` : "—"}
         </span>
       </div>
 
       <div className="card min-w-[180px]">
-        <span className="card-kicker">Respostas Twilio no mês</span>
+        <span className="card-kicker">Respostas via WhatsApp no mês</span>
         <span className="text-3xl font-bold text-ink" style={{ fontFamily: "var(--font-heading)" }}>
           {responseCount}
         </span>

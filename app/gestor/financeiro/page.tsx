@@ -60,11 +60,11 @@ export default async function GestorFinanceiroPage() {
           <span className="card-body">não recuperadas</span>
         </div>
         <div className="card">
-          <span className="card-kicker">DSO médio</span>
+          <span className="card-kicker">Prazo médio de recebimento</span>
           <span className="card-title tabular-figure" style={{ fontSize: 26 }}>
             {kpis.dsoMedioDias != null ? `${kpis.dsoMedioDias}d` : "—"}
           </span>
-          <span className="card-body">envio até pagamento</span>
+          <span className="card-body">dias do envio da cobrança até o pagamento</span>
         </div>
       </section>
 

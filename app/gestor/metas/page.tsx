@@ -40,7 +40,7 @@ export default async function MetasPage() {
           <h1 className="text-2xl font-bold text-ink">Metas por cargo</h1>
           <p className="text-sm text-ink-soft">
             Cadastre meta e peso por métrica e cargo. O atingimento compara com o último mês
-            fechado em `metric_snapshots` (job `close_monthly_metric_snapshots`, dia 1) — métricas
+            fechado (congelado no dia 1 de cada mês) — métricas
             que ainda não têm pipeline de cálculo aparecem como &quot;sem cálculo ainda&quot;, nunca
             com número inventado.
           </p>

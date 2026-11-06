@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getPatientRows } from "../data";
 import { PageContainer } from "@/components/page-container";
+import { PATIENT_STATUS_LABEL } from "@/lib/patient-status";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function PacientesPage() {
         </div>
 
         <PageContainer>
+          <div className="overflow-x-auto">
           <table className="table">
             <thead>
               <tr>
@@ -56,7 +58,7 @@ export default async function PacientesPage() {
                   <td>{p.insurerName}</td>
                   <td>{p.primaryTherapistName}</td>
                   <td>
-                    <span className={`tag-status ${PATIENT_STATUS_TAG[p.status] ?? "st-cancelada"}`}>{p.status}</span>
+                    <span className={`tag-status ${PATIENT_STATUS_TAG[p.status] ?? "st-cancelada"}`}>{PATIENT_STATUS_LABEL[p.status] ?? p.status}</span>
                   </td>
                   <td className="text-right">
                     <QuickActionsBar
@@ -76,6 +78,7 @@ export default async function PacientesPage() {
               )}
             </tbody>
           </table>
+          </div>
         </PageContainer>
       </div>
     </>

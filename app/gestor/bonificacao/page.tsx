@@ -17,9 +17,10 @@ export default async function BonificacaoPage() {
             Metrificação, PLR e Progressão de Faixas (PJ)
           </h1>
           <p className="text-sm text-ink-soft">
-            Indicadores calculados ao vivo sobre o mês corrente. O job mensal
-            `close_monthly_metric_snapshots` (dia 1) grava as métricas congeladas em
-            `metric_snapshots`. Abaixo você pode gerar o extrato oficial de PLR em PDF (Lei 10.101/2000) com apuração ponderada.
+            Indicadores calculados ao vivo sobre o mês corrente. No dia 1 de cada mês o
+            sistema congela os valores do mês anterior. Abaixo você pode gerar o extrato de
+            PLR em PDF (Lei 10.101/2000) com apuração ponderada. Revise a regra de cálculo
+            com o jurídico antes de qualquer pagamento.
           </p>
         </div>
 
@@ -34,7 +35,7 @@ export default async function BonificacaoPage() {
             </span>
             <h2 className="text-lg font-bold text-ink">Histórico de meses fechados</h2>
             <p className="text-xs text-ink-soft mt-1">
-              Gravado no dia 1 de cada mês pelo job `close_monthly_metric_snapshots` — diferente da
+              Gravado automaticamente no dia 1 de cada mês — diferente da
               seção acima (que recalcula o mês em andamento a cada carregamento), isto é o valor
               congelado do mês já fechado, auditável.
             </p>

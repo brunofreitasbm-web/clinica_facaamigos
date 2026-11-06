@@ -133,7 +133,7 @@ export function ProfissionaisManager({ therapists }: { therapists: TherapistRow[
         <PageHeader
           axisLabel="Configurações"
           title="Contratos & Honorários por Módulo"
-          description="Honorário por Módulo Assistencial por terapeuta (therapist_contracts, cláusula 6ª do contrato-quadro PJ–PJ) — usado pelo fechamento mensal de repasse."
+          description="Honorário por Módulo Assistencial por terapeuta (cláusula 6ª do contrato-quadro PJ–PJ) — usado pelo fechamento mensal de repasse."
         />
         <PageContainer>
           <table className="table">

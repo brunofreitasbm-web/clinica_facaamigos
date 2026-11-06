@@ -76,7 +76,7 @@ export function NpsTabbedView({
               <h3 className="text-xs font-bold uppercase tracking-wider text-ink-soft">
                 Critérios Informativos de Avaliação Externa (Satisfação CSAT · 1 a 5 ★)
               </h3>
-              <span className="text-[11px] font-medium text-ink-faint">Painel de Referência (Não Clicável)</span>
+              <span className="text-[11px] font-medium text-ink-faint">Referência informativa</span>
             </div>
             <p className="mb-4 text-xs text-ink-faint">
               Critérios fixos avaliados continuamente via WhatsApp e Portal pelos pacientes e responsáveis.
@@ -150,7 +150,7 @@ export function NpsTabbedView({
             <div className="flex flex-col gap-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-md bg-blue-600 px-2 py-0.5 text-xs font-bold text-white uppercase tracking-wider">
-                  Disparo Automático via Chatbot Twilio (WhatsApp)
+                  Disparo automático via chatbot (WhatsApp)
                 </span>
                 <span className="rounded-md bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-800">
                   Público: Funcionários CLT e PJ (Exclui Estagiários)
@@ -164,7 +164,7 @@ export function NpsTabbedView({
               </h2>
               <p className="text-xs leading-relaxed text-blue-900 dark:text-blue-300">
                 Esta avaliação tem <strong>caráter exclusivo de melhoria contínua dos processos e suporte interno</strong>. 
-                O disparo é feito de forma automática no <strong>último dia útil de cada mês</strong> via Chatbot do Twilio para o número cadastrado dos colaboradores (contratos CLT e PJ). As respostas são registradas com total garantia de anonimato.
+                O disparo é feito de forma automática no <strong>último dia útil de cada mês</strong> via chatbot do WhatsApp para o número cadastrado dos colaboradores (contratos CLT e PJ). As respostas são registradas com total garantia de anonimato.
               </p>
             </div>
           </div>
@@ -175,7 +175,7 @@ export function NpsTabbedView({
               <h3 className="text-xs font-bold uppercase tracking-wider text-ink-soft">
                 Critérios Informativos de Avaliação Interna (Satisfação CSAT · 1 a 5 ★)
               </h3>
-              <span className="text-[11px] font-medium text-ink-faint">Painel de Referência (Não Clicável)</span>
+              <span className="text-[11px] font-medium text-ink-faint">Referência informativa</span>
             </div>
             <p className="mb-4 text-xs text-ink-faint">
               Avaliação do clima de trabalho, ferramentas e suporte fornecido pela gestão.

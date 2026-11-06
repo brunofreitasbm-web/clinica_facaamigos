@@ -585,7 +585,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 )}
               </div>
               <p className="mt-3 text-[11px] text-slate-400">
-                Somente cobranças de plano de saúde (billing_items); atendimento particular não é faturado por este módulo.
+                Somente cobranças de plano de saúde; atendimento particular não é faturado por este módulo.
               </p>
             </div>
           </div>
@@ -867,7 +867,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
             <h3 className="mb-1 text-base font-bold text-slate-900">Metas PLR vs. Realizado (últimos 6 meses)</h3>
             <p className="mb-4 text-xs text-slate-500">
-              Fechamentos mensais oficiais (metric_snapshots) comparados à meta cadastrada em cada cargo.
+              Fechamentos mensais oficiais comparados à meta cadastrada em cada cargo.
             </p>
             {metrics.plrTrend.rows.length > 0 ? (
               <div className="space-y-4">
