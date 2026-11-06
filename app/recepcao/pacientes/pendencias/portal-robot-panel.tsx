@@ -58,11 +58,12 @@ function SummaryList({ job }: { job: PortalRobotJobView }) {
   ];
   if (providerGuide) rows.push(["Nº guia prestador", providerGuide]);
   return (
-    <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[13px]">
+    // Rótulo em cima do valor: a coluna da etapa 2 é estreita e duas colunas espremiam o texto.
+    <dl className="m-0 flex flex-col text-[13px]">
       {rows.map(([k, v]) => (
-        <div key={k} className="contents">
-          <dt className="text-ink-soft">{k}</dt>
-          <dd className="m-0 break-words font-semibold text-ink">{v}</dd>
+        <div key={k} className="border-t border-paper-line-strong py-0.5 first:border-t-0">
+          <dt className="text-[12px] text-ink-soft">{k}</dt>
+          <dd className="m-0 font-semibold text-ink [overflow-wrap:anywhere]">{v}</dd>
         </div>
       ))}
     </dl>
