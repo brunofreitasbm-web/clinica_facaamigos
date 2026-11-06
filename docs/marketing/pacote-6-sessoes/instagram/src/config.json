@@ -1,0 +1,60 @@
+{
+  "_leia": "UNICO arquivo de configuracao. Troque plano.nome e rode: node render.mjs. Marcadores: {nome} = nome do plano, {plano} = 'plano <nome>'. Nao coloque preco, valor, desconto, forma de pagamento nem a palavra pacote em nenhum texto (o render recusa).",
+  "plano": { "nome": "Ritmo", "sessoes": 6 },
+  "handle": "@[PREENCHER]",
+  "cidade": "Belém · PA",
+  "assinaturaCTA": "Link na bio",
+
+  "carrosselA": {
+    "slides": [
+      { "tipo": "capa", "kicker": "{plano}", "titulo": "Rotina que cabe na semana", "sub": "Como seis sessões por mês podem se organizar na vida da família.", "alt": "Capa do carrossel. Fundo azul petróleo com formas coloridas em amarelo, turquesa e rosa. Título: Rotina que cabe na semana." },
+      { "tipo": "texto", "tema": "gelo", "kicker": "O desafio", "titulo": "Começar é um passo. Manter é outro.", "texto": "Escola, trabalho, transporte, descanso. Encaixar a terapia na semana da família também faz parte do cuidado.", "alt": "Slide em fundo claro. Título: Começar é um passo. Manter é outro. Texto sobre encaixar a terapia na semana da família, entre escola, trabalho, transporte e descanso." },
+      { "tipo": "seis", "tema": "petroleo", "kicker": "O plano", "titulo": "Seis sessões por mês", "texto": "O {plano} reúne 6 sessões mensais. A equipe indica, na avaliação, se esse é o número que faz sentido para cada criança.", "alt": "Slide azul petróleo com seis marcas coloridas arredondadas em fila, representando seis sessões no mês. Título: Seis sessões por mês." },
+      { "tipo": "chips", "tema": "gelo", "kicker": "Especialidades", "titulo": "Uma ou mais terapias no mesmo plano", "texto": "As sessões podem ser combinadas conforme o plano terapêutico da criança.", "chips": ["Fonoaudiologia", "Terapia ocupacional", "Psicologia"], "alt": "Slide em fundo claro com três etiquetas arredondadas: Fonoaudiologia, Terapia ocupacional e Psicologia. Título: Uma ou mais terapias no mesmo plano." },
+      { "tipo": "texto", "tema": "amarelo", "kicker": "Quem decide", "titulo": "A equipe define a distribuição", "texto": "A divisão das sessões ao longo do mês parte do Plano Terapêutico Singular, definido pela equipe na avaliação.", "alt": "Slide em fundo amarelo. Título: A equipe define a distribuição. Texto sobre o Plano Terapêutico Singular." },
+      { "tipo": "texto", "tema": "gelo", "kicker": "Agenda", "titulo": "Dias e horários conversados com você", "texto": "A rotina de cada família é diferente. A equipe conversa sobre o que cabe na semana de vocês.", "alt": "Slide em fundo claro. Título: Dias e horários conversados com você. Texto sobre respeitar a rotina de cada família." },
+      { "tipo": "texto", "tema": "petroleo", "kicker": "Acompanhamento", "titulo": "Tudo à mão no Portal da Família", "texto": "As sessões e o contato com a equipe ficam reunidos num só lugar.", "alt": "Slide azul petróleo. Título: Tudo à mão no Portal da Família. Texto sobre sessões e contato com a equipe reunidos." },
+      { "tipo": "cta", "titulo": "Quer conversar com a equipe?", "texto": "Chame a gente no WhatsApp pelo link na bio. A frequência é indicada na avaliação.", "alt": "Slide final azul petróleo com botão rosa escrito Link na bio. Título: Quer conversar com a equipe?" }
+    ]
+  },
+
+  "carrosselB": {
+    "slides": [
+      { "tipo": "capa", "kicker": "Como funciona", "titulo": "Avaliação, plano, rotina", "sub": "Três passos para começar a terapia na FaçaAmigos.", "alt": "Capa do carrossel. Fundo azul petróleo com três círculos coloridos ligados por uma linha. Título: Avaliação, plano, rotina." },
+      { "tipo": "passo", "tema": "gelo", "n": 1, "kicker": "Passo 1", "titulo": "Avaliação", "texto": "A equipe conhece a criança e conversa com a família. O laudo ajuda, mas não é obrigatório para começar.", "alt": "Slide em fundo claro com o número 1 em um círculo amarelo. Título: Avaliação. Texto sobre a equipe conhecer a criança e conversar com a família." },
+      { "tipo": "passo", "tema": "gelo", "n": 2, "kicker": "Passo 2", "titulo": "Plano terapêutico", "texto": "Com a avaliação, a equipe monta o Plano Terapêutico Singular: quais especialidades e quantas sessões por mês.", "alt": "Slide em fundo claro com o número 2 em um círculo turquesa. Título: Plano terapêutico. Texto sobre o Plano Terapêutico Singular." },
+      { "tipo": "passo", "tema": "gelo", "n": 3, "kicker": "Passo 3", "titulo": "Rotina", "texto": "Definido o plano, as sessões entram na semana da família. Quando a indicação é de 6 sessões por mês, existe o {plano}.", "alt": "Slide em fundo claro com o número 3 em um círculo rosa. Título: Rotina. Texto sobre as sessões entrarem na semana da família." },
+      { "tipo": "texto", "tema": "amarelo", "kicker": "Importante", "titulo": "A frequência vem da avaliação", "texto": "Quem indica quantas sessões fazem sentido é a equipe, e essa indicação pode ser revista ao longo do tempo.", "alt": "Slide em fundo amarelo. Título: A frequência vem da avaliação. Texto sobre a equipe indicar a quantidade de sessões." },
+      { "tipo": "faq", "tema": "petroleo", "kicker": "Perguntas comuns", "titulo": "Em poucas palavras", "itens": [
+        { "q": "Preciso de laudo?", "a": "Não. Ele ajuda, mas a avaliação mostra o caminho." },
+        { "q": "Posso combinar terapias?", "a": "Sim, conforme o plano terapêutico." },
+        { "q": "Onde acompanho?", "a": "No Portal da Família." }
+      ], "alt": "Slide azul petróleo com três perguntas e respostas curtas. Preciso de laudo? Não, ele ajuda, mas a avaliação mostra o caminho. Posso combinar terapias? Sim, conforme o plano terapêutico. Onde acompanho? No Portal da Família." },
+      { "tipo": "cta", "titulo": "Vamos começar pela conversa?", "texto": "Fale com a equipe no WhatsApp pelo link na bio.", "alt": "Slide final azul petróleo com botão rosa escrito Link na bio. Título: Vamos começar pela conversa?" }
+    ]
+  },
+
+  "post": {
+    "kicker": "{plano}",
+    "titulo": "Seis sessões por mês, nas terapias que a avaliação indicar",
+    "sub": "Atendimento em Belém, com fonoaudiologia, terapia ocupacional e psicologia.",
+    "cta": "Link na bio",
+    "alt": "Post de apresentação. Fundo azul petróleo, seis marcas coloridas arredondadas em fila e o título: Seis sessões por mês, nas terapias que a avaliação indicar. Botão rosa: Link na bio."
+  },
+
+  "stories": {
+    "s1": { "kicker": "Vem aí", "titulo": "{nome}", "texto": "Uma novidade para a rotina de terapia da sua família.", "alt": "Story de teaser. Fundo azul petróleo com formas coloridas. Texto: Vem aí, {nome}. Uma novidade para a rotina de terapia da sua família." },
+    "s2": { "kicker": "Como funciona", "titulo": "Do primeiro contato à rotina", "passos": ["Avaliação com a equipe", "Plano terapêutico definido", "Sessões na semana da família"], "alt": "Story em fundo claro com três passos numerados: avaliação com a equipe, plano terapêutico definido, sessões na semana da família." },
+    "s3": { "kicker": "Caixa de perguntas", "titulo": "O que você quer saber sobre o {plano}?", "nota": "Para casos individuais, a equipe conversa pelo WhatsApp. Não envie dados de saúde aqui.", "alt": "Story de caixa de perguntas em fundo azul petróleo. Título: O que você quer saber sobre o {plano}? Espaço central livre para o adesivo de perguntas." },
+    "s4": { "kicker": "Lembrete", "titulo": "Quer conversar com a equipe?", "texto": "Toque no link e chame a gente no WhatsApp.", "alt": "Story em fundo claro. Título: Quer conversar com a equipe? Espaço livre para o adesivo de link na parte de baixo." },
+    "s5": { "kicker": "Bastidores", "titulo": "A agenda ganhando forma", "texto": "A equipe organiza a semana de cada família com atenção.", "alt": "Story de bastidores com ilustração de uma agenda semanal, um lápis e blocos coloridos sobre uma mesa. Sem pessoas. Texto: A agenda ganhando forma." }
+  },
+
+  "reels": {
+    "r1": { "kicker": "Reel", "titulo": "Como a equipe define a frequência da terapia", "alt": "Capa de reel em fundo azul petróleo. Título: Como a equipe define a frequência da terapia." },
+    "r2": { "kicker": "Reel", "titulo": "Como organizar a semana da família com terapia", "alt": "Capa de reel em fundo claro. Título: Como organizar a semana da família com terapia." },
+    "r3": { "kicker": "Reel", "titulo": "Como é a avaliação inicial", "alt": "Capa de reel em fundo amarelo. Título: Como é a avaliação inicial." }
+  },
+
+  "destaque": { "rotulo": "{nome}", "alt": "Capa de destaque com o símbolo de seis marcas coloridas em círculo central sobre azul petróleo." }
+}
