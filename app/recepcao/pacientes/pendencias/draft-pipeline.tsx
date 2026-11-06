@@ -20,6 +20,7 @@ import {
   undoGuideSent,
   waiveDraftAuthorization,
 } from "./draft-pipeline-actions";
+import { PortalRobotPanel } from "./portal-robot-panel";
 
 /**
  * Linha do tempo de um contato da fila de pendências, do recebimento dos
@@ -589,15 +590,20 @@ export function DraftPipelineColumns({
                 </StepButton>
               )}
             </div>
+            {/* Envio pelo robô (agente local que preenche o portal do plano) — docs/portal-robot.md */}
+            {draft.pendencies.hasPlan && <PortalRobotPanel draftId={draft.id} canRequest />}
           </>
         )}
 
         {pipeline.authorization === "enviada" && (
-          <div>
-            <StepButton onClick={() => run(() => undoGuideSent(draft.id))} disabled={isPending}>
-              Desfazer
-            </StepButton>
-          </div>
+          <>
+            <div>
+              <StepButton onClick={() => run(() => undoGuideSent(draft.id))} disabled={isPending}>
+                Desfazer
+              </StepButton>
+            </div>
+            <PortalRobotPanel draftId={draft.id} canRequest={false} />
+          </>
         )}
 
         {(pipeline.authorization === "autorizada" || pipeline.authorization === "dispensada") && (
