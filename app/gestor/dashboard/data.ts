@@ -1,3 +1,4 @@
+import { ACTIVE_PATIENT_STATUSES } from "@/lib/patient-status";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
@@ -29,7 +30,7 @@ export async function getDashboardMetrics(supabase: Supa, clinicId: string): Pro
 
   const [{ count: activePatients }, { data: contracts }, { data: monthAppointments }, { data: rooms }] =
     await Promise.all([
-      supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId).eq("status", "ativo"),
+      supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId).in("status", [...ACTIVE_PATIENT_STATUSES]),
       supabase
         .from("therapist_contracts")
         .select("profile_id, valid_from, valid_to, profiles!inner(clinic_id)")
