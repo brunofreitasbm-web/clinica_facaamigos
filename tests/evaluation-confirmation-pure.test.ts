@@ -39,7 +39,7 @@ test("remarcação avisa que a data mudou", () => {
 test("o corpo do template de abertura no script é idêntico ao texto do app", async () => {
   const { readFileSync } = await import("node:fs");
   const { CONTACT_OPENER_MESSAGE } = await import("../lib/contact-opener-pure.ts");
-  const source = readFileSync(new URL("../scripts/create-eval-offer-template.ts", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../scripts/create-eval-offer-template.ts", import.meta.url), "utf8").replace(/\r\n/g, "\n"); // checkout no Windows vem com CRLF
   const match = source.match(/const OPENER_BODY =([\s\S]*?);\n\n/);
   assert.ok(match, "OPENER_BODY não encontrado");
   const body = eval(match[1].replace("BRAND_LINE", '"FaçaAmigos - Centro de Terapia Comportamental"')) as string;
