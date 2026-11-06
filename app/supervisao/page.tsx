@@ -126,7 +126,7 @@ export default async function SupervisaoPage() {
       .order("created_at", { ascending: true }),
     // Aba Fluxos: todo paciente ainda em onboarding (threshold 0 = sem filtro
     // de dias), com o estágio já calculado pela mesma regra da recepção.
-    getPendingPatients(supabase, 0),
+    getPendingPatients(supabase, 0, { includePipelineDrafts: true }),
     supabase
       .from("patients")
       .select("id, full_name, status")

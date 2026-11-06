@@ -1,3 +1,4 @@
+import { maskCpf } from "@/lib/masks";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { ShieldCheck, FileCheck, Search, Lock } from "lucide-react";
@@ -320,7 +321,7 @@ export default async function ProntuarioUnificadoPage({
                         </span>
                       )}
                     </div>
-                    {pt.cpf && <div className="text-[11px] text-ink-faint">CPF: {pt.cpf}</div>}
+                    {pt.cpf && <div className="text-[11px] text-ink-faint">CPF: {maskCpf(pt.cpf)}</div>}
                   </Link>
                 );
               })}

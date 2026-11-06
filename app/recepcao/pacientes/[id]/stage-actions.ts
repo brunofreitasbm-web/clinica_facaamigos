@@ -1,5 +1,6 @@
 "use server";
 
+import { findGuideSharedWith } from "@/lib/guide-sharing";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { CLINIC_TIMEZONE, STANDARD_SESSION_DURATION_MINUTES } from "@/lib/constants";
@@ -171,6 +172,18 @@ export async function registerAuthorization(
   }
 
   const supabase = await createClient();
+
+  // Guia não é compartilhada entre pacientes: avisa e só grava com confirmação
+  // explícita (ex.: guia familiar de fato).
+  if (guideNumber && formData.get("confirm_shared_guide") !== "on") {
+    const sharedWith = await findGuideSharedWith(supabase, { insurerId, guideNumber, patientId });
+    if (sharedWith.length > 0) {
+      return {
+        success: false,
+        error: `A guia ${guideNumber} já está registrada para ${sharedWith.map((s) => s.patientName).join(", ")}. Confira o número; se a guia for mesmo compartilhada, marque "Guia compartilhada — confirmo" e salve de novo.`,
+      };
+    }
+  }
 
   // Reaproveita o vínculo patient_insurance já existente para esse
   // paciente+convênio em vez de duplicar a linha a cada nova guia — uma

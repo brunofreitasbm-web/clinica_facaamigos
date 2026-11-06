@@ -23,6 +23,13 @@ async function requireSupervisor(supabase: Supa): Promise<ActionResult & { userI
   return { success: true, userId: user.id };
 }
 
+/** Usado pelo botão para nem aparecer a quem não pode marcar devolutiva (ex.: Gestor). */
+export async function canBookPatientFeedbackAction(): Promise<boolean> {
+  const supabase = await createClient();
+  const gate = await requireSupervisor(supabase);
+  return gate.success;
+}
+
 export async function getActivePatientsForFeedbackAction(): Promise<
   { success: true; patients: { id: string; name: string }[] } | { success: false; error: string }
 > {

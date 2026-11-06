@@ -44,6 +44,10 @@ const PUBLIC_PREFIXES = [
   // devolvem 401 sem o header, então abrir aqui é seguro.
   "/api/extractions",
   "/api/intake",
+  // Agente local do robô do portal do plano (docs/portal-robot.md): chama sem
+  // cookie de sessão e se autentica pelo próprio token (Authorization: Bearer),
+  // devolvendo 401 sem ele — mesmo raciocínio das rotas acima.
+  "/api/portal-robot",
   // Porta de entrada do Hub de Gestão (app/auth/sso): chega sem sessão por
   // definição — é ela que cria a sessão a partir do token de uso único.
   "/auth/sso",

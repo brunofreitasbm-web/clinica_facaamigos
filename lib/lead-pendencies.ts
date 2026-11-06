@@ -344,7 +344,7 @@ export function computeLeadPendencies(input: LeadPendenciesInput): LeadPendencie
             label: hasGuia ? "Guia" : "Guia: clínica autoriza",
             group: "documento",
             state: hasGuia ? "ok" : "aviso",
-            detail: hasGuia ? undefined : "a guia é opcional — a clínica envia a autorização ao plano (etapas 2 e 3)",
+            detail: hasGuia ? undefined : "a família não precisa enviar a guia — a clínica pede a autorização ao plano (etapas 2 e 3)",
           },
     );
   }

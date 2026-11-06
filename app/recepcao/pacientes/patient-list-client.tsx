@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useTransition } from "react";
 import Link from "next/link";
+import { RevealCpf } from "./reveal-cpf";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -170,7 +171,7 @@ export const PatientListItem = React.memo(function PatientListItem({
                 {patient.cpf && (
                   <>
                     <span>•</span>
-                    <span>CPF: {patient.cpf}</span>
+                    <RevealCpf patientId={patient.id} masked={patient.cpf} />
                   </>
                 )}
               </div>

@@ -152,7 +152,7 @@ export function AvailabilityManager({
             </button>
           ))}
         </div>
-        <HelpHint text="Terapeuta sem nenhuma janela cadastrada não é bloqueado por horário — o agendamento só passa a ser barrado depois do primeiro bloco." />
+        <HelpHint text="Terapeuta sem nenhuma janela cadastrada não recebe horário sugerido nem pode ser agendado. Cadastre ao menos um bloco por terapeuta ativo." />
       </div>
 
       {error && (
