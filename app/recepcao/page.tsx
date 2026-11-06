@@ -9,6 +9,7 @@ import {
   previousCalendarDay,
   civilDateInTimeZone,
 } from "@/lib/timezone";
+import { buildTrailEvents } from "@/lib/agenda-trail";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { getReceptionQueue } from "@/lib/reception-queue";
 import { groupExpiringGuides, type ActiveGuide } from "@/lib/expiring-guides-pure";
@@ -429,18 +430,11 @@ export default async function RecepcaoPage({
   // sessão de hoje (confirmação/check-in/check-out/cancelamento). Não existe
   // uma tabela `audit_log` genérica ainda no schema; quando houver, trocar
   // esta derivação por uma consulta a ela.
-  type LogEvent = { at: string; msg: string };
-  const logEvents: LogEvent[] = [];
-  for (const a of appointments) {
-    if (a.confirmedAt) logEvents.push({ at: a.confirmedAt, msg: `${a.patientName} confirmou presença` });
-    if (a.checkinAt) logEvents.push({ at: a.checkinAt, msg: `Check-in de ${a.patientName}` });
-    if (a.checkoutAt) logEvents.push({ at: a.checkoutAt, msg: `Sessão de ${a.patientName} concluída` });
-    if (a.cancelledAt) {
-      const label = APPOINTMENT_STATUS_STYLE[a.status]?.label ?? a.status;
-      logEvents.push({ at: a.cancelledAt, msg: `${a.patientName} — ${label}` });
-    }
-  }
-  logEvents.sort((a, b) => b.at.localeCompare(a.at));
+  const logEvents = buildTrailEvents(
+    appointments,
+    (status) => APPOINTMENT_STATUS_STYLE[status]?.label ?? status,
+    CLINIC_TIMEZONE,
+  );
   const log = logEvents.slice(0, 8).map((e) => ({
     t: new Date(e.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: CLINIC_TIMEZONE }),
     msg: e.msg,
