@@ -301,7 +301,7 @@ export function buildPlanoIntro(insurerNames: string[]): string {
     `Que bom! 💙 Atendemos ${list}. Vou te ajudar a pedir a autorização da guia junto ao plano: ` +
     "preciso de alguns dados da criança e de fotos do laudo (ou pedido médico), da carteirinha e do RG ou CNH do responsável. 🧩\n\n" +
     "Qual o seu *nome completo* (responsável)?\n\n" +
-    "_Para voltar ao menu, responda VOLTAR. Para falar com a equipe, responda ATENDENTE._"
+    "_Para voltar ao menu, responda VOLTAR._"
   );
 }
 

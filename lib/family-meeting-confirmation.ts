@@ -16,13 +16,11 @@ export interface FamilyMeetingNotificationParams {
 export function buildFamilyMeetingConfirmationMessage(params: {
   patientName: string;
   formattedDate: string;
-  supervisorName?: string;
   isReschedule?: boolean;
 }): string {
-  const supervisorInfo = params.supervisorName ? ` com ${params.supervisorName}` : "";
   const intro = params.isReschedule
-    ? `Olá! 💙 A data da reunião${supervisorInfo} sobre o acompanhamento de *${params.patientName}* foi *alterada*. Confira o novo horário abaixo!`
-    : `Olá! 💙 Marcamos uma reunião${supervisorInfo} para conversar sobre o acompanhamento de *${params.patientName}*.`;
+    ? `Olá! 💙 A data da reunião sobre o acompanhamento de *${params.patientName}* foi *alterada*. Confira o novo horário abaixo!`
+    : `Olá! 💙 Marcamos uma reunião para conversar sobre o acompanhamento de *${params.patientName}*.`;
 
   return (
     `🗓️ *Reunião ${params.isReschedule ? "Remarcada" : "Agendada"} - FaçaAmigos - Centro de Terapia Comportamental*\n\n` +
@@ -43,10 +41,9 @@ export async function sendFamilyMeetingConfirmationNotification(
   try {
     const admin = createAdminClient();
 
-    const [{ data: patient }, { data: guardians }, { data: supervisor }] = await Promise.all([
+    const [{ data: patient }, { data: guardians }] = await Promise.all([
       admin.from("patients").select("full_name").eq("id", params.patientId).maybeSingle(),
       admin.from("guardians").select("phone, is_financial").eq("patient_id", params.patientId),
-      admin.from("profiles").select("full_name").eq("id", params.supervisorId).maybeSingle(),
     ]);
 
     const patientName = patient?.full_name ?? "Paciente";
@@ -67,7 +64,6 @@ export async function sendFamilyMeetingConfirmationNotification(
     const message = buildFamilyMeetingConfirmationMessage({
       patientName,
       formattedDate,
-      supervisorName: supervisor?.full_name,
       isReschedule: params.isReschedule,
     });
 

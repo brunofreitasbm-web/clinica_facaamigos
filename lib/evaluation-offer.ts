@@ -442,7 +442,7 @@ export async function processEvaluationOfferStep(params: {
         return { handled: true, replyMessage: "" };
       }
 
-      return { handled: true, replyMessage: "Não consegui reservar agora. 💙 Tente novamente em instantes, ou responda *ATENDENTE*." };
+      return { handled: true, replyMessage: "Não consegui reservar agora. 💙 Tente novamente em instantes." };
     }
 
     return registerInvalid("Responda apenas com o *número* do horário desejado (ou toque em *Ver horários*).");
