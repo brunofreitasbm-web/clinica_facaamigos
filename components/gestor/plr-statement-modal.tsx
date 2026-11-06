@@ -10,7 +10,7 @@ export interface PLRBonusRow {
   actualLabel: string;
   weight: number;
   progressPct: number;
-  status: "atingida" | "perto" | "abaixo";
+  status: "atingida" | "perto" | "abaixo" | "sem_dado";
   isEliminatory?: boolean;
   hasViolatedEliminatory?: boolean;
 }

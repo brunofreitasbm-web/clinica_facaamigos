@@ -197,6 +197,19 @@ export function ReportExportClient({ metadata }: ReportExportClientProps) {
 
   function handleExportCsv() {
     setExportError(null);
+    const sensitiveLabels = REPORT_CONFIGS[activeReport].columns
+      .filter((c) => c.sensitive && selectedColumns.includes(c.key))
+      .map((c) => c.label);
+    if (
+      sensitiveLabels.length > 0 &&
+      !window.confirm(
+        `Este arquivo conterá dados pessoais sensíveis (${sensitiveLabels.join(", ")}).\n\n` +
+          "Use só para finalidade clínica ou administrativa legítima e guarde o arquivo com segurança (LGPD). " +
+          "A exportação será registrada no log de auditoria.\n\nContinuar?",
+      )
+    ) {
+      return;
+    }
     startExportTransition(async () => {
       const filter: ReportFilterState = {
         reportType: activeReport,

@@ -1,3 +1,4 @@
+import { ACTIVE_PATIENT_STATUSES } from "@/lib/patient-status";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { APPOINTMENT_STATUS_STYLE, GRID_EXCLUDED_STATUSES } from "@/lib/appointment-status-style";
@@ -295,7 +296,7 @@ export async function getInteligenciaMetrics(
       .from("patients")
       .select("id", { count: "exact", head: true })
       .eq("clinic_id", clinicId)
-      .eq("status", "ativo"),
+      .in("status", [...ACTIVE_PATIENT_STATUSES]),
 
     // Equipe/Terapeutas
     supabase
@@ -390,7 +391,7 @@ export async function getInteligenciaMetrics(
       .from("patient_insurance")
       .select("patient_id, insurer_id, is_private, insurers(id, name), patients!inner(clinic_id, status)")
       .eq("patients.clinic_id", clinicId)
-      .eq("patients.status", "ativo"),
+      .in("patients.status", [...ACTIVE_PATIENT_STATUSES]),
 
     // Todos os pacientes da clínica com status e marcos de estágio
     // (created_at/first_contact_at/evaluated_at/first_session_at/entry_source)

@@ -1,3 +1,4 @@
+import { ACTIVE_PATIENT_STATUSES } from "@/lib/patient-status";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { countOverdueSessionNotes } from "@/lib/session-note-pending";
@@ -223,7 +224,7 @@ async function buildSilentChurnLeak(supabase: Supa, clinicId: string): Promise<L
     .from("patients")
     .select("id")
     .eq("clinic_id", clinicId)
-    .eq("status", "ativo");
+    .in("status", [...ACTIVE_PATIENT_STATUSES]);
   const list = patients ?? [];
   if (list.length === 0) {
     return {
@@ -333,7 +334,7 @@ export async function getOperationalAlerts(supabase: Supa, clinicId: string): Pr
     .from("patients")
     .select("id, full_name")
     .eq("clinic_id", clinicId)
-    .eq("status", "ativo");
+    .in("status", [...ACTIVE_PATIENT_STATUSES]);
   const patientList = activePatients ?? [];
   const nameByPatient = new Map(patientList.map((p) => [p.id, p.full_name]));
   const patientIds = patientList.map((p) => p.id);
@@ -419,7 +420,7 @@ export type BonusRow = {
   metricLabel: string;
   actualLabel: string;
   progressPct: number;
-  status: "atingida" | "perto" | "abaixo";
+  status: "atingida" | "perto" | "abaixo" | "sem_dado";
   weightPct: number;
   isEliminatory: boolean;
 };
@@ -441,7 +442,7 @@ const PLR_DEFAULT_WEIGHT: Record<string, number> = {
 };
 
 function evalTarget(actual: number | null, target: number, direction: "max" | "min") {
-  if (actual == null) return { status: "abaixo" as const, progressPct: 0 };
+  if (actual == null) return { status: "sem_dado" as const, progressPct: 0 };
   if (direction === "max") {
     const progressPct = Math.min(100, Math.round((target / Math.max(actual, 0.0001)) * 100));
     if (actual <= target) return { status: "atingida" as const, progressPct };
@@ -506,7 +507,7 @@ export async function getBonusRows(supabase: Supa, clinicId: string): Promise<Bo
     },
     supervisor: {
       role: "Coordenação clínica",
-      metricLabel: "Ocupação (horas agendadas) ≥ 85%",
+      metricLabel: "Aproveitamento da agenda (horas realizadas ÷ agendadas) ≥ 85%",
       actualLabel: occupancyRate != null ? `${(occupancyRate * 100).toFixed(1)}%` : "sem sessões no mês",
       weightPct: PLR_DEFAULT_WEIGHT.supervisor,
       isEliminatory: false,
@@ -568,7 +569,7 @@ const CLOSED_METRIC_LABEL: Record<string, string> = {
   // de ser meta de PLR da recepção (20260910071000_intake_complete_rate_metric.sql).
   no_show_rate: "No-show (clínica)",
   intake_complete_rate: "Cadastro completo antes da 1ª sessão (recepção)",
-  occupancy_rate: "Ocupação (coordenação)",
+  occupancy_rate: "Aproveitamento da agenda (coordenação)",
   glosa_rate: "Glosa (faturamento)",
   no_auth_sessions: "Sessões sem guia vigente",
   confirm_d1_rate: "Confirmação D-1 (recepção)",

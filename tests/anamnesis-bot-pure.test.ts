@@ -85,6 +85,13 @@ test("parseFullNameAnswer: recusa dígitos e e-mail", () => {
   assert.equal(parseName(null), null);
 });
 
+test("parseFullNameAnswer: recusa frase de chat no lugar do nome", () => {
+  for (const raw of ["Qual o endereço da clínica", "Onde fica a clínica?", "Bom dia, gostaria de informações", "Quero agendar uma avaliação"]) {
+    assert.equal(parseName(raw), null, raw);
+  }
+  assert.equal(parseName("Ana Paula de Souza Lima"), "Ana Paula de Souza Lima");
+});
+
 // ---------------------------------------------------------------------
 // Fluxo AGENDAR enxuto
 // ---------------------------------------------------------------------

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { REPORT_CONFIGS, type ReportFilterState } from "./types";
 
 function escapeCsv(val: unknown): string {
@@ -643,6 +644,30 @@ export async function generateReportData(
 
       const today = new Date().toISOString().slice(0, 10);
       filename = `relatorio-${config.id}-${today}.csv`;
+
+      // Registro auditável da exportação (LGPD). Falha de log não bloqueia o
+      // download, mas fica no console do servidor.
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        const actorId = userData.user?.id ?? null;
+        const { error: auditError } = await createAdminClient().from("audit_log").insert({
+          table_name: `relatorio_csv_${config.id}`,
+          row_id: actorId ?? crypto.randomUUID(),
+          action: "download",
+          actor_id: actorId,
+          clinic_id: DEV_CLINIC_ID,
+          after: {
+            relatorio: config.id,
+            registros: rows.length,
+            colunas: activeCols.map((c) => c.key),
+            colunas_sensiveis: activeCols.filter((c) => c.sensitive).map((c) => c.key),
+            filtros: { ...filter, selectedColumns: undefined },
+          },
+        });
+        if (auditError) console.error("[relatorios] falha ao gravar audit_log da exportação:", auditError.message);
+      } catch (auditErr) {
+        console.error("[relatorios] falha ao gravar audit_log da exportação:", auditErr);
+      }
     }
 
     return {
