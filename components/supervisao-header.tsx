@@ -27,7 +27,7 @@ const OPERACAO_LINKS = [
 
 const GESTAO_LINKS = [
   { key: "disponibilidade", label: "Disponibilidade", href: "/supervisao/disponibilidade", icon: CalendarClock },
-  { key: "recursos", label: "Salas e recursos", href: "/supervisao/recursos", icon: Boxes },
+  { key: "recursos", label: "Recursos e reservas", href: "/supervisao/recursos", icon: Boxes },
   { key: "emergencias", label: "Aviso Falta Terapeuta", href: "/recepcao/emergencias", icon: UserX },
 ] as const;
 

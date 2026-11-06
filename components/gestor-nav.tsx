@@ -19,7 +19,7 @@ import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
  * Auditoria), o `match` de cada item é a fonte de verdade.
  */
 const NAV_ITEMS = [
-  { key: "painel", label: "Painel", href: "/gestor/dashboard" },
+  { key: "painel", label: "Painel", href: "/gestor", match: ["/gestor", "/gestor/dashboard"] },
   { key: "inteligencia", label: "Inteligência BI", href: "/gestor/inteligencia" },
   {
     key: "atendimento",
@@ -51,8 +51,9 @@ export function GestorNav({ npsBadge }: { npsBadge?: React.ReactNode }) {
       homeHref="/gestor"
       navLabel="Seções da gestão"
       items={items}
-      // Painel executivo (/gestor) e Maturidade não são itens desta barra —
-      // nenhum item fica sublinhado nessas duas telas.
+      // Painel executivo (/gestor) é o principal e a marca leva a ele; as
+      // métricas operacionais (/gestor/dashboard) são um detalhe dele.
+      // Maturidade não é item desta barra — nenhum item fica sublinhado.
       noActiveOn={["/gestor/maturidade"]}
     />
   );

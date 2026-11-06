@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ACTIVE_PATIENT_STATUSES } from "@/lib/patient-status";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -147,7 +148,10 @@ export default async function GestorPage() {
           </h6>
           <h1 className="m-0">Metas por cargo e vazamentos de receita</h1>
         </div>
-        <div className="flex gap-8">
+        <div className="flex flex-wrap items-end gap-8">
+          <Link href="/gestor/dashboard" className="btn btn-secondary">
+            Métricas operacionais →
+          </Link>
           <div>
             <div className="text-[11px] uppercase tracking-wide text-ink-faint">Pacientes ativos</div>
             <div className="tabular-figure text-2xl font-semibold">{activePatientsCount ?? 0}</div>
