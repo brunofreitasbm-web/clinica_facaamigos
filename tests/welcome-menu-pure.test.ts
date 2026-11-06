@@ -61,10 +61,9 @@ test("menu principal: texto livre, número fora da lista e ID de outra lista nã
 test("submenu Particular: opções, voltar e números", () => {
   assert.equal(parseParticularMenuReply({ body: "2" }), "part_valores");
   assert.equal(parseParticularMenuReply({ body: "Agendar avaliação" }), "part_agendar");
-  // "Falar com atendente" saiu do submenu: só no menu inicial ("Outros assuntos").
-  assert.equal(parseParticularMenuReply({ listId: "part_humano" }), null);
+  assert.equal(parseParticularMenuReply({ listId: "part_humano" }), "part_humano");
   // O último item é "voltar ao menu", inclusive no texto numerado de reserva.
-  assert.equal(parseParticularMenuReply({ body: "4" }), "nav_back");
+  assert.equal(parseParticularMenuReply({ body: "5" }), "nav_back");
   assert.equal(parseParticularMenuReply({ listId: "nav_back" }), "nav_back");
   assert.equal(parseParticularMenuReply({ body: "9" }), null);
 });
