@@ -105,7 +105,7 @@ export async function getPendingConfirmationsAction(): Promise<
       .eq("is_evaluation", true)
       // Só o que ainda espera o OK: avaliação já realizada/em atendimento/falta
       // mantém is_provisional=true (guard de autorização no checkout) mas não é pendência.
-      .not("status", "in", "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,remarcada,realizada,em_atendimento,falta,falta_justificada)")
+      .not("status", "in", "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,remarcada,realizada,em_atendimento,falta_familia,falta_terapeuta)")
       .is("checkin_at", null)
       .is("confirmed_at", null)
       .order("starts_at", { ascending: true });
@@ -487,12 +487,19 @@ export async function confirmEvaluationAppointmentAction(appointmentId: string):
 
   const { data: appointment, error: fetchErr } = await admin
     .from("appointments")
-    .select("id, patient_id, therapist_id, room_id, starts_at, ends_at, is_provisional")
+    .select("id, patient_id, therapist_id, room_id, starts_at, ends_at, is_provisional, status, checkin_at")
     .eq("id", appointmentId)
     .maybeSingle();
 
   if (fetchErr || !appointment) {
     return { success: false, error: "Agendamento não encontrado." };
+  }
+
+  // Avaliação que já aconteceu não se "confirma": sobrescrever o status reabria
+  // o agendamento e mandava aviso de confirmação à família depois do atendimento.
+  if (appointment.status === "realizada" || appointment.checkin_at) {
+    revalidatePath("/supervisao");
+    return { success: false, error: "Esta avaliação já foi realizada; não precisa de confirmação." };
   }
 
   // Horário escolhido pelo responsável na oferta automática: a RPC confirma

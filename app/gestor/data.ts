@@ -133,6 +133,8 @@ async function buildNoAuthLeak(supabase: Supa, clinicId: string, avgPrice: numbe
     .select("id, patient_id, patients!inner(clinic_id)")
     .eq("status", "realizada")
     .eq("is_provisional", true)
+    // Provisória com guia já vinculada (ex.: avaliação) não é vazamento.
+    .is("authorization_id", null)
     .eq("patients.clinic_id", clinicId)
     .gte("starts_at", startISO)
     .lt("starts_at", endISO);

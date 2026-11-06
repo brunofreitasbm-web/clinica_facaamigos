@@ -92,7 +92,7 @@ export default async function SupervisaoPage() {
     supabase
       .from("appointments")
       .select(
-        "id, starts_at, status, discipline, is_evaluation, is_provisional, is_family_meeting, is_patient_feedback, room_id, therapist_id, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
+        "id, starts_at, status, discipline, authorization_id, is_evaluation, is_provisional, is_family_meeting, is_patient_feedback, room_id, therapist_id, rooms(name), therapist:profiles!therapist_id(full_name), patients(full_name)",
       )
       .gte("starts_at", weekStartIso)
       .lt("starts_at", weekEndIso)
@@ -192,7 +192,8 @@ export default async function SupervisaoPage() {
         status: a.status,
         kind: classifyAppointmentKind({
           isEvaluation: a.is_evaluation,
-          isProvisional: a.is_provisional,
+          // Avaliação realizada segue provisória no banco (guard de guia), mas não aguarda aprovação.
+          isProvisional: a.is_provisional && a.status !== "realizada",
           discipline: a.discipline,
           isFamilyMeeting: a.is_family_meeting,
           isPatientFeedback: a.is_patient_feedback,
@@ -243,7 +244,7 @@ export default async function SupervisaoPage() {
 
   const carteira = {
     sessionsInGrid: weekAppointments.length,
-    provisionalNoGuide: weekAppointments.filter((a) => a.is_provisional).length,
+    provisionalNoGuide: weekAppointments.filter((a) => a.is_provisional && !a.authorization_id).length,
     onTimePercent,
   };
 
