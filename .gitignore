@@ -15,3 +15,10 @@ scripts/out/
 # Segredos Twilio - nunca commitar (ver plano de segurança)
 twilio_2FA_recovery_code.txt
 twilio/api keys.png
+
+# agente do robô do portal (roda no computador da clínica)
+agente-robo/.env
+agente-robo/.venv/
+agente-robo/sessao_navegador/
+agente-robo/agente.log
+agente-robo/__pycache__/
