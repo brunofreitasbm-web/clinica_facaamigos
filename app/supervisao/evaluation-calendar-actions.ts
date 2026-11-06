@@ -103,7 +103,11 @@ export async function getPendingConfirmationsAction(): Promise<
       .select("id, patient_id, therapist_id, room_id, starts_at, ends_at, is_provisional, patients(full_name), therapist:profiles!therapist_id(full_name), rooms(name)")
       .eq("is_provisional", true)
       .eq("is_evaluation", true)
-      .not("status", "in", "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,remarcada)")
+      // Só o que ainda espera o OK: avaliação já realizada/em atendimento/falta
+      // mantém is_provisional=true (guard de autorização no checkout) mas não é pendência.
+      .not("status", "in", "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,remarcada,realizada,em_atendimento,falta,falta_justificada)")
+      .is("checkin_at", null)
+      .is("confirmed_at", null)
       .order("starts_at", { ascending: true });
 
     if (error) {
