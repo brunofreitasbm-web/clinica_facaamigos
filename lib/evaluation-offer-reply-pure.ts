@@ -6,6 +6,8 @@
 // Sem import com alias `@/` para rodar em `node --test --experimental-strip-types`
 // (tests/evaluation-offer-reply-pure.test.ts).
 
+import { detectHumanRequest } from "./human-request-pure.ts";
+
 export const EVAL_BUTTON_YES = "eval_yes";
 export const EVAL_BUTTON_NO = "eval_no";
 export const EVAL_LIST_NONE = "none";
@@ -54,6 +56,7 @@ export function parseInterestReply(input: OfferReplyInput): OfferReply {
   if (STOP_WORDS.has(text)) return { kind: "stop" };
   if (YES_WORDS.has(text)) return { kind: "yes" };
   if (NO_WORDS.has(text)) return { kind: "no" };
+  if (detectHumanRequest(input.body)) return { kind: "human" };
   return { kind: "invalid" };
 }
 
@@ -90,7 +93,7 @@ export function parseSlotReply(input: OfferReplyInput, slots: OfferedSlotLabel[]
   }
 
   if (text.startsWith("nenhum serve") || text.includes("outros horarios")) return { kind: "none" };
-  if (text.includes("atendente")) return { kind: "human" };
+  if (text.includes("atendente") || detectHumanRequest(input.body)) return { kind: "human" };
 
   // Título do item tocado: casa pelo rótulo normalizado.
   const byLabel = slots.find((s) => normalizeReply(s.label) === text);

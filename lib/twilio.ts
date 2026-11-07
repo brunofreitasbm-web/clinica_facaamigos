@@ -15,6 +15,7 @@ import {
   sitePrefillIntent,
 } from "@/lib/greeting-pure";
 import { isInactiveForMenuReset, shouldDiscardSession } from "@/lib/menu-reset-pure";
+import { detectHumanRequest } from "@/lib/human-request-pure";
 
 /**
  * Cliente Twilio configurado via variáveis de ambiente.
@@ -759,6 +760,19 @@ export async function handleTwilioIncomingMessage(params: {
       }
     }
 
+    // 0.75 Resposta ao convite "quer continuar de onde paramos?" (cron handoff-resume):
+    // vem ANTES do gate humano porque o bot ainda está desligado quando o lead responde.
+    // Só age se um convite foi enviado e a mensagem é SIM/MENU; o resto segue normal.
+    if (!hasMedia && body.trim()) {
+      try {
+        const { handleResumeReply } = await import("./handoff-resume");
+        const resumed = await handleResumeReply({ conversationId: conversation.id, phone, body });
+        if (resumed?.handled) return { intent: resumed.intent, replyMessage: resumed.replyMessage };
+      } catch (err) {
+        console.error("[Twilio Handoff Resume Reply Error]:", err);
+      }
+    }
+
     if (!conversation.is_bot_active) {
       await notifyStaff(conversation.id);
       // Com humano na conversa o bot só responde FATO fixo (endereço/horário do
@@ -874,7 +888,7 @@ export async function handleTwilioIncomingMessage(params: {
     if (anamnesisResult.handled) {
       if (anamnesisResult.escalate && conversationId) {
         const { escalateConversation } = await import("./twilio-faq-bot");
-        await escalateConversation(conversationId, "pediu_humano");
+        await escalateConversation(conversationId, "pediu_humano", anamnesisResult.resume ?? null);
       }
       return {
         intent: "agendamento_anamnese",
@@ -883,6 +897,26 @@ export async function handleTwilioIncomingMessage(params: {
     }
   } catch (err) {
     console.error("[Twilio Anamnesis Bot Error]:", err);
+  }
+
+  // 1.4 Pedido de atendente em frase solta ("queria falar com alguém sobre a guia"), sem
+  // depender da IA (cai em ~12% das chamadas e, com a cota estourada, o pedido virava
+  // fallback mudo). Vem antes do menu: quem pede uma pessoa não precisa ver opções primeiro.
+  // Só texto — anexo segue para o bot dono do documento.
+  try {
+    if (conversationId && !(media && media.length > 0) && detectHumanRequest(body)) {
+      const { escalateConversation, isWithinBusinessHoursNow, OUT_OF_HOURS_ESCALATION_SUFFIX } = await import("./twilio-faq-bot");
+      await escalateConversation(conversationId, "pediu_humano", null);
+      const open = await isWithinBusinessHoursNow(DEV_CLINIC_ID);
+      return {
+        intent: "pediu_humano",
+        replyMessage:
+          "Certo! 💙 Chamei a nossa equipe, que continua o atendimento por aqui em horário comercial." +
+          (open ? "" : OUT_OF_HOURS_ESCALATION_SUFFIX),
+      };
+    }
+  } catch (err) {
+    console.error("[Twilio Human Request Error]:", err);
   }
 
   // 1.5 Saudação inicial SEM IA (lib/greeting-pure.ts): mensagem que é só

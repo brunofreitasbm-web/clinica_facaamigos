@@ -313,11 +313,11 @@ async function loadFaqKnowledge(
   return entry;
 }
 
-function buildSystemInstruction(knowledge: string): string {
+function buildSystemInstruction(knowledge: string, patientContext = ""): string {
   return `Você é a assistente virtual acolhedora do FaçaAmigos - Centro de Terapia Comportamental, uma clínica multidisciplinar especializada no desenvolvimento de crianças e adolescentes. Você conversa pelo WhatsApp com pais, mães e responsáveis legais.
 
 ${knowledge}
-
+${patientContext ? `\n${patientContext}\n` : ""}
 REGRAS OBRIGATÓRIAS:
 1. MENSAGEM INICIAL DE BOAS-VINDAS: Na primeira interação de saudação, cite obrigatoriamente a marca completa: *FaçaAmigos - Centro de Terapia Comportamental*. Demonstre acolhimento. Exemplo de saudação ideal: "Olá! 💙 Boas-vindas ao *FaçaAmigos - Centro de Terapia Comportamental*! 🧩 Como podemos te ajudar hoje? (Ex: agendar avaliação, consultar planos de saúde ou tirar dúvidas)."
 2. MENSAGENS CURTAS E DIRETAS: Seja extremamente objetivo, rápido de ler e direto ao ponto no celular (máximo 2 a 3 frases curtas ou tópicos breves). Evite explicações longas, parágrafos extensos ou enrolação.
@@ -604,7 +604,12 @@ export async function flagConversationPending(conversationId: string, reason: Fa
   await notifyStaffOfConversation(conversationId);
 }
 
-export async function escalateConversation(conversationId: string, reason: FaqEscalationReason) {
+export async function escalateConversation(
+  conversationId: string,
+  reason: FaqEscalationReason,
+  /** Foto da sessão no momento do pedido (lib/handoff-resume.ts) — permite oferecer "continuar de onde paramos". */
+  resume?: import("./handoff-resume-pure").ResumeSnapshot | null,
+) {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
 
@@ -615,7 +620,10 @@ export async function escalateConversation(conversationId: string, reason: FaqEs
       status: "pending",
       escalation_reason: reason,
       escalated_at: new Date().toISOString(),
-    })
+      // Sempre grava (inclusive null): foto de um escalonamento anterior não pode sobrar.
+      handoff_resume: resume ?? null,
+      pending_sla_notified_at: null,
+    } as never)
     .eq("id", conversationId);
 
   const { notifyStaffOfConversation } = await import("./web-push");
@@ -672,6 +680,11 @@ export async function closeConversationAfterFinalReply(conversationId: string): 
   await supabase.from("twilio_conversations").update({ status: "closed" }).eq("id", conversationId);
 }
 
+/** Teto diário de respostas da IA atingido: a mensagem vai para a fila da recepção. */
+const QUOTA_REACHED_REPLY =
+  "Recebi a sua mensagem. 💙 Já deixei com a recepção, que retorna por aqui em horário comercial. " +
+  "Para ver as opções, responda *MENU*.";
+
 /** Aviso quando a IA não responde (503, JSON inválido). A pergunta vai para a
  * fila da recepção (flagConversationPending) e o bot segue ativo. */
 const AI_UNAVAILABLE_REPLY =
@@ -719,18 +732,30 @@ export async function processFaqBotStep(params: {
     }
   }
 
-  if (!isChatAiConfigured()) return notHandled;
+  // IA não configurada ou teto diário atingido: antes caía no fallback estático e a recepção
+  // nunca ficava sabendo. Agora a pergunta entra na fila (o bot segue ativo) e a família
+  // recebe um aviso honesto. Sem conversa registrada, mantém o comportamento anterior.
+  const queueWithoutAi = async (reason: FaqEscalationReason, replyMessage: string, intent: string): Promise<FaqBotResult> => {
+    if (!conversationId) return notHandled;
+    await flagConversationPending(conversationId, reason);
+    return { handled: true, replyMessage, intent, escalated: false };
+  };
+
+  if (!isChatAiConfigured()) return queueWithoutAi("fora_da_base", AI_UNAVAILABLE_REPLY, "ia_indisponivel");
 
   const settings = await getChatbotSettings(DEV_CLINIC_ID);
   const withinQuota = await reserveDailyQuota(phone, settings.dailyReplyLimit);
-  if (!withinQuota) return notHandled;
+  if (!withinQuota) return queueWithoutAi("fora_da_base", QUOTA_REACHED_REPLY, "ia_cota_diaria");
 
   const { text: knowledge } = await loadFaqKnowledge(DEV_CLINIC_ID, conversationKind);
   const conversationHistory = conversationId ? await loadHistory(conversationId) : [];
+  // Só paciente já vinculado (telefone casou com responsável cadastrado): lead não ganha dado novo.
+  const { loadPatientContextBlock } = await import("./patient-context");
+  const patientContext = await loadPatientContextBlock(patientId ?? null);
 
   const aiResponse = await generateChatResponse({
     prompt: body,
-    systemInstruction: buildSystemInstruction(knowledge),
+    systemInstruction: buildSystemInstruction(knowledge, patientContext),
     conversationHistory,
     temperature: 0.4,
     jsonMode: true,
