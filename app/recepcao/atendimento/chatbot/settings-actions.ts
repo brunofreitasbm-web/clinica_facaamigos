@@ -19,6 +19,8 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
   const dailyReplyLimitRaw = String(formData.get("dailyReplyLimit") ?? "").trim();
   const greetingFallback = String(formData.get("greetingFallback") ?? "").trim();
   const botAutoResumeHoursRaw = String(formData.get("botAutoResumeHours") ?? "0").trim();
+  const handoffResumeMinutes = Number(String(formData.get("handoffResumeMinutes") ?? "15").trim());
+  const pendingSlaMinutes = Number(String(formData.get("pendingSlaMinutes") ?? "30").trim());
   const agendaStatusNote = String(formData.get("agendaStatusNote") ?? "").trim();
   const particularPricesImageUrl = String(formData.get("particularPricesImageUrl") ?? "").trim();
 
@@ -30,6 +32,10 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
   const botAutoResumeHours = Number(botAutoResumeHoursRaw);
   if (!Number.isInteger(botAutoResumeHours) || botAutoResumeHours < 0) {
     return { success: false, error: "A retomada automática deve ser um número inteiro de horas (0 = desligado)." };
+  }
+
+  if (!Number.isInteger(handoffResumeMinutes) || handoffResumeMinutes < 0 || !Number.isInteger(pendingSlaMinutes) || pendingSlaMinutes < 0) {
+    return { success: false, error: "Retomada do fluxo e alerta de pendência devem ser números inteiros de minutos (0 = desligado)." };
   }
 
   if (agendaStatusNote.length > 600) {
@@ -53,6 +59,8 @@ export async function updateChatbotSettings(formData: FormData): Promise<ActionR
       daily_reply_limit: dailyReplyLimit,
       greeting_fallback: greetingFallback || null,
       bot_auto_resume_hours: botAutoResumeHours || null,
+      handoff_resume_minutes: handoffResumeMinutes,
+      pending_sla_minutes: pendingSlaMinutes,
       agenda_status_note: agendaStatusNote || null,
       particular_prices_image_url: particularPricesImageUrl || null,
       updated_at: new Date().toISOString(),

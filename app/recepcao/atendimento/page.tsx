@@ -63,7 +63,7 @@ async function loadChatbotAdminData(
       .limit(30),
     supabase
       .from("chatbot_settings")
-      .select("bot_enabled, daily_reply_limit, greeting_fallback, bot_auto_resume_hours, agenda_status_note, particular_prices_image_url, welcome_menu_content_sid, particular_menu_content_sid, nav_back_content_sid, particular_actions_content_sid")
+      .select("bot_enabled, daily_reply_limit, greeting_fallback, bot_auto_resume_hours, handoff_resume_minutes, pending_sla_minutes, agenda_status_note, particular_prices_image_url, welcome_menu_content_sid, particular_menu_content_sid, nav_back_content_sid, particular_actions_content_sid")
       .eq("clinic_id", DEV_CLINIC_ID)
       .maybeSingle(),
   ]);
@@ -152,6 +152,8 @@ async function loadChatbotAdminData(
       dailyReplyLimit: settingsRes.data?.daily_reply_limit ?? 20,
       greetingFallback: settingsRes.data?.greeting_fallback ?? null,
       botAutoResumeHours: settingsRes.data?.bot_auto_resume_hours ?? null,
+      handoffResumeMinutes: settingsRes.data?.handoff_resume_minutes ?? 15,
+      pendingSlaMinutes: settingsRes.data?.pending_sla_minutes ?? 30,
       agendaStatusNote: settingsRes.data?.agenda_status_note ?? null,
       particularPricesImageUrl: settingsRes.data?.particular_prices_image_url ?? null,
       menuContentSids: {

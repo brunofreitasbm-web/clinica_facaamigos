@@ -1562,6 +1562,8 @@ export type Database = {
           nav_back_content_sid: string | null
           particular_actions_content_sid: string | null
           bot_auto_resume_hours: number | null
+          handoff_resume_minutes: number | null
+          pending_sla_minutes: number | null
           bot_enabled: boolean
           clinic_id: string
           daily_reply_limit: number
@@ -1577,6 +1579,8 @@ export type Database = {
           nav_back_content_sid?: string | null
           particular_actions_content_sid?: string | null
           bot_auto_resume_hours?: number | null
+          handoff_resume_minutes?: number | null
+          pending_sla_minutes?: number | null
           bot_enabled?: boolean
           clinic_id: string
           daily_reply_limit?: number
@@ -1592,6 +1596,8 @@ export type Database = {
           nav_back_content_sid?: string | null
           particular_actions_content_sid?: string | null
           bot_auto_resume_hours?: number | null
+          handoff_resume_minutes?: number | null
+          pending_sla_minutes?: number | null
           bot_enabled?: boolean
           clinic_id?: string
           daily_reply_limit?: number

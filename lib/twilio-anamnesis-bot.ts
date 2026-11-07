@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { detectHumanRequest } from "@/lib/human-request-pure";
+import { buildResumeSnapshot, type ResumeSnapshot } from "@/lib/handoff-resume-pure";
 import { formatE164Phone } from "@/lib/twilio";
 import { runAfterResponse } from "@/lib/after-response";
 import { enrichLeadFromDocuments, registerLeadMedia, upsertWhatsappLead } from "@/lib/whatsapp-lead";
@@ -46,7 +48,13 @@ export interface TwilioIncomingParams {
 }
 
 /** `escalate`: o lead pediu ATENDENTE — o roteador (lib/twilio.ts) passa a conversa para a equipe. */
-export type AnamnesisStepResult = { handled: boolean; replyMessage: string; escalate?: boolean };
+export type AnamnesisStepResult = {
+  handled: boolean;
+  replyMessage: string;
+  escalate?: boolean;
+  /** Etapa em que o lead estava ao pedir atendente (antes de a sessão ser zerada): base do "continuar de onde paramos". */
+  resume?: ResumeSnapshot | null;
+};
 
 /**
  * Remove acentos e padroniza texto para comparação de intenções.
@@ -660,7 +668,10 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
   if (!OWN_STEPS.has(currentStep)) return { handled: false, replyMessage: "" };
 
   // 3. Saída do fluxo em qualquer etapa.
-  const exit = parseExitCommand(rawBody);
+  // Frase solta também vale ("queria falar com alguém sobre a guia"): só a mensagem inteira
+  // curta era reconhecida e o resto virava "resposta inválida" à pergunta da etapa.
+  const hasAttachment = Boolean(params.media?.length || params.mediaUrl0);
+  const exit = parseExitCommand(rawBody) ?? (!hasAttachment && detectHumanRequest(rawBody) ? "human" : null);
   const collecting = !AFTER_SUBMISSION_STEPS.has(currentStep);
   if (exit === "human") {
     if (collecting) {
@@ -671,6 +682,12 @@ export async function processAnamnesisChatbotStep(params: TwilioIncomingParams):
       handled: true,
       escalate: true,
       replyMessage: HUMAN_HANDOFF_REPLY,
+      resume: collecting
+        ? buildResumeSnapshot(
+            { current_step: currentStep, flow: session?.flow ?? null, lead_id: session?.lead_id ?? null, collected_data: data },
+            new Date().toISOString(),
+          )
+        : null,
     };
   }
   if (exit === "back" && collecting) {

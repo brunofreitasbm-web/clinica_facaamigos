@@ -310,8 +310,11 @@ async function escalateToHuman(phone: string, reason: string) {
     .limit(1)
     .maybeSingle();
   if (conversation) {
+    // Só o pedido explícito de atendente é retomável: "sem mais horários" e respostas
+    // inválidas não têm o que continuar. A foto sai ANTES de a sessão ser liberada abaixo.
+    const resume = reason === "pediu_humano" ? await (await import("@/lib/handoff-resume")).captureResumeSnapshot(phone) : null;
     const { escalateConversation } = await import("@/lib/twilio-faq-bot");
-    await escalateConversation(conversation.id, "pediu_humano").catch((err) => console.error("[Evaluation Offer] escalonamento:", reason, err));
+    await escalateConversation(conversation.id, "pediu_humano", resume).catch((err) => console.error("[Evaluation Offer] escalonamento:", reason, err));
   }
   // Sessão livre: a conversa passa a ser do atendente.
   await setSessionIdle(phone);
@@ -363,6 +366,10 @@ export async function processEvaluationOfferStep(params: {
   if (session.current_step === STEP_INTEREST) {
     const reply = parseInterestReply({ body: params.body, buttonPayload: params.buttonPayload });
     if (reply.kind === "stop" || reply.kind === "no") return cancel();
+    if (reply.kind === "human") {
+      await escalateToHuman(phone, "pediu_humano");
+      return { handled: true, replyMessage: "Certo! 💙 Vou chamar um atendente da nossa equipe para te ajudar por aqui." };
+    }
     if (reply.kind !== "yes") {
       return registerInvalid("Para agendar a 1ª avaliação, responda *1*. Se preferir deixar para depois, responda *2*.");
     }

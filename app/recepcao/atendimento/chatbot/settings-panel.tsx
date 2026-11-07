@@ -10,6 +10,8 @@ export type ChatbotSettingsRow = {
   dailyReplyLimit: number;
   greetingFallback: string | null;
   botAutoResumeHours: number | null;
+  handoffResumeMinutes: number;
+  pendingSlaMinutes: number;
   agendaStatusNote: string | null;
   particularPricesImageUrl: string | null;
   menuContentSids: Record<WelcomeContentColumn, string | null>;
@@ -199,6 +201,34 @@ export function SettingsPanel({ settings }: { settings: ChatbotSettingsRow }) {
             name="botAutoResumeHours"
             min={0}
             defaultValue={settings.botAutoResumeHours ?? 0}
+            className="input max-w-[160px]"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
+          <span className="flex items-center gap-1">
+            Oferecer retomar o fluxo após pedido de atendente (minutos)
+            <HelpHint text="Quem pede atendente no meio do agendamento e não é atendido nesse prazo (em horário comercial, sem humano respondendo) recebe: 'quer continuar de onde paramos?'. O bot só volta se a pessoa responder SIM ou MENU. 0 = desligado." />
+          </span>
+          <input
+            type="number"
+            name="handoffResumeMinutes"
+            min={0}
+            defaultValue={settings.handoffResumeMinutes}
+            className="input max-w-[160px]"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
+          <span className="flex items-center gap-1">
+            Alerta de conversa pendente sem resposta (minutos)
+            <HelpHint text="Conversa escalada que ninguém respondeu nesse prazo (em horário comercial) gera um novo aviso para a equipe, uma vez por escalonamento. 0 = desligado." />
+          </span>
+          <input
+            type="number"
+            name="pendingSlaMinutes"
+            min={0}
+            defaultValue={settings.pendingSlaMinutes}
             className="input max-w-[160px]"
           />
         </label>
