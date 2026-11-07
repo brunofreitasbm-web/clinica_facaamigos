@@ -52,7 +52,7 @@ const PESSOAL_LINKS = [{ key: "metricas", label: "Minha Bonificação", href: "/
  * (14/09/2026). Dentro dela vive o botão "Editar", pra permuta manual de
  * pacientes entre sessões (ver grade-panel.tsx).
  */
-export function SupervisaoHeader() {
+export function SupervisaoHeader({ userName }: { userName?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const { tab, setTab, counts, urgent, setManualScheduleOpen } = useSupervisaoTab();
@@ -79,7 +79,7 @@ export function SupervisaoHeader() {
         <div className="flex items-center gap-1">
           <NavGroupDropdown label="Operação Clínica" icon={Stethoscope} links={OPERACAO_LINKS} />
           <NavGroupDropdown label="Gestão e Escala" icon={CalendarRange} links={GESTAO_LINKS} />
-          <NavGroupDropdown label="Bruno Pinto Freitas" icon={UserCircle} links={PESSOAL_LINKS} />
+          <NavGroupDropdown label={userName || "Minha conta"} icon={UserCircle} links={PESSOAL_LINKS} />
           <button
             type="button"
             onClick={() => {
