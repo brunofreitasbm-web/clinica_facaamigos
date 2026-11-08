@@ -1,6 +1,8 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cabecalhosSincronizacaoHub } from "@/lib/hub-sync";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -53,7 +55,10 @@ export async function signIn(
     try {
       const res = await fetch("https://ivjvpdzsfjdpyabbzzuj.supabase.co/functions/v1/gestao-hub", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: cabecalhosSincronizacaoHub(
+          process.env.GESTAO_SYNC_SECRET,
+          (await headers()).get("x-forwarded-for"),
+        ),
         body: JSON.stringify({
           action: "sincronizar_login_clinica",
           identifier: email,
