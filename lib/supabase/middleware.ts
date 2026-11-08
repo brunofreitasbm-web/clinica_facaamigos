@@ -3,57 +3,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ROLE_HOME, ROLE_ALLOWED_PREFIXES, type Role } from "@/lib/roles";
 import { isNextError } from "@/lib/next-utils";
 import { isProfileBlocked } from "@/lib/profile-access";
+import { PUBLIC_PREFIXES } from "@/lib/public-paths";
+import {
+  COOKIE_RECADASTRO,
+  decidirRedirecionamentoRecadastro,
+  RECADASTRO_PATH,
+  contaIsentaDeRecadastro,
+} from "@/lib/recadastro";
 
 const LOGIN_PATH = "/login";
 const CHANGE_PASSWORD_PATH = "/trocar-senha";
-
-// Prefixos abertos: a tela pública do check-in por QR (app/checkin), sua
-// API (app/api/checkin), a ficha que a família preenche por link
-// (app/ficha). Precisam ser prefixo, não igualdade
-// exata, porque o token vai no path (/checkin/<token>, /ficha/<token>).
-// "/login" continua tratado à parte por igualdade — é o único caminho que
-// também expulsa quem já está logado (ver o uso de LOGIN_PATH abaixo); um
-// recepcionista logado precisa conseguir abrir /checkin para testar o
-// cartaz sem ser redirecionado e /ficha para conferir o link antes de mandar
-// para a família.
-//
-// /robots.txt (app/robots.ts) também entra: é pedido por crawler, sem cookie
-// de sessão — sem isso aqui, o middleware o redirecionava para /login.
-//
-// /api/webhooks e /api/twilio também precisam ser públicos: são chamados
-// pelo Twilio (webhook inbound, voice/twiml, voice/status) ou pelo Vercel
-// Cron (rotas */trigger), nenhum dos dois manda cookie de sessão do
-// Supabase. Sem isso o middleware redirecionava pra /login e o Twilio
-// recebia HTML em vez de TwiML (erro 12200 "document parse failure") —
-// mensagens de WhatsApp chegavam no Twilio mas nunca apareciam na Central
-// de Atendimento. Essas rotas já se autenticam por conta própria (assinatura
-// X-Twilio-Signature ou header CRON_SECRET), então ficam abertas com
-// segurança aqui.
-const PUBLIC_PREFIXES = [
-  "/checkin",
-  "/api/checkin",
-  "/ficha",
-  "/robots.txt",
-  "/api/webhooks",
-  "/api/twilio",
-  // Workers de fundo chamados pelo pg_cron (jobs process_registration_drafts
-  // e process_insurance_intake). Sem isso o middleware responde a página de
-  // login com 200, e o cron "tem sucesso" enquanto nada é processado — foi o
-  // que manteve os rascunhos do WhatsApp parados em `pending`. Como as rotas
-  // do Twilio acima, elas se autenticam por conta própria (x-cron-secret) e
-  // devolvem 401 sem o header, então abrir aqui é seguro.
-  "/api/extractions",
-  "/api/intake",
-  // Agente local do robô do portal do plano (docs/portal-robot.md): chama sem
-  // cookie de sessão e se autentica pelo próprio token (Authorization: Bearer),
-  // devolvendo 401 sem ele — mesmo raciocínio das rotas acima.
-  "/api/portal-robot",
-  // Porta de entrada do Hub de Gestão (app/auth/sso): chega sem sessão por
-  // definição — é ela que cria a sessão a partir do token de uso único.
-  "/auth/sso",
-  "/esqueci-senha",
-  "/primeiro-acesso",
-];
 
 // Rotas que só exigem sessão válida, sem o guard de papel abaixo: os links de
 // "abrir arquivo" (/api/arquivos/*) aparecem em telas de vários papéis
@@ -141,7 +100,25 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(new URL("/", request.url));
       }
 
-      if (pathname !== "/" && pathname !== CHANGE_PASSWORD_PATH && !isSessionOnlyPath(pathname)) {
+      // Recadastro obrigatório (só depois do prazo de 7 dias, quando o signIn gravou "bloquear" no cookie).
+      // O cookie é otimização de UX, não controle de acesso: o Hub é a autoridade e nada aqui chama a rede.
+      // Responsáveis e contas de quiosque/estagiário nunca são redirecionados.
+      if (
+        decidirRedirecionamentoRecadastro(request.cookies.get(COOKIE_RECADASTRO)?.value, pathname) &&
+        !contaIsentaDeRecadastro(
+          profile?.role,
+          (user.app_metadata as Record<string, unknown> | undefined)?.role as string | undefined,
+        )
+      ) {
+        return NextResponse.redirect(new URL(RECADASTRO_PATH, request.url));
+      }
+
+      if (
+        pathname !== "/" &&
+        pathname !== CHANGE_PASSWORD_PATH &&
+        pathname !== RECADASTRO_PATH &&
+        !isSessionOnlyPath(pathname)
+      ) {
         const role = profile?.role as Role | undefined;
         const home = role ? ROLE_HOME[role] : undefined;
 
