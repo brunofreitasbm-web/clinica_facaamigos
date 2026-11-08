@@ -269,6 +269,17 @@ export async function deleteStaff(profileId: string): Promise<ActionResult> {
     };
   }
 
+  // Atribuição na fila de pendências é só operacional (assigned_to é nullable): solta o item
+  // para a recepção redistribuir, em vez de travar a exclusão.
+  const { error: releaseError } = await admin
+    .from("pending_queue_assignments")
+    .update({ assigned_to: null })
+    .eq("assigned_to", profileId)
+    .eq("clinic_id", caller.clinicId);
+  if (releaseError) {
+    return { success: false, error: `Não foi possível liberar as pendências do colaborador: ${releaseError.message}` };
+  }
+
   const { error: profileError } = await admin
     .from("profiles")
     .delete()
@@ -276,6 +287,15 @@ export async function deleteStaff(profileId: string): Promise<ActionResult> {
     .eq("clinic_id", caller.clinicId);
 
   if (profileError) {
+    // 23503 = foreign_key_violation: o colaborador tem histórico clínico/financeiro (agenda, evoluções,
+    // pagamentos...) que não pode ficar órfão. Nesse caso o caminho certo é desativar.
+    if (profileError.code === "23503") {
+      return {
+        success: false,
+        error:
+          "Este colaborador tem histórico no sistema (atendimentos, registros ou pagamentos) e não pode ser excluído. Desative o cadastro.",
+      };
+    }
     return { success: false, error: `Não foi possível excluir o colaborador: ${profileError.message}` };
   }
 
