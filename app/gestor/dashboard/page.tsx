@@ -50,7 +50,8 @@ export default async function GestorDashboardPage() {
         <div className="card">
           <span className="card-kicker">Pacientes</span>
           <span className="card-title tabular-figure" style={{ fontSize: 28 }}>{metrics.activePatients}</span>
-          <span className="card-body">ativos</span>
+          <span className="card-body">com 1ª avaliação realizada</span>
+          <span className="card-body tabular-figure">vs. {metrics.inJourneyPatients} agendado(s) aguardando a 1ª avaliação</span>
         </div>
         <div className="card">
           <span className="card-kicker">Equipe</span>

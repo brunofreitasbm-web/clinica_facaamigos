@@ -36,6 +36,8 @@ export interface PatientRow {
   insurer_name?: string | null;
   insurer_color?: string | null;
   journey_label: string;
+  /** Etapa pós-1ª avaliação (Avaliado/Aguardando o PTS/PTS feito/Em tratamento); null antes da avaliação. */
+  stage_label?: string | null;
   /** Pendências do paciente (RG, laudo, guia vencendo...), já ordenadas por urgência. */
   pills: PatientPill[];
 }
@@ -209,7 +211,7 @@ export const PatientListItem = React.memo(function PatientListItem({
 
         {/* Coluna 3: Status Badge */}
         <div className="shrink-0 flex items-center">
-          <PatientStatusBadge status={patient.status || "ativo"} size="md" />
+          <PatientStatusBadge status={patient.status || "ativo"} customLabel={patient.stage_label ?? undefined} size="md" />
         </div>
       </div>
 
@@ -351,7 +353,7 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
       const guardianMatch = (p.guardian_name || "").toLowerCase().includes(query);
       const cpfMatch = (p.cpf || "").replace(/\D/g, "").includes(query.replace(/\D/g, ""));
       const statusMatch = (p.status || "").toLowerCase().includes(query);
-      const stageMatch = (p.journey_label || "").toLowerCase().includes(query);
+      const stageMatch = `${p.journey_label || ""} ${p.stage_label || ""}`.toLowerCase().includes(query);
 
       return nameMatch || guardianMatch || cpfMatch || statusMatch || stageMatch;
     });

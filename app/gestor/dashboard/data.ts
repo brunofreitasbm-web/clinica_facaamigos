@@ -13,6 +13,7 @@ export type TherapistSlaBar = { label: string; ratePct: number | null; realized:
 
 export type DashboardMetrics = {
   activePatients: number;
+  inJourneyPatients: number;
   therapistsUnderContract: number;
   sessionsThisMonth: number;
   roomOccupancyPct: number | null;
@@ -28,9 +29,11 @@ const WEEKDAY_LABEL = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 export async function getDashboardMetrics(supabase: Supa, clinicId: string): Promise<DashboardMetrics> {
   const { startISO, endISO } = currentMonthRange();
 
-  const [{ count: activePatients }, { data: contracts }, { data: monthAppointments }, { data: rooms }] =
+  const [{ count: activePatients }, { count: inJourneyPatients }, { data: contracts }, { data: monthAppointments }, { data: rooms }] =
     await Promise.all([
-      supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId).in("status", [...ACTIVE_PATIENT_STATUSES]),
+      supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId).in("status", [...ACTIVE_PATIENT_STATUSES]).not("evaluated_at", "is", null),
+      // Referência do KPI: crianças em jornada (agendadas), ainda sem 1ª avaliação executada.
+      supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId).in("status", [...ACTIVE_PATIENT_STATUSES]).is("evaluated_at", null),
       supabase
         .from("therapist_contracts")
         .select("profile_id, valid_from, valid_to, profiles!inner(clinic_id)")
@@ -154,6 +157,7 @@ export async function getDashboardMetrics(supabase: Supa, clinicId: string): Pro
 
   return {
     activePatients: activePatients ?? 0,
+    inJourneyPatients: inJourneyPatients ?? 0,
     therapistsUnderContract: new Set((contracts ?? []).map((c) => c.profile_id)).size,
     sessionsThisMonth: monthList.filter((a) => a.status === "realizada").length,
     roomOccupancyPct,

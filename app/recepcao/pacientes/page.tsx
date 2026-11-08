@@ -5,6 +5,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { fmtDateTime } from "@/lib/format";
 import { computeJourney, type JourneyEvaluation } from "@/lib/patient-journey-pure";
+import { computeJourneyStage, PATIENT_JOURNEY_LABEL } from "@/lib/patient-status";
 import { PatientListClient } from "./patient-list-client";
 import { AuthorizedPackagesPanel } from "@/components/authorized-packages-panel";
 import {
@@ -60,6 +61,16 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
         supabase.from("documents").select("patient_id, category").in("patient_id", patientIds),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+
+  // Etapa do paciente de fato (Avaliado → Aguardando o PTS → PTS feito → Em
+  // tratamento): só para quem já executou a 1ª avaliação.
+  const { data: planRows } = patientIds.length
+    ? await supabase.from("treatment_plans").select("patient_id, status").in("patient_id", patientIds)
+    : { data: [] as { patient_id: string; status: string }[] };
+  const planStatusesByPatient = new Map<string, string[]>();
+  for (const pl of planRows ?? []) {
+    planStatusesByPatient.set(pl.patient_id, [...(planStatusesByPatient.get(pl.patient_id) ?? []), pl.status]);
+  }
 
   // Fila da recepção (a mesma que alimentava o menu Pendências): vira pílulas e
   // painéis de ação do paciente.
@@ -148,6 +159,9 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
       created_at: p.created_at,
       evaluated_at: p.evaluated_at,
       first_session_at: p.first_session_at,
+      stage_label: p.evaluated_at
+        ? PATIENT_JOURNEY_LABEL[computeJourneyStage(p, planStatusesByPatient.get(p.id) ?? [])]
+        : null,
       guardian_name: mainGuardian?.full_name ?? null,
       insurer_name: insurerName,
       insurer_color: insurerColor,

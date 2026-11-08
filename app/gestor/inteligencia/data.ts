@@ -296,7 +296,8 @@ export async function getInteligenciaMetrics(
       .from("patients")
       .select("id", { count: "exact", head: true })
       .eq("clinic_id", clinicId)
-      .in("status", [...ACTIVE_PATIENT_STATUSES]),
+      .in("status", [...ACTIVE_PATIENT_STATUSES])
+      .not("evaluated_at", "is", null),
 
     // Equipe/Terapeutas
     supabase
@@ -389,9 +390,10 @@ export async function getInteligenciaMetrics(
     // entre clínicas por falta de filtro — corrigido aqui).
     supabase
       .from("patient_insurance")
-      .select("patient_id, insurer_id, is_private, insurers(id, name), patients!inner(clinic_id, status)")
+      .select("patient_id, insurer_id, is_private, insurers(id, name), patients!inner(clinic_id, status, evaluated_at)")
       .eq("patients.clinic_id", clinicId)
-      .in("patients.status", [...ACTIVE_PATIENT_STATUSES]),
+      .in("patients.status", [...ACTIVE_PATIENT_STATUSES])
+      .not("patients.evaluated_at", "is", null),
 
     // Todos os pacientes da clínica com status e marcos de estágio
     // (created_at/first_contact_at/evaluated_at/first_session_at/entry_source)

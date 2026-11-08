@@ -35,12 +35,22 @@ export default async function GestorPage() {
     .from("patients")
     .select("id", { count: "exact", head: true })
     .eq("clinic_id", DEV_CLINIC_ID)
-    .in("status", [...ACTIVE_PATIENT_STATUSES]);
+    .in("status", [...ACTIVE_PATIENT_STATUSES])
+    .not("evaluated_at", "is", null);
+
+  // Referência do KPI: agendados que ainda não executaram a 1ª avaliação.
+  const { count: inJourneyCount } = await supabase
+    .from("patients")
+    .select("id", { count: "exact", head: true })
+    .eq("clinic_id", DEV_CLINIC_ID)
+    .in("status", [...ACTIVE_PATIENT_STATUSES])
+    .is("evaluated_at", null);
 
   const { data: insuranceRows } = await supabase
     .from("patient_insurance")
-    .select("patient_id, insurer_id, patients!inner(status, clinic_id)")
+    .select("patient_id, insurer_id, patients!inner(status, clinic_id, evaluated_at)")
     .in("patients.status", [...ACTIVE_PATIENT_STATUSES])
+    .not("patients.evaluated_at", "is", null)
     .eq("patients.clinic_id", DEV_CLINIC_ID)
     .eq("is_private", false)
     .not("insurer_id", "is", null);
@@ -155,6 +165,7 @@ export default async function GestorPage() {
           <div>
             <div className="text-[11px] uppercase tracking-wide text-ink-faint">Pacientes ativos</div>
             <div className="tabular-figure text-2xl font-semibold">{activePatientsCount ?? 0}</div>
+            <div className="text-[11px] text-ink-faint">1ª avaliação realizada · vs. {inJourneyCount ?? 0} agendado(s) aguardando</div>
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-wide text-ink-faint">Concentração maior plano de saúde</div>

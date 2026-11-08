@@ -1,3 +1,4 @@
+import { computeJourneyStage, PATIENT_JOURNEY_LABEL } from "@/lib/patient-status";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { PROTOCOL_LABEL as CATALOG_PROTOCOL_LABEL, AREA_LABEL } from "@/lib/protocol-catalog";
@@ -59,20 +60,22 @@ export type PatientRow = {
   insurerName: string;
   primaryTherapistName: string;
   status: string;
+  stageLabel: string;
 };
 
 export async function getPatientRows(supabase: Supa, clinicId: string): Promise<PatientRow[]> {
   const { data: patients } = await supabase
     .from("patients")
-    .select("id, full_name, birth_date, status")
+    .select("id, full_name, birth_date, status, first_session_at")
     .eq("clinic_id", clinicId)
     .neq("status", "interessado") // interessado ainda não é paciente (sem prontuário)
+    .not("evaluated_at", "is", null) // paciente de fato = 1ª avaliação executada
     .order("full_name");
   const list = patients ?? [];
   if (list.length === 0) return [];
   const ids = list.map((p) => p.id);
 
-  const [{ data: guardians }, { data: insuranceRows }, { data: accessRows }] = await Promise.all([
+  const [{ data: guardians }, { data: insuranceRows }, { data: accessRows }, { data: planRows }] = await Promise.all([
     supabase.from("guardians").select("patient_id, full_name, is_financial").in("patient_id", ids),
     supabase.from("patient_insurance").select("patient_id, is_private, insurers(name)").in("patient_id", ids),
     supabase
@@ -81,7 +84,13 @@ export async function getPatientRows(supabase: Supa, clinicId: string): Promise<
       .in("patient_id", ids)
       .eq("access_type", "terapeuta")
       .is("revoked_at", null),
+    supabase.from("treatment_plans").select("patient_id, status").in("patient_id", ids),
   ]);
+
+  const planStatusesByPatient = new Map<string, string[]>();
+  for (const pl of planRows ?? []) {
+    planStatusesByPatient.set(pl.patient_id, [...(planStatusesByPatient.get(pl.patient_id) ?? []), pl.status]);
+  }
 
   const guardianByPatient = new Map<string, string>();
   for (const g of guardians ?? []) {
@@ -111,5 +120,6 @@ export async function getPatientRows(supabase: Supa, clinicId: string): Promise<
     insurerName: insurerByPatient.get(p.id) ?? "Particular",
     primaryTherapistName: therapistByPatient.get(p.id) ?? "—",
     status: p.status,
+    stageLabel: PATIENT_JOURNEY_LABEL[computeJourneyStage(p, planStatusesByPatient.get(p.id) ?? [])],
   }));
 }

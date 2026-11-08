@@ -226,7 +226,8 @@ async function buildSilentChurnLeak(supabase: Supa, clinicId: string): Promise<L
     .from("patients")
     .select("id")
     .eq("clinic_id", clinicId)
-    .in("status", [...ACTIVE_PATIENT_STATUSES]);
+    .in("status", [...ACTIVE_PATIENT_STATUSES])
+    .not("evaluated_at", "is", null);
   const list = patients ?? [];
   if (list.length === 0) {
     return {
@@ -336,7 +337,8 @@ export async function getOperationalAlerts(supabase: Supa, clinicId: string): Pr
     .from("patients")
     .select("id, full_name")
     .eq("clinic_id", clinicId)
-    .in("status", [...ACTIVE_PATIENT_STATUSES]);
+    .in("status", [...ACTIVE_PATIENT_STATUSES])
+    .not("evaluated_at", "is", null);
   const patientList = activePatients ?? [];
   const nameByPatient = new Map(patientList.map((p) => [p.id, p.full_name]));
   const patientIds = patientList.map((p) => p.id);
