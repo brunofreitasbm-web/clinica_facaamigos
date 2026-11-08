@@ -186,6 +186,13 @@ export function getTwilioContentSidForCategory(category: string): string | undef
       return process.env.TWILIO_EVAL_REMINDER_TEMPLATE_CONTENT_SID;
     case "confirmacao_d1":
       return process.env.TWILIO_EVAL_CONFIRM_TEMPLATE_CONTENT_SID;
+    // Régua de cobrança do Pacote de Sessões (lib/payments/billing-pure.ts, app/api/billing/dunning).
+    case "cobranca_lembrete":
+      return process.env.TWILIO_BILLING_REMINDER_TEMPLATE_CONTENT_SID;
+    case "cobranca_atraso":
+      return process.env.TWILIO_BILLING_OVERDUE_TEMPLATE_CONTENT_SID;
+    case "cobranca_formal":
+      return process.env.TWILIO_BILLING_FORMAL_TEMPLATE_CONTENT_SID;
     default:
       return undefined;
   }

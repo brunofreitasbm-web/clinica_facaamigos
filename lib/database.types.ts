@@ -2193,6 +2193,17 @@ export type Database = {
           paid_at: string | null
           pix_code: string | null
           status: string
+          reference_month: string | null
+          description: string | null
+          payment_method: string | null
+          gateway_charge_id: string | null
+          gateway_status: string | null
+          paid_amount: number | null
+          net_amount: number | null
+          fine_interest_amount: number | null
+          nfse_id: string | null
+          last_dunning_step: string | null
+          last_dunning_at: string | null
         }
         Insert: {
           amount: number
@@ -2204,6 +2215,17 @@ export type Database = {
           paid_at?: string | null
           pix_code?: string | null
           status?: string
+          reference_month?: string | null
+          description?: string | null
+          payment_method?: string | null
+          gateway_charge_id?: string | null
+          gateway_status?: string | null
+          paid_amount?: number | null
+          net_amount?: number | null
+          fine_interest_amount?: number | null
+          nfse_id?: string | null
+          last_dunning_step?: string | null
+          last_dunning_at?: string | null
         }
         Update: {
           amount?: number
@@ -2215,6 +2237,17 @@ export type Database = {
           paid_at?: string | null
           pix_code?: string | null
           status?: string
+          reference_month?: string | null
+          description?: string | null
+          payment_method?: string | null
+          gateway_charge_id?: string | null
+          gateway_status?: string | null
+          paid_amount?: number | null
+          net_amount?: number | null
+          fine_interest_amount?: number | null
+          nfse_id?: string | null
+          last_dunning_step?: string | null
+          last_dunning_at?: string | null
         }
         Relationships: [
           {
@@ -5535,6 +5568,104 @@ export type Database = {
           },
         ]
       }
+      payment_events: {
+        Row: {
+          actor_id: string | null
+          contract_id: string | null
+          error: string | null
+          event_type: string
+          gateway: string
+          gateway_event_id: string
+          id: string
+          invoice_id: string | null
+          note: string | null
+          payload: Json | null
+          processed_at: string | null
+          received_at: string
+        }
+        Insert: {
+          actor_id?: string | null
+          contract_id?: string | null
+          error?: string | null
+          event_type: string
+          gateway: string
+          gateway_event_id: string
+          id?: string
+          invoice_id?: string | null
+          note?: string | null
+          payload?: Json | null
+          processed_at?: string | null
+          received_at?: string
+        }
+        Update: {
+          actor_id?: string | null
+          contract_id?: string | null
+          error?: string | null
+          event_type?: string
+          gateway?: string
+          gateway_event_id?: string
+          id?: string
+          invoice_id?: string | null
+          note?: string | null
+          payload?: Json | null
+          processed_at?: string | null
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "patient_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_events_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "contract_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dunning_log: {
+        Row: {
+          channel: string
+          detail: string | null
+          id: string
+          invoice_id: string
+          result: string
+          sent_at: string
+          step: string
+        }
+        Insert: {
+          channel: string
+          detail?: string | null
+          id?: string
+          invoice_id: string
+          result: string
+          sent_at?: string
+          step: string
+        }
+        Update: {
+          channel?: string
+          detail?: string | null
+          id?: string
+          invoice_id?: string
+          result?: string
+          sent_at?: string
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dunning_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "contract_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_contracts: {
         Row: {
           clinic_id: string
@@ -5554,6 +5685,18 @@ export type Database = {
           sessions_per_month: number | null
           specialty_value: string | null
           unit_price: number | null
+          plan_code: string | null
+          payment_method: string
+          financial_responsible_name: string | null
+          financial_responsible_cpf: string | null
+          financial_responsible_email: string | null
+          financial_responsible_phone: string | null
+          gateway_customer_id: string | null
+          pix_authorization_id: string | null
+          pix_authorization_status: string | null
+          pix_authorization_qr: string | null
+          needs_review: boolean
+          needs_review_reason: string | null
         }
         Insert: {
           clinic_id: string
@@ -5573,6 +5716,18 @@ export type Database = {
           sessions_per_month?: number | null
           specialty_value?: string | null
           unit_price?: number | null
+          plan_code?: string | null
+          payment_method?: string
+          financial_responsible_name?: string | null
+          financial_responsible_cpf?: string | null
+          financial_responsible_email?: string | null
+          financial_responsible_phone?: string | null
+          gateway_customer_id?: string | null
+          pix_authorization_id?: string | null
+          pix_authorization_status?: string | null
+          pix_authorization_qr?: string | null
+          needs_review?: boolean
+          needs_review_reason?: string | null
         }
         Update: {
           clinic_id?: string
@@ -5592,6 +5747,18 @@ export type Database = {
           sessions_per_month?: number | null
           specialty_value?: string | null
           unit_price?: number | null
+          plan_code?: string | null
+          payment_method?: string
+          financial_responsible_name?: string | null
+          financial_responsible_cpf?: string | null
+          financial_responsible_email?: string | null
+          financial_responsible_phone?: string | null
+          gateway_customer_id?: string | null
+          pix_authorization_id?: string | null
+          pix_authorization_status?: string | null
+          pix_authorization_qr?: string | null
+          needs_review?: boolean
+          needs_review_reason?: string | null
         }
         Relationships: [
           {
