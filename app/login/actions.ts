@@ -99,11 +99,9 @@ export async function signIn(
     const token = data.session?.access_token;
     if (token) {
       const status = await consultarStatusRecadastro(token);
-      if (status) {
-        const valor = cookieDoStatus(status);
-        (await cookies()).set(COOKIE_RECADASTRO, valor, opcoesCookieRecadastro());
-        if (status.pendente) destino = RECADASTRO_PATH;
-      }
+      // status null (Hub fora, chave desligada) grava "ok": não herda "bloquear" de outro usuário.
+      (await cookies()).set(COOKIE_RECADASTRO, cookieDoStatus(status), opcoesCookieRecadastro());
+      if (status?.pendente) destino = RECADASTRO_PATH;
     }
   } catch (e) {
     console.error("Erro ao consultar recadastro:", e);
@@ -115,5 +113,10 @@ export async function signIn(
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  try {
+    (await cookies()).delete(COOKIE_RECADASTRO);
+  } catch {
+    // o cookie é só UX e expira sozinho
+  }
   redirect("/login");
 }

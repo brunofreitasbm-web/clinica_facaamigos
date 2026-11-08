@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import {
   consultarStatusRecadastro,
   cookieDoStatus,
+  decidirDestinoRecadastro,
   decidirRedirecionamentoRecadastro,
   pedirTicketRecadastro,
   urlDoHubValida,
@@ -149,4 +150,34 @@ test("urlDoHubValida aceita o host padrao e o configurado", () => {
   assert.equal(urlDoHubValida("https://outro.exemplo.com/x"), false);
   assert.equal(urlDoHubValida("https://outro.exemplo.com/x", "outro.exemplo.com"), true);
   assert.equal(urlDoHubValida("nao e url"), false);
+});
+
+test("decidirDestinoRecadastro: nunca deixa cookie bloquear com destino inicio (laco de redirects)", () => {
+  const pend = { pendente: true, bloquear: true, dias_restantes: 0 };
+  const hub = "https://gestao.institutofacaamigos.com.br/#recadastro&c=abc";
+  // pendente sem ticket: fail-open, cookie ok e volta ao inicio
+  assert.deepEqual(decidirDestinoRecadastro(pend, null, true), { destino: "inicio", cookie: "ok" });
+  // sem token: fail-open
+  assert.deepEqual(decidirDestinoRecadastro(pend, hub, false), { destino: "inicio", cookie: "ok" });
+  // status null e nao pendente: ok
+  assert.deepEqual(decidirDestinoRecadastro(null, null, true), { destino: "inicio", cookie: "ok" });
+  assert.deepEqual(
+    decidirDestinoRecadastro({ pendente: false, bloquear: false, dias_restantes: 7 }, hub, true),
+    { destino: "inicio", cookie: "ok" },
+  );
+  // pendente com ticket: vai ao Hub, cookie reflete o status
+  assert.deepEqual(decidirDestinoRecadastro(pend, hub, true), { destino: "hub", cookie: "bloquear", url: hub });
+  assert.deepEqual(
+    decidirDestinoRecadastro({ pendente: true, bloquear: false, dias_restantes: 3 }, hub, true),
+    { destino: "hub", cookie: "pendente", url: hub },
+  );
+  // invariante: destino inicio nunca grava bloquear
+  for (const st of [null, pend, { ...pend, bloquear: false }]) {
+    for (const url of [null, hub]) {
+      for (const tok of [true, false]) {
+        const d = decidirDestinoRecadastro(st, url, tok);
+        if (d.destino === "inicio") assert.equal(d.cookie, "ok");
+      }
+    }
+  }
 });

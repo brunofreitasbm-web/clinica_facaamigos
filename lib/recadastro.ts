@@ -126,3 +126,19 @@ export function contaIsentaDeRecadastro(
   const app = appRole ?? "";
   return perfilRole === "responsavel" || app.endsWith("_unit") || app === "intern";
 }
+
+export type DestinoRecadastro =
+  | { destino: "inicio"; cookie: "ok" }
+  | { destino: "hub"; cookie: CookieRecadastro; url: string };
+
+// Decide o fim de GET /recadastro. Fail-open: tudo que não for "pendente com URL válida do Hub" volta ao
+// inicio com cookie "ok". Gravar "ok" aqui é o que evita o laço /recadastro -> "/" -> /recadastro quando o
+// cookie estava em "bloquear" e o Hub não devolveu ticket.
+export function decidirDestinoRecadastro(
+  status: StatusRecadastro | null,
+  ticketUrl: string | null,
+  temToken: boolean,
+): DestinoRecadastro {
+  if (!temToken || !status || !status.pendente || !ticketUrl) return { destino: "inicio", cookie: "ok" };
+  return { destino: "hub", cookie: cookieDoStatus(status), url: ticketUrl };
+}
