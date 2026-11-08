@@ -421,7 +421,12 @@ Deno.serve(async (req: Request) => {
     };
 
     if (existing) {
-      await admin.from("profiles").update(commonFields).eq("id", existing.id);
+      // O e-mail do perfil acompanha o do login (auth.users). O recadastro de
+      // identidade pode ter trocado esse e-mail, e a origem não sabe disso:
+      // reescrevê-lo aqui deixaria profiles.email diferente do login e
+      // quebraria a entrada por CPF. Só a criação grava o e-mail.
+      const { email: _emailSoNaCriacao, ...camposDaAtualizacao } = commonFields;
+      await admin.from("profiles").update(camposDaAtualizacao).eq("id", existing.id);
       return new Response(JSON.stringify({ updated: true, profile_id: existing.id }), { status: 200 });
     }
 
