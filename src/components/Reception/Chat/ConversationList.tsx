@@ -296,7 +296,8 @@ export function ConversationList({
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               ref={searchRef}
-              className="input w-full pl-9 text-sm focus:ring-2 focus:ring-teal-600"
+              // pl-9! (importante): `.input` do globals.css não está em camada e zerava o recuo, deixando o ícone sobre o texto
+              className="input w-full pl-9! text-sm focus:ring-2 focus:ring-teal-600"
               placeholder="Buscar nome ou telefone (Ctrl+K)"
               value={searchInput}
               onChange={handleSearchInputChange}
