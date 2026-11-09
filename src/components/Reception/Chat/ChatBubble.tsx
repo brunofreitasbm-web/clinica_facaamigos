@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, Info, Paperclip, RefreshCw } from "lucide-react";
+import { AlertTriangle, Check, CheckCheck, Clock, Info, Paperclip, RefreshCw } from "lucide-react";
+import { deliveryStatusLabel } from "@/lib/atendimento/message-author-pure";
 
 export interface ChatMessage {
   id: string;
@@ -23,6 +24,8 @@ export interface ChatMessage {
 
 interface ChatBubbleProps {
   message: ChatMessage;
+  /** Quem enviou ("Bot", "Maria", "Menu enviado por Maria"); `null` para o que veio do contato. */
+  authorLabel?: string | null;
   isPending?: boolean;
   onRetry?: (body: string) => void;
 }
@@ -84,8 +87,22 @@ function MediaAttachment({ messageId, isOutbound }: { messageId: string; isOutbo
   );
 }
 
+/** Status de entrega em português, com ícone (a cor não é o único sinal). */
+function DeliveryStatus({ status }: { status: string }) {
+  const info = deliveryStatusLabel(status);
+  if (!info) return null;
+  const Icon = info.tone === "pending" ? Clock : info.tone === "sent" ? Check : CheckCheck;
+  return (
+    <span className="inline-flex items-center gap-0.5" title={info.label}>
+      <Icon size={11} aria-hidden />
+      {info.label}
+    </span>
+  );
+}
+
 export const ChatBubble = React.memo(function ChatBubble({
   message,
+  authorLabel = null,
   isPending,
   onRetry,
 }: ChatBubbleProps) {
@@ -124,7 +141,7 @@ export const ChatBubble = React.memo(function ChatBubble({
             isOutbound ? "text-slate-100/90" : "text-slate-500 dark:text-slate-400"
           }`}
         >
-          <span className="flex items-center gap-1 font-medium">
+          <span className="flex flex-wrap items-center gap-x-1 font-medium">
             {message.sentAt
               ? new Date(message.sentAt).toLocaleTimeString("pt-BR", {
                   hour: "2-digit",
@@ -134,6 +151,7 @@ export const ChatBubble = React.memo(function ChatBubble({
             {isPortal && (
               <span className="inline-flex items-center gap-0.5 italic opacity-80">· via portal da família</span>
             )}
+            {authorLabel && <span className="opacity-90">· {authorLabel}</span>}
             {isOutbound && message.deliveryStatus && (
               <span className="inline-flex items-center gap-1">
                 ·{" "}
@@ -146,7 +164,7 @@ export const ChatBubble = React.memo(function ChatBubble({
                     <Info size={11} /> Modo Local
                   </span>
                 ) : (
-                  message.deliveryStatus
+                  <DeliveryStatus status={message.deliveryStatus} />
                 )}
               </span>
             )}

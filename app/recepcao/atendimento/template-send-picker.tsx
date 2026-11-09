@@ -6,10 +6,9 @@ import { sendTemplateMessage } from "./actions";
 // Mesmas categorias que lib/twilio.ts getTwilioContentSidForCategory mapeia
 // pra uma variável de ambiente TWILIO_*_TEMPLATE_CONTENT_SID — os bots já
 // usam essas categorias com dados específicos do fluxo (data da avaliação,
-// terapeuta etc.); aqui a recepção manda o texto livre que quer registrar
-// no histórico, mas o que a família recebe é o MODELO aprovado pela Meta
-// (a Twilio ignora `message`/`previewText` quando `contentSid` é passado —
-// ver sendTwilioWhatsApp em lib/twilio.ts). Categoria sem
+// terapeuta etc.). O que a família recebe é o MODELO aprovado pela Meta: a
+// Twilio ignora `message`/`previewText` quando `contentSid` é passado (ver
+// sendTwilioWhatsApp em lib/twilio.ts). Categoria sem
 // TWILIO_*_TEMPLATE_CONTENT_SID configurado no ambiente falha com um erro
 // claro (getTwilioContentSidForCategory retorna undefined).
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
@@ -23,26 +22,24 @@ const CATEGORY_OPTIONS: { value: string; label: string }[] = [
 
 export function TemplateSendPicker({
   conversationId,
-  guardianName,
-  contactName,
 }: {
   conversationId: string;
   guardianName?: string | null;
   contactName?: string | null;
 }) {
   const [category, setCategory] = useState(CATEGORY_OPTIONS[0].value);
-  const [note, setNote] = useState("");
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
 
   const handleSend = () => {
     setFeedback(null);
+    const label = CATEGORY_OPTIONS.find((opt) => opt.value === category)?.label ?? category;
     startTransition(async () => {
-      const previewText = note.trim() || `Modelo aprovado enviado para ${guardianName ?? contactName ?? "o contato"}.`;
-      const result = await sendTemplateMessage(conversationId, category, previewText);
+      // Texto que fica no histórico. Antes era um campo livre ("Nota interna") que aparecia na conversa
+      // como se a família tivesse recebido aquelas palavras, quando ela recebe o modelo aprovado.
+      const result = await sendTemplateMessage(conversationId, category, `Modelo enviado: ${label}`);
       if (result.success) {
         setFeedback({ kind: "success", text: "Modelo enviado." });
-        setNote("");
       } else {
         setFeedback({ kind: "error", text: result.error ?? "Falha ao enviar o modelo." });
       }
@@ -69,15 +66,15 @@ export function TemplateSendPicker({
           {isPending ? "Enviando…" : "Enviar modelo"}
         </button>
       </div>
-      <input
-        className="input text-sm"
-        placeholder="Nota interna (opcional)"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        disabled={isPending}
-      />
+      <p className="text-xs text-slate-600 dark:text-slate-400">
+        A família recebe o texto padrão aprovado pela Meta para esta categoria; ele não pode ser editado aqui. No
+        histórico fica registrado como “Modelo enviado”.
+      </p>
       {feedback && (
-        <p className={`text-xs ${feedback.kind === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+        <p
+          role={feedback.kind === "error" ? "alert" : "status"}
+          className={`text-xs ${feedback.kind === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
+        >
           {feedback.text}
         </p>
       )}
