@@ -2,26 +2,15 @@
 
 import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ClipboardList, Check, Copy, FileText, ImageIcon, Paperclip, Pencil, Sparkles, Loader2 } from "lucide-react";
-import { openLeadPendency, getLeadDraftByConversationId, updateConversationContactName, extractLeadInfoFromChat, type LeadDraftInfo } from "./actions";
+import { Check, FileText, ImageIcon, Paperclip, Pencil, Loader2 } from "lucide-react";
+import { getLeadDraftByConversationId, updateConversationContactName, extractLeadInfoFromChat, type LeadDraftInfo } from "./actions";
+import { CaseSummary } from "./case-summary";
 import { formatConversationPhone } from "./format-phone";
 import { ConversationNote } from "./conversation-note";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
 import { LeadFocusDialog } from "../pacientes/pendencias/lead-focus-dialog";
 import { DraftIntakeCard } from "../pacientes/pendencias/draft-intake-card";
-import { HelpHint } from "@/components/ui/help-hint";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
-
-const ESCALATION_LABELS: Record<string, string> = {
-  fora_da_base: "A dúvida não está na base de conhecimento do bot.",
-  clinico: "Pergunta clínica sobre a criança — o bot não responde.",
-  pediu_humano: "A pessoa pediu para falar com alguém da equipe.",
-  relatorio: "Pedido de relatório/documento — dados coletados na última mensagem do bot, veja a conversa.",
-  lista_espera: "Quer entrar na lista de espera — nome, idade, plano e terapia estão no resumo da última mensagem do bot.",
-  particular: "Venda particular: quer falar com um atendente sobre o atendimento particular.",
-  particular_agendar: "Venda particular: quer agendar a avaliação — nome, idade e queixa estão na última mensagem da família.",
-};
 
 const DOCUMENT_KIND_LABEL: Record<string, string> = {
   laudo: "Laudo",
@@ -98,21 +87,12 @@ export function LeadContextPanel({
   conversation: ConversationRow;
   onPatch: (patch: ConversationPatch) => void;
 }) {
-  const phone = formatConversationPhone(conversation.phoneNumber);
-  const escalationLabel = conversation.escalationReason
-    ? ESCALATION_LABELS[conversation.escalationReason]
-    : null;
-
-  const router = useRouter();
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(conversation.contactName ?? "");
-  const [copied, setCopied] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractionDone, setExtractionDone] = useState(false);
   const [draft, setDraft] = useState<LeadDraftInfo | null>(null);
-  // Só afirmamos "dados lidos" quando algo realmente foi extraído — antes a
-  // mensagem aparecia mesmo com a conversa inteira em branco.
-  const [filledByAi, setFilledByAi] = useState(false);
+  // Muda quando algo que altera o resumo do caso aconteceu (IA terminou de ler, pendências resolvidas).
+  const [summaryRefresh, setSummaryRefresh] = useState(0);
   // Currículo/vaga de emprego: o bot já resolveu sozinho, sem IA — nada aqui
   // é lead de matrícula (ver hasStrongJobSignal em actions.ts). Evita mostrar
   // "Analisando..." por um assunto que nunca vai virar dado de cadastro.
@@ -125,7 +105,6 @@ export function LeadContextPanel({
 
   const handleExtractFromChat = useCallback(async () => {
     setIsExtracting(true);
-    setExtractionDone(false);
     try {
       const res = await extractLeadInfoFromChat(conversation.id);
       if (res.success) {
@@ -134,8 +113,7 @@ export function LeadContextPanel({
           return;
         }
         setDraft(res.draft ?? null);
-        setFilledByAi(Boolean(res.data?.fullName || res.data?.birthDate || res.data?.chiefComplaint));
-        setExtractionDone(true);
+        setSummaryRefresh((n) => n + 1);
       }
     } catch (err) {
       console.error("Erro na extração dos dados do chat:", err);
@@ -162,7 +140,7 @@ export function LeadContextPanel({
   const saveName = () => {
     const name = nameDraft.trim();
     setEditingName(false);
-    onPatch({ contactName: name || null, displayName: name || phone });
+    onPatch({ contactName: name || null, displayName: name || formatConversationPhone(conversation.phoneNumber) });
     startTransition(async () => {
       const result = await updateConversationContactName(conversation.id, name);
       if (!result.success) setError(result.error);
@@ -184,9 +162,16 @@ export function LeadContextPanel({
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
+      <CaseSummary
+        conversation={conversation}
+        onResolvePendencies={handleResolverPendencias}
+        resolving={isPending}
+        refreshToken={summaryRefresh}
+      />
+
       <div>
         <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-2">
-          Contato
+          Nome do contato
         </h6>
         {editingName ? (
           <div className="flex items-center gap-2">
@@ -216,83 +201,35 @@ export function LeadContextPanel({
             <Pencil size={12} className="text-ink-faint opacity-60 group-hover:opacity-100" />
           </button>
         )}
-        <div className="mt-0.5 flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => {
-            navigator.clipboard?.writeText(phone).then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            });
-          }}
-          className="flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink"
-          title="Copiar telefone"
-        >
-          {phone}
-          {copied ? <Check size={12} className="text-status-active" /> : <Copy size={12} className="opacity-60" />}
-        </button>
-        <HelpHint text="Ainda não é paciente: este número não está vinculado a nenhum responsável cadastrado." />
-        </div>
       </div>
 
-      {escalationLabel && (
-        <div
-          className="rounded-md p-3 text-xs"
-          style={{ background: "var(--color-accent-2-100)", color: "var(--color-accent-2-700)" }}
-        >
-          <div className="mb-1 font-semibold">Bot escalou para a equipe</div>
-          {escalationLabel}
+      {isExtracting && !notApplicable && (
+        <div className="flex items-center gap-1.5 rounded bg-indigo-50 p-2 text-[11px] text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+          <Loader2 size={13} className="animate-spin shrink-0" />
+          <span>Analisando conversa e documentos com IA...</span>
         </div>
       )}
 
-      <div>
-        <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-2">
-          Próximo passo
-        </h6>
+      {notApplicable && (
+        <p className="text-xs text-ink-faint">
+          Assunto de currículo/vaga — o bot já respondeu, não é cadastro de paciente.
+        </p>
+      )}
 
-        <div className="flex flex-col gap-2">
-          {isExtracting && !notApplicable && (
-            <div className="flex items-center gap-1.5 rounded bg-indigo-50 p-2 text-[11px] text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
-              <Loader2 size={13} className="animate-spin shrink-0" />
-              <span>Analisando conversa e documentos com IA...</span>
-            </div>
-          )}
+      <DraftAttachments draft={draft} />
 
-          {notApplicable && (
-            <p className="text-xs text-ink-faint">
-              Assunto de currículo/vaga — o bot já respondeu, não é cadastro de paciente.
-            </p>
-          )}
-
-          {!isExtracting && !notApplicable && extractionDone && filledByAi && (
-            <div className="flex items-center gap-1.5 rounded bg-teal-50 p-2 text-[11px] text-teal-800 dark:bg-teal-950/40 dark:text-teal-200">
-              <Sparkles size={13} className="shrink-0 text-teal-600 dark:text-teal-400" />
-              <span>Dados lidos e guardados na pendência deste contato</span>
-            </div>
-          )}
-
-          <DraftAttachments draft={draft} />
-
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={isPending}
-              className="btn btn-primary flex-1 justify-center gap-1.5 text-sm"
-              onClick={handleResolverPendencias}
-            >
-              <ClipboardList size={14} />
-              {isPending ? "Abrindo…" : "Resolver pendências"}
-            </button>
-            <HelpHint text="Abre a fila de pendências já focada neste contato — dados, documentos e o que falta antes do cadastro." />
-          </div>
-        </div>
-        {error && <p className="mt-2 text-xs text-red-600">⚠️ {error}</p>}
-      </div>
+      {error && <p className="text-xs text-red-600">⚠️ {error}</p>}
 
       <ConversationNote conversationId={conversation.id} />
 
       {isModalOpen && (
-        <LeadFocusDialog draft={focusDraft} onClose={() => setIsModalOpen(false)}>
+        <LeadFocusDialog
+          draft={focusDraft}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSummaryRefresh((n) => n + 1);
+          }}
+        >
           {focusDraft && <DraftIntakeCard draft={focusDraft} focus />}
         </LeadFocusDialog>
       )}

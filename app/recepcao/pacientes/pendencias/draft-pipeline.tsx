@@ -21,6 +21,7 @@ import {
   waiveDraftAuthorization,
 } from "./draft-pipeline-actions";
 import { PortalRobotPanel } from "./portal-robot-panel";
+import { PIPELINE_STEP_TITLES, pipelineStepStates, type PipelineStepState } from "@/lib/draft-pipeline-steps-pure";
 
 /**
  * Linha do tempo de um contato da fila de pendências, do recebimento dos
@@ -35,27 +36,11 @@ import { PortalRobotPanel } from "./portal-robot-panel";
  * deixar marcar (lib/evaluation-agenda.ts).
  */
 
-type StepState = "done" | "current" | "locked";
+type StepState = PipelineStepState;
 
-function stepStates(pipeline: PendingRegistrationDraft["pipeline"]): [StepState, StepState, StepState, StepState] {
-  const waived = pipeline.authorization === "dispensada";
-  const sentDone = waived || pipeline.authorization !== "pendente";
-  const authDone = waived || pipeline.authorization === "autorizada";
-  const enabled = Boolean(pipeline.schedulingEnabledAt);
-  return [
-    "done",
-    sentDone ? "done" : "current",
-    authDone ? "done" : sentDone ? "current" : "locked",
-    enabled ? "done" : authDone ? "current" : "locked",
-  ];
-}
-
-const STEP_TITLE = [
-  "Documentos recebidos",
-  "Guia enviada ao plano",
-  "Plano autorizou",
-  "Habilitado p/ agendamento",
-] as const;
+// Regra da trilha em lib/draft-pipeline-steps-pure.ts (testada), compartilhada com a tela de Chat.
+const stepStates = pipelineStepStates;
+const STEP_TITLE = PIPELINE_STEP_TITLES;
 
 const STATE_STYLE: Record<StepState, string> = {
   // Etapa vencida em "penumbra" (volta ao normal no hover/foco, para o Desfazer continuar à mão);

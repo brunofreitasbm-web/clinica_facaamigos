@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { ArrowLeft, Check, CheckCheck, Clock, Lock, MoreVertical, Paperclip, RefreshCw, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDraftMessage } from "@/src/hooks/useDraftMessage";
-import { HealthPlanBadge } from "@/components/health-plan-badge";
+import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
 import {
   assignConversation,
   sendManualMessage,
@@ -463,10 +463,11 @@ export function MobileChat({
             <span className="min-w-0">
               <span className="flex items-center gap-1.5">
                 <span className="truncate text-[16px] font-extrabold text-white">{conversation.displayName}</span>
-                {conversation.planName && <HealthPlanBadge name={conversation.planName} color={conversation.planColor} size="md" />}
               </span>
               <span className="block truncate text-[12px]" style={{ color: "color-mix(in srgb, #fff 85%, transparent)" }}>
-                {conversation.guardianName ?? conversation.phoneNumber}
+                {conversation.guardianName
+                  ? `${conversation.guardianName} · ${formatConversationPhone(conversation.phoneNumber)}`
+                  : formatConversationPhone(conversation.phoneNumber)}
                 {assigneeName ? ` · com ${isMine ? "você" : assigneeName}` : ""}
               </span>
             </span>

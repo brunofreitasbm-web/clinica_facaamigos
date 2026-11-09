@@ -8,6 +8,7 @@ import { DraftAdjustButton } from "./draft-adjust-dialog";
 import { DraftPipelineColumns } from "./draft-pipeline";
 import { PendencyGrid } from "./pendency-pills";
 import { missingChaseKeys } from "@/lib/lead-pendencies";
+import { chatHref } from "@/lib/atendimento/chat-deep-link-pure";
 
 /**
  * Cartão da categoria "cadastro_assistido_ia" na fila de pendências.
@@ -199,6 +200,12 @@ export function DraftIntakeCard({
           {draft.patientId && draft.patientStatus !== "interessado" && (
             <Link href={`/recepcao/pacientes/${draft.patientId}`} className="text-[13px] no-underline text-ink-soft">
               Abrir prontuário
+            </Link>
+          )}
+          {/* Antes o operador buscava o nome à mão no Chat. Dentro do próprio Chat (focus) o link seria redundante. */}
+          {!focus && draft.source === "whatsapp" && draft.sourcePhone && (
+            <Link href={chatHref({ phone: draft.sourcePhone })} className="text-[13px] no-underline text-ink-soft">
+              Abrir conversa no Chat
             </Link>
           )}
         </div>

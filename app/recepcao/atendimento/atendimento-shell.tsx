@@ -52,6 +52,7 @@ export function AtendimentoShell({
   insurerById,
   loadError = null,
   pendingSlaMinutes = null,
+  initialSelectedId = null,
 }: {
   initialConversations: ConversationRow[];
   chatbotAdmin: ChatbotAdminData | null;
@@ -61,11 +62,14 @@ export function AtendimentoShell({
   loadError?: string | null;
   /** `chatbot_settings.pending_sla_minutes`: minutos para o item de espera ficar vermelho. */
   pendingSlaMinutes?: number | null;
+  /** Conversa pedida por link (?c= / ?tel=); vence a seleção padrão e abre direto no chat no celular. */
+  initialSelectedId?: string | null;
 }) {
   const [conversations, setConversations] = useState<ConversationRow[]>(initialConversations);
   // Começa na primeira conversa EXIBIDA (topo de "Precisa de você"), não na mais recente.
   const [selectedId, setSelectedId] = useState<string | null>(
     () =>
+      initialSelectedId ??
       sectionConversations(
         initialConversations.filter((c) => c.status !== "closed"),
         currentUserId,
@@ -78,7 +82,7 @@ export function AtendimentoShell({
   const [search, setSearch] = useState("");
   // Mobile: lista e conversa viram telas separadas (master-detail), em vez
   // de três painéis empilhados com o chat abaixo da dobra.
-  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [mobileView, setMobileView] = useState<"list" | "chat">(initialSelectedId ? "chat" : "list");
   const [showContextMobile, setShowContextMobile] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [closedToast, setClosedToast] = useState<{ id: string; name: string } | null>(null);
