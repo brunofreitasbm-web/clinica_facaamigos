@@ -11,6 +11,7 @@ import { createInteressadoAction, type CreateInteressadoInput } from "../actions
 import { generateChatResponse, isChatAiConfigured } from "@/lib/chat-llm";
 import { formatConversationPhone } from "./format-phone";
 import { shouldDiscardSession } from "@/lib/menu-reset-pure";
+import { isWindowClosed } from "@/lib/whatsapp-window-pure";
 import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
@@ -53,6 +54,9 @@ export async function sendManualMessage(conversationId: string, body: string) {
   if (!trimmed) return { success: false as const, error: "Mensagem vazia." };
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: conversation, error: convError } = await supabase
     .from("twilio_conversations")
@@ -94,6 +98,7 @@ export async function sendManualMessage(conversationId: string, body: string) {
     sent_at: new Date().toISOString(),
     twilio_sid: sendResult.messageId ?? null,
     delivery_status: deliveryStatus,
+    sent_by: user?.id ?? null,
   });
 
   if (insertError) {
@@ -175,6 +180,9 @@ export async function sendTemplateMessage(
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: conversation, error: convError } = await supabase
     .from("twilio_conversations")
@@ -205,6 +213,7 @@ export async function sendTemplateMessage(
     twilio_sid: sendResult.messageId ?? null,
     delivery_status: sendResult.success ? "sent" : "failed",
     template_key: category,
+    sent_by: user?.id ?? null,
   });
 
   if (insertError) {
@@ -246,13 +255,26 @@ export async function sendMenuToLead(conversationId: string) {
 
   const { data: conversation } = await supabase
     .from("twilio_conversations")
-    .select("id, phone_number")
+    .select("id, phone_number, last_inbound_at")
     .eq("id", conversationId)
     .maybeSingle();
   if (!conversation) return { success: false as const, error: "Conversa não encontrada." };
 
+  // Fora da janela de 24h o menu (texto livre) não é entregue, mas o envio era gravado
+  // como "sent" e o bot era religado mesmo assim. Barra aqui, no servidor, e não só no botão.
+  if (isWindowClosed(conversation.last_inbound_at, Date.now())) {
+    return {
+      success: false as const,
+      error: "Essa conversa está fora da janela de 24h do WhatsApp — envie um modelo aprovado para reabri-la.",
+    };
+  }
+
   const { sendMainMenuNow } = await import("@/lib/welcome-menu");
-  const result = await sendMainMenuNow({ phone: conversation.phone_number, conversationId: conversation.id });
+  const result = await sendMainMenuNow({
+    phone: conversation.phone_number,
+    conversationId: conversation.id,
+    sentBy: user.id,
+  });
   if (!result.success) {
     if (isWhatsAppWindowClosedError(result.errorCode)) {
       return {

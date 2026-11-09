@@ -147,6 +147,9 @@ export async function sendMainMenu(params: { phone: string; conversationId: stri
 export async function sendMainMenuNow(params: {
   phone: string;
   conversationId: string;
+  /** Profissional da equipe que acionou o envio; fica em `messages.sent_by` para o histórico
+   * mostrar "Menu enviado por Fulana" (para a família continua parecendo o bot). */
+  sentBy?: string | null;
 }): Promise<{ success: true } | { success: false; error: string; errorCode?: number }> {
   const sid = (await menuSids()).mainMenu;
   const attempts = sid ? [{ contentSid: sid }, {}] : [{}];
@@ -173,6 +176,7 @@ export async function sendMainMenuNow(params: {
           twilio_sid: send.messageId ?? null,
           delivery_status: "sent",
           intent: MENU_INTENT,
+          sent_by: params.sentBy ?? null,
         });
         await admin
           .from("twilio_conversations")

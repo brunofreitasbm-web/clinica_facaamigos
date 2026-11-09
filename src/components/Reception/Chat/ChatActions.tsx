@@ -24,6 +24,8 @@ export interface ChatActionsProps {
   onBotToggle: (shouldEnableBot: boolean) => Promise<void>;
   /** Envia o menu inicial como se fosse o bot e devolve a conversa ao bot. */
   onSendMenu?: () => Promise<void>;
+  /** Janela de 24h do WhatsApp fechada: o menu (texto livre) não seria entregue. */
+  windowClosed?: boolean;
 }
 
 export function ChatActions({
@@ -37,6 +39,7 @@ export function ChatActions({
   onCloseToggle,
   onBotToggle,
   onSendMenu,
+  windowClosed = false,
 }: ChatActionsProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [outcome, setOutcome] = useState<AttendanceManualOutcome | null>(null);
@@ -52,10 +55,11 @@ export function ChatActions({
   const isBusy = isPending || isAssigning || isTerminating || isTogglingBot || isSendingMenu;
 
   const handleSendMenuClick = async () => {
-    if (isBusy || !onSendMenu) return;
-    // Enviar o menu devolve a conversa ao bot: exige um segundo clique para não
-    // acionar por engano no meio de um atendimento humano.
-    if (!isBotActive && !confirmMenu) {
+    if (isBusy || !onSendMenu || windowClosed) return;
+    // O menu chega ao paciente como se fosse o bot e devolve a conversa ao bot:
+    // sempre exige um segundo clique. Com o bot ativo um clique só também enviava,
+    // e 5 menus saíram assim para conversas mudas há mais de 30 dias.
+    if (!confirmMenu) {
       setConfirmMenu(true);
       return;
     }
@@ -190,14 +194,18 @@ export function ChatActions({
         {!isClosed && onSendMenu && (
           <button
             type="button"
-            disabled={isBusy}
+            disabled={isBusy || windowClosed}
             onClick={handleSendMenuClick}
             onBlur={() => setConfirmMenu(false)}
             className="btn btn-secondary flex min-h-9 items-center gap-1.5 text-xs focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Envia o menu inicial ao contato como se fosse o bot e devolve a conversa ao bot"
+            title={
+              windowClosed
+                ? "Fora da janela de 24h do WhatsApp: o menu não seria entregue. Envie um modelo aprovado."
+                : "Envia o menu inicial ao contato como se fosse o bot e devolve a conversa ao bot"
+            }
           >
             {isSendingMenu ? <Loader2 size={14} className="animate-spin" /> : <ListOrdered size={14} />}
-            <span>{confirmMenu ? "Confirmar: bot assume" : "Enviar menu"}</span>
+            <span>{confirmMenu ? "Confirmar envio" : "Enviar menu"}</span>
           </button>
         )}
 

@@ -24,15 +24,13 @@ import type { DeliveryHistoryRow } from "./chatbot/chatbot-panel";
 export type { ConversationRow, InsurerPill, ConversationPatch } from "@/lib/atendimento/types";
 import type { ConversationRow, ConversationPatch, InsurerPill } from "@/lib/atendimento/types";
 import { hasPatientRecord, toLastMessageSender } from "@/lib/atendimento/types";
-
-const WHATSAPP_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+import { isWindowClosed } from "@/lib/whatsapp-window-pure";
 
 /** true quando a janela de 24h do WhatsApp já fechou (ou nunca esteve
  * aberta — contato sem mensagem inbound registrada) e só um template
- * aprovado consegue reabrir a conversa. */
+ * aprovado consegue reabrir a conversa. Regra única em lib/whatsapp-window-pure.ts. */
 export function isWhatsappWindowClosed(conversation: Pick<ConversationRow, "lastInboundAt">): boolean {
-  if (!conversation.lastInboundAt) return true;
-  return Date.now() - new Date(conversation.lastInboundAt).getTime() > WHATSAPP_SERVICE_WINDOW_MS;
+  return isWindowClosed(conversation.lastInboundAt, Date.now());
 }
 
 export type ChatbotAdminData = {

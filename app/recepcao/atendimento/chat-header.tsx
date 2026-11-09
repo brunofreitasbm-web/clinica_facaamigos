@@ -156,6 +156,7 @@ export function ChatHeader({
           onCloseToggle={handleCloseToggle}
           onBotToggle={handleBotToggle}
           onSendMenu={handleSendMenu}
+          windowClosed={isWhatsappWindowClosed(conversation)}
         />
       </div>
       {error && <p className="mt-2 text-xs text-red-600">⚠️ {error}</p>}
