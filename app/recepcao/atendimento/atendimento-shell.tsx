@@ -1,6 +1,6 @@
 "use client";
 
-import { prioritizeConversations } from "@/lib/atendimento/priority-pure";
+import { sectionConversations, waitAlertMinutes } from "@/lib/atendimento/sections-pure";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -51,6 +51,7 @@ export function AtendimentoShell({
   staffNames,
   insurerById,
   loadError = null,
+  pendingSlaMinutes = null,
 }: {
   initialConversations: ConversationRow[];
   chatbotAdmin: ChatbotAdminData | null;
@@ -58,9 +59,20 @@ export function AtendimentoShell({
   staffNames: Record<string, string>;
   insurerById: Record<string, InsurerPill>;
   loadError?: string | null;
+  /** `chatbot_settings.pending_sla_minutes`: minutos para o item de espera ficar vermelho. */
+  pendingSlaMinutes?: number | null;
 }) {
   const [conversations, setConversations] = useState<ConversationRow[]>(initialConversations);
-  const [selectedId, setSelectedId] = useState<string | null>(initialConversations[0]?.id ?? null);
+  // Começa na primeira conversa EXIBIDA (topo de "Precisa de você"), não na mais recente.
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () =>
+      sectionConversations(
+        initialConversations.filter((c) => c.status !== "closed"),
+        currentUserId,
+      )[0]?.rows[0]?.id ??
+      initialConversations[0]?.id ??
+      null,
+  );
   const [activeTab, setActiveTab] = useState<"conversas" | "chatbot">("conversas");
   const [filter, setFilter] = useState<ConversationFilter>("abertas");
   const [search, setSearch] = useState("");
@@ -207,12 +219,22 @@ export function AtendimentoShell({
     return result;
   }, [conversations, currentUserId]);
 
-  const visibleConversations = useMemo(
-    () =>
-      prioritizeConversations(
-        conversations.filter((c) => matchesFilter(c, filter, currentUserId) && matchesSearch(c, search)),
-      ),
+  const matching = useMemo(
+    () => conversations.filter((c) => matchesFilter(c, filter, currentUserId) && matchesSearch(c, search)),
     [conversations, filter, search, currentUserId],
+  );
+
+  // Conversas abertas aparecem em seções (Precisa de você / Em atendimento / Com o bot).
+  // "Encerradas" não tem o que priorizar e fica plana, por última mensagem.
+  const sections = useMemo(
+    () => (filter === "encerradas" ? null : sectionConversations(matching, currentUserId)),
+    [matching, filter, currentUserId],
+  );
+
+  // Lista plana NA ORDEM EXIBIDA: Alt+↑/↓ e "próxima conversa ao encerrar" andam por ela.
+  const visibleConversations = useMemo(
+    () => (sections ? sections.flatMap((section) => section.rows) : matching),
+    [sections, matching],
   );
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
@@ -348,6 +370,8 @@ export function AtendimentoShell({
             >
               <ConversationList
                 conversations={visibleConversations}
+                sections={sections}
+                waitAlertMinutes={waitAlertMinutes(pendingSlaMinutes)}
                 selectedId={selectedId}
                 filter={filter}
                 counts={counts}

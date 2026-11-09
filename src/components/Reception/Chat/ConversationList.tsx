@@ -7,6 +7,7 @@ import { HealthPlanBadge } from "@/components/health-plan-badge";
 import { SubNavBadges, ConversationFilter } from "@/src/components/Reception/Navigation/SubNavBadges";
 import type { ConversationRow } from "@/app/recepcao/atendimento/atendimento-shell";
 import { LastSenderIndicator } from "@/components/atendimento/last-sender-indicator";
+import { HelpHint } from "@/components/ui/help-hint";
 import { waitingSince } from "@/lib/atendimento/waiting";
 import {
   isParticularPriority,
@@ -14,8 +15,30 @@ import {
   PARTICULAR_PRIORITY_COLOR,
   priorityLabel,
 } from "@/lib/atendimento/priority-pure";
+import { DEFAULT_WAIT_ALERT_MINUTES, type ConversationSection, type SectionKey } from "@/lib/atendimento/sections-pure";
 
-const WAIT_ALERT_MINUTES = 15;
+const ITEM_HEIGHT = 72;
+const HEADER_HEIGHT = 32;
+
+/** Linha da lista virtualizada: cabeçalho de seção ou conversa. */
+type ListEntry =
+  | { type: "header"; key: SectionKey; label: string; count: number }
+  | { type: "item"; conversation: ConversationRow };
+
+function buildEntries(
+  sections: ConversationSection<ConversationRow>[] | null,
+  conversations: ConversationRow[],
+): ListEntry[] {
+  if (!sections) return conversations.map((conversation) => ({ type: "item", conversation }));
+  return sections.flatMap((section) => [
+    { type: "header" as const, key: section.key, label: section.label, count: section.rows.length },
+    ...section.rows.map((conversation) => ({ type: "item" as const, conversation })),
+  ]);
+}
+
+const SHORTCUTS_HELP =
+  "Atalhos: Alt+A assume ou libera a conversa · Alt+↑ / Alt+↓ navega pela fila · Alt+C cadastra interessado · " +
+  "Ctrl+K busca · digite / no campo de mensagem para respostas rápidas.";
 
 function initialsOf(name: string): string {
   const initials = name
@@ -62,6 +85,7 @@ interface ConversationItemProps {
   now: number | null;
   staffNames: Record<string, string>;
   currentUserId: string | null;
+  waitAlertMinutes: number;
   onSelect: (id: string) => void;
 }
 
@@ -71,12 +95,13 @@ const ConversationItem = React.memo(function ConversationItem({
   now,
   staffNames,
   currentUserId,
+  waitAlertMinutes,
   onSelect,
 }: ConversationItemProps) {
   const waitStart = waitingSince(c);
   const waitMinutes = now !== null && waitStart ? minutesSince(waitStart) : null;
   const isPriority = isPriorityEscalation(c);
-  const waitAlert = isPriority || (waitMinutes !== null && waitMinutes >= WAIT_ALERT_MINUTES);
+  const waitAlert = isPriority || (waitMinutes !== null && waitMinutes >= waitAlertMinutes);
   const assigneeName = c.assignedTo
     ? c.assignedTo === currentUserId
       ? "você"
@@ -106,15 +131,20 @@ const ConversationItem = React.memo(function ConversationItem({
       }`}
       style={{ boxShadow: shadows.length ? shadows.join(", ") : undefined }}
     >
+      {/* "Lead" (ainda não é paciente) vira contorno do avatar: um sinal a menos por item. */}
       <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold shadow-2xs"
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold shadow-2xs ${
+          c.kind === "lead" ? "ring-2 ring-sky-500 ring-offset-1 dark:ring-offset-slate-900" : ""
+        }`}
         style={{
           background: "var(--color-accent-2-100, #e0f2fe)",
           color: "var(--color-accent-2-700, #0369a1)",
           fontFamily: "var(--font-heading)",
         }}
+        title={c.kind === "lead" ? "Lead: ainda não é paciente" : undefined}
       >
         {initialsOf(c.displayName)}
+        {c.kind === "lead" && <span className="sr-only"> (lead)</span>}
       </span>
 
       {/* Linha 1: quem. Linha 2: o quê. Linha 3: só o que exige ação ou contexto. */}
@@ -145,14 +175,15 @@ const ConversationItem = React.memo(function ConversationItem({
             </span>
           )}
         </span>
+        {/* Um único sinal de estado por item (prioridade > aguardando > quem responde) + convênio. */}
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] font-semibold">
           {isParticular ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-600 px-1.5 py-0.5 text-white animate-priority-blink">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-600 px-1.5 py-0.5 text-white">
               <span aria-hidden className="h-[7px] w-[7px] rotate-45 bg-white" />
               {priorityLabel(c.escalationReason)}
             </span>
           ) : isPriority ? (
-            <span className="shrink-0 rounded-full bg-red-600 px-1.5 py-0.5 text-white motion-safe:animate-pulse">
+            <span className="shrink-0 rounded-full bg-red-600 px-1.5 py-0.5 text-white">
               {priorityLabel(c.escalationReason)}
             </span>
           ) : waitMinutes !== null ? (
@@ -166,11 +197,6 @@ const ConversationItem = React.memo(function ConversationItem({
           ) : (
             handlerLabel && <span className="shrink-0 text-slate-600 dark:text-slate-400">{handlerLabel}</span>
           )}
-          {c.kind === "lead" && (
-            <span className="shrink-0 rounded-full bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold uppercase text-sky-900 dark:bg-sky-950 dark:text-sky-300">
-              Lead
-            </span>
-          )}
           {c.planName && <HealthPlanBadge name={c.planName} color={c.planColor} size="sm" />}
         </span>
       </span>
@@ -179,7 +205,12 @@ const ConversationItem = React.memo(function ConversationItem({
 });
 
 export interface ConversationListProps {
+  /** Lista plana na ordem exibida (usada para vazio, contagem e navegação por teclado). */
   conversations: ConversationRow[];
+  /** Seções (Precisa de você, Em atendimento, Com o bot); `null` = lista plana (ex.: Encerradas). */
+  sections?: ConversationSection<ConversationRow>[] | null;
+  /** Minutos de espera para o item ficar vermelho (segue `pending_sla_minutes`). */
+  waitAlertMinutes?: number;
   selectedId: string | null;
   filter: ConversationFilter;
   counts: Record<ConversationFilter, number>;
@@ -193,6 +224,8 @@ export interface ConversationListProps {
 
 export function ConversationList({
   conversations,
+  sections = null,
+  waitAlertMinutes = DEFAULT_WAIT_ALERT_MINUTES,
   selectedId,
   filter,
   counts,
@@ -206,6 +239,21 @@ export function ConversationList({
   const [, startTransition] = useTransition();
   const now = useNowTick();
   const parentRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const entries = useMemo(() => buildEntries(sections, conversations), [sections, conversations]);
+
+  // Ctrl+K (ou Cmd+K) leva direto à busca, de qualquer lugar da tela de Chat.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // Debounce de 250ms no input de busca para digitação extremamente fluida sem atraso de frames
   const [searchInput, setSearchInput] = useState(search);
@@ -227,25 +275,36 @@ export function ConversationList({
   };
 
   const virtualizer = useVirtualizer({
-    count: conversations.length,
+    count: entries.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 72,
+    estimateSize: (index) => (entries[index]?.type === "header" ? HEADER_HEIGHT : ITEM_HEIGHT),
+    // Chave por identidade (não por índice): cabeçalhos e itens têm alturas diferentes e
+    // a conversa muda de posição quando troca de seção.
+    getItemKey: (index) => {
+      const entry = entries[index];
+      if (!entry) return index;
+      return entry.type === "header" ? `section-${entry.key}` : entry.conversation.id;
+    },
     overscan: 5,
   });
 
   return (
     <div className="flex h-full flex-col bg-white dark:bg-slate-900">
       <div className="flex flex-col gap-2 border-b border-slate-200 p-3 dark:border-slate-800">
-        <label className="relative block">
-          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            className="input w-full pl-9 text-sm focus:ring-2 focus:ring-teal-600"
-            placeholder="Buscar nome ou telefone"
-            value={searchInput}
-            onChange={handleSearchInputChange}
-            aria-label="Buscar conversa por nome ou telefone"
-          />
-        </label>
+        <div className="flex items-center gap-1">
+          <label className="relative block flex-1">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              ref={searchRef}
+              className="input w-full pl-9 text-sm focus:ring-2 focus:ring-teal-600"
+              placeholder="Buscar nome ou telefone (Ctrl+K)"
+              value={searchInput}
+              onChange={handleSearchInputChange}
+              aria-label="Buscar conversa por nome ou telefone"
+            />
+          </label>
+          <HelpHint text={SHORTCUTS_HELP} label="Atalhos de teclado" side="bottom" />
+        </div>
         <SubNavBadges
           currentFilter={filter}
           counts={counts}
@@ -259,7 +318,7 @@ export function ConversationList({
         className="flex-1 overflow-y-auto h-[calc(100vh-180px)] min-h-0"
         style={{ contain: "strict" }}
       >
-        {conversations.length > 0 ? (
+        {entries.length > 0 ? (
           <div
             style={{
               height: `${virtualizer.getTotalSize()}px`,
@@ -268,25 +327,43 @@ export function ConversationList({
             }}
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
-              const c = conversations[virtualRow.index];
+              const entry = entries[virtualRow.index];
+              const positionStyle = {
+                position: "absolute" as const,
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              };
+              if (entry.type === "header") {
+                return (
+                  <div
+                    key={`section-${entry.key}`}
+                    style={positionStyle}
+                    className="flex items-end justify-between border-b border-slate-200 bg-slate-50 px-4 pb-1 text-[11px] font-bold uppercase tracking-wide dark:border-slate-800 dark:bg-slate-950"
+                  >
+                    <span
+                      className={
+                        entry.key === "precisa" ? "text-red-700 dark:text-red-400" : "text-slate-600 dark:text-slate-400"
+                      }
+                    >
+                      {entry.label}
+                    </span>
+                    <span className="text-slate-600 dark:text-slate-400">{entry.count}</span>
+                  </div>
+                );
+              }
+              const c = entry.conversation;
               return (
-                <div
-                  key={c.id}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
+                <div key={c.id} style={positionStyle}>
                   <ConversationItem
                     conversation={c}
                     isSelected={c.id === selectedId}
                     now={now}
                     staffNames={staffNames}
                     currentUserId={currentUserId}
+                    waitAlertMinutes={waitAlertMinutes}
                     onSelect={onSelect}
                   />
                 </div>

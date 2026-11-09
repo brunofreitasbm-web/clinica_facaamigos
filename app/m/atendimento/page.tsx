@@ -13,7 +13,7 @@ export default async function MobileAtendimentoPage() {
   if (!userId) redirect("/login");
   if (!allowed) redirect("/login");
 
-  const { conversations, staffNames, insurerById } = await loadAtendimentoData(supabase);
+  const { conversations, staffNames, insurerById, pendingSlaMinutes } = await loadAtendimentoData(supabase);
 
   return (
     <>
@@ -22,6 +22,7 @@ export default async function MobileAtendimentoPage() {
         initialConversations={conversations}
         staffNames={staffNames}
         insurerById={insurerById}
+        pendingSlaMinutes={pendingSlaMinutes}
         currentUserId={userId}
         initialSelectedId={null}
       />

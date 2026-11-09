@@ -21,13 +21,14 @@ export default async function MobileAtendimentoConversationPage({
   if (!userId) redirect("/login");
   if (!allowed) redirect("/login");
 
-  const { conversations, staffNames, insurerById } = await loadAtendimentoData(supabase);
+  const { conversations, staffNames, insurerById, pendingSlaMinutes } = await loadAtendimentoData(supabase);
 
   return (
     <MobileShell
       initialConversations={conversations}
       staffNames={staffNames}
       insurerById={insurerById}
+        pendingSlaMinutes={pendingSlaMinutes}
       currentUserId={userId}
       initialSelectedId={id}
     />

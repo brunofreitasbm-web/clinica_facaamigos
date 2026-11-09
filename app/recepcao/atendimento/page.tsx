@@ -179,7 +179,7 @@ export default async function AtendimentoPage() {
     canManageChatbot = profile?.role === "supervisor" || profile?.role === "gestor";
   }
 
-  const [{ conversations, staffNames, insurerById, loadError }, chatbotAdmin] = await Promise.all([
+  const [{ conversations, staffNames, insurerById, loadError, pendingSlaMinutes }, chatbotAdmin] = await Promise.all([
     loadAtendimentoData(supabase),
     canManageChatbot ? loadChatbotAdminData(supabase) : Promise.resolve(null),
   ]);
@@ -193,6 +193,7 @@ export default async function AtendimentoPage() {
         staffNames={staffNames}
         insurerById={insurerById}
         loadError={loadError}
+        pendingSlaMinutes={pendingSlaMinutes}
       />
     </main>
   );

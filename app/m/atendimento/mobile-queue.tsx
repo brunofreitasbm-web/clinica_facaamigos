@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Bot, Search, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { HealthPlanBadge } from "@/components/health-plan-badge";
@@ -14,10 +14,9 @@ import {
   priorityLabel,
 } from "@/lib/atendimento/priority-pure";
 import { LastSenderIndicator } from "@/components/atendimento/last-sender-indicator";
+import { DEFAULT_WAIT_ALERT_MINUTES, type ConversationSection } from "@/lib/atendimento/sections-pure";
 
 export type MobileTab = "conversas" | "leads" | "encerradas";
-
-const WAIT_ALERT_MINUTES = 15;
 
 function initialsOf(name: string): string {
   const initials = name
@@ -71,6 +70,8 @@ const CHIPS: { key: ConversationFilter; label: string }[] = [
 
 export function MobileQueue({
   conversations,
+  sections = null,
+  waitAlertMinutes = DEFAULT_WAIT_ALERT_MINUTES,
   tab,
   chip,
   search,
@@ -87,6 +88,10 @@ export function MobileQueue({
   onSelect,
 }: {
   conversations: ConversationRow[];
+  /** Seções da lista; `null` = lista plana (busca e Encerradas). */
+  sections?: ConversationSection<ConversationRow>[] | null;
+  /** Minutos de espera para o item ficar vermelho (segue `pending_sla_minutes`). */
+  waitAlertMinutes?: number;
   tab: MobileTab;
   chip: ConversationFilter;
   search: string;
@@ -299,146 +304,159 @@ export function MobileQueue({
             {search.trim() ? "Nenhuma conversa encontrada." : "Nenhuma conversa neste filtro."}
           </p>
         ) : (
-          conversations.map((c) => {
-            const waitStart = waitingSince(c);
-            const waitMinutes = now !== null && waitStart ? minutesSince(waitStart) : null;
-            const isPriority = isPriorityEscalation(c);
-            const waitAlert = isPriority || (waitMinutes !== null && waitMinutes >= WAIT_ALERT_MINUTES);
-            const isParticular = isPriority && isParticularPriority(c.escalationReason);
-            const assigneeName = c.assignedTo
-              ? c.assignedTo === currentUserId
-                ? "você"
-                : (staffNames[c.assignedTo]?.split(" ")[0] ?? "equipe")
-              : null;
-            const isUnread = c.unreadCount > 0;
-
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => onSelect(c.id)}
-                className="flex w-full items-center gap-3 text-left"
-                style={{
-                  minHeight: 64,
-                  padding: "10px 16px",
-                  borderBottom: "1px solid var(--color-paper-line)",
-                  boxShadow: isParticular
-                    ? `inset 3px 0 0 ${PARTICULAR_PRIORITY_COLOR}`
-                    : waitAlert
-                      ? "inset 3px 0 0 var(--color-error)"
-                      : undefined,
-                }}
-              >
-                <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold"
-                  style={{ background: "var(--color-accent-2-100)", color: "var(--color-accent-2-700)" }}
+          (sections ?? [{ key: "flat" as const, label: "", rows: conversations }]).map((section) => (
+            <Fragment key={section.key}>
+              {sections && (
+                <div
+                  className="flex items-end justify-between text-[11px] font-extrabold uppercase"
+                  style={{
+                    padding: "14px 16px 4px",
+                    letterSpacing: "0.04em",
+                    background: "var(--color-surface)",
+                    borderBottom: "1px solid var(--color-paper-line)",
+                    color: section.key === "precisa" ? "var(--color-error)" : "var(--color-neutral-500)",
+                  }}
                 >
-                  {initialsOf(c.displayName)}
-                </span>
+                  <span>{section.label}</span>
+                  <span style={{ color: "var(--color-neutral-500)" }}>{section.rows.length}</span>
+                </div>
+              )}
+              {section.rows.map((c) => {
+                const waitStart = waitingSince(c);
+                const waitMinutes = now !== null && waitStart ? minutesSince(waitStart) : null;
+                const isPriority = isPriorityEscalation(c);
+                const waitAlert = isPriority || (waitMinutes !== null && waitMinutes >= waitAlertMinutes);
+                const isParticular = isPriority && isParticularPriority(c.escalationReason);
+                const assigneeName = c.assignedTo
+                  ? c.assignedTo === currentUserId
+                    ? "você"
+                    : (staffNames[c.assignedTo]?.split(" ")[0] ?? "equipe")
+                  : null;
+                const isUnread = c.unreadCount > 0;
 
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5">
-                    <span className="truncate text-[15px] font-bold" style={{ color: "var(--color-text)" }}>
-                      {c.displayName}
-                    </span>
-                    {c.kind === "lead" && (
-                      <span
-                        className="shrink-0 rounded-full text-[10px] font-extrabold uppercase"
-                        style={{
-                          background: "var(--color-accent-100)",
-                          color: "var(--color-accent-700)",
-                          padding: "1px 6px",
-                        }}
-                      >
-                        Lead
-                      </span>
-                    )}
-                    {c.isBotActive && (
-                      <Bot
-                        size={13}
-                        className="shrink-0"
-                        style={{ color: "var(--color-neutral-400)" }}
-                        aria-label="Bot ativo nesta conversa"
-                      />
-                    )}
-                    {c.planName && <HealthPlanBadge name={c.planName} color={c.planColor} size="sm" />}
-                  </span>
-                  <span
-                    className="mt-0.5 flex items-center gap-1.5 truncate text-[13px]"
-                    style={{ color: "var(--color-neutral-500)" }}
-                  >
-                    {isParticular ? (
-                      <span
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full text-[10px] font-extrabold animate-priority-blink"
-                        style={{ padding: "1px 6px", background: PARTICULAR_PRIORITY_COLOR, color: "#fff" }}
-                      >
-                        <span
-                          aria-hidden
-                          style={{ width: 6, height: 6, background: "#fff", transform: "rotate(45deg)" }}
-                        />
-                        {priorityLabel(c.escalationReason)}
-                      </span>
-                    ) : isPriority ? (
-                      <span
-                        className="shrink-0 rounded-full text-[10px] font-extrabold motion-safe:animate-pulse"
-                        style={{ padding: "1px 6px", background: "var(--color-error)", color: "#fff" }}
-                      >
-                        {priorityLabel(c.escalationReason)}
-                      </span>
-                    ) : waitMinutes !== null && (
-                      <span
-                        className="shrink-0 rounded-full text-[10px] font-extrabold"
-                        style={{
-                          padding: "1px 6px",
-                          background: waitAlert ? "var(--color-error)" : "var(--color-accent-100)",
-                          color: waitAlert ? "#fff" : "var(--color-accent-700)",
-                        }}
-                      >
-                        Aguardando · {waitMinutes < 1 ? "agora" : relativeTime(waitStart)}
-                      </span>
-                    )}
-                    <LastSenderIndicator sender={c.lastMessageSender} />
-                    <span
-                      className="truncate"
-                      style={c.lastMessageSender === "contact" ? { color: "var(--color-text)", fontWeight: 600 } : undefined}
-                    >
-                      {c.lastMessagePreview
-                        ? c.lastMessagePreview
-                        : (c.guardianName ?? c.phoneNumber)}
-                    </span>
-                  </span>
-                </span>
-
-                <span className="flex shrink-0 flex-col items-end gap-1">
-                  <span
-                    className="text-[11px] font-semibold"
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => onSelect(c.id)}
+                    className="flex w-full items-center gap-3 text-left"
                     style={{
-                      color: waitAlert
-                        ? "var(--color-error)"
-                        : isUnread
-                          ? "var(--color-accent)"
-                          : "var(--color-neutral-400)",
+                      minHeight: 64,
+                      padding: "10px 16px",
+                      borderBottom: "1px solid var(--color-paper-line)",
+                      boxShadow: isParticular
+                        ? `inset 3px 0 0 ${PARTICULAR_PRIORITY_COLOR}`
+                        : waitAlert
+                          ? "inset 3px 0 0 var(--color-error)"
+                          : undefined,
                     }}
                   >
-                    {now !== null ? relativeTime(c.lastMessageAt) : ""}
-                  </span>
-                  {isUnread && (
+                    {/* "Lead" (ainda não é paciente) vira contorno do avatar: um sinal a menos por item. */}
                     <span
-                      className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] font-extrabold text-white"
-                      style={{ background: "var(--color-accent)" }}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold"
+                      style={{
+                        background: "var(--color-accent-2-100)",
+                        color: "var(--color-accent-2-700)",
+                        boxShadow: c.kind === "lead" ? "0 0 0 2px #fff, 0 0 0 4px #0ea5e9" : undefined,
+                      }}
                     >
-                      {c.unreadCount}
+                      {initialsOf(c.displayName)}
+                      {c.kind === "lead" && <span className="sr-only"> (lead)</span>}
                     </span>
-                  )}
-                  {assigneeName && (
-                    <span className="text-[10px] font-bold" style={{ color: "var(--color-ink-faint)" }}>
-                      com {assigneeName}
+
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate text-[15px] font-bold" style={{ color: "var(--color-text)" }}>
+                          {c.displayName}
+                        </span>
+                        {!sections && c.isBotActive && (
+                          <Bot
+                            size={13}
+                            className="shrink-0"
+                            style={{ color: "var(--color-neutral-400)" }}
+                            aria-label="Bot ativo nesta conversa"
+                          />
+                        )}
+                        {c.planName && <HealthPlanBadge name={c.planName} color={c.planColor} size="sm" />}
+                      </span>
+                      <span
+                        className="mt-0.5 flex items-center gap-1.5 truncate text-[13px]"
+                        style={{ color: "var(--color-neutral-500)" }}
+                      >
+                        {isParticular ? (
+                          <span
+                            className="inline-flex shrink-0 items-center gap-1 rounded-full text-[10px] font-extrabold"
+                            style={{ padding: "1px 6px", background: PARTICULAR_PRIORITY_COLOR, color: "#fff" }}
+                          >
+                            <span
+                              aria-hidden
+                              style={{ width: 6, height: 6, background: "#fff", transform: "rotate(45deg)" }}
+                            />
+                            {priorityLabel(c.escalationReason)}
+                          </span>
+                        ) : isPriority ? (
+                          <span
+                            className="shrink-0 rounded-full text-[10px] font-extrabold"
+                            style={{ padding: "1px 6px", background: "var(--color-error)", color: "#fff" }}
+                          >
+                            {priorityLabel(c.escalationReason)}
+                          </span>
+                        ) : waitMinutes !== null && (
+                          <span
+                            className="shrink-0 rounded-full text-[10px] font-extrabold"
+                            style={{
+                              padding: "1px 6px",
+                              background: waitAlert ? "var(--color-error)" : "var(--color-accent-100)",
+                              color: waitAlert ? "#fff" : "var(--color-accent-700)",
+                            }}
+                          >
+                            Aguardando · {waitMinutes < 1 ? "agora" : relativeTime(waitStart)}
+                          </span>
+                        )}
+                        <LastSenderIndicator sender={c.lastMessageSender} />
+                        <span
+                          className="truncate"
+                          style={c.lastMessageSender === "contact" ? { color: "var(--color-text)", fontWeight: 600 } : undefined}
+                        >
+                          {c.lastMessagePreview
+                            ? c.lastMessagePreview
+                            : (c.guardianName ?? c.phoneNumber)}
+                        </span>
+                      </span>
                     </span>
-                  )}
-                </span>
-              </button>
-            );
-          })
+
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span
+                        className="text-[11px] font-semibold"
+                        style={{
+                          color: waitAlert
+                            ? "var(--color-error)"
+                            : isUnread
+                              ? "var(--color-accent)"
+                              : "var(--color-neutral-400)",
+                        }}
+                      >
+                        {now !== null ? relativeTime(c.lastMessageAt) : ""}
+                      </span>
+                      {isUnread && (
+                        <span
+                          className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] font-extrabold text-white"
+                          style={{ background: "var(--color-accent)" }}
+                        >
+                          {c.unreadCount}
+                        </span>
+                      )}
+                      {assigneeName && (
+                        <span className="text-[10px] font-bold" style={{ color: "var(--color-ink-faint)" }}>
+                          com {assigneeName}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </Fragment>
+          ))
         )}
       </div>
     </div>

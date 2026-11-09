@@ -152,9 +152,6 @@ export function ChatActions({
               <UserCheck size={14} />
             )}
             <span>{isMine ? "Liberar" : "Assumir"}</span>
-            <kbd className="hidden sm:inline-block rounded bg-slate-200/80 px-1 py-0.5 text-[10px] font-mono text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-              Alt+A
-            </kbd>
           </button>
         )}
 
