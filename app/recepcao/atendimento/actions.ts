@@ -12,6 +12,7 @@ import { generateChatResponse, isChatAiConfigured } from "@/lib/chat-llm";
 import { formatConversationPhone } from "./format-phone";
 import { shouldDiscardSession } from "@/lib/menu-reset-pure";
 import { isWindowClosed } from "@/lib/whatsapp-window-pure";
+import { insertMessageRow } from "@/lib/messages-insert";
 import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
@@ -87,7 +88,7 @@ export async function sendManualMessage(conversationId: string, body: string) {
       ? "simulated_dev"
       : "failed";
 
-  const { error: insertError } = await supabase.from("messages").insert({
+  const { error: insertError } = await insertMessageRow(supabase, {
     patient_id: conversation.patient_id,
     guardian_id: conversation.guardian_id,
     conversation_id: conversation.id,
@@ -201,7 +202,7 @@ export async function sendTemplateMessage(
     contentVariables: variables,
   });
 
-  const { error: insertError } = await supabase.from("messages").insert({
+  const { error: insertError } = await insertMessageRow(supabase, {
     patient_id: conversation.patient_id,
     guardian_id: conversation.guardian_id,
     conversation_id: conversation.id,

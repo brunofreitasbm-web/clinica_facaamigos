@@ -12,6 +12,7 @@
 // em `messages` com o intent — é o intent da última mensagem do bot que diz em
 // qual tela a pessoa está.
 import { createAdminClient } from "@/lib/supabase/admin";
+import { insertMessageRow } from "@/lib/messages-insert";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { APP_ORIGIN, CLINIC_MAPS_URL, getClinicIdentity } from "@/lib/clinic-identity";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
@@ -164,7 +165,7 @@ export async function sendMainMenuNow(params: {
           .select("patient_id, guardian_id")
           .eq("id", params.conversationId)
           .maybeSingle();
-        await admin.from("messages").insert({
+        await insertMessageRow(admin, {
           patient_id: conversation?.patient_id ?? null,
           guardian_id: conversation?.guardian_id ?? null,
           conversation_id: params.conversationId,
