@@ -1,7 +1,8 @@
 import { ACTIVE_PATIENT_STATUSES } from "@/lib/patient-status";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { countOverdueSessionNotes } from "@/lib/session-note-pending";
+import { countOverdueSessionNotes, listOverdueSessionNotes } from "@/lib/session-note-pending";
+import { LOW_BALANCE_THRESHOLD } from "@/lib/expiring-guides-pure";
 import { findMetricDef, formatMetricValue } from "@/lib/metric-catalog";
 import { getActiveRuleSets } from "@/lib/bonus-rules";
 import { computeLiveMetric, computeMetricActual } from "@/lib/metric-compute";
@@ -174,37 +175,17 @@ async function buildNoAuthLeak(supabase: Supa, clinicId: string, avgPrice: numbe
 }
 
 // ── Vazamento 3: evoluções atrasadas >24h (§10.3 note_24h_rate) ─────────
-async function buildOverdueNotesLeak(supabase: Supa, clinicId: string): Promise<LeakCard> {
-  const cutoffISO = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { data: candidates } = await supabase
-    .from("appointments")
-    .select("id, therapist_id, patients!inner(clinic_id)")
-    .eq("status", "realizada")
-    .eq("patients.clinic_id", clinicId)
-    .lte("starts_at", cutoffISO);
-  const list = candidates ?? [];
-
-  const pendingByTherapist = new Map<string, string>();
-  if (list.length > 0) {
-    const { data: notes } = await supabase
-      .from("session_notes")
-      .select("appointment_id")
-      .in(
-        "appointment_id",
-        list.map((c) => c.id),
-      );
-    const withNote = new Set((notes ?? []).map((n) => n.appointment_id));
-    const pending = list.filter((c) => !withNote.has(c.id));
-    const names = await namesByProfileId(supabase, [...new Set(pending.map((p) => p.therapist_id))]);
-    for (const p of pending) pendingByTherapist.set(p.id, names.get(p.therapist_id) ?? "Sem terapeuta");
-  }
+async function buildOverdueNotesLeak(supabase: Supa, _clinicId: string): Promise<LeakCard> {
+  // Fonte única: a mesma lista da RPC alimenta o total e o detalhamento por
+  // terapeuta, para os dois nunca divergirem (antes o detalhe usava consulta própria).
+  const overdue = await listOverdueSessionNotes(supabase, 24);
+  const officialTotal = overdue.length;
 
   const byTherapist = new Map<string, number>();
-  for (const name of pendingByTherapist.values()) byTherapist.set(name, (byTherapist.get(name) ?? 0) + 1);
-
-  // Total oficial reaproveita a mesma regra de negócio de lib/session-note-pending.ts
-  // (RPC session_note_pending) em vez de confiar só no cálculo em lote acima.
-  const officialTotal = await countOverdueSessionNotes(supabase, 24);
+  for (const item of overdue) {
+    const name = item.therapistName === "—" ? "Sem terapeuta" : item.therapistName;
+    byTherapist.set(name, (byTherapist.get(name) ?? 0) + 1);
+  }
 
   return {
     key: "evolucao-atrasada",
@@ -216,7 +197,7 @@ async function buildOverdueNotesLeak(supabase: Supa, clinicId: string): Promise<
     metaLabel: "meta: ≥ 98% das evoluções em até 24h (≤ 2% atrasadas)",
     breakdownLabel: "por terapeuta",
     breakdown: topBreakdown(byTherapist),
-    note: `${officialTotal} sessão(ões) realizada(s) há mais de 24h ainda sem session_notes registrada.`,
+    note: `${officialTotal} sessão(ões) realizada(s) há mais de 24h ainda sem evolução assinada. O Faturamento mostra mais porque inclui as de menos de 24h.`,
   };
 }
 
@@ -257,9 +238,12 @@ async function buildSilentChurnLeak(supabase: Supa, clinicId: string): Promise<L
   }
 
   const cutoff = Date.now() - 21 * 24 * 60 * 60 * 1000;
+  // Evasão = já teve sessão e parou há mais de 21 dias. Quem foi avaliado e
+  // nunca teve sessão realizada é outro problema (conversão), contado à parte.
+  const neverStartedCount = ids.filter((id) => !lastByPatient.has(id)).length;
   const silentIds = ids.filter((id) => {
     const last = lastByPatient.get(id);
-    return !last || new Date(last).getTime() < cutoff;
+    return !!last && new Date(last).getTime() < cutoff;
   });
 
   const byTherapist = new Map<string, number>();
@@ -294,7 +278,7 @@ async function buildSilentChurnLeak(supabase: Supa, clinicId: string): Promise<L
     metaLabel: `meta: ≤ 3% da base ativa por mês · realizado ${ratePct}%`,
     breakdownLabel: "por terapeuta",
     breakdown: topBreakdown(byTherapist),
-    note: `${silentIds.length} de ${list.length} pacientes ativos sem sessão realizada nos últimos 21 dias (sem alta/evadido registrado).`,
+    note: `${silentIds.length} de ${list.length} pacientes avaliados pararam há mais de 21 dias. À parte: ${neverStartedCount} avaliado(s) ainda sem 1ª sessão de tratamento (não contam como evasão).`,
   };
 }
 
@@ -356,7 +340,7 @@ export async function getOperationalAlerts(supabase: Supa, clinicId: string): Pr
         .gte("valid_to", today);
       const lowNames = new Set<string>();
       for (const a of auths ?? []) {
-        if (a.sessions_authorized - a.sessions_used > 3) continue;
+        if (a.sessions_authorized - a.sessions_used > LOW_BALANCE_THRESHOLD) continue;
         const patientId = patientByInsurance.get(a.patient_insurance_id);
         const name = patientId ? nameByPatient.get(patientId) : undefined;
         if (name) lowNames.add(name);
@@ -366,7 +350,7 @@ export async function getOperationalAlerts(supabase: Supa, clinicId: string): Pr
           id: "auth-low",
           type: "critical",
           title: `${lowNames.size} autorização(ões) de plano de saúde prestes a esgotar`,
-          description: `${joinWithOverflow([...lowNames])} — menos de 3 sessões restantes no pacote autorizado. Risco de interrupção do tratamento.`,
+          description: `${joinWithOverflow([...lowNames])} — ${LOW_BALANCE_THRESHOLD} sessões ou menos restantes no pacote autorizado. Risco de interrupção do tratamento.`,
           actionLabel: "Renovar autorização",
           actionHref: "/gestor/cadastros/convenios",
           category: "Autorizações",

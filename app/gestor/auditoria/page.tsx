@@ -36,6 +36,9 @@ const QUEUE_CATEGORY_LABEL: Record<string, string> = {
   documento_vencido: "Documento vencido",
   interessado_sem_retorno: "Interessado sem retorno",
   falta_sem_motivo: "Falta sem motivo",
+  renovacao_solicitada: "Renovação de guia solicitada",
+  remarcacao_solicitada: "Pedido de remarcação",
+  chegada_nao_confirmada: "Chegada aguardando confirmação",
 };
 
 export default async function AuditoriaPage() {

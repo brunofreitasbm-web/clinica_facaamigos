@@ -157,7 +157,7 @@ export const RECEPTION_KB_DATA: KBArticle[] = [
       {
         step: 2,
         actor: "Sistema",
-        action: "Agrupa os alertas: Faixa Crítica (tarja vermelha: guias vencidas, saldo zero de sessões), Faixa de Atenção (tarja amarela: guias vencendo em ≤ 7 dias, saldo com < 3 sessões) e Monitoramento (azul/verde: termos TCLE pendentes, dados incompletos).",
+        action: "Agrupa os alertas: Faixa Crítica (tarja vermelha: guias vencidas, saldo zero de sessões), Faixa de Atenção (tarja amarela: guias vencendo em ≤ 7 dias, saldo de 4 sessões ou menos) e Monitoramento (azul/verde: termos TCLE pendentes, dados incompletos).",
         validation: "Trabalhar prioritariamente a coluna de itens Críticos no início do expediente."
       },
       {
