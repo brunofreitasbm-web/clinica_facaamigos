@@ -24,15 +24,20 @@ export default async function NovoPlanoPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Supervisor/gestor: fluxo normal. Terapeuta só entra com a flag
+  // `can_create_pts` (cadastro do colaborador) e volta para /terapeuta.
+  let isTherapistMode = false;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, can_create_pts")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (profile?.role && profile.role !== "supervisor" && profile.role !== "gestor") {
-      redirect("/supervisao");
+    if (profile?.role === "terapeuta" && profile.can_create_pts) {
+      isTherapistMode = true;
+    } else if (profile?.role && profile.role !== "supervisor" && profile.role !== "gestor") {
+      redirect(profile.role === "terapeuta" ? "/terapeuta" : "/supervisao");
     }
   }
 
@@ -110,7 +115,7 @@ export default async function NovoPlanoPage({
   return (
     <main className="flex flex-1 flex-col">
       <PageHeader
-        axisLabel="Supervisão"
+        axisLabel={isTherapistMode ? "Terapeuta" : "Supervisão"}
         title="Novo plano terapêutico"
         description="Objetivo geral, disciplinas, metas SMART por domínio (com horizonte, estratégia e metodologia) e data de revisão. O plano entra em rascunho e segue para a fila de aprovação."
       />
@@ -126,6 +131,8 @@ export default async function NovoPlanoPage({
           suggestedGoals={suggestedGoals}
           teamSuggestions={teamSuggestions}
           clinic={clinic}
+          redirectTo={isTherapistMode ? "/terapeuta" : "/supervisao"}
+          canGenerateCalendar={!isTherapistMode}
         />
       </PageContainer>
     </main>

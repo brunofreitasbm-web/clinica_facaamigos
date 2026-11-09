@@ -14,10 +14,10 @@ async function TerapeutaNavByRole() {
   } = await supabase.auth.getUser();
 
   const { data: profile } = user
-    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    ? await supabase.from("profiles").select("role, can_create_pts").eq("id", user.id).maybeSingle()
     : { data: null };
 
-  return <TerapeutaBottomNav role={profile?.role ?? null} />;
+  return <TerapeutaBottomNav role={profile?.role ?? null} canCreatePts={profile?.can_create_pts ?? false} />;
 }
 
 export default function TerapeutaLayout({ children }: { children: React.ReactNode }) {

@@ -113,17 +113,21 @@ export async function createTreatmentPlan(
     data: { user },
   } = await supabase.auth.getUser();
 
+  let isTherapistWithPtsAccess = false;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, can_create_pts")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (profile?.role && profile.role !== "supervisor" && profile.role !== "gestor") {
+    const isStaffRole = profile?.role === "supervisor" || profile?.role === "gestor";
+    isTherapistWithPtsAccess = profile?.role === "terapeuta" && profile.can_create_pts === true;
+
+    if (profile?.role && !isStaffRole && !isTherapistWithPtsAccess) {
       return {
         success: false,
-        error: "Apenas usuários com perfil de Supervisor têm permissão para criar um Plano Terapêutico Singular (PTS).",
+        error: "Apenas Supervisor, Gestor ou terapeuta com acesso ao PTS podem criar um Plano Terapêutico Singular (PTS).",
       };
     }
   }
@@ -276,7 +280,9 @@ export async function createTreatmentPlan(
   // ver appointments_availability_guard) sem abortar as demais sessões do
   // calendário, mesmo racional do loop de plan_goals acima.
   type ValidGeneratedSession = { date: string; timeSlot: string; therapistId: string; roomId: string; disciplineLabel?: string };
-  const validSessions: ValidGeneratedSession[] = generatedSessionsInput
+  // Terapeuta com acesso ao PTS não grava agenda (RLS de appointments é de
+  // recepção/supervisor/gestor): o calendário fica para a supervisão.
+  const validSessions: ValidGeneratedSession[] = (isTherapistWithPtsAccess ? [] : generatedSessionsInput)
     .filter((s) => Boolean(s.date && s.timeSlot && s.therapistId && s.roomId && s.conflictStatus !== "MANUAL_REQUIRED"))
     .map((s) => ({
       date: s.date as string,
@@ -300,7 +306,7 @@ export async function createTreatmentPlan(
     return data ?? null;
   }
 
-  let sessionsSkipped = generatedSessionsInput.length - validSessions.length;
+  let sessionsSkipped = isTherapistWithPtsAccess ? 0 : generatedSessionsInput.length - validSessions.length;
   let sessionsFailed = 0;
 
   for (const s of validSessions) {
@@ -334,6 +340,7 @@ export async function createTreatmentPlan(
   }
 
   revalidatePath("/supervisao");
+  revalidatePath("/terapeuta");
   revalidatePath("/recepcao/agenda");
 
   if (programsFailed) {

@@ -6540,6 +6540,7 @@ export type Database = {
           hidden_in_app: boolean
           id: string
           is_at_professional: boolean
+          can_create_pts: boolean
           is_evaluator: boolean
           is_rt: boolean
           must_change_password: boolean
@@ -6574,6 +6575,7 @@ export type Database = {
           hidden_in_app?: boolean
           id: string
           is_at_professional?: boolean
+          can_create_pts?: boolean
           is_evaluator?: boolean
           is_rt?: boolean
           must_change_password?: boolean
@@ -6608,6 +6610,7 @@ export type Database = {
           hidden_in_app?: boolean
           id?: string
           is_at_professional?: boolean
+          can_create_pts?: boolean
           is_evaluator?: boolean
           is_rt?: boolean
           must_change_password?: boolean
