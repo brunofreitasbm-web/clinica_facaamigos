@@ -5,17 +5,24 @@ import assert from "node:assert/strict";
 /**
  * Função de auxílio de validação de permissão para criação de PTS
  */
-export function canCreatePts(role?: string | null): boolean {
+export function canCreatePts(role?: string | null, canCreatePtsFlag = false): boolean {
   if (!role) return false;
-  const allowedRoles = ["supervisor", "gestor"];
-  return allowedRoles.includes(role.toLowerCase());
+  const r = role.toLowerCase();
+  if (["supervisor", "gestor"].includes(r)) return true;
+  return r === "terapeuta" && canCreatePtsFlag;
 }
 
-test("Permite criação de PTS apenas para Supervisor e Gestor", () => {
+test("Permite criação de PTS para Supervisor e Gestor", () => {
   assert.equal(canCreatePts("supervisor"), true);
   assert.equal(canCreatePts("SUPERVISOR"), true);
   assert.equal(canCreatePts("gestor"), true);
   assert.equal(canCreatePts("GESTOR"), true);
+});
+
+test("Terapeuta só cria PTS com a flag can_create_pts", () => {
+  assert.equal(canCreatePts("terapeuta", true), true);
+  assert.equal(canCreatePts("terapeuta", false), false);
+  assert.equal(canCreatePts("recepcao", true), false);
 });
 
 test("Bloqueia criação de PTS para outros perfis", () => {

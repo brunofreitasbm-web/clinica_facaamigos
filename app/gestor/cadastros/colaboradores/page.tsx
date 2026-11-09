@@ -33,7 +33,7 @@ export default async function ColaboradoresPage() {
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
     .select(
-      "id, full_name, email, cpf, role, council_type, birth_date, active, is_evaluator, is_at_professional, google_calendar_opt_in, signature_pin_hash, source_system, created_at",
+      "id, full_name, email, cpf, role, council_type, birth_date, active, is_evaluator, is_at_professional, can_create_pts, google_calendar_opt_in, signature_pin_hash, source_system, created_at",
     )
     .eq("clinic_id", clinicId)
     .eq("hidden_in_app", false)
@@ -54,6 +54,7 @@ export default async function ColaboradoresPage() {
     active: p.active ?? true,
     isEvaluator: p.is_evaluator ?? false,
     isAtProfessional: p.is_at_professional ?? false,
+    canCreatePts: p.can_create_pts ?? false,
     googleCalendarOptIn: p.google_calendar_opt_in ?? false,
     // O hash nunca sai do servidor — a tela só precisa saber se existe PIN
     // configurado pra habilitar (ou não) o botão de reset.

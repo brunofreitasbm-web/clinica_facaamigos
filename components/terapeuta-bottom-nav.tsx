@@ -40,7 +40,9 @@ const NAV_ITEMS: Array<{
   { key: "prontuario", href: "/terapeuta/prontuario", icon: "📋", label: "Prontuário" },
 ];
 
-type NavKey = "hoje" | "agenda" | "pacientes" | "prontuario";
+type NavKey = "hoje" | "agenda" | "pacientes" | "prontuario" | "pts";
+
+const PTS_ITEM = { key: "pts" as NavKey, href: "/terapeuta/pts/novo", icon: "🎯", label: "PTS" };
 
 /**
  * A ficha do paciente e o prontuário compartilham o item "Prontuário"; a
@@ -51,6 +53,7 @@ type NavKey = "hoje" | "agenda" | "pacientes" | "prontuario";
 function activeKey(pathname: string | null): NavKey | null {
   if (!pathname) return null;
   if (pathname === "/terapeuta" || pathname.startsWith("/terapeuta/evolucao")) return "hoje";
+  if (pathname.startsWith("/terapeuta/pts")) return "pts";
   if (pathname.startsWith("/terapeuta/agenda")) return "agenda";
   if (pathname.startsWith("/terapeuta/pacientes")) return "pacientes";
   if (pathname.startsWith("/terapeuta/prontuario") || pathname.startsWith("/terapeuta/paciente/")) {
@@ -59,9 +62,10 @@ function activeKey(pathname: string | null): NavKey | null {
   return null;
 }
 
-export function TerapeutaBottomNav({ role }: { role?: string | null }) {
+export function TerapeutaBottomNav({ role, canCreatePts = false }: { role?: string | null; canCreatePts?: boolean }) {
   const pathname = usePathname();
   const active = activeKey(pathname);
+  const navItems = canCreatePts ? [...NAV_ITEMS, PTS_ITEM] : NAV_ITEMS;
 
   // Só pro papel terapeuta de verdade — gestor/supervisor abrindo a evolução
   // pra assinar por um colega não usam a nav do portal do terapeuta. Sem
@@ -81,7 +85,7 @@ export function TerapeutaBottomNav({ role }: { role?: string | null }) {
         style={{ borderColor: "var(--color-divider)" }}
         aria-label="Navegação do terapeuta"
       >
-        {NAV_ITEMS.map(({ key, href, icon, label }) => (
+        {navItems.map(({ key, href, icon, label }) => (
           <Link
             key={key}
             href={href}
@@ -101,11 +105,11 @@ export function TerapeutaBottomNav({ role }: { role?: string | null }) {
       </nav>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t bg-white/95 backdrop-blur-sm py-1.5 text-xs md:hidden shadow-lg"
+        className={`fixed inset-x-0 bottom-0 z-10 grid ${canCreatePts ? "grid-cols-5" : "grid-cols-4"} border-t bg-white/95 backdrop-blur-sm py-1.5 text-xs md:hidden shadow-lg`}
         style={{ borderColor: "var(--color-divider)" }}
         aria-label="Navegação do terapeuta"
       >
-        {NAV_ITEMS.map(({ key, href, icon, label }) => {
+        {navItems.map(({ key, href, icon, label }) => {
           const isCurrent = active === key;
           return (
             <Link

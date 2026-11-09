@@ -13,6 +13,8 @@ export type StaffRow = {
   isEvaluator: boolean;
   /** Habilita o colaborador a abrir o módulo /at e registrar sessão de Acompanhamento Terapêutico. */
   isAtProfessional: boolean;
+  /** Terapeuta autorizado a montar o PTS (aprovação continua com supervisor/gestor). */
+  canCreatePts: boolean;
   googleCalendarOptIn: boolean;
   hasSignaturePin: boolean;
   /** `grupo_ib` quando o cadastro veio do sistema de gestão de pessoas. */

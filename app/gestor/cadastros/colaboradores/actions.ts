@@ -53,6 +53,7 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
   const councilType = String(formData.get("council_type") ?? "").trim() || null;
   const isEvaluator = formData.get("is_evaluator") === "on";
   const isAtProfessional = formData.get("is_at_professional") === "on";
+  const canCreatePts = role === "terapeuta" && formData.get("can_create_pts") === "on";
   const birthDate = parseDateInput(formData.get("birth_date"));
 
   if (!fullName || cpfDigits.length !== 11 || !password || !ROLES.includes(role)) {
@@ -120,6 +121,7 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
       council_type: councilType,
       is_evaluator: isEvaluator,
       is_at_professional: isAtProfessional,
+      can_create_pts: canCreatePts,
       email,
       birth_date: birthDate,
       unit_id: unitId,
@@ -161,6 +163,7 @@ export async function updateStaffProfile(
     councilType?: string | null;
     isEvaluator?: boolean;
     isAtProfessional?: boolean;
+    canCreatePts?: boolean;
     googleCalendarOptIn?: boolean;
     birthDate?: string | null;
   },
@@ -188,6 +191,7 @@ export async function updateStaffProfile(
       council_type: data.councilType?.trim() || null,
       is_evaluator: data.isEvaluator ?? false,
       is_at_professional: data.isAtProfessional ?? false,
+      can_create_pts: data.role === "terapeuta" && (data.canCreatePts ?? false),
       google_calendar_opt_in: data.googleCalendarOptIn ?? false,
       birth_date: data.birthDate?.trim() || null,
       unit_id: unitId,

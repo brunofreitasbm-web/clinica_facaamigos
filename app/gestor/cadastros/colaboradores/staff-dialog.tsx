@@ -26,6 +26,7 @@ export function StaffDialog({ isOpen, onClose, staffToEdit }: StaffDialogProps) 
   const [councilType, setCouncilType] = useState(staffToEdit?.councilType ?? "");
   const [isEvaluator, setIsEvaluator] = useState(staffToEdit?.isEvaluator ?? false);
   const [isAtProfessional, setIsAtProfessional] = useState(staffToEdit?.isAtProfessional ?? false);
+  const [canCreatePts, setCanCreatePts] = useState(staffToEdit?.canCreatePts ?? false);
   const [googleCalendarOptIn, setGoogleCalendarOptIn] = useState(staffToEdit?.googleCalendarOptIn ?? false);
   const [birthDate, setBirthDate] = useState(staffToEdit?.birthDate ?? "");
   const [password, setPassword] = useState("");
@@ -45,6 +46,7 @@ export function StaffDialog({ isOpen, onClose, staffToEdit }: StaffDialogProps) 
             councilType,
             isEvaluator,
             isAtProfessional,
+            canCreatePts,
             googleCalendarOptIn,
             birthDate,
           })
@@ -228,6 +230,18 @@ export function StaffDialog({ isOpen, onClose, staffToEdit }: StaffDialogProps) 
                 onChange={(e) => setIsAtProfessional(e.target.checked)}
               />
               Atua em Acompanhamento Terapêutico (AT) — abre o módulo /at
+            </label>
+          )}
+
+          {role === "terapeuta" && (
+            <label className="flex items-center gap-2 text-sm text-ink-strong">
+              <input
+                type="checkbox"
+                name="can_create_pts"
+                checked={canCreatePts}
+                onChange={(e) => setCanCreatePts(e.target.checked)}
+              />
+              Acesso ao PTS — pode montar Plano Terapêutico Singular (aprovação segue com a supervisão)
             </label>
           )}
 

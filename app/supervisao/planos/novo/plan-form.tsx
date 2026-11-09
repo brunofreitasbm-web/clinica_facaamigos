@@ -118,6 +118,8 @@ export function PlanForm({
   suggestedGoals = [],
   teamSuggestions = [],
   clinic,
+  redirectTo = "/supervisao",
+  canGenerateCalendar = true,
 }: {
   patients: Patient[];
   therapists?: Therapist[];
@@ -129,6 +131,10 @@ export function PlanForm({
   suggestedGoals?: SuggestedGoal[];
   teamSuggestions?: TeamSuggestion[];
   clinic: ClinicIdentity;
+  /** Para onde voltar após salvar/cancelar (terapeuta com acesso ao PTS usa /terapeuta). */
+  redirectTo?: string;
+  /** Falso para terapeuta: só supervisor/gestor/recepção podem gravar `appointments`. */
+  canGenerateCalendar?: boolean;
 }) {
   const formId = useId();
   const router = useRouter();
@@ -705,7 +711,7 @@ export function PlanForm({
         setError(result.error);
         return;
       }
-      router.push("/supervisao");
+      router.push(redirectTo);
     });
   }
 
@@ -1014,6 +1020,7 @@ export function PlanForm({
         </div>
 
         {/* Data de Início e Ação de Gerar Calendário de 6 Meses */}
+        {canGenerateCalendar && (
         <div className="pt-3 border-t border-paper-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <label className="text-xs font-medium text-ink-soft whitespace-nowrap">
@@ -1035,6 +1042,7 @@ export function PlanForm({
             <span className="text-sm">🗓️</span> Criar Calendário de Sessões (Mensal - 6 Meses)
           </button>
         </div>
+        )}
       </div>
 
       {/* VISUALIZAÇÃO DO CALENDÁRIO CONCILIADO DOS 6 MESES INSERIDO NO PTS */}
@@ -1359,7 +1367,7 @@ export function PlanForm({
         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
           <button
             type="button"
-            onClick={() => router.push("/supervisao")}
+            onClick={() => router.push(redirectTo)}
             className="px-4 py-2 text-xs font-semibold text-ink-soft bg-paper hover:bg-paper-line-strong rounded-md border border-paper-line transition-all"
           >
             Cancelar
