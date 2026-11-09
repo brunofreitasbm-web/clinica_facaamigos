@@ -1,10 +1,17 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cabecalhosSincronizacaoHub } from "@/lib/hub-sync";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  COOKIE_RECADASTRO,
+  consultarStatusRecadastro,
+  cookieDoStatus,
+  opcoesCookieRecadastro,
+  RECADASTRO_PATH,
+} from "@/lib/recadastro";
 
 export async function signIn(
   formData: FormData,
@@ -84,11 +91,32 @@ export async function signIn(
     return { success: false, error: "CPF/e-mail ou senha inválidos." };
   }
 
-  redirect("/");
+  // Recadastro de identidade: consulta o Hub e grava o cookie de UX (fa_recad). Qualquer falha aqui
+  // (inclusive exceção) é ignorada: o fluxo de login segue como antes e nunca bloqueia ninguém.
+  let destino = "/";
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) {
+      const status = await consultarStatusRecadastro(token);
+      // status null (Hub fora, chave desligada) grava "ok": não herda "bloquear" de outro usuário.
+      (await cookies()).set(COOKIE_RECADASTRO, cookieDoStatus(status), opcoesCookieRecadastro());
+      if (status?.pendente) destino = RECADASTRO_PATH;
+    }
+  } catch (e) {
+    console.error("Erro ao consultar recadastro:", e);
+  }
+
+  redirect(destino);
 }
 
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  try {
+    (await cookies()).delete(COOKIE_RECADASTRO);
+  } catch {
+    // o cookie é só UX e expira sozinho
+  }
   redirect("/login");
 }
