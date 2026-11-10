@@ -21,6 +21,7 @@ import { MoveToLastButton } from "../pacientes/pendencias/move-to-last-button";
 import { ReassignOwnerButton } from "../pacientes/pendencias/reassign-owner-button";
 import { getFilaDetail, type FilaDetail } from "./fila-detail-action";
 import { FilaNextStep } from "./fila-next-step";
+import type { UndoEntry } from "./undo-toast";
 
 type Load = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; detail: FilaDetail };
 
@@ -46,10 +47,13 @@ export function FilaDetailPanel({
   item,
   owners,
   nowMs,
+  onUndoable,
 }: {
   item: FilaItem;
   owners: { id: string; full_name: string }[];
   nowMs: number;
+  /** Mostra o aviso com Desfazer, que mora na área de trabalho e sobrevive à troca de caso. */
+  onUndoable: (entry: UndoEntry) => void;
 }) {
   const { toast } = useToast();
   const [load, setLoad] = useState<Load>({ status: "loading" });
@@ -153,7 +157,7 @@ export function FilaDetailPanel({
         })}
       </ol>
 
-      <FilaNextStep item={item} detail={detail} />
+      <FilaNextStep item={item} detail={detail} onUndoable={onUndoable} />
 
       {load.status === "loading" && (
         <div role="status" aria-label="Carregando detalhes" className="flex flex-col gap-3">
