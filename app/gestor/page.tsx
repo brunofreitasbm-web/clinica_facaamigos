@@ -70,6 +70,24 @@ export default async function GestorPage() {
   const hasConcentrationData = totalWithInsurer > 0;
   const concentrationPct = hasConcentrationData ? Math.round((topInsurerCount / totalWithInsurer) * 100) : null;
 
+  // Comparativo: mesma concentração, mas sobre todos os pacientes em andamento
+  // (inclui quem ainda não fez a 1ª avaliação). Evita ler 100% sem saber a base.
+  const { data: insuranceAllRows } = await supabase
+    .from("patient_insurance")
+    .select("patient_id, insurer_id, patients!inner(status, clinic_id)")
+    .in("patients.status", [...ACTIVE_PATIENT_STATUSES])
+    .eq("patients.clinic_id", DEV_CLINIC_ID)
+    .eq("is_private", false)
+    .not("insurer_id", "is", null);
+  const insurerByPatientAll = new Map<string, string>();
+  for (const row of insuranceAllRows ?? []) {
+    if (row.insurer_id && !insurerByPatientAll.has(row.patient_id)) insurerByPatientAll.set(row.patient_id, row.insurer_id);
+  }
+  const countsAll = new Map<string, number>();
+  for (const id of insurerByPatientAll.values()) countsAll.set(id, (countsAll.get(id) ?? 0) + 1);
+  const totalAll = insurerByPatientAll.size;
+  const concentrationAllPct = totalAll > 0 ? Math.round((Math.max(0, ...countsAll.values()) / totalAll) * 100) : null;
+
   const [leaks, bonusRows, tierRows, operationalAlerts] = await Promise.all([
     getLeakCards(supabase, DEV_CLINIC_ID),
     getBonusRows(supabase, DEV_CLINIC_ID),
@@ -171,6 +189,10 @@ export default async function GestorPage() {
             <div className="text-[11px] uppercase tracking-wide text-ink-faint">Concentração maior plano de saúde</div>
             <div className="tabular-figure text-2xl font-semibold">
               {concentrationPct != null ? `${concentrationPct}%` : "—"}
+            </div>
+            <div className="text-[11px] text-ink-faint">
+              {totalWithInsurer} paciente(s) avaliado(s)
+              {concentrationAllPct != null ? ` · vs. ${concentrationAllPct}% entre os ${totalAll} em andamento` : ""}
             </div>
           </div>
         </div>

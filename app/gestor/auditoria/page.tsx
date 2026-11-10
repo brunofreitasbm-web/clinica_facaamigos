@@ -48,6 +48,13 @@ export default async function AuditoriaPage() {
   // que estourou o due_at sem ninguém resolver — escalate_overdue_queue_items()
   // (pg_cron de hora em hora) marca escalated_at, e é isso que o gestor
   // precisa enxergar aqui pra cobrar quem está travando a fila.
+  // Total real de escalados abertos (a lista abaixo mostra só os 100 mais recentes).
+  const { count: escalatedTotal } = await supabase
+    .from("pending_queue_assignments")
+    .select("id", { count: "exact", head: true })
+    .not("escalated_at", "is", null)
+    .is("resolved_at", null);
+
   const { data: escalatedRows } = await supabase
     .from("pending_queue_assignments")
     .select("id, item_id, category, due_at, escalated_at, patients(full_name), profiles!assigned_to(full_name)")
@@ -125,7 +132,9 @@ export default async function AuditoriaPage() {
           </p>
           {escalatedAll.length > 0 && (
             <p className="mt-2 text-xs text-ink-soft">
-              {escalatedAll.length} itens em {escalatedItems.length} linhas agrupadas:{" "}
+              Mostrando {escalatedAll.length}
+              {escalatedTotal != null && escalatedTotal > escalatedAll.length ? ` de ${escalatedTotal}` : ""} itens em{" "}
+              {escalatedItems.length} linhas agrupadas:{" "}
               {[...countByCategory.entries()].map(([label, n]) => `${label} (${n})`).join(" · ")}
             </p>
           )}
