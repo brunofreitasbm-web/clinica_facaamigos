@@ -227,7 +227,7 @@ function StepButton({
   );
 }
 
-type GuideValues = { guideNumber: string; validTo: string; procedures: { code: string; description: string; quantity: string }[] };
+export type GuideValues = { guideNumber: string; validTo: string; procedures: { code: string; description: string; quantity: string }[] };
 
 const EMPTY_PROCEDURE = { code: "", description: "", quantity: "" };
 
@@ -255,7 +255,7 @@ function defaultGuideValues(suggested?: DraftAuthorizedGuide | null): GuideValue
  * tabela de procedimentos (código, descrição, quantidade). Tudo continua
  * editável — a leitura é só preenchimento.
  */
-function AuthorizedGuideDialog({
+export function AuthorizedGuideDialog({
   suggestedGuide,
   pending,
   error,
