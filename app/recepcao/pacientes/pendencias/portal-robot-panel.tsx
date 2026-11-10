@@ -13,6 +13,7 @@ import {
   getPortalRobotFormDefaults,
   getPortalRobotState,
   requestPortalRobot,
+  uploadPortalRobotLaudo,
   type PortalRobotFormDefaults,
   type PortalRobotJobView,
   type PortalRobotState,
@@ -260,6 +261,8 @@ function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: strin
   const [prof, setProf] = useState({ name: "", council: "CRM", register: "", uf: "PA", cbo: "" });
   const [procs, setProcs] = useState<ProcRow[]>([{ code: "", description: "", quantity: "1" }]);
   const [fileId, setFileId] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -318,6 +321,24 @@ function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: strin
       }
       onSent();
     });
+  };
+
+  // Laudo do computador, quando o arquivo certo não chegou pelo WhatsApp.
+  const uploadLaudo = async (picked: File | undefined) => {
+    if (!picked) return;
+    setError(null);
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", picked);
+    const res = await uploadPortalRobotLaudo(draftId, fd);
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (!res.success) {
+      setError(res.error);
+      return;
+    }
+    setDefaults((d) => (d ? { ...d, files: [...d.files, res.file] } : d));
+    setFileId(res.file.id);
   };
 
   const editingProf = profId === "novo";
@@ -441,18 +462,36 @@ function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: strin
               </div>
             </fieldset>
 
-            <label className="flex flex-col gap-0.5 text-[13px] text-ink-soft">
-              Laudo / pedido médico a anexar
-              <select value={fileId} onChange={(e) => setFileId(e.target.value)} className="input">
-                <option value="">Escolha o arquivo</option>
-                {defaults.files.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                    {f.detectedType ? ` (${f.detectedType.replace("_", " ")})` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-col gap-0.5 text-[13px] text-ink-soft">
+              <label htmlFor="portal-robot-laudo">Laudo / pedido médico a anexar</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  id="portal-robot-laudo"
+                  value={fileId}
+                  onChange={(e) => setFileId(e.target.value)}
+                  className="input min-w-0 flex-1"
+                >
+                  <option value="">Escolha o arquivo</option>
+                  {defaults.files.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                      {f.detectedType ? ` (${f.detectedType.replace("_", " ")})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <Btn onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                  {uploading ? "Enviando…" : "Enviar do computador"}
+                </Btn>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                  className="hidden"
+                  onChange={(e) => uploadLaudo(e.target.files?.[0])}
+                />
+              </div>
+              <span className="text-[12px]">PDF, JPG ou PNG. O arquivo enviado fica salvo nos arquivos deste contato.</span>
+            </div>
 
             <label className="flex flex-col gap-0.5 text-[13px] text-ink-soft">
               Observação/justificativa no portal (opcional)
@@ -471,7 +510,7 @@ function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: strin
           <Btn onClick={onClose} disabled={isPending}>
             Cancelar
           </Btn>
-          <Btn primary onClick={submit} disabled={isPending || !defaults}>
+          <Btn primary onClick={submit} disabled={isPending || uploading || !defaults}>
             {isPending ? "Enviando…" : mode === "simular" ? "Simular no portal" : "Colocar na fila do robô"}
           </Btn>
         </div>
