@@ -46,6 +46,10 @@ test("pendente com documentos faltando: cobrança há 3 dias volta para agir ago
   assert.deepEqual(result(make({ missingDocs: 6, familyChasedAt: daysAgo(3) })), [2, "agir_agora"]);
 });
 
+test("pendente sem faltar nada, com cobrança recente: agir agora", () => {
+  assert.deepEqual(result(make({ missingDocs: 0, familyChasedAt: daysAgo(1) })), [2, "agir_agora"]);
+});
+
 test("guia enviada: etapa 3, aguardando plano", () => {
   assert.deepEqual(result(make({ authorization: "enviada" })), [3, "aguardando_plano"]);
 });
@@ -110,15 +114,15 @@ test("plano negou vence pedido de documentos", () => {
 });
 
 test("rótulos da etapa", () => {
-  assert.equal(intakeStageLabel(make(), NOW), "2 de 4 · Enviar guia");
-  assert.equal(intakeStageLabel(make({ authorization: "enviada" }), NOW), "3 de 4 · Aguardar plano");
-  assert.equal(intakeStageLabel(make({ authorization: "autorizada" }), NOW), "3 de 4 · Subir guia");
-  assert.equal(intakeStageLabel(make({ authorization: "dispensada" }), NOW), "3 de 4 · Subir guia");
+  assert.equal(intakeStageLabel(make()), "2 de 4 · Enviar guia");
+  assert.equal(intakeStageLabel(make({ authorization: "enviada" })), "3 de 4 · Aguardar plano");
+  assert.equal(intakeStageLabel(make({ authorization: "autorizada" })), "3 de 4 · Subir guia");
+  assert.equal(intakeStageLabel(make({ authorization: "dispensada" })), "3 de 4 · Subir guia");
   assert.equal(
-    intakeStageLabel(make({ authorization: "autorizada", schedulingEnabledAt: daysAgo(0) }), NOW),
+    intakeStageLabel(make({ authorization: "autorizada", schedulingEnabledAt: daysAgo(0) })),
     "4 de 4 · Habilitado",
   );
-  assert.equal(intakeStageLabel(make({ planAskedMoreDocsAt: daysAgo(1) }), NOW), "1 de 4 · Documentos");
+  assert.equal(intakeStageLabel(make({ planAskedMoreDocsAt: daysAgo(1) })), "1 de 4 · Documentos");
 });
 
 test("propriedade: toda combinação cai em um grupo válido e etapa de 1 a 4", () => {
@@ -147,7 +151,8 @@ test("propriedade: toda combinação cai em um grupo válido e etapa de 1 a 4", 
               const stage = intakeStage(i);
               assert.ok(INTAKE_GROUP_ORDER.includes(group), JSON.stringify(i));
               assert.ok([1, 2, 3, 4].includes(stage), JSON.stringify(i));
-              assert.ok(intakeStageLabel(i, NOW).startsWith(`${stage} de 4`), JSON.stringify(i));
+              assert.equal(stage === 4, group === "concluidos", JSON.stringify(i));
+              assert.ok(intakeStageLabel(i).startsWith(`${stage} de 4`), JSON.stringify(i));
               count++;
             }
   assert.equal(count, 4 * 2 * 2 * 5 * 2 * 2);

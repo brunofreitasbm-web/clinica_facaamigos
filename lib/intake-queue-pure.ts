@@ -70,7 +70,7 @@ export function intakeGroup(i: IntakeInput, now: Date): IntakeGroup {
   }
 }
 
-export function intakeStageLabel(i: IntakeInput, now: Date): string {
+export function intakeStageLabel(i: IntakeInput): string {
   const stage = intakeStage(i);
   switch (stage) {
     case 1:
@@ -78,7 +78,7 @@ export function intakeStageLabel(i: IntakeInput, now: Date): string {
     case 2:
       return "2 de 4 · Enviar guia";
     case 3:
-      return intakeGroup(i, now) === "aguardando_plano" ? "3 de 4 · Aguardar plano" : "3 de 4 · Subir guia";
+      return i.authorization === "enviada" ? "3 de 4 · Aguardar plano" : "3 de 4 · Subir guia";
     case 4:
       return "4 de 4 · Habilitado";
   }
