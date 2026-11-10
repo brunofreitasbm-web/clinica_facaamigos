@@ -17,6 +17,27 @@ test("outro fluxo recente: ocupado; parado há mais de 24h: livre", () => {
   assert.equal(isPhoneFreeForOffer(s(STALE_SESSION_MS + 1), "eval_offer", now), true);
 });
 
+test("cadastro da MESMA criança parado na sessão não bloqueia a oferta (Davi Átila, 10/11)", () => {
+  const stuck = {
+    current_step: "awaiting_child_birth_date",
+    flow: null,
+    updated_at: ago(6 * 3600_000),
+    collected_data: { child_name: "Davi Átila do Vale Brandão" },
+  };
+  assert.equal(isPhoneFreeForOffer(stuck, "eval_offer", now, "Davi Átila do Vale Brandão"), true);
+});
+
+test("sessão de OUTRA criança no mesmo telefone continua bloqueando", () => {
+  const other = {
+    current_step: "awaiting_child_birth_date",
+    flow: null,
+    updated_at: ago(6 * 3600_000),
+    collected_data: { child_name: "Heitor Átila do Vale Brandão" },
+  };
+  assert.equal(isPhoneFreeForOffer(other, "eval_offer", now, "Davi Átila do Vale Brandão"), false);
+  assert.equal(isPhoneFreeForOffer(other, "eval_offer", now), false);
+});
+
 test("sem updated_at válido: ocupado (não arrisca atropelar conversa)", () => {
   assert.equal(isPhoneFreeForOffer({ current_step: "awaiting_laudo", flow: null, updated_at: null }, "eval_offer", now), false);
 });
