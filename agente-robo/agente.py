@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 
 from conecta_portal import ConectaPortal, msg_curta
 
-VERSAO = "1.0.1"
+VERSAO = "1.0.2"
 PASTA = Path(__file__).resolve().parent
 load_dotenv(PASTA / ".env")
 
@@ -218,6 +218,17 @@ def processar(page, portal, job):
     resultado(jid, "enviado", portal_status=status_portal, guide_number=guia, print_png=_print(page))
 
 
+def _pagina_viva(ctx):
+    """Uma aba que responde, ou None se o navegador foi fechado."""
+    try:
+        abertas = [pg for pg in ctx.pages if not pg.is_closed()]
+        page = abertas[0] if abertas else ctx.new_page()
+        page.evaluate("1")
+        return page
+    except Exception:
+        return None
+
+
 def _print(page):
     try:
         return page.screenshot(full_page=True)
@@ -257,17 +268,23 @@ def main():
                     time.sleep(INTERVALO)
                     continue
                 # Se alguém fechou a janela do navegador, abre de novo em vez de
-                # falhar em todos os pedidos seguintes.
-                if ctx is not None and fechado["sim"]:
+                # falhar em todos os pedidos seguintes. O aviso de "fechado" só
+                # chega quando o Playwright é usado, então testamos o navegador
+                # de verdade antes de cada pedido.
+                page = _pagina_viva(ctx) if ctx is not None else None
+                if ctx is not None and (page is None or fechado["sim"]):
                     log("A janela do navegador foi fechada: abrindo de novo.", "aviso")
-                    ctx = None
+                    try:
+                        ctx.close()
+                    except Exception:
+                        pass
+                    ctx, page = None, None
                 if ctx is None:
                     fechado["sim"] = False
                     ctx = pw.chromium.launch_persistent_context(str(PASTA_SESSAO), headless=HEADLESS,
                                                                 viewport={"width": 1400, "height": 900})
                     ctx.on("close", lambda *_: fechado.update(sim=True))
-                abertas = [pg for pg in ctx.pages if not pg.is_closed()]
-                page = abertas[0] if abertas else ctx.new_page()
+                    page = _pagina_viva(ctx) or ctx.new_page()
                 page.set_default_timeout(TIMEOUT_MS)
                 try:
                     processar(page, portal, job)
