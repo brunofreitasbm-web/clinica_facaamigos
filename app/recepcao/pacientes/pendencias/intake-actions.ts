@@ -2,6 +2,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { INTAKE_MIGRATION_PENDING_MESSAGE, isMissingIntakeColumnError } from "@/lib/intake-columns-pure";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 import {
@@ -110,13 +111,14 @@ async function markPlanOutcome(draftId: string, kind: Kind): Promise<PlanOutcome
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
 
   const col = COLUMNS[kind];
-  const { data: draft } = await supabase
+  const { data: draft, error: draftError } = await supabase
     .from("registration_drafts")
     .select(
       "id, guide_sent_at, guide_sent_by, plan_authorized_at, authorization_waived, scheduling_enabled_at, plan_denied_at, plan_denied_by, plan_more_docs_at, plan_more_docs_by",
     )
     .eq("id", draftId)
     .maybeSingle();
+  if (draftError && isMissingIntakeColumnError(draftError)) return { success: false, error: INTAKE_MIGRATION_PENDING_MESSAGE };
   if (!draft) return { success: false, error: "Contato não encontrado." };
   if (draft.scheduling_enabled_at) {
     return { success: false, error: "O caso já está habilitado para agendamento. Retire a habilitação antes." };
@@ -224,12 +226,15 @@ export type UndoableResult =
 
 type Snapshot = { row: DraftStateRow; patientId: string | null; patientStatus: string | null };
 
-async function readState(supabase: Supa, draftId: string): Promise<Snapshot | null> {
-  const { data } = await (supabase as unknown as import("@supabase/supabase-js").SupabaseClient)
+const MISSING_COLUMNS = "missing_columns" as const;
+
+async function readState(supabase: Supa, draftId: string): Promise<Snapshot | typeof MISSING_COLUMNS | null> {
+  const { data, error } = await (supabase as unknown as import("@supabase/supabase-js").SupabaseClient)
     .from("registration_drafts")
     .select(`${DRAFT_STATE_COLUMNS.join(", ")}, patient_id, patients(status)`)
     .eq("id", draftId)
     .maybeSingle();
+  if (error && isMissingIntakeColumnError(error)) return MISSING_COLUMNS;
   if (!data) return null;
   const rec = data as unknown as Record<string, unknown>;
   const patients = rec.patients as { status: string | null } | { status: string | null }[] | null;
@@ -241,6 +246,11 @@ async function readState(supabase: Supa, draftId: string): Promise<Snapshot | nu
   };
 }
 
+async function readStateOrNull(supabase: Supa, draftId: string): Promise<Snapshot | null> {
+  const state = await readState(supabase, draftId);
+  return state === MISSING_COLUMNS ? null : state;
+}
+
 /** Lê antes, roda a ação, lê depois e monta o desfazer. */
 async function withUndo<R extends { success: true; note?: string; offer?: "sent" | "duplicate" | "failed" } | { success: false; error: string }>(
   draftId: string,
@@ -250,10 +260,11 @@ async function withUndo<R extends { success: true; note?: string; offer?: "sent"
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
   const before = await readState(supabase, draftId);
+  if (before === MISSING_COLUMNS) return { success: false, error: INTAKE_MIGRATION_PENDING_MESSAGE };
   if (!before) return { success: false, error: "Contato não encontrado." };
   const result = await action();
   if (!result.success) return result;
-  const after = await readState(supabase, draftId);
+  const after = await readStateOrNull(supabase, draftId);
   const patientId = before.patientId ?? after?.patientId ?? null;
   const undo = after
     ? buildUndoToken(kind, before.row, after.row, patientId ? { id: patientId, before: before.patientStatus, after: after.patientStatus } : null)
@@ -313,13 +324,14 @@ export async function intakeRegisterAuthorizedGuide(draftId: string, input: Auth
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
   const before = await readState(supabase, draftId);
+  if (before === MISSING_COLUMNS) return { success: false, error: INTAKE_MIGRATION_PENDING_MESSAGE };
   if (!before) return { success: false, error: "Contato não encontrado." };
 
   const saved = await registerAuthorizedGuide(draftId, input);
   if (!saved.success) return saved;
   const enabled = await enableDraftScheduling(draftId);
 
-  const after = await readState(supabase, draftId);
+  const after = await readStateOrNull(supabase, draftId);
   const patientId = before.patientId ?? after?.patientId ?? null;
   const undo = after
     ? buildUndoToken("authorization", before.row, after.row, patientId ? { id: patientId, before: before.patientStatus, after: after.patientStatus } : null)
@@ -345,6 +357,7 @@ export async function restoreIntakeState(draftId: string, rawToken: UndoToken): 
   if (!token) return { success: false, error: "Não foi possível desfazer. Recarregue a página." };
 
   const current = await readState(supabase, draftId);
+  if (current === MISSING_COLUMNS) return { success: false, error: INTAKE_MIGRATION_PENDING_MESSAGE };
   if (!current) return { success: false, error: "Contato não encontrado." };
   const decision = decideRestore(token, current.row);
   if (!decision.ok) return { success: false, error: "O caso mudou depois disso. Nada foi desfeito." };

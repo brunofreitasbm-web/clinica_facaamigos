@@ -110,7 +110,7 @@ function StepShell({
             state === "done" ? "bg-status-positive-text text-white" : "border border-paper-line-strong text-ink-soft"
           }`}
         >
-          {state === "done" ? "✓" : index + 1}
+          {state === "done" ? "✓" : index}
         </span>
         <div className="min-w-0">
           <h3

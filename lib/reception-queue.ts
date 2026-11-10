@@ -12,6 +12,7 @@ import { listOverdueSessionNotes } from "@/lib/session-note-pending";
 import { computeLeadPendencies, desiredTherapiesFromBot, isBotDatumPresent, type LeadPendencies } from "@/lib/lead-pendencies";
 import { isJobInquiryLead } from "@/lib/job-inquiry-pure";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
+import { isMissingIntakeColumnError } from "@/lib/intake-columns-pure";
 import { pickConsolidatedDraft } from "@/lib/intake-detail-pick-pure";
 import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
 import { buildIntake, type DraftIntake } from "@/lib/intake-queue-build-pure";
@@ -979,16 +980,38 @@ function returnedInfo(d: {
 }
 
 async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): Promise<PendingRegistrationDraft[]> {
-  const { data } = await supabase
-    .from("registration_drafts")
-    .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), plan_denied_at, plan_more_docs_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
-    )
-    .eq("clinic_id", clinicId)
-    .neq("status", "rejected")
-    // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
-    .or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null")
-    .order("created_at", { ascending: true });
+  const full = await supabase
+      .from("registration_drafts")
+      .select(
+        "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), plan_denied_at, plan_more_docs_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      )
+      .eq("clinic_id", clinicId)
+      .neq("status", "rejected")
+      // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
+      .or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null")
+      .order("created_at", { ascending: true });
+  let data = full.data;
+  if (full.error) {
+    if (isMissingIntakeColumnError(full.error)) {
+      // Migration das colunas plan_denied/plan_more_docs ainda não aplicada: lê sem elas.
+      const legacy = await supabase
+      .from("registration_drafts")
+      .select(
+        "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      )
+      .eq("clinic_id", clinicId)
+      .neq("status", "rejected")
+      // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
+      .or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null")
+      .order("created_at", { ascending: true });
+      if (legacy.error) {
+        console.error("getPendingRegistrationDrafts: erro ao ler registration_drafts", legacy.error.code, legacy.error.message);
+      }
+      data = (legacy.data ?? []).map((r) => ({ ...r, plan_denied_at: null, plan_more_docs_at: null }));
+    } else {
+      console.error("getPendingRegistrationDrafts: erro ao ler registration_drafts", full.error.code, full.error.message);
+    }
+  }
 
   const allRows = data ?? [];
   const phones = [...new Set(allRows.map((d) => d.source_phone).filter((p): p is string => Boolean(p)))];
@@ -1139,13 +1162,32 @@ export async function getSingleRegistrationDraft(
   draftId: string,
   clinicId: string = DEV_CLINIC_ID,
 ): Promise<PendingRegistrationDraft | null> {
-  const { data: d } = await supabase
+  const fullRes = await supabase
     .from("registration_drafts")
     .select(
       "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), plan_denied_at, plan_more_docs_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("id", draftId)
     .maybeSingle();
+  let d = fullRes.data;
+  if (fullRes.error) {
+    if (isMissingIntakeColumnError(fullRes.error)) {
+      // Migration das colunas plan_denied/plan_more_docs ainda não aplicada: lê sem elas.
+      const legacy = await supabase
+    .from("registration_drafts")
+    .select(
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+    )
+    .eq("id", draftId)
+    .maybeSingle();
+      if (legacy.error) {
+        console.error("getSingleRegistrationDraft: erro ao ler registration_drafts", legacy.error.code, legacy.error.message);
+      }
+      d = legacy.data ? { ...legacy.data, plan_denied_at: null, plan_more_docs_at: null } : null;
+    } else {
+      console.error("getSingleRegistrationDraft: erro ao ler registration_drafts", fullRes.error.code, fullRes.error.message);
+    }
+  }
 
   if (!d) return null;
 
