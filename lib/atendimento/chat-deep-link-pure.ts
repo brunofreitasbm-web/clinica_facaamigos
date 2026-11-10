@@ -46,3 +46,18 @@ export function chatHref(target: { conversationId?: string | null; phone?: strin
   if (target.phone) return `${BASE}?tel=${encodeURIComponent(target.phone)}`;
   return BASE;
 }
+
+/**
+ * O cartão do contato deve oferecer "Abrir conversa no Chat"? Só quando há uma conversa de WhatsApp a abrir
+ * (origem whatsapp e telefone) e o cartão NÃO está dentro do próprio Chat, onde o link seria redundante.
+ *
+ * Não confundir `inChat` com o modo `focus` do cartão: Autorizações também o renderiza em `focus` e é
+ * exatamente lá que o operador precisa do link.
+ */
+export function showChatLink(input: {
+  source: string;
+  sourcePhone: string | null | undefined;
+  inChat: boolean;
+}): boolean {
+  return !input.inChat && input.source === "whatsapp" && Boolean(input.sourcePhone);
+}

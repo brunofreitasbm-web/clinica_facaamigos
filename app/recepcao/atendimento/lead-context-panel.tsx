@@ -230,7 +230,7 @@ export function LeadContextPanel({
             setSummaryRefresh((n) => n + 1);
           }}
         >
-          {focusDraft && <DraftIntakeCard draft={focusDraft} focus />}
+          {focusDraft && <DraftIntakeCard draft={focusDraft} focus inChat />}
         </LeadFocusDialog>
       )}
     </div>

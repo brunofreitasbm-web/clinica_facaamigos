@@ -8,7 +8,7 @@ import { DraftAdjustButton } from "./draft-adjust-dialog";
 import { DraftPipelineColumns } from "./draft-pipeline";
 import { PendencyGrid } from "./pendency-pills";
 import { missingChaseKeys } from "@/lib/lead-pendencies";
-import { chatHref } from "@/lib/atendimento/chat-deep-link-pure";
+import { chatHref, showChatLink } from "@/lib/atendimento/chat-deep-link-pure";
 
 /**
  * Cartão da categoria "cadastro_assistido_ia" na fila de pendências.
@@ -39,11 +39,14 @@ function fileLabel(file: PendingRegistrationDraft["files"][number]): string {
 export function DraftIntakeCard({
   draft,
   focus = false,
+  inChat = false,
   hideReviewLink = false,
   variant = "lead",
 }: {
   draft: PendingRegistrationDraft;
   focus?: boolean;
+  /** O cartão está dentro da própria tela de Chat (painel do lead): lá o link para o Chat é redundante. */
+  inChat?: boolean;
   /**
    * "lead" (Autorizações, Atendimento): mostra a trilha de etapas (documentos →
    * plano → habilitado) e a conversa. "paciente" (Pendências): paciente que já
@@ -202,8 +205,9 @@ export function DraftIntakeCard({
               Abrir prontuário
             </Link>
           )}
-          {/* Antes o operador buscava o nome à mão no Chat. Dentro do próprio Chat (focus) o link seria redundante. */}
-          {!focus && draft.source === "whatsapp" && draft.sourcePhone && (
+          {/* Antes o operador buscava o nome à mão no Chat. Dentro do próprio Chat o link seria redundante.
+              (`focus` NÃO serve de critério: Autorizações também usa focus e é onde o link importa.) */}
+          {showChatLink({ source: draft.source, sourcePhone: draft.sourcePhone, inChat }) && draft.sourcePhone && (
             <Link href={chatHref({ phone: draft.sourcePhone })} className="text-[13px] no-underline text-ink-soft">
               Abrir conversa no Chat
             </Link>
