@@ -648,7 +648,7 @@ Run:
 ```bash
 git diff --stat origin/main
 git diff origin/main -- app/recepcao/a-autorizar components/page-header.tsx components/recepcao-nav.tsx
-git grep -nP "\x{2014}|\x{2013}" -- app lib tests supabase docs/superpowers/plans/2026-11-10-fila-port-na-main.md
+LC_ALL=C.UTF-8 git grep -nP "\x{2014}|\x{2013}" -- app lib tests supabase docs/superpowers/plans/2026-11-10-fila-port-na-main.md
 ```
 Expected: second command empty (Autorizações identical to main); third command empty (no em/en dashes in touched areas; pre-existing hits outside touched files may be ignored but list them).
 
