@@ -29,7 +29,7 @@
     "twilio": "^6.1.0",
     "undici": "^8.10.1",
     "unpdf": "^1.8.1",
-    "web-push": "^3.6.7"
+    "web-push": "^4.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
