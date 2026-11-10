@@ -885,7 +885,7 @@ export function AuthorizationsWorkspace({
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 rounded-md bg-emerald-200/90 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-emerald-950">
-                            ⭐ Missão Cumprida
+                            Habilitado para agendamento
                           </span>
                           <span className="text-xs font-semibold text-emerald-800">
                             Pronto para agendar

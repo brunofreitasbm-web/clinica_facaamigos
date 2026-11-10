@@ -13,6 +13,7 @@ import { computeLeadPendencies, desiredTherapiesFromBot, isBotDatumPresent, type
 import { isJobInquiryLead } from "@/lib/job-inquiry-pure";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
 import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
+import { buildIntake, type DraftIntake } from "@/lib/intake-queue-build-pure";
 import { groupExpiringGuides, type ActiveGuide } from "@/lib/expiring-guides-pure";
 
 type Supa = SupabaseClient<Database>;
@@ -674,6 +675,8 @@ export type PendingRegistrationDraft = {
   documentRequests: PendingDraftDocumentRequest[];
   /** O que já veio e o que falta (dados + documentos), calculado em lib/lead-pendencies.ts. */
   pendencies: LeadPendencies;
+  /** Etapa, grupo e desde quando o caso espera (Fila de entrada), calculado em lib/intake-queue-build-pure.ts. */
+  intake: DraftIntake;
   /** Quantidade de rascunhos mesclados quando o mesmo responsável mandou dados em várias conversas. */
   mergedDraftsCount?: number;
 };
@@ -1002,7 +1005,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
     });
   });
 
-  const drafts: PendingRegistrationDraft[] = rows.map((d) => {
+  const drafts: Omit<PendingRegistrationDraft, "intake">[] = rows.map((d) => {
     const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;
     const sentBy = Array.isArray(d.sent_by) ? d.sent_by[0] : d.sent_by;
     const authorizedBy = Array.isArray(d.authorized_by) ? d.authorized_by[0] : d.authorized_by;
@@ -1084,7 +1087,13 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   });
 
   const rawExtractedByDraft = new Map<string, unknown>(rows.map((d) => [d.id, d.extracted]));
-  const consolidated = consolidateRegistrationDrafts(drafts, pendencySources, rawExtractedByDraft);
+  const now = new Date();
+  // Depois da mesclagem: etapa e grupo valem para o caso consolidado, não para cada rascunho.
+  const consolidated: PendingRegistrationDraft[] = consolidateRegistrationDrafts(
+    drafts,
+    pendencySources,
+    rawExtractedByDraft,
+  ).map((d) => ({ ...d, intake: buildIntake(d, now) }));
 
   // Partição estável: quem não tem mais nada faltando (pronto para conferir e
   // avançar na linha do tempo) sobe; dentro de cada grupo segue o mais antigo primeiro.
@@ -1159,7 +1168,7 @@ export async function getSingleRegistrationDraft(
     (typeof botRec?.child_name === "string" && botRec.child_name.trim() ? botRec.child_name.trim() : null) ??
     null;
 
-  return {
+  const base: Omit<PendingRegistrationDraft, "intake"> = {
     id: d.id,
     patientId: d.patient_id,
     patientName: resolvedPatientName,
@@ -1203,6 +1212,7 @@ export async function getSingleRegistrationDraft(
     documentRequests: (d.source_phone ? requestsByPhone.get(d.source_phone) : undefined) ?? [],
     pendencies,
   };
+  return { ...base, intake: buildIntake(base, new Date()) };
 }
 
 export type UnconfirmedCheckin = {

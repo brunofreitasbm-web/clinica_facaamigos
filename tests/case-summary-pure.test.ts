@@ -10,8 +10,22 @@ import {
   parseBirthDate,
   type CaseSummaryInput,
 } from "../lib/atendimento/case-summary-pure.ts";
+import type { IntakeInput } from "../lib/intake-queue-pure.ts";
 
 const NOW = Date.parse("2026-11-09T15:00:00Z");
+
+const intakeOf = (
+  authorization: IntakeInput["authorization"],
+  schedulingEnabledAt: string | null = null,
+  missingDocs = 0,
+): IntakeInput => ({
+  authorization,
+  schedulingEnabledAt,
+  missingDocs,
+  familyChasedAt: null,
+  planDeniedAt: null,
+  planAskedMoreDocsAt: null,
+});
 
 test("nascimento aceita ISO e dd/mm/aaaa; lixo vira null", () => {
   assert.equal(parseBirthDate("2022-03-15"), "2022-03-15");
@@ -83,6 +97,7 @@ test("lead com dados lidos: criança, idade, responsável e plano vêm do rascun
         { label: "Plano", value: "Nacional" },
       ],
       pipeline: { authorization: "pendente", schedulingEnabledAt: null, registered: false, returned: null },
+      intake: intakeOf("pendente", null, 2),
       missingCount: 2,
       missingSummary: "Faltam carteirinha e laudo",
       filesCount: 1,
@@ -94,7 +109,7 @@ test("lead com dados lidos: criança, idade, responsável e plano vêm do rascun
     { label: "Responsável", value: "Ana Ramos (mãe)" },
   ]);
   assert.deepEqual(s.plan, { text: "Unimed · Nacional", tone: "known" });
-  assert.deepEqual(s.stage, { label: "Etapa 2/4 · Guia enviada ao plano", allDone: false });
+  assert.deepEqual(s.stage, { label: "2 de 4 · Enviar guia", allDone: false });
   assert.equal(s.next.kind, "resolve_pendencies");
   assert.match(s.next.note ?? "", /Faltam carteirinha e laudo/);
 });
@@ -107,6 +122,7 @@ test("sem pendência e autorização ainda não concluída: próximo passo é Au
       status: "extracted",
       facts: [],
       pipeline: { authorization: "enviada", schedulingEnabledAt: null, registered: false, returned: null },
+      intake: intakeOf("enviada"),
       missingCount: 0,
       missingSummary: "",
       filesCount: 3,
@@ -124,12 +140,13 @@ test("habilitado para agendar: etapa concluída e sem botão primário", () => {
       status: "validated",
       facts: [],
       pipeline: { authorization: "autorizada", schedulingEnabledAt: "2026-11-09T10:00:00Z", registered: true, returned: null },
+      intake: intakeOf("autorizada", "2026-11-09T10:00:00Z"),
       missingCount: 0,
       missingSummary: "",
       filesCount: 3,
     },
   });
-  assert.deepEqual(s.stage, { label: "✓ Habilitado p/ agendamento", allDone: true });
+  assert.deepEqual(s.stage, { label: "4 de 4 · Habilitado", allDone: true });
   assert.equal(s.next.kind, "none");
   assert.match(s.next.note ?? "", /pronto para agendar/i);
 });
@@ -147,6 +164,7 @@ test("devolvido pela supervisão aparece como aviso", () => {
         registered: false,
         returned: { reason: "Guia ilegível", byName: "Carla" },
       },
+      intake: intakeOf("pendente"),
       missingCount: 0,
       missingSummary: "",
       filesCount: 1,

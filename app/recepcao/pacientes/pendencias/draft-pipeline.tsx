@@ -80,7 +80,7 @@ export function DraftPipelineMini({ pipeline }: { pipeline: PendingRegistrationD
         allDone ? "border-status-positive-text/60 text-status-positive-text" : "border-[var(--color-accent)] text-ink"
       }`}
     >
-      {allDone ? `✓ ${STEP_TITLE[3]}` : `Etapa ${currentIndex + 1}/4 · ${STEP_TITLE[currentIndex]}`}
+      {allDone ? `✓ ${STEP_TITLE[3]}` : STEP_TITLE[currentIndex]}
     </span>
   );
 }
@@ -99,7 +99,7 @@ function StepShell({
   return (
     <section
       className={`flex min-w-0 flex-col gap-2 rounded-md border px-3 py-3 ${STATE_STYLE[state]} ${
-        // A conquista final não esmaece: é a comemoração da missão.
+        // A etapa final não esmaece.
         index === 4 && state === "done" ? "!opacity-100 !saturate-100 !shadow-lg" : ""
       }`}
     >
@@ -144,33 +144,16 @@ const QUEST_HINT = [
   "Última etapa: habilite o agendamento!",
 ] as const;
 
-/**
- * Cabeçalho de "missão" do contato: barra de progresso + próxima conquista,
- * para dar ao operador a sensação de avanço (e vontade de fechar a fila).
- */
+/** Barra de avanço do contato, com a dica do passo da vez (sem contador nem percentual). */
 function QuestProgress({ states }: { states: StepState[] }) {
-  const doneCount = states.filter((s) => s === "done").length;
-  const complete = doneCount === states.length;
-  const percent = Math.round((doneCount / states.length) * 100);
+  const complete = states.every((s) => s === "done");
   const nextIndex = states.findIndex((s) => s === "current");
 
   return (
-    <div
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percent}
-      aria-label={`Missão: habilitar para agendamento — ${doneCount} de ${states.length} etapas`}
-      className="flex flex-col gap-1.5 rounded-md border border-paper-line-strong bg-paper-surface px-3 py-2"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
-        <span className="font-bold uppercase tracking-wide text-ink">
-          {complete ? "🏆 Missão cumprida!" : `🎯 Missão: habilitar o agendamento · ${doneCount}/${states.length}`}
-        </span>
-        <span className="font-semibold text-ink-soft">
-          {complete ? "Paciente liberado para a agenda" : nextIndex >= 0 ? QUEST_HINT[nextIndex] : ""}
-        </span>
-      </div>
+    <div className="flex flex-col gap-1.5 rounded-md border border-paper-line-strong bg-paper-surface px-3 py-2">
+      <span className="text-[13px] font-semibold text-ink-soft">
+        {complete ? "Paciente liberado para a agenda" : nextIndex >= 0 ? QUEST_HINT[nextIndex] : ""}
+      </span>
       <div className="flex items-center gap-1.5" aria-hidden="true">
         {states.map((state, i) => (
           <div
@@ -184,7 +167,6 @@ function QuestProgress({ states }: { states: StepState[] }) {
             }`}
           />
         ))}
-        <span className="w-10 text-right text-[13px] font-bold text-ink">{percent}%</span>
       </div>
     </div>
   );
@@ -725,7 +707,7 @@ export function DraftPipelineColumns({
         {schedState === "done" && (
           <>
             <p className="quest-pop m-0 text-sm font-bold text-status-positive-text">
-              🏆 Missão cumprida! A Supervisão já vê o “ok”.
+              Habilitado para agendamento. A Supervisão já vê o “ok”.
             </p>
             <div>
               <StepButton onClick={() => run(() => disableDraftScheduling(draft.id))} disabled={isPending}>

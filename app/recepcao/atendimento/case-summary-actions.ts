@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
+import { toIntakeInput } from "@/lib/intake-queue-build-pure";
 import { getSingleRegistrationDraft } from "@/lib/reception-queue";
 import type { CaseDraftInput } from "@/lib/atendimento/case-summary-pure";
 
@@ -71,6 +72,7 @@ export async function getCaseSummaryData(
             ? { reason: draftFull.pipeline.returned.reason, byName: draftFull.pipeline.returned.byName }
             : null,
         },
+        intake: toIntakeInput(draftFull),
         missingCount: draftFull.pendencies.missingCount,
         missingSummary: draftFull.pendencies.summary,
         filesCount: draftFull.files.length,
