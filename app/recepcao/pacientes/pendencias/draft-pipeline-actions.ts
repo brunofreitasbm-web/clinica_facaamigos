@@ -8,6 +8,7 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { promoteToPatient } from "@/lib/patient-stage";
 import { parseAuthorizedGuideText, type GuideProcedure, type ParsedAuthorizedGuide } from "@/lib/authorized-guide-parser";
 import { startEvaluationOffer } from "@/lib/evaluation-offer";
+import { pickPatientForOrphanDraft } from "@/lib/draft-orphan-patient-pure";
 
 /**
  * Etapas 2, 3 e 4 da linha do tempo de cada contato da fila de pendências
@@ -162,6 +163,43 @@ export async function undoGuideSent(draftId: string): Promise<ActionResult> {
   return { success: true };
 }
 
+/**
+ * Rascunho SEM paciente cujo telefone/criança já tem cadastro: vincula ao paciente
+ * existente, em vez de deixar um processo paralelo (AGENTS.md, diretriz 3). Sem isso o
+ * "Plano autorizou" no rascunho órfão gravava a guia mas a oferta automática de
+ * horários nunca saía (caso Davi Átila, 10/11). Ambíguo (irmãos, nomes parecidos)
+ * não vincula. Devolve o patient_id do rascunho depois da tentativa.
+ */
+async function resolveDraftPatientId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  draft: { id: string; patient_id: string | null },
+): Promise<string | null> {
+  if (draft.patient_id) return draft.patient_id;
+
+  const { data: row } = await supabase
+    .from("registration_drafts")
+    .select("source_phone, extracted")
+    .eq("id", draft.id)
+    .maybeSingle();
+  const digits = (row?.source_phone ?? "").replace(/\D/g, "");
+  if (digits.length < 8) return null;
+
+  const { data: guardians } = await supabase
+    .from("guardians")
+    .select("patient_id")
+    .ilike("phone", `%${digits.slice(-9)}`);
+  const ids = [...new Set((guardians ?? []).map((g) => g.patient_id).filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) return null;
+
+  const { data: patients } = await supabase.from("patients").select("id, full_name").in("id", ids);
+  const childName = (row?.extracted as { patient?: { full_name?: string } } | null)?.patient?.full_name ?? null;
+  const match = pickPatientForOrphanDraft(childName, patients ?? []);
+  if (!match) return null;
+
+  const { error } = await supabase.from("registration_drafts").update({ patient_id: match }).eq("id", draft.id).is("patient_id", null);
+  return error ? null : match;
+}
+
 /** Marca a etapa 3 como concluída registrando a guia que o plano autorizou. */
 export async function registerAuthorizedGuide(draftId: string, input: AuthorizedGuideInput): Promise<ActionResult> {
   const { supabase, user } = await requireUser();
@@ -193,6 +231,7 @@ export async function registerAuthorizedGuide(draftId: string, input: Authorized
     .eq("id", draftId)
     .maybeSingle();
   if (!draft) return { success: false, error: "Contato não encontrado." };
+  draft.patient_id = await resolveDraftPatientId(supabase, draft);
   if (draft.authorization_id) {
     return { success: false, error: "A guia já foi gravada no prontuário — ajuste ou cancele por lá." };
   }
@@ -416,6 +455,7 @@ export async function enableDraftScheduling(draftId: string): Promise<ActionResu
     .eq("id", draftId)
     .maybeSingle();
   if (!draft) return { success: false, error: "Contato não encontrado." };
+  draft.patient_id = await resolveDraftPatientId(supabase, draft);
   if (!draft.plan_authorized_at && !draft.authorization_waived) {
     return { success: false, error: "Registre a autorização do plano (ou dispense, se for particular) antes de habilitar." };
   }

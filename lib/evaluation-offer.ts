@@ -206,8 +206,8 @@ export async function startEvaluationOffer(params: {
     return { status: "no_phone", offerId, error: "Responsável sem telefone cadastrado." };
   }
 
-  const { data: session } = await admin.from("chatbot_sessions").select("current_step, flow, updated_at").eq("phone_number", phone).maybeSingle();
-  const free = isPhoneFreeForOffer(session, EVAL_OFFER_FLOW, Date.now());
+  const { data: session } = await admin.from("chatbot_sessions").select("current_step, flow, updated_at, collected_data").eq("phone_number", phone).maybeSingle();
+  const free = isPhoneFreeForOffer(session, EVAL_OFFER_FLOW, Date.now(), childName);
   if (!free) {
     const error = "Este telefone está em outro atendimento automático no momento.";
     const offerId = await recordFailure("falhou", error);
