@@ -40,6 +40,7 @@ Recepção (CRM, navegador)          CRM (Vercel + Supabase)                Agen
 | `app/recepcao/pacientes/pendencias/portal-robot-panel.tsx` | Painel e formulário no cartão da etapa 2. |
 | `app/recepcao/pacientes/pendencias/draft-pipeline.tsx` | Encaixe do painel na etapa 2 (o botão manual continua). |
 | `agente-robo/` | O agente (Python + Playwright) e os passos do portal Conecta. |
+| `app/gestor/configuracoes/robo-portal/` | Tela do gestor para cadastrar, desativar e reativar os computadores do robô (gera o token sem passar pelo SQL Editor). |
 
 ## Regras de segurança do fluxo
 
@@ -63,14 +64,19 @@ Atualizar `lib/database.types.ts` quando for conveniente (o código usa cast
 para as tabelas novas, como já é feito em `lib/reception-queue.ts`).
 
 ### 2. Token do agente
-No computador do agente:
+No CRM, como gestor: **Configurações → Robô do portal → Cadastrar robô**. O
+sistema gera o token, guarda só o SHA-256 e mostra a linha `AGENT_TOKEN=...`
+uma única vez, para colar no `.env` do agente. Na mesma tela dá para
+**desativar** (corta o acesso na hora) e reativar cada computador, e ver se ele
+está ligado.
+
+Alternativa pelo terminal, no computador do agente:
 
 ```bash
 python3 gerar_token.py "Computador da recepção"
 ```
 
-Copiar o `AGENT_TOKEN` para o `.env` do agente e rodar o `insert` mostrado no
-SQL Editor do Supabase. Para revogar: `update portal_robot_agents set active = false where name = '...';`
+e rodar o `insert` mostrado no SQL Editor do Supabase.
 
 ### 3. Agente
 Na pasta `agente-robo/`: copiar `env.exemplo` para `.env`, preencher
@@ -91,4 +97,3 @@ usar "Enviar ao plano".
   (o leitor `parseAuthorizedGuidePdf` já existe).
 - Outros portais (Unimed, GEAP…) como novos módulos do agente, escolhidos por
   `portal_robot_jobs.portal`.
-- Cadastro de agentes/tokens pela área do gestor, em vez do SQL Editor.

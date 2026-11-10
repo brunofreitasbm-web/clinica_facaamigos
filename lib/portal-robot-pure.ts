@@ -162,3 +162,13 @@ export function formatReferenceMonth(month: string | null | undefined): string {
   const names = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
   return `${names[Number(month.slice(5, 7)) - 1]}/${month.slice(0, 4)}`;
 }
+
+/** Nome do computador do robô, como aparece em Configurações → Robô do portal. */
+export const AGENT_NAME_MAX = 60;
+
+export function normalizeAgentName(raw: unknown): { ok: true; value: string } | { ok: false; error: string } {
+  const name = String(raw ?? "").replace(/\s+/g, " ").trim();
+  if (name.length < 2) return { ok: false, error: "Dê um nome ao computador (ex.: Computador da recepção)." };
+  if (name.length > AGENT_NAME_MAX) return { ok: false, error: `O nome pode ter no máximo ${AGENT_NAME_MAX} caracteres.` };
+  return { ok: true, value: name };
+}

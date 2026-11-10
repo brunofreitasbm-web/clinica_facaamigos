@@ -18,6 +18,7 @@ const SIDEBAR_ITEMS = [
   { key: "prioridades", label: "Regras de Agendamento", href: "/gestor/configuracoes/prioridades-avaliacao" },
   { key: "usuarios", label: "Usuários & Permissões", href: "/gestor/cadastros/colaboradores", external: true },
   { key: "cupom-checkin", label: "Cupom de Check-in", href: "/gestor/configuracoes/cupom-checkin" },
+  { key: "robo-portal", label: "Robô do portal", href: "/gestor/configuracoes/robo-portal" },
 ] as const;
 
 export function ConfigSidebar() {

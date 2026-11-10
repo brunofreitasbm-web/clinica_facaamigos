@@ -5,7 +5,7 @@
 // identifica com um token próprio (Authorization: Bearer …); aqui só existe o
 // SHA-256 dele. Tudo com o client service-role, sempre filtrando pela clínica
 // do agente — nunca pela clínica que vier no corpo da requisição.
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PortalRobotMode, PortalRobotPayload, PortalRobotStatus } from "@/lib/portal-robot-pure";
@@ -46,6 +46,11 @@ export function robotAdmin(): SupabaseClient {
 
 export function hashAgentToken(token: string): string {
   return createHash("sha256").update(token.trim()).digest("hex");
+}
+
+/** Token novo de agente (mesmo formato do agente-robo/gerar_token.py). Só é mostrado uma vez. */
+export function generateAgentToken(): string {
+  return randomBytes(40).toString("base64url");
 }
 
 /** Identifica o agente pelo token e registra o "sinal de vida" (tela mostra robô ligado/desligado). */
