@@ -261,14 +261,17 @@ export function AuthorizedGuideDialog({
   error,
   onClose,
   onConfirm,
+  initialValues,
 }: {
   suggestedGuide?: DraftAuthorizedGuide | null;
+  /** Valores já digitados (ex.: reabrir para corrigir depois de um erro). Sem eles, parte da guia sugerida. */
+  initialValues?: GuideValues;
   pending: boolean;
   error: string | null;
   onClose: () => void;
   onConfirm: (values: GuideValues) => void;
 }) {
-  const [values, setValues] = useState<GuideValues>(() => defaultGuideValues(suggestedGuide));
+  const [values, setValues] = useState<GuideValues>(() => initialValues ?? defaultGuideValues(suggestedGuide));
   const [reading, startReading] = useTransition();
   const [readNote, setReadNote] = useState<{ tone: "error" | "note"; text: string } | null>(null);
 

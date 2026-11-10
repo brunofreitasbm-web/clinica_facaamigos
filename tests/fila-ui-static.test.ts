@@ -39,3 +39,19 @@ test("pedido de mais documentos do plano envia de verdade ou leva ao Chat", () =
 test("a tela lê a política das ações em vez de repetir a regra", () => {
   assert.match(step, /fila-action-policy-pure/);
 });
+
+test("se salvar a guia falhar, o formulário reabre com os valores digitados", () => {
+  assert.match(step, /initialValues=\{pendingGuide \?\? undefined\}/);
+  assert.match(step, /setGuideOpen\(true\)/);
+  assert.match(step, /Voltar e corrigir/);
+  const dialog = readFileSync("app/recepcao/pacientes/pendencias/draft-pipeline.tsx", "utf8");
+  assert.match(dialog, /initialValues\?: GuideValues/);
+  assert.match(dialog, /initialValues \?\? defaultGuideValues\(suggestedGuide\)/);
+});
+
+test("a confirmação é um grupo rotulado e recebe o foco", () => {
+  assert.match(step, /role=\{confirm \? "group" : undefined\}/);
+  assert.match(step, /aria-label=\{confirm \? CONFIRM_GROUP_LABEL\[confirm\]/);
+  assert.match(step, /ref=\{confirmButtonRef\}/);
+  assert.match(step, /confirmButtonRef\.current\?\.focus\(\)/);
+});

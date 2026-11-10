@@ -4,7 +4,7 @@
 // com Desfazer de 8 s.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FILA_ACTION_POLICY, actionConfirms, actionOffersUndo } from "../lib/fila/fila-action-policy-pure.ts";
+import { FILA_ACTION_POLICY, actionConfirms, actionOffersUndo, guideConfirmSummary } from "../lib/fila/fila-action-policy-pure.ts";
 
 test("quem manda WhatsApp pede confirmação e não tem desfazer; o resto tem desfazer sem confirmação", () => {
   for (const [key, p] of Object.entries(FILA_ACTION_POLICY)) {
@@ -33,4 +33,12 @@ test("as ações reversíveis da Fila têm Desfazer", () => {
   }
   assert.equal(actionOffersUndo("authorize_and_enable"), false);
   assert.equal(actionConfirms("authorize_and_enable"), true);
+});
+
+test("resumo da guia na confirmação: número e validade, sem texto solto quando falta a validade", () => {
+  assert.equal(guideConfirmSummary({ guideNumber: "123", validTo: "2026-12-31" }), "Guia 123, válida até 31/12/2026.");
+  assert.equal(guideConfirmSummary({ guideNumber: "123", validTo: "" }), "Guia 123.");
+  assert.equal(guideConfirmSummary({ guideNumber: "  ", validTo: "" }), "Guia sem número.");
+  assert.equal(guideConfirmSummary({ guideNumber: "", validTo: "  " }), "Guia sem número.");
+  assert.equal(guideConfirmSummary({ guideNumber: "9", validTo: "31/12/2026" }), "Guia 9, válida até 31/12/2026.");
 });

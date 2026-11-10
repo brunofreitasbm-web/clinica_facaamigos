@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClipboardList, Loader2, MessageCircle } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
 import type { FilaItem } from "@/lib/fila/fila-model-pure";
-import { actionConfirms, actionOffersUndo, type FilaActionKey } from "@/lib/fila/fila-action-policy-pure";
+import { actionConfirms, actionOffersUndo, guideConfirmSummary, type FilaActionKey } from "@/lib/fila/fila-action-policy-pure";
 import { chatHref } from "@/lib/atendimento/chat-deep-link-pure";
 import {
   buildDocumentsOpenerMessage,
@@ -40,6 +40,15 @@ const CONFIRM_ACTION: Record<Confirm, FilaActionKey> = {
   authorize: "authorize_and_enable",
 };
 
+const CONFIRM_GROUP_LABEL: Record<Confirm, string> = {
+  ask: "Conferir o pedido de documentos antes de enviar",
+  remind: "Conferir o lembrete antes de enviar",
+  more_docs: "Conferir o pedido de documentos antes de enviar",
+  opener: "Conferir a mensagem de abertura antes de enviar",
+  enable: "Confirmar a habilitação do agendamento",
+  authorize: "Confirmar a guia autorizada e o envio dos horários",
+};
+
 /**
  * UM próximo passo por vez. A segurança de cada ação vem de lib/fila/fila-action-policy-pure.ts:
  *  - WhatsApp (pedir documentos, lembrete, mensagem de abertura, habilitar o agendamento e "Plano autorizou",
@@ -67,6 +76,12 @@ export function FilaNextStep({
   const [pendingGuide, setPendingGuide] = useState<GuideValues | null>(null);
   // Trava de edição por dono do caso: chega na próxima etapa do plano. Até lá, nada trava além do envio.
   const locked = false;
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Ao abrir uma conferência, o foco vai para o botão que confirma (teclado e leitor de tela chegam nela).
+  useEffect(() => {
+    if (confirm) confirmButtonRef.current?.focus();
+  }, [confirm]);
 
   const { step } = item;
   const firstName = item.child.trim().split(/\s+/)[0] || "A família";
@@ -201,7 +216,13 @@ export function FilaNextStep({
         validTo: values.validTo,
         procedures: values.procedures.map((p) => ({ code: p.code, description: p.description, quantity: Number(p.quantity) })),
       });
-      if (!saved.success) return fail(saved.error);
+      if (!saved.success) {
+        // Erro de validação da guia: reabre o formulário com os valores digitados para corrigir.
+        setGuideError(saved.error);
+        setConfirm(null);
+        setGuideOpen(true);
+        return;
+      }
       const enabled = await enableDraftScheduling(item.draftId);
       setConfirm(null);
       setPendingGuide(null);
@@ -271,127 +292,142 @@ export function FilaNextStep({
         </p>
       )}
 
-      {/* Conferência: o que vai por WhatsApp, antes de enviar */}
-      {(confirm === "ask" || confirm === "remind" || confirm === "more_docs") && (
-        <div className="mb-4 flex flex-col gap-3">
-          <p className="m-0 text-base text-ink-soft">
-            Vai por WhatsApp para a família{previewMessages.length > 1 ? `, em ${previewMessages.length} mensagens (uma por documento)` : ""}.
-            Mensagem enviada não pode ser desfeita, por isso a conferência.
-          </p>
-          {/* Os textos só trocam o nome do documento: a primeira fica aberta, as demais recolhidas, mas todas
-              conferíveis antes de enviar. */}
-          {previewMessages.map((m, index) => (
-            <details key={m.key} open={index === 0} className="rounded-xl border border-paper-line-strong bg-white p-4">
-              <summary className="flex min-h-10 cursor-pointer items-center text-sm font-bold text-ink-soft">
-                {previewMessages.length > 1 ? `Mensagem ${index + 1} de ${previewMessages.length}: ` : ""}
-                {m.label}
-              </summary>
-              <p className="m-0 mt-2 whitespace-pre-wrap text-base text-ink">{m.text}</p>
-            </details>
-          ))}
-        </div>
-      )}
-      {confirm === "opener" && (
-        <div className="mb-4 flex flex-col gap-3">
-          <p className="m-0 text-base text-ink-soft">
-            Envia o modelo aprovado que reabre a conversa (use quando a família não escreve há mais de 24 horas). Não pode ser desfeito.
-          </p>
-          <div className="rounded-xl border border-paper-line-strong bg-white p-4">
-            <p className="m-0 whitespace-pre-wrap text-base text-ink">{buildDocumentsOpenerMessage(patientName)}</p>
+      <div role={confirm ? "group" : undefined} aria-label={confirm ? CONFIRM_GROUP_LABEL[confirm] : undefined}>
+        {/* Conferência: o que vai por WhatsApp, antes de enviar */}
+        {(confirm === "ask" || confirm === "remind" || confirm === "more_docs") && (
+          <div className="mb-4 flex flex-col gap-3">
+            <p className="m-0 text-base text-ink-soft">
+              Vai por WhatsApp para a família{previewMessages.length > 1 ? `, em ${previewMessages.length} mensagens (uma por documento)` : ""}.
+              Mensagem enviada não pode ser desfeita, por isso a conferência.
+            </p>
+            {/* Os textos só trocam o nome do documento: a primeira fica aberta, as demais recolhidas, mas todas
+                conferíveis antes de enviar. */}
+            {previewMessages.map((m, index) => (
+              <details key={m.key} open={index === 0} className="rounded-xl border border-paper-line-strong bg-white p-4">
+                <summary className="flex min-h-10 cursor-pointer items-center text-sm font-bold text-ink-soft">
+                  {previewMessages.length > 1 ? `Mensagem ${index + 1} de ${previewMessages.length}: ` : ""}
+                  {m.label}
+                </summary>
+                <p className="m-0 mt-2 whitespace-pre-wrap text-base text-ink">{m.text}</p>
+              </details>
+            ))}
           </div>
-        </div>
-      )}
-      {confirm === "enable" && (
-        <p className="m-0 mb-4 text-base text-ink">
-          Ao habilitar, a família recebe os horários da 1ª avaliação por WhatsApp. Isso não pode ser desfeito.
-        </p>
-      )}
-      {confirm === "authorize" && pendingGuide && (
-        <div className="mb-4 flex flex-col gap-2">
-          <p className="m-0 text-base text-ink">
-            Ao salvar, a guia fica registrada e a família recebe os horários da 1ª avaliação por WhatsApp. Isso não pode ser desfeito.
+        )}
+        {confirm === "opener" && (
+          <div className="mb-4 flex flex-col gap-3">
+            <p className="m-0 text-base text-ink-soft">
+              Envia o modelo aprovado que reabre a conversa (use quando a família não escreve há mais de 24 horas). Não pode ser desfeito.
+            </p>
+            <div className="rounded-xl border border-paper-line-strong bg-white p-4">
+              <p className="m-0 whitespace-pre-wrap text-base text-ink">{buildDocumentsOpenerMessage(patientName)}</p>
+            </div>
+          </div>
+        )}
+        {confirm === "enable" && (
+          <p className="m-0 mb-4 text-base text-ink">
+            Ao habilitar, a família recebe os horários da 1ª avaliação por WhatsApp. Isso não pode ser desfeito.
           </p>
-          <p className="m-0 text-base text-ink-soft">
-            Guia {pendingGuide.guideNumber || "sem número"}, válida até {pendingGuide.validTo.split("-").reverse().join("/")}.
+        )}
+        {confirm === "authorize" && pendingGuide && (
+          <div className="mb-4 flex flex-col gap-2">
+            <p className="m-0 text-base text-ink">
+              Ao salvar, a guia fica registrada e a família recebe os horários da 1ª avaliação por WhatsApp. Isso não pode ser desfeito.
+            </p>
+            <p className="m-0 text-base text-ink-soft">{guideConfirmSummary(pendingGuide)}</p>
+          </div>
+        )}
+
+        {error && (
+          <p role="alert" className="m-0 mb-4 rounded-lg border border-status-negative-text/40 bg-white p-3 text-base text-status-negative-text">
+            {error}
           </p>
-        </div>
-      )}
-
-      {error && (
-        <p role="alert" className="m-0 mb-4 rounded-lg border border-status-negative-text/40 bg-white p-3 text-base text-status-negative-text">
-          {error}
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-3">
-        {confirm === null && step.primaryLabel && step.kind !== "review_data" && !chatInsteadOfSend && (
-          <button type="button" disabled={isPending || locked} className={primaryClass} onClick={onPrimary}>
-            {spinner}
-            {step.primaryLabel}
-          </button>
         )}
 
-        {confirm === null && step.primaryLabel && chatInsteadOfSend && chatLink && (
-          <Link href={chatLink} className={`${primaryClass} no-underline`}>
-            <MessageCircle size={16} aria-hidden />
-            {step.primaryLabel}
-          </Link>
-        )}
-        {confirm === null && chatInsteadOfSend && !chatLink && (
-          <p className="m-0 text-base text-ink-soft">Sem telefone cadastrado: fale com a família pelo cadastro.</p>
-        )}
-
-        {step.kind === "review_data" && (
-          <Link href={`/recepcao/pre-cadastros/${item.draftId}`} className={`${primaryClass} no-underline`}>
-            <ClipboardList size={16} aria-hidden />
-            {step.primaryLabel}
-          </Link>
-        )}
-
-        {confirm !== null && (
-          <>
-            <button type="button" disabled={isPending || locked} className={primaryClass} onClick={onConfirm}>
+        <div className="flex flex-wrap items-center gap-3">
+          {confirm === null && step.primaryLabel && step.kind !== "review_data" && !chatInsteadOfSend && (
+            <button type="button" disabled={isPending || locked} className={primaryClass} onClick={onPrimary}>
               {spinner}
-              {confirmLabel}
+              {step.primaryLabel}
             </button>
-            <button
-              type="button"
-              disabled={isPending || locked}
-              className={secondaryClass}
-              onClick={() => {
-                setConfirm(null);
-                setPendingGuide(null);
-                setError(null);
-              }}
-            >
-              Cancelar
-            </button>
-          </>
-        )}
+          )}
 
-        {confirm === null && step.kind === "send_guide" && (
-          <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={waiveAuthorization}>
-            Particular, sem guia
-          </button>
-        )}
-        {confirm === null && step.kind === "plan_more_docs" && (
-          <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={registerGuideSent}>
-            Guia reenviada ao plano
-          </button>
-        )}
-        {confirm === null && step.kind === "wait_plan" && (
-          <>
-            <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={denyPlan}>
-              Plano negou
+          {confirm === null && step.primaryLabel && chatInsteadOfSend && chatLink && (
+            <Link href={chatLink} className={`${primaryClass} no-underline`}>
+              <MessageCircle size={16} aria-hidden />
+              {step.primaryLabel}
+            </Link>
+          )}
+          {confirm === null && chatInsteadOfSend && !chatLink && (
+            <p className="m-0 text-base text-ink-soft">Sem telefone cadastrado: fale com a família pelo cadastro.</p>
+          )}
+
+          {step.kind === "review_data" && (
+            <Link href={`/recepcao/pre-cadastros/${item.draftId}`} className={`${primaryClass} no-underline`}>
+              <ClipboardList size={16} aria-hidden />
+              {step.primaryLabel}
+            </Link>
+          )}
+
+          {confirm !== null && (
+            <>
+              <button ref={confirmButtonRef} type="button" disabled={isPending || locked} className={primaryClass} onClick={onConfirm}>
+                {spinner}
+                {confirmLabel}
+              </button>
+              <button
+                type="button"
+                disabled={isPending || locked}
+                className={secondaryClass}
+                onClick={() => {
+                  setConfirm(null);
+                  setPendingGuide(null);
+                  setError(null);
+                }}
+              >
+                Cancelar
+              </button>
+              {confirm === "authorize" && (
+                <button
+                  type="button"
+                  disabled={isPending || locked}
+                  className={ghostClass}
+                  onClick={() => {
+                    setConfirm(null);
+                    setError(null);
+                    setGuideError(null);
+                    setGuideOpen(true);
+                  }}
+                >
+                  Voltar e corrigir
+                </button>
+              )}
+            </>
+          )}
+
+          {confirm === null && step.kind === "send_guide" && (
+            <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={waiveAuthorization}>
+              Particular, sem guia
             </button>
-            <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={planAskedMoreDocs}>
-              Plano pediu mais documentos
+          )}
+          {confirm === null && step.kind === "plan_more_docs" && (
+            <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={registerGuideSent}>
+              Guia reenviada ao plano
             </button>
-            <button type="button" disabled={isPending || locked} className={ghostClass} onClick={unmarkGuideSent}>
-              A guia não foi enviada
-            </button>
-          </>
-        )}
+          )}
+          {confirm === null && step.kind === "wait_plan" && (
+            <>
+              <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={denyPlan}>
+                Plano negou
+              </button>
+              <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={planAskedMoreDocs}>
+                Plano pediu mais documentos
+              </button>
+              <button type="button" disabled={isPending || locked} className={ghostClass} onClick={unmarkGuideSent}>
+                A guia não foi enviada
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Sem resposta há mais de 24 h o pedido livre é recusado pela Meta: a saída é o modelo de abertura. */}
@@ -414,7 +450,12 @@ export function FilaNextStep({
           suggestedGuide={detail?.pipeline.suggestedGuide ?? null}
           pending={isPending}
           error={guideError}
-          onClose={() => setGuideOpen(false)}
+          initialValues={pendingGuide ?? undefined}
+          onClose={() => {
+            setGuideOpen(false);
+            setGuideError(null);
+            setPendingGuide(null);
+          }}
           onConfirm={reviewAuthorized}
         />
       )}

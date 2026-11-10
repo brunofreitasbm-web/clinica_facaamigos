@@ -49,3 +49,16 @@ export function actionConfirms(key: FilaActionKey): boolean {
 export function actionOffersUndo(key: FilaActionKey): boolean {
   return FILA_ACTION_POLICY[key].undo;
 }
+
+/**
+ * Linha de conferência do "Plano autorizou": número e validade da guia digitados no formulário.
+ * Validade vazia some da frase; data no formato do campo (AAAA-MM-DD) vira DD/MM/AAAA.
+ */
+export function guideConfirmSummary(values: { guideNumber: string; validTo: string }): string {
+  const number = values.guideNumber.trim() || "sem número";
+  const validTo = values.validTo.trim();
+  if (!validTo) return `Guia ${number}.`;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(validTo);
+  const shown = iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : validTo;
+  return `Guia ${number}, válida até ${shown}.`;
+}
