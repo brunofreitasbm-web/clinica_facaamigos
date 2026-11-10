@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 
 from conecta_portal import ConectaPortal, msg_curta
 
-VERSAO = "1.0.0"
+VERSAO = "1.0.1"
 PASTA = Path(__file__).resolve().parent
 load_dotenv(PASTA / ".env")
 
@@ -244,6 +244,7 @@ def main():
     log(f"Agente {VERSAO} ligado. CRM: {CRM_URL}. Esperando pedidos (Ctrl+C para parar).")
     with sync_playwright() as pw:
         ctx = None
+        fechado = {"sim": False}  # vira True quando a janela do navegador é fechada
         try:
             while True:
                 try:
@@ -255,10 +256,18 @@ def main():
                 if not job:
                     time.sleep(INTERVALO)
                     continue
+                # Se alguém fechou a janela do navegador, abre de novo em vez de
+                # falhar em todos os pedidos seguintes.
+                if ctx is not None and fechado["sim"]:
+                    log("A janela do navegador foi fechada: abrindo de novo.", "aviso")
+                    ctx = None
                 if ctx is None:
+                    fechado["sim"] = False
                     ctx = pw.chromium.launch_persistent_context(str(PASTA_SESSAO), headless=HEADLESS,
                                                                 viewport={"width": 1400, "height": 900})
-                page = ctx.pages[0] if ctx.pages else ctx.new_page()
+                    ctx.on("close", lambda *_: fechado.update(sim=True))
+                abertas = [pg for pg in ctx.pages if not pg.is_closed()]
+                page = abertas[0] if abertas else ctx.new_page()
                 page.set_default_timeout(TIMEOUT_MS)
                 try:
                     processar(page, portal, job)
@@ -274,8 +283,11 @@ def main():
         except KeyboardInterrupt:
             log("Agente desligado.")
         finally:
-            if ctx is not None:
-                ctx.close()
+            if ctx is not None and not fechado["sim"]:
+                try:
+                    ctx.close()
+                except Exception:
+                    pass
 
 
 if __name__ == "__main__":
