@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { key: "agenda", label: "Agenda do dia", href: "/recepcao", match: ["/recepcao", "/recepcao/agenda"], icon: CalendarDays },
   { key: "chegadas", label: "Chegadas", href: "/recepcao/chegadas", icon: DoorOpen },
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
-  { key: "a-autorizar", label: "Autorizações", href: "/recepcao/a-autorizar", match: ["/recepcao/a-autorizar", "/recepcao/pre-cadastros"], icon: ShieldCheck },
+  { key: "a-autorizar", label: "Fila de entrada", href: "/recepcao/a-autorizar", match: ["/recepcao/a-autorizar", "/recepcao/pre-cadastros"], icon: ShieldCheck },
   { key: "atendimento", label: "Chat", href: "/recepcao/atendimento", icon: MessageSquare },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText },
   // "Cadastro IA" (/recepcao/pre-cadastros) saiu da navegação em 20/09/2026:

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { HelpHint } from "@/components/ui/help-hint";
 import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
@@ -7,17 +6,18 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getReceptionQueue, isAuthorizationQueueItem } from "@/lib/reception-queue";
 import { dropLeadsWithClosedChat } from "@/lib/closed-chat-filter";
 import { buildWorkspaceItems } from "../pacientes/pendencias/queue-items";
-import { AuthorizationsWorkspace, type AuthFilterStatus, type AuthFilterPendency, type AuthFilterForwarding } from "./authorizations-workspace";
+import { AuthorizationsWorkspace } from "./authorizations-workspace";
+import { isIntakeGroup, legacyTab } from "./intake-filters-pure";
 import { ShieldCheck, ArrowRight, CalendarDays } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 /**
- * "Autorizações": lead do WhatsApp com documentos completos que ainda não passou pelo
+ * "Fila de entrada" (antes "Autorizações"): lead do WhatsApp com documentos completos que ainda não passou pelo
  * plano de saúde — documentos e dados captados pelo bot, mais a linha do tempo da
  * autorização (guia enviada → plano autorizou → habilitar agendamento). É o
  * mesmo painel de contato da Fila de pendências (DraftIntakeCard), só que
- * com sistema especializado de filtros, separação de não tratados e quadros retráteis.
+ * com 4 abas (agir agora, aguardando família, aguardando plano, concluídos).
  */
 export default async function AAutorizarPage({
   searchParams,
@@ -25,10 +25,8 @@ export default async function AAutorizarPage({
   searchParams: Promise<{
     item?: string;
     q?: string;
+    aba?: string;
     status?: string;
-    pendencia?: string;
-    encaminhamento?: string;
-    dono?: string;
     meus?: string;
     etapa?: string;
   }>;
@@ -55,27 +53,13 @@ export default async function AAutorizarPage({
   const items = buildWorkspaceItems(queue, { reassignCandidates, userId: user?.id ?? null });
   const requestedItem = params.item && queue.some((item) => item.id === params.item) ? params.item : null;
 
-  // Normalização de status legado de ?etapa=docs / ?etapa=autorizacao / ?etapa=agendar
-  let initialStatus: AuthFilterStatus = (params.status as AuthFilterStatus) ?? "todos";
-  if (!params.status && params.etapa) {
-    if (params.etapa === "docs") initialStatus = "falta_docs";
-    else if (params.etapa === "autorizacao") initialStatus = "aguardando";
-    else if (params.etapa === "agendar") initialStatus = "concluidas";
-  }
+  // ?aba= escolhe a aba; ?etapa= e ?status= (links antigos) caem na aba equivalente.
+  const initialTab = isIntakeGroup(params.aba) ? params.aba : legacyTab({ etapa: params.etapa, status: params.status });
 
   return (
     <main className="flex flex-1 flex-col">
-      <PageHeader
-        axisLabel="Recepção"
-        title="Autorizações"
-      />
+      <PageHeader title="Fila de entrada" />
       <PageContainer className="gap-5">
-        {hiddenByClosedChat > 0 && (
-          <p className="m-0 flex items-center gap-1 text-xs text-slate-500">
-            {hiddenByClosedChat} {hiddenByClosedChat === 1 ? "lead oculto" : "leads ocultos"}
-            <HelpHint text="Conversa já encerrada no chat e sem guia em andamento. Voltam se a família escrever de novo." />
-          </p>
-        )}
         {queue.length === 0 ? (
           <div className="my-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-14 text-center shadow-2xs">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-xs">
@@ -106,12 +90,12 @@ export default async function AAutorizarPage({
           <AuthorizationsWorkspace
             items={items}
             queue={queue}
-            owners={(reassignCandidates ?? []).map((c) => ({ id: c.id, name: c.full_name }))}
+            nowIso={new Date().toISOString()}
+            hiddenCount={hiddenByClosedChat}
             initial={{
               q: params.q ?? "",
-              status: initialStatus,
-              pendencia: (params.pendencia as AuthFilterPendency) ?? "todas",
-              encaminhamento: (params.encaminhamento as AuthFilterForwarding) ?? (params.dono ? params.dono : params.meus === "1" ? "meus" : "todos"),
+              tab: initialTab,
+              mine: params.meus === "1",
               item: requestedItem,
             }}
           />
