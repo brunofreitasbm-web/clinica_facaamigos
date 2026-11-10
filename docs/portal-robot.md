@@ -40,7 +40,19 @@ Recepção (CRM, navegador)          CRM (Vercel + Supabase)                Agen
 | `app/recepcao/pacientes/pendencias/portal-robot-panel.tsx` | Painel e formulário no cartão da etapa 2. |
 | `app/recepcao/pacientes/pendencias/draft-pipeline.tsx` | Encaixe do painel na etapa 2 (o botão manual continua). |
 | `agente-robo/` | O agente (Python + Playwright) e os passos do portal Conecta. |
+| `supabase/migrations/20261111120000_portal_robot_renewals.sql` | Pedido do robô também para guia em renovação (`authorization_id`), `patient_id` para reaproveitar o último pedido do paciente. |
+| `app/recepcao/pacientes/pendencias/autorizacao-wizard.tsx` | Painel do robô na linha "Renovação pedida" dos pacotes autorizados. |
 | `app/gestor/configuracoes/robo-portal/` | Tela do gestor para cadastrar, desativar e reativar os computadores do robô (gera o token sem passar pelo SQL Editor). |
+
+## Renovação mensal
+
+Quem já é paciente renova pela lista de pacotes autorizados: **Pedir renovação**
+grava a guia nova como "pendente". Na linha "Renovação pedida" aparece o mesmo
+painel do robô (**Enviar pelo robô**). O formulário vem com o **último pedido do
+paciente** (médico, CID, terapias, carteirinha); sem pedido anterior, usa o
+código e as sessões da guia. O laudo sai dos documentos do paciente (ou é
+enviado do computador e fica na ficha, como "laudo"). Depois do envio, a recepção
+registra a resposta do plano como antes ("Registrar resposta do plano").
 
 ## Regras de segurança do fluxo
 

@@ -172,3 +172,18 @@ export function normalizeAgentName(raw: unknown): { ok: true; value: string } | 
   if (name.length > AGENT_NAME_MAX) return { ok: false, error: `O nome pode ter no máximo ${AGENT_NAME_MAX} caracteres.` };
   return { ok: true, value: name };
 }
+
+/**
+ * Para onde vai o pedido do robô: um contato novo (etapa 2 de Autorizações) ou
+ * uma guia em renovação (linha "pendente" em `authorizations`).
+ */
+export type PortalRobotTarget = { kind: "draft"; id: string } | { kind: "authorization"; id: string };
+
+/** Anexos que o portal aceita, pelo nome do arquivo (documents não guarda mime). */
+export function laudoMimeFromPath(path: string): string | null {
+  const ext = path.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  if (ext === "pdf") return "application/pdf";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  return null;
+}

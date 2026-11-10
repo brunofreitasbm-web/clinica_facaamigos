@@ -8,6 +8,7 @@ import type { AuthorizationWizardItem } from "@/lib/reception-queue";
 import { registerAuthorizationRenewalResponse, requestAuthorizationRenewal } from "./authorization-renewal-actions";
 import { finishWhatsappWindow, preOpenWhatsappWindow } from "./open-whatsapp";
 import { suggestedRenewalPeriod, validateRenewalPeriod } from "./authorization-renewal-pure";
+import { PortalRobotPanel } from "./portal-robot-panel";
 
 export type AuthorizationItem = AuthorizationWizardItem;
 
@@ -70,7 +71,7 @@ export function AutorizacaoWizard({ initialItems = [] }: { initialItems?: Author
       )}
 
       {dialog?.kind === "request" && (
-        <RequestRenewalDialog item={dialog.item} onClose={() => setDialog(null)} onDone={() => done("Pedido de renovação registrado. Falta registrar a resposta do plano.")} />
+        <RequestRenewalDialog item={dialog.item} onClose={() => setDialog(null)} onDone={() => done("Pedido de renovação registrado. Para mandar ao plano, use \"Enviar pelo robô\" na linha da guia.")} />
       )}
       {dialog?.kind === "response" && dialog.item.renewal && (
         <RenewalResponseDialog item={{ ...dialog.item, renewal: dialog.item.renewal }} onClose={() => setDialog(null)} onDone={done} />
@@ -184,6 +185,10 @@ function AuthorizationRow({ item, onOpen }: { item: AuthorizationItem; onOpen: (
               {item.renewal.requestedAt ? `Renovação pedida em ${fmtDate(item.renewal.requestedAt)}` : "Renovação pedida"} ·{" "}
               {item.renewal.sessionsRequested} sessões
             </span>
+            {/* Envio da renovação ao portal do plano pelo robô (docs/portal-robot.md). */}
+            <div className="w-full max-w-sm text-left">
+              <PortalRobotPanel target={{ kind: "authorization", id: item.renewal.id }} canRequest />
+            </div>
             <button type="button" onClick={() => onOpen({ kind: "response", item })} className="btn btn-primary">
               Registrar resposta do plano
             </button>
