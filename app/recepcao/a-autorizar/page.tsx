@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -58,9 +57,10 @@ export default async function AAutorizarPage({
 
   return (
     <main className="flex flex-1 flex-col">
-      <PageHeader title="Fila de entrada" />
-      <PageContainer className="gap-5">
+      <PageContainer className="gap-3">
         {queue.length === 0 ? (
+          <>
+          <h1 className="m-0 text-xl font-semibold leading-tight text-ink sm:text-2xl">Fila de entrada</h1>
           <div className="my-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-14 text-center shadow-2xs">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-xs">
               <ShieldCheck className="h-8 w-8" />
@@ -86,6 +86,7 @@ export default async function AAutorizarPage({
               </Link>
             </div>
           </div>
+          </>
         ) : (
           <AuthorizationsWorkspace
             items={items}

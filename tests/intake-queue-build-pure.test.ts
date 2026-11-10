@@ -110,3 +110,12 @@ test("soma dos grupos sobre casos sintéticos dos quatro grupos é igual ao tota
   const sum = [...counts.values()].reduce((a, b) => a + b, 0);
   assert.equal(sum, cases.length);
 });
+
+test("label da etapa: pendente, enviada e habilitado", () => {
+  assert.equal(buildIntake(draft(), NOW).label, "2 de 4 · Enviar guia");
+  assert.equal(buildIntake(draft({ pipeline: { authorization: "enviada" } }), NOW).label, "3 de 4 · Aguardar plano");
+  assert.equal(
+    buildIntake(draft({ pipeline: { authorization: "autorizada", schedulingEnabledAt: "2026-11-09T10:00:00Z" } }), NOW).label,
+    "4 de 4 · Habilitado",
+  );
+});

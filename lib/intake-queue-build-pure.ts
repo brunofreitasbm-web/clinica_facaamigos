@@ -2,11 +2,13 @@
 // Monta `draft.intake` (etapa, grupo e desde quando o caso espera) a partir de um rascunho já carregado.
 // PURO, sem import com alias `@/`.
 
-import { intakeGroup, intakeStage, type IntakeGroup, type IntakeInput, type IntakeStage } from "./intake-queue-pure.ts";
+import { intakeGroup, intakeStage, intakeStageLabel, type IntakeGroup, type IntakeInput, type IntakeStage } from "./intake-queue-pure.ts";
 import { missingChaseKeys, type LeadPendencies } from "./lead-pendencies.ts";
 
 export type DraftIntake = {
   stage: IntakeStage;
+  /** Texto da etapa para a linha da fila, ex.: "2 de 4 · Enviar guia". */
+  label: string;
   group: IntakeGroup;
   /** ISO: desde quando o caso espera no passo atual (base da ordenação da fila). */
   waitingSince: string;
@@ -62,5 +64,5 @@ export function waitingSinceOf(d: IntakeDraftLike): string {
 
 export function buildIntake(d: IntakeDraftLike, now: Date): DraftIntake {
   const input = toIntakeInput(d);
-  return { stage: intakeStage(input), group: intakeGroup(input, now), waitingSince: waitingSinceOf(d) };
+  return { stage: intakeStage(input), label: intakeStageLabel(input), group: intakeGroup(input, now), waitingSince: waitingSinceOf(d) };
 }

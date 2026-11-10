@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarDays, CheckCircle2, Inbox, Search, Sparkles, X } from "lucide-react";
 import { extractDraftOnDemand } from "../pacientes/pendencias/draft-pipeline-actions";
 import { HelpHint } from "@/components/ui/help-hint";
 import type { WorkspaceItem } from "../pacientes/pendencias/queue-workspace";
 import type { PendingQueueItem } from "@/lib/reception-queue";
-import { INTAKE_GROUP_ORDER, intakeStageLabel, type IntakeGroup } from "../../../lib/intake-queue-pure.ts";
+import { INTAKE_GROUP_ORDER, type IntakeGroup } from "../../../lib/intake-queue-pure.ts";
 import { filterIntakeItems, groupItems } from "./intake-filters-pure.ts";
 import { IntakeTabs } from "./intake-tabs.tsx";
 import { IntakeList, type IntakeListItem } from "./intake-list.tsx";
@@ -19,25 +20,11 @@ export type EnrichedAuthItem = WorkspaceItem &
 
 const READ_DELAY_MS = 700;
 
-/** Rótulo "2 de 4 · Enviar guia" a partir da etapa que o servidor já calculou em `draft.intake`. */
-function stageLabelOf(draft: NonNullable<PendingQueueItem["draft"]>): string {
-  const stage = draft.intake.stage;
-  const stamp = "1970-01-01T00:00:00Z";
-  return intakeStageLabel({
-    authorization: draft.pipeline.authorization,
-    // Só o resultado de `intakeStage` importa aqui: estes campos o forçam para a etapa certa.
-    schedulingEnabledAt: stage === 4 ? stamp : null,
-    planDeniedAt: stage === 2 && draft.pipeline.authorization !== "pendente" ? stamp : null,
-    planAskedMoreDocsAt: stage === 1 ? stamp : null,
-    missingDocs: 0,
-    familyChasedAt: null,
-  });
-}
-
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
+
 
 /**
  * Fila de entrada: busca + "Só os meus", 4 abas por grupo (Agir agora, Aguardando família,
@@ -96,7 +83,7 @@ export function AuthorizationsWorkspace({
         // Todo caso da fila de autorizações tem rascunho; o fallback só evita quebrar a tela.
         group: draft?.intake.group ?? "agir_agora",
         waitingSince: draft?.intake.waitingSince ?? nowIso,
-        stageLabel: draft ? stageLabelOf(draft) : "",
+        stageLabel: draft?.intake.label ?? "",
       };
     });
   }, [items, rawMap, nowIso]);
@@ -249,9 +236,10 @@ export function AuthorizationsWorkspace({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Cabeçalho de uma linha: busca e "Só os meus" (o título fica no PageHeader da página) */}
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="relative flex min-w-[240px] max-w-xl flex-[1_1_340px] items-center">
+      {/* Cabeçalho de uma linha: título à esquerda, busca e "Só os meus" à direita (quebra só em tela estreita) */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h1 className="m-0 mr-auto text-xl font-semibold leading-tight text-ink sm:text-2xl">Fila de entrada</h1>
+        <label className="relative flex min-w-[240px] max-w-md flex-[1_1_300px] items-center">
           <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-500" aria-hidden="true" />
           <input
             ref={searchRef}
@@ -313,9 +301,12 @@ export function AuthorizationsWorkspace({
               footer={
                 hiddenCount > 0 ? (
                   <p className="m-0 flex items-center justify-end gap-1 border-t border-slate-100 px-3.5 py-2 text-sm text-slate-600">
-                    <span className="underline decoration-dotted underline-offset-2">
+                    <Link
+                      href="/recepcao/atendimento"
+                      className="underline underline-offset-2 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                    >
                       {hiddenCount} {hiddenCount === 1 ? "lead oculto" : "leads ocultos"}
-                    </span>
+                    </Link>
                     <HelpHint text="Conversa já encerrada no chat e sem guia em andamento. Voltam se a família escrever de novo." />
                   </p>
                 ) : null
