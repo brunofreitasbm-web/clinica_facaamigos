@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { primaryAction } from "../app/recepcao/a-autorizar/intake-primary-action-pure.ts";
+import { INITIAL_ROBOT_VIEW, nextRobotState, primaryAction } from "../app/recepcao/a-autorizar/intake-primary-action-pure.ts";
 import type { IntakeInput } from "../lib/intake-queue-pure.ts";
 
 const base: IntakeInput = {
@@ -48,4 +48,27 @@ test("etapa 4: caso concluído, sem botão principal", () => {
   const i = { ...base, authorization: "autorizada" as const, schedulingEnabledAt: "2026-11-09T12:00:00Z" };
   assert.deepEqual(primaryAction(i, true), { kind: "none", label: "" });
   assert.deepEqual(primaryAction(i, false), { kind: "none", label: "" });
+});
+
+test("nextRobotState: consulta com robô ligado", () => {
+  assert.deepEqual(nextRobotState({ agentOnline: true, jobOpen: false }), { loaded: true, online: true, jobOpen: false });
+});
+
+test("nextRobotState: consulta com robô desligado e pedido aberto", () => {
+  assert.deepEqual(nextRobotState({ agentOnline: false, jobOpen: true }), { loaded: true, online: false, jobOpen: true });
+});
+
+test("nextRobotState: falha depois de ligado volta para desligado", () => {
+  const before = nextRobotState({ agentOnline: true, jobOpen: true });
+  assert.equal(before.online, true);
+  const after = nextRobotState("error");
+  assert.deepEqual(after, { loaded: true, online: false, jobOpen: false });
+  assert.equal(primaryAction(base, after.online).kind, "mark_sent");
+});
+
+test("nextRobotState: exceção conta como carregado e desligado", () => {
+  assert.deepEqual(INITIAL_ROBOT_VIEW, { loaded: false, online: false, jobOpen: false });
+  const after = nextRobotState("error");
+  assert.equal(after.loaded, true);
+  assert.equal(after.online, false);
 });

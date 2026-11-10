@@ -28,7 +28,7 @@ import { PortalRobotPanel, PortalRobotRequestDialog } from "../pacientes/pendenc
 import { DocumentRequestButtons } from "../pacientes/pendencias/document-request-buttons";
 import { DraftAdjustButton } from "../pacientes/pendencias/draft-adjust-dialog";
 import { ReassignOwnerButton } from "../pacientes/pendencias/reassign-owner-button";
-import { primaryAction } from "./intake-primary-action-pure.ts";
+import { INITIAL_ROBOT_VIEW, nextRobotState, primaryAction, type RobotView } from "./intake-primary-action-pure.ts";
 import { IntakeStageTrail } from "./intake-stage-trail.tsx";
 import { IntakeCopyField } from "./intake-copy-field.tsx";
 
@@ -42,8 +42,6 @@ import { IntakeCopyField } from "./intake-copy-field.tsx";
  */
 
 type ActionResult = { success: true; note?: string; offer?: "sent" | "duplicate" | "failed" } | { success: false; error: string };
-
-type RobotView = { loaded: boolean; online: boolean; jobOpen: boolean };
 
 const ROBOT_POLL_MS = 20_000;
 
@@ -194,7 +192,7 @@ export function IntakeDetail({
   const [showGuideDialog, setShowGuideDialog] = useState(false);
   const [guideError, setGuideError] = useState<string | null>(null);
   const [robotKey, setRobotKey] = useState(0);
-  const [robot, setRobot] = useState<RobotView>({ loaded: false, online: false, jobOpen: false });
+  const [robot, setRobot] = useState<RobotView>(INITIAL_ROBOT_VIEW);
 
   // Robô do portal: só importa na etapa 2 de quem tem plano. A tela consulta o estado sozinha
   // e troca o rótulo do botão principal quando o robô liga ou desliga.
@@ -203,14 +201,20 @@ export function IntakeDetail({
     if (!needsRobot) return;
     let alive = true;
     const load = async () => {
-      const res = await getPortalRobotState(draft.id);
-      if (!alive) return;
-      if (!res.success) {
-        setRobot((r) => ({ ...r, loaded: true }));
-        return;
+      // Falha ou exceção: robô desconhecido (desligado), nunca o último "ligado" que se viu.
+      let next: RobotView;
+      try {
+        const res = await getPortalRobotState(draft.id);
+        if (res.success) {
+          const job = res.state.job;
+          next = nextRobotState({ agentOnline: res.state.agentOnline, jobOpen: job ? OPEN_STATUSES.includes(job.status) : false });
+        } else {
+          next = nextRobotState("error");
+        }
+      } catch {
+        next = nextRobotState("error");
       }
-      const job = res.state.job;
-      setRobot({ loaded: true, online: res.state.agentOnline, jobOpen: job ? OPEN_STATUSES.includes(job.status) : false });
+      if (alive) setRobot(next);
     };
     const first = window.setTimeout(load, 0);
     const timer = window.setInterval(load, ROBOT_POLL_MS);
