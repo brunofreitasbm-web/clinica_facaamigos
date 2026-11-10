@@ -1,4 +1,4 @@
-// app/recepcao/a-autorizar/undo-toast-pure.ts
+// app/recepcao/fila/undo-toast-pure.ts
 // Máquina de estados do aviso com "Desfazer" da Fila de entrada. PURO, sem import com alias `@/`.
 //
 // Regras:

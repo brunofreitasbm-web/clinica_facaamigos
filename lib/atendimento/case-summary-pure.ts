@@ -7,7 +7,7 @@
 //
 // Só LEITURA: nada aqui cria rascunho nem toca no banco (ver AGENTS.md, diretriz 3, sobre duplicidade).
 
-import { intakeStage, intakeStageLabel, type IntakeInput } from "../intake-queue-pure.ts";
+import { pipelineStageLabel } from "../draft-pipeline-steps-pure.ts";
 
 const ESCALATION_LABELS: Record<string, string> = {
   fora_da_base: "A dúvida não está na base de conhecimento do bot.",
@@ -76,8 +76,6 @@ export type CaseDraftInput = {
     registered: boolean;
     returned: { reason: string; byName: string | null } | null;
   };
-  /** Entrada da etapa da Fila de entrada (`toIntakeInput` em lib/intake-queue-build-pure.ts). */
-  intake: IntakeInput;
   missingCount: number;
   /** Texto de `pendencies.summary` ("Faltam carteirinha e laudo"). */
   missingSummary: string;
@@ -162,9 +160,8 @@ export function buildCaseSummary(input: CaseSummaryInput): CaseSummaryView {
     plan = { text: "Plano não informado", tone: "unknown" };
   }
 
-  const stage =
-    draft && !record ? { label: intakeStageLabel(draft.intake), allDone: intakeStage(draft.intake) === 4 } : null;
-  const stageView = stage;
+  const stage = draft && !record ? pipelineStageLabel(draft.pipeline) : null;
+  const stageView = stage ? { label: stage.label, allDone: stage.allDone } : null;
 
   const returned = draft?.pipeline.returned ?? null;
   const warning = returned

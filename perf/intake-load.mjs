@@ -1,6 +1,6 @@
 // perf/intake-load.mjs
 //
-// Mede a abertura da Fila de entrada: carrega /recepcao/a-autorizar N vezes com fetch e reporta a mediana
+// Mede a abertura da Fila de entrada: carrega /recepcao/fila N vezes com fetch e reporta a mediana
 // do tempo até o primeiro byte (TTFB), o tempo total mediano e o total de bytes do HTML + payload RSC.
 //
 // Uso:
@@ -10,7 +10,7 @@
 //   BASE_URL        origem do ambiente medido (sem barra final).
 //   SESSION_COOKIE  valor do header Cookie de uma sessão logada (recepção, supervisor ou gestor).
 //   RUNS            opcional, número de cargas (padrão 10; o argumento N tem prioridade).
-//   PATH_UNDER_TEST opcional, caminho medido (padrão /recepcao/a-autorizar).
+//   PATH_UNDER_TEST opcional, caminho medido (padrão /recepcao/fila).
 //
 // Não grava segredo em arquivo e não imprime o cookie. Sai com código 1 se faltar variável ou se a tela
 // não responder 200 com a sessão informada.
@@ -18,7 +18,7 @@
 const BASE_URL = process.env.BASE_URL?.replace(/\/+$/, "");
 const COOKIE = process.env.SESSION_COOKIE;
 const runs = Math.max(1, Number.parseInt(process.argv[2] ?? process.env.RUNS ?? "10", 10) || 10);
-const path = process.env.PATH_UNDER_TEST ?? "/recepcao/a-autorizar";
+const path = process.env.PATH_UNDER_TEST ?? "/recepcao/fila";
 
 const missing = [];
 if (!BASE_URL) missing.push("BASE_URL");

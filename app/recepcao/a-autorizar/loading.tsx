@@ -3,8 +3,8 @@ import { ModuleSkeleton } from "@/components/module-skeleton";
 export default function AutorizacoesLoading() {
   return (
     <ModuleSkeleton
-      title="Fila de entrada"
-      subtitle="Carregando a fila de entrada..."
+      title="Autorizações"
+      subtitle="Carregando leads e guias em andamento..."
       fill={false}
     />
   );

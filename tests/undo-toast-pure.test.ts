@@ -3,7 +3,7 @@
 // Aviso com "Desfazer" (8 s) da Fila de entrada: aparece, expira, é substituído e nunca desfaz outro caso.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { UNDO_SECONDS, canUndo, toastReducer, type ToastState } from "../app/recepcao/a-autorizar/undo-toast-pure.ts";
+import { UNDO_SECONDS, canUndo, toastReducer, type ToastState } from "../app/recepcao/fila/undo-toast-pure.ts";
 
 const T0 = 1_000_000;
 const show = (id: number, draftId: string, now = T0) => toastReducer(null, { type: "show", id, draftId, message: "Guia marcada como enviada.", now });

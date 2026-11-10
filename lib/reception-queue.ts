@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import {
   TEMPLATE_KEY_PREFIX,
-  parseTemplateKeys,
+  parseTemplateKey,
   type MissingDocumentKey,
 } from "@/lib/document-request-templates";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
@@ -15,7 +15,6 @@ import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
 import { isMissingIntakeColumnError } from "@/lib/intake-columns-pure";
 import { pickConsolidatedDraft } from "@/lib/intake-detail-pick-pure";
 import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
-import { buildIntake, type DraftIntake } from "@/lib/intake-queue-build-pure";
 import { groupExpiringGuides, type ActiveGuide } from "@/lib/expiring-guides-pure";
 
 type Supa = SupabaseClient<Database>;
@@ -684,8 +683,6 @@ export type PendingRegistrationDraft = {
   documentRequests: PendingDraftDocumentRequest[];
   /** O que já veio e o que falta (dados + documentos), calculado em lib/lead-pendencies.ts. */
   pendencies: LeadPendencies;
-  /** Etapa, grupo e desde quando o caso espera (Fila de entrada), calculado em lib/intake-queue-build-pure.ts. */
-  intake: DraftIntake;
   /** Quantidade de rascunhos mesclados quando o mesmo responsável mandou dados em várias conversas. */
   mergedDraftsCount?: number;
 };
@@ -844,16 +841,13 @@ async function getDraftDocumentRequests(
     if (!m.conversation_id || !m.sent_at) continue;
     const phone = phoneByConversation.get(m.conversation_id);
     if (!phone) continue;
-    // Uma cobrança pode listar vários documentos (`documento_pendente:a+b`): vale para cada um.
-    const keys = parseTemplateKeys(m.template_key);
-    if (keys.length === 0) continue;
+    const key = parseTemplateKey(m.template_key);
+    if (!key) continue;
     const list = byPhone.get(phone) ?? [];
     byPhone.set(phone, list);
-    for (const key of keys) {
-      // Vem em ordem decrescente: a primeira de cada tipo é a mais recente.
-      if (list.some((r) => r.key === key)) continue;
-      list.push({ key, sentAt: m.sent_at });
-    }
+    // Vem em ordem decrescente: a primeira de cada tipo é a mais recente.
+    if (list.some((r) => r.key === key)) continue;
+    list.push({ key, sentAt: m.sent_at });
   }
 
   return byPhone;
@@ -1039,7 +1033,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
     });
   });
 
-  const drafts: Omit<PendingRegistrationDraft, "intake">[] = rows.map((d) => {
+  const drafts: PendingRegistrationDraft[] = rows.map((d) => {
     const patient = Array.isArray(d.patients) ? d.patients[0] : d.patients;
     const sentBy = Array.isArray(d.sent_by) ? d.sent_by[0] : d.sent_by;
     const authorizedBy = Array.isArray(d.authorized_by) ? d.authorized_by[0] : d.authorized_by;
@@ -1123,13 +1117,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   });
 
   const rawExtractedByDraft = new Map<string, unknown>(rows.map((d) => [d.id, d.extracted]));
-  const now = new Date();
-  // Depois da mesclagem: etapa e grupo valem para o caso consolidado, não para cada rascunho.
-  const consolidated: PendingRegistrationDraft[] = consolidateRegistrationDrafts(
-    drafts,
-    pendencySources,
-    rawExtractedByDraft,
-  ).map((d) => ({ ...d, intake: buildIntake(d, now) }));
+  const consolidated = consolidateRegistrationDrafts(drafts, pendencySources, rawExtractedByDraft);
 
   // Partição estável: quem não tem mais nada faltando (pronto para conferir e
   // avançar na linha do tempo) sobe; dentro de cada grupo segue o mais antigo primeiro.
@@ -1143,7 +1131,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
  * O MESMO rascunho consolidado que a Fila de entrada mostra na lista: passa pela mesma consolidação de
  * getPendingRegistrationDrafts (arquivos, dados, pipeline, pendências e etapa mesclados entre conversas do
  * mesmo caso) e escolhe o item pelo id. Lista e detalhe não podem divergir, porque os botões do detalhe
- * saem de `draft.intake.stage`. Se o caso já saiu da fila, cai no rascunho avulso.
+ * saem do mesmo modelo de etapas. Se o caso já saiu da fila, cai no rascunho avulso.
  */
 export async function getConsolidatedRegistrationDraft(
   supabase: Supa,
@@ -1238,7 +1226,7 @@ export async function getSingleRegistrationDraft(
     (typeof botRec?.child_name === "string" && botRec.child_name.trim() ? botRec.child_name.trim() : null) ??
     null;
 
-  const base: Omit<PendingRegistrationDraft, "intake"> = {
+  const base: PendingRegistrationDraft = {
     id: d.id,
     patientId: d.patient_id,
     patientName: resolvedPatientName,
@@ -1284,7 +1272,7 @@ export async function getSingleRegistrationDraft(
     documentRequests: (d.source_phone ? requestsByPhone.get(d.source_phone) : undefined) ?? [],
     pendencies,
   };
-  return { ...base, intake: buildIntake(base, new Date()) };
+  return base;
 }
 
 export type UnconfirmedCheckin = {

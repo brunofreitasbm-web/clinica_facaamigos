@@ -1,7 +1,4 @@
 import { CLINIC_BRAND } from "@/lib/clinic-identity";
-import { TEMPLATE_KEY_PREFIX, joinTemplateKeys, splitTemplateKeys } from "@/lib/document-template-keys-pure";
-
-export { TEMPLATE_KEY_PREFIX };
 
 /**
  * Cobranças de documento pendente disparadas em um clique pela recepção/
@@ -86,26 +83,13 @@ export function buildDocumentsOpenerMessage(patientName?: string | null): string
   ].join("\n");
 }
 
+export const TEMPLATE_KEY_PREFIX = "documento_pendente:";
+
 export function templateKeyFor(key: MissingDocumentKey): string {
   return `${TEMPLATE_KEY_PREFIX}${key}`;
 }
 
-/**
- * Cobrança única com vários documentos (Fila de entrada, "Cobrar o que falta"):
- * `documento_pendente:laudo_medico+pedido_medico`. Com uma chave só, igual a templateKeyFor.
- * É uma linha só em `messages` (a família recebe uma mensagem), e parseTemplateKeys devolve
- * cada documento, para o "cobrado em …" de cada um continuar funcionando.
- */
-export function templateKeyForMany(keys: readonly MissingDocumentKey[]): string {
-  return joinTemplateKeys(keys);
-}
-
-/** `documento_pendente:a+b` -> [a, b]; chave única -> [a]; o que não for cobrança -> []. */
-export function parseTemplateKeys(raw: string | null | undefined): MissingDocumentKey[] {
-  return splitTemplateKeys(raw, MISSING_DOCUMENT_TEMPLATES.map((t) => t.key));
-}
-
-/** `documento_pendente:laudo_medico` -> `laudo_medico` (null se não for uma cobrança de um documento só). */
+/** `documento_pendente:laudo_medico` -> `laudo_medico` (null se não for uma cobrança). */
 export function parseTemplateKey(raw: string | null | undefined): MissingDocumentKey | null {
   if (!raw || !raw.startsWith(TEMPLATE_KEY_PREFIX)) return null;
   const key = raw.slice(TEMPLATE_KEY_PREFIX.length);

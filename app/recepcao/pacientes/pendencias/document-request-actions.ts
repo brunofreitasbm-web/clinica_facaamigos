@@ -11,9 +11,7 @@ import {
   documentsOpenerChildPhrase,
   findMissingDocumentTemplate,
   templateKeyFor,
-  templateKeyForMany,
 } from "@/lib/document-request-templates";
-import { buildChaseMessage, normalizeChaseKeys } from "@/lib/intake-actions-pure";
 
 export type DocumentRequestResult =
   | { success: true; sentAt: string; warning?: string }
@@ -37,48 +35,7 @@ export async function requestMissingDocument(
 ): Promise<DocumentRequestResult> {
   const template = findMissingDocumentTemplate(documentKey);
   if (!template) return { success: false, error: "Documento desconhecido." };
-  return sendDocumentChase(draftId, (patientName) => ({
-    body: buildMissingDocumentMessage(template, patientName),
-    templateKey: templateKeyFor(template.key),
-  }));
-}
 
-/**
- * "Cobrar o que falta" da Fila de entrada: UMA mensagem com todos os documentos
- * pendentes (texto em buildChaseMessage, lib/intake-actions-pure.ts), pelo mesmo
- * caminho de envio e registro de requestMissingDocument.
- *
- * Registro: uma linha só em `messages` por envio (a família recebeu uma
- * mensagem, e o histórico da conversa mostra uma), com
- * `template_key = documento_pendente:laudo_medico+pedido_medico`. A leitura em
- * lib/reception-queue.ts (getDraftDocumentRequests, via parseTemplateKeys)
- * desdobra a chave em um "cobrado em …" por documento, então documentRequests
- * e familyChasedAt continuam iguais a se cada documento tivesse sido cobrado
- * à parte, sem duplicar a mensagem no histórico.
- *
- * `patientNameHint` é o nome que a tela mostrou na prévia: usado só quando o
- * contato ainda não tem paciente cadastrado, para o texto enviado ser o mesmo
- * que a recepção conferiu.
- */
-export async function requestMissingDocuments(
-  draftId: string,
-  documentKeys: string[],
-  patientNameHint?: string | null,
-): Promise<DocumentRequestResult> {
-  const keys = normalizeChaseKeys(Array.isArray(documentKeys) ? documentKeys : []);
-  if (keys.length === 0) return { success: false, error: "Nenhum documento pendente para cobrar." };
-  const hint = typeof patientNameHint === "string" ? patientNameHint.trim().slice(0, 120) || null : null;
-  return sendDocumentChase(draftId, (patientName) => ({
-    body: buildChaseMessage(keys, patientName ?? hint),
-    templateKey: keys.length === 1 ? templateKeyFor(keys[0]) : templateKeyForMany(keys),
-  }));
-}
-
-/** Envio e registro comuns às cobranças (um documento ou vários). */
-async function sendDocumentChase(
-  draftId: string,
-  build: (patientName: string | null) => { body: string; templateKey: string },
-): Promise<DocumentRequestResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -107,17 +64,17 @@ async function sendDocumentChase(
   if (!conversation) {
     return {
       success: false,
-      error: "Nenhuma conversa de WhatsApp aberta com este número. Envie pelo módulo de Atendimento.",
+      error: "Nenhuma conversa de WhatsApp aberta com este número — envie pelo módulo de Atendimento.",
     };
   }
 
   const patient = Array.isArray(draft.patients) ? draft.patients[0] : draft.patients;
-  const { body, templateKey } = build(patient?.full_name ?? null);
+  const body = buildMissingDocumentMessage(template, patient?.full_name ?? null);
 
   const sendResult = await sendWhatsApp({ to: conversation.phone_number, message: body });
 
   // Mesma leitura de falha do envio manual (app/recepcao/atendimento/actions.ts):
-  // conta sem KYC aprovado não é erro de operação, é ambiente. A mensagem
+  // conta sem KYC aprovado não é erro de operação, é ambiente — a mensagem
   // fica registrada e a recepção é avisada de que o envio externo não saiu.
   const isKycOrAccountPending =
     !sendResult.success &&
@@ -148,7 +105,7 @@ async function sendDocumentChase(
     sent_at: sentAt,
     twilio_sid: sendResult.messageId ?? null,
     delivery_status: sendResult.success ? "sent" : "simulated_dev",
-    template_key: templateKey,
+    template_key: templateKeyFor(template.key),
   });
 
   if (insertError) return { success: false, error: insertError.message };
@@ -160,7 +117,6 @@ async function sendDocumentChase(
     .eq("id", conversation.id);
 
   revalidatePath("/recepcao/pacientes/pendencias");
-  revalidatePath("/recepcao/a-autorizar");
   revalidatePath("/recepcao/atendimento");
 
   return isKycOrAccountPending

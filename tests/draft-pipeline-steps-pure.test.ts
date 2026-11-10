@@ -4,7 +4,7 @@
 // Regra extraída de app/recepcao/pacientes/pendencias/draft-pipeline.tsx sem mudar o comportamento.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PIPELINE_STEP_TITLES, pipelineStepStates } from "../lib/draft-pipeline-steps-pure.ts";
+import { PIPELINE_STEP_TITLES, pipelineStageLabel, pipelineStepStates } from "../lib/draft-pipeline-steps-pure.ts";
 
 const p = (authorization: "pendente" | "enviada" | "autorizada" | "dispensada", enabled = false) => ({
   authorization,
@@ -29,6 +29,27 @@ test("autorização dispensada pula as etapas 2 e 3", () => {
 
 test("habilitado para agendamento: tudo concluído", () => {
   assert.deepEqual(pipelineStepStates(p("autorizada", true)), ["done", "done", "done", "done"]);
+});
+
+test("rótulo curto da etapa atual (igual ao chip da fila)", () => {
+  assert.deepEqual(pipelineStageLabel(p("pendente")), {
+    label: "Etapa 2/4 · Guia enviada ao plano",
+    index: 1,
+    allDone: false,
+  });
+  assert.deepEqual(pipelineStageLabel(p("enviada")), {
+    label: "Etapa 3/4 · Plano autorizou",
+    index: 2,
+    allDone: false,
+  });
+});
+
+test("rótulo quando tudo está concluído", () => {
+  assert.deepEqual(pipelineStageLabel(p("autorizada", true)), {
+    label: "✓ Habilitado p/ agendamento",
+    index: -1,
+    allDone: true,
+  });
 });
 
 test("títulos das 4 etapas", () => {
