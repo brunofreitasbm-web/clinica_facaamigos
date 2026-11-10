@@ -204,6 +204,9 @@ class ConectaPortal:
     def _campo_livre(self, page, rotulo, valor, so_digitos=False):
         """Lista com busca que aceita valor digitado (telefone / e-mail do atendente): digita e clica na opção."""
         norm = (lambda t: re.sub(r"\D", "", t)) if so_digitos else (lambda t: " ".join(t.split()).lower())
+        if so_digitos:
+            # O portal aplica a máscara sozinho; espaço/hífen digitados atrapalham.
+            valor = re.sub(r"\D", "", valor)
         alvo = norm(valor)
         label, grupo = self._grupo(page, rotulo)
         if alvo and alvo in norm(self._texto_campo(grupo, label)):
