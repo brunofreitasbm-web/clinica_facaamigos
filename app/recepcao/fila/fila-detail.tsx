@@ -208,11 +208,11 @@ export function FilaDetailPanel({
         <p role="alert" className="m-0 rounded-xl border border-status-negative-text/40 bg-white px-4 py-3 text-base text-status-negative-text">
           {load.message}{" "}
           {load.kind === "auth" ? (
-            <Link href="/login" className="font-semibold underline">
+            <Link href="/login" className="inline-flex min-h-10 items-center font-semibold underline">
               Entrar
             </Link>
           ) : (
-            <button type="button" className="font-semibold underline" onClick={() => setReloadKey((k) => k + 1)}>
+            <button type="button" className="inline-flex min-h-10 items-center font-semibold underline" onClick={() => setReloadKey((k) => k + 1)}>
               Tentar de novo
             </button>
           )}
@@ -327,11 +327,11 @@ export function FilaDetailPanel({
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-paper-line pt-4 text-[15px]">
         {item.phone && (
-          <Link href={chatHref({ phone: item.phone })} className="font-semibold text-[var(--color-accent)]">
+          <Link href={chatHref({ phone: item.phone })} className="inline-flex min-h-10 items-center font-semibold text-[var(--color-accent)]">
             Abrir conversa no Chat
           </Link>
         )}
-        <Link href={`/recepcao/pre-cadastros/${item.draftId}`} className="font-semibold text-[var(--color-accent)]">
+        <Link href={`/recepcao/pre-cadastros/${item.draftId}`} className="inline-flex min-h-10 items-center font-semibold text-[var(--color-accent)]">
           Conferir e cadastrar
         </Link>
         <DraftAdjustButton draftId={item.draftId} />

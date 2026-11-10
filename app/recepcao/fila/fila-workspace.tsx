@@ -144,7 +144,7 @@ export function FilaWorkspace({
                       type="button"
                       aria-pressed={on}
                       onClick={() => setSelectedId(item.id)}
-                      className={`block w-full border-0 border-b border-paper-line px-[18px] py-4 text-left ${
+                      className={`block min-h-10 w-full border-0 border-b border-paper-line px-[18px] py-4 text-left ${
                         on ? "bg-[var(--color-accent-100)] shadow-[inset_0_0_0_2px_var(--color-accent)]" : "bg-white hover:bg-paper"
                       }`}
                     >
@@ -180,7 +180,7 @@ export function FilaWorkspace({
                   Esta família saiu desta aba e agora está em “{movedTo.label}”.
                   <button
                     type="button"
-                    className="font-bold text-[var(--color-accent)] underline"
+                    className="inline-flex min-h-10 items-center font-bold text-[var(--color-accent)] underline"
                     onClick={() => {
                       setTab(movedTo.key);
                       setSelectedId(selected.id);

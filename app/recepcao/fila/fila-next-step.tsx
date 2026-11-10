@@ -283,7 +283,7 @@ export function FilaNextStep({
       aria-label="Próximo passo"
       className="rounded-2xl border-2 border-[var(--color-accent)] bg-[var(--color-accent-100)] p-6"
     >
-      <div className="text-sm font-extrabold uppercase tracking-wide text-[var(--color-accent)]">Próximo passo</div>
+      <div className="text-sm font-extrabold text-[var(--color-accent)]">Próximo passo</div>
       <h3 className="m-0 mb-1 mt-1.5 text-[22px] font-extrabold text-ink">{step.title}</h3>
       <p className="m-0 mb-4 text-base text-ink-soft">{step.description}</p>
 
