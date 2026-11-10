@@ -15,7 +15,9 @@ import {
 const U1 = "11111111-1111-4111-8111-111111111111";
 const U2 = "22222222-2222-4222-8222-222222222222";
 const P = "33333333-3333-4333-8333-333333333333";
-const AUTH = "44444444-4444-4444-8444-444444444444";
+const T1 = "2026-11-10T12:00:00Z";
+const T2 = "2026-11-10T12:05:00Z";
+const T3 = "2026-11-10T12:10:00Z";
 
 const row = (over: Partial<DraftStateRow> = {}): DraftStateRow => ({
   guide_sent_at: null,
@@ -32,6 +34,8 @@ const row = (over: Partial<DraftStateRow> = {}): DraftStateRow => ({
   returned_to_reception_reason: null,
   plan_denied_at: null,
   plan_more_docs_at: null,
+  plan_denied_by: null,
+  plan_more_docs_by: null,
   ...over,
 });
 
@@ -63,48 +67,6 @@ test("compare-and-set: caso mudou depois da ação, nada é desfeito", () => {
   assert.deepEqual(decideRestore(token, { ...after, guide_sent_at: "2026-11-10T12:06:00Z" }), { ok: false, reason: "changed" });
 });
 
-test("retirar habilitação: desfazer volta a data e quem habilitou, sem depender da oferta", () => {
-  const before = row({ plan_authorized_at: "2026-11-09T10:00:00Z", scheduling_enabled_at: "2026-11-09T11:00:00Z", scheduling_enabled_by: U2 });
-  const after = { ...before, scheduling_enabled_at: null, scheduling_enabled_by: null };
-  const token = buildUndoToken("scheduling", before, after);
-  assert.ok(token);
-  const d = decideRestore(token, after);
-  assert.ok(d.ok);
-  assert.equal(d.ok && d.update.scheduling_enabled_at, "2026-11-09T11:00:00Z");
-  assert.equal(d.ok && d.update.scheduling_enabled_by, U2);
-});
-
-test("habilitar caso devolvido: desfazer devolve também a devolução da Supervisão", () => {
-  const before = row({
-    authorization_waived: true,
-    returned_to_reception_at: "2026-11-08T10:00:00Z",
-    returned_to_reception_by: U2,
-    returned_to_reception_reason: "Tem plano",
-  });
-  const after = { ...before, scheduling_enabled_at: "2026-11-10T12:00:00Z", scheduling_enabled_by: U1, returned_to_reception_at: null, returned_to_reception_by: null, returned_to_reception_reason: null };
-  const token = buildUndoToken("scheduling", before, after);
-  assert.ok(token);
-  const d = decideRestore(token, after);
-  assert.ok(d.ok);
-  assert.equal(d.ok && d.update.returned_to_reception_reason, "Tem plano");
-  assert.equal(d.ok && d.update.returned_to_reception_at, "2026-11-08T10:00:00Z");
-  assert.equal(d.ok && d.update.scheduling_enabled_at, null);
-});
-
-test("guia autorizada gravada no prontuário não tem desfazer", () => {
-  const before = row({ guide_sent_at: "2026-11-05T10:00:00Z" });
-  const after = { ...before, plan_authorized_at: "2026-11-10T12:00:00Z", authorization_id: AUTH, scheduling_enabled_at: "2026-11-10T12:00:01Z" };
-  assert.equal(buildUndoToken("authorization", before, after), null);
-  const kept = { ...after, authorization_id: null, authorized_guide: { guide_number: "1" } };
-  const token = buildUndoToken("authorization", before, kept);
-  assert.ok(token);
-  const d = decideRestore(token, kept);
-  assert.ok(d.ok);
-  assert.equal(d.ok && d.update.plan_authorized_at, null);
-  assert.equal(d.ok && d.update.scheduling_enabled_at, null);
-  assert.equal(d.ok && d.update.authorized_guide, null);
-});
-
 test("particular: promoção automática do paciente volta só se o status ainda é o promovido", () => {
   const before = row();
   const after = row({ authorization_waived: true });
@@ -132,9 +94,28 @@ test("validateUndoToken: aceita o que buildUndoToken monta e recusa colunas a ma
   assert.equal(validateUndoToken({ ...roundTrip, previous: { ...roundTrip.previous, plan_authorized_at: null } }), null);
   assert.equal(validateUndoToken({ ...roundTrip, previous: { ...roundTrip.previous, guide_sent_by: "não é uuid" } }), null);
   assert.equal(validateUndoToken({ ...roundTrip, patient: { id: P, previous: "ativo", applied: "avaliacao" } }), null);
-  const auth = buildUndoToken("authorization", row(), row({ plan_authorized_at: "2026-11-10T12:00:00Z" }));
-  assert.ok(auth);
-  const forged = JSON.parse(JSON.stringify(auth));
-  forged.previous.authorization_id = AUTH;
-  assert.equal(validateUndoToken(forged), null);
+});
+
+test("plano negou: desfazer devolve a guia enviada e a negativa anterior", () => {
+  const before = row({ guide_sent_at: T1, guide_sent_by: U1, plan_denied_at: null, plan_denied_by: null });
+  const after = row({ guide_sent_at: null, guide_sent_by: null, plan_denied_at: T2, plan_denied_by: U2 });
+  const token = buildUndoToken("plan_denied", before, after)!;
+  assert.deepEqual(token.previous, { plan_denied_at: null, plan_denied_by: null, guide_sent_at: T1, guide_sent_by: U1 });
+  assert.deepEqual(decideRestore(token, after), { ok: true, update: token.previous });
+  assert.deepEqual(decideRestore(token, { ...after, guide_sent_at: T3 }), { ok: false, reason: "changed" });
+});
+
+test("plano pediu mais documentos: desfazer devolve a guia enviada e o pedido anterior", () => {
+  const before = row({ guide_sent_at: T1, guide_sent_by: U1, plan_more_docs_at: null, plan_more_docs_by: null });
+  const after = row({ guide_sent_at: null, guide_sent_by: null, plan_more_docs_at: T2, plan_more_docs_by: U2 });
+  const token = buildUndoToken("plan_more_docs", before, after)!;
+  assert.deepEqual(token.previous, { plan_more_docs_at: null, plan_more_docs_by: null, guide_sent_at: T1, guide_sent_by: U1 });
+  assert.deepEqual(decideRestore(token, after), { ok: true, update: token.previous });
+  assert.deepEqual(decideRestore(token, { ...after, plan_authorized_at: T3 }), { ok: false, reason: "changed" });
+  const round = JSON.parse(JSON.stringify(token));
+  assert.deepEqual(validateUndoToken(round), token);
+});
+
+test("validateUndoToken recusa os tipos que mandam WhatsApp", () => {
+  for (const kind of ["scheduling", "authorization"]) assert.equal(validateUndoToken({ kind, previous: {}, applied: {}, patient: null }), null);
 });

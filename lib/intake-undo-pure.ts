@@ -6,10 +6,10 @@
 //   - RESTORE: colunas que voltam ao valor de antes da ação;
 //   - EXPECT: colunas que precisam estar iguais ao que se leu logo depois da ação. Se alguém mexeu
 //     no caso nesse meio tempo, nada é desfeito.
-// O desfazer nunca chama as ações antigas (que dispararam efeitos como a oferta de horários pelo
-// WhatsApp): é um update direto das colunas guardadas.
+// O desfazer é um update direto das colunas guardadas e nunca chama as ações de origem.
 
-export type UndoKind = "guide_sent" | "scheduling" | "authorization" | "waive";
+// Só ações que NÃO mandam WhatsApp têm desfazer: uma mensagem enviada não se recolhe.
+export type UndoKind = "guide_sent" | "waive" | "plan_denied" | "plan_more_docs";
 
 export type DraftStateRow = {
   guide_sent_at: string | null;
@@ -25,7 +25,9 @@ export type DraftStateRow = {
   returned_to_reception_by: string | null;
   returned_to_reception_reason: string | null;
   plan_denied_at: string | null;
+  plan_denied_by: string | null;
   plan_more_docs_at: string | null;
+  plan_more_docs_by: string | null;
 };
 
 export type DraftColumn = keyof DraftStateRow;
@@ -45,38 +47,23 @@ export const DRAFT_STATE_COLUMNS: DraftColumn[] = [
   "returned_to_reception_by",
   "returned_to_reception_reason",
   "plan_denied_at",
+  "plan_denied_by",
   "plan_more_docs_at",
-];
-
-const SCHEDULING_RESTORE: DraftColumn[] = [
-  "scheduling_enabled_at",
-  "scheduling_enabled_by",
-  "returned_to_reception_at",
-  "returned_to_reception_by",
-  "returned_to_reception_reason",
+  "plan_more_docs_by",
 ];
 
 export const RESTORE_COLUMNS: Record<UndoKind, DraftColumn[]> = {
   guide_sent: ["guide_sent_at", "guide_sent_by"],
-  scheduling: SCHEDULING_RESTORE,
-  authorization: [
-    "guide_sent_at",
-    "guide_sent_by",
-    "plan_authorized_at",
-    "plan_authorized_by",
-    "authorization_waived",
-    "authorized_guide",
-    "authorization_id",
-    ...SCHEDULING_RESTORE,
-  ],
   waive: ["authorization_waived", "plan_authorized_at", "plan_authorized_by", "authorized_guide"],
+  plan_denied: ["plan_denied_at", "plan_denied_by", "guide_sent_at", "guide_sent_by"],
+  plan_more_docs: ["plan_more_docs_at", "plan_more_docs_by", "guide_sent_at", "guide_sent_by"],
 };
 
 export const EXPECT_COLUMNS: Record<UndoKind, DraftColumn[]> = {
   guide_sent: ["guide_sent_at", "plan_authorized_at", "authorization_waived", "scheduling_enabled_at", "plan_denied_at", "plan_more_docs_at"],
-  scheduling: ["scheduling_enabled_at", "plan_authorized_at", "authorization_waived", "returned_to_reception_at"],
-  authorization: ["plan_authorized_at", "authorization_id", "authorization_waived", "scheduling_enabled_at", "guide_sent_at"],
   waive: ["authorization_waived", "plan_authorized_at", "authorization_id", "scheduling_enabled_at"],
+  plan_denied: ["plan_denied_at", "guide_sent_at", "plan_authorized_at", "authorization_waived", "scheduling_enabled_at"],
+  plan_more_docs: ["plan_more_docs_at", "guide_sent_at", "plan_authorized_at", "authorization_waived", "scheduling_enabled_at"],
 };
 
 /** Só a promoção automática "interessado/aguardando" para "avaliacao" (promoteToPatient) é desfeita. */
@@ -108,7 +95,9 @@ const COLUMN_TYPE: Record<DraftColumn, Kind> = {
   returned_to_reception_by: "uuid",
   returned_to_reception_reason: "text",
   plan_denied_at: "ts",
+  plan_denied_by: "uuid",
   plan_more_docs_at: "ts",
+  plan_more_docs_by: "uuid",
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -150,10 +139,7 @@ function pick(row: DraftStateRow, cols: DraftColumn[]): Partial<DraftStateRow> {
 
 /**
  * Monta o desfazer a partir do estado lido antes e depois da ação. Devolve null quando não há o
- * que desfazer com segurança:
- *   - nada mudou nas colunas restauráveis;
- *   - "authorization" com a guia já gravada no prontuário (authorization_id): as linhas de
- *     `authorizations` não são apagadas por aqui, então o desfazer pararia no meio.
+ * que desfazer: nada mudou nas colunas restauráveis.
  */
 export function buildUndoToken(
   kind: UndoKind,
@@ -161,7 +147,6 @@ export function buildUndoToken(
   after: DraftStateRow,
   patient?: { id: string; before: string | null; after: string | null } | null,
 ): UndoToken | null {
-  if (kind === "authorization" && after.authorization_id) return null;
   const restore = RESTORE_COLUMNS[kind];
   if (restore.every((c) => sameValue(c, before[c], after[c]))) return null;
   const promoted =
@@ -176,7 +161,7 @@ export function validateUndoToken(raw: unknown): UndoToken | null {
   if (!raw || typeof raw !== "object") return null;
   const t = raw as Record<string, unknown>;
   const kind = t.kind;
-  if (kind !== "guide_sent" && kind !== "scheduling" && kind !== "authorization" && kind !== "waive") return null;
+  if (kind !== "guide_sent" && kind !== "waive" && kind !== "plan_denied" && kind !== "plan_more_docs") return null;
   const check = (obj: unknown, cols: DraftColumn[]): Partial<DraftStateRow> | null => {
     if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
     const rec = obj as Record<string, unknown>;
@@ -188,8 +173,6 @@ export function validateUndoToken(raw: unknown): UndoToken | null {
   const previous = check(t.previous, RESTORE_COLUMNS[kind]);
   const applied = check(t.applied, EXPECT_COLUMNS[kind]);
   if (!previous || !applied) return null;
-  // A guia nunca volta "gravada no prontuário" por um desfazer.
-  if (kind === "authorization" && previous.authorization_id !== null) return null;
   let patient: PatientUndo | null = null;
   if (t.patient !== null && t.patient !== undefined) {
     const p = t.patient as Record<string, unknown>;

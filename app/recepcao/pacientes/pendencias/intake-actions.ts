@@ -5,14 +5,7 @@ import { revalidatePath } from "next/cache";
 import { INTAKE_MIGRATION_PENDING_MESSAGE, isMissingIntakeColumnError } from "@/lib/intake-columns-pure";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
-import {
-  disableDraftScheduling,
-  enableDraftScheduling,
-  markGuideSent,
-  registerAuthorizedGuide,
-  waiveDraftAuthorization,
-  type AuthorizedGuideInput,
-} from "./draft-pipeline-actions";
+import { markGuideSent, undoGuideSent, waiveDraftAuthorization } from "./draft-pipeline-actions";
 import {
   DRAFT_STATE_COLUMNS,
   buildUndoToken,
@@ -35,9 +28,8 @@ import {
  * Reenviar a guia grava um guide_sent_at mais novo que a marca, e a marca deixa
  * de valer (activePlanOutcome em lib/fila/fila-model-pure.ts).
  *
- * Cada ação devolve o estado anterior para o aviso de "Desfazer" (8 s). O
- * desfazer só vale se a marca ainda é a que esta ação gravou: se outra pessoa
- * mexeu no caso depois, nada é revertido.
+ * O "Desfazer" (8 s) é o de restaurar estado de lib/intake-undo-pure.ts (withUndo
+ * e restoreIntakeState, abaixo): só vale se o caso ainda está como a ação deixou.
  *
  * Mesmas regras de draft-pipeline-actions.ts: client de sessão, e a RLS de
  * registration_drafts já restringe o update a recepção/supervisor/gestor da clínica.
@@ -45,51 +37,14 @@ import {
 
 type ActionResult = { success: true; note?: string } | { success: false; error: string };
 
-/** Estado de antes da ação, guardado no aviso de "Desfazer" do caso. */
-export type PlanOutcomeUndo = {
-  /** Valor que a ação gravou em plan_denied_at / plan_more_docs_at. */
-  appliedAt: string;
-  previous: {
-    guideSentAt: string | null;
-    guideSentBy: string | null;
-    /** Marca anterior do mesmo tipo (uma segunda negativa sobrescreve a primeira). */
-    markAt: string | null;
-    markBy: string | null;
-  };
-};
-
-export type PlanOutcomeResult = { success: true; undo: PlanOutcomeUndo } | { success: false; error: string };
-
 type Kind = "denied" | "more_docs";
 
-const COLUMNS: Record<Kind, { at: "plan_denied_at" | "plan_more_docs_at"; by: "plan_denied_by" | "plan_more_docs_by" }> = {
-  denied: { at: "plan_denied_at", by: "plan_denied_by" },
-  more_docs: { at: "plan_more_docs_at", by: "plan_more_docs_by" },
-};
-
-type DraftUpdate = Database["public"]["Tables"]["registration_drafts"]["Update"];
-
 /** Campos da marca (negativa ou pedido de documentos) no formato do update. */
-function markFields(kind: Kind, at: string | null, by: string | null): DraftUpdate {
+function markFields(kind: Kind, at: string, by: string): DraftUpdate {
   return kind === "denied" ? { plan_denied_at: at, plan_denied_by: by } : { plan_more_docs_at: at, plan_more_docs_by: by };
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const isIsoOrNull = (v: unknown): v is string | null => v === null || (typeof v === "string" && !Number.isNaN(Date.parse(v)));
-const isUuidOrNull = (v: unknown): v is string | null => v === null || (typeof v === "string" && UUID.test(v));
-
-function validUndo(undo: PlanOutcomeUndo | null | undefined): undo is PlanOutcomeUndo {
-  if (!undo || typeof undo !== "object" || !undo.previous || typeof undo.appliedAt !== "string") return false;
-  const p = undo.previous;
-  return (
-    !Number.isNaN(Date.parse(undo.appliedAt)) &&
-    isIsoOrNull(p.guideSentAt) &&
-    isUuidOrNull(p.guideSentBy) &&
-    isIsoOrNull(p.markAt) &&
-    isUuidOrNull(p.markBy)
-  );
-}
+type DraftUpdate = Database["public"]["Tables"]["registration_drafts"]["Update"];
 
 async function requireUser() {
   const supabase = await createClient();
@@ -101,16 +56,15 @@ async function requireUser() {
 
 function refresh() {
   revalidatePath("/recepcao");
-  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/fila");
   revalidatePath("/recepcao/pacientes/pendencias");
   revalidatePath("/supervisao");
 }
 
-async function markPlanOutcome(draftId: string, kind: Kind): Promise<PlanOutcomeResult> {
+async function markPlanOutcome(draftId: string, kind: Kind): Promise<ActionResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
 
-  const col = COLUMNS[kind];
   const { data: draft, error: draftError } = await supabase
     .from("registration_drafts")
     .select(
@@ -147,65 +101,7 @@ async function markPlanOutcome(draftId: string, kind: Kind): Promise<PlanOutcome
   }
 
   refresh();
-  return {
-    success: true,
-    undo: {
-      appliedAt,
-      previous: {
-        guideSentAt: draft.guide_sent_at,
-        guideSentBy: draft.guide_sent_by,
-        markAt: draft[col.at],
-        markBy: draft[col.by],
-      },
-    },
-  };
-}
-
-async function undoPlanOutcome(draftId: string, kind: Kind, undo: PlanOutcomeUndo): Promise<ActionResult> {
-  const { supabase, user } = await requireUser();
-  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
-  if (!validUndo(undo)) return { success: false, error: "Não foi possível desfazer. Recarregue a página." };
-
-  const col = COLUMNS[kind];
-  // Só reverte se a marca ainda é a que esta ação gravou e a guia não foi reenviada depois.
-  const { data: updated, error } = await supabase
-    .from("registration_drafts")
-    .update({
-      ...markFields(kind, undo.previous.markAt, undo.previous.markBy),
-      guide_sent_at: undo.previous.guideSentAt,
-      guide_sent_by: undo.previous.guideSentBy,
-    })
-    .eq("id", draftId)
-    .eq(col.at, undo.appliedAt)
-    .is("guide_sent_at", null)
-    .select("id");
-  if (error) return { success: false, error: "Não foi possível desfazer. Tente de novo." };
-  if (!updated || updated.length === 0) {
-    return { success: false, error: "O caso mudou depois disso. Nada foi desfeito." };
-  }
-
-  refresh();
   return { success: true };
-}
-
-/** "Plano negou": o caso volta para a etapa 2 (enviar a guia de novo) e para "Agir agora". */
-export async function denyPlan(draftId: string): Promise<PlanOutcomeResult> {
-  return markPlanOutcome(draftId, "denied");
-}
-
-/** Desfaz "Plano negou" com o estado guardado no aviso. */
-export async function undoDenyPlan(draftId: string, previous: PlanOutcomeUndo): Promise<ActionResult> {
-  return undoPlanOutcome(draftId, "denied", previous);
-}
-
-/** "Plano pediu mais documentos": o caso volta para a etapa 1 (cobrar a família e reenviar a guia). */
-export async function planAskedMoreDocs(draftId: string): Promise<PlanOutcomeResult> {
-  return markPlanOutcome(draftId, "more_docs");
-}
-
-/** Desfaz "Plano pediu mais documentos" com o estado guardado no aviso. */
-export async function undoPlanAskedMoreDocs(draftId: string, previous: PlanOutcomeUndo): Promise<ActionResult> {
-  return undoPlanOutcome(draftId, "more_docs", previous);
 }
 
 // ---------------------------------------------------------------------------
@@ -214,8 +110,8 @@ export async function undoPlanAskedMoreDocs(draftId: string, previous: PlanOutco
 // Cada uma lê o estado do caso antes, chama a ação de sempre de draft-pipeline-actions.ts (que o
 // Chat e Pendências continuam usando sem mudança), lê o estado depois e devolve um UndoToken
 // (lib/intake-undo-pure.ts). restoreIntakeState devolve as colunas guardadas com um update direto,
-// só se o caso ainda estiver como a ação deixou. O desfazer nunca chama enableDraftScheduling, então
-// não manda de novo a oferta de horários pelo WhatsApp.
+// só se o caso ainda estiver como a ação deixou. Ações que mandam WhatsApp (habilitar o agendamento,
+// registrar a guia autorizada) não têm desfazer aqui: uma mensagem enviada não se recolhe.
 // ---------------------------------------------------------------------------
 
 type Supa = Awaited<ReturnType<typeof createClient>>;
@@ -260,7 +156,11 @@ async function withUndo<R extends { success: true; note?: string; offer?: "sent"
   const { supabase, user } = await requireUser();
   if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
   const before = await readState(supabase, draftId);
-  if (before === MISSING_COLUMNS) return { success: false, error: INTAKE_MIGRATION_PENDING_MESSAGE };
+  if (before === MISSING_COLUMNS) {
+    // Sem a migration não há como guardar o estado de antes: a ação roda e volta sem "Desfazer".
+    const ran = await action();
+    return ran.success ? { success: true, note: ran.note, offer: ran.offer, undo: null } : ran;
+  }
   if (!before) return { success: false, error: "Contato não encontrado." };
   const result = await action();
   if (!result.success) return result;
@@ -276,73 +176,22 @@ export async function intakeMarkGuideSent(draftId: string): Promise<UndoableResu
   return withUndo(draftId, "guide_sent", () => markGuideSent(draftId));
 }
 
-export async function intakeEnableScheduling(draftId: string): Promise<UndoableResult> {
-  return withUndo(draftId, "scheduling", () => enableDraftScheduling(draftId));
-}
-
-export async function intakeDisableScheduling(draftId: string): Promise<UndoableResult> {
-  return withUndo(draftId, "scheduling", () => disableDraftScheduling(draftId));
+export async function intakeUnmarkGuideSent(draftId: string): Promise<UndoableResult> {
+  return withUndo(draftId, "guide_sent", () => undoGuideSent(draftId));
 }
 
 export async function intakeWaiveAuthorization(draftId: string): Promise<UndoableResult> {
   return withUndo(draftId, "waive", () => waiveDraftAuthorization(draftId));
 }
 
-/**
- * A guia autorizada vai direto para o prontuário? (paciente vinculado com um único plano, a mesma
- * regra de registerAuthorizedGuide). Nesse caso a tela pede confirmação antes e não oferece desfazer.
- */
-export async function authorizedGuideGoesToRecord(draftId: string): Promise<{ success: true; goesToRecord: boolean } | { success: false; error: string }> {
-  const { supabase, user } = await requireUser();
-  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
-  const { data: draft } = await supabase.from("registration_drafts").select("patient_id").eq("id", draftId).maybeSingle();
-  if (!draft) return { success: false, error: "Contato não encontrado." };
-  if (!draft.patient_id) return { success: true, goesToRecord: false };
-  const { data: plans } = await supabase
-    .from("patient_insurance")
-    .select("id")
-    .eq("patient_id", draft.patient_id)
-    .eq("is_private", false);
-  return { success: true, goesToRecord: Boolean(plans && plans.length === 1) };
+/** "Plano negou": o caso volta para a etapa 2 (enviar a guia de novo) e para "Agir agora". */
+export async function intakeDenyPlan(draftId: string): Promise<UndoableResult> {
+  return withUndo(draftId, "plan_denied", () => markPlanOutcome(draftId, "denied"));
 }
 
-export type AuthorizedUploadResult =
-  | {
-      success: true;
-      /** Avisos do registro da guia e da habilitação juntos. */
-      note?: string;
-      offer?: "sent" | "duplicate" | "failed";
-      /** A guia foi salva, mas a habilitação falhou. */
-      enableError?: string;
-      /** null quando a guia foi gravada no prontuário: não há desfazer que volte tudo. */
-      undo: UndoToken | null;
-    }
-  | { success: false; error: string };
-
-/** "Subir guia autorizada (PDF)": grava a guia, habilita o agendamento e devolve o desfazer. */
-export async function intakeRegisterAuthorizedGuide(draftId: string, input: AuthorizedGuideInput): Promise<AuthorizedUploadResult> {
-  const { supabase, user } = await requireUser();
-  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
-  const before = await readState(supabase, draftId);
-  if (before === MISSING_COLUMNS) return { success: false, error: INTAKE_MIGRATION_PENDING_MESSAGE };
-  if (!before) return { success: false, error: "Contato não encontrado." };
-
-  const saved = await registerAuthorizedGuide(draftId, input);
-  if (!saved.success) return saved;
-  const enabled = await enableDraftScheduling(draftId);
-
-  const after = await readStateOrNull(supabase, draftId);
-  const patientId = before.patientId ?? after?.patientId ?? null;
-  const undo = after
-    ? buildUndoToken("authorization", before.row, after.row, patientId ? { id: patientId, before: before.patientStatus, after: after.patientStatus } : null)
-    : null;
-  return {
-    success: true,
-    note: [saved.note, enabled.success ? enabled.note : undefined].filter(Boolean).join(" ") || undefined,
-    offer: enabled.success ? enabled.offer : undefined,
-    enableError: enabled.success ? undefined : enabled.error,
-    undo,
-  };
+/** "Plano pediu mais documentos": o caso volta para a etapa 1 (cobrar a família e reenviar a guia). */
+export async function intakePlanAskedMoreDocs(draftId: string): Promise<UndoableResult> {
+  return withUndo(draftId, "plan_more_docs", () => markPlanOutcome(draftId, "more_docs"));
 }
 
 /**
