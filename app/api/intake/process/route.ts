@@ -1,3 +1,4 @@
+import { isValidCronSecret } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { claimAndProcessIntakeBatches, sweepIntakeLeadsAwaitingDocuments } from "@/lib/insurance-intake-process";
 
@@ -13,9 +14,8 @@ export const maxDuration = 60;
  * específico (usado pelo botão "Reprocessar" via reprocessIntakeBatch).
  */
 export async function POST(req: NextRequest) {
-  const envCronSecret = process.env.CRON_SECRET;
   const cronSecret = req.headers.get("x-cron-secret");
-  if (!envCronSecret || !cronSecret || cronSecret !== envCronSecret) {
+  if (!isValidCronSecret(cronSecret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -27,8 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ processed: results.length, results, swept: sweptCount });
   } catch (error) {
     console.error("[Insurance Intake Process Route Error]:", error);
-    const errMessage = error instanceof Error ? error.message : "Erro interno";
-    return NextResponse.json({ success: false, error: errMessage }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Erro interno" }, { status: 500 });
   }
 }
 

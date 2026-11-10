@@ -22,3 +22,7 @@ agente-robo/.venv/
 agente-robo/sessao_navegador/
 agente-robo/agente.log
 agente-robo/__pycache__/
+
+# Sessões de navegador gravadas por scripts de perf/e2e — contêm tokens reais
+perf/.auth/
+**/.auth/

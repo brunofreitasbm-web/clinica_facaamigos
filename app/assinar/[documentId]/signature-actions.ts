@@ -446,6 +446,18 @@ export async function sendSignedDocumentEmail(params: {
     return { success: false, error: "Informe um endereço de e-mail válido." };
   }
 
+  // Action pública (link de assinatura): os nomes vêm do navegador e vão para
+  // um e-mail com a marca da clínica — escapar e limitar para não virar phishing.
+  const esc = (v: string) =>
+    String(v ?? "")
+      .slice(0, 120)
+      .replace(/[\r\n]+/g, " ")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  params = { ...params, signerName: esc(params.signerName), patientName: esc(params.patientName) };
+
   const title = `Comprovante de Assinatura Eletrônica — ${params.patientName}`;
   const nowFormatted = new Date().toLocaleString("pt-BR");
 

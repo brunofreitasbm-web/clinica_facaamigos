@@ -23,3 +23,21 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+
+  # Informativo (não bloqueia merge): vulnerabilidades conhecidas e lint.
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # Resta 1 aviso crítico do próprio Next (16.3.4), que só sai com upgrade
+      # de versão do framework — ver SEGURANCA-PENDENCIAS.md. Até lá o audit
+      # fica informativo; depois, remover o continue-on-error.
+      - run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

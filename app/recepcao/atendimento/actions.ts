@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStaff } from "@/lib/require-staff";
+import { isUuid } from "@/lib/uuid";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -459,6 +461,13 @@ export async function transferConversationMediaToPatientDocuments(
 ): Promise<MediaTransferSummary> {
   const summary: MediaTransferSummary = { transferred: 0, failed: 0 };
   const coveredUrls = new Set<string>();
+
+  // Os ids entram em filtros `.or()` do PostgREST e em caminhos do Storage:
+  // só UUID. E, como roda com service_role, só equipe pode disparar.
+  if (!isUuid(conversationId) || !isUuid(patientId)) return summary;
+  const staff = await requireStaff();
+  if (!staff.ok) return summary;
+  actorId = staff.userId;
 
   try {
     const admin = createAdminClient();

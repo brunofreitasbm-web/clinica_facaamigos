@@ -104,7 +104,12 @@ export async function resolveAbsenceReport(reportId: string): Promise<ActionResu
 export async function getAbsenceAttachmentUrl(
   storagePath: string,
 ): Promise<{ success: true; url: string } | { success: false; error: string }> {
-  if (!storagePath) return { success: false, error: "Caminho do arquivo inválido." };
+  if (!storagePath || storagePath.includes("..")) return { success: false, error: "Caminho do arquivo inválido." };
+
+  // Usa service_role (sem RLS): só equipe pode pedir link de atestado.
+  const { requireStaff } = await import("@/lib/require-staff");
+  const staff = await requireStaff();
+  if (!staff.ok) return { success: false, error: staff.error };
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   let admin;
