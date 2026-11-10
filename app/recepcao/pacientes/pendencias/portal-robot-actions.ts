@@ -1,10 +1,13 @@
 // app/recepcao/pacientes/pendencias/portal-robot-actions.ts
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { sanitizeFileName } from "@/lib/file-name";
+import { sniffAllowed } from "@/lib/upload-bytes";
 import { DOCUMENTS_BUCKET, robotAdmin, type PortalRobotJobRow } from "@/lib/portal-robot";
 import {
   canCancel,
@@ -172,6 +175,67 @@ export async function getPortalRobotFormDefaults(draftId: string): Promise<{ suc
       previous: ((previous as { payload: PortalRobotPayload } | null)?.payload ?? null),
     },
   };
+}
+
+// O portal Conecta aceita PDF ou imagem JPG/PNG no anexo.
+const LAUDO_MIMES: ReadonlySet<string> = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const MAX_LAUDO_BYTES = 20 * 1024 * 1024;
+
+/**
+ * Laudo enviado do computador da recepção, para quando o arquivo certo não
+ * chegou pelo WhatsApp. Vira um arquivo do próprio contato
+ * (registration_draft_files, mesmo bucket e pasta dos que chegam pelo
+ * WhatsApp), já marcado como laudo, e pode ser escolhido no formulário.
+ */
+export async function uploadPortalRobotLaudo(
+  draftId: string,
+  formData: FormData,
+): Promise<{ success: true; file: { id: string; name: string; detectedType: string } } | Fail> {
+  const { db, user } = await session();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { success: false, error: "Escolha um arquivo." };
+  if (file.size > MAX_LAUDO_BYTES) return { success: false, error: "Arquivo grande demais (máximo 20 MB)." };
+
+  // RLS: só enxerga o contato quem pode trabalhar nele.
+  const { data: draft } = await db.from("registration_drafts").select("id").eq("id", draftId).maybeSingle();
+  if (!draft) return { success: false, error: "Contato não encontrado." };
+
+  // Tipo real pelos bytes, não pelo nome/`file.type` que vêm do navegador.
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const sniffed = sniffAllowed(bytes, LAUDO_MIMES);
+  if (!sniffed) return { success: false, error: "O portal só aceita PDF, JPG ou PNG." };
+
+  const name = sanitizeFileName(file.name, { ext: sniffed.ext, fallback: "laudo" });
+  const storagePath = `drafts/${draftId}/laudo-recepcao-${Date.now()}.${sniffed.ext}`;
+  const admin = robotAdmin();
+  const { error: uploadError } = await admin.storage
+    .from(DOCUMENTS_BUCKET)
+    .upload(storagePath, bytes, { contentType: sniffed.mime, upsert: false });
+  if (uploadError) return { success: false, error: "Não foi possível enviar o arquivo. Tente de novo." };
+
+  const { data: row, error: insertError } = await admin
+    .from("registration_draft_files")
+    .insert({
+      draft_id: draftId,
+      storage_path: storagePath,
+      mime_type: sniffed.mime,
+      size_bytes: bytes.byteLength,
+      original_name: name,
+      detected_type: "laudo",
+      content_sha256: createHash("sha256").update(bytes).digest("hex"),
+    })
+    .select("id")
+    .single();
+  if (insertError || !row) {
+    await admin.storage.from(DOCUMENTS_BUCKET).remove([storagePath]);
+    return { success: false, error: "Não foi possível salvar o arquivo. Tente de novo." };
+  }
+
+  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/pacientes/pendencias");
+  return { success: true, file:{ id: (row as { id: string }).id, name, detectedType: "laudo" } };
 }
 
 /** Coloca o pedido na fila do robô. Um pedido em aberto por contato (índice único no banco). */
