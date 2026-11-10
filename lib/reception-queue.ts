@@ -685,6 +685,8 @@ export type PendingRegistrationDraft = {
   pendencies: LeadPendencies;
   /** Quantidade de rascunhos mesclados quando o mesmo responsável mandou dados em várias conversas. */
   mergedDraftsCount?: number;
+  /** Rascunhos mesclados neste caso (principal primeiro). Ausente quando não houve mescla: só o próprio. */
+  mergedDraftIds?: string[];
 };
 
 export type PendingDraftDocumentRequest = {
@@ -973,8 +975,19 @@ function returnedInfo(d: {
   return { at: d.returned_to_reception_at, reason: d.returned_to_reception_reason ?? "", byName: by?.full_name ?? null };
 }
 
-async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): Promise<PendingRegistrationDraft[]> {
-  const full = await supabase
+/**
+ * Leads ativos da recepção, já consolidados entre conversas do mesmo caso.
+ * - `onlyIds`: lê só esses rascunhos (o detalhe da Fila passa os mesclados no caso; não relê a fila inteira).
+ * - `persistMerge: false`: consolida só em memória, sem gravar a mesclagem (leituras como o GET do detalhe).
+ */
+async function getPendingRegistrationDrafts(
+  supabase: Supa,
+  clinicId: string,
+  opts: { onlyIds?: string[]; persistMerge?: boolean } = {},
+): Promise<PendingRegistrationDraft[]> {
+  const onlyIds = opts.onlyIds;
+  if (onlyIds && onlyIds.length === 0) return [];
+  const fullQuery = supabase
       .from("registration_drafts")
       .select(
         "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), plan_denied_at, plan_more_docs_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
@@ -984,11 +997,12 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
       .or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null")
       .order("created_at", { ascending: true });
+  const full = await (onlyIds ? fullQuery.in("id", onlyIds) : fullQuery);
   let data = full.data;
   if (full.error) {
     if (isMissingIntakeColumnError(full.error)) {
       // Migration das colunas plan_denied/plan_more_docs ainda não aplicada: lê sem elas.
-      const legacy = await supabase
+      const legacyQuery = supabase
       .from("registration_drafts")
       .select(
         "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
@@ -998,6 +1012,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
       // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
       .or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null")
       .order("created_at", { ascending: true });
+      const legacy = await (onlyIds ? legacyQuery.in("id", onlyIds) : legacyQuery);
       if (legacy.error) {
         console.error("getPendingRegistrationDrafts: erro ao ler registration_drafts", legacy.error.code, legacy.error.message);
       }
@@ -1117,7 +1132,9 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   });
 
   const rawExtractedByDraft = new Map<string, unknown>(rows.map((d) => [d.id, d.extracted]));
-  const consolidated = consolidateRegistrationDrafts(drafts, pendencySources, rawExtractedByDraft);
+  const consolidated = consolidateRegistrationDrafts(drafts, pendencySources, rawExtractedByDraft, {
+    persist: opts.persistMerge !== false,
+  });
 
   // Partição estável: quem não tem mais nada faltando (pronto para conferir e
   // avançar na linha do tempo) sobe; dentro de cada grupo segue o mais antigo primeiro.
@@ -1132,13 +1149,17 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
  * getPendingRegistrationDrafts (arquivos, dados, pipeline, pendências e etapa mesclados entre conversas do
  * mesmo caso) e escolhe o item pelo id. Lista e detalhe não podem divergir, porque os botões do detalhe
  * saem do mesmo modelo de etapas. Se o caso já saiu da fila, cai no rascunho avulso.
+ *
+ * `memberIds` são os rascunhos que a lista mesclou neste caso (FilaItem.memberDraftIds): consolida só eles,
+ * o que dá o mesmo grupo da lista sem reler a fila inteira. Leitura pura: nunca grava a mesclagem.
  */
 export async function getConsolidatedRegistrationDraft(
   supabase: Supa,
   draftId: string,
+  memberIds: string[],
   clinicId: string = DEV_CLINIC_ID,
 ): Promise<PendingRegistrationDraft | null> {
-  const consolidated = await getPendingRegistrationDrafts(supabase, clinicId);
+  const consolidated = await getPendingRegistrationDrafts(supabase, clinicId, { onlyIds: memberIds, persistMerge: false });
   return pickConsolidatedDraft(consolidated, draftId) ?? (await getSingleRegistrationDraft(supabase, draftId, clinicId));
 }
 

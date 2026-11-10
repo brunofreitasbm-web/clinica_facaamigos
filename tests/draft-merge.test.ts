@@ -4,6 +4,7 @@
 // enviados por múltiplas conversas (lib/draft-merge.ts).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   areDraftsSameCase,
   areNamesConflicting,
@@ -209,6 +210,7 @@ test("groupMatchingDrafts e mergeRegistrationDraftGroup: unem conversas do mesmo
   assert.equal(merged.files.length, 2);
   assert.equal(merged.messages.length, 2);
   assert.equal(merged.mergedDraftsCount, 2);
+  assert.deepEqual(merged.mergedDraftIds, [merged.id, ...groups[0].map((d) => d.id).filter((id) => id !== merged.id)]);
   assert.match(merged.guardianMessage ?? "", /certidão/);
   assert.match(merged.guardianMessage ?? "", /laudo/);
 });
@@ -234,4 +236,11 @@ test("areDraftsSameCase: nome idêntico não junta se nascimentos divergem", () 
   const a = makeIdentity({ id: "a", guardianName: null, guardianCpf: null, patientCpf: null, patientBirthDate: "2019-01-01", sourcePhone: "+5591988880001", guardianPhone: null, cardNumber: null, patientName: "Maria Luisa Gonçalves Freitas" });
   const b = { ...a, id: "b", patientBirthDate: "2020-02-02", sourcePhone: "+5591977770002" };
   assert.equal(areDraftsSameCase(a, b), false);
+});
+
+test("consolidateRegistrationDrafts só persiste a mesclagem quando pedido (o GET do detalhe não grava)", () => {
+  const src = readFileSync("lib/draft-merge.ts", "utf8");
+  const fn = /export function consolidateRegistrationDrafts[\s\S]*?\n}\n/.exec(src)?.[0] ?? "";
+  assert.match(fn, /opts: \{ persist\?: boolean \} = \{\}/);
+  assert.match(fn, /if \(opts\.persist !== false\) \{[\s\S]*persistDraftMergeInDb[\s\S]*runAfterResponse/);
 });

@@ -29,6 +29,7 @@ export function draftToFilaSource(draft: PendingRegistrationDraft, queue: FilaQu
   return {
     id: queue.id,
     draftId: draft.id,
+    memberDraftIds: draft.mergedDraftIds ?? [draft.id],
     patientName: queue.patientName,
     sourcePhone: draft.sourcePhone,
     createdAt: draft.createdAt,

@@ -25,7 +25,7 @@ import {
 } from "../pacientes/pendencias/intake-actions";
 import { openDocumentConversation, requestMissingDocument } from "../pacientes/pendencias/document-request-actions";
 import { AuthorizedGuideDialog, type GuideValues } from "../pacientes/pendencias/draft-pipeline";
-import type { FilaDetail } from "./fila-detail-action";
+import type { FilaDetail } from "@/lib/fila/fila-detail-pure";
 import type { UndoEntry } from "./undo-toast";
 
 /** Conferências abertas no cartão. Cada uma corresponde a uma ação que manda WhatsApp (sem Desfazer). */
@@ -60,10 +60,13 @@ const CONFIRM_GROUP_LABEL: Record<Confirm, string> = {
 export function FilaNextStep({
   item,
   detail,
+  locked,
   onUndoable,
 }: {
   item: FilaItem;
   detail: FilaDetail | null;
+  /** Detalhe carregando, rebuscando ou com erro: as ações ficam visíveis mas desabilitadas (isDetailLocked). */
+  locked: boolean;
   onUndoable: (entry: UndoEntry) => void;
 }) {
   const router = useRouter();
@@ -74,8 +77,6 @@ export function FilaNextStep({
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideError, setGuideError] = useState<string | null>(null);
   const [pendingGuide, setPendingGuide] = useState<GuideValues | null>(null);
-  // Trava de edição por dono do caso: chega na próxima etapa do plano. Até lá, nada trava além do envio.
-  const locked = false;
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
   // Ao abrir uma conferência, o foco vai para o botão que confirma (teclado e leitor de tela chegam nela).
@@ -374,9 +375,10 @@ export function FilaNextStep({
                 {spinner}
                 {confirmLabel}
               </button>
+              {/* Cancelar não grava nada: continua livre mesmo com o detalhe travado. */}
               <button
                 type="button"
-                disabled={isPending || locked}
+                disabled={isPending}
                 className={secondaryClass}
                 onClick={() => {
                   setConfirm(null);

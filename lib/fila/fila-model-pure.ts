@@ -20,6 +20,8 @@ export type FilaSource = {
   /** Id do item da fila (seleção, dono e prazo). */
   id: string;
   draftId: string;
+  /** Rascunhos mesclados neste caso (principal primeiro); ausente vale só `[draftId]`. */
+  memberDraftIds?: string[];
   patientName: string;
   sourcePhone: string | null;
   /** Quando o contato entrou (`registration_drafts.created_at`). */
@@ -73,6 +75,8 @@ export type FilaStep = {
 export type FilaItem = {
   id: string;
   draftId: string;
+  /** Rascunhos mesclados nesta família: o detalhe consolida só eles (mesmo caso da lista, sem reler a fila). */
+  memberDraftIds: string[];
   child: string;
   guardian: string | null;
   plan: string | null;
@@ -348,6 +352,7 @@ export function buildFilaItem(src: FilaSource, nowMs: number): FilaItem {
   return {
     id: src.id,
     draftId: src.draftId,
+    memberDraftIds: src.memberDraftIds && src.memberDraftIds.length > 0 ? [...src.memberDraftIds] : [src.draftId],
     child: src.patientName,
     guardian,
     plan,
@@ -370,6 +375,15 @@ export function buildFilaItem(src: FilaSource, nowMs: number): FilaItem {
     moreDocsKeys: outcome === "more_docs" ? src.missingDocs.map((d) => d.key) : [],
     searchText: normalize([src.patientName, guardian ?? "", plan ?? ""].join(" ")),
   };
+}
+
+/** `?item=` da página: acha a família pelo id do item, pelo rascunho principal ou por um rascunho mesclado nela. */
+export function findFilaItem(items: FilaItem[], requested: string): FilaItem | null {
+  return (
+    items.find((i) => i.id === requested || i.draftId === requested) ??
+    items.find((i) => i.memberDraftIds.includes(requested)) ??
+    null
+  );
 }
 
 /** Etapa em uma frase para o painel do Chat: a mesma da lista da Fila (um vocabulário só). */

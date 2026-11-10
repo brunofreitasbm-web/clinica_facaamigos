@@ -11,6 +11,7 @@ import {
   countByGroup,
   filaStageSummary,
   filterFila,
+  findFilaItem,
   portalFields,
   sortFila,
   trailStates,
@@ -514,4 +515,21 @@ test("resumo da etapa para o Chat usa a mesma frase da lista", () => {
   assert.deepEqual(filaStageSummary(buildFilaItem(src(), NOW)), { label: "Enviar a guia ao plano", allDone: false });
   const done = buildFilaItem(src({ pipeline: { authorization: "autorizada", schedulingEnabledAt: ago(1), returned: null } }), NOW);
   assert.equal(filaStageSummary(done).allDone, true);
+});
+
+test("?item= acha a família pelo item, pelo rascunho principal ou por um rascunho mesclado", () => {
+  const i = buildFilaItem(src({ memberDraftIds: ["d1", "d9"] }), NOW);
+  assert.equal(findFilaItem([i], "d9")?.id, "q1");
+  assert.equal(findFilaItem([i], "q1")?.id, "q1");
+  assert.equal(findFilaItem([i], "d1")?.id, "q1");
+  assert.equal(findFilaItem([i], "zz"), null);
+});
+
+test("item da lista leva os rascunhos mesclados (padrão: só o próprio) e nada pesado", () => {
+  assert.deepEqual(buildFilaItem(src(), NOW).memberDraftIds, ["d1"]);
+  const i = buildFilaItem(src({ memberDraftIds: ["d1", "d9"] }), NOW);
+  assert.deepEqual(i.memberDraftIds, ["d1", "d9"]);
+  for (const heavy of ["facts", "files", "messages", "pendencies", "documentRequests", "missingDocs"]) {
+    assert.equal(heavy in i, false, heavy);
+  }
 });
