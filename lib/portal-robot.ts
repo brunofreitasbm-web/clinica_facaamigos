@@ -16,7 +16,10 @@ const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024;
 export type PortalRobotJobRow = {
   id: string;
   clinic_id: string;
-  draft_id: string;
+  /** Contato novo (etapa 2 de Autorizações) OU guia em renovação — sempre um dos dois. */
+  draft_id: string | null;
+  authorization_id: string | null;
+  patient_id: string | null;
   portal: string;
   mode: PortalRobotMode;
   status: PortalRobotStatus;
@@ -110,6 +113,8 @@ export async function saveScreenshot(admin: SupabaseClient, job: PortalRobotJobR
  * Não sobrescreve um envio já marcado à mão.
  */
 export async function markDraftGuideSentByRobot(admin: SupabaseClient, job: PortalRobotJobRow): Promise<void> {
+  // Renovação: a guia já está "pendente" (aguardando o plano) desde o pedido; nada a marcar.
+  if (!job.draft_id) return;
   await admin
     .from("registration_drafts")
     .update({ guide_sent_at: new Date().toISOString(), guide_sent_by: job.confirmed_by ?? job.requested_by })

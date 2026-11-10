@@ -579,7 +579,7 @@ export function DraftPipelineColumns({
               )}
             </div>
             {/* Envio pelo robô (agente local que preenche o portal do plano) — docs/portal-robot.md */}
-            {draft.pendencies.hasPlan && <PortalRobotPanel draftId={draft.id} canRequest />}
+            {draft.pendencies.hasPlan && <PortalRobotPanel target={{ kind: "draft", id: draft.id }} canRequest />}
           </>
         )}
 
@@ -590,7 +590,7 @@ export function DraftPipelineColumns({
                 Desfazer
               </StepButton>
             </div>
-            <PortalRobotPanel draftId={draft.id} canRequest={false} />
+            <PortalRobotPanel target={{ kind: "draft", id: draft.id }} canRequest={false} />
           </>
         )}
 

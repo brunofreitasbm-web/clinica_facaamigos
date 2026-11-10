@@ -9,6 +9,7 @@ import {
   canCancel,
   formatReferenceMonth,
   isAgentOnline,
+  laudoMimeFromPath,
   normalizeAgentName,
   normalizeRequest,
   suggestedReferenceMonth,
@@ -88,4 +89,12 @@ test("nome do computador do robô: espaços normalizados, vazio e longo recusado
   assert.equal(normalizeAgentName("").ok, false);
   assert.equal(normalizeAgentName(null).ok, false);
   assert.equal(normalizeAgentName("x".repeat(61)).ok, false);
+});
+
+test("anexo do laudo: só PDF, JPG e PNG, pelo nome do arquivo", () => {
+  assert.equal(laudoMimeFromPath("p1/doc/Laudo_Final.PDF"), "application/pdf");
+  assert.equal(laudoMimeFromPath("x/foto.jpeg"), "image/jpeg");
+  assert.equal(laudoMimeFromPath("x/foto.png"), "image/png");
+  assert.equal(laudoMimeFromPath("x/foto.heic"), null);
+  assert.equal(laudoMimeFromPath("sem-extensao"), null);
 });

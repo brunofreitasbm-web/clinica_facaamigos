@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { fmtDateTime } from "@/lib/format";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { HelpHint } from "@/components/ui/help-hint";
-import { formatReferenceMonth, OPEN_STATUSES, STATUS_LABEL, type PortalRobotMode } from "@/lib/portal-robot-pure";
+import { formatReferenceMonth, OPEN_STATUSES, STATUS_LABEL, type PortalRobotMode, type PortalRobotTarget } from "@/lib/portal-robot-pure";
 import {
   cancelPortalRobot,
   confirmPortalRobot,
@@ -71,8 +71,15 @@ function SummaryList({ job }: { job: PortalRobotJobView }) {
   );
 }
 
-export function PortalRobotPanel({ draftId, canRequest }: { draftId: string; canRequest: boolean }) {
+/**
+ * Cartão do robô. `target`: o contato novo (etapa 2 de Autorizações) ou a guia
+ * em renovação (linha "Renovação pedida" dos pacotes autorizados).
+ */
+export function PortalRobotPanel({ target, canRequest }: { target: PortalRobotTarget; canRequest: boolean }) {
   const router = useRouter();
+  // Objeto estável: o pai recria `target` a cada render.
+  const { kind, id } = target;
+  const stableTarget = useMemo<PortalRobotTarget>(() => ({ kind, id }), [kind, id]);
   const [state, setState] = useState<PortalRobotState | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -80,14 +87,14 @@ export function PortalRobotPanel({ draftId, canRequest }: { draftId: string; can
   const lastStatus = useRef<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await getPortalRobotState(draftId);
+    const res = await getPortalRobotState(stableTarget);
     if (!res.success) return;
     setState(res.state);
     const status = res.state.job?.status ?? null;
     // Terminou agora (enviado → etapa 2 marcada no servidor): atualiza a linha do tempo inteira.
     if (lastStatus.current && status !== lastStatus.current && (status === "enviado" || status === "verificar")) router.refresh();
     lastStatus.current = status;
-  }, [draftId, router]);
+  }, [stableTarget, router]);
 
   const job = state?.job ?? null;
   const open = job ? OPEN_STATUSES.includes(job.status) : false;
@@ -232,7 +239,7 @@ export function PortalRobotPanel({ draftId, canRequest }: { draftId: string; can
 
       {showForm && (
         <PortalRobotRequestDialog
-          draftId={draftId}
+          target={stableTarget}
           onClose={() => setShowForm(false)}
           onSent={async () => {
             setShowForm(false);
@@ -246,7 +253,7 @@ export function PortalRobotPanel({ draftId, canRequest }: { draftId: string; can
 
 type ProcRow = { code: string; description: string; quantity: string };
 
-function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: string; onClose: () => void; onSent: () => void }) {
+function PortalRobotRequestDialog({ target, onClose, onSent }: { target: PortalRobotTarget; onClose: () => void; onSent: () => void }) {
   const [defaults, setDefaults] = useState<PortalRobotFormDefaults | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -266,7 +273,7 @@ function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: strin
 
   useEffect(() => {
     let alive = true;
-    getPortalRobotFormDefaults(draftId).then((res) => {
+    getPortalRobotFormDefaults(target).then((res) => {
       if (!alive) return;
       if (!res.success) {
         setLoadError(res.error);
@@ -284,15 +291,20 @@ function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: strin
         const saved = d.professionals.find((p) => p.council === prev.professional.council && p.register === prev.professional.register);
         setProfId(saved?.id ?? "novo");
         setProf({ ...prev.professional });
-      } else if (d.professionals.length === 1) {
-        setProfId(d.professionals[0].id);
-        setProf({ ...d.professionals[0] });
+      } else {
+        if (d.fallbackProcedures.length > 0) {
+          setProcs(d.fallbackProcedures.map((p) => ({ code: p.code, description: p.description, quantity: String(p.quantity) })));
+        }
+        if (d.professionals.length === 1) {
+          setProfId(d.professionals[0].id);
+          setProf({ ...d.professionals[0] });
+        }
       }
     });
     return () => {
       alive = false;
     };
-  }, [draftId]);
+  }, [target]);
 
   const pickProfessional = (id: string) => {
     setProfId(id);
@@ -305,7 +317,7 @@ function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: strin
   const submit = () => {
     setError(null);
     startTransition(async () => {
-      const res = await requestPortalRobot(draftId, {
+      const res = await requestPortalRobot(target, {
         mode,
         cardNumber: card,
         cid,
@@ -330,7 +342,7 @@ function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: strin
     setUploading(true);
     const fd = new FormData();
     fd.append("file", picked);
-    const res = await uploadPortalRobotLaudo(draftId, fd);
+    const res = await uploadPortalRobotLaudo(target, fd);
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (!res.success) {
@@ -490,7 +502,10 @@ function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: strin
                   onChange={(e) => uploadLaudo(e.target.files?.[0])}
                 />
               </div>
-              <span className="text-[12px]">PDF, JPG ou PNG. O arquivo enviado fica salvo nos arquivos deste contato.</span>
+              <span className="text-[12px]">
+                PDF, JPG ou PNG. O arquivo enviado fica salvo{" "}
+                {target.kind === "draft" ? "nos arquivos deste contato" : "nos documentos do paciente, como laudo"}.
+              </span>
             </div>
 
             <label className="flex flex-col gap-0.5 text-[13px] text-ink-soft">
