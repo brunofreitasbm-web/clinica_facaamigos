@@ -124,6 +124,11 @@ type TargetContext = {
 
 const TARGET_LABEL = { draft: "contato", authorization: "guia" } as const;
 
+/** PostgREST quando a coluna não existe no banco (migration ainda não aplicada). */
+function isMissingColumn(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST204" || error.code === "42703" || /column .* does not exist|Could not find the '.*' column/i.test(error.message ?? "");
+}
+
 function digits(value: unknown): string {
   return String(value ?? "").replace(/\D/g, "");
 }
@@ -442,16 +447,23 @@ export async function requestPortalRobot(target: PortalRobotTarget, input: Porta
     laudo: { file_id: file.id, storage_path: file.storagePath, name: file.name, mime_type: file.mimeType },
   };
 
-  const { error } = await db.from("portal_robot_jobs").insert({
-    clinic_id: ctx.clinicId,
+  const base = { clinic_id: ctx.clinicId, mode: req.mode, payload, requested_by: user.id };
+  let { error } = await db.from("portal_robot_jobs").insert({
+    ...base,
     draft_id: target.kind === "draft" ? target.id : null,
     authorization_id: target.kind === "authorization" ? target.id : null,
     patient_id: ctx.patientId,
-    mode: req.mode,
-    payload,
-    requested_by: user.id,
   });
+  // Banco sem a migration 20261111120000_portal_robot_renewals (colunas
+  // authorization_id/patient_id): o contato novo continua funcionando como antes.
+  if (error && isMissingColumn(error)) {
+    if (target.kind === "authorization") {
+      return { success: false, error: "O robô na renovação ainda não foi ativado no banco (falta a migration 20261111120000_portal_robot_renewals). Avise o responsável pelo sistema." };
+    }
+    ({ error } = await db.from("portal_robot_jobs").insert({ ...base, draft_id: target.id }));
+  }
   if (error) {
+    console.error("[portal-robot] falha ao enfileirar", error.code, error.message);
     if (error.code === "23505") {
       return { success: false, error: `Já existe um pedido em andamento no robô para este ${TARGET_LABEL[target.kind]}.` };
     }
