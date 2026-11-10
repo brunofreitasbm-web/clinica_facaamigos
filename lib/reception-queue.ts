@@ -13,7 +13,7 @@ import { computeLeadPendencies, desiredTherapiesFromBot, isBotDatumPresent, type
 import { isJobInquiryLead } from "@/lib/job-inquiry-pure";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
 import { isMissingIntakeColumnError } from "@/lib/intake-columns-pure";
-import { pickConsolidatedDraft } from "@/lib/intake-detail-pick-pure";
+import { draftReadFilters, pickConsolidatedDraft } from "@/lib/intake-detail-pick-pure";
 import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
 import { groupExpiringGuides, type ActiveGuide } from "@/lib/expiring-guides-pure";
 
@@ -975,9 +975,28 @@ function returnedInfo(d: {
   return { at: d.returned_to_reception_at, reason: d.returned_to_reception_reason ?? "", byName: by?.full_name ?? null };
 }
 
+/** Aplica draftReadFilters (lib/intake-detail-pick-pure.ts) a uma leitura de registration_drafts. */
+function applyDraftReadFilters<Q extends DraftReadQuery<Q>>(query: Q, onlyIds?: string[]): Q {
+  const f = draftReadFilters(onlyIds);
+  let q = query;
+  if (f.activeOnly) {
+    // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
+    q = q.neq("status", "rejected").or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null");
+  }
+  if (f.ids) q = q.in("id", f.ids);
+  return q;
+}
+
+type DraftReadQuery<Q> = {
+  neq(column: "status", value: string): Q;
+  or(filters: string): Q;
+  in(column: "id", values: string[]): Q;
+};
+
 /**
  * Leads ativos da recepção, já consolidados entre conversas do mesmo caso.
- * - `onlyIds`: lê só esses rascunhos (o detalhe da Fila passa os mesclados no caso; não relê a fila inteira).
+ * - `onlyIds`: lê só esses rascunhos, inclusive os já rejeitados por mescla (o detalhe da Fila passa os
+ *   mesclados no caso; não relê a fila inteira).
  * - `persistMerge: false`: consolida só em memória, sem gravar a mesclagem (leituras como o GET do detalhe).
  */
 async function getPendingRegistrationDrafts(
@@ -992,12 +1011,8 @@ async function getPendingRegistrationDrafts(
       .select(
         "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), plan_denied_at, plan_more_docs_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
       )
-      .eq("clinic_id", clinicId)
-      .neq("status", "rejected")
-      // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
-      .or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null")
-      .order("created_at", { ascending: true });
-  const full = await (onlyIds ? fullQuery.in("id", onlyIds) : fullQuery);
+      .eq("clinic_id", clinicId);
+  const full = await applyDraftReadFilters(fullQuery, onlyIds).order("created_at", { ascending: true });
   let data = full.data;
   if (full.error) {
     if (isMissingIntakeColumnError(full.error)) {
@@ -1007,12 +1022,8 @@ async function getPendingRegistrationDrafts(
       .select(
         "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
       )
-      .eq("clinic_id", clinicId)
-      .neq("status", "rejected")
-      // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
-      .or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null")
-      .order("created_at", { ascending: true });
-      const legacy = await (onlyIds ? legacyQuery.in("id", onlyIds) : legacyQuery);
+      .eq("clinic_id", clinicId);
+      const legacy = await applyDraftReadFilters(legacyQuery, onlyIds).order("created_at", { ascending: true });
       if (legacy.error) {
         console.error("getPendingRegistrationDrafts: erro ao ler registration_drafts", legacy.error.code, legacy.error.message);
       }

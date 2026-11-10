@@ -9,6 +9,7 @@ import {
   areDraftsSameCase,
   areNamesConflicting,
   areNamesMatching,
+  consolidateRegistrationDrafts,
   arePhonesMatching,
   extractDraftIdentity,
   groupMatchingDrafts,
@@ -213,6 +214,24 @@ test("groupMatchingDrafts e mergeRegistrationDraftGroup: unem conversas do mesmo
   assert.deepEqual(merged.mergedDraftIds, [merged.id, ...groups[0].map((d) => d.id).filter((id) => id !== merged.id)]);
   assert.match(merged.guardianMessage ?? "", /certidão/);
   assert.match(merged.guardianMessage ?? "", /laudo/);
+
+  // Depois da mescla gravada em segundo plano o secundário fica "rejected" e com os arquivos movidos. A leitura
+  // por ids do detalhe ainda o traz e a consolidação o mantém no caso: mesmo resultado da lista.
+  const rejectedSecondary = {
+    ...draft2,
+    status: "rejected" as PendingRegistrationDraft["status"],
+    files: [],
+    pipeline: { ...draft2.pipeline, guideSentAt: "2026-09-21T10:00:00Z" },
+    documentRequests: [{ key: "laudo_medico" as const, sentAt: "2026-09-21T09:00:00Z" }],
+  };
+  const movedPrimary = { ...draft1, files: [...draft1.files, ...draft2.files] };
+  const [byIds] = consolidateRegistrationDrafts([movedPrimary, rejectedSecondary], pendencySources, undefined, { persist: false });
+  assert.equal(byIds.id, "d1");
+  assert.deepEqual(byIds.mergedDraftIds, ["d1", "d2"]);
+  assert.equal(byIds.mergedDraftsCount, 2);
+  assert.equal(byIds.pipeline.guideSentAt, "2026-09-21T10:00:00Z");
+  assert.equal(byIds.documentRequests.length, 1);
+  assert.equal(byIds.files.length, 2);
 });
 
 test("areDraftsSameCase: nome completo idêntico (3+ palavras) junta mesmo sem telefone/responsável", () => {

@@ -6,9 +6,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { pickConsolidatedDraft } from "../lib/intake-detail-pick-pure.ts";
+import { draftReadFilters, pickConsolidatedDraft } from "../lib/intake-detail-pick-pure.ts";
+import { isPathAllowedForRole } from "../lib/roles.ts";
 import {
+  FILA_DETAIL_PATH,
   MAX_MEMBER_IDS,
+  classifyDetailResponse,
+  filaDetailUrl,
   detailLoadReducer,
   isDetailLocked,
   parseMemberIds,
@@ -81,6 +85,7 @@ test("parseMemberIds: sem ids usa o próprio caso; recusa id inválido, lista lo
   assert.equal(parseMemberIds(`${A},nope`, A), null);
   assert.equal(parseMemberIds(Array(21).fill(A).join(","), A), null);
   assert.equal(parseMemberIds("", A), null);
+  assert.deepEqual(parseMemberIds(`${A},${A},${B},${B}`, A), [A, B]);
   assert.equal(MAX_MEMBER_IDS, 20);
 });
 
@@ -138,7 +143,7 @@ test("toFilaDetail leva as marcas do plano e não leva campos pesados além do q
 });
 
 test("rota: sessão antes do id, 401 JSON sem cache, consolidado sem persistir, nunca o avulso como primeira fonte", () => {
-  const route = readFileSync("app/api/recepcao/fila/[draftId]/route.ts", "utf8").replace(/\/\/.*$/gm, "");
+  const route = readFileSync("app/recepcao/fila/detalhe/[draftId]/route.ts", "utf8").replace(/\/\/.*$/gm, "");
   assert.ok(route.indexOf("getUser()") < route.indexOf("isUuid(draftId)"));
   assert.match(route, /\{ error: "unauthenticated" \}, \{ status: 401, headers: NO_STORE \}/);
   assert.match(route, /"Cache-Control": "private, no-store"/);
@@ -154,11 +159,13 @@ test("rota: sessão antes do id, 401 JSON sem cache, consolidado sem persistir, 
 test("a tela não usa mais a server action de detalhe", () => {
   assert.equal(existsSync("app/recepcao/fila/fila-detail-action.ts"), false);
   assert.equal(existsSync("app/api/recepcao/fila-de-entrada"), false);
+  assert.equal(existsSync("app/api/recepcao/fila"), false);
   const panel = readFileSync("app/recepcao/fila/fila-detail.tsx", "utf8");
-  assert.match(panel, /\/api\/recepcao\/fila\/\$\{item\.draftId\}\?ids=/);
+  assert.match(panel, /filaDetailUrl\(item\.draftId, item\.memberDraftIds\)/);
+  assert.match(panel, /redirect: "manual"/);
+  assert.match(panel, /classifyDetailResponse\(/);
   assert.match(panel, /new AbortController\(\)/);
   assert.match(panel, /cache: "no-store"/);
-  assert.match(panel, /res\.status === 401/);
   assert.match(panel, /Sua sessão expirou\. Entre de novo\./);
   assert.match(panel, /Tentar de novo/);
   assert.match(panel, /Atualizando…/);
@@ -166,4 +173,50 @@ test("a tela não usa mais a server action de detalhe", () => {
   const step = readFileSync("app/recepcao/fila/fila-next-step.tsx", "utf8");
   assert.doesNotMatch(step, /const locked = false/);
   assert.match(step, /locked: boolean/);
+});
+
+test("a rota do detalhe mora sob /recepcao: o guard de papel deixa recepção, supervisão e gestor passarem", () => {
+  const A = "11111111-1111-4111-8111-111111111111";
+  const url = filaDetailUrl(A, [A]);
+  assert.equal(url, `${FILA_DETAIL_PATH}/${A}?ids=${A}`);
+  assert.ok(existsSync("app/recepcao/fila/detalhe/[draftId]/route.ts"));
+  const path = url.split("?")[0];
+  for (const role of ["recepcao", "supervisor", "gestor"] as const) assert.equal(isPathAllowedForRole(role, path), true, role);
+  // O caminho antigo (/api/...) era redirecionado para a home da recepção e o fetch recebia HTML.
+  assert.equal(isPathAllowedForRole("recepcao", `/api/recepcao/fila/${A}`), false);
+  assert.equal(isPathAllowedForRole("supervisor", `/api/recepcao/fila/${A}`), false);
+  assert.equal(isPathAllowedForRole("terapeuta", path), false);
+  assert.equal(isPathAllowedForRole(undefined, path), true);
+});
+
+test("isPathAllowedForRole: mesma regra do middleware (home + prefixos; gestor isento)", () => {
+  assert.equal(isPathAllowedForRole("faturamento", "/recepcao/pacientes/1"), true);
+  assert.equal(isPathAllowedForRole("faturamento", "/recepcao/fila"), false);
+  assert.equal(isPathAllowedForRole("recepcao", "/m/atendimento"), true);
+  assert.equal(isPathAllowedForRole("responsavel", "/familia/x"), true);
+  assert.equal(isPathAllowedForRole("gestor", "/qualquer"), true);
+  const mw = readFileSync("lib/supabase/middleware.ts", "utf8");
+  assert.match(mw, /isPathAllowedForRole\(role, pathname\)/);
+});
+
+test("classifyDetailResponse: redirecionamento ou HTML é sessão expirada; 404 é caso sumido", () => {
+  const json = "application/json; charset=utf-8";
+  assert.equal(classifyDetailResponse({ status: 200, type: "basic", redirected: false, contentType: json }), "ok");
+  assert.equal(classifyDetailResponse({ status: 0, type: "opaqueredirect", redirected: false, contentType: null }), "auth");
+  assert.equal(classifyDetailResponse({ status: 401, type: "basic", redirected: false, contentType: json }), "auth");
+  assert.equal(classifyDetailResponse({ status: 200, type: "basic", redirected: true, contentType: "text/html" }), "auth");
+  assert.equal(classifyDetailResponse({ status: 200, type: "basic", redirected: false, contentType: "text/html; charset=utf-8" }), "auth");
+  assert.equal(classifyDetailResponse({ status: 404, type: "basic", redirected: false, contentType: json }), "notfound");
+  assert.equal(classifyDetailResponse({ status: 400, type: "basic", redirected: false, contentType: json }), "error");
+  assert.equal(classifyDetailResponse({ status: 500, type: "basic", redirected: false, contentType: "text/html" }), "error");
+});
+
+test("leitura por ids não filtra rejeitados nem só ativos (a lista já decidiu quem é do caso)", () => {
+  assert.deepEqual(draftReadFilters(), { ids: null, activeOnly: true });
+  assert.deepEqual(draftReadFilters(["a", "b"]), { ids: ["a", "b"], activeOnly: false });
+  const lib = readFileSync("lib/reception-queue.ts", "utf8");
+  const fn = /async function getPendingRegistrationDrafts[\s\S]*?\n}\n/.exec(lib)?.[0] ?? "";
+  assert.equal((fn.match(/applyDraftReadFilters\(/g) ?? []).length, 2, "as duas leituras (completa e legada) usam o filtro");
+  assert.doesNotMatch(fn, /\.neq\("status", "rejected"\)/, "o filtro de ativos mora em applyDraftReadFilters");
+  assert.doesNotMatch(fn, /\.in\("id"/);
 });

@@ -1,7 +1,12 @@
-// app/api/recepcao/fila/[draftId]/route.ts
+// app/recepcao/fila/detalhe/[draftId]/route.ts
 //
 // Detalhe de uma família da Fila de entrada (/recepcao/fila), carregado quando o operador a seleciona.
 // A lista só leva o resumo (FilaItem); arquivos, dados lidos, cobranças e pendências vêm daqui.
+//
+// Mora sob /recepcao (e não /api) porque o guard de papel do middleware só libera, para recepção e
+// supervisão, os prefixos do papel (lib/roles.ts, isPathAllowedForRole); em /api o fetch era redirecionado
+// para a home e recebia HTML. Sessão expirada também é redirecionada pelo middleware (para /login) antes de
+// chegar aqui; o cliente trata isso (classifyDetailResponse). O 401 abaixo fica como defesa.
 //
 // Devolve o MESMO caso consolidado em que a lista se baseia: `?ids=` traz os rascunhos que a lista mesclou
 // nesta família (FilaItem.memberDraftIds) e getConsolidatedRegistrationDraft consolida só eles, sem reler a

@@ -72,3 +72,15 @@ export const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
   faturamento: ["/faturamento", "/gestor/cadastros/convenios", "/recepcao/pacientes"],
   responsavel: ["/familia"],
 };
+
+/**
+ * Regra do guard de papel em `lib/supabase/middleware.ts`: libera a home do papel e os prefixos de
+ * `ROLE_ALLOWED_PREFIXES`; `gestor` (ou papel desconhecido/ausente) não passa pelo guard. Pura, para testar
+ * que uma rota nova (ex.: o GET do detalhe da Fila) não é redirecionada para a home.
+ */
+export function isPathAllowedForRole(role: Role | undefined, pathname: string): boolean {
+  if (!role || role === "gestor") return true;
+  const home = ROLE_HOME[role];
+  if (!home) return true;
+  return [home, ...ROLE_ALLOWED_PREFIXES[role]].some((prefix) => pathname.startsWith(prefix));
+}

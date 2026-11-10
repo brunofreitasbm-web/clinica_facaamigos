@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { ROLE_HOME, ROLE_ALLOWED_PREFIXES, type Role } from "@/lib/roles";
+import { ROLE_HOME, isPathAllowedForRole, type Role } from "@/lib/roles";
 import { isNextError } from "@/lib/next-utils";
 import { isProfileBlocked } from "@/lib/profile-access";
 import { PUBLIC_PREFIXES } from "@/lib/public-paths";
@@ -120,14 +120,9 @@ export async function updateSession(request: NextRequest) {
         !isSessionOnlyPath(pathname)
       ) {
         const role = profile?.role as Role | undefined;
-        const home = role ? ROLE_HOME[role] : undefined;
-
-        if (role && role !== "gestor" && home) {
-          const allowedPrefixes = [home, ...ROLE_ALLOWED_PREFIXES[role]];
-          const isAllowed = allowedPrefixes.some((prefix) => pathname.startsWith(prefix));
-          if (!isAllowed) {
-            return NextResponse.redirect(new URL(home, request.url));
-          }
+        // Regra pura em lib/roles.ts (testada): home + prefixos do papel; gestor isento.
+        if (role && !isPathAllowedForRole(role, pathname)) {
+          return NextResponse.redirect(new URL(ROLE_HOME[role], request.url));
         }
       }
     }

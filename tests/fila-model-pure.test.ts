@@ -533,3 +533,11 @@ test("item da lista leva os rascunhos mesclados (padrão: só o próprio) e nada
     assert.equal(heavy in i, false, heavy);
   }
 });
+
+test("caso com mais rascunhos que o teto da rota: a lista corta mantendo o principal primeiro e sem repetir", () => {
+  const many = Array.from({ length: 30 }, (_, n) => `m${n}`);
+  const i = buildFilaItem(src({ memberDraftIds: [...many, "d1", "m1"] }), NOW);
+  assert.equal(i.memberDraftIds.length, 20);
+  assert.equal(i.memberDraftIds[0], "d1");
+  assert.equal(new Set(i.memberDraftIds).size, 20);
+});

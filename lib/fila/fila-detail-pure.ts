@@ -1,5 +1,5 @@
 // lib/fila/fila-detail-pure.ts
-// Detalhe de uma família da Fila de entrada, carregado sob demanda pela rota GET /api/recepcao/fila/[draftId].
+// Detalhe de uma família da Fila de entrada, carregado sob demanda pela rota GET /recepcao/fila/detalhe/[draftId].
 // PURO, sem I/O e sem imports com alias `@/` (testado em tests/fila-detail.test.ts).
 //
 // O detalhe sai do MESMO caso consolidado da lista: o item da lista leva os ids dos rascunhos mesclados nele
@@ -97,7 +97,39 @@ export function parseMemberIds(raw: string | null, draftId: string): string[] | 
   if (ids.length < 1 || ids.length > MAX_MEMBER_IDS) return null;
   if (!ids.every((id) => UUID_RE.test(id))) return null;
   if (!ids.includes(draftId)) return null;
-  return ids;
+  return [...new Set(ids)];
+}
+
+/**
+ * Onde mora o GET do detalhe. Fica sob /recepcao (e não /api) porque o guard de papel do middleware só
+ * libera, para recepção e supervisão, caminhos com os prefixos do papel (lib/roles.ts); fora deles o
+ * fetch seria redirecionado para a home e receberia HTML.
+ */
+export const FILA_DETAIL_PATH = "/recepcao/fila/detalhe";
+
+export function filaDetailUrl(draftId: string, memberIds: string[]): string {
+  return `${FILA_DETAIL_PATH}/${encodeURIComponent(draftId)}?ids=${memberIds.map(encodeURIComponent).join(",")}`;
+}
+
+export type DetailResponseKind = "ok" | "auth" | "notfound" | "error";
+
+/**
+ * Lê a resposta do fetch (feito com `redirect: "manual"`). Sessão expirada quase nunca chega ao 401 da rota:
+ * o middleware redireciona para /login antes. Então redirecionamento (opaqueredirect), resposta redirecionada
+ * ou uma página HTML no lugar do JSON contam como sessão expirada.
+ */
+export function classifyDetailResponse(res: {
+  status: number;
+  type: string;
+  redirected: boolean;
+  contentType: string | null;
+}): DetailResponseKind {
+  if (res.type === "opaqueredirect" || res.redirected || res.status === 401) return "auth";
+  if (res.status === 404) return "notfound";
+  if (res.status >= 200 && res.status < 300) {
+    return (res.contentType ?? "").toLowerCase().includes("application/json") ? "ok" : "auth";
+  }
+  return "error";
 }
 
 export type DetailLoad =

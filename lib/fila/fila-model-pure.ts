@@ -7,6 +7,8 @@
 //
 // A etapa segue a mesma prioridade da tela atual (draftStage): documento faltando vem antes da guia.
 
+import { MAX_MEMBER_IDS } from "./fila-detail-pure.ts";
+
 export type FilaGroup = "agir" | "familia" | "plano" | "concluidos";
 
 export const FILA_GROUPS: { key: FilaGroup; label: string; hint: string }[] = [
@@ -321,6 +323,15 @@ function computeStep(
   };
 }
 
+/**
+ * Ids que o detalhe consolida: o principal primeiro, sem repetir, no máximo MAX_MEMBER_IDS (o teto da rota;
+ * passar dele faria o detalhe falhar sempre). Num caso maior que o teto, o detalhe consolida os primeiros.
+ */
+function memberIdsFor(src: FilaSource): string[] {
+  const ids = [src.draftId, ...(src.memberDraftIds ?? []).filter((id) => id !== src.draftId)];
+  return [...new Set(ids)].slice(0, MAX_MEMBER_IDS);
+}
+
 export function buildFilaItem(src: FilaSource, nowMs: number): FilaItem {
   const requested = new Set(src.documentRequests.map((r) => r.key));
   const unrequested = src.missingDocs.filter((d) => !requested.has(d.key)).map((d) => d.key);
@@ -352,7 +363,7 @@ export function buildFilaItem(src: FilaSource, nowMs: number): FilaItem {
   return {
     id: src.id,
     draftId: src.draftId,
-    memberDraftIds: src.memberDraftIds && src.memberDraftIds.length > 0 ? [...src.memberDraftIds] : [src.draftId],
+    memberDraftIds: memberIdsFor(src),
     child: src.patientName,
     guardian,
     plan,

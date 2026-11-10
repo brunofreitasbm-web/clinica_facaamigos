@@ -19,12 +19,20 @@ import {
 import { DraftAdjustButton } from "../pacientes/pendencias/draft-adjust-dialog";
 import { MoveToLastButton } from "../pacientes/pendencias/move-to-last-button";
 import { ReassignOwnerButton } from "../pacientes/pendencias/reassign-owner-button";
-import { detailLoadReducer, isDetailLocked, type DetailLoad, type FilaDetail } from "@/lib/fila/fila-detail-pure";
+import {
+  classifyDetailResponse,
+  detailLoadReducer,
+  filaDetailUrl,
+  isDetailLocked,
+  type DetailLoad,
+  type FilaDetail,
+} from "@/lib/fila/fila-detail-pure";
 import { FilaNextStep } from "./fila-next-step";
 import type { UndoEntry } from "./undo-toast";
 
 const AUTH_MESSAGE = "Sua sessão expirou. Entre de novo.";
 const GENERIC_ERROR = "Não foi possível carregar os detalhes.";
+const NOT_FOUND = "Este caso não foi encontrado. Atualize a lista.";
 const INITIAL_LOAD: DetailLoad = { status: "loading", requestId: 0 };
 
 const DOC_STATE_LABEL: Record<string, string> = {
@@ -73,17 +81,30 @@ export function FilaDetailPanel({
     const requestId = requestSeq.current;
     const controller = new AbortController();
     dispatch({ type: "start", requestId });
-    fetch(`/api/recepcao/fila/${item.draftId}?ids=${encodeURIComponent(memberIds)}`, {
+    // redirect: "manual": o middleware redireciona sessão expirada para /login; sem isso o fetch seguiria o
+    // redirecionamento e receberia a página de login em HTML.
+    fetch(filaDetailUrl(item.draftId, item.memberDraftIds), {
       cache: "no-store",
+      redirect: "manual",
       signal: controller.signal,
     })
       .then(async (res) => {
-        if (res.status === 401) {
+        const kind = classifyDetailResponse({
+          status: res.status,
+          type: res.type,
+          redirected: res.redirected,
+          contentType: res.headers.get("content-type"),
+        });
+        if (kind === "auth") {
           dispatch({ type: "fail", requestId, kind: "auth", message: AUTH_MESSAGE });
           return;
         }
+        if (kind === "notfound") {
+          dispatch({ type: "fail", requestId, kind: "other", message: NOT_FOUND });
+          return;
+        }
         const body: unknown = await res.json().catch(() => null);
-        if (!res.ok || !body || typeof body !== "object") {
+        if (kind !== "ok" || !body || typeof body !== "object") {
           const message = body && typeof body === "object" && "error" in body && typeof body.error === "string" ? body.error : GENERIC_ERROR;
           dispatch({ type: "fail", requestId, kind: "other", message });
           return;
