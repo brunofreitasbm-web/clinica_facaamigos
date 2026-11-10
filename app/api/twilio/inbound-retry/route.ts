@@ -1,3 +1,4 @@
+import { isValidCronSecret } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { markInbound, INBOUND_MAX_ATTEMPTS } from "@/lib/twilio-inbound-queue";
@@ -19,9 +20,8 @@ const BATCH = 10;
  * Chamado pelo pg_cron a cada minuto (mesmo padrão de /api/twilio/absence/trigger).
  */
 export async function POST(req: NextRequest) {
-  const envCronSecret = process.env.CRON_SECRET;
   const cronSecret = req.headers.get("x-cron-secret");
-  if (!envCronSecret || !cronSecret || cronSecret !== envCronSecret) {
+  if (!isValidCronSecret(cronSecret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

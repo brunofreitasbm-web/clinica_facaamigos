@@ -1,3 +1,4 @@
+import { isValidCronSecret } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -9,9 +10,8 @@ import { NextRequest, NextResponse } from "next/server";
  * respondendo (o cron não quebra), mas não envia nada.
  */
 export async function POST(req: NextRequest) {
-  const envCronSecret = process.env.CRON_SECRET;
   const cronSecret = req.headers.get("x-cron-secret");
-  if (!envCronSecret || !cronSecret || cronSecret !== envCronSecret) {
+  if (!isValidCronSecret(cronSecret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   return NextResponse.json({ sent: 0, failed: 0, disabled: true });

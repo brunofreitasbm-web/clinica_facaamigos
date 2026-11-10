@@ -1,3 +1,4 @@
+import { isValidCronSecret } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -10,9 +11,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * (mesmo padrão de /api/twilio/absence/trigger).
  */
 export async function POST(req: NextRequest) {
-  const envCronSecret = process.env.CRON_SECRET;
   const cronSecret = req.headers.get("x-cron-secret");
-  if (!envCronSecret || !cronSecret || cronSecret !== envCronSecret) {
+  if (!isValidCronSecret(cronSecret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

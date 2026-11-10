@@ -5,6 +5,7 @@ import { formatE164Phone } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { buildStoragePointer } from "@/lib/whatsapp-media-pure";
 import { revalidatePath } from "next/cache";
+import { requireStaff } from "@/lib/require-staff";
 
 export interface AnamnesisRequestItem {
   id: string;
@@ -33,6 +34,8 @@ export async function getPendingAnamnesisRequestsAction(): Promise<{
   error?: string;
 }> {
   try {
+    const staff = await requireStaff();
+    if (!staff.ok) return { success: false, error: staff.error };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createAdminClient() as any;
 
@@ -74,6 +77,8 @@ export async function createMockWhatsAppAnamnesisRequestAction(): Promise<{
   error?: string;
 }> {
   try {
+    const staff = await requireStaff();
+    if (!staff.ok) return { success: false, error: staff.error };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createAdminClient() as any;
 
@@ -204,6 +209,8 @@ export async function approveAnamnesisDocumentAction(
   supervisorId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const staff = await requireStaff();
+    if (!staff.ok) return { success: false, error: staff.error };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createAdminClient() as any;
 
@@ -298,6 +305,8 @@ export async function rejectAnamnesisDocumentAction(
   rejectionReason: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const staff = await requireStaff();
+    if (!staff.ok) return { success: false, error: staff.error };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createAdminClient() as any;
 

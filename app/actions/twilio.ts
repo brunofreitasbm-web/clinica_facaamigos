@@ -18,6 +18,7 @@ export async function checkTwilioStatusAction() {
 }
 
 import { createClient } from "@/lib/supabase/server";
+import { requireStaff } from "@/lib/require-staff";
 
 export async function sendTwilioNotificationAction(params: {
   to: string;
@@ -37,6 +38,12 @@ export async function sendTwilioNotificationAction(params: {
       channel: params.channel,
       error: "Não autorizado",
     };
+  }
+
+  // Disparo pelo número oficial da clínica: só equipe (nunca a família).
+  const staff = await requireStaff();
+  if (!staff.ok) {
+    return { success: false, channel: params.channel, error: staff.error };
   }
 
   const { to, message, channel, patientId, mediaUrl } = params;

@@ -1,3 +1,4 @@
+import { isValidCronSecret } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { runHandoffResumeTick } from "@/lib/handoff-resume";
 
@@ -9,9 +10,8 @@ export const maxDuration = 60;
  * Mesmo padrão de autenticação de /api/twilio/inbound-retry.
  */
 export async function POST(req: NextRequest) {
-  const envCronSecret = process.env.CRON_SECRET;
   const cronSecret = req.headers.get("x-cron-secret");
-  if (!envCronSecret || !cronSecret || cronSecret !== envCronSecret) {
+  if (!isValidCronSecret(cronSecret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

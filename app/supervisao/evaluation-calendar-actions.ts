@@ -1,5 +1,6 @@
 "use server";
 
+import { requireStaff } from "@/lib/require-staff";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
@@ -97,6 +98,8 @@ export async function getPendingConfirmationsAction(): Promise<
   { success: true; pending: PendingConfirmationItem[] } | { success: false; error: string }
 > {
   try {
+    const staff = await requireStaff();
+    if (!staff.ok) return { success: false, error: staff.error };
     const admin = createAdminClient();
     const { data: appointments, error } = await admin
       .from("appointments")

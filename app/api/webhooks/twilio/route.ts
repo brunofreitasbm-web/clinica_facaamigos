@@ -107,7 +107,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Assinatura inválida." }, { status: 403 });
     }
 
-    console.log(`[Twilio Webhook Received] From: ${from} | Body: "${bodyText}" | MediaUrl0: "${mediaUrl0}"`);
+    // Sem PII no log: telefone mascarado, corpo só pelo tamanho.
+    console.log(`[Twilio Webhook Received] From: ***${String(from).slice(-4)} | BodyLen: ${bodyText?.length ?? 0} | Media: ${mediaUrl0 ? "sim" : "não"}`);
 
     const payload: InboundTwilioPayload = {
       from,
@@ -155,7 +156,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[Twilio Webhook Error]:", error);
-    const errMessage = error instanceof Error ? error.message : "Erro interno no webhook Twilio";
-    return NextResponse.json({ success: false, error: errMessage }, { status: 400 });
+    return NextResponse.json({ success: false, error: "Erro interno no webhook Twilio" }, { status: 400 });
   }
 }

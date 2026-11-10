@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       channel: result.channel,
     });
   } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMessage }, { status: 500 });
+    console.error("[notifications/send] erro inesperado:", error);
+    return NextResponse.json({ error: "Erro interno ao enviar a mensagem." }, { status: 500 });
   }
 }

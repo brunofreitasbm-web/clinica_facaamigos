@@ -1,3 +1,4 @@
+import { isValidCronSecret } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { claimAndProcessDrafts } from "@/lib/registration-drafts-process";
 
@@ -17,9 +18,8 @@ export const maxDuration = 60;
  * esta rota GET/POST existe pro cron e para testes manuais com curl).
  */
 export async function POST(req: NextRequest) {
-  const envCronSecret = process.env.CRON_SECRET;
   const cronSecret = req.headers.get("x-cron-secret");
-  if (!envCronSecret || !cronSecret || cronSecret !== envCronSecret) {
+  if (!isValidCronSecret(cronSecret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -30,8 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ processed: results.length, results });
   } catch (error) {
     console.error("[Extractions Process Route Error]:", error);
-    const errMessage = error instanceof Error ? error.message : "Erro interno";
-    return NextResponse.json({ success: false, error: errMessage }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Erro interno" }, { status: 500 });
   }
 }
 

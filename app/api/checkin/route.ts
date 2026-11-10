@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       if (existing) {
         const response = successResponse(existing.ticket_label);
-        response.cookies.set("ck_pt", existing.public_token, { httpOnly: true, sameSite: "lax", path: "/checkin" });
+        response.cookies.set("ck_pt", existing.public_token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/checkin" });
         return response;
       }
     }
@@ -189,6 +189,6 @@ export async function POST(req: NextRequest) {
   }
 
   const response = successResponse(inserted.ticket_label);
-  response.cookies.set("ck_pt", inserted.public_token, { httpOnly: true, sameSite: "lax", path: "/checkin" });
+  response.cookies.set("ck_pt", inserted.public_token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/checkin" });
   return response;
 }
