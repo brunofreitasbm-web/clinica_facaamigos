@@ -641,7 +641,7 @@ export type DraftPipeline = {
   returned: { at: string; reason: string; byName: string | null } | null;
   /**
    * "Plano negou" / "Plano pediu mais documentos" como gravados (20261110120000), sem checar se
-   * já foram resolvidos. Quem decide se ainda valem é activePlanOutcome (lib/intake-queue-build-pure.ts):
+   * já foram resolvidos. Quem decide se ainda valem é activePlanOutcome (lib/fila/fila-model-pure.ts):
    * reenviar a guia depois da marca, ou o plano autorizar, resolve.
    */
   planDeniedAt: string | null;

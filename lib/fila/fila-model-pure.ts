@@ -30,6 +30,10 @@ export type FilaSource = {
     authorization: "pendente" | "enviada" | "autorizada" | "dispensada";
     schedulingEnabledAt: string | null;
     returned: { reason: string; byName: string | null } | null;
+    /** Ausentes valem null (migração pendente ou chamador antigo). */
+    guideSentAt?: string | null;
+    planDeniedAt?: string | null;
+    planAskedMoreDocsAt?: string | null;
   };
   /** `pendencies.missingCount`: documentos E dados que faltam. */
   missingCount: number;
@@ -50,6 +54,7 @@ export type FilaStepKind =
   | "wait_family"
   | "review_data"
   | "send_guide"
+  | "plan_more_docs"
   | "wait_plan"
   | "enable_scheduling"
   | "with_supervision";
@@ -87,8 +92,78 @@ export type FilaItem = {
   assignedToName: string | null;
   overdue: boolean;
   postponed: boolean;
+  /** Resposta do plano que ainda vale (negou ou pediu mais documentos); null quando nenhuma. */
+  planOutcome: PlanOutcome;
+  planOutcomeAt: string | null;
+  /** Documentos a pedir à família quando o plano pediu mais (todos os que faltam); vazio fora desse caso. */
+  moreDocsKeys: string[];
   /** Texto normalizado para a busca. */
   searchText: string;
+};
+
+/** Dias sem resposta da família, depois da cobrança do pedido do plano, até a fila voltar para Agir agora. */
+export const FAMILY_WAIT_DAYS = 3;
+
+export type PlanOutcome = "denied" | "more_docs" | null;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function ms(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const t = Date.parse(value);
+  return Number.isNaN(t) ? null : t;
+}
+
+/**
+ * Negativa e pedido de mais documentos que ainda valem. Uma marca deixa de valer quando:
+ *   - o plano autorizou (ou o caso foi dispensado como particular), ou
+ *   - a guia foi enviada de novo depois dela (guideSentAt mais novo que a marca).
+ * Com as duas valendo, fica só a mais recente: é a última resposta do plano.
+ */
+export function activePlanOutcome(p: {
+  authorization: FilaSource["pipeline"]["authorization"];
+  guideSentAt: string | null;
+  planDeniedAt: string | null;
+  planAskedMoreDocsAt: string | null;
+}): { planDeniedAt: string | null; planAskedMoreDocsAt: string | null } {
+  if (p.authorization === "autorizada" || p.authorization === "dispensada") {
+    return { planDeniedAt: null, planAskedMoreDocsAt: null };
+  }
+  const sent = ms(p.guideSentAt);
+  const stillOpen = (at: string | null) => {
+    const t = ms(at);
+    if (t === null) return false;
+    return sent === null || sent <= t;
+  };
+  let denied = stillOpen(p.planDeniedAt) ? p.planDeniedAt : null;
+  let asked = stillOpen(p.planAskedMoreDocsAt) ? p.planAskedMoreDocsAt : null;
+  if (denied && asked) {
+    if ((ms(denied) ?? 0) >= (ms(asked) ?? 0)) asked = null;
+    else denied = null;
+  }
+  return { planDeniedAt: denied, planAskedMoreDocsAt: asked };
+}
+
+/** Situação do pedido de mais documentos do plano, a partir das cobranças enviadas depois dele. */
+type MoreDocsState = { chasedAt: string | null; chasedDays: number };
+
+function moreDocsState(src: FilaSource, askedAt: string, nowMs: number): MoreDocsState {
+  const askedMs = ms(askedAt) ?? 0;
+  let best: string | null = null;
+  let bestMs = -Infinity;
+  for (const r of src.documentRequests) {
+    const t = ms(r.sentAt);
+    if (t !== null && t >= askedMs && t > bestMs) {
+      bestMs = t;
+      best = r.sentAt;
+    }
+  }
+  return { chasedAt: best, chasedDays: best ? Math.max(0, Math.floor((nowMs - bestMs) / DAY_MS)) : 0 };
+}
+
+type OutcomeCtx = {
+  outcome: PlanOutcome;
+  moreDocs: MoreDocsState | null;
 };
 
 const fact = (facts: FilaSource["facts"], label: string): string | null =>
@@ -108,8 +183,15 @@ function listLabels(docs: { key: string; label: string }[], keys: string[]): str
     .join(", ");
 }
 
-function computeGroup(src: FilaSource, unrequested: string[]): FilaGroup {
+function computeGroup(src: FilaSource, unrequested: string[], ctx: OutcomeCtx): FilaGroup {
   if (src.pipeline.schedulingEnabledAt) return "concluidos";
+  if (ctx.outcome === "denied") return "agir";
+  if (ctx.outcome === "more_docs" && ctx.moreDocs) {
+    const { chasedAt, chasedDays } = ctx.moreDocs;
+    if (chasedAt && src.missingDocs.length === 0) return "agir";
+    if (chasedAt && chasedDays < FAMILY_WAIT_DAYS) return "familia";
+    return "agir";
+  }
   if (src.missingCount > 0) {
     // Tudo o que falta (e que se pode cobrar) já foi pedido: a bola está com a família.
     return src.missingDocs.length > 0 && unrequested.length === 0 ? "familia" : "agir";
@@ -117,7 +199,55 @@ function computeGroup(src: FilaSource, unrequested: string[]): FilaGroup {
   return src.pipeline.authorization === "enviada" ? "plano" : "agir";
 }
 
-function computeStep(src: FilaSource, group: FilaGroup, unrequested: string[], requestedMissing: string[]): FilaStep {
+/** Passo quando o plano respondeu (negou ou pediu mais documentos); null segue o fluxo comum. */
+function computeOutcomeStep(src: FilaSource, group: FilaGroup, requestedMissing: string[], ctx: OutcomeCtx): FilaStep | null {
+  if (group === "concluidos") return null;
+  const resend = (listText: string): FilaStep => ({
+    kind: "send_guide",
+    listText,
+    title: "Enviar a guia de novo",
+    description:
+      ctx.outcome === "denied"
+        ? `O plano negou a guia. Ajuste o que for preciso e envie de novo.${src.missingCount > 0 ? " Ainda faltam documentos: o plano pode negar de novo." : ""}`
+        : "Os documentos que o plano pediu chegaram. Envie a guia de novo e registre aqui.",
+    primaryLabel: "Registrar guia enviada",
+  });
+  if (ctx.outcome === "denied") return resend("Plano negou: enviar a guia de novo");
+  if (ctx.outcome !== "more_docs" || !ctx.moreDocs) return null;
+  const { chasedAt, chasedDays } = ctx.moreDocs;
+  if (chasedAt && src.missingDocs.length === 0) return resend("Documentos chegaram: reenviar a guia");
+  const canRemind = requestedMissing.length > 0;
+  if (group === "familia") {
+    return {
+      kind: "wait_family",
+      listText: "Plano pediu mais documentos: aguardando a família",
+      title: "Aguardando a família",
+      description:
+        "Pedido enviado. Quando os documentos chegarem, a família volta sozinha para Agir agora. Se demorar, envie um lembrete.",
+      primaryLabel: canRemind ? "Enviar lembrete" : "Abrir conversa no Chat",
+    };
+  }
+  const hasKeys = src.missingDocs.length > 0;
+  return {
+    kind: "plan_more_docs",
+    listText: chasedAt
+      ? `Plano pediu mais documentos: família sem resposta há ${chasedDays} dias`
+      : "Plano pediu mais documentos",
+    title: "O plano pediu mais documentos",
+    description: "Peça à família o que o plano pediu. Quando chegar, registre a guia enviada de novo.",
+    primaryLabel: hasKeys ? "Pedir documentos à família" : "Abrir conversa no Chat",
+  };
+}
+
+function computeStep(
+  src: FilaSource,
+  group: FilaGroup,
+  unrequested: string[],
+  requestedMissing: string[],
+  ctx: OutcomeCtx,
+): FilaStep {
+  const outcomeStep = computeOutcomeStep(src, group, requestedMissing, ctx);
+  if (outcomeStep) return outcomeStep;
   if (group === "concluidos") {
     return {
       kind: "with_supervision",
@@ -187,12 +317,31 @@ function computeStep(src: FilaSource, group: FilaGroup, unrequested: string[], r
   };
 }
 
-export function buildFilaItem(src: FilaSource): FilaItem {
+export function buildFilaItem(src: FilaSource, nowMs: number): FilaItem {
   const requested = new Set(src.documentRequests.map((r) => r.key));
   const unrequested = src.missingDocs.filter((d) => !requested.has(d.key)).map((d) => d.key);
   const requestedMissing = src.missingDocs.filter((d) => requested.has(d.key)).map((d) => d.key);
 
-  const group = computeGroup(src, unrequested);
+  const active = activePlanOutcome({
+    authorization: src.pipeline.authorization,
+    guideSentAt: src.pipeline.guideSentAt ?? null,
+    planDeniedAt: src.pipeline.planDeniedAt ?? null,
+    planAskedMoreDocsAt: src.pipeline.planAskedMoreDocsAt ?? null,
+  });
+  // Habilitado vence qualquer resposta do plano.
+  const outcome: PlanOutcome = src.pipeline.schedulingEnabledAt
+    ? null
+    : active.planDeniedAt
+      ? "denied"
+      : active.planAskedMoreDocsAt
+        ? "more_docs"
+        : null;
+  const ctx: OutcomeCtx = {
+    outcome,
+    moreDocs: outcome === "more_docs" && active.planAskedMoreDocsAt ? moreDocsState(src, active.planAskedMoreDocsAt, nowMs) : null,
+  };
+
+  const group = computeGroup(src, unrequested, ctx);
   const guardian = fact(src.facts, "Responsável");
   const plan = fact(src.facts, "Plano de saúde");
 
@@ -205,7 +354,7 @@ export function buildFilaItem(src: FilaSource): FilaItem {
     phone: src.sourcePhone,
     createdAt: src.createdAt,
     group,
-    step: computeStep(src, group, unrequested, requestedMissing),
+    step: computeStep(src, group, unrequested, requestedMissing, ctx),
     askKeys: unrequested,
     remindKeys: requestedMissing,
     returned: src.pipeline.returned,
@@ -216,6 +365,9 @@ export function buildFilaItem(src: FilaSource): FilaItem {
     assignedToName: src.assignedToName,
     overdue: src.overdue,
     postponed: src.postponed,
+    planOutcome: outcome,
+    planOutcomeAt: outcome === "denied" ? active.planDeniedAt : outcome === "more_docs" ? active.planAskedMoreDocsAt : null,
+    moreDocsKeys: outcome === "more_docs" ? src.missingDocs.map((d) => d.key) : [],
     searchText: normalize([src.patientName, guardian ?? "", plan ?? ""].join(" ")),
   };
 }
@@ -275,8 +427,11 @@ export function trailStates(input: {
   authorization: FilaSource["pipeline"]["authorization"];
   schedulingEnabledAt: string | null;
   missingCount: number;
+  planOutcome?: PlanOutcome;
 }): [TrailState, TrailState, TrailState, TrailState] {
   if (input.schedulingEnabledAt) return ["done", "done", "done", "done"];
+  if (input.planOutcome === "denied") return ["done", "current", "locked", "locked"];
+  if (input.planOutcome === "more_docs") return ["current", "locked", "locked", "locked"];
   if (input.missingCount > 0) return ["current", "locked", "locked", "locked"];
   const waived = input.authorization === "dispensada";
   const sentDone = waived || input.authorization !== "pendente";
@@ -305,6 +460,8 @@ export function buildHistory(input: {
     authorizedByName: string | null;
     schedulingEnabledAt: string | null;
     returned: { at: string; reason: string; byName: string | null } | null;
+    planDeniedAt?: string | null;
+    planAskedMoreDocsAt?: string | null;
   };
   documentRequests: { key: string; sentAt: string }[];
 }): FilaHistoryEvent[] {
@@ -319,6 +476,8 @@ export function buildHistory(input: {
   if (p.authorizedAt) {
     events.push({ at: p.authorizedAt, text: `Plano autorizou${p.authorizedByName ? ` (registrado por ${p.authorizedByName})` : ""}.` });
   }
+  if (p.planDeniedAt) events.push({ at: p.planDeniedAt, text: "Plano negou a guia." });
+  if (p.planAskedMoreDocsAt) events.push({ at: p.planAskedMoreDocsAt, text: "Plano pediu mais documentos." });
   if (p.schedulingEnabledAt) events.push({ at: p.schedulingEnabledAt, text: "Agendamento habilitado." });
   if (p.returned) {
     events.push({

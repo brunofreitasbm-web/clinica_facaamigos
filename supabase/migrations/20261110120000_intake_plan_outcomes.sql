@@ -7,7 +7,7 @@
 --   - "Plano pediu mais documentos": o caso volta para a etapa 1 (cobrar a
 --     família). Vale até a guia ser reenviada depois do pedido.
 -- As duas marcas também deixam de valer quando o plano autoriza (ver
--- activePlanOutcome em lib/intake-queue-build-pure.ts). Só a equipe vê esses
+-- activePlanOutcome em lib/fila/fila-model-pure.ts). Só a equipe vê esses
 -- campos; nada aqui é enviado à família.
 
 alter table registration_drafts

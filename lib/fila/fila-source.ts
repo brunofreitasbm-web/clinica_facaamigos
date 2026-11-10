@@ -30,6 +30,9 @@ export function toFilaSource(item: PendingQueueItem, nowMs: number): FilaSource 
     pipeline: {
       authorization: draft.pipeline.authorization,
       schedulingEnabledAt: draft.pipeline.schedulingEnabledAt,
+      guideSentAt: draft.pipeline.guideSentAt,
+      planDeniedAt: draft.pipeline.planDeniedAt,
+      planAskedMoreDocsAt: draft.pipeline.planAskedMoreDocsAt,
       returned: draft.pipeline.returned
         ? { reason: draft.pipeline.returned.reason, byName: draft.pipeline.returned.byName }
         : null,
@@ -48,6 +51,6 @@ export function toFilaSource(item: PendingQueueItem, nowMs: number): FilaSource 
 export function buildFilaItems(queue: PendingQueueItem[], nowMs: number): FilaItem[] {
   return queue.flatMap((item) => {
     const source = toFilaSource(item, nowMs);
-    return source ? [buildFilaItem(source)] : [];
+    return source ? [buildFilaItem(source, nowMs)] : [];
   });
 }

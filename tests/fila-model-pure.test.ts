@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  activePlanOutcome,
   buildFilaItem,
   buildHistory,
   countByGroup,
@@ -45,7 +46,7 @@ const base: FilaSource = {
 const src = (over: Partial<FilaSource> = {}): FilaSource => ({ ...base, ...over });
 
 test("agendamento habilitado: Concluídos, com a Supervisão", () => {
-  const i = buildFilaItem(src({ pipeline: { authorization: "autorizada", schedulingEnabledAt: ago(1), returned: null } }));
+  const i = buildFilaItem(src({ pipeline: { authorization: "autorizada", schedulingEnabledAt: ago(1), returned: null } }), NOW);
   assert.equal(i.group, "concluidos");
   assert.equal(i.step.kind, "with_supervision");
   assert.equal(i.step.primaryLabel, null);
@@ -53,14 +54,14 @@ test("agendamento habilitado: Concluídos, com a Supervisão", () => {
 });
 
 test("guia enviada ao plano: Aguardando plano, e o botão é registrar a resposta", () => {
-  const i = buildFilaItem(src({ pipeline: { authorization: "enviada", schedulingEnabledAt: null, returned: null } }));
+  const i = buildFilaItem(src({ pipeline: { authorization: "enviada", schedulingEnabledAt: null, returned: null } }), NOW);
   assert.equal(i.group, "plano");
   assert.equal(i.step.kind, "wait_plan");
   assert.equal(i.step.primaryLabel, "Plano autorizou");
 });
 
 test("faltam documentos e nada foi pedido: Agir agora, pedir à família", () => {
-  const i = buildFilaItem(src({ missingCount: 2, missingDocs: [LAUDO, CART] }));
+  const i = buildFilaItem(src({ missingCount: 2, missingDocs: [LAUDO, CART] }), NOW);
   assert.equal(i.group, "agir");
   assert.equal(i.step.kind, "ask_documents");
   assert.equal(i.step.listText, "Pedir à família: laudo médico, carteirinha");
@@ -77,7 +78,7 @@ test("todo documento que falta já foi pedido: Aguardando família", () => {
         { key: "carteirinha", sentAt: ago(2) },
       ],
     })
-  );
+  , NOW);
   assert.equal(i.group, "familia");
   assert.equal(i.step.kind, "wait_family");
   assert.equal(i.step.listText, "Família precisa enviar: laudo médico, carteirinha");
@@ -88,34 +89,34 @@ test("todo documento que falta já foi pedido: Aguardando família", () => {
 test("parte dos documentos pedida: continua em Agir agora, só pede o que não foi pedido", () => {
   const i = buildFilaItem(
     src({ missingCount: 2, missingDocs: [LAUDO, CART], documentRequests: [{ key: "laudo_medico", sentAt: ago(1) }] })
-  );
+  , NOW);
   assert.equal(i.group, "agir");
   assert.equal(i.step.kind, "ask_documents");
   assert.deepEqual(i.askKeys, ["carteirinha"]);
 });
 
 test("falta só dado (nada que se possa cobrar da família): conferir o cadastro", () => {
-  const i = buildFilaItem(src({ missingCount: 1, missingDocs: [] }));
+  const i = buildFilaItem(src({ missingCount: 1, missingDocs: [] }), NOW);
   assert.equal(i.group, "agir");
   assert.equal(i.step.kind, "review_data");
   assert.deepEqual(i.askKeys, []);
 });
 
 test("documentos completos e guia não enviada: registrar guia enviada", () => {
-  const i = buildFilaItem(src());
+  const i = buildFilaItem(src(), NOW);
   assert.equal(i.group, "agir");
   assert.equal(i.step.kind, "send_guide");
   assert.equal(i.step.primaryLabel, "Registrar guia enviada");
 });
 
 test("plano autorizou e falta habilitar: habilitar agendamento", () => {
-  const i = buildFilaItem(src({ pipeline: { authorization: "autorizada", schedulingEnabledAt: null, returned: null } }));
+  const i = buildFilaItem(src({ pipeline: { authorization: "autorizada", schedulingEnabledAt: null, returned: null } }), NOW);
   assert.equal(i.step.kind, "enable_scheduling");
   assert.equal(i.step.primaryLabel, "Habilitar agendamento");
 });
 
 test("particular (autorização dispensada) também chega a habilitar agendamento", () => {
-  const i = buildFilaItem(src({ pipeline: { authorization: "dispensada", schedulingEnabledAt: null, returned: null } }));
+  const i = buildFilaItem(src({ pipeline: { authorization: "dispensada", schedulingEnabledAt: null, returned: null } }), NOW);
   assert.equal(i.group, "agir");
   assert.equal(i.step.kind, "enable_scheduling");
 });
@@ -127,7 +128,7 @@ test("documento faltando vence guia enviada (mesma prioridade que a tela atual):
       missingDocs: [LAUDO],
       pipeline: { authorization: "enviada", schedulingEnabledAt: null, returned: null },
     })
-  );
+  , NOW);
   assert.equal(i.step.kind, "ask_documents");
 });
 
@@ -138,23 +139,23 @@ test("habilitado vence tudo: não volta para a fila por um documento detectado d
       missingDocs: [LAUDO],
       pipeline: { authorization: "autorizada", schedulingEnabledAt: ago(1), returned: null },
     })
-  );
+  , NOW);
   assert.equal(i.group, "concluidos");
 });
 
 test("devolvido pela Supervisão aparece como aviso e volta para Agir agora", () => {
   const i = buildFilaItem(
     src({ pipeline: { authorization: "autorizada", schedulingEnabledAt: null, returned: { reason: "Guia ilegível", byName: "Carla" } } })
-  );
+  , NOW);
   assert.equal(i.group, "agir");
   assert.deepEqual(i.returned, { reason: "Guia ilegível", byName: "Carla" });
 });
 
 test("responsável e plano vêm dos dados lidos; sem eles, nulo (nunca inventado)", () => {
-  const i = buildFilaItem(src());
+  const i = buildFilaItem(src(), NOW);
   assert.equal(i.guardian, "Carla Rocha");
   assert.equal(i.plan, "IASEP");
-  const semDados = buildFilaItem(src({ facts: [] }));
+  const semDados = buildFilaItem(src({ facts: [] }), NOW);
   assert.equal(semDados.guardian, null);
   assert.equal(semDados.plan, null);
 });
@@ -168,14 +169,14 @@ test("tempo de espera: hoje, 1 dia, N dias, e 'atrasado' quando o prazo do siste
 });
 
 test("ordenação: quem espera há mais tempo primeiro; 'deixar para depois' vai ao fim", () => {
-  const a = buildFilaItem(src({ id: "a", createdAt: ago(2) }));
-  const b = buildFilaItem(src({ id: "b", createdAt: ago(9) }));
-  const c = buildFilaItem(src({ id: "c", createdAt: ago(20), postponed: true }));
+  const a = buildFilaItem(src({ id: "a", createdAt: ago(2) }), NOW);
+  const b = buildFilaItem(src({ id: "b", createdAt: ago(9) }), NOW);
+  const c = buildFilaItem(src({ id: "c", createdAt: ago(20), postponed: true }), NOW);
   assert.deepEqual(sortFila([a, c, b]).map((x) => x.id), ["b", "a", "c"]);
 });
 
 const lista = [
-  buildFilaItem(src({ id: "1", patientName: "Nina Rocha Bastos", assignedToId: "eu" })),
+  buildFilaItem(src({ id: "1", patientName: "Nina Rocha Bastos", assignedToId: "eu" }), NOW),
   buildFilaItem(
     src({
       id: "2",
@@ -185,10 +186,10 @@ const lista = [
       assignedToId: "outra",
       pipeline: { authorization: "enviada", schedulingEnabledAt: null, returned: null },
     })
-  ),
+  , NOW),
   buildFilaItem(
     src({ id: "3", patientName: "Lívia Prado", assignedToId: "eu", missingCount: 1, missingDocs: [LAUDO], documentRequests: [{ key: "laudo_medico", sentAt: ago(1) }] })
-  ),
+  , NOW),
 ];
 
 test("filtro por aba", () => {
@@ -320,4 +321,110 @@ test("dados para o portal: só o que existe, na ordem de preenchimento", () => {
     { label: "Carteirinha", value: "000 106 221 4" },
   ]);
   assert.deepEqual(portalFields([]), []);
+});
+
+// ---------------------------------------------------------------------------
+// Resposta do plano: negou / pediu mais documentos
+// ---------------------------------------------------------------------------
+test("activePlanOutcome: negativa vale até a guia ser reenviada depois dela", () => {
+  const b = { authorization: "pendente" as const, guideSentAt: null, planDeniedAt: ago(2), planAskedMoreDocsAt: null };
+  assert.deepEqual(activePlanOutcome(b), { planDeniedAt: ago(2), planAskedMoreDocsAt: null });
+  assert.equal(activePlanOutcome({ ...b, authorization: "enviada", guideSentAt: ago(1) }).planDeniedAt, null);
+  assert.equal(activePlanOutcome({ ...b, authorization: "enviada", guideSentAt: ago(3) }).planDeniedAt, ago(2));
+});
+
+test("activePlanOutcome: autorização ou dispensa resolvem as duas marcas", () => {
+  const marks = { guideSentAt: null, planDeniedAt: ago(2), planAskedMoreDocsAt: ago(1) };
+  assert.deepEqual(activePlanOutcome({ ...marks, authorization: "autorizada" }), { planDeniedAt: null, planAskedMoreDocsAt: null });
+  assert.deepEqual(activePlanOutcome({ ...marks, authorization: "dispensada" }), { planDeniedAt: null, planAskedMoreDocsAt: null });
+});
+
+test("activePlanOutcome: com as duas valendo, fica só a mais recente", () => {
+  const r = activePlanOutcome({ authorization: "pendente", guideSentAt: null, planDeniedAt: ago(3), planAskedMoreDocsAt: ago(1) });
+  assert.deepEqual(r, { planDeniedAt: null, planAskedMoreDocsAt: ago(1) });
+});
+
+test("activePlanOutcome: empate e datas ilegíveis", () => {
+  const at = "2026-11-09T10:00:00.000Z";
+  assert.equal(activePlanOutcome({ authorization: "enviada", guideSentAt: at, planDeniedAt: at, planAskedMoreDocsAt: null }).planDeniedAt, at);
+  assert.equal(
+    activePlanOutcome({ authorization: "enviada", guideSentAt: "2026-11-09T10:00:00+00:00", planDeniedAt: at, planAskedMoreDocsAt: null }).planDeniedAt,
+    at,
+  );
+  assert.deepEqual(activePlanOutcome({ authorization: "pendente", guideSentAt: null, planDeniedAt: at, planAskedMoreDocsAt: at }), {
+    planDeniedAt: at,
+    planAskedMoreDocsAt: null,
+  });
+  assert.equal(activePlanOutcome({ authorization: "pendente", guideSentAt: null, planDeniedAt: "lixo", planAskedMoreDocsAt: null }).planDeniedAt, null);
+  assert.equal(activePlanOutcome({ authorization: "enviada", guideSentAt: "lixo", planDeniedAt: at, planAskedMoreDocsAt: null }).planDeniedAt, at);
+});
+
+const P = (over: Partial<FilaSource["pipeline"]>) => ({ ...base.pipeline, ...over });
+
+test("plano negou: volta para Agir agora no passo de enviar a guia, mesmo com documento faltando", () => {
+  const i = buildFilaItem(src({ missingCount: 1, missingDocs: [LAUDO], pipeline: P({ planDeniedAt: ago(1) }) }), NOW);
+  assert.equal(i.group, "agir");
+  assert.equal(i.step.kind, "send_guide");
+  assert.equal(i.planOutcome, "denied");
+  assert.match(i.step.description, /pode negar de novo/);
+  assert.deepEqual(trailStates(i), ["done", "current", "locked", "locked"]);
+});
+
+test("negativa resolvida: guia reenviada depois dela volta para Aguardando plano", () => {
+  const i = buildFilaItem(src({ pipeline: P({ authorization: "enviada", guideSentAt: ago(0), planDeniedAt: ago(1) }) }), NOW);
+  assert.equal(i.group, "plano");
+  assert.equal(i.planOutcome, null);
+});
+
+test("pediu mais documentos sem cobrança: Agir agora, pedir o que falta", () => {
+  const i = buildFilaItem(src({ missingCount: 1, missingDocs: [LAUDO], pipeline: P({ planAskedMoreDocsAt: ago(1) }) }), NOW);
+  assert.equal(i.group, "agir");
+  assert.equal(i.step.kind, "plan_more_docs");
+  assert.deepEqual(i.moreDocsKeys, ["laudo_medico"]);
+  assert.equal(i.step.primaryLabel, "Pedir documentos à família");
+  assert.deepEqual(trailStates(i), ["current", "locked", "locked", "locked"]);
+});
+
+test("pediu mais documentos e nada rastreável falta: botão abre o Chat, nunca uma mensagem vazia", () => {
+  const i = buildFilaItem(src({ pipeline: P({ planAskedMoreDocsAt: ago(1) }) }), NOW);
+  assert.deepEqual(i.moreDocsKeys, []);
+  assert.equal(i.step.primaryLabel, "Abrir conversa no Chat");
+});
+
+test("cobrada depois do pedido há menos de 3 dias: Aguardando família; 3 dias ou mais: volta para Agir agora", () => {
+  const fresh = buildFilaItem(src({ missingCount: 1, missingDocs: [LAUDO], documentRequests: [{ key: "laudo_medico", sentAt: ago(2) }], pipeline: P({ planAskedMoreDocsAt: ago(2.5) }) }), NOW);
+  assert.equal(fresh.group, "familia");
+  assert.equal(fresh.step.kind, "wait_family");
+  const stale = buildFilaItem(src({ missingCount: 1, missingDocs: [LAUDO], documentRequests: [{ key: "laudo_medico", sentAt: ago(3) }], pipeline: P({ planAskedMoreDocsAt: ago(4) }) }), NOW);
+  assert.equal(stale.group, "agir");
+  assert.match(stale.step.listText, /sem resposta há 3 dias/);
+});
+
+test("cobrança anterior ao pedido do plano não conta como cobrança", () => {
+  const i = buildFilaItem(src({ missingCount: 1, missingDocs: [LAUDO], documentRequests: [{ key: "laudo_medico", sentAt: ago(2) }], pipeline: P({ planAskedMoreDocsAt: ago(1) }) }), NOW);
+  assert.equal(i.group, "agir");
+  assert.equal(i.step.kind, "plan_more_docs");
+});
+
+test("documentos chegaram depois da cobrança: reenviar a guia", () => {
+  const i = buildFilaItem(src({ documentRequests: [{ key: "laudo_medico", sentAt: ago(1) }], pipeline: P({ planAskedMoreDocsAt: ago(2) }) }), NOW);
+  assert.equal(i.group, "agir");
+  assert.equal(i.step.kind, "send_guide");
+  assert.match(i.step.listText, /reenviar/);
+});
+
+test("habilitado vence negativa e pedido de documentos", () => {
+  const i = buildFilaItem(src({ pipeline: P({ authorization: "autorizada", schedulingEnabledAt: ago(0), planDeniedAt: ago(1) }) }), NOW);
+  assert.equal(i.group, "concluidos");
+});
+
+test("histórico mostra negativa e pedido de documentos", () => {
+  const h = buildHistory({ createdAt: ago(5), pipeline: { guideSentAt: null, guideSentByName: null, authorizedAt: null, authorizedByName: null, schedulingEnabledAt: null, returned: null, planDeniedAt: ago(2), planAskedMoreDocsAt: ago(1) }, documentRequests: [] });
+  assert.deepEqual(h.slice(0, 2).map((e) => e.text), ["Plano pediu mais documentos.", "Plano negou a guia."]);
+});
+
+test("soma dos grupos continua igual ao total com casos de negativa e pedido de documentos", () => {
+  const items = [P({ planDeniedAt: ago(1) }), P({ planAskedMoreDocsAt: ago(1) }), P({ authorization: "enviada", guideSentAt: ago(1) }), P({ schedulingEnabledAt: ago(1) })].map((p) => buildFilaItem(src({ pipeline: p }), NOW));
+  const c = countByGroup(items, { mine: false, userId: null, query: "" });
+  assert.equal(c.agir + c.familia + c.plano + c.concluidos, items.length);
 });

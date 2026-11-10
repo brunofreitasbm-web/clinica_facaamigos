@@ -33,7 +33,7 @@ import {
  *     guide_sent_at, então o caso volta para a etapa 1 (cobrar a família) e a
  *     guia precisa ser reenviada com os documentos novos.
  * Reenviar a guia grava um guide_sent_at mais novo que a marca, e a marca deixa
- * de valer (activePlanOutcome em lib/intake-queue-build-pure.ts).
+ * de valer (activePlanOutcome em lib/fila/fila-model-pure.ts).
  *
  * Cada ação devolve o estado anterior para o aviso de "Desfazer" (8 s). O
  * desfazer só vale se a marca ainda é a que esta ação gravou: se outra pessoa
