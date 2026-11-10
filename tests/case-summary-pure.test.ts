@@ -1,6 +1,7 @@
 // tests/case-summary-pure.test.ts
 //
 // Resumo do caso no painel lateral do Chat: quem é, plano, etapa, por que está com a equipe e o próximo passo.
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -86,6 +87,7 @@ test("lead com dados lidos: criança, idade, responsável e plano vêm do rascun
       missingCount: 2,
       missingSummary: "Faltam carteirinha e laudo",
       filesCount: 1,
+      stage: { label: "Pedir à família: carteirinha, laudo médico", allDone: false },
     },
   });
   assert.equal(s.headline, "Heitor Magno Ramos");
@@ -94,7 +96,7 @@ test("lead com dados lidos: criança, idade, responsável e plano vêm do rascun
     { label: "Responsável", value: "Ana Ramos (mãe)" },
   ]);
   assert.deepEqual(s.plan, { text: "Unimed · Nacional", tone: "known" });
-  assert.deepEqual(s.stage, { label: "Etapa 2/4 · Guia enviada ao plano", allDone: false });
+  assert.deepEqual(s.stage, { label: "Pedir à família: carteirinha, laudo médico", allDone: false });
   assert.equal(s.next.kind, "resolve_pendencies");
   assert.match(s.next.note ?? "", /Faltam carteirinha e laudo/);
 });
@@ -110,6 +112,7 @@ test("sem pendência e autorização ainda não concluída: próximo passo é Au
       missingCount: 0,
       missingSummary: "",
       filesCount: 3,
+      stage: { label: "Plano analisando a guia", allDone: false },
     },
   });
   assert.equal(s.next.kind, "open_authorization");
@@ -127,9 +130,10 @@ test("habilitado para agendar: etapa concluída e sem botão primário", () => {
       missingCount: 0,
       missingSummary: "",
       filesCount: 3,
+      stage: { label: "Com a Supervisão para marcar a 1ª avaliação", allDone: true },
     },
   });
-  assert.deepEqual(s.stage, { label: "✓ Habilitado p/ agendamento", allDone: true });
+  assert.deepEqual(s.stage, { label: "Com a Supervisão para marcar a 1ª avaliação", allDone: true });
   assert.equal(s.next.kind, "none");
   assert.match(s.next.note ?? "", /pronto para agendar/i);
 });
@@ -150,6 +154,7 @@ test("devolvido pela supervisão aparece como aviso", () => {
       missingCount: 0,
       missingSummary: "",
       filesCount: 1,
+      stage: { label: "Enviar a guia ao plano", allDone: false },
     },
   });
   assert.match(s.warning ?? "", /Guia ilegível/);
@@ -215,4 +220,9 @@ test("sem nome de criança nem contato, a manchete é o telefone formatado", () 
     conversation: { ...leadBase.conversation, displayName: "+55 91 98847-0999", contactName: null },
   });
   assert.equal(s.headline, "+55 91 98847-0999");
+});
+
+test("o resumo do Chat não usa vocabulário de etapa próprio", () => {
+  const src = readFileSync("lib/atendimento/case-summary-pure.ts", "utf8");
+  assert.doesNotMatch(src, /pipelineStageLabel|intakeStageLabel|de 4 ·|Etapa \d\/4/);
 });

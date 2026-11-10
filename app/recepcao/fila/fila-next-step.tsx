@@ -1,72 +1,109 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Loader2 } from "lucide-react";
+import { ClipboardList, Loader2, MessageCircle } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
 import type { FilaItem } from "@/lib/fila/fila-model-pure";
+import { actionConfirms, actionOffersUndo, guideConfirmSummary, type FilaActionKey } from "@/lib/fila/fila-action-policy-pure";
+import { chatHref } from "@/lib/atendimento/chat-deep-link-pure";
 import {
   buildDocumentsOpenerMessage,
   buildMissingDocumentMessage,
   findMissingDocumentTemplate,
 } from "@/lib/document-request-templates";
+import { enableDraftScheduling, registerAuthorizedGuide } from "../pacientes/pendencias/draft-pipeline-actions";
 import {
-  enableDraftScheduling,
-  markGuideSent,
-  registerAuthorizedGuide,
-  undoDraftAuthorization,
-  undoGuideSent,
-  waiveDraftAuthorization,
-} from "../pacientes/pendencias/draft-pipeline-actions";
+  intakeDenyPlan,
+  intakeMarkGuideSent,
+  intakePlanAskedMoreDocs,
+  intakeUnmarkGuideSent,
+  intakeWaiveAuthorization,
+  restoreIntakeState,
+  type UndoableResult,
+} from "../pacientes/pendencias/intake-actions";
 import { openDocumentConversation, requestMissingDocument } from "../pacientes/pendencias/document-request-actions";
 import { AuthorizedGuideDialog, type GuideValues } from "../pacientes/pendencias/draft-pipeline";
-import type { FilaDetail } from "./fila-detail-action";
+import type { FilaDetail } from "@/lib/fila/fila-detail-pure";
+import type { UndoEntry } from "./undo-toast";
 
-/** Ações que mandam WhatsApp ou habilitam o agendamento NÃO se desfazem: pedem conferência antes. */
-type Confirm = "ask" | "remind" | "opener" | "enable" | null;
+/** Conferências abertas no cartão. Cada uma corresponde a uma ação que manda WhatsApp (sem Desfazer). */
+type Confirm = "ask" | "remind" | "more_docs" | "opener" | "enable" | "authorize";
 
-const UNDO_MS = 8000;
+const CONFIRM_ACTION: Record<Confirm, FilaActionKey> = {
+  ask: "ask_documents",
+  remind: "remind",
+  more_docs: "more_docs_request",
+  opener: "opener",
+  enable: "enable_scheduling",
+  authorize: "authorize_and_enable",
+};
+
+const CONFIRM_GROUP_LABEL: Record<Confirm, string> = {
+  ask: "Conferir o pedido de documentos antes de enviar",
+  remind: "Conferir o lembrete antes de enviar",
+  more_docs: "Conferir o pedido de documentos antes de enviar",
+  opener: "Conferir a mensagem de abertura antes de enviar",
+  enable: "Confirmar a habilitação do agendamento",
+  authorize: "Confirmar a guia autorizada e o envio dos horários",
+};
 
 /**
- * UM próximo passo por vez. Segurança por tipo de ação:
- *  • WhatsApp (pedir documento, lembrete, mensagem de abertura) e "Habilitar agendamento" (que dispara a
- *    oferta de horários): mostram o que vai acontecer e só enviam depois de "Enviar" (não têm Desfazer).
- *  • Guia enviada e "Particular, sem guia": reversíveis, vão direto com aviso e Desfazer por 8 s.
- *  • "Plano autorizou": abre o formulário da guia (grava a guia, habilita o agendamento e avisa a família).
+ * UM próximo passo por vez. A segurança de cada ação vem de lib/fila/fila-action-policy-pure.ts:
+ *  - WhatsApp (pedir documentos, lembrete, mensagem de abertura, habilitar o agendamento e "Plano autorizou",
+ *    que habilita e dispara a oferta de horários): mostram o que vai acontecer e só enviam depois da
+ *    confirmação. Não têm Desfazer.
+ *  - Guia enviada, guia não enviada, particular sem guia, plano negou e plano pediu mais documentos: vão
+ *    direto e mostram Desfazer por 8 s (restaura o estado de antes, só se o caso não mudou depois).
  */
-export function FilaNextStep({ item, detail }: { item: FilaItem; detail: FilaDetail | null }) {
+export function FilaNextStep({
+  item,
+  detail,
+  locked,
+  onUndoable,
+}: {
+  item: FilaItem;
+  detail: FilaDetail | null;
+  /** Detalhe carregando, rebuscando ou com erro: as ações ficam visíveis mas desabilitadas (isDetailLocked). */
+  locked: boolean;
+  onUndoable: (entry: UndoEntry) => void;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [confirm, setConfirm] = useState<Confirm>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideError, setGuideError] = useState<string | null>(null);
+  const [pendingGuide, setPendingGuide] = useState<GuideValues | null>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Ao abrir uma conferência, o foco vai para o botão que confirma (teclado e leitor de tela chegam nela).
+  useEffect(() => {
+    if (confirm) confirmButtonRef.current?.focus();
+  }, [confirm]);
 
   const { step } = item;
   const firstName = item.child.trim().split(/\s+/)[0] || "A família";
   const patientName = detail?.patientName ?? null;
-
-  const done = (message: string, undo?: () => Promise<{ success: boolean }>) => {
-    setConfirm(null);
-    setError(null);
-    toast(
-      message,
-      "success",
-      undo
-        ? () => {
-            void undo()
-              .then(() => router.refresh())
-              .catch(() => toast("Não foi possível desfazer. Confira o estado da família.", "error"));
-          }
-        : undefined,
-      undo ? UNDO_MS : undefined,
-    );
-    router.refresh();
-  };
+  const chatLink = item.phone ? chatHref({ phone: item.phone }) : null;
 
   const fail = (text: string) => setError(text);
+
+  /** Abre a conferência quando a política pede; senão roda direto. */
+  const request = (which: Confirm, run: () => void) => {
+    setError(null);
+    if (actionConfirms(CONFIRM_ACTION[which])) setConfirm(which);
+    else run();
+  };
+
+  const finishSent = (message: string) => {
+    setConfirm(null);
+    setError(null);
+    toast(message, "success");
+    router.refresh();
+  };
 
   /**
    * Toda ação roda aqui. Uma server action que LANÇA (rede, erro inesperado) subiria da transição para o
@@ -84,6 +121,26 @@ export function FilaNextStep({ item, detail }: { item: FilaItem; detail: FilaDet
     });
   };
 
+  /**
+   * Ação reversível: vai direto e, se a política dá Desfazer e o servidor devolveu o estado de antes, mostra
+   * o aviso de 8 s. Sem o estado de antes (migration pendente), avisa que ficou sem Desfazer.
+   */
+  const runUndoable = (key: FilaActionKey, action: () => Promise<UndoableResult>, message: string) => {
+    setError(null);
+    perform(async () => {
+      const result = await action();
+      if (!result.success) return fail(result.error);
+      setConfirm(null);
+      const token = result.undo;
+      if (actionOffersUndo(key) && token) {
+        onUndoable({ draftId: item.draftId, message, undo: () => restoreIntakeState(item.draftId, token) });
+      } else {
+        toast(`${message} (sem Desfazer)`, "success");
+      }
+      router.refresh();
+    });
+  };
+
   /** Pedido de documento ou lembrete: uma mensagem por documento, parando no primeiro erro. */
   const sendDocumentMessages = (keys: string[], successMessage: string) => {
     setError(null);
@@ -95,7 +152,7 @@ export function FilaNextStep({ item, detail }: { item: FilaItem; detail: FilaDet
           return;
         }
       }
-      done(successMessage);
+      finishSent(successMessage);
     });
   };
 
@@ -104,27 +161,28 @@ export function FilaNextStep({ item, detail }: { item: FilaItem; detail: FilaDet
     perform(async () => {
       const result = await openDocumentConversation(item.draftId);
       if (!result.success) return fail(result.error);
-      done("Mensagem de abertura enviada. Quando a família responder, peça os documentos.");
+      finishSent("Mensagem de abertura enviada. Quando a família responder, peça os documentos.");
     });
   };
 
-  const registerGuideSent = () => {
-    setError(null);
-    perform(async () => {
-      const result = await markGuideSent(item.draftId);
-      if (!result.success) return fail(result.error);
-      done(`Guia registrada. ${firstName} foi para "Aguardando plano".`, () => undoGuideSent(item.draftId));
-    });
-  };
+  const registerGuideSent = () =>
+    runUndoable("guide_sent", () => intakeMarkGuideSent(item.draftId), `Guia registrada. ${firstName} foi para "Aguardando plano".`);
 
-  const waiveAuthorization = () => {
-    setError(null);
-    perform(async () => {
-      const result = await waiveDraftAuthorization(item.draftId);
-      if (!result.success) return fail(result.error);
-      done("Atendimento particular registrado, sem guia.", () => undoDraftAuthorization(item.draftId));
-    });
-  };
+  const waiveAuthorization = () =>
+    runUndoable("waive", () => intakeWaiveAuthorization(item.draftId), "Atendimento particular registrado, sem guia.");
+
+  const unmarkGuideSent = () =>
+    runUndoable("guide_not_sent", () => intakeUnmarkGuideSent(item.draftId), "Registro de guia enviada desfeito.");
+
+  const denyPlan = () =>
+    runUndoable("plan_denied", () => intakeDenyPlan(item.draftId), `Negativa registrada. ${firstName} voltou para "Agir agora".`);
+
+  const planAskedMoreDocs = () =>
+    runUndoable(
+      "plan_more_docs",
+      () => intakePlanAskedMoreDocs(item.draftId),
+      `Pedido do plano registrado. ${firstName} voltou para os documentos.`,
+    );
 
   const enableScheduling = () => {
     setError(null);
@@ -141,19 +199,34 @@ export function FilaNextStep({ item, detail }: { item: FilaItem; detail: FilaDet
     });
   };
 
-  // Mesma sequência do "Plano autorizou" atual (draft-pipeline.tsx): grava a guia, habilita o agendamento e
-  // a oferta de horários sai por WhatsApp. Por isso não há Desfazer.
-  const confirmAuthorized = (values: GuideValues) => {
+  // O formulário da guia só guarda os valores; nada é gravado antes da confirmação abaixo.
+  const reviewAuthorized = (values: GuideValues) => {
     setGuideError(null);
+    setPendingGuide(values);
+    setGuideOpen(false);
+    request("authorize", () => saveAuthorized(values));
+  };
+
+  // Mesma sequência do "Plano autorizou" de draft-pipeline.tsx: grava a guia, habilita o agendamento e a
+  // oferta de horários sai por WhatsApp. Por isso não há Desfazer.
+  const saveAuthorized = (values: GuideValues) => {
+    setError(null);
     perform(async () => {
       const saved = await registerAuthorizedGuide(item.draftId, {
         guideNumber: values.guideNumber,
         validTo: values.validTo,
         procedures: values.procedures.map((p) => ({ code: p.code, description: p.description, quantity: Number(p.quantity) })),
       });
-      if (!saved.success) return setGuideError(saved.error);
+      if (!saved.success) {
+        // Erro de validação da guia: reabre o formulário com os valores digitados para corrigir.
+        setGuideError(saved.error);
+        setConfirm(null);
+        setGuideOpen(true);
+        return;
+      }
       const enabled = await enableDraftScheduling(item.draftId);
-      setGuideOpen(false);
+      setConfirm(null);
+      setPendingGuide(null);
       if (!enabled.success) {
         toast(`Guia salva, mas não foi possível habilitar o agendamento: ${enabled.error}`, "error");
       } else {
@@ -164,153 +237,211 @@ export function FilaNextStep({ item, detail }: { item: FilaItem; detail: FilaDet
     });
   };
 
-  const previewKeys = confirm === "remind" ? item.remindKeys : item.askKeys;
+  const previewKeys = confirm === "remind" ? item.remindKeys : confirm === "more_docs" ? item.moreDocsKeys : item.askKeys;
   const previewMessages = previewKeys.flatMap((key) => {
     const template = findMissingDocumentTemplate(key);
     return template ? [{ key, label: template.label, text: buildMissingDocumentMessage(template, patientName) }] : [];
   });
 
-  const primaryClass = "btn btn-primary justify-center gap-2 text-[17px]";
+  // Sem documento para pedir, o passo leva ao Chat em vez de um envio com zero mensagens.
+  const chatInsteadOfSend =
+    (step.kind === "plan_more_docs" && item.moreDocsKeys.length === 0) || (step.kind === "wait_family" && item.remindKeys.length === 0);
+
+  const primaryClass = "btn btn-primary min-h-11 justify-center gap-2 text-[17px]";
+  const secondaryClass = "btn btn-secondary min-h-11 justify-center text-base";
+  const ghostClass = "btn btn-ghost min-h-11 justify-center text-base";
   const spinner = isPending ? <Loader2 size={16} className="animate-spin" aria-hidden /> : null;
+
+  const askSuccess = `Pedido enviado. ${firstName} foi para "Aguardando família".`;
+  const remindSuccess = "Lembrete enviado à família.";
+  const moreDocsSuccess = `Pedido enviado. ${firstName} foi para "Aguardando família".`;
+
+  const onPrimary = () => {
+    setError(null);
+    if (step.kind === "ask_documents") request("ask", () => sendDocumentMessages(item.askKeys, askSuccess));
+    else if (step.kind === "wait_family") request("remind", () => sendDocumentMessages(item.remindKeys, remindSuccess));
+    else if (step.kind === "plan_more_docs") request("more_docs", () => sendDocumentMessages(item.moreDocsKeys, moreDocsSuccess));
+    else if (step.kind === "send_guide") registerGuideSent();
+    else if (step.kind === "wait_plan") setGuideOpen(true);
+    else if (step.kind === "enable_scheduling") request("enable", enableScheduling);
+  };
+
+  const onConfirm = () => {
+    if (confirm === "ask") sendDocumentMessages(item.askKeys, askSuccess);
+    else if (confirm === "remind") sendDocumentMessages(item.remindKeys, remindSuccess);
+    else if (confirm === "more_docs") sendDocumentMessages(item.moreDocsKeys, moreDocsSuccess);
+    else if (confirm === "opener") sendOpener();
+    else if (confirm === "enable") enableScheduling();
+    else if (confirm === "authorize" && pendingGuide) saveAuthorized(pendingGuide);
+  };
+
+  const confirmLabel =
+    confirm === "enable" ? "Habilitar e enviar horários" : confirm === "authorize" ? "Salvar e enviar horários" : "Enviar mensagem";
 
   return (
     <section
       aria-label="Próximo passo"
       className="rounded-2xl border-2 border-[var(--color-accent)] bg-[var(--color-accent-100)] p-6"
     >
-      <div className="text-sm font-extrabold uppercase tracking-wide text-[var(--color-accent)]">Próximo passo</div>
+      <div className="text-sm font-extrabold text-[var(--color-accent)]">Próximo passo</div>
       <h3 className="m-0 mb-1 mt-1.5 text-[22px] font-extrabold text-ink">{step.title}</h3>
       <p className="m-0 mb-4 text-base text-ink-soft">{step.description}</p>
 
-      {/* Conferência: o que vai por WhatsApp, antes de enviar */}
-      {(confirm === "ask" || confirm === "remind") && (
-        <div className="mb-4 flex flex-col gap-3">
-          <p className="m-0 text-base text-ink-soft">
-            Vai por WhatsApp para a família{previewMessages.length > 1 ? `, em ${previewMessages.length} mensagens (uma por documento)` : ""}.
-            Mensagem enviada não pode ser desfeita, por isso a conferência.
-          </p>
-          {/* Os textos só trocam o nome do documento: a primeira fica aberta, as demais recolhidas, mas todas
-              conferíveis antes de enviar. */}
-          {previewMessages.map((m, index) => (
-            <details key={m.key} open={index === 0} className="rounded-xl border border-paper-line-strong bg-white p-4">
-              <summary className="cursor-pointer text-sm font-bold text-ink-soft">
-                {previewMessages.length > 1 ? `Mensagem ${index + 1} de ${previewMessages.length}: ` : ""}
-                {m.label}
-              </summary>
-              <p className="m-0 mt-2 whitespace-pre-wrap text-base text-ink">{m.text}</p>
-            </details>
-          ))}
-        </div>
+      {step.kind === "send_guide" && item.planOutcome === "denied" && (
+        <p role="status" className="m-0 mb-4 text-base font-bold text-status-negative-text">
+          O plano negou a guia.
+        </p>
       )}
-      {confirm === "opener" && (
-        <div className="mb-4 flex flex-col gap-3">
-          <p className="m-0 text-base text-ink-soft">
-            Envia o modelo aprovado que reabre a conversa (use quando a família não escreve há mais de 24 horas). Não pode ser desfeito.
-          </p>
-          <div className="rounded-xl border border-paper-line-strong bg-white p-4">
-            <p className="m-0 whitespace-pre-wrap text-base text-ink">{buildDocumentsOpenerMessage(patientName)}</p>
+
+      <div role={confirm ? "group" : undefined} aria-label={confirm ? CONFIRM_GROUP_LABEL[confirm] : undefined}>
+        {/* Conferência: o que vai por WhatsApp, antes de enviar */}
+        {(confirm === "ask" || confirm === "remind" || confirm === "more_docs") && (
+          <div className="mb-4 flex flex-col gap-3">
+            <p className="m-0 text-base text-ink-soft">
+              Vai por WhatsApp para a família{previewMessages.length > 1 ? `, em ${previewMessages.length} mensagens (uma por documento)` : ""}.
+              Mensagem enviada não pode ser desfeita, por isso a conferência.
+            </p>
+            {/* Os textos só trocam o nome do documento: a primeira fica aberta, as demais recolhidas, mas todas
+                conferíveis antes de enviar. */}
+            {previewMessages.map((m, index) => (
+              <details key={m.key} open={index === 0} className="rounded-xl border border-paper-line-strong bg-white p-4">
+                <summary className="flex min-h-10 cursor-pointer items-center text-sm font-bold text-ink-soft">
+                  {previewMessages.length > 1 ? `Mensagem ${index + 1} de ${previewMessages.length}: ` : ""}
+                  {m.label}
+                </summary>
+                <p className="m-0 mt-2 whitespace-pre-wrap text-base text-ink">{m.text}</p>
+              </details>
+            ))}
           </div>
-        </div>
-      )}
-      {confirm === "enable" && (
-        <p className="m-0 mb-4 text-base text-ink">
-          Ao habilitar, a família recebe os horários da 1ª avaliação por WhatsApp. Isso não pode ser desfeito.
-        </p>
-      )}
-
-      {error && (
-        <p role="alert" className="m-0 mb-4 rounded-lg border border-status-negative-text/40 bg-white p-3 text-base text-status-negative-text">
-          {error}
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-3">
-        {confirm === null && step.primaryLabel && step.kind !== "review_data" && (
-          <button
-            type="button"
-            disabled={isPending}
-            className={primaryClass}
-            onClick={() => {
-              setError(null);
-              if (step.kind === "ask_documents") setConfirm("ask");
-              else if (step.kind === "wait_family") setConfirm("remind");
-              else if (step.kind === "send_guide") registerGuideSent();
-              else if (step.kind === "wait_plan") setGuideOpen(true);
-              else if (step.kind === "enable_scheduling") setConfirm("enable");
-            }}
-          >
-            {spinner}
-            {step.primaryLabel}
-          </button>
+        )}
+        {confirm === "opener" && (
+          <div className="mb-4 flex flex-col gap-3">
+            <p className="m-0 text-base text-ink-soft">
+              Envia o modelo aprovado que reabre a conversa (use quando a família não escreve há mais de 24 horas). Não pode ser desfeito.
+            </p>
+            <div className="rounded-xl border border-paper-line-strong bg-white p-4">
+              <p className="m-0 whitespace-pre-wrap text-base text-ink">{buildDocumentsOpenerMessage(patientName)}</p>
+            </div>
+          </div>
+        )}
+        {confirm === "enable" && (
+          <p className="m-0 mb-4 text-base text-ink">
+            Ao habilitar, a família recebe os horários da 1ª avaliação por WhatsApp. Isso não pode ser desfeito.
+          </p>
+        )}
+        {confirm === "authorize" && pendingGuide && (
+          <div className="mb-4 flex flex-col gap-2">
+            <p className="m-0 text-base text-ink">
+              Ao salvar, a guia fica registrada e a família recebe os horários da 1ª avaliação por WhatsApp. Isso não pode ser desfeito.
+            </p>
+            <p className="m-0 text-base text-ink-soft">{guideConfirmSummary(pendingGuide)}</p>
+          </div>
         )}
 
-        {step.kind === "review_data" && (
-          <Link href={`/recepcao/pre-cadastros/${item.draftId}`} className={`${primaryClass} no-underline`}>
-            <ClipboardList size={16} aria-hidden />
-            {step.primaryLabel}
-          </Link>
+        {error && (
+          <p role="alert" className="m-0 mb-4 rounded-lg border border-status-negative-text/40 bg-white p-3 text-base text-status-negative-text">
+            {error}
+          </p>
         )}
 
-        {confirm !== null && (
-          <>
-            <button
-              type="button"
-              disabled={isPending}
-              className={primaryClass}
-              onClick={() => {
-                if (confirm === "ask") sendDocumentMessages(item.askKeys, `Pedido enviado. ${firstName} foi para "Aguardando família".`);
-                else if (confirm === "remind") sendDocumentMessages(item.remindKeys, "Lembrete enviado à família.");
-                else if (confirm === "opener") sendOpener();
-                else enableScheduling();
-              }}
-            >
+        <div className="flex flex-wrap items-center gap-3">
+          {confirm === null && step.primaryLabel && step.kind !== "review_data" && !chatInsteadOfSend && (
+            <button type="button" disabled={isPending || locked} className={primaryClass} onClick={onPrimary}>
               {spinner}
-              {confirm === "enable" ? "Habilitar e enviar horários" : "Enviar mensagem"}
+              {step.primaryLabel}
             </button>
-            <button
-              type="button"
-              disabled={isPending}
-              className="btn btn-secondary justify-center"
-              onClick={() => {
-                setConfirm(null);
-                setError(null);
-              }}
-            >
-              Cancelar
-            </button>
-          </>
-        )}
+          )}
 
-        {confirm === null && step.kind === "send_guide" && (
-          <button type="button" disabled={isPending} className="btn btn-secondary justify-center" onClick={waiveAuthorization}>
-            Particular, sem guia
-          </button>
-        )}
-        {confirm === null && step.kind === "wait_plan" && (
-          <button
-            type="button"
-            disabled={isPending}
-            className="btn btn-ghost justify-center"
-            onClick={() => {
-              setError(null);
-              perform(async () => {
-                const result = await undoGuideSent(item.draftId);
-                if (!result.success) return fail(result.error);
-                toast("Registro de guia enviada desfeito.", "info");
-                router.refresh();
-              });
-            }}
-          >
-            A guia não foi enviada
-          </button>
-        )}
+          {confirm === null && step.primaryLabel && chatInsteadOfSend && chatLink && (
+            <Link href={chatLink} className={`${primaryClass} no-underline`}>
+              <MessageCircle size={16} aria-hidden />
+              {step.primaryLabel}
+            </Link>
+          )}
+          {confirm === null && chatInsteadOfSend && !chatLink && (
+            <p className="m-0 text-base text-ink-soft">Sem telefone cadastrado: fale com a família pelo cadastro.</p>
+          )}
+
+          {step.kind === "review_data" && (
+            <Link href={`/recepcao/pre-cadastros/${item.draftId}`} className={`${primaryClass} no-underline`}>
+              <ClipboardList size={16} aria-hidden />
+              {step.primaryLabel}
+            </Link>
+          )}
+
+          {confirm !== null && (
+            <>
+              <button ref={confirmButtonRef} type="button" disabled={isPending || locked} className={primaryClass} onClick={onConfirm}>
+                {spinner}
+                {confirmLabel}
+              </button>
+              {/* Cancelar não grava nada: continua livre mesmo com o detalhe travado. */}
+              <button
+                type="button"
+                disabled={isPending}
+                className={secondaryClass}
+                onClick={() => {
+                  setConfirm(null);
+                  setPendingGuide(null);
+                  setError(null);
+                }}
+              >
+                Cancelar
+              </button>
+              {confirm === "authorize" && (
+                <button
+                  type="button"
+                  disabled={isPending || locked}
+                  className={ghostClass}
+                  onClick={() => {
+                    setConfirm(null);
+                    setError(null);
+                    setGuideError(null);
+                    setGuideOpen(true);
+                  }}
+                >
+                  Voltar e corrigir
+                </button>
+              )}
+            </>
+          )}
+
+          {confirm === null && step.kind === "send_guide" && (
+            <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={waiveAuthorization}>
+              Particular, sem guia
+            </button>
+          )}
+          {confirm === null && step.kind === "plan_more_docs" && (
+            <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={registerGuideSent}>
+              Guia reenviada ao plano
+            </button>
+          )}
+          {confirm === null && step.kind === "wait_plan" && (
+            <>
+              <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={denyPlan}>
+                Plano negou
+              </button>
+              <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={planAskedMoreDocs}>
+                Plano pediu mais documentos
+              </button>
+              <button type="button" disabled={isPending || locked} className={ghostClass} onClick={unmarkGuideSent}>
+                A guia não foi enviada
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Sem resposta há mais de 24 h o pedido livre é recusado pela Meta: a saída é o modelo de abertura. */}
-      {confirm === null && (step.kind === "ask_documents" || step.kind === "wait_family") && (
-        <p className="m-0 mt-4 text-sm text-ink-soft">
+      {confirm === null && (step.kind === "ask_documents" || step.kind === "wait_family" || step.kind === "plan_more_docs") && (
+        <p className="m-0 mt-4 text-base text-ink-soft">
           A família não responde há mais de 24 horas?{" "}
-          <button type="button" className="font-semibold text-[var(--color-accent)] underline" onClick={() => setConfirm("opener")}>
+          <button
+            type="button"
+            disabled={isPending || locked}
+            className="inline-flex min-h-10 items-center font-semibold text-[var(--color-accent)] underline"
+            onClick={() => request("opener", sendOpener)}
+          >
             Enviar a mensagem de abertura
           </button>
         </p>
@@ -321,8 +452,13 @@ export function FilaNextStep({ item, detail }: { item: FilaItem; detail: FilaDet
           suggestedGuide={detail?.pipeline.suggestedGuide ?? null}
           pending={isPending}
           error={guideError}
-          onClose={() => setGuideOpen(false)}
-          onConfirm={confirmAuthorized}
+          initialValues={pendingGuide ?? undefined}
+          onClose={() => {
+            setGuideOpen(false);
+            setGuideError(null);
+            setPendingGuide(null);
+          }}
+          onConfirm={reviewAuthorized}
         />
       )}
     </section>

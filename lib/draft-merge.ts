@@ -56,6 +56,8 @@ export type DraftPipeline = {
   authorizationId: string | null;
   schedulingEnabledAt: string | null;
   returned: { at: string; reason: string; byName: string | null } | null;
+  planDeniedAt: string | null;
+  planAskedMoreDocsAt: string | null;
   suggestedGuide: DraftAuthorizedGuide | null;
   registered: boolean;
 };
@@ -80,6 +82,8 @@ export type PendingRegistrationDraft = {
   documentRequests: PendingDraftDocumentRequest[];
   pendencies: LeadPendencies;
   mergedDraftsCount?: number;
+  /** Rascunhos mesclados neste caso: o principal primeiro, depois os outros na ordem do grupo. */
+  mergedDraftIds?: string[];
 };
 
 const asRecord = (v: unknown): Record<string, unknown> | null =>
@@ -587,6 +591,9 @@ export function mergeRegistrationDraftGroup(
   const authorizedAt = group.map((d) => d.pipeline.authorizedAt).filter(Boolean).sort().reverse()[0] ?? null;
   const schedulingEnabledAt =
     group.map((d) => d.pipeline.schedulingEnabledAt).filter(Boolean).sort().reverse()[0] ?? null;
+  // Resposta do plano: a mais recente entre os rascunhos mesclados (activePlanOutcome decide se ainda vale).
+  const planDeniedAt = group.map((d) => d.pipeline.planDeniedAt).filter(Boolean).sort().reverse()[0] ?? null;
+  const planAskedMoreDocsAt = group.map((d) => d.pipeline.planAskedMoreDocsAt).filter(Boolean).sort().reverse()[0] ?? null;
 
   const authWaived = group.some((d) => d.pipeline.authorization === "dispensada");
   const authStatus = authorizedAt
@@ -634,10 +641,13 @@ export function mergeRegistrationDraftGroup(
       guideSentAt,
       authorizedAt,
       schedulingEnabledAt,
+      planDeniedAt,
+      planAskedMoreDocsAt,
       returned: group.map((d) => d.pipeline.returned).filter((r): r is NonNullable<typeof r> => Boolean(r)).sort((a, b) => b.at.localeCompare(a.at))[0] ?? null,
       registered: group.some((d) => d.pipeline.registered),
     },
     mergedDraftsCount: group.length,
+    mergedDraftIds: [primary.id, ...others.map((d) => d.id)],
   };
 }
 
@@ -697,13 +707,16 @@ export async function persistDraftMergeInDb(
  * Ponto de entrada para consolidar a lista de rascunhos pendentes:
  * 1. Agrupa rascunhos que tratam da mesma criança e responsável;
  * 2. Mescla arquivos, fatos, mensagens e pendências;
- * 3. Persiste a unificação no banco (via admin client em background);
+ * 3. Persiste a unificação no banco (via admin client em background), salvo com `persist: false`;
  * 4. Retorna a lista de rascunhos consolidada.
+ *
+ * `persist: false` é para leituras que não podem gravar (o GET do detalhe da Fila): só consolida em memória.
  */
 export function consolidateRegistrationDrafts(
   drafts: PendingRegistrationDraft[],
   pendencySources: DraftPendencySources,
   rawExtractedByDraft?: Map<string, unknown>,
+  opts: { persist?: boolean } = {},
 ): PendingRegistrationDraft[] {
   if (drafts.length <= 1) return drafts;
 
@@ -717,47 +730,49 @@ export function consolidateRegistrationDrafts(
       const merged = mergeRegistrationDraftGroup(group, pendencySources, rawExtractedByDraft);
       result.push(merged);
 
-      // Persiste no banco de forma assíncrona
-      const primaryId = merged.id;
-      const secondaryIds = group.filter((d) => d.id !== primaryId).map((d) => d.id);
+      // Persiste no banco de forma assíncrona (nunca numa leitura que pediu persist: false).
+      if (opts.persist !== false) {
+        const primaryId = merged.id;
+        const secondaryIds = group.filter((d) => d.id !== primaryId).map((d) => d.id);
 
-      // `after` mantém a função viva depois da resposta (IIFE solta é cortada na Vercel).
-      const persist = async () => {
-        {
-          const { createAdminClient } = await import("@/lib/supabase/admin");
-          const admin = createAdminClient();
-          let mergedExtracted: Record<string, unknown> = rawExtractedByDraft?.get(primaryId)
-            ? (rawExtractedByDraft.get(primaryId) as Record<string, unknown>)
-            : {};
-          for (const secId of secondaryIds) {
-            const secExt = rawExtractedByDraft?.get(secId);
-            if (secExt) mergedExtracted = mergeExtractedData(mergedExtracted, secExt);
+        // `after` mantém a função viva depois da resposta (IIFE solta é cortada na Vercel).
+        const persist = async () => {
+          {
+            const { createAdminClient } = await import("@/lib/supabase/admin");
+            const admin = createAdminClient();
+            let mergedExtracted: Record<string, unknown> = rawExtractedByDraft?.get(primaryId)
+              ? (rawExtractedByDraft.get(primaryId) as Record<string, unknown>)
+              : {};
+            for (const secId of secondaryIds) {
+              const secExt = rawExtractedByDraft?.get(secId);
+              if (secExt) mergedExtracted = mergeExtractedData(mergedExtracted, secExt);
+            }
+
+            let mergedBot: Record<string, unknown> =
+              (pendencySources.botByDraft.get(primaryId) as Record<string, unknown>) ?? {};
+            for (const secId of secondaryIds) {
+              const secBot = pendencySources.botByDraft.get(secId);
+              if (secBot) mergedBot = mergeBotCollected(mergedBot, secBot);
+            }
+
+            await persistDraftMergeInDb(
+              admin,
+              primaryId,
+              secondaryIds,
+              mergedExtracted,
+              mergedBot,
+              merged.guardianMessage,
+              merged.patientId,
+            );
           }
-
-          let mergedBot: Record<string, unknown> =
-            (pendencySources.botByDraft.get(primaryId) as Record<string, unknown>) ?? {};
-          for (const secId of secondaryIds) {
-            const secBot = pendencySources.botByDraft.get(secId);
-            if (secBot) mergedBot = mergeBotCollected(mergedBot, secBot);
-          }
-
-          await persistDraftMergeInDb(
-            admin,
-            primaryId,
-            secondaryIds,
-            mergedExtracted,
-            mergedBot,
-            merged.guardianMessage,
-            merged.patientId,
-          );
-        }
-      };
-      // Import dinâmico: `next/server` não resolve nos testes em node puro.
-      void import("@/lib/after-response")
-        .then(({ runAfterResponse }) => {
-          if (!runAfterResponse("draft-merge", persist)) return persist();
-        })
-        .catch((err) => console.error("[DraftMerge] Falha ao mesclar no banco:", err));
+        };
+        // Import dinâmico: `next/server` não resolve nos testes em node puro.
+        void import("@/lib/after-response")
+          .then(({ runAfterResponse }) => {
+            if (!runAfterResponse("draft-merge", persist)) return persist();
+          })
+          .catch((err) => console.error("[DraftMerge] Falha ao mesclar no banco:", err));
+      }
     }
   }
 

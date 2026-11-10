@@ -7,8 +7,6 @@
 //
 // Só LEITURA: nada aqui cria rascunho nem toca no banco (ver AGENTS.md, diretriz 3, sobre duplicidade).
 
-import { pipelineStageLabel } from "../draft-pipeline-steps-pure.ts";
-
 const ESCALATION_LABELS: Record<string, string> = {
   fora_da_base: "A dúvida não está na base de conhecimento do bot.",
   clinico: "Pergunta clínica sobre a criança — o bot não responde.",
@@ -76,6 +74,8 @@ export type CaseDraftInput = {
     registered: boolean;
     returned: { reason: string; byName: string | null } | null;
   };
+  /** Etapa no vocabulário da Fila (`filaStageSummary`), calculada fora; aqui só é repassada. */
+  stage: { label: string; allDone: boolean };
   missingCount: number;
   /** Texto de `pendencies.summary` ("Faltam carteirinha e laudo"). */
   missingSummary: string;
@@ -160,8 +160,7 @@ export function buildCaseSummary(input: CaseSummaryInput): CaseSummaryView {
     plan = { text: "Plano não informado", tone: "unknown" };
   }
 
-  const stage = draft && !record ? pipelineStageLabel(draft.pipeline) : null;
-  const stageView = stage ? { label: stage.label, allDone: stage.allDone } : null;
+  const stage = draft && !record ? draft.stage : null;
 
   const returned = draft?.pipeline.returned ?? null;
   const warning = returned
@@ -196,7 +195,7 @@ export function buildCaseSummary(input: CaseSummaryInput): CaseSummaryView {
     headline,
     details,
     plan,
-    stage: stageView,
+    stage,
     warning,
     reason: escalationLabel(c.escalationReason),
     next,

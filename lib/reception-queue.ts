@@ -12,6 +12,8 @@ import { listOverdueSessionNotes } from "@/lib/session-note-pending";
 import { computeLeadPendencies, desiredTherapiesFromBot, isBotDatumPresent, type LeadPendencies } from "@/lib/lead-pendencies";
 import { isJobInquiryLead } from "@/lib/job-inquiry-pure";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
+import { isMissingIntakeColumnError } from "@/lib/intake-columns-pure";
+import { draftReadFilters, pickConsolidatedDraft } from "@/lib/intake-detail-pick-pure";
 import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
 import { groupExpiringGuides, type ActiveGuide } from "@/lib/expiring-guides-pure";
 
@@ -638,6 +640,13 @@ export type DraftPipeline = {
   /** Devolvido pela Supervisão (texto interno — a família nunca vê). Limpo ao habilitar de novo. */
   returned: { at: string; reason: string; byName: string | null } | null;
   /**
+   * "Plano negou" / "Plano pediu mais documentos" como gravados (20261110120000), sem checar se
+   * já foram resolvidos. Quem decide se ainda valem é activePlanOutcome (lib/fila/fila-model-pure.ts):
+   * reenviar a guia depois da marca, ou o plano autorizar, resolve.
+   */
+  planDeniedAt: string | null;
+  planAskedMoreDocsAt: string | null;
+  /**
    * Guia que a IA leu nos arquivos enviados (extracted.authorization) —
    * só sugestão para pré-preencher o formulário da etapa 3, a recepção confere.
    */
@@ -676,6 +685,8 @@ export type PendingRegistrationDraft = {
   pendencies: LeadPendencies;
   /** Quantidade de rascunhos mesclados quando o mesmo responsável mandou dados em várias conversas. */
   mergedDraftsCount?: number;
+  /** Rascunhos mesclados neste caso (principal primeiro). Ausente quando não houve mescla: só o próprio. */
+  mergedDraftIds?: string[];
 };
 
 export type PendingDraftDocumentRequest = {
@@ -964,17 +975,63 @@ function returnedInfo(d: {
   return { at: d.returned_to_reception_at, reason: d.returned_to_reception_reason ?? "", byName: by?.full_name ?? null };
 }
 
-async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): Promise<PendingRegistrationDraft[]> {
-  const { data } = await supabase
-    .from("registration_drafts")
-    .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
-    )
-    .eq("clinic_id", clinicId)
-    .neq("status", "rejected")
+/** Aplica draftReadFilters (lib/intake-detail-pick-pure.ts) a uma leitura de registration_drafts. */
+function applyDraftReadFilters<Q extends DraftReadQuery<Q>>(query: Q, onlyIds?: string[]): Q {
+  const f = draftReadFilters(onlyIds);
+  let q = query;
+  if (f.activeOnly) {
     // Leads ativos da recepção: em triagem/autorização, prontos para agendar ou devolvidos pela Supervisão
-    .or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null")
-    .order("created_at", { ascending: true });
+    q = q.neq("status", "rejected").or("status.in.(pending,processing,extracted),returned_to_reception_at.not.is.null");
+  }
+  if (f.ids) q = q.in("id", f.ids);
+  return q;
+}
+
+type DraftReadQuery<Q> = {
+  neq(column: "status", value: string): Q;
+  or(filters: string): Q;
+  in(column: "id", values: string[]): Q;
+};
+
+/**
+ * Leads ativos da recepção, já consolidados entre conversas do mesmo caso.
+ * - `onlyIds`: lê só esses rascunhos, inclusive os já rejeitados por mescla (o detalhe da Fila passa os
+ *   mesclados no caso; não relê a fila inteira).
+ * - `persistMerge: false`: consolida só em memória, sem gravar a mesclagem (leituras como o GET do detalhe).
+ */
+async function getPendingRegistrationDrafts(
+  supabase: Supa,
+  clinicId: string,
+  opts: { onlyIds?: string[]; persistMerge?: boolean } = {},
+): Promise<PendingRegistrationDraft[]> {
+  const onlyIds = opts.onlyIds;
+  if (onlyIds && onlyIds.length === 0) return [];
+  const fullQuery = supabase
+      .from("registration_drafts")
+      .select(
+        "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), plan_denied_at, plan_more_docs_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      )
+      .eq("clinic_id", clinicId);
+  const full = await applyDraftReadFilters(fullQuery, onlyIds).order("created_at", { ascending: true });
+  let data = full.data;
+  if (full.error) {
+    if (isMissingIntakeColumnError(full.error)) {
+      // Migration das colunas plan_denied/plan_more_docs ainda não aplicada: lê sem elas.
+      const legacyQuery = supabase
+      .from("registration_drafts")
+      .select(
+        "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      )
+      .eq("clinic_id", clinicId);
+      const legacy = await applyDraftReadFilters(legacyQuery, onlyIds).order("created_at", { ascending: true });
+      if (legacy.error) {
+        console.error("getPendingRegistrationDrafts: erro ao ler registration_drafts", legacy.error.code, legacy.error.message);
+      }
+      data = (legacy.data ?? []).map((r) => ({ ...r, plan_denied_at: null, plan_more_docs_at: null }));
+    } else {
+      console.error("getPendingRegistrationDrafts: erro ao ler registration_drafts", full.error.code, full.error.message);
+    }
+  }
 
   const allRows = data ?? [];
   const phones = [...new Set(allRows.map((d) => d.source_phone).filter((p): p is string => Boolean(p)))];
@@ -1061,6 +1118,8 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
         authorizationId: d.authorization_id,
         schedulingEnabledAt: d.scheduling_enabled_at,
         returned: returnedInfo(d),
+        planDeniedAt: d.plan_denied_at,
+        planAskedMoreDocsAt: d.plan_more_docs_at,
         suggestedGuide: suggestedGuideFromExtraction(d.extracted),
         registered: d.status === "validated" && Boolean(d.patient_id),
       },
@@ -1084,7 +1143,9 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   });
 
   const rawExtractedByDraft = new Map<string, unknown>(rows.map((d) => [d.id, d.extracted]));
-  const consolidated = consolidateRegistrationDrafts(drafts, pendencySources, rawExtractedByDraft);
+  const consolidated = consolidateRegistrationDrafts(drafts, pendencySources, rawExtractedByDraft, {
+    persist: opts.persistMerge !== false,
+  });
 
   // Partição estável: quem não tem mais nada faltando (pronto para conferir e
   // avançar na linha do tempo) sobe; dentro de cada grupo segue o mais antigo primeiro.
@@ -1095,6 +1156,25 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
 }
 
 /**
+ * O MESMO rascunho consolidado que a Fila de entrada mostra na lista: passa pela mesma consolidação de
+ * getPendingRegistrationDrafts (arquivos, dados, pipeline, pendências e etapa mesclados entre conversas do
+ * mesmo caso) e escolhe o item pelo id. Lista e detalhe não podem divergir, porque os botões do detalhe
+ * saem do mesmo modelo de etapas. Se o caso já saiu da fila, cai no rascunho avulso.
+ *
+ * `memberIds` são os rascunhos que a lista mesclou neste caso (FilaItem.memberDraftIds): consolida só eles,
+ * o que dá o mesmo grupo da lista sem reler a fila inteira. Leitura pura: nunca grava a mesclagem.
+ */
+export async function getConsolidatedRegistrationDraft(
+  supabase: Supa,
+  draftId: string,
+  memberIds: string[],
+  clinicId: string = DEV_CLINIC_ID,
+): Promise<PendingRegistrationDraft | null> {
+  const consolidated = await getPendingRegistrationDrafts(supabase, clinicId, { onlyIds: memberIds, persistMerge: false });
+  return pickConsolidatedDraft(consolidated, draftId) ?? (await getSingleRegistrationDraft(supabase, draftId, clinicId));
+}
+
+/**
  * Busca e mapeia um ÚNICO rascunho de cadastramento por ID para carregamento instantâneo.
  */
 export async function getSingleRegistrationDraft(
@@ -1102,13 +1182,32 @@ export async function getSingleRegistrationDraft(
   draftId: string,
   clinicId: string = DEV_CLINIC_ID,
 ): Promise<PendingRegistrationDraft | null> {
-  const { data: d } = await supabase
+  const fullRes = await supabase
+    .from("registration_drafts")
+    .select(
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), plan_denied_at, plan_more_docs_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+    )
+    .eq("id", draftId)
+    .maybeSingle();
+  let d = fullRes.data;
+  if (fullRes.error) {
+    if (isMissingIntakeColumnError(fullRes.error)) {
+      // Migration das colunas plan_denied/plan_more_docs ainda não aplicada: lê sem elas.
+      const legacy = await supabase
     .from("registration_drafts")
     .select(
       "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("id", draftId)
     .maybeSingle();
+      if (legacy.error) {
+        console.error("getSingleRegistrationDraft: erro ao ler registration_drafts", legacy.error.code, legacy.error.message);
+      }
+      d = legacy.data ? { ...legacy.data, plan_denied_at: null, plan_more_docs_at: null } : null;
+    } else {
+      console.error("getSingleRegistrationDraft: erro ao ler registration_drafts", fullRes.error.code, fullRes.error.message);
+    }
+  }
 
   if (!d) return null;
 
@@ -1159,7 +1258,7 @@ export async function getSingleRegistrationDraft(
     (typeof botRec?.child_name === "string" && botRec.child_name.trim() ? botRec.child_name.trim() : null) ??
     null;
 
-  return {
+  const base: PendingRegistrationDraft = {
     id: d.id,
     patientId: d.patient_id,
     patientName: resolvedPatientName,
@@ -1183,6 +1282,8 @@ export async function getSingleRegistrationDraft(
       authorizationId: d.authorization_id,
       schedulingEnabledAt: d.scheduling_enabled_at,
       returned: returnedInfo(d),
+      planDeniedAt: d.plan_denied_at,
+      planAskedMoreDocsAt: d.plan_more_docs_at,
       suggestedGuide: suggestedGuideFromExtraction(d.extracted),
       registered: d.status === "validated" && Boolean(d.patient_id),
     },
@@ -1203,6 +1304,7 @@ export async function getSingleRegistrationDraft(
     documentRequests: (d.source_phone ? requestsByPhone.get(d.source_phone) : undefined) ?? [],
     pendencies,
   };
+  return base;
 }
 
 export type UnconfirmedCheckin = {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -13,6 +14,8 @@ import {
   type FilaItem,
 } from "@/lib/fila/fila-model-pure";
 import { FilaDetailPanel } from "./fila-detail";
+import { UndoToast, useUndoToast } from "./undo-toast";
+import { UNDO_SECONDS } from "./undo-toast-pure";
 
 /**
  * Tela mestre-detalhe da Fila de entrada: abas por situação, busca, "Só os meus", lista com o próximo passo de
@@ -35,6 +38,9 @@ export function FilaWorkspace({
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   // Referência de tempo fixa por montagem: render puro, sem Date.now() solto.
   const [nowMs] = useState(() => Date.now());
+  const router = useRouter();
+  // Um aviso com Desfazer para a tela toda: vale para o caso em que a ação foi feita, mesmo que ele mude de aba.
+  const undoToast = useUndoToast(UNDO_SECONDS, () => router.refresh());
 
   const filter = useMemo(() => ({ mine, userId, query }), [mine, userId, query]);
   const counts = useMemo(() => countByGroup(items, filter), [items, filter]);
@@ -138,7 +144,7 @@ export function FilaWorkspace({
                       type="button"
                       aria-pressed={on}
                       onClick={() => setSelectedId(item.id)}
-                      className={`block w-full border-0 border-b border-paper-line px-[18px] py-4 text-left ${
+                      className={`block min-h-10 w-full border-0 border-b border-paper-line px-[18px] py-4 text-left ${
                         on ? "bg-[var(--color-accent-100)] shadow-[inset_0_0_0_2px_var(--color-accent)]" : "bg-white hover:bg-paper"
                       }`}
                     >
@@ -174,7 +180,7 @@ export function FilaWorkspace({
                   Esta família saiu desta aba e agora está em “{movedTo.label}”.
                   <button
                     type="button"
-                    className="font-bold text-[var(--color-accent)] underline"
+                    className="inline-flex min-h-10 items-center font-bold text-[var(--color-accent)] underline"
                     onClick={() => {
                       setTab(movedTo.key);
                       setSelectedId(selected.id);
@@ -184,13 +190,14 @@ export function FilaWorkspace({
                   </button>
                 </p>
               )}
-              <FilaDetailPanel key={selected.id} item={selected} owners={owners} nowMs={nowMs} />
+              <FilaDetailPanel key={selected.id} item={selected} owners={owners} nowMs={nowMs} onUndoable={undoToast.show} />
             </>
           ) : (
             <p className="m-0 text-base text-ink-soft">Escolha uma família na lista para ver o próximo passo.</p>
           )}
         </section>
       </div>
+      <UndoToast toast={undoToast.toast} onUndo={undoToast.undo} onDismiss={undoToast.dismiss} />
     </div>
   );
 }

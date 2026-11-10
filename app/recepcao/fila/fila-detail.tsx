@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, Copy, FileText, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
@@ -19,10 +19,21 @@ import {
 import { DraftAdjustButton } from "../pacientes/pendencias/draft-adjust-dialog";
 import { MoveToLastButton } from "../pacientes/pendencias/move-to-last-button";
 import { ReassignOwnerButton } from "../pacientes/pendencias/reassign-owner-button";
-import { getFilaDetail, type FilaDetail } from "./fila-detail-action";
+import {
+  classifyDetailResponse,
+  detailLoadReducer,
+  filaDetailUrl,
+  isDetailLocked,
+  type DetailLoad,
+  type FilaDetail,
+} from "@/lib/fila/fila-detail-pure";
 import { FilaNextStep } from "./fila-next-step";
+import type { UndoEntry } from "./undo-toast";
 
-type Load = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; detail: FilaDetail };
+const AUTH_MESSAGE = "Sua sessão expirou. Entre de novo.";
+const GENERIC_ERROR = "Não foi possível carregar os detalhes.";
+const NOT_FOUND = "Este caso não foi encontrado. Atualize a lista.";
+const INITIAL_LOAD: DetailLoad = { status: "loading", requestId: 0 };
 
 const DOC_STATE_LABEL: Record<string, string> = {
   ok: "Recebido",
@@ -46,36 +57,71 @@ export function FilaDetailPanel({
   item,
   owners,
   nowMs,
+  onUndoable,
 }: {
   item: FilaItem;
   owners: { id: string; full_name: string }[];
   nowMs: number;
+  /** Mostra o aviso com Desfazer, que mora na área de trabalho e sobrevive à troca de caso. */
+  onUndoable: (entry: UndoEntry) => void;
 }) {
   const { toast } = useToast();
-  const [load, setLoad] = useState<Load>({ status: "loading" });
+  const [load, dispatch] = useReducer(detailLoadReducer, INITIAL_LOAD);
+  const requestSeq = useRef(0);
   const [reloadKey, setReloadKey] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
 
   // Recarrega quando muda a família ou quando a lista foi atualizada (uma ação mudou o estado dela).
-  const stateKey = `${item.draftId}|${item.group}|${item.step.kind}|${item.missingCount}|${reloadKey}`;
+  // GET (e não Server Action): buscas não fazem fila atrás das gravações. Cada busca tem um id; a resposta
+  // de uma busca velha é ignorada (detailLoadReducer) e a troca de caso aborta a busca anterior.
+  const memberIds = item.memberDraftIds.join(",");
+  const stateKey = `${item.draftId}|${memberIds}|${item.group}|${item.step.kind}|${item.missingCount}|${reloadKey}`;
   useEffect(() => {
-    let cancelled = false;
-    getFilaDetail(item.draftId)
-      .then((res) => {
-        if (cancelled) return;
-        setLoad(res.success ? { status: "ready", detail: res.detail } : { status: "error", message: res.error });
+    requestSeq.current += 1;
+    const requestId = requestSeq.current;
+    const controller = new AbortController();
+    dispatch({ type: "start", requestId });
+    // redirect: "manual": o middleware redireciona sessão expirada para /login; sem isso o fetch seguiria o
+    // redirecionamento e receberia a página de login em HTML.
+    fetch(filaDetailUrl(item.draftId, item.memberDraftIds), {
+      cache: "no-store",
+      redirect: "manual",
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const kind = classifyDetailResponse({
+          status: res.status,
+          type: res.type,
+          redirected: res.redirected,
+          contentType: res.headers.get("content-type"),
+        });
+        if (kind === "auth") {
+          dispatch({ type: "fail", requestId, kind: "auth", message: AUTH_MESSAGE });
+          return;
+        }
+        if (kind === "notfound") {
+          dispatch({ type: "fail", requestId, kind: "other", message: NOT_FOUND });
+          return;
+        }
+        const body: unknown = await res.json().catch(() => null);
+        if (kind !== "ok" || !body || typeof body !== "object") {
+          const message = body && typeof body === "object" && "error" in body && typeof body.error === "string" ? body.error : GENERIC_ERROR;
+          dispatch({ type: "fail", requestId, kind: "other", message });
+          return;
+        }
+        dispatch({ type: "success", requestId, detail: body as FilaDetail });
       })
       .catch(() => {
-        if (!cancelled) setLoad({ status: "error", message: "Não foi possível carregar os detalhes." });
+        if (controller.signal.aborted) return;
+        dispatch({ type: "fail", requestId, kind: "other", message: GENERIC_ERROR });
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
     // stateKey reúne exatamente o que deve disparar nova leitura.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateKey]);
 
-  const detail = load.status === "ready" ? load.detail : null;
+  // Na rebusca e no erro o detalhe anterior continua na tela, com as ações travadas (isDetailLocked).
+  const detail = load.status === "loading" ? null : load.detail;
   const trail = trailStates(item);
   const docPills = detail?.pills.filter((p) => p.group === "documento") ?? [];
   const fields = useMemo(() => portalFields(detail?.facts ?? []), [detail]);
@@ -153,7 +199,27 @@ export function FilaDetailPanel({
         })}
       </ol>
 
-      <FilaNextStep item={item} detail={detail} />
+      {load.status === "refreshing" && (
+        <p role="status" className="m-0 text-sm text-ink-soft">
+          Atualizando…
+        </p>
+      )}
+      {load.status === "error" && (
+        <p role="alert" className="m-0 rounded-xl border border-status-negative-text/40 bg-white px-4 py-3 text-base text-status-negative-text">
+          {load.message}{" "}
+          {load.kind === "auth" ? (
+            <Link href="/login" className="inline-flex min-h-10 items-center font-semibold underline">
+              Entrar
+            </Link>
+          ) : (
+            <button type="button" className="inline-flex min-h-10 items-center font-semibold underline" onClick={() => setReloadKey((k) => k + 1)}>
+              Tentar de novo
+            </button>
+          )}
+        </p>
+      )}
+
+      <FilaNextStep item={item} detail={detail} locked={isDetailLocked(load)} onUndoable={onUndoable} />
 
       {load.status === "loading" && (
         <div role="status" aria-label="Carregando detalhes" className="flex flex-col gap-3">
@@ -161,15 +227,6 @@ export function FilaDetailPanel({
           <div className="skeleton-shimmer h-24 rounded-xl" />
         </div>
       )}
-      {load.status === "error" && (
-        <p role="alert" className="m-0 text-base text-status-negative-text">
-          {load.message}{" "}
-          <button type="button" className="font-semibold underline" onClick={() => setReloadKey((k) => k + 1)}>
-            Tentar de novo
-          </button>
-        </p>
-      )}
-
       {detail && (
         <>
           {(detail.error || detail.warnings.length > 0) && (
@@ -270,11 +327,11 @@ export function FilaDetailPanel({
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-paper-line pt-4 text-[15px]">
         {item.phone && (
-          <Link href={chatHref({ phone: item.phone })} className="font-semibold text-[var(--color-accent)]">
+          <Link href={chatHref({ phone: item.phone })} className="inline-flex min-h-10 items-center font-semibold text-[var(--color-accent)]">
             Abrir conversa no Chat
           </Link>
         )}
-        <Link href={`/recepcao/pre-cadastros/${item.draftId}`} className="font-semibold text-[var(--color-accent)]">
+        <Link href={`/recepcao/pre-cadastros/${item.draftId}`} className="inline-flex min-h-10 items-center font-semibold text-[var(--color-accent)]">
           Conferir e cadastrar
         </Link>
         <DraftAdjustButton draftId={item.draftId} />

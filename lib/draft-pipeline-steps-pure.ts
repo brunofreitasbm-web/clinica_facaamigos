@@ -35,11 +35,3 @@ export function pipelineStepStates(
     enabled ? "done" : authDone ? "current" : "locked",
   ];
 }
-
-/** Um chip só com a etapa da vez; `index` é 0-based (−1 quando tudo está concluído). */
-export function pipelineStageLabel(pipeline: PipelineLike): { label: string; index: number; allDone: boolean } {
-  const states = pipelineStepStates(pipeline);
-  const index = states.findIndex((state) => state === "current");
-  if (index === -1) return { label: `✓ ${PIPELINE_STEP_TITLES[3]}`, index: -1, allDone: true };
-  return { label: `Etapa ${index + 1}/4 · ${PIPELINE_STEP_TITLES[index]}`, index, allDone: false };
-}

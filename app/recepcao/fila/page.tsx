@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { PageContainer } from "@/components/page-container";
 import { createClient } from "@/lib/supabase/server";
 import { loadFila } from "@/lib/fila/load-fila";
+import { findFilaItem } from "@/lib/fila/fila-model-pure";
 import { FilaWorkspace } from "./fila-workspace";
 
 export const dynamic = "force-dynamic";
@@ -14,13 +15,13 @@ export const dynamic = "force-dynamic";
 export default async function FilaPage({
   searchParams,
 }: {
-  // ?item=<id do item ou do rascunho>: abre direto na família (links do Chat e de outras telas).
+  // ?item=<id do item, do rascunho ou de um rascunho mesclado>: abre direto na família (links do Chat e de outras telas).
   searchParams: Promise<{ item?: string | string[] }>;
 }) {
   const params = await searchParams;
   const requested = Array.isArray(params.item) ? params.item[0] : params.item;
   const { items, hiddenCount, owners, userId } = await loadFila(await createClient());
-  const initialSelectedId = requested ? (items.find((i) => i.id === requested || i.draftId === requested)?.id ?? null) : null;
+  const initialSelectedId = requested ? (findFilaItem(items, requested)?.id ?? null) : null;
 
   return (
     <main className="flex flex-1 flex-col">
