@@ -12,6 +12,7 @@ import { listOverdueSessionNotes } from "@/lib/session-note-pending";
 import { computeLeadPendencies, desiredTherapiesFromBot, isBotDatumPresent, type LeadPendencies } from "@/lib/lead-pendencies";
 import { isJobInquiryLead } from "@/lib/job-inquiry-pure";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
+import { pickConsolidatedDraft } from "@/lib/intake-detail-pick-pure";
 import { consolidateRegistrationDrafts } from "@/lib/draft-merge";
 import { buildIntake, type DraftIntake } from "@/lib/intake-queue-build-pure";
 import { groupExpiringGuides, type ActiveGuide } from "@/lib/expiring-guides-pure";
@@ -1113,6 +1114,21 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
     ...consolidated.filter((d) => d.pendencies.missingCount === 0),
     ...consolidated.filter((d) => d.pendencies.missingCount > 0),
   ];
+}
+
+/**
+ * O MESMO rascunho consolidado que a Fila de entrada mostra na lista: passa pela mesma consolidação de
+ * getPendingRegistrationDrafts (arquivos, dados, pipeline, pendências e etapa mesclados entre conversas do
+ * mesmo caso) e escolhe o item pelo id. Lista e detalhe não podem divergir, porque os botões do detalhe
+ * saem de `draft.intake.stage`. Se o caso já saiu da fila, cai no rascunho avulso.
+ */
+export async function getConsolidatedRegistrationDraft(
+  supabase: Supa,
+  draftId: string,
+  clinicId: string = DEV_CLINIC_ID,
+): Promise<PendingRegistrationDraft | null> {
+  const consolidated = await getPendingRegistrationDrafts(supabase, clinicId);
+  return pickConsolidatedDraft(consolidated, draftId) ?? (await getSingleRegistrationDraft(supabase, draftId, clinicId));
 }
 
 /**

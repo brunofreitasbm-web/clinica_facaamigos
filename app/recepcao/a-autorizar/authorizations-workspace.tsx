@@ -129,33 +129,41 @@ export function AuthorizationsWorkspace({
   const selected = shownId ? activeItems.find((i) => i.id === shownId) ?? null : null;
 
   // Detalhe pesado sob demanda: baixa só do caso aberto. Refaz a busca quando a página é atualizada
-  // (router.refresh troca `items`), mantendo o detalhe antigo na tela até o novo chegar.
+  // (router.refresh troca `items`). Enquanto a nova busca não chega, o detalhe antigo fica na tela com as
+  // ações DESABILITADAS (nunca esconder nem deixar agir sobre um estado velho); se a busca falhar, aparece
+  // um aviso com "Tentar de novo" e as ações seguem desabilitadas.
   const [detail, setDetail] = useState<{ id: string; draft: PendingRegistrationDraft } | null>(null);
   const [detailError, setDetailError] = useState<{ id: string; message: string } | null>(null);
+  const [fetchingId, setFetchingId] = useState<string | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
   const selectedDraftId = selected?.draftId ?? null;
-  const selectedMerged = selected?.mergedDraftsCount ?? null;
   const selectedKey = selected?.id ?? null;
   useEffect(() => {
     if (!selectedKey || !selectedDraftId) return;
     const controller = new AbortController();
-    const query = selectedMerged ? `?merged=${selectedMerged}` : "";
-    fetch(`/api/recepcao/fila-de-entrada/${selectedDraftId}${query}`, { cache: "no-store", signal: controller.signal })
+    setDetailError(null);
+    setFetchingId(selectedKey);
+    fetch(`/api/recepcao/fila-de-entrada/${selectedDraftId}`, { cache: "no-store", signal: controller.signal })
       .then(async (res) => {
+        if (res.status === 401) throw new Error("Sua sessão expirou. Entre de novo.");
         if (!res.ok) throw new Error(res.status === 404 ? "Este caso não foi encontrado." : "Não foi possível carregar o caso.");
         return (await res.json()) as PendingRegistrationDraft;
       })
       .then((draft) => {
         setDetail({ id: selectedKey, draft });
-        setDetailError(null);
+        setFetchingId(null);
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
         setDetailError({ id: selectedKey, message: err instanceof Error ? err.message : "Não foi possível carregar o caso." });
+        setFetchingId(null);
       });
     return () => controller.abort();
-  }, [selectedKey, selectedDraftId, selectedMerged, items]);
+  }, [selectedKey, selectedDraftId, items, retryTick]);
   const selectedDraft = selected && detail?.id === selected.id ? detail.draft : null;
   const detailFailure = selected && detailError?.id === selected.id ? detailError.message : null;
+  const detailRefreshing = Boolean(selected) && fetchingId === selected?.id;
+  const detailLocked = detailRefreshing || Boolean(detailFailure);
 
   const nextItem = useMemo(() => {
     if (!shownId) return null;
@@ -381,24 +389,45 @@ export function AuthorizationsWorkspace({
                 </div>
               )}
 
+              {detailFailure && (
+                <div
+                  className="mb-4 flex min-h-10 flex-wrap items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-sm font-semibold text-rose-800"
+                  role="alert"
+                >
+                  <span className="min-w-0 flex-1">{detailFailure}</span>
+                  <button
+                    type="button"
+                    onClick={() => setRetryTick((n) => n + 1)}
+                    className="inline-flex min-h-10 items-center rounded-lg border border-rose-300 bg-white px-3 text-sm font-semibold text-rose-800 hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600"
+                  >
+                    Tentar de novo
+                  </button>
+                </div>
+              )}
               {selectedDraft ? (
-                <IntakeDetail
-                  key={selected.id}
-                  item={{ id: selected.id, name: selected.name, ownerId: selected.ownerId, ownerName: selected.ownerName }}
-                  draft={selectedDraft}
-                  reassignCandidates={reassignCandidates}
-                  nextItemId={nextItem && nextItem.id !== selected.id ? nextItem.id : null}
-                  onNext={(id) => select(id, true)}
-                  onBack={() => setSelectedId(null)}
-                  onUndoable={undoToast.show}
-                />
+                <>
+                  {detailRefreshing && !detailFailure && (
+                    <p className="m-0 mb-3 text-sm text-slate-600" role="status" aria-live="polite">
+                      Atualizando…
+                    </p>
+                  )}
+                  {/* fieldset disabled desabilita todos os botões e campos do detalhe de uma vez (links seguem). */}
+                  <fieldset disabled={detailLocked} aria-busy={detailRefreshing} className="m-0 min-w-0 border-0 p-0">
+                    <IntakeDetail
+                      key={selected.id}
+                      item={{ id: selected.id, name: selected.name, ownerId: selected.ownerId, ownerName: selected.ownerName }}
+                      draft={selectedDraft}
+                      reassignCandidates={reassignCandidates}
+                      nextItemId={nextItem && nextItem.id !== selected.id ? nextItem.id : null}
+                      onNext={(id) => select(id, true)}
+                      onBack={() => setSelectedId(null)}
+                      onUndoable={undoToast.show}
+                    />
+                  </fieldset>
+                </>
               ) : !selected.draftId ? (
                 <p className="m-0 text-sm text-slate-600">Este caso não tem rascunho de cadastro para mostrar.</p>
-              ) : detailFailure ? (
-                <p className="m-0 text-sm text-rose-700" role="alert">
-                  {detailFailure}
-                </p>
-              ) : (
+              ) : detailFailure ? null : (
                 <IntakeDetailSkeleton name={selected.name} />
               )}
             </>

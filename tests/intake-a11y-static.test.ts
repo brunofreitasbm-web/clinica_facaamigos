@@ -9,12 +9,13 @@ import { join } from "node:path";
  * Não mede pixels renderizados: isso fica para o Playwright no preview (ver o doc de medição).
  *
  * Regras:
- *  1. Nenhum tamanho de fonte abaixo de 14 px: `text-xs` (12 px) e `text-[Npx]` com N < 14.
+ *  1. Nenhum tamanho de fonte abaixo de 14 px: `text-xs` (12 px), `text-[Npx]` com N < 14 e `text-[Nrem]` com N*16 < 14.
  *     (`text-sm` = 14 px é o mínimo permitido.)
  *  2. Nenhum `uppercase` (texto em caixa alta é mais difícil de ler).
  *  3. Todo elemento interativo tem altura mínima de 40 px (`min-h-10`/`h-10` ou maior, ou
- *     `min-h-[Npx]`/`h-[Npx]` com N >= 40). Interativos: button, a, Link, summary, input (menos
- *     hidden), elementos com role="button"/"tab" e os botões locais PrimaryButton/SecondaryButton.
+ *     `min-h-[Npx]`/`h-[Npx]` com N >= 40). Só a classe SEM prefixo de breakpoint vale (md:h-10 não).
+ *     Interativos: button, a, Link, summary, select, textarea, input (menos hidden), label com onClick,
+ *     elementos com role="button"/"tab" e os botões locais PrimaryButton/SecondaryButton.
  *     Quando o className é um identificador (ex.: SECONDARY_CLASS), usa-se o valor da const do arquivo.
  *
  * Exceções permitidas (lista fechada abaixo, cada uma com justificativa):
@@ -86,26 +87,37 @@ function resolveClass(src: string, expr: string): string {
   return def ? def[1] : expr;
 }
 
-const SMALL_FONT = /(?<![\w-])text-(?:xs|\[(\d+(?:\.\d+)?)px\])(?![\w-])/g;
+// Pega text-xs e text-[Npx], text-[Nrem], text-[Nem] (rem e em contam como 16 px por unidade), com ou sem
+// prefixo de breakpoint (md:text-xs também é texto pequeno em alguma largura).
+const SMALL_FONT = /(?<![\w-])text-(?:xs|\[(\d+(?:\.\d+)?|\.\d+)(px|rem|em)\])(?![\w-])/g;
 
 function smallFonts(classes: string): string[] {
   const bad: string[] = [];
   for (const m of classes.matchAll(SMALL_FONT)) {
-    if (m[1] === undefined || Number(m[1]) < 14) bad.push(m[0]);
+    if (m[1] === undefined) {
+      bad.push(m[0]);
+      continue;
+    }
+    const px = m[2] === "px" ? Number(m[1]) : Number(m[1]) * 16;
+    if (px < 14) bad.push(m[0]);
   }
   return bad;
 }
 
+// Só vale a classe SEM prefixo (h-10, min-h-10): `md:h-10` deixa o celular com alvo baixo. O lookbehind
+// recusa ":" para não aceitar md:h-10, hover:h-10 etc.
 function hasMinHeight40(classes: string): boolean {
-  for (const m of classes.matchAll(/(?<![\w-])(?:min-h|h)-(\d+)(?![\w.-])/g)) if (Number(m[1]) >= 10) return true;
-  for (const m of classes.matchAll(/(?<![\w-])(?:min-h|h)-\[(\d+)px\]/g)) if (Number(m[1]) >= 40) return true;
+  for (const m of classes.matchAll(/(?<![\w:-])(?:min-h|h)-(\d+)(?![\w.-])/g)) if (Number(m[1]) >= 10) return true;
+  for (const m of classes.matchAll(/(?<![\w:-])(?:min-h|h)-\[(\d+)px\]/g)) if (Number(m[1]) >= 40) return true;
+  for (const m of classes.matchAll(/(?<![\w:-])(?:min-h|h)-\[(\d+(?:\.\d+)?)rem\]/g)) if (Number(m[1]) * 16 >= 40) return true;
   return false;
 }
 
-const INTERACTIVE_TAGS = new Set(["button", "a", "Link", "summary", "input", "PrimaryButton", "SecondaryButton"]);
+const INTERACTIVE_TAGS = new Set(["button", "a", "Link", "summary", "input", "select", "textarea", "PrimaryButton", "SecondaryButton"]);
 
 function isInteractive(tag: Tag): boolean {
   if (tag.name === "input") return !/type="hidden"/.test(tag.text);
+  if (tag.name === "label") return /\bonClick=/.test(tag.text);
   return INTERACTIVE_TAGS.has(tag.name) || /role="(?:button|tab)"/.test(tag.text);
 }
 
@@ -208,9 +220,19 @@ test("o scanner reconhece as violações (autoteste das regras)", () => {
   assert.equal(hasMinHeight40("inline-flex h-11"), true);
   assert.equal(hasMinHeight40("min-h-[44px]"), true);
   assert.equal(hasMinHeight40("min-h-[32px]"), false);
+  assert.equal(hasMinHeight40("md:h-10"), false);
+  assert.equal(hasMinHeight40("md:min-h-12 px-2"), false);
+  assert.equal(hasMinHeight40("hover:h-11"), false);
+  assert.equal(hasMinHeight40("px-2 md:h-10 min-h-10"), true);
+  assert.equal(hasMinHeight40("min-h-[2.5rem]"), true);
+  assert.deepEqual(smallFonts("text-[0.75rem] text-[0.875rem] text-[.8rem] md:text-xs"), ["text-[0.75rem]", "text-[.8rem]", "md:text-xs"].map((x) => x.replace(/^md:/, "")));
   const tags = openingTags('<div onClick={() => go()}><button type="button" className="px-2">x</button></div>');
   const button = tags.find((t) => t.name === "button")!;
   assert.equal(button.className, "px-2");
   assert.equal(isInteractive(button), true);
   assert.equal(isInteractive(tags[0]), false);
+  assert.equal(isInteractive(openingTags("<select className=\"x\">")[0]), true);
+  assert.equal(isInteractive(openingTags("<textarea />")[0]), true);
+  assert.equal(isInteractive(openingTags("<label onClick={go}>")[0]), true);
+  assert.equal(isInteractive(openingTags("<label className=\"x\">")[0]), false);
 });
