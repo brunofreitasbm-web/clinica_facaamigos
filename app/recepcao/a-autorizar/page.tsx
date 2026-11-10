@@ -15,8 +15,8 @@ export const dynamic = "force-dynamic";
  * "Fila de entrada" (antes "Autorizações"): lead do WhatsApp com documentos completos que ainda não passou pelo
  * plano de saúde — documentos e dados captados pelo bot, mais a linha do tempo da
  * autorização (guia enviada → plano autorizou → habilitar agendamento). É o
- * mesmo painel de contato da Fila de pendências (DraftIntakeCard), só que
- * com 4 abas (agir agora, aguardando família, aguardando plano, concluídos).
+ * mesmas ações da Fila de pendências, com detalhe próprio em coluna única (IntakeDetail) e
+ * 4 abas (agir agora, aguardando família, aguardando plano, concluídos).
  */
 export default async function AAutorizarPage({
   searchParams,
@@ -49,7 +49,13 @@ export default async function AAutorizarPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const items = buildWorkspaceItems(queue, { reassignCandidates, userId: user?.id ?? null });
+  // O painel montado no servidor (`detail`) fica de fora: a Fila de entrada desenha o próprio detalhe
+  // (<IntakeDetail />) a partir do rascunho, e mandar um painel por caso só pesava a página.
+  const items = buildWorkspaceItems(queue, { reassignCandidates, userId: user?.id ?? null }).map((item) => {
+    const { detail, ...rest } = item;
+    void detail;
+    return rest;
+  });
   const requestedItem = params.item && queue.some((item) => item.id === params.item) ? params.item : null;
 
   // ?aba= escolhe a aba; ?etapa= e ?status= (links antigos) caem na aba equivalente.
@@ -93,6 +99,7 @@ export default async function AAutorizarPage({
             queue={queue}
             nowIso={new Date().toISOString()}
             hiddenCount={hiddenByClosedChat}
+            reassignCandidates={reassignCandidates ?? []}
             initial={{
               q: params.q ?? "",
               tab: initialTab,

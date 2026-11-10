@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, Inbox, Search, Sparkles, X } from "lucide-react";
+import { Inbox, Search, Sparkles, X } from "lucide-react";
 import { extractDraftOnDemand } from "../pacientes/pendencias/draft-pipeline-actions";
 import { HelpHint } from "@/components/ui/help-hint";
 import type { WorkspaceItem } from "../pacientes/pendencias/queue-workspace";
@@ -12,8 +12,12 @@ import { INTAKE_GROUP_ORDER, type IntakeGroup } from "../../../lib/intake-queue-
 import { filterIntakeItems, groupItems } from "./intake-filters-pure.ts";
 import { IntakeTabs } from "./intake-tabs.tsx";
 import { IntakeList, type IntakeListItem } from "./intake-list.tsx";
+import { IntakeDetail } from "./intake-detail.tsx";
 
-export type EnrichedAuthItem = WorkspaceItem &
+/** Item da lista sem o painel montado no servidor (`detail`): o detalhe agora é o <IntakeDetail />. */
+export type IntakeWorkspaceItem = Omit<WorkspaceItem, "detail">;
+
+export type EnrichedAuthItem = IntakeWorkspaceItem &
   IntakeListItem & {
     isCompleted: boolean;
   };
@@ -35,10 +39,13 @@ export function AuthorizationsWorkspace({
   queue,
   nowIso,
   hiddenCount,
+  reassignCandidates,
   initial,
 }: {
-  items: WorkspaceItem[];
+  items: IntakeWorkspaceItem[];
   queue: PendingQueueItem[];
+  /** Quem pode receber o caso no "Reatribuir" do menu "Mais". */
+  reassignCandidates: { id: string; full_name: string }[];
   /** Instante do servidor, para a hidratação mostrar o mesmo "há N dias". */
   nowIso: string;
   /** Leads com chat encerrado, tirados da fila (link discreto no fim da lista). */
@@ -132,13 +139,14 @@ export function AuthorizationsWorkspace({
 
   const shownId = selectedId ?? tabItems[0]?.id ?? null;
   const selected = shownId ? activeItems.find((i) => i.id === shownId) ?? null : null;
+  const selectedDraft = selected ? rawMap.get(selected.id)?.draft ?? null : null;
 
   const nextItem = useMemo(() => {
-    if (!selectedId) return null;
-    const currentIndex = tabItems.findIndex((i) => i.id === selectedId);
+    if (!shownId) return null;
+    const currentIndex = tabItems.findIndex((i) => i.id === shownId);
     if (currentIndex >= 0 && currentIndex < tabItems.length - 1) return tabItems[currentIndex + 1];
-    return tabItems.find((i) => i.id !== selectedId && !i.isCompleted) ?? null;
-  }, [tabItems, selectedId]);
+    return tabItems.find((i) => i.id !== shownId && !i.isCompleted) ?? null;
+  }, [tabItems, shownId]);
 
   // Sincronização de URL
   useEffect(() => {
@@ -342,91 +350,40 @@ export function AuthorizationsWorkspace({
               : "hidden md:sticky md:top-[128px] md:block"
           }
           role={selected ? "region" : undefined}
-          aria-label={selected ? `Detalhes de ${selected.name}` : undefined}
+          aria-label={selected ? `Detalhe de ${selected.name}` : undefined}
         >
           {selected ? (
             <>
-              {/* Botão Voltar no Mobile */}
-              <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-3 flex justify-start border-b border-slate-200 bg-white px-4 py-3 md:hidden">
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(null)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700"
-                >
-                  <X className="h-4 w-4" aria-hidden="true" /> Voltar para a lista
-                </button>
-              </div>
-
-              {/* Banner de Celebração de Conclusão / Pronto para Agendar */}
-              {selected.isCompleted && (
-                <div className="mb-4 overflow-hidden rounded-2xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-4 shadow-2xs">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
-                        <CheckCircle2 className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-200/90 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-emerald-950">
-                            Habilitado para agendamento
-                          </span>
-                          <span className="text-xs font-semibold text-emerald-800">
-                            Pronto para agendar
-                          </span>
-                        </div>
-                        <h3 className="m-0 mt-1 text-sm font-bold text-slate-900">
-                          Autorização concluída com sucesso!
-                        </h3>
-                        <p className="m-0 mt-0.5 text-xs text-slate-600">
-                          A 1ª Avaliação já está liberada na Agenda da Supervisão.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <a
-                        href="/supervisao?tab=agenda1a"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-600/30"
-                      >
-                        <CalendarDays className="h-3.5 w-3.5" />
-                        <span>Abrir Agenda de Avaliações</span>
-                      </a>
-                      {nextItem && nextItem.id !== selected.id && (
-                        <button
-                          type="button"
-                          onClick={() => select(nextItem.id, true)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
-                        >
-                          <span>Próximo lead</span>
-                          <span aria-hidden="true">→</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Banner de Leitura da IA */}
+              {/* Banner de leitura da IA */}
               {(reading || selected.readDraftId) && (
                 <div
-                  className="mb-4 flex items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-3.5 py-2.5 text-xs font-semibold text-teal-900 shadow-2xs"
+                  className="mb-4 flex min-h-10 items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-3.5 py-2 text-sm font-semibold text-teal-900"
                   aria-live="polite"
                 >
-                  <Sparkles className="h-4 w-4 text-teal-600 animate-pulse" />
-                  <span>{reading ? "A IA está processando os documentos..." : "Documentos na fila de leitura da IA"}</span>
+                  <Sparkles className="h-4 w-4 text-teal-600 animate-pulse" aria-hidden="true" />
+                  <span>{reading ? "A IA está lendo os documentos…" : "Documentos na fila de leitura da IA"}</span>
                 </div>
               )}
 
-              {/* Conteúdo Rico do Lead (DraftIntakeCard) */}
-              {selected.detail}
+              {selectedDraft ? (
+                <IntakeDetail
+                  key={selected.id}
+                  item={{ id: selected.id, name: selected.name, ownerId: selected.ownerId, ownerName: selected.ownerName }}
+                  draft={selectedDraft}
+                  reassignCandidates={reassignCandidates}
+                  nextItemId={nextItem && nextItem.id !== selected.id ? nextItem.id : null}
+                  onNext={(id) => select(id, true)}
+                  onBack={() => setSelectedId(null)}
+                />
+              ) : (
+                <p className="m-0 text-sm text-slate-600">Este caso não tem rascunho de cadastro para mostrar.</p>
+              )}
             </>
           ) : (
             <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
               <Inbox className="h-10 w-10 text-slate-400 mb-3" />
-              <h3 className="m-0 text-base font-bold text-slate-800">Selecione uma autorização</h3>
-              <p className="m-0 mt-1 max-w-sm text-xs text-slate-500">Os dados do lead aparecerão aqui.</p>
+              <h3 className="m-0 text-base font-bold text-slate-800">Selecione um caso</h3>
+              <p className="m-0 mt-1 max-w-sm text-sm text-slate-600">Os dados do paciente aparecem aqui.</p>
             </div>
           )}
         </div>

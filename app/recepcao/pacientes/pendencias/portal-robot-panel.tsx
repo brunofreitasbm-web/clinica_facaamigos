@@ -245,7 +245,7 @@ export function PortalRobotPanel({ draftId, canRequest }: { draftId: string; can
 
 type ProcRow = { code: string; description: string; quantity: string };
 
-function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: string; onClose: () => void; onSent: () => void }) {
+export function PortalRobotRequestDialog({ draftId, onClose, onSent }: { draftId: string; onClose: () => void; onSent: () => void }) {
   const [defaults, setDefaults] = useState<PortalRobotFormDefaults | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
