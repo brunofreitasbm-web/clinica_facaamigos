@@ -12,6 +12,7 @@ segredo aparece aqui, só onde está e o que fazer. Apague cada item ao concluir
 
 ## Onda 2 (muda comportamento, aprovar item a item)
 
+- [ ] **Atualizar o Next** (hoje 16.3.4): `npm audit` acusa um aviso crítico na faixa 16.0.0 a 16.4.0 (GHSA-vcvr-r3jv-pc5j e outros). Exige subir a versão do framework e retestar o app; depois, tirar o `continue-on-error` do passo de audit no CI.
 - [ ] Senha determinística das contas da família (`app/login/otp-actions.ts:253`): quem sabe o telefone do responsável entra sem OTP. Migrar para sessão emitida no servidor após o OTP, OTP com `crypto.randomInt`, limite por telefone, e resetar as senhas existentes.
 - [ ] Bucket `patient-documents` público (11 objetos, sem limite de tamanho nem de tipo): tornar privado e servir por URL assinada (`lib/file-access.ts`).
 - [ ] `lib/roles.ts:82`: usuário sem perfil passa pelo guard de rota. Passar a negar.
