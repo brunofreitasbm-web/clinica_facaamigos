@@ -6,6 +6,7 @@ import { getReceptionQueue, isAuthorizationQueueItem } from "@/lib/reception-que
 import { dropLeadsWithClosedChat } from "@/lib/closed-chat-filter";
 import { buildWorkspaceItems } from "../pacientes/pendencias/queue-items";
 import { AuthorizationsWorkspace } from "./authorizations-workspace";
+import { toIntakeListItem } from "./intake-list-item-pure";
 import { isIntakeGroup, legacyTab } from "./intake-filters-pure";
 import { ShieldCheck, ArrowRight, CalendarDays } from "lucide-react";
 
@@ -31,6 +32,7 @@ export default async function AAutorizarPage({
   }>;
 }) {
   const params = await searchParams;
+  const nowIso = new Date().toISOString();
   const supabase = await createClient();
   const authorizationQueue = (await getReceptionQueue(supabase)).filter(isAuthorizationQueueItem);
 
@@ -49,13 +51,12 @@ export default async function AAutorizarPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // O painel montado no servidor (`detail`) fica de fora: a Fila de entrada desenha o próprio detalhe
-  // (<IntakeDetail />) a partir do rascunho, e mandar um painel por caso só pesava a página.
-  const items = buildWorkspaceItems(queue, { reassignCandidates, userId: user?.id ?? null }).map((item) => {
-    const { detail, ...rest } = item;
-    void detail;
-    return rest;
-  });
+  // Lista leve: só nome, etapa, telefone, responsável e datas. O rascunho completo (arquivos, dados lidos,
+  // mensagens, pendências) e o painel montado no servidor (`detail`) ficam de fora; o detalhe do caso
+  // aberto chega sob demanda (/api/recepcao/fila-de-entrada/[draftId]).
+  const items = buildWorkspaceItems(queue, { reassignCandidates, userId: user?.id ?? null }).map((item, i) =>
+    toIntakeListItem(item, queue[i]?.draft, nowIso),
+  );
   const requestedItem = params.item && queue.some((item) => item.id === params.item) ? params.item : null;
 
   // ?aba= escolhe a aba; ?etapa= e ?status= (links antigos) caem na aba equivalente.
@@ -78,16 +79,16 @@ export default async function AAutorizarPage({
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/recepcao/pacientes/pendencias"
-                className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                className="inline-flex items-center gap-2 rounded-lg bg-teal-600 min-h-10 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
               >
                 <span>Ver fila geral de pendências</span>
-                <ArrowRight className="h-3.5 w-3.5" />
+                <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/recepcao"
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white min-h-10 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
               >
-                <CalendarDays className="h-3.5 w-3.5 text-slate-500" />
+                <CalendarDays className="h-4 w-4 text-slate-500" />
                 <span>Ir para Agenda do dia</span>
               </Link>
             </div>
@@ -96,8 +97,7 @@ export default async function AAutorizarPage({
         ) : (
           <AuthorizationsWorkspace
             items={items}
-            queue={queue}
-            nowIso={new Date().toISOString()}
+            nowIso={nowIso}
             hiddenCount={hiddenByClosedChat}
             reassignCandidates={reassignCandidates ?? []}
             initial={{

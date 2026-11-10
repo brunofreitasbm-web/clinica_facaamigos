@@ -6,22 +6,17 @@ import { useRouter } from "next/navigation";
 import { Inbox, Search, Sparkles, X } from "lucide-react";
 import { extractDraftOnDemand } from "../pacientes/pendencias/draft-pipeline-actions";
 import { HelpHint } from "@/components/ui/help-hint";
-import type { WorkspaceItem } from "../pacientes/pendencias/queue-workspace";
-import type { PendingQueueItem } from "@/lib/reception-queue";
+import type { PendingRegistrationDraft } from "@/lib/reception-queue";
 import { INTAKE_GROUP_ORDER, type IntakeGroup } from "../../../lib/intake-queue-pure.ts";
 import { filterIntakeItems, groupItems } from "./intake-filters-pure.ts";
 import { IntakeTabs } from "./intake-tabs.tsx";
 import { IntakeList, type IntakeListItem } from "./intake-list.tsx";
 import { IntakeDetail } from "./intake-detail.tsx";
 import { UndoToast, useUndoToast } from "./undo-toast.tsx";
+import type { IntakeQueueListItem } from "./intake-list-item-pure.ts";
 
-/** Item da lista sem o painel montado no servidor (`detail`): o detalhe agora é o <IntakeDetail />. */
-export type IntakeWorkspaceItem = Omit<WorkspaceItem, "detail">;
-
-export type EnrichedAuthItem = IntakeWorkspaceItem &
-  IntakeListItem & {
-    isCompleted: boolean;
-  };
+/** Item da lista: só campos leves. O rascunho completo chega sob demanda, ao abrir o caso. */
+export type EnrichedAuthItem = IntakeQueueListItem & IntakeListItem;
 
 const READ_DELAY_MS = 700;
 
@@ -31,20 +26,31 @@ function isEditable(target: EventTarget | null): boolean {
 }
 
 
+/** Esqueleto leve do detalhe enquanto o caso carrega (o nome já vem da lista). */
+function IntakeDetailSkeleton({ name }: { name: string }) {
+  return (
+    <div className="flex flex-col gap-4" role="status" aria-live="polite" aria-label={`Carregando ${name}`}>
+      <h2 className="m-0 text-xl font-semibold leading-tight text-ink">{name}</h2>
+      <div className="h-10 w-2/3 animate-pulse rounded-xl bg-slate-100" />
+      <div className="h-24 animate-pulse rounded-xl bg-slate-100" />
+      <div className="h-10 w-1/2 animate-pulse rounded-xl bg-slate-100" />
+      <p className="m-0 text-sm text-slate-600">Carregando o caso…</p>
+    </div>
+  );
+}
+
 /**
  * Fila de entrada: busca + "Só os meus", 4 abas por grupo (Agir agora, Aguardando família,
  * Aguardando plano, Concluídos) e, ao lado, o painel de detalhe do caso selecionado.
  */
 export function AuthorizationsWorkspace({
   items,
-  queue,
   nowIso,
   hiddenCount,
   reassignCandidates,
   initial,
 }: {
-  items: IntakeWorkspaceItem[];
-  queue: PendingQueueItem[];
+  items: IntakeQueueListItem[];
   /** Quem pode receber o caso no "Reatribuir" do menu "Mais". */
   reassignCandidates: { id: string; full_name: string }[];
   /** Instante do servidor, para a hidratação mostrar o mesmo "há N dias". */
@@ -76,28 +82,7 @@ export function AuthorizationsWorkspace({
   const rowRefs = useRef(new Map<string, HTMLElement>());
   const detailRef = useRef<HTMLDivElement>(null);
 
-  const rawMap = useMemo(() => new Map(queue.map((q) => [q.id, q])), [queue]);
-
-  const enrichedItems = useMemo<EnrichedAuthItem[]>(() => {
-    return items.map((item) => {
-      const raw = rawMap.get(item.id);
-      const draft = raw?.draft;
-      const authStatus = draft?.pipeline.authorization ?? "pendente";
-      const isCompleted =
-        authStatus === "autorizada" ||
-        authStatus === "dispensada" ||
-        item.stage === "agendar" ||
-        item.stage === "liberado";
-      return {
-        ...item,
-        isCompleted,
-        // Todo caso da fila de autorizações tem rascunho; o fallback só evita quebrar a tela.
-        group: draft?.intake.group ?? "agir_agora",
-        waitingSince: draft?.intake.waitingSince ?? nowIso,
-        stageLabel: draft?.intake.label ?? "",
-      };
-    });
-  }, [items, rawMap, nowIso]);
+  const enrichedItems = items as EnrichedAuthItem[];
 
   const activeItems = useMemo(
     () => enrichedItems.filter((i) => !dismissedIds.has(i.id) && !(i.readDraftId && dismissedIds.has(i.readDraftId))),
@@ -132,8 +117,7 @@ export function AuthorizationsWorkspace({
   // Aba inicial: a do caso pedido por ?item=, senão a do parâmetro legado, senão "Agir agora".
   const [tab, setTab] = useState<IntakeGroup>(() => {
     const requested = initial.item ? items.find((i) => i.id === initial.item) : null;
-    const requestedGroup = requested ? enrichedItems.find((i) => i.id === requested.id)?.group : null;
-    return requestedGroup ?? initial.tab ?? "agir_agora";
+    return requested?.group ?? initial.tab ?? "agir_agora";
   });
 
   const tabItems = useMemo(
@@ -143,7 +127,35 @@ export function AuthorizationsWorkspace({
 
   const shownId = selectedId ?? tabItems[0]?.id ?? null;
   const selected = shownId ? activeItems.find((i) => i.id === shownId) ?? null : null;
-  const selectedDraft = selected ? rawMap.get(selected.id)?.draft ?? null : null;
+
+  // Detalhe pesado sob demanda: baixa só do caso aberto. Refaz a busca quando a página é atualizada
+  // (router.refresh troca `items`), mantendo o detalhe antigo na tela até o novo chegar.
+  const [detail, setDetail] = useState<{ id: string; draft: PendingRegistrationDraft } | null>(null);
+  const [detailError, setDetailError] = useState<{ id: string; message: string } | null>(null);
+  const selectedDraftId = selected?.draftId ?? null;
+  const selectedMerged = selected?.mergedDraftsCount ?? null;
+  const selectedKey = selected?.id ?? null;
+  useEffect(() => {
+    if (!selectedKey || !selectedDraftId) return;
+    const controller = new AbortController();
+    const query = selectedMerged ? `?merged=${selectedMerged}` : "";
+    fetch(`/api/recepcao/fila-de-entrada/${selectedDraftId}${query}`, { cache: "no-store", signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(res.status === 404 ? "Este caso não foi encontrado." : "Não foi possível carregar o caso.");
+        return (await res.json()) as PendingRegistrationDraft;
+      })
+      .then((draft) => {
+        setDetail({ id: selectedKey, draft });
+        setDetailError(null);
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        setDetailError({ id: selectedKey, message: err instanceof Error ? err.message : "Não foi possível carregar o caso." });
+      });
+    return () => controller.abort();
+  }, [selectedKey, selectedDraftId, selectedMerged, items]);
+  const selectedDraft = selected && detail?.id === selected.id ? detail.draft : null;
+  const detailFailure = selected && detailError?.id === selected.id ? detailError.message : null;
 
   const nextItem = useMemo(() => {
     if (!shownId) return null;
@@ -315,7 +327,7 @@ export function AuthorizationsWorkspace({
                   <p className="m-0 flex items-center justify-end gap-1 border-t border-slate-100 px-3.5 py-2 text-sm text-slate-600">
                     <Link
                       href="/recepcao/atendimento"
-                      className="underline underline-offset-2 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                      className="inline-flex min-h-10 items-center underline underline-offset-2 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
                     >
                       {hiddenCount} {hiddenCount === 1 ? "lead oculto" : "leads ocultos"}
                     </Link>
@@ -380,8 +392,14 @@ export function AuthorizationsWorkspace({
                   onBack={() => setSelectedId(null)}
                   onUndoable={undoToast.show}
                 />
-              ) : (
+              ) : !selected.draftId ? (
                 <p className="m-0 text-sm text-slate-600">Este caso não tem rascunho de cadastro para mostrar.</p>
+              ) : detailFailure ? (
+                <p className="m-0 text-sm text-rose-700" role="alert">
+                  {detailFailure}
+                </p>
+              ) : (
+                <IntakeDetailSkeleton name={selected.name} />
               )}
             </>
           ) : (
