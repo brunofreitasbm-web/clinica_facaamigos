@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Bot, CheckCircle2, ListOrdered, RotateCcw, User, UserCheck, UserMinus } from "lucide-react";
 import type { ConversationRow } from "@/lib/atendimento/types";
+import { isWindowClosed } from "@/lib/whatsapp-window-pure";
 
 export function MobileChatMenu({
   conversation,
@@ -27,6 +29,9 @@ export function MobileChatMenu({
   onReopenConversation: () => void;
 }) {
   const isClosed = conversation.status === "closed";
+  // Janela de 24h do WhatsApp fechada: o menu (texto livre) não seria entregue.
+  // O menu só monta ao abrir, então basta calcular uma vez.
+  const [windowClosed] = useState(() => isWindowClosed(conversation.lastInboundAt, Date.now()));
 
   const assignLabel = isMine ? "Liberar conversa" : assigneeName ? `Assumir (hoje com ${assigneeName})` : "Assumir conversa";
 
@@ -88,16 +93,25 @@ export function MobileChatMenu({
             type="button"
             role="menuitem"
             className="flex items-center gap-3 rounded-[12px] px-3 text-left text-[15px] font-bold"
-            style={{ minHeight: 48, color: "var(--color-text)" }}
+            style={{ minHeight: 48, color: "var(--color-text)", opacity: windowClosed ? 0.5 : 1 }}
+            disabled={windowClosed}
             onClick={() => {
-              // Enviar o menu devolve a conversa ao bot: confirma se havia humano no controle.
-              if (!conversation.isBotActive && !window.confirm("Enviar o menu devolve a conversa ao bot. Continuar?")) return;
+              // O menu chega à família como se fosse o bot e devolve a conversa ao bot:
+              // sempre confirma, não só quando havia humano no controle.
+              if (!window.confirm("O menu será enviado à família como se fosse o bot e a conversa volta ao bot. Continuar?")) return;
               onSendMenu();
               onClose();
             }}
           >
             <ListOrdered size={18} color="var(--color-accent)" />
-            Enviar menu inicial
+            <span className="flex flex-col">
+              Enviar menu inicial
+              {windowClosed && (
+                <span className="text-[12px] font-medium" style={{ color: "var(--color-text-soft, var(--color-text))" }}>
+                  Fora da janela de 24h: use um modelo
+                </span>
+              )}
+            </span>
           </button>
         )}
 

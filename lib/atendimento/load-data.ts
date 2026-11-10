@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
 import { toLastMessageSender, type ConversationRow, type InsurerPill } from "./types";
@@ -18,11 +19,14 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
   staffNames: Record<string, string>;
   insurerById: Record<string, InsurerPill>;
   loadError: string | null;
+  /** `chatbot_settings.pending_sla_minutes`: minutos de espera para o item ficar vermelho. */
+  pendingSlaMinutes: number | null;
 }> {
   const [
     { data: conversationsRaw, error: conversationsError },
     { data: staffRaw },
     { data: insurersRaw },
+    pendingSlaMinutes,
   ] = await Promise.all([
     supabase
       .from("twilio_conversations")
@@ -34,6 +38,7 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
     supabase.from("profiles").select("id, full_name").in("role", ["recepcao", "supervisor", "gestor"]),
     // Convênios cadastrados: resolvem o plano que o chatbot identificou na conversa.
     supabase.from("insurers").select("id, name, badge_color").eq("clinic_id", DEV_CLINIC_ID),
+    loadPendingSlaMinutes(),
   ]);
 
   // Antes o erro era engolido e a fila aparecia vazia ("Nenhuma conversa"),
@@ -100,7 +105,31 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
     };
   });
 
-  return { conversations, staffNames, insurerById, loadError: conversationsError?.message ?? null };
+  return {
+    conversations,
+    staffNames,
+    insurerById,
+    loadError: conversationsError?.message ?? null,
+    pendingSlaMinutes,
+  };
+}
+
+/**
+ * Minutos de espera para o item ficar vermelho na lista. A RLS de `chatbot_settings` só deixa
+ * gestor e supervisor lerem, mas a recepção também precisa deste número (é o mesmo SLA que
+ * avisa a equipe no backend). Lê só esta coluna, no servidor, com o cliente admin.
+ */
+async function loadPendingSlaMinutes(): Promise<number | null> {
+  try {
+    const { data } = await createAdminClient()
+      .from("chatbot_settings")
+      .select("pending_sla_minutes")
+      .eq("clinic_id", DEV_CLINIC_ID)
+      .maybeSingle();
+    return typeof data?.pending_sla_minutes === "number" ? data.pending_sla_minutes : null;
+  } catch {
+    return null;
+  }
 }
 
 const ATENDIMENTO_ROLES = new Set(["recepcao", "supervisor", "gestor"]);

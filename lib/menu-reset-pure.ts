@@ -32,6 +32,56 @@ export function isInactiveForMenuReset(
   return nowMs - previous > windowMs;
 }
 
+export type MenuResetInput = {
+  /** Mensagem recebida ANTERIOR à atual (`last_inbound_at` antes do update). */
+  previousInboundAt: string | null | undefined;
+  /** Última mensagem enviada PELA CLÍNICA (bot, atendente, template ou cron) na conversa. */
+  lastClinicOutboundAt: string | null | undefined;
+  /** A mensagem atual é um toque em botão ou item de lista (ButtonPayload/ListId). */
+  hasInteractiveReply: boolean;
+  session: { current_step: string | null; flow: string | null } | null | undefined;
+  /** `chatbot_sessions.updated_at`; ausente = tratada como velha. */
+  sessionUpdatedAt: string | null | undefined;
+  nowMs: number;
+  windowMs?: number;
+};
+
+export type MenuResetDecision = { sendMenu: boolean; discardSession: boolean };
+
+/**
+ * Decide o reinício do menu depois de silêncio longo. Só reinicia quando a pessoa
+ * está COMEÇANDO do zero. Nunca quando ela está respondendo a algo que a clínica
+ * mandou há pouco (template de plano autorizado, oferta de horários, aviso de
+ * falta...): nesse caso o menu engolia o toque no botão e a família tinha de
+ * tocar de novo (caso real de 09/11: 8 de 10 famílias).
+ */
+export function decideMenuReset(input: MenuResetInput): MenuResetDecision {
+  const none: MenuResetDecision = { sendMenu: false, discardSession: false };
+  const windowMs = input.windowMs ?? MENU_RESET_WINDOW_MS;
+
+  // Toque em botão/lista é sempre resposta a uma mensagem nossa.
+  if (input.hasInteractiveReply) return none;
+  if (!isInactiveForMenuReset(input.previousInboundAt, input.nowMs, windowMs)) return none;
+
+  // A clínica falou depois do silêncio do contato, dentro da janela: é a resposta a nós.
+  const outbound = input.lastClinicOutboundAt ? Date.parse(input.lastClinicOutboundAt) : NaN;
+  if (Number.isFinite(outbound) && input.nowMs - outbound < windowMs) return none;
+
+  const session = input.session;
+  const step = session?.current_step ?? "";
+  const hasActiveStep = Boolean(step) && step !== "idle" && step !== "completed";
+  if (session && hasActiveStep) {
+    // Sessão da oferta de horários ou da supervisão: a bola não está com a família.
+    if (!shouldDiscardSession(session)) return none;
+    // Sessão mexida há pouco não é "esquecida": não mexe nela.
+    const updated = input.sessionUpdatedAt ? Date.parse(input.sessionUpdatedAt) : NaN;
+    if (Number.isFinite(updated) && input.nowMs - updated < windowMs) return none;
+    return { sendMenu: true, discardSession: true };
+  }
+
+  return { sendMenu: true, discardSession: false };
+}
+
 /** A sessão do telefone está presa num fluxo que pode ser descartado com segurança? */
 export function shouldDiscardSession(session: { current_step: string | null; flow: string | null } | null | undefined): boolean {
   if (!session) return false;

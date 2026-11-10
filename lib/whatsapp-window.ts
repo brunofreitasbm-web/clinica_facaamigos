@@ -1,8 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatE164Phone } from "@/lib/twilio";
-
-/** Margem sobre as 24h da janela de serviço do WhatsApp (conta desde a última mensagem do contato). */
-const WINDOW_MS = 23 * 60 * 60 * 1000;
+import { WHATSAPP_AUTOMATION_WINDOW_MS as WINDOW_MS } from "@/lib/whatsapp-window-pure";
 
 /**
  * A janela de 24h do WhatsApp está aberta para este telefone? Só nela o texto

@@ -5225,6 +5225,7 @@ export type Database = {
           read_at: string | null
           related_appointment_id: string | null
           sender_type: string
+          sent_by: string | null
           sent_at: string | null
           template_key: string | null
           twilio_sid: string | null
@@ -5245,6 +5246,7 @@ export type Database = {
           read_at?: string | null
           related_appointment_id?: string | null
           sender_type?: string
+          sent_by?: string | null
           sent_at?: string | null
           template_key?: string | null
           twilio_sid?: string | null
@@ -5265,6 +5267,7 @@ export type Database = {
           read_at?: string | null
           related_appointment_id?: string | null
           sender_type?: string
+          sent_by?: string | null
           sent_at?: string | null
           template_key?: string | null
           twilio_sid?: string | null

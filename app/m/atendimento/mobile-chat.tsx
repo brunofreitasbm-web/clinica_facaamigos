@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { ArrowLeft, CheckCheck, MoreVertical, Paperclip, RefreshCw, Send } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, Clock, Lock, MoreVertical, Paperclip, RefreshCw, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDraftMessage } from "@/src/hooks/useDraftMessage";
-import { HealthPlanBadge } from "@/components/health-plan-badge";
+import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
 import {
   assignConversation,
   sendManualMessage,
@@ -18,6 +18,11 @@ import { MobileChatMenu } from "./mobile-chat-menu";
 import { ContactSheet } from "./contact-sheet";
 import { CloseDialog } from "./close-dialog";
 import { useBackLayers } from "@/lib/use-back-handler";
+import { TemplateSendPicker } from "@/app/recepcao/atendimento/template-send-picker";
+import { loadSenders } from "@/lib/atendimento/load-senders";
+import { deliveryStatusLabel, messageAuthorLabel } from "@/lib/atendimento/message-author-pure";
+import { decideEnterKey, filterQuickResponses, isShortcutDraft } from "@/lib/atendimento/quick-responses-pure";
+import { isWindowClosed, windowClosingLabel } from "@/lib/whatsapp-window-pure";
 
 type MessageRow = {
   id: string;
@@ -27,6 +32,8 @@ type MessageRow = {
   sentAt: string | null;
   deliveryStatus: string | null;
   mediaUrl: string | null;
+  intent?: string | null;
+  sentBy?: string | null;
 };
 
 type QuickResponseRow = { id: string; shortcut: string; title: string; contentText: string };
@@ -52,7 +59,31 @@ function renderFormattedBody(text: string | null) {
   );
 }
 
-function ChatBubble({ message, isPending, onRetry }: { message: MessageRow; isPending: boolean; onRetry: (body: string) => void }) {
+/** Ícone do status de entrega (com texto para leitor de tela); a cor não é o único sinal. */
+function DeliveryIcon({ status }: { status: string | null }) {
+  const info = deliveryStatusLabel(status);
+  if (!info) return null;
+  const Icon = info.tone === "pending" ? Clock : info.tone === "sent" ? Check : CheckCheck;
+  const color = info.tone === "read" ? "var(--color-teal-700)" : "var(--color-neutral-400)";
+  return (
+    <span className="inline-flex" title={info.label}>
+      <Icon size={14} style={{ color }} aria-hidden />
+      <span className="sr-only">{info.label}</span>
+    </span>
+  );
+}
+
+function ChatBubble({
+  message,
+  authorLabel = null,
+  isPending,
+  onRetry,
+}: {
+  message: MessageRow;
+  authorLabel?: string | null;
+  isPending: boolean;
+  onRetry: (body: string) => void;
+}) {
   const isOutbound = message.direction === "outbound";
   const isFailed = message.deliveryStatus === "failed";
   const isBot = message.senderType === "bot";
@@ -99,18 +130,9 @@ function ChatBubble({ message, isPending, onRetry }: { message: MessageRow; isPe
               </button>
             ) : (
               <>
+                {authorLabel && <span className="font-semibold">{authorLabel} ·</span>}
                 <span>{time}</span>
-                <CheckCheck
-                  size={14}
-                  style={{
-                    color:
-                      message.deliveryStatus === "read"
-                        ? "var(--color-teal-700)"
-                        : message.deliveryStatus === "delivered"
-                          ? "var(--color-neutral-400)"
-                          : "var(--color-neutral-300)",
-                  }}
-                />
+                <DeliveryIcon status={message.deliveryStatus} />
               </>
             )}
           </div>
@@ -188,7 +210,25 @@ export function MobileChat({
   const [error, setError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [quickResponses, setQuickResponses] = useState<QuickResponseRow[]>([]);
+  const [senders, setSenders] = useState<Record<string, string>>({});
+  // Antes um erro de carregamento era ignorado e a tela dizia "Nenhuma mensagem ainda.".
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const { draft, setDraft, clearDraft } = useDraftMessage(conversation.id, "chat");
+  // Janela de 24h: só nas últimas 2 h avisa que vai fechar; fechada, só modelo aprovado é entregue.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const first = setTimeout(tick, 0);
+    const timer = setInterval(tick, 60_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, []);
+  const windowClosed = now !== null && isWindowClosed(conversation.lastInboundAt, now);
+  const closingLabel = now !== null && !windowClosed ? windowClosingLabel(conversation.lastInboundAt, now) : null;
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -201,11 +241,18 @@ export function MobileChat({
 
     supabase
       .from("messages")
-      .select("id, sender_type, direction, body, sent_at, delivery_status, media_url")
+      .select("id, sender_type, direction, body, sent_at, delivery_status, media_url, intent")
       .eq("conversation_id", conversation.id)
       .order("sent_at", { ascending: true })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (cancelled) return;
+        if (error) {
+          console.error("[m/atendimento] falha ao carregar mensagens:", error);
+          setLoadError("Não foi possível carregar as mensagens.");
+          setLoaded(true);
+          return;
+        }
+        setLoadError(null);
         setMessages(
           (data ?? []).map((m) => ({
             id: m.id,
@@ -215,9 +262,15 @@ export function MobileChat({
             sentAt: m.sent_at,
             deliveryStatus: m.delivery_status,
             mediaUrl: m.media_url,
+            intent: m.intent,
           })),
         );
+        setLoaded(true);
       });
+
+    void loadSenders(conversation.id).then((map) => {
+      if (!cancelled) setSenders(map);
+    });
 
     const channel = supabase
       .channel(`m-atendimento-messages-${conversation.id}`)
@@ -233,6 +286,8 @@ export function MobileChat({
             sent_at: string | null;
             delivery_status: string | null;
             media_url: string | null;
+            intent?: string | null;
+            sent_by?: string | null;
           };
           if (!m?.id) return;
           const row: MessageRow = {
@@ -243,7 +298,11 @@ export function MobileChat({
             sentAt: m.sent_at,
             deliveryStatus: m.delivery_status,
             mediaUrl: m.media_url,
+            intent: m.intent ?? null,
+            sentBy: m.sent_by ?? null,
           };
+          // O Realtime já traz sent_by (quando a coluna existe): mantém a autoria sem nova consulta.
+          if (row.sentBy) setSenders((prev) => (prev[row.id] === row.sentBy ? prev : { ...prev, [row.id]: row.sentBy as string }));
           setMessages((prev) => {
             const idx = prev.findIndex((item) => item.id === row.id);
             if (idx >= 0) {
@@ -261,7 +320,7 @@ export function MobileChat({
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [conversation.id]);
+  }, [conversation.id, reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -363,13 +422,9 @@ export function MobileChat({
     }
   };
 
-  const showQuickResponses = draft.startsWith("/");
-  const normalizedFilter = draft.replace(/^\//, "").toLowerCase();
-  const filteredQuickResponses = quickResponses.filter(
-    (r) =>
-      r.shortcut.replace(/^\//, "").toLowerCase().startsWith(normalizedFilter) ||
-      r.title.toLowerCase().includes(normalizedFilter),
-  );
+  // Mesma regra do desktop (lib/atendimento/quick-responses-pure.ts): "/abc" é busca de atalho, nunca mensagem.
+  const showQuickResponses = !windowClosed && isShortcutDraft(draft);
+  const filteredQuickResponses = filterQuickResponses(quickResponses, draft);
 
   return (
     <div className="flex h-full min-h-0 flex-col" style={{ background: "var(--color-chat-bg)" }}>
@@ -408,10 +463,11 @@ export function MobileChat({
             <span className="min-w-0">
               <span className="flex items-center gap-1.5">
                 <span className="truncate text-[16px] font-extrabold text-white">{conversation.displayName}</span>
-                {conversation.planName && <HealthPlanBadge name={conversation.planName} color={conversation.planColor} size="md" />}
               </span>
               <span className="block truncate text-[12px]" style={{ color: "color-mix(in srgb, #fff 85%, transparent)" }}>
-                {conversation.guardianName ?? conversation.phoneNumber}
+                {conversation.guardianName
+                  ? `${conversation.guardianName} · ${formatConversationPhone(conversation.phoneNumber)}`
+                  : formatConversationPhone(conversation.phoneNumber)}
                 {assigneeName ? ` · com ${isMine ? "você" : assigneeName}` : ""}
               </span>
             </span>
@@ -471,13 +527,42 @@ export function MobileChat({
           backgroundSize: "14px 14px",
         }}
       >
-        {messages.length === 0 && (
+        {loaded && loadError && (
+          <p role="alert" className="text-center text-[13px] font-semibold" style={{ color: "var(--color-error)" }}>
+            {loadError}{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                setLoaded(false);
+                setLoadError(null);
+                setReloadKey((k) => k + 1);
+              }}
+            >
+              Tentar de novo
+            </button>
+          </p>
+        )}
+        {loaded && !loadError && messages.length === 0 && (
           <p className="text-center text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
             Nenhuma mensagem ainda.
           </p>
         )}
         {messages.map((m) => (
-          <ChatBubble key={m.id} message={m} isPending={isPending} onRetry={(body) => handleSend(body, true)} />
+          <ChatBubble
+            key={m.id}
+            message={m}
+            authorLabel={messageAuthorLabel({
+              direction: m.direction,
+              senderType: m.senderType,
+              intent: m.intent,
+              sentBy: senders[m.id] ?? m.sentBy,
+              staffNames,
+              currentUserId,
+            })}
+            isPending={isPending}
+            onRetry={(body) => handleSend(body, true)}
+          />
         ))}
       </div>
 
@@ -496,6 +581,26 @@ export function MobileChat({
             <button type="button" className="underline" onClick={() => handleSend(undefined, true)}>
               Tentar novamente
             </button>
+          </p>
+        )}
+
+        {windowClosed && (
+          <p
+            className="mb-2 flex items-start gap-2 rounded-[10px] px-3 py-2 text-[12px]"
+            style={{ background: "var(--color-neutral-100)", color: "var(--color-neutral-700)" }}
+          >
+            <Lock size={14} className="mt-0.5 shrink-0" aria-hidden />
+            <span>Fora da janela de 24h do WhatsApp: mensagem livre não é entregue. Envie um modelo aprovado.</span>
+          </p>
+        )}
+        {closingLabel && (
+          <p
+            role="status"
+            className="mb-2 flex items-center gap-2 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold"
+            style={{ background: "var(--color-accent-2-100)", color: "var(--color-accent-2-700)" }}
+          >
+            <Clock size={13} className="shrink-0" aria-hidden />
+            <span>A janela de 24h fecha em {closingLabel}.</span>
           </p>
         )}
 
@@ -532,35 +637,52 @@ export function MobileChat({
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            className="input flex-1"
-            style={{ borderRadius: 9999, height: 44 }}
-            placeholder="Mensagem ou / para respostas rápidas"
-            value={draft}
-            disabled={isPending}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSend();
-              }
-              if (e.key === "Escape") setDraft("");
-            }}
-            aria-label="Campo de mensagem"
+        {windowClosed ? (
+          <TemplateSendPicker
+            conversationId={conversation.id}
+            guardianName={conversation.guardianName}
+            contactName={conversation.contactName}
           />
-          <button
-            type="button"
-            className="btn btn-primary btn-icon shrink-0"
-            style={{ width: 48, height: 48, opacity: draft.trim() ? 1 : 0.55 }}
-            disabled={isPending || !draft.trim()}
-            onClick={() => handleSend()}
-            aria-label="Enviar mensagem"
-          >
-            <Send size={18} />
-          </button>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              className="input flex-1"
+              style={{ borderRadius: 9999, height: 44 }}
+              placeholder="Mensagem ou / para respostas rápidas"
+              value={draft}
+              disabled={isPending}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setDraft("");
+                if (e.key !== "Enter") return;
+                // Mesma regra do desktop: com "/atalho" o Enter escolhe a primeira resposta (ou não faz nada),
+                // nunca envia "/atalho" ao paciente.
+                const decision = decideEnterKey({
+                  draft,
+                  matches: filteredQuickResponses.length,
+                  shiftKey: e.shiftKey,
+                  composing: e.nativeEvent.isComposing,
+                });
+                if (decision === "newline") return;
+                e.preventDefault();
+                if (decision === "select") setDraft(applyPlaceholders(filteredQuickResponses[0].contentText));
+                else if (decision === "send") handleSend();
+              }}
+              aria-label="Campo de mensagem"
+            />
+            <button
+              type="button"
+              className="btn btn-primary btn-icon shrink-0"
+              style={{ width: 48, height: 48, opacity: draft.trim() ? 1 : 0.55 }}
+              disabled={isPending || !draft.trim()}
+              onClick={() => handleSend()}
+              aria-label="Enviar mensagem"
+            >
+              <Send size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {menuOpen && (

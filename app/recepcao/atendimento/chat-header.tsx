@@ -5,7 +5,7 @@ import Link from "next/link";
 import { assignConversation, sendMenuToLead, setConversationClosed, toggleBotActive } from "./actions";
 import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
 import { hasPatientRecord } from "@/lib/atendimento/types";
-import { HealthPlanBadge } from "@/components/health-plan-badge";
+import { formatConversationPhone } from "./format-phone";
 import { isWhatsappWindowClosed } from "./atendimento-shell";
 import { ChatActions } from "@/src/components/Reception/Chat/ChatActions";
 import type { AttendanceManualOutcome } from "@/lib/conversation-attendance";
@@ -126,9 +126,6 @@ export function ChatHeader({
                 {conversation.displayName}
               </span>
             )}
-            {conversation.planName && (
-              <HealthPlanBadge name={conversation.planName} color={conversation.planColor} size="md" className="shrink-0" />
-            )}
             {isWhatsappWindowClosed(conversation) && (
               <span
                 className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-bold uppercase text-amber-900 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200"
@@ -139,7 +136,9 @@ export function ChatHeader({
             )}
           </div>
           <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-            {conversation.guardianName ?? conversation.phoneNumber}
+            {conversation.guardianName
+              ? `${conversation.guardianName} · ${formatConversationPhone(conversation.phoneNumber)}`
+              : formatConversationPhone(conversation.phoneNumber)}
             {assigneeName && ` · com ${isMine ? "você" : assigneeName}`}
           </p>
         </div>
@@ -156,6 +155,7 @@ export function ChatHeader({
           onCloseToggle={handleCloseToggle}
           onBotToggle={handleBotToggle}
           onSendMenu={handleSendMenu}
+          windowClosed={isWhatsappWindowClosed(conversation)}
         />
       </div>
       {error && <p className="mt-2 text-xs text-red-600">⚠️ {error}</p>}

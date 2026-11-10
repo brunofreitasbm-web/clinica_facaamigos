@@ -12,6 +12,7 @@
 // em `messages` com o intent — é o intent da última mensagem do bot que diz em
 // qual tela a pessoa está.
 import { createAdminClient } from "@/lib/supabase/admin";
+import { insertMessageRow } from "@/lib/messages-insert";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { APP_ORIGIN, CLINIC_MAPS_URL, getClinicIdentity } from "@/lib/clinic-identity";
 import { formatBusinessHours } from "@/lib/business-hours-pure";
@@ -147,6 +148,9 @@ export async function sendMainMenu(params: { phone: string; conversationId: stri
 export async function sendMainMenuNow(params: {
   phone: string;
   conversationId: string;
+  /** Profissional da equipe que acionou o envio; fica em `messages.sent_by` para o histórico
+   * mostrar "Menu enviado por Fulana" (para a família continua parecendo o bot). */
+  sentBy?: string | null;
 }): Promise<{ success: true } | { success: false; error: string; errorCode?: number }> {
   const sid = (await menuSids()).mainMenu;
   const attempts = sid ? [{ contentSid: sid }, {}] : [{}];
@@ -161,7 +165,7 @@ export async function sendMainMenuNow(params: {
           .select("patient_id, guardian_id")
           .eq("id", params.conversationId)
           .maybeSingle();
-        await admin.from("messages").insert({
+        await insertMessageRow(admin, {
           patient_id: conversation?.patient_id ?? null,
           guardian_id: conversation?.guardian_id ?? null,
           conversation_id: params.conversationId,
@@ -173,6 +177,7 @@ export async function sendMainMenuNow(params: {
           twilio_sid: send.messageId ?? null,
           delivery_status: "sent",
           intent: MENU_INTENT,
+          sent_by: params.sentBy ?? null,
         });
         await admin
           .from("twilio_conversations")

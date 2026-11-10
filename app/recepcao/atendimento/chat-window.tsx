@@ -6,6 +6,8 @@ import { sendManualMessage } from "./actions";
 import { ChatHeader } from "./chat-header";
 import { ChatBubble } from "@/src/components/Reception/Chat/ChatBubble";
 import { MessageInput } from "@/src/components/Reception/Chat/MessageInput";
+import { messageAuthorLabel } from "@/lib/atendimento/message-author-pure";
+import { loadSenders } from "@/lib/atendimento/load-senders";
 import { isWhatsappWindowClosed, type ConversationPatch, type ConversationRow } from "./atendimento-shell";
 
 type MessageRow = {
@@ -17,11 +19,15 @@ type MessageRow = {
   deliveryStatus: string | null;
   mediaUrl: string | null;
   channel: string | null;
+  intent: string | null;
+  /** `messages.sent_by` vindo do Realtime (NULL no carregamento inicial: ver loadSenders). */
+  sentBy: string | null;
 };
 
 const MESSAGE_PAGE_SIZE = 50;
 
-const MESSAGE_SELECT = "id, sender_type, direction, body, sent_at, delivery_status, media_url, channel";
+// `sent_by` fica FORA desta lista de propósito (ver lib/atendimento/load-senders.ts).
+const MESSAGE_SELECT = "id, sender_type, direction, body, sent_at, delivery_status, media_url, channel, intent";
 
 function toMessageRow(m: {
   id: string;
@@ -32,6 +38,8 @@ function toMessageRow(m: {
   delivery_status: string | null;
   media_url: string | null;
   channel?: string | null;
+  intent?: string | null;
+  sent_by?: string | null;
 }): MessageRow {
   return {
     id: m.id,
@@ -42,6 +50,8 @@ function toMessageRow(m: {
     deliveryStatus: m.delivery_status,
     mediaUrl: m.media_url,
     channel: m.channel ?? null,
+    intent: m.intent ?? null,
+    sentBy: m.sent_by ?? null,
   };
 }
 
@@ -62,6 +72,11 @@ export function ChatWindow({
   // Sem isto "Nenhuma mensagem ainda." piscava a cada troca de conversa,
   // enquanto o fetch ainda estava em andamento.
   const [loaded, setLoaded] = useState(false);
+  // Antes um erro de carregamento era ignorado e a tela dizia "Nenhuma mensagem ainda.".
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [olderError, setOlderError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [senders, setSenders] = useState<Record<string, string>>({});
   const [hasNewBelow, setHasNewBelow] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   // true enquanto a recepção está perto do fim da conversa. Só nesse caso
@@ -91,13 +106,24 @@ export function ChatWindow({
       .eq("conversation_id", conversation.id)
       .order("sent_at", { ascending: false })
       .limit(MESSAGE_PAGE_SIZE)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (cancelled) return;
+        if (error) {
+          console.error("[atendimento] falha ao carregar mensagens:", error);
+          setLoadError("Não foi possível carregar as mensagens.");
+          setLoaded(true);
+          return;
+        }
         const rows = (data ?? []).map(toMessageRow).reverse();
+        setLoadError(null);
         setMessages(rows);
         setHasMore(rows.length === MESSAGE_PAGE_SIZE);
         setLoaded(true);
       });
+
+    void loadSenders(conversation.id).then((map) => {
+      if (!cancelled) setSenders(map);
+    });
 
     const channel = supabase
       .channel(`atendimento-messages-${conversation.id}`)
@@ -108,6 +134,8 @@ export function ChatWindow({
           const raw = payload.new as Parameters<typeof toMessageRow>[0] | null;
           if (!raw || !raw.id) return;
           const m = toMessageRow(raw);
+          // O Realtime já traz sent_by (quando a coluna existe): mantém a autoria sem nova consulta.
+          if (m.sentBy) setSenders((prev) => (prev[m.id] === m.sentBy ? prev : { ...prev, [m.id]: m.sentBy as string }));
           // A própria resposta sempre leva a rolagem ao fim.
           if (m.direction === "outbound") stickToBottomRef.current = true;
 
@@ -128,25 +156,35 @@ export function ChatWindow({
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [conversation.id]);
+  }, [conversation.id, reloadKey]);
 
   const loadOlderMessages = useCallback(async () => {
     const oldest = messages[0]?.sentAt;
     if (!oldest || loadingMore) return;
     setLoadingMore(true);
+    setOlderError(null);
     try {
       const supabase = createClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("messages")
         .select(MESSAGE_SELECT)
         .eq("conversation_id", conversation.id)
         .lt("sent_at", oldest)
         .order("sent_at", { ascending: false })
         .limit(MESSAGE_PAGE_SIZE);
+      if (error) {
+        console.error("[atendimento] falha ao carregar mensagens anteriores:", error);
+        setOlderError("Não foi possível carregar as mensagens anteriores.");
+        return;
+      }
       const older = (data ?? []).map(toMessageRow).reverse();
       skipAutoScrollRef.current = true;
       setMessages((prev) => [...older, ...prev]);
       setHasMore(older.length === MESSAGE_PAGE_SIZE);
+      void loadSenders(conversation.id).then(setSenders);
+    } catch (err) {
+      console.error("[atendimento] falha ao carregar mensagens anteriores:", err);
+      setOlderError("Não foi possível carregar as mensagens anteriores.");
     } finally {
       setLoadingMore(false);
     }
@@ -223,14 +261,27 @@ export function ChatWindow({
               disabled={loadingMore}
               onClick={loadOlderMessages}
             >
-              {loadingMore ? "Carregando…" : "Carregar mensagens anteriores"}
+              {loadingMore ? "Carregando…" : olderError ? "Tentar de novo" : "Carregar mensagens anteriores"}
             </button>
           </div>
+        )}
+        {olderError && (
+          <p role="alert" className="pb-2 text-center text-xs text-red-700 dark:text-red-400">
+            {olderError}
+          </p>
         )}
         {messages.map((m) => (
           <ChatBubble
             key={m.id}
             message={m}
+            authorLabel={messageAuthorLabel({
+              direction: m.direction,
+              senderType: m.senderType,
+              intent: m.intent,
+              sentBy: senders[m.id] ?? m.sentBy,
+              staffNames,
+              currentUserId,
+            })}
             isPending={isPending}
             onRetry={(body) => handleSendText(body, true)}
           />
@@ -240,7 +291,26 @@ export function ChatWindow({
             Carregando mensagens…
           </p>
         )}
-        {loaded && messages.length === 0 && (
+        {loaded && loadError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+          >
+            <span>{loadError}</span>
+            <button
+              type="button"
+              className="shrink-0 font-semibold underline"
+              onClick={() => {
+                setLoaded(false);
+                setLoadError(null);
+                setReloadKey((k) => k + 1);
+              }}
+            >
+              Tentar de novo
+            </button>
+          </div>
+        )}
+        {loaded && !loadError && messages.length === 0 && (
           <p className="text-sm text-slate-500 dark:text-slate-400">Nenhuma mensagem ainda.</p>
         )}
         <div ref={bottomRef} />
@@ -264,6 +334,7 @@ export function ChatWindow({
         contactName={conversation.contactName}
         guardianName={conversation.guardianName}
         windowClosed={isWhatsappWindowClosed(conversation)}
+        lastInboundAt={conversation.lastInboundAt}
       />
     </div>
   );

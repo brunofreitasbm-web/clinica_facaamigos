@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { AtendimentoShell, type ChatbotAdminData } from "./atendimento-shell";
 import { loadAtendimentoData } from "@/lib/atendimento/load-data";
+import { resolveInitialConversationId } from "@/lib/atendimento/chat-deep-link-pure";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import type { ChatbotDashboardStats } from "./chatbot/dashboard-panel";
 import type { DeliveryHistoryRow } from "./chatbot/chatbot-panel";
@@ -166,7 +167,13 @@ async function loadChatbotAdminData(
   };
 }
 
-export default async function AtendimentoPage() {
+export default async function AtendimentoPage({
+  searchParams,
+}: {
+  // Link direto para uma conversa: ?c=<id> ou ?tel=<telefone> (usado por Autorizações e Pendências).
+  searchParams: Promise<{ c?: string | string[]; tel?: string | string[] }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -179,7 +186,7 @@ export default async function AtendimentoPage() {
     canManageChatbot = profile?.role === "supervisor" || profile?.role === "gestor";
   }
 
-  const [{ conversations, staffNames, insurerById, loadError }, chatbotAdmin] = await Promise.all([
+  const [{ conversations, staffNames, insurerById, loadError, pendingSlaMinutes }, chatbotAdmin] = await Promise.all([
     loadAtendimentoData(supabase),
     canManageChatbot ? loadChatbotAdminData(supabase) : Promise.resolve(null),
   ]);
@@ -193,6 +200,8 @@ export default async function AtendimentoPage() {
         staffNames={staffNames}
         insurerById={insurerById}
         loadError={loadError}
+        pendingSlaMinutes={pendingSlaMinutes}
+        initialSelectedId={resolveInitialConversationId(conversations, params)}
       />
     </main>
   );

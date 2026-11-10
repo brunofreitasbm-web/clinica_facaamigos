@@ -1,6 +1,7 @@
 "use client";
 
 import { prioritizeConversations } from "@/lib/atendimento/priority-pure";
+import { sectionConversations, waitAlertMinutes } from "@/lib/atendimento/sections-pure";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -19,12 +20,15 @@ export function MobileShell({
   insurerById,
   currentUserId,
   initialSelectedId,
+  pendingSlaMinutes = null,
 }: {
   initialConversations: ConversationRow[];
   staffNames: Record<string, string>;
   insurerById: Record<string, InsurerPill>;
   currentUserId: string | null;
   initialSelectedId: string | null;
+  /** `chatbot_settings.pending_sla_minutes`: minutos de espera para o item ficar vermelho. */
+  pendingSlaMinutes?: number | null;
 }) {
   const router = useRouter();
   const [conversations, setConversations] = useState<ConversationRow[]>(initialConversations);
@@ -162,9 +166,21 @@ export function MobileShell({
   const waitingCount = useMemo(() => conversations.filter((c) => c.status === "pending").length, [conversations]);
 
   // Com texto digitado, a busca ignora a aba/chip atual e olha abertas + encerradas.
-  const visibleConversations = useMemo(() => {
-    if (search.trim()) return prioritizeConversations(conversations.filter((c) => matchesSearch(c, search)));
-    return prioritizeConversations(conversations.filter((c) => matchesFilter(c, chipFilterForTab, currentUserId)));
+  // Busca e "Encerradas" ficam em lista plana (prioridades primeiro); o resto vai em seções
+  // (Precisa de você / Em atendimento / Com o bot), igual ao desktop.
+  const { visibleConversations, sections } = useMemo(() => {
+    if (search.trim()) {
+      return {
+        visibleConversations: prioritizeConversations(conversations.filter((c) => matchesSearch(c, search))),
+        sections: null,
+      };
+    }
+    const matching = conversations.filter((c) => matchesFilter(c, chipFilterForTab, currentUserId));
+    if (chipFilterForTab === "encerradas") {
+      return { visibleConversations: prioritizeConversations(matching), sections: null };
+    }
+    const grouped = sectionConversations(matching, currentUserId);
+    return { visibleConversations: grouped.flatMap((section) => section.rows), sections: grouped };
   }, [conversations, chipFilterForTab, search, currentUserId]);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
@@ -215,6 +231,8 @@ export function MobileShell({
   return (
     <MobileQueue
       conversations={visibleConversations}
+      sections={sections}
+      waitAlertMinutes={waitAlertMinutes(pendingSlaMinutes)}
       tab={tab}
       chip={chip}
       search={search}

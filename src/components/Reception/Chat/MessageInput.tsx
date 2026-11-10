@@ -1,10 +1,23 @@
 "use client";
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { Send, AlertCircle, RefreshCw, Lock } from "lucide-react";
+import { Send, AlertCircle, RefreshCw, Lock, Clock, Zap } from "lucide-react";
 import { useDraftMessage } from "@/src/hooks/useDraftMessage";
-import { QuickResponsesPopover } from "@/app/recepcao/atendimento/quick-responses-popover";
+import {
+  QUICK_RESPONSES_LISTBOX_ID,
+  QuickResponsesPopover,
+  quickResponseOptionId,
+  useQuickResponses,
+  type QuickResponseRow,
+} from "@/app/recepcao/atendimento/quick-responses-popover";
 import { TemplateSendPicker } from "@/app/recepcao/atendimento/template-send-picker";
+import {
+  decideEnterKey,
+  filterQuickResponses,
+  isShortcutDraft,
+  moveActiveIndex,
+} from "@/lib/atendimento/quick-responses-pure";
+import { windowClosingLabel } from "@/lib/whatsapp-window-pure";
 
 interface MessageInputProps {
   conversationId: string;
@@ -16,6 +29,8 @@ interface MessageInputProps {
    * rejeitada pela Twilio (erro 63016/63024); só um modelo aprovado reabre
    * a conversa. Ver isWhatsappWindowClosed em atendimento-shell.tsx. */
   windowClosed?: boolean;
+  /** Última mensagem recebida do contato: base do aviso "a janela fecha em X" (últimas 2 h). */
+  lastInboundAt?: string | null;
 }
 
 export function MessageInput({
@@ -25,14 +40,35 @@ export function MessageInput({
   contactName,
   guardianName,
   windowClosed = false,
+  lastInboundAt = null,
 }: MessageInputProps) {
   const { draft, setDraft, clearDraft } = useDraftMessage(conversationId, "chat");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
-  const [showQuickResponses, setShowQuickResponses] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // Texto mais recente do campo, lido após o await do envio.
   const draftRef = useRef(draft);
+
+  const quick = useQuickResponses();
+  const [activeIndex, setActiveIndex] = useState(0);
+  // Escape fecha a lista sem apagar o que foi digitado; vale só para esse texto.
+  const [dismissedFor, setDismissedFor] = useState<string | null>(null);
+  const matches = filterQuickResponses(quick.responses, draft);
+  const safeActiveIndex = matches.length === 0 ? 0 : Math.min(activeIndex, matches.length - 1);
+  const popoverOpen = !windowClosed && isShortcutDraft(draft) && dismissedFor !== draft;
+
+  // Aviso "a janela fecha em X": só nas últimas 2 h, para não virar ruído o resto do tempo.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const first = setTimeout(tick, 0);
+    const timer = setInterval(tick, 60_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, []);
+  const closingLabel = !windowClosed && now !== null ? windowClosingLabel(lastInboundAt, now) : null;
 
   // Aplica substituidores em respostas rápidas como {nome}
   const applyPlaceholders = (text: string): string => {
@@ -41,6 +77,12 @@ export function MessageInput({
     const token = /\{\{?\s*nome\s*\}?\}/gi;
     if (firstName) return text.replace(token, firstName);
     return text.replace(/,?\s*\{\{?\s*nome\s*\}?\}/gi, "");
+  };
+
+  const selectQuickResponse = (item: QuickResponseRow) => {
+    setDraft(applyPlaceholders(item.contentText));
+    setActiveIndex(0);
+    inputRef.current?.focus();
   };
 
   const handleSend = async (overrideText?: string, isRetry = false) => {
@@ -74,23 +116,40 @@ export function MessageInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showQuickResponses) {
-      // Deixa o QuickResponsesPopover lidar com navegação se necessário, ou Enter para fechar
+    if (popoverOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex(moveActiveIndex(safeActiveIndex, e.key === "ArrowDown" ? 1 : -1, matches.length));
+        return;
+      }
       if (e.key === "Escape") {
-        setShowQuickResponses(false);
+        setDismissedFor(draft);
+        return;
+      }
+      if (e.key === "Tab" && matches.length > 0) {
+        e.preventDefault();
+        selectQuickResponse(matches[safeActiveIndex]);
+        return;
       }
     }
 
-    // Shift+Enter quebra linha; Enter envia (não durante composição IME).
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key !== "Enter") return;
+    // Enter escolhe o item da lista de atalhos (ou não faz nada se "/abc" não existe): antes enviava "/abc"
+    // ao paciente. Shift+Enter quebra linha; composição de IME não envia.
+    const decision = decideEnterKey({
+      draft,
+      matches: matches.length,
+      shiftKey: e.shiftKey,
+      composing: e.nativeEvent.isComposing,
+    });
+    if (decision === "newline") return;
+    e.preventDefault();
+    if (decision === "select") selectQuickResponse(matches[safeActiveIndex]);
+    else if (decision === "send") void handleSend();
   };
 
   useEffect(() => {
     draftRef.current = draft;
-    setShowQuickResponses(draft.startsWith("/"));
     resizeInput();
   }, [draft]);
 
@@ -141,47 +200,81 @@ export function MessageInput({
         </div>
       )}
 
+      {closingLabel && (
+        <div
+          role="status"
+          className="mb-2 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          <Clock size={13} className="shrink-0" />
+          <span>
+            A janela de 24h fecha em <strong className="font-semibold">{closingLabel}</strong>. Depois disso só modelo
+            aprovado é entregue.
+          </span>
+        </div>
+      )}
+
       {windowClosed ? (
         <TemplateSendPicker conversationId={conversationId} guardianName={guardianName} contactName={contactName} />
       ) : (
         <>
-      {/* Popover de Respostas Rápidas com filtro do rascunho */}
-      {showQuickResponses && (
-        <QuickResponsesPopover
-          filter={draft}
-          onSelect={(contentText) => {
-            const formatted = applyPlaceholders(contentText);
-            setDraft(formatted);
-            setShowQuickResponses(false);
-            inputRef.current?.focus();
-          }}
-          onClose={() => setShowQuickResponses(false)}
-        />
-      )}
+          {/* Respostas rápidas: setas navegam; Enter ou Tab escolhem; Esc fecha */}
+          {popoverOpen && (
+            <QuickResponsesPopover
+              items={matches}
+              activeIndex={safeActiveIndex}
+              status={quick.status}
+              onSelect={selectQuickResponse}
+              onHover={setActiveIndex}
+              onRetry={quick.reload}
+            />
+          )}
 
-      {/* Input de Mensagem */}
-      <div className="flex items-end gap-2">
-        <textarea
-          ref={inputRef}
-          rows={1}
-          className="input max-h-32 flex-1 resize-none text-sm focus:outline-none focus:ring-2 focus:ring-teal-600"
-          placeholder="Digite uma mensagem ou / para respostas rápidas (Shift+Enter quebra linha)"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={handleKeyDown}
-          aria-label="Campo de mensagem do atendimento"
-        />
-        <button
-          type="button"
-          className="btn btn-primary btn-icon shrink-0 focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50"
-          disabled={isPending || !draft.trim()}
-          onClick={() => handleSend()}
-          aria-label="Enviar mensagem"
-          title="Enviar mensagem (Enter)"
-        >
-          <Send size={16} />
-        </button>
-      </div>
+          {/* Input de Mensagem */}
+          <div className="flex items-end gap-2">
+            <textarea
+              ref={inputRef}
+              rows={1}
+              className="input max-h-32 flex-1 resize-none text-sm focus:outline-none focus:ring-2 focus:ring-teal-600"
+              placeholder="Digite uma mensagem (Shift+Enter quebra linha)"
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setActiveIndex(0);
+              }}
+              onKeyDown={handleKeyDown}
+              aria-label="Campo de mensagem do atendimento"
+              role="combobox"
+              aria-expanded={popoverOpen && matches.length > 0}
+              aria-controls={popoverOpen && matches.length > 0 ? QUICK_RESPONSES_LISTBOX_ID : undefined}
+              aria-autocomplete="list"
+              aria-activedescendant={
+                popoverOpen && matches[safeActiveIndex] ? quickResponseOptionId(matches[safeActiveIndex].id) : undefined
+              }
+            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon shrink-0 focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50"
+              disabled={Boolean(draft.trim())}
+              onClick={() => {
+                setDraft("/");
+                inputRef.current?.focus();
+              }}
+              aria-label="Respostas rápidas"
+              title="Respostas rápidas (ou digite /)"
+            >
+              <Zap size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-icon shrink-0 focus-visible:outline-2 focus-visible:outline-teal-600 disabled:opacity-50"
+              disabled={isPending || !draft.trim()}
+              onClick={() => handleSend()}
+              aria-label="Enviar mensagem"
+              title="Enviar mensagem (Enter)"
+            >
+              <Send size={16} />
+            </button>
+          </div>
         </>
       )}
     </div>

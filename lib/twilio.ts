@@ -14,7 +14,7 @@ import {
   isPureGreeting,
   sitePrefillIntent,
 } from "@/lib/greeting-pure";
-import { isInactiveForMenuReset, shouldDiscardSession } from "@/lib/menu-reset-pure";
+import { decideMenuReset, isInactiveForMenuReset } from "@/lib/menu-reset-pure";
 import { detectHumanRequest } from "@/lib/human-request-pure";
 
 /**
@@ -553,6 +553,20 @@ async function hasRecentOutbound(conversationId: string | null): Promise<boolean
   return (data?.length ?? 0) > 0;
 }
 
+/** Quando a clínica (bot, atendente, template ou cron) escreveu por último nesta conversa. */
+async function lastClinicOutboundAt(conversationId: string | null): Promise<string | null> {
+  if (!conversationId) return null;
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const { data } = await createAdminClient()
+    .from("messages")
+    .select("sent_at")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "outbound")
+    .order("sent_at", { ascending: false })
+    .limit(1);
+  return (data?.[0]?.sent_at as string | undefined) ?? null;
+}
+
 /** Push pra equipe (PWA /m/atendimento). Nunca lança — ver lib/web-push.ts. */
 async function notifyStaff(conversationId: string): Promise<void> {
   const { notifyStaffOfConversation } = await import("./web-push");
@@ -681,20 +695,38 @@ export async function handleTwilioIncomingMessage(params: {
     // bot pausado, nem em mensagem com anexo (o documento segue para o bot dono).
     // `conversation.last_inbound_at` ainda é o da mensagem ANTERIOR (o update
     // acima só afeta o banco).
+    // Só reinicia quando a pessoa começa do zero: toque em botão/lista, ou texto logo
+    // depois de um template/mensagem da clínica, é RESPOSTA a nós e segue o fluxo
+    // (decideMenuReset). Antes o menu engolia o "Quero agendar" do aviso de plano
+    // autorizado e a família tinha de tocar de novo.
     if (conversation.is_bot_active && !hasMedia && isInactiveForMenuReset(conversation.last_inbound_at, Date.now())) {
       try {
         const { getChatbotSettings: loadBotSettings } = await import("./twilio-faq-bot");
         if ((await loadBotSettings(DEV_CLINIC_ID)).botEnabled) {
-          const { data: session } = await supabase.from("chatbot_sessions").select("current_step, flow").eq("phone_number", phone).maybeSingle();
-          if (shouldDiscardSession(session)) {
+          const { data: session } = await supabase
+            .from("chatbot_sessions")
+            .select("current_step, flow, updated_at")
+            .eq("phone_number", phone)
+            .maybeSingle();
+          const decision = decideMenuReset({
+            previousInboundAt: conversation.last_inbound_at,
+            lastClinicOutboundAt: await lastClinicOutboundAt(conversationId),
+            hasInteractiveReply: Boolean(buttonPayload || listId),
+            session,
+            sessionUpdatedAt: session?.updated_at ?? null,
+            nowMs: Date.now(),
+          });
+          if (decision.discardSession) {
             await supabase
               .from("chatbot_sessions")
               .update({ current_step: "idle", flow: null, lead_id: null, collected_data: {}, updated_at: new Date().toISOString() })
               .eq("phone_number", phone);
           }
-          const { sendMainMenu } = await import("./welcome-menu");
-          const menu = await sendMainMenu({ phone, conversationId });
-          return { intent: "menu_inicial", replyMessage: menu.replyMessage };
+          if (decision.sendMenu) {
+            const { sendMainMenu } = await import("./welcome-menu");
+            const menu = await sendMainMenu({ phone, conversationId });
+            return { intent: "menu_inicial", replyMessage: menu.replyMessage };
+          }
         }
       } catch (err) {
         console.error("[Twilio Menu Reset Error]:", err);

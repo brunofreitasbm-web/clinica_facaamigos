@@ -3,25 +3,12 @@
 import { NON_OCCURRED_IN_FILTER } from "@/lib/appointment-visibility";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { ClipboardList, Copy, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
-import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
-import { openLeadPendency, type LeadDraftInfo } from "@/app/recepcao/atendimento/actions";
+import { openLeadPendency } from "@/app/recepcao/atendimento/actions";
+import { CaseSummary } from "@/app/recepcao/atendimento/case-summary";
 import { hasPatientRecord, type ConversationPatch, type ConversationRow } from "@/lib/atendimento/types";
 
-const ESCALATION_LABELS: Record<string, string> = {
-  fora_da_base: "A dúvida não está na base de conhecimento do bot.",
-  clinico: "Pergunta clínica sobre a criança — o bot não responde.",
-  pediu_humano: "A pessoa pediu para falar com alguém da equipe.",
-  relatorio: "Pedido de relatório/documento — dados coletados na última mensagem do bot, veja a conversa.",
-  lista_espera: "Quer entrar na lista de espera — nome, idade, plano e terapia estão no resumo da última mensagem do bot.",
-  particular: "Venda particular: quer falar com um atendente sobre o atendimento particular.",
-  particular_agendar: "Venda particular: quer agendar a avaliação — nome, idade e queixa estão na última mensagem da família.",
-};
-
-type ConvenioInfo = { insurerName: string; planName: string | null };
 type AppointmentInfo = { id: string; startsAt: string; statusLabel: string };
 
 const STATUS_CLASS: Record<string, string> = {
@@ -32,6 +19,10 @@ const STATUS_CLASS: Record<string, string> = {
   cancelada: "st-cancelada",
 };
 
+/**
+ * Ficha do contato no celular. Mesma ordem do desktop: resumo do caso (quem é, plano, motivo, próximo passo),
+ * agenda e, para lead, o botão de pendências dentro do próprio resumo.
+ */
 export function ContactSheet({
   conversation,
   onClose,
@@ -42,17 +33,8 @@ export function ContactSheet({
   onPatch: (patch: ConversationPatch) => void;
 }) {
   const router = useRouter();
-  const phone = formatConversationPhone(conversation.phoneNumber);
-  const [copied, setCopied] = useState(false);
-  const [convenios, setConvenios] = useState<ConvenioInfo[]>([]);
   const [appointments, setAppointments] = useState<AppointmentInfo[]>([]);
-  // Anexos do rascunho de pré-cadastro: no desktop (LeadContextPanel) eles
-  // aparecem porque a extração via IA já roda ao abrir o painel. Repetir essa
-  // chamada aqui (server action que dispara Gemini) faria o custo de IA
-  // acontecer de novo toda vez que alguém abre a folha de contato no
-  // celular — por isso o v1 mobile não carrega anexos aqui; "Resolver
-  // pendências" leva direto pra tela que já mostra tudo isso.
-  const [draft] = useState<LeadDraftInfo | null>(null);
+  const [appointmentsError, setAppointmentsError] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,35 +42,29 @@ export function ContactSheet({
     void onPatch; // mantém a assinatura reservada pra uso futuro (edição de nome do contato)
   }, [onPatch]);
 
+  // Só muda quando o vínculo com o prontuário muda; atualizações em tempo real da conversa (não lidas,
+  // última mensagem...) não devem refazer a consulta.
+  const recordPatientId = hasPatientRecord(conversation) ? conversation.patientId : null;
   useEffect(() => {
-    if (!hasPatientRecord(conversation)) return;
+    if (!recordPatientId) return;
     let cancelled = false;
-    const supabase = createClient();
-    const patientId = conversation.patientId!;
-    Promise.all([
-      supabase.from("patient_insurance").select("plan_name, insurers(name)").eq("patient_id", patientId),
-      supabase
-        .from("appointments")
-        .select("id, starts_at, status")
-        .eq("patient_id", patientId)
-        .gt("starts_at", new Date().toISOString())
-        .not("status", "in", NON_OCCURRED_IN_FILTER)
-        .order("starts_at", { ascending: true })
-        .limit(3),
-    ]).then(([insuranceRes, appointmentsRes]) => {
-      if (cancelled) return;
-      setConvenios(
-        (insuranceRes.data ?? []).map((pi) => {
-          const insurer = Array.isArray(pi.insurers) ? pi.insurers[0] : pi.insurers;
-          return { insurerName: insurer?.name ?? "Plano de Saúde", planName: pi.plan_name };
-        }),
-      );
-      setAppointments((appointmentsRes.data ?? []).map((a) => ({ id: a.id, startsAt: a.starts_at, statusLabel: a.status })));
-    });
+    createClient()
+      .from("appointments")
+      .select("id, starts_at, status")
+      .eq("patient_id", recordPatientId)
+      .gt("starts_at", new Date().toISOString())
+      .not("status", "in", NON_OCCURRED_IN_FILTER)
+      .order("starts_at", { ascending: true })
+      .limit(3)
+      .then(({ data, error: queryError }) => {
+        if (cancelled) return;
+        setAppointmentsError(Boolean(queryError));
+        setAppointments((data ?? []).map((a) => ({ id: a.id, startsAt: a.starts_at, statusLabel: a.status })));
+      });
     return () => {
       cancelled = true;
     };
-  }, [conversation.patientId, conversation.patientStatus]);
+  }, [recordPatientId]);
 
   const handleResolverPendencias = async () => {
     setError(null);
@@ -119,138 +95,49 @@ export function ContactSheet({
       >
         <div className="mx-auto" style={{ width: 40, height: 5, borderRadius: 9999, background: "var(--color-neutral-300)" }} />
 
-        <div className="flex items-center gap-3">
-          <span
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-[17px] font-extrabold"
-            style={{ background: "var(--color-accent-2-100)", color: "var(--color-accent-2-700)" }}
-          >
-            {conversation.displayName.slice(0, 1).toUpperCase()}
-          </span>
-          <div className="min-w-0">
-            <div className="truncate text-[19px] font-extrabold" style={{ color: "var(--color-text)" }}>
-              {conversation.displayName}
-            </div>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-[14px]"
-              style={{ color: "var(--color-ink-soft)" }}
-              onClick={() => {
-                navigator.clipboard?.writeText(phone).then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                });
-              }}
-            >
-              {phone}
-              <Copy size={12} style={{ opacity: 0.6 }} />
-              {copied && <span style={{ color: "var(--color-teal-700)" }}>Copiado!</span>}
-            </button>
-          </div>
-        </div>
+        <CaseSummary
+          conversation={conversation}
+          onResolvePendencies={handleResolverPendencias}
+          resolving={isPending}
+        />
 
-        {hasPatientRecord(conversation) ? (
-          <>
-            <div>
-              <h6>Plano de Saúde</h6>
-              {convenios.length === 0 ? (
-                <p className="text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
-                  Particular.
-                </p>
-              ) : (
-                convenios.map((c, i) => (
-                  <div key={i} className="text-[15px]">
-                    <div className="font-bold">{c.insurerName}</div>
-                    {c.planName && (
-                      <div className="text-[14px]" style={{ color: "var(--color-ink-soft)" }}>
-                        {c.planName}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+        {error && (
+          <p role="alert" className="text-[12px]" style={{ color: "var(--color-error)" }}>
+            {error}
+          </p>
+        )}
 
-            <div>
-              <h6>Próximos atendimentos</h6>
-              {appointments.length === 0 ? (
-                <p className="text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
-                  Nenhum atendimento agendado.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {appointments.map((a) => (
-                    <li key={a.id} className="flex items-center justify-between gap-2">
-                      <span className="text-[14px] font-bold tabular-nums">
-                        {new Date(a.startsAt).toLocaleString("pt-BR", {
-                          timeZone: CLINIC_TIMEZONE,
-                          weekday: "short",
-                          day: "2-digit",
-                          month: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      <span className={`tag-status ${STATUS_CLASS[a.statusLabel] ?? "st-cancelada"}`}>{a.statusLabel}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <Link href={`/recepcao/pacientes/${conversation.patientId}`} className="btn btn-secondary w-full justify-center">
-              Abrir ficha do paciente
-            </Link>
-          </>
-        ) : (
-          <>
-            <p className="text-[13px]" style={{ color: "var(--color-ink-faint)" }}>
-              Ainda não é paciente: este número não está vinculado a nenhum responsável cadastrado.
-            </p>
-
-            {conversation.escalationReason && (
-              <div
-                className="rounded-[14px] p-3 text-[13px]"
-                style={{ background: "var(--color-accent-2-100)", color: "var(--color-accent-2-700)" }}
-              >
-                <div className="mb-1 font-extrabold">Bot escalou para a equipe</div>
-                {ESCALATION_LABELS[conversation.escalationReason] ?? conversation.escalationReason}
-              </div>
-            )}
-
-            {draft && draft.files.length > 0 && (
-              <div className="flex flex-col gap-1.5 rounded-[14px] border p-2" style={{ borderColor: "var(--color-paper-line-strong)" }}>
-                {draft.files.map((f) => (
-                  <a
-                    key={f.id}
-                    href={`/api/arquivos/rascunho/${f.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-[12px] underline"
-                    style={{ color: "var(--color-accent)" }}
-                  >
-                    <FileText size={12} />
-                    {f.originalName ?? "Documento"}
-                  </a>
-                ))}
-              </div>
-            )}
-
-            {error && (
-              <p className="text-[12px]" style={{ color: "var(--color-error)" }}>
-                {error}
+        {hasPatientRecord(conversation) && (
+          <div>
+            <h6>Próximos atendimentos</h6>
+            {appointmentsError ? (
+              <p role="alert" className="text-[14px]" style={{ color: "var(--color-error)" }}>
+                Não foi possível carregar a agenda.
               </p>
+            ) : appointments.length === 0 ? (
+              <p className="text-[14px]" style={{ color: "var(--color-ink-faint)" }}>
+                Nenhum atendimento agendado.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {appointments.map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-2">
+                    <span className="text-[14px] font-bold tabular-nums">
+                      {new Date(a.startsAt).toLocaleString("pt-BR", {
+                        timeZone: CLINIC_TIMEZONE,
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className={`tag-status ${STATUS_CLASS[a.statusLabel] ?? "st-cancelada"}`}>{a.statusLabel}</span>
+                  </li>
+                ))}
+              </ul>
             )}
-
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={handleResolverPendencias}
-              className="btn btn-primary w-full justify-center gap-1.5"
-            >
-              <ClipboardList size={16} />
-              {isPending ? "Abrindo…" : "Resolver pendências"}
-            </button>
-          </>
+          </div>
         )}
       </div>
     </div>
