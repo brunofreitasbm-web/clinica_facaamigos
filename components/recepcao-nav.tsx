@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Users, ShieldCheck, MessageSquare, FileText, DoorOpen, Trophy } from "lucide-react";
+import { CalendarDays, Users, ShieldCheck, ListChecks, MessageSquare, FileText, DoorOpen, Trophy } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -14,7 +14,10 @@ const NAV_ITEMS = [
   { key: "agenda", label: "Agenda do dia", href: "/recepcao", match: ["/recepcao", "/recepcao/agenda"], icon: CalendarDays },
   { key: "chegadas", label: "Chegadas", href: "/recepcao/chegadas", icon: DoorOpen },
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
-  { key: "a-autorizar", label: "Fila de entrada", href: "/recepcao/a-autorizar", match: ["/recepcao/a-autorizar", "/recepcao/pre-cadastros"], icon: ShieldCheck },
+  { key: "a-autorizar", label: "Autorizações", href: "/recepcao/a-autorizar", match: ["/recepcao/a-autorizar", "/recepcao/pre-cadastros"], icon: ShieldCheck },
+  // Fila de entrada (nova, em paralelo): mesmas famílias de Autorizações, com um único próximo passo por vez.
+  // Sem selo de contagem de propósito: o número já está em Autorizações e as abas da própria tela têm as contagens.
+  { key: "fila", label: "Fila de entrada", href: "/recepcao/fila", icon: ListChecks },
   { key: "atendimento", label: "Chat", href: "/recepcao/atendimento", icon: MessageSquare },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText },
   // "Cadastro IA" (/recepcao/pre-cadastros) saiu da navegação em 20/09/2026:
