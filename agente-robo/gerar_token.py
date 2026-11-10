@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """
+Alternativa sem o SQL Editor: no CRM, Gestor → Configurações → Robô do portal →
+"Cadastrar robô" gera e salva o token direto. Este script fica para quem
+prefere o terminal.
+
 Gera o token de um agente novo. Mostra:
   1) o token, que vai no .env do agente (AGENT_TOKEN=...);
   2) o SQL para cadastrar o agente no Supabase (só o hash é guardado no banco).

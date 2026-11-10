@@ -9,6 +9,7 @@ import {
   canCancel,
   formatReferenceMonth,
   isAgentOnline,
+  normalizeAgentName,
   normalizeRequest,
   suggestedReferenceMonth,
   type PortalRobotRequestInput,
@@ -80,4 +81,11 @@ test("cancelar só antes da confirmação", () => {
 test("formata o mês de referência", () => {
   assert.equal(formatReferenceMonth("2026-12"), "dez/2026");
   assert.equal(formatReferenceMonth(null), "—");
+});
+
+test("nome do computador do robô: espaços normalizados, vazio e longo recusados", () => {
+  assert.deepEqual(normalizeAgentName("  Computador   da recepção "), { ok: true, value: "Computador da recepção" });
+  assert.equal(normalizeAgentName("").ok, false);
+  assert.equal(normalizeAgentName(null).ok, false);
+  assert.equal(normalizeAgentName("x".repeat(61)).ok, false);
 });
