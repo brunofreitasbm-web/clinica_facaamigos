@@ -4,6 +4,24 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
+import {
+  disableDraftScheduling,
+  enableDraftScheduling,
+  markGuideSent,
+  registerAuthorizedGuide,
+  waiveDraftAuthorization,
+  type AuthorizedGuideInput,
+} from "./draft-pipeline-actions";
+import {
+  DRAFT_STATE_COLUMNS,
+  buildUndoToken,
+  decideRestore,
+  shouldRestorePatient,
+  validateUndoToken,
+  type DraftStateRow,
+  type UndoKind,
+  type UndoToken,
+} from "@/lib/intake-undo-pure";
 
 /**
  * Resposta do plano na etapa 3 da Fila de entrada, além da autorização
@@ -115,9 +133,15 @@ async function markPlanOutcome(draftId: string, kind: Kind): Promise<PlanOutcome
     .from("registration_drafts")
     .update({ ...markFields(kind, appliedAt, user.id), guide_sent_at: null, guide_sent_by: null })
     .eq("id", draftId)
+    // Mesmas condições conferidas acima, de novo no update: se o caso mudou entre a leitura e a gravação, nada é gravado.
+    .eq("guide_sent_at", draft.guide_sent_at)
+    .is("scheduling_enabled_at", null)
+    .is("plan_authorized_at", null)
+    .eq("authorization_waived", false)
     .select("id");
-  if (error || !updated || updated.length === 0) {
-    return { success: false, error: "Não foi possível registrar a resposta do plano. Tente de novo." };
+  if (error) return { success: false, error: "Não foi possível registrar a resposta do plano. Tente de novo." };
+  if (!updated || updated.length === 0) {
+    return { success: false, error: "O caso mudou enquanto você registrava. Confira e tente de novo." };
   }
 
   refresh();
@@ -180,4 +204,169 @@ export async function planAskedMoreDocs(draftId: string): Promise<PlanOutcomeRes
 /** Desfaz "Plano pediu mais documentos" com o estado guardado no aviso. */
 export async function undoPlanAskedMoreDocs(draftId: string, previous: PlanOutcomeUndo): Promise<ActionResult> {
   return undoPlanOutcome(draftId, "more_docs", previous);
+}
+
+// ---------------------------------------------------------------------------
+// Ações da Fila de entrada com "Desfazer" que restaura o estado exato.
+//
+// Cada uma lê o estado do caso antes, chama a ação de sempre de draft-pipeline-actions.ts (que o
+// Chat e Pendências continuam usando sem mudança), lê o estado depois e devolve um UndoToken
+// (lib/intake-undo-pure.ts). restoreIntakeState devolve as colunas guardadas com um update direto,
+// só se o caso ainda estiver como a ação deixou. O desfazer nunca chama enableDraftScheduling, então
+// não manda de novo a oferta de horários pelo WhatsApp.
+// ---------------------------------------------------------------------------
+
+type Supa = Awaited<ReturnType<typeof createClient>>;
+
+export type UndoableResult =
+  | { success: true; note?: string; offer?: "sent" | "duplicate" | "failed"; undo: UndoToken | null }
+  | { success: false; error: string };
+
+type Snapshot = { row: DraftStateRow; patientId: string | null; patientStatus: string | null };
+
+async function readState(supabase: Supa, draftId: string): Promise<Snapshot | null> {
+  const { data } = await (supabase as unknown as import("@supabase/supabase-js").SupabaseClient)
+    .from("registration_drafts")
+    .select(`${DRAFT_STATE_COLUMNS.join(", ")}, patient_id, patients(status)`)
+    .eq("id", draftId)
+    .maybeSingle();
+  if (!data) return null;
+  const rec = data as unknown as Record<string, unknown>;
+  const patients = rec.patients as { status: string | null } | { status: string | null }[] | null;
+  const patient = Array.isArray(patients) ? patients[0] : patients;
+  return {
+    row: rec as unknown as DraftStateRow,
+    patientId: (rec.patient_id as string | null) ?? null,
+    patientStatus: patient?.status ?? null,
+  };
+}
+
+/** Lê antes, roda a ação, lê depois e monta o desfazer. */
+async function withUndo<R extends { success: true; note?: string; offer?: "sent" | "duplicate" | "failed" } | { success: false; error: string }>(
+  draftId: string,
+  kind: UndoKind,
+  action: () => Promise<R>,
+): Promise<UndoableResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+  const before = await readState(supabase, draftId);
+  if (!before) return { success: false, error: "Contato não encontrado." };
+  const result = await action();
+  if (!result.success) return result;
+  const after = await readState(supabase, draftId);
+  const patientId = before.patientId ?? after?.patientId ?? null;
+  const undo = after
+    ? buildUndoToken(kind, before.row, after.row, patientId ? { id: patientId, before: before.patientStatus, after: after.patientStatus } : null)
+    : null;
+  return { success: true, note: result.note, offer: result.offer, undo };
+}
+
+export async function intakeMarkGuideSent(draftId: string): Promise<UndoableResult> {
+  return withUndo(draftId, "guide_sent", () => markGuideSent(draftId));
+}
+
+export async function intakeEnableScheduling(draftId: string): Promise<UndoableResult> {
+  return withUndo(draftId, "scheduling", () => enableDraftScheduling(draftId));
+}
+
+export async function intakeDisableScheduling(draftId: string): Promise<UndoableResult> {
+  return withUndo(draftId, "scheduling", () => disableDraftScheduling(draftId));
+}
+
+export async function intakeWaiveAuthorization(draftId: string): Promise<UndoableResult> {
+  return withUndo(draftId, "waive", () => waiveDraftAuthorization(draftId));
+}
+
+/**
+ * A guia autorizada vai direto para o prontuário? (paciente vinculado com um único plano, a mesma
+ * regra de registerAuthorizedGuide). Nesse caso a tela pede confirmação antes e não oferece desfazer.
+ */
+export async function authorizedGuideGoesToRecord(draftId: string): Promise<{ success: true; goesToRecord: boolean } | { success: false; error: string }> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+  const { data: draft } = await supabase.from("registration_drafts").select("patient_id").eq("id", draftId).maybeSingle();
+  if (!draft) return { success: false, error: "Contato não encontrado." };
+  if (!draft.patient_id) return { success: true, goesToRecord: false };
+  const { data: plans } = await supabase
+    .from("patient_insurance")
+    .select("id")
+    .eq("patient_id", draft.patient_id)
+    .eq("is_private", false);
+  return { success: true, goesToRecord: Boolean(plans && plans.length === 1) };
+}
+
+export type AuthorizedUploadResult =
+  | {
+      success: true;
+      /** Avisos do registro da guia e da habilitação juntos. */
+      note?: string;
+      offer?: "sent" | "duplicate" | "failed";
+      /** A guia foi salva, mas a habilitação falhou. */
+      enableError?: string;
+      /** null quando a guia foi gravada no prontuário: não há desfazer que volte tudo. */
+      undo: UndoToken | null;
+    }
+  | { success: false; error: string };
+
+/** "Subir guia autorizada (PDF)": grava a guia, habilita o agendamento e devolve o desfazer. */
+export async function intakeRegisterAuthorizedGuide(draftId: string, input: AuthorizedGuideInput): Promise<AuthorizedUploadResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+  const before = await readState(supabase, draftId);
+  if (!before) return { success: false, error: "Contato não encontrado." };
+
+  const saved = await registerAuthorizedGuide(draftId, input);
+  if (!saved.success) return saved;
+  const enabled = await enableDraftScheduling(draftId);
+
+  const after = await readState(supabase, draftId);
+  const patientId = before.patientId ?? after?.patientId ?? null;
+  const undo = after
+    ? buildUndoToken("authorization", before.row, after.row, patientId ? { id: patientId, before: before.patientStatus, after: after.patientStatus } : null)
+    : null;
+  return {
+    success: true,
+    note: [saved.note, enabled.success ? enabled.note : undefined].filter(Boolean).join(" ") || undefined,
+    offer: enabled.success ? enabled.offer : undefined,
+    enableError: enabled.success ? undefined : enabled.error,
+    undo,
+  };
+}
+
+/**
+ * Desfaz uma ação da Fila de entrada com o estado guardado no aviso. Um update só, com as colunas
+ * conferidas no próprio filtro (compare-and-set): se o caso mudou depois da ação, nada é desfeito.
+ * O status do paciente volta só se ainda é o que a promoção automática gravou.
+ */
+export async function restoreIntakeState(draftId: string, rawToken: UndoToken): Promise<ActionResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+  const token = validateUndoToken(rawToken);
+  if (!token) return { success: false, error: "Não foi possível desfazer. Recarregue a página." };
+
+  const current = await readState(supabase, draftId);
+  if (!current) return { success: false, error: "Contato não encontrado." };
+  const decision = decideRestore(token, current.row);
+  if (!decision.ok) return { success: false, error: "O caso mudou depois disso. Nada foi desfeito." };
+
+  let query = supabase
+    .from("registration_drafts")
+    .update(decision.update as DraftUpdate)
+    .eq("id", draftId);
+  // Filtro com os valores lidos agora (mesmo formato do banco), já conferidos por decideRestore.
+  for (const col of Object.keys(token.applied) as (keyof DraftStateRow)[]) {
+    const value = current.row[col];
+    if (value === null || value === undefined) query = query.is(col, null);
+    else if (typeof value === "boolean" || typeof value === "string") query = query.eq(col, value);
+  }
+  const { data: updated, error } = await query.select("id");
+  if (error) return { success: false, error: "Não foi possível desfazer. Tente de novo." };
+  if (!updated || updated.length === 0) return { success: false, error: "O caso mudou depois disso. Nada foi desfeito." };
+
+  if (token.patient && current.patientId === token.patient.id && shouldRestorePatient(token, current.patientStatus)) {
+    await supabase.from("patients").update({ status: token.patient.previous }).eq("id", token.patient.id).eq("status", token.patient.applied);
+  }
+
+  refresh();
+  return { success: true };
 }

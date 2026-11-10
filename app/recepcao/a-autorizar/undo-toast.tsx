@@ -30,6 +30,8 @@ export function useUndoToast(seconds: number = UNDO_SECONDS, onUndone?: (draftId
   const mounted = useRef(true);
   const onUndoneRef = useRef(onUndone);
   const stateRef = useRef<ToastState>(null);
+  // Um desfazer por vez: o segundo clique (antes do estado "Desfazendo…" chegar à tela) é ignorado.
+  const inFlight = useRef(false);
 
   useEffect(() => {
     onUndoneRef.current = onUndone;
@@ -68,17 +70,22 @@ export function useUndoToast(seconds: number = UNDO_SECONDS, onUndone?: (draftId
 
   const undo = useCallback(async () => {
     const current = stateRef.current;
-    if (!current) return;
+    if (!current || inFlight.current) return;
     const entry = entries.current.get(current.id);
     const now = Date.now();
     // O desfazer só vale para o caso em que a ação foi feita, dentro do prazo.
     if (!entry || entry.draftId !== current.draftId || !canUndo(current, current.id, entry.draftId, now)) return;
+    inFlight.current = true;
+    // Usado uma vez só: sai do mapa antes de rodar.
+    entries.current.delete(current.id);
     dispatch({ type: "undo_start", id: current.id, draftId: entry.draftId, now });
     let result: UndoResult;
     try {
       result = await entry.undo();
     } catch {
       result = { success: false, error: "Não foi possível desfazer. Tente de novo." };
+    } finally {
+      inFlight.current = false;
     }
     if (!mounted.current) return;
     dispatch({

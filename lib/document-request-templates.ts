@@ -1,4 +1,7 @@
 import { CLINIC_BRAND } from "@/lib/clinic-identity";
+import { TEMPLATE_KEY_PREFIX, joinTemplateKeys, splitTemplateKeys } from "@/lib/document-template-keys-pure";
+
+export { TEMPLATE_KEY_PREFIX };
 
 /**
  * Cobranças de documento pendente disparadas em um clique pela recepção/
@@ -83,14 +86,9 @@ export function buildDocumentsOpenerMessage(patientName?: string | null): string
   ].join("\n");
 }
 
-export const TEMPLATE_KEY_PREFIX = "documento_pendente:";
-
 export function templateKeyFor(key: MissingDocumentKey): string {
   return `${TEMPLATE_KEY_PREFIX}${key}`;
 }
-
-/** Separador das chaves quando uma única mensagem cobra vários documentos. */
-export const TEMPLATE_KEY_SEPARATOR = "+";
 
 /**
  * Cobrança única com vários documentos (Fila de entrada, "Cobrar o que falta"):
@@ -99,18 +97,12 @@ export const TEMPLATE_KEY_SEPARATOR = "+";
  * cada documento, para o "cobrado em …" de cada um continuar funcionando.
  */
 export function templateKeyForMany(keys: readonly MissingDocumentKey[]): string {
-  return `${TEMPLATE_KEY_PREFIX}${keys.join(TEMPLATE_KEY_SEPARATOR)}`;
+  return joinTemplateKeys(keys);
 }
 
 /** `documento_pendente:a+b` -> [a, b]; chave única -> [a]; o que não for cobrança -> []. */
 export function parseTemplateKeys(raw: string | null | undefined): MissingDocumentKey[] {
-  if (!raw || !raw.startsWith(TEMPLATE_KEY_PREFIX)) return [];
-  const out: MissingDocumentKey[] = [];
-  for (const part of raw.slice(TEMPLATE_KEY_PREFIX.length).split(TEMPLATE_KEY_SEPARATOR)) {
-    const t = MISSING_DOCUMENT_TEMPLATES.find((x) => x.key === part);
-    if (t && !out.includes(t.key)) out.push(t.key);
-  }
-  return out;
+  return splitTemplateKeys(raw, MISSING_DOCUMENT_TEMPLATES.map((t) => t.key));
 }
 
 /** `documento_pendente:laudo_medico` -> `laudo_medico` (null se não for uma cobrança de um documento só). */

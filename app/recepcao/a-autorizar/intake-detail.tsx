@@ -13,19 +13,24 @@ import { OPEN_STATUSES } from "@/lib/portal-robot-pure";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
 import { buildPlanAuthorizedMessage, buildWhatsappLink } from "@/lib/whatsapp-message";
 import { chatHref, showChatLink } from "@/lib/atendimento/chat-deep-link-pure";
-import {
-  disableDraftScheduling,
-  enableDraftScheduling,
-  markGuideSent,
-  registerAuthorizedGuide,
-  undoDraftAuthorization,
-  undoGuideSent,
-  waiveDraftAuthorization,
-} from "../pacientes/pendencias/draft-pipeline-actions";
+import { undoDraftAuthorization, undoGuideSent } from "../pacientes/pendencias/draft-pipeline-actions";
 import { getPortalRobotState } from "../pacientes/pendencias/portal-robot-actions";
 import { AuthorizedGuideDialog, type GuideValues } from "../pacientes/pendencias/draft-pipeline";
 import { PortalRobotPanel, PortalRobotRequestDialog } from "../pacientes/pendencias/portal-robot-panel";
-import { denyPlan, planAskedMoreDocs, undoDenyPlan, undoPlanAskedMoreDocs } from "../pacientes/pendencias/intake-actions";
+import {
+  authorizedGuideGoesToRecord,
+  denyPlan,
+  intakeDisableScheduling,
+  intakeEnableScheduling,
+  intakeMarkGuideSent,
+  intakeRegisterAuthorizedGuide,
+  intakeWaiveAuthorization,
+  planAskedMoreDocs,
+  restoreIntakeState,
+  undoDenyPlan,
+  undoPlanAskedMoreDocs,
+  type UndoableResult,
+} from "../pacientes/pendencias/intake-actions";
 import { DraftAdjustButton } from "../pacientes/pendencias/draft-adjust-dialog";
 import { ReassignOwnerButton } from "../pacientes/pendencias/reassign-owner-button";
 import { INITIAL_ROBOT_VIEW, nextRobotState, primaryAction, type RobotView } from "./intake-primary-action-pure.ts";
@@ -34,6 +39,7 @@ import { IntakeCopyField } from "./intake-copy-field.tsx";
 import { PendingWarning } from "./pending-warning.tsx";
 import { ChaseAllDialog } from "./chase-all-dialog.tsx";
 import type { UndoEntry } from "./undo-toast.tsx";
+import { ConfirmDialog } from "./confirm-dialog.tsx";
 
 /**
  * Detalhe de um caso da Fila de entrada, em coluna única de cima para baixo:
@@ -241,8 +247,8 @@ export function IntakeDetail({
   const action = primaryAction(intakeInput, robotOnline);
   const chaseKeys = missingChaseKeys(pendencies);
 
-  /** Roda a ação e, dando certo, mostra o aviso com "Desfazer" deste caso. */
-  const run = (fn: () => Promise<ActionResult>, undo?: Omit<UndoEntry, "draftId">) => {
+  /** Roda uma ação sem desfazer (os botões explícitos "Desfazer envio" e "Desfazer autorização"). */
+  const run = (fn: () => Promise<ActionResult>) => {
     setFeedback(null);
     startTransition(async () => {
       const result = await fn();
@@ -252,15 +258,30 @@ export function IntakeDetail({
       }
       router.refresh();
       if (result.note) setFeedback({ tone: "note", text: result.note });
-      if (undo) onUndoable({ draftId, ...undo });
     });
   };
 
-  const markSent = () =>
-    run(() => markGuideSent(draftId), {
-      message: `Guia de ${caseName} marcada como enviada ao plano.`,
-      undo: () => undoGuideSent(draftId),
+  /**
+   * Roda uma ação da Fila de entrada e, dando certo, mostra o aviso com "Desfazer" deste caso.
+   * O desfazer restaura o estado guardado pelo servidor (restoreIntakeState), sem chamar as ações
+   * antigas: nada de nova oferta de horários pelo WhatsApp.
+   */
+  const runUndoable = (fn: () => Promise<UndoableResult>, message: string) => {
+    setFeedback(null);
+    startTransition(async () => {
+      const result = await fn();
+      if (!result.success) {
+        setFeedback({ tone: "error", text: result.error });
+        return;
+      }
+      router.refresh();
+      if (result.note) setFeedback({ tone: result.offer === "failed" ? "error" : "note", text: result.note });
+      const token = result.undo;
+      if (token) onUndoable({ draftId, message, undo: () => restoreIntakeState(draftId, token) });
     });
+  };
+
+  const markSent = () => runUndoable(() => intakeMarkGuideSent(draftId), `Guia de ${caseName} marcada como enviada ao plano.`);
 
   // "Plano negou" / "Plano pediu mais documentos": o servidor devolve o estado anterior, que fica
   // guardado no aviso para o desfazer restaurar exatamente o que havia.
@@ -322,51 +343,58 @@ export function IntakeDetail({
   const resendUrl = guide && guide.procedures.length > 0 ? buildAuthorizedUrl(guide.procedures, guide.valid_to) : null;
 
   // Etapa 3, "Subir guia autorizada (PDF)": reaproveita o diálogo e o leitor de PDF do fluxo antigo
-  // (AuthorizedGuideDialog + parseAuthorizedGuidePdf, sem IA). O que já acontece ao salvar:
-  //   1. registerAuthorizedGuide grava a guia (etapa 3 concluída);
-  //   2. enableDraftScheduling habilita o agendamento (etapa 4) e o servidor dispara sozinho a oferta
+  // (AuthorizedGuideDialog + parseAuthorizedGuidePdf, sem IA). Ao salvar, intakeRegisterAuthorizedGuide:
+  //   1. grava a guia (registerAuthorizedGuide, etapa 3 concluída);
+  //   2. habilita o agendamento (enableDraftScheduling, etapa 4); o servidor dispara sozinho a oferta
   //      de 3 horários da 1ª avaliação pelo WhatsApp (lib/evaluation-offer.ts);
-  //   3. o link wa.me não abre sozinho: fica no botão "Avisar responsável no WhatsApp" caso a oferta falhe.
-  // Depois de salvar, o aviso com "Desfazer" (8 s) tira a habilitação e volta a etapa 3. A oferta de
-  // horários é automática do servidor (fluxo anterior), sem diálogo de confirmação, e não volta.
-  const confirmAuthorized = (values: GuideValues) => {
+  //   3. devolve o desfazer, que restaura o estado de antes (inclusive o status do paciente).
+  // Se a guia vai direto para o prontuário (paciente com um único plano), as linhas de `authorizations`
+  // não podem ser apagadas por aqui: a tela pede confirmação ANTES de salvar e não mostra "Desfazer".
+  const [recordConfirm, setRecordConfirm] = useState<GuideValues | null>(null);
+
+  const saveAuthorized = (values: GuideValues) => {
     const procedures = values.procedures.map((p) => ({ code: p.code, description: p.description, quantity: Number(p.quantity) }));
     setGuideError(null);
     setFeedback(null);
     startTransition(async () => {
-      const saved = await registerAuthorizedGuide(draft.id, {
+      const res = await intakeRegisterAuthorizedGuide(draftId, {
         guideNumber: values.guideNumber,
         validTo: values.validTo,
         procedures,
       });
-      if (!saved.success) {
-        setGuideError(saved.error);
+      if (!res.success) {
+        setGuideError(res.error);
         return;
       }
-      const enabled = await enableDraftScheduling(draft.id);
+      setRecordConfirm(null);
       setShowGuideDialog(false);
       router.refresh();
-      if (!enabled.success) {
-        setFeedback({ tone: "error", text: `Guia salva, mas não foi possível habilitar o agendamento: ${enabled.error}` });
-      } else {
-        const note = [saved.note, enabled.note].filter(Boolean).join(" ");
-        if (note) setFeedback({ tone: enabled.offer === "failed" ? "error" : "note", text: note });
+      if (res.enableError) {
+        setFeedback({ tone: "error", text: `Guia salva, mas não foi possível habilitar o agendamento: ${res.enableError}` });
+      } else if (res.note) {
+        setFeedback({ tone: res.offer === "failed" ? "error" : "note", text: res.note });
       }
-      // Desfazer: tira a habilitação (se houve) e volta a etapa 3 para "aguardando o plano".
-      // A mensagem de horários que o servidor já mandou à família não volta.
-      onUndoable({
-        draftId,
-        message: enabled.success
-          ? `Guia autorizada de ${caseName} salva e agendamento habilitado.`
-          : `Guia autorizada de ${caseName} salva.`,
-        undo: async () => {
-          if (enabled.success) {
-            const off = await disableDraftScheduling(draftId);
-            if (!off.success) return off;
-          }
-          return undoDraftAuthorization(draftId);
-        },
-      });
+      const token = res.undo;
+      if (token) {
+        onUndoable({
+          draftId,
+          message: res.enableError ? `Guia autorizada de ${caseName} salva.` : `Guia autorizada de ${caseName} salva e agendamento habilitado.`,
+          undo: () => restoreIntakeState(draftId, token),
+        });
+      }
+    });
+  };
+
+  const confirmAuthorized = (values: GuideValues) => {
+    setGuideError(null);
+    startTransition(async () => {
+      const target = await authorizedGuideGoesToRecord(draftId);
+      if (!target.success) {
+        setGuideError(target.error);
+        return;
+      }
+      if (target.goesToRecord) setRecordConfirm(values);
+      else saveAuthorized(values);
     });
   };
 
@@ -455,10 +483,7 @@ export function IntakeDetail({
     !hasPlan && (pipeline.authorization === "pendente" || pipeline.authorization === "enviada") ? (
       <SecondaryButton
         onClick={() =>
-          run(() => waiveDraftAuthorization(draftId), {
-            message: `${caseName} marcado como particular, sem guia.`,
-            undo: () => undoDraftAuthorization(draftId),
-          })
+          runUndoable(() => intakeWaiveAuthorization(draftId), `${caseName} marcado como particular, sem guia.`)
         }
         disabled={isPending}
       >
@@ -584,10 +609,7 @@ export function IntakeDetail({
         <div className="flex flex-wrap items-center gap-2">
           <PrimaryButton
             onClick={() =>
-              run(() => enableDraftScheduling(draftId), {
-                message: `${caseName} habilitado para agendamento.`,
-                undo: () => disableDraftScheduling(draftId),
-              })
+              runUndoable(() => intakeEnableScheduling(draftId), `${caseName} habilitado para agendamento.`)
             }
             disabled={isPending}
           >
@@ -634,10 +656,7 @@ export function IntakeDetail({
           </SecondaryButton>
           <SecondaryButton
             onClick={() =>
-              run(() => disableDraftScheduling(draftId), {
-                message: `Habilitação de ${caseName} retirada.`,
-                undo: () => enableDraftScheduling(draftId),
-              })
+              runUndoable(() => intakeDisableScheduling(draftId), `Habilitação de ${caseName} retirada.`)
             }
             disabled={isPending}
           >
@@ -859,6 +878,18 @@ export function IntakeDetail({
             );
           }}
         />
+      )}
+      {recordConfirm && (
+        <ConfirmDialog
+          title="Gravar a guia no prontuário?"
+          pending={isPending}
+          confirmLabel="Salvar a guia"
+          onCancel={() => setRecordConfirm(null)}
+          onConfirm={() => saveAuthorized(recordConfirm)}
+        >
+          A guia vai ser gravada direto no prontuário do paciente e o agendamento será habilitado. Depois de
+          salva, não dá para desfazer por aqui: ajustes ou cancelamento são feitos no prontuário.
+        </ConfirmDialog>
       )}
       {showGuideDialog && (
         <AuthorizedGuideDialog

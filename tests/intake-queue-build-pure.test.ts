@@ -167,3 +167,22 @@ test("plano pediu mais documentos: etapa 1; cobrança depois do pedido vai para 
   const resent = draft({ pipeline: { planAskedMoreDocsAt: daysAgo(1), authorization: "enviada", guideSentAt: NOW.toISOString() } });
   assert.equal(buildIntake(resent, NOW).stage, 3);
 });
+
+test("activePlanOutcome: empate e datas ilegíveis", () => {
+  const at = "2026-11-09T10:00:00.000Z";
+  // guia com o mesmo instante da negativa não resolve (só uma guia mais nova resolve)
+  assert.equal(activePlanOutcome({ authorization: "enviada", guideSentAt: at, planDeniedAt: at, planAskedMoreDocsAt: null }).planDeniedAt, at);
+  // mesmo instante em formato diferente do banco
+  assert.equal(
+    activePlanOutcome({ authorization: "enviada", guideSentAt: "2026-11-09T10:00:00+00:00", planDeniedAt: at, planAskedMoreDocsAt: null }).planDeniedAt,
+    at,
+  );
+  // negativa e pedido no mesmo instante: fica a negativa
+  assert.deepEqual(activePlanOutcome({ authorization: "pendente", guideSentAt: null, planDeniedAt: at, planAskedMoreDocsAt: at }), {
+    planDeniedAt: at,
+    planAskedMoreDocsAt: null,
+  });
+  // marca ilegível é ignorada; guia ilegível não resolve a marca
+  assert.equal(activePlanOutcome({ authorization: "pendente", guideSentAt: null, planDeniedAt: "lixo", planAskedMoreDocsAt: null }).planDeniedAt, null);
+  assert.equal(activePlanOutcome({ authorization: "enviada", guideSentAt: "lixo", planDeniedAt: at, planAskedMoreDocsAt: null }).planDeniedAt, at);
+});
