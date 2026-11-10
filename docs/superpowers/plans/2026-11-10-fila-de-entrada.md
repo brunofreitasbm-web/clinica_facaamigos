@@ -20,6 +20,7 @@
 - Texto mínimo 14 px, alvo de clique 40 px, nenhuma frase em caixa alta.
 - Aviso de pendência colado ao botão da etapa 2: "Faltam laudo e pedido médico. O plano pode negar."
 - Atraso: 5 dias de espera (suposição da spec, a confirmar).
+- Decisões do dono (10/11/2026): caso com guia não enviada e documento faltando fica na etapa 2; migration só em branch do Supabase (autorizada); "Aguardando família" sem resposta por 3 dias volta para "Agir agora".
 - AGENTS.md item 3: rascunho duplicado de paciente já validado/habilitado não vira caso na fila.
 
 ## Review Focus
@@ -44,13 +45,14 @@
   - `type IntakeGroup = "agir_agora" | "aguardando_familia" | "aguardando_plano" | "concluidos"`
   - `type IntakeInput = { authorization: "pendente"|"enviada"|"autorizada"|"dispensada"; schedulingEnabledAt: string|null; missingDocs: number; familyChasedAt: string|null; planDeniedAt: string|null; planAskedMoreDocsAt: string|null }`
   - `intakeStage(i: IntakeInput): IntakeStage`
-  - `intakeGroup(i: IntakeInput): IntakeGroup`
+  - `FAMILY_WAIT_DAYS = 3`
+  - `intakeGroup(i: IntakeInput, now: Date): IntakeGroup` (cobrança enviada há 3 dias ou mais sem resposta volta para `agir_agora`)
   - `intakeStageLabel(i: IntakeInput): string` (ex.: `"2 de 4 · Enviar guia"`)
   - `INTAKE_GROUP_ORDER: IntakeGroup[]`
 
 - [ ] **Step 1: Escrever testes que falham** em `tests/intake-queue-pure.test.ts`, um por regra:
   - pendente, 0 faltando → `(2, agir_agora)`
-  - pendente, 6 faltando, `familyChasedAt=null` → `(2, agir_agora)`; com `familyChasedAt` → `(2, aguardando_familia)`
+  - pendente, 6 faltando, `familyChasedAt=null` → `(2, agir_agora)`; cobrança há 1 dia → `(2, aguardando_familia)`; cobrança há 3 dias → `(2, agir_agora)`
   - enviada → `(3, aguardando_plano)`
   - autorizada sem habilitar → `(3, agir_agora)`
   - autorizada + `schedulingEnabledAt` → `(4, concluidos)`
