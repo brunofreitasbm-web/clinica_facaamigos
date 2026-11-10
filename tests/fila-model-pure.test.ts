@@ -9,6 +9,7 @@ import {
   buildFilaItem,
   buildHistory,
   countByGroup,
+  filaStageSummary,
   filterFila,
   portalFields,
   sortFila,
@@ -507,4 +508,10 @@ test("trailStates sem planOutcome mantém o comportamento antigo", () => {
   assert.deepEqual(trailStates({ authorization: "pendente", schedulingEnabledAt: null, missingCount: 0 }), ["done", "current", "locked", "locked"]);
   assert.deepEqual(trailStates({ authorization: "pendente", schedulingEnabledAt: null, missingCount: 1 }), ["current", "locked", "locked", "locked"]);
   assert.deepEqual(trailStates({ authorization: "pendente", schedulingEnabledAt: null, missingCount: 0, planOutcome: null }), ["done", "current", "locked", "locked"]);
+});
+
+test("resumo da etapa para o Chat usa a mesma frase da lista", () => {
+  assert.deepEqual(filaStageSummary(buildFilaItem(src(), NOW)), { label: "Enviar a guia ao plano", allDone: false });
+  const done = buildFilaItem(src({ pipeline: { authorization: "autorizada", schedulingEnabledAt: ago(1), returned: null } }), NOW);
+  assert.equal(filaStageSummary(done).allDone, true);
 });

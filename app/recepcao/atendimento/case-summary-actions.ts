@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getSingleRegistrationDraft } from "@/lib/reception-queue";
+import { buildFilaItem, filaStageSummary } from "@/lib/fila/fila-model-pure";
+import { draftToFilaSource } from "@/lib/fila/fila-source";
 import type { CaseDraftInput } from "@/lib/atendimento/case-summary-pure";
 
 export type CaseSummaryData = {
@@ -71,6 +73,19 @@ export async function getCaseSummaryData(
             ? { reason: draftFull.pipeline.returned.reason, byName: draftFull.pipeline.returned.byName }
             : null,
         },
+        stage: filaStageSummary(
+          buildFilaItem(
+            draftToFilaSource(draftFull, {
+              id: draftFull.id,
+              patientName: draftFull.patientName ?? "",
+              assignedToId: null,
+              assignedToName: null,
+              overdue: false,
+              postponed: false,
+            }),
+            Date.now(),
+          ),
+        ),
         missingCount: draftFull.pendencies.missingCount,
         missingSummary: draftFull.pendencies.summary,
         filesCount: draftFull.files.length,

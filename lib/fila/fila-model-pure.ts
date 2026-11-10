@@ -372,6 +372,11 @@ export function buildFilaItem(src: FilaSource, nowMs: number): FilaItem {
   };
 }
 
+/** Etapa em uma frase para o painel do Chat: a mesma da lista da Fila (um vocabulário só). */
+export function filaStageSummary(item: FilaItem): { label: string; allDone: boolean } {
+  return { label: item.step.listText, allDone: item.group === "concluidos" };
+}
+
 /** "hoje", "há 1 dia", "há 9 dias", com "atrasado, " quando o prazo do sistema venceu; vazio se a data for inválida. */
 export function waitLabel(createdAt: string, nowMs: number, overdue: boolean): string {
   const created = Date.parse(createdAt);
