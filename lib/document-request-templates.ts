@@ -89,7 +89,31 @@ export function templateKeyFor(key: MissingDocumentKey): string {
   return `${TEMPLATE_KEY_PREFIX}${key}`;
 }
 
-/** `documento_pendente:laudo_medico` -> `laudo_medico` (null se não for uma cobrança). */
+/** Separador das chaves quando uma única mensagem cobra vários documentos. */
+export const TEMPLATE_KEY_SEPARATOR = "+";
+
+/**
+ * Cobrança única com vários documentos (Fila de entrada, "Cobrar o que falta"):
+ * `documento_pendente:laudo_medico+pedido_medico`. Com uma chave só, igual a templateKeyFor.
+ * É uma linha só em `messages` (a família recebe uma mensagem), e parseTemplateKeys devolve
+ * cada documento, para o "cobrado em …" de cada um continuar funcionando.
+ */
+export function templateKeyForMany(keys: readonly MissingDocumentKey[]): string {
+  return `${TEMPLATE_KEY_PREFIX}${keys.join(TEMPLATE_KEY_SEPARATOR)}`;
+}
+
+/** `documento_pendente:a+b` -> [a, b]; chave única -> [a]; o que não for cobrança -> []. */
+export function parseTemplateKeys(raw: string | null | undefined): MissingDocumentKey[] {
+  if (!raw || !raw.startsWith(TEMPLATE_KEY_PREFIX)) return [];
+  const out: MissingDocumentKey[] = [];
+  for (const part of raw.slice(TEMPLATE_KEY_PREFIX.length).split(TEMPLATE_KEY_SEPARATOR)) {
+    const t = MISSING_DOCUMENT_TEMPLATES.find((x) => x.key === part);
+    if (t && !out.includes(t.key)) out.push(t.key);
+  }
+  return out;
+}
+
+/** `documento_pendente:laudo_medico` -> `laudo_medico` (null se não for uma cobrança de um documento só). */
 export function parseTemplateKey(raw: string | null | undefined): MissingDocumentKey | null {
   if (!raw || !raw.startsWith(TEMPLATE_KEY_PREFIX)) return null;
   const key = raw.slice(TEMPLATE_KEY_PREFIX.length);

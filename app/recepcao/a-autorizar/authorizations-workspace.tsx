@@ -13,6 +13,7 @@ import { filterIntakeItems, groupItems } from "./intake-filters-pure.ts";
 import { IntakeTabs } from "./intake-tabs.tsx";
 import { IntakeList, type IntakeListItem } from "./intake-list.tsx";
 import { IntakeDetail } from "./intake-detail.tsx";
+import { UndoToast, useUndoToast } from "./undo-toast.tsx";
 
 /** Item da lista sem o painel montado no servidor (`detail`): o detalhe agora é o <IntakeDetail />. */
 export type IntakeWorkspaceItem = Omit<WorkspaceItem, "detail">;
@@ -58,6 +59,9 @@ export function AuthorizationsWorkspace({
   };
 }) {
   const router = useRouter();
+  // Aviso com "Desfazer" (8 s) das ações do detalhe. Fica aqui, e não no detalhe, para seguir valendo
+  // quando o caso muda de aba e o detalhe passa a mostrar outro caso; o desfazer usa o caso do aviso.
+  const undoToast = useUndoToast(8, () => router.refresh());
   const now = useMemo(() => new Date(nowIso), [nowIso]);
 
   const [search, setSearch] = useState(initial.q ?? "");
@@ -374,6 +378,7 @@ export function AuthorizationsWorkspace({
                   nextItemId={nextItem && nextItem.id !== selected.id ? nextItem.id : null}
                   onNext={(id) => select(id, true)}
                   onBack={() => setSelectedId(null)}
+                  onUndoable={undoToast.show}
                 />
               ) : (
                 <p className="m-0 text-sm text-slate-600">Este caso não tem rascunho de cadastro para mostrar.</p>
@@ -388,6 +393,7 @@ export function AuthorizationsWorkspace({
           )}
         </div>
       </div>
+      <UndoToast toast={undoToast.toast} onUndo={undoToast.undo} onDismiss={undoToast.dismiss} />
     </div>
   );
 }

@@ -56,6 +56,8 @@ export type DraftPipeline = {
   authorizationId: string | null;
   schedulingEnabledAt: string | null;
   returned: { at: string; reason: string; byName: string | null } | null;
+  planDeniedAt: string | null;
+  planAskedMoreDocsAt: string | null;
   suggestedGuide: DraftAuthorizedGuide | null;
   registered: boolean;
 };
@@ -587,6 +589,9 @@ export function mergeRegistrationDraftGroup(
   const authorizedAt = group.map((d) => d.pipeline.authorizedAt).filter(Boolean).sort().reverse()[0] ?? null;
   const schedulingEnabledAt =
     group.map((d) => d.pipeline.schedulingEnabledAt).filter(Boolean).sort().reverse()[0] ?? null;
+  // Resposta do plano: a mais recente entre os rascunhos mesclados (activePlanOutcome decide se ainda vale).
+  const planDeniedAt = group.map((d) => d.pipeline.planDeniedAt).filter(Boolean).sort().reverse()[0] ?? null;
+  const planAskedMoreDocsAt = group.map((d) => d.pipeline.planAskedMoreDocsAt).filter(Boolean).sort().reverse()[0] ?? null;
 
   const authWaived = group.some((d) => d.pipeline.authorization === "dispensada");
   const authStatus = authorizedAt
@@ -634,6 +639,8 @@ export function mergeRegistrationDraftGroup(
       guideSentAt,
       authorizedAt,
       schedulingEnabledAt,
+      planDeniedAt,
+      planAskedMoreDocsAt,
       returned: group.map((d) => d.pipeline.returned).filter((r): r is NonNullable<typeof r> => Boolean(r)).sort((a, b) => b.at.localeCompare(a.at))[0] ?? null,
       registered: group.some((d) => d.pipeline.registered),
     },

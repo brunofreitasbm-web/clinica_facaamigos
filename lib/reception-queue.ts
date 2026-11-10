@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import {
   TEMPLATE_KEY_PREFIX,
-  parseTemplateKey,
+  parseTemplateKeys,
   type MissingDocumentKey,
 } from "@/lib/document-request-templates";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
@@ -639,6 +639,13 @@ export type DraftPipeline = {
   /** Devolvido pela Supervisão (texto interno — a família nunca vê). Limpo ao habilitar de novo. */
   returned: { at: string; reason: string; byName: string | null } | null;
   /**
+   * "Plano negou" / "Plano pediu mais documentos" como gravados (20261110120000), sem checar se
+   * já foram resolvidos. Quem decide se ainda valem é activePlanOutcome (lib/intake-queue-build-pure.ts):
+   * reenviar a guia depois da marca, ou o plano autorizar, resolve.
+   */
+  planDeniedAt: string | null;
+  planAskedMoreDocsAt: string | null;
+  /**
    * Guia que a IA leu nos arquivos enviados (extracted.authorization) —
    * só sugestão para pré-preencher o formulário da etapa 3, a recepção confere.
    */
@@ -835,13 +842,16 @@ async function getDraftDocumentRequests(
     if (!m.conversation_id || !m.sent_at) continue;
     const phone = phoneByConversation.get(m.conversation_id);
     if (!phone) continue;
-    const key = parseTemplateKey(m.template_key);
-    if (!key) continue;
+    // Uma cobrança pode listar vários documentos (`documento_pendente:a+b`): vale para cada um.
+    const keys = parseTemplateKeys(m.template_key);
+    if (keys.length === 0) continue;
     const list = byPhone.get(phone) ?? [];
     byPhone.set(phone, list);
-    // Vem em ordem decrescente: a primeira de cada tipo é a mais recente.
-    if (list.some((r) => r.key === key)) continue;
-    list.push({ key, sentAt: m.sent_at });
+    for (const key of keys) {
+      // Vem em ordem decrescente: a primeira de cada tipo é a mais recente.
+      if (list.some((r) => r.key === key)) continue;
+      list.push({ key, sentAt: m.sent_at });
+    }
   }
 
   return byPhone;
@@ -971,7 +981,7 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
   const { data } = await supabase
     .from("registration_drafts")
     .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), plan_denied_at, plan_more_docs_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("clinic_id", clinicId)
     .neq("status", "rejected")
@@ -1064,6 +1074,8 @@ async function getPendingRegistrationDrafts(supabase: Supa, clinicId: string): P
         authorizationId: d.authorization_id,
         schedulingEnabledAt: d.scheduling_enabled_at,
         returned: returnedInfo(d),
+        planDeniedAt: d.plan_denied_at,
+        planAskedMoreDocsAt: d.plan_more_docs_at,
         suggestedGuide: suggestedGuideFromExtraction(d.extracted),
         registered: d.status === "validated" && Boolean(d.patient_id),
       },
@@ -1114,7 +1126,7 @@ export async function getSingleRegistrationDraft(
   const { data: d } = await supabase
     .from("registration_drafts")
     .select(
-      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
+      "id, patient_id, source, source_phone, status, created_at, guardian_message, extracted, warnings, error, guide_sent_at, sent_by:profiles!guide_sent_by(full_name), plan_authorized_at, authorized_by:profiles!plan_authorized_by(full_name), authorization_waived, authorized_guide, authorization_id, scheduling_enabled_at, returned_to_reception_at, returned_to_reception_reason, returned_by:profiles!returned_to_reception_by(full_name), plan_denied_at, plan_more_docs_at, patients(full_name, status), registration_draft_files(id, original_name, mime_type, detected_type, created_at)",
     )
     .eq("id", draftId)
     .maybeSingle();
@@ -1192,6 +1204,8 @@ export async function getSingleRegistrationDraft(
       authorizationId: d.authorization_id,
       schedulingEnabledAt: d.scheduling_enabled_at,
       returned: returnedInfo(d),
+      planDeniedAt: d.plan_denied_at,
+      planAskedMoreDocsAt: d.plan_more_docs_at,
       suggestedGuide: suggestedGuideFromExtraction(d.extracted),
       registered: d.status === "validated" && Boolean(d.patient_id),
     },

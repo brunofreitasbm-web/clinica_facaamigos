@@ -7143,6 +7143,10 @@ export type Database = {
           returned_to_reception_at: string | null
           returned_to_reception_by: string | null
           returned_to_reception_reason: string | null
+          plan_denied_at: string | null
+          plan_denied_by: string | null
+          plan_more_docs_at: string | null
+          plan_more_docs_by: string | null
         }
         Insert: {
           attempts?: number
@@ -7182,6 +7186,10 @@ export type Database = {
           returned_to_reception_at?: string | null
           returned_to_reception_by?: string | null
           returned_to_reception_reason?: string | null
+          plan_denied_at?: string | null
+          plan_denied_by?: string | null
+          plan_more_docs_at?: string | null
+          plan_more_docs_by?: string | null
         }
         Update: {
           attempts?: number
@@ -7221,8 +7229,26 @@ export type Database = {
           returned_to_reception_at?: string | null
           returned_to_reception_by?: string | null
           returned_to_reception_reason?: string | null
+          plan_denied_at?: string | null
+          plan_denied_by?: string | null
+          plan_more_docs_at?: string | null
+          plan_more_docs_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "registration_drafts_plan_denied_by_fkey"
+            columns: ["plan_denied_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registration_drafts_plan_more_docs_by_fkey"
+            columns: ["plan_more_docs_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "registration_drafts_clinic_id_fkey"
             columns: ["clinic_id"]

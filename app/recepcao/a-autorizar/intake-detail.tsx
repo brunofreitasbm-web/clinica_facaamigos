@@ -25,17 +25,24 @@ import {
 import { getPortalRobotState } from "../pacientes/pendencias/portal-robot-actions";
 import { AuthorizedGuideDialog, type GuideValues } from "../pacientes/pendencias/draft-pipeline";
 import { PortalRobotPanel, PortalRobotRequestDialog } from "../pacientes/pendencias/portal-robot-panel";
-import { DocumentRequestButtons } from "../pacientes/pendencias/document-request-buttons";
+import { denyPlan, planAskedMoreDocs, undoDenyPlan, undoPlanAskedMoreDocs } from "../pacientes/pendencias/intake-actions";
 import { DraftAdjustButton } from "../pacientes/pendencias/draft-adjust-dialog";
 import { ReassignOwnerButton } from "../pacientes/pendencias/reassign-owner-button";
 import { INITIAL_ROBOT_VIEW, nextRobotState, primaryAction, type RobotView } from "./intake-primary-action-pure.ts";
 import { IntakeStageTrail } from "./intake-stage-trail.tsx";
 import { IntakeCopyField } from "./intake-copy-field.tsx";
+import { PendingWarning } from "./pending-warning.tsx";
+import { ChaseAllDialog } from "./chase-all-dialog.tsx";
+import type { UndoEntry } from "./undo-toast.tsx";
 
 /**
  * Detalhe de um caso da Fila de entrada, em coluna única de cima para baixo:
  * cabeçalho do paciente (dados em linha inteira com Copiar, menu "Mais"), trilha de etapas com a
  * etapa atual aberta e um único botão principal, e "Dados recebidos" recolhido.
+ *
+ * Cada ação (exceto o envio pelo robô e as mensagens de WhatsApp, que não se desfazem) chama
+ * `onUndoable` com o draftId e a função de desfazer; o aviso de 8 segundos mora na área de trabalho
+ * (undo-toast.tsx) para seguir valendo mesmo se o caso mudar de aba.
  *
  * Usado só pela Fila de entrada. O Chat (Atendimento) e Pendências continuam com o DraftIntakeCard;
  * aqui só se reaproveitam as mesmas ações de servidor e diálogos.
@@ -44,8 +51,6 @@ import { IntakeCopyField } from "./intake-copy-field.tsx";
 type ActionResult = { success: true; note?: string; offer?: "sent" | "duplicate" | "failed" } | { success: false; error: string };
 
 const ROBOT_POLL_MS = 20_000;
-
-const PLACEHOLDER_TITLE = "Disponível na próxima etapa";
 
 const PILL_TEXT: Record<PillState, string> = {
   faltando: "Falta",
@@ -169,6 +174,7 @@ export function IntakeDetail({
   nextItemId,
   onNext,
   onBack,
+  onUndoable,
 }: {
   item: { id: string; name: string; ownerId: string | null; ownerName: string | null };
   draft: PendingRegistrationDraft;
@@ -178,15 +184,20 @@ export function IntakeDetail({
   onNext: (id: string) => void;
   /** Só no celular: volta para a lista. */
   onBack: () => void;
+  /** Mostra o aviso com "Desfazer" (8 s) amarrado a este caso. */
+  onUndoable: (entry: UndoEntry) => void;
 }) {
   const router = useRouter();
   const { pipeline, pendencies } = draft;
   const stage = draft.intake.stage;
+  // Fixo para as funções de desfazer: nunca o caso que estiver aberto quando o "Desfazer" for clicado.
+  const draftId = draft.id;
+  const caseName = item.name;
   const hasPlan = pendencies.hasPlan;
 
   const [feedback, setFeedback] = useState<{ tone: "error" | "note"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [showChase, setShowChase] = useState(false);
+  const [showChaseDialog, setShowChaseDialog] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showRobotDialog, setShowRobotDialog] = useState(false);
   const [showGuideDialog, setShowGuideDialog] = useState(false);
@@ -226,9 +237,12 @@ export function IntakeDetail({
   }, [draft.id, needsRobot, robotKey]);
 
   const robotOnline = needsRobot && robot.online;
-  const action = primaryAction(toIntakeInput(draft), robotOnline);
+  const intakeInput = toIntakeInput(draft);
+  const action = primaryAction(intakeInput, robotOnline);
+  const chaseKeys = missingChaseKeys(pendencies);
 
-  const run = (fn: () => Promise<ActionResult>) => {
+  /** Roda a ação e, dando certo, mostra o aviso com "Desfazer" deste caso. */
+  const run = (fn: () => Promise<ActionResult>, undo?: Omit<UndoEntry, "draftId">) => {
     setFeedback(null);
     startTransition(async () => {
       const result = await fn();
@@ -238,6 +252,41 @@ export function IntakeDetail({
       }
       router.refresh();
       if (result.note) setFeedback({ tone: "note", text: result.note });
+      if (undo) onUndoable({ draftId, ...undo });
+    });
+  };
+
+  const markSent = () =>
+    run(() => markGuideSent(draftId), {
+      message: `Guia de ${caseName} marcada como enviada ao plano.`,
+      undo: () => undoGuideSent(draftId),
+    });
+
+  // "Plano negou" / "Plano pediu mais documentos": o servidor devolve o estado anterior, que fica
+  // guardado no aviso para o desfazer restaurar exatamente o que havia.
+  const runPlanOutcome = (kind: "denied" | "more_docs") => {
+    setFeedback(null);
+    startTransition(async () => {
+      const res = kind === "denied" ? await denyPlan(draftId) : await planAskedMoreDocs(draftId);
+      if (!res.success) {
+        setFeedback({ tone: "error", text: res.error });
+        return;
+      }
+      router.refresh();
+      const token = res.undo;
+      onUndoable(
+        kind === "denied"
+          ? {
+              draftId,
+              message: `Negativa do plano registrada para ${caseName}. O caso voltou para Enviar guia.`,
+              undo: () => undoDenyPlan(draftId, token),
+            }
+          : {
+              draftId,
+              message: `Pedido de mais documentos registrado para ${caseName}. O caso voltou para Documentos.`,
+              undo: () => undoPlanAskedMoreDocs(draftId, token),
+            },
+      );
     });
   };
 
@@ -278,8 +327,8 @@ export function IntakeDetail({
   //   2. enableDraftScheduling habilita o agendamento (etapa 4) e o servidor dispara sozinho a oferta
   //      de 3 horários da 1ª avaliação pelo WhatsApp (lib/evaluation-offer.ts);
   //   3. o link wa.me não abre sozinho: fica no botão "Avisar responsável no WhatsApp" caso a oferta falhe.
-  // Fica para a Task 5: confirmação da mensagem de WhatsApp antes do envio, aviso com "Desfazer"
-  // por 8 segundos e os caminhos "Plano negou" e "Plano pediu mais documentos".
+  // Depois de salvar, o aviso com "Desfazer" (8 s) tira a habilitação e volta a etapa 3. A oferta de
+  // horários é automática do servidor (fluxo anterior), sem diálogo de confirmação, e não volta.
   const confirmAuthorized = (values: GuideValues) => {
     const procedures = values.procedures.map((p) => ({ code: p.code, description: p.description, quantity: Number(p.quantity) }));
     setGuideError(null);
@@ -303,6 +352,21 @@ export function IntakeDetail({
         const note = [saved.note, enabled.note].filter(Boolean).join(" ");
         if (note) setFeedback({ tone: enabled.offer === "failed" ? "error" : "note", text: note });
       }
+      // Desfazer: tira a habilitação (se houve) e volta a etapa 3 para "aguardando o plano".
+      // A mensagem de horários que o servidor já mandou à família não volta.
+      onUndoable({
+        draftId,
+        message: enabled.success
+          ? `Guia autorizada de ${caseName} salva e agendamento habilitado.`
+          : `Guia autorizada de ${caseName} salva.`,
+        undo: async () => {
+          if (enabled.success) {
+            const off = await disableDraftScheduling(draftId);
+            if (!off.success) return off;
+          }
+          return undoDraftAuthorization(draftId);
+        },
+      });
     });
   };
 
@@ -312,7 +376,7 @@ export function IntakeDetail({
         setShowRobotDialog(true);
         return;
       case "mark_sent":
-        run(() => markGuideSent(draft.id));
+        markSent();
         return;
       case "upload_authorized_pdf":
         setGuideError(null);
@@ -364,12 +428,17 @@ export function IntakeDetail({
     </div>
   );
 
-  // Ações secundárias das etapas 1 e 2. "Cobrar o que falta" ainda abre os botões de cobrança por
-  // documento; a mensagem única com todos os itens chega na Task 5.
+  // Ações secundárias das etapas 1 e 2. "Cobrar o que falta" abre a mensagem única com todos os
+  // documentos pendentes para conferir antes de enviar (chase-all-dialog.tsx).
+  const lastChase = draft.documentRequests.reduce<string | null>((acc, r) => (!acc || r.sentAt > acc ? r.sentAt : acc), null);
   const chaseActions = (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        <SecondaryButton onClick={() => setShowChase((v) => !v)} expanded={showChase}>
+        <SecondaryButton
+          onClick={() => setShowChaseDialog(true)}
+          disabled={isPending || chaseKeys.length === 0 || !draft.sourcePhone}
+          title={chaseKeys.length === 0 ? "Nenhum documento faltando" : !draft.sourcePhone ? "Contato sem telefone de WhatsApp" : undefined}
+        >
           Cobrar o que falta
         </SecondaryButton>
         {chatLink && (
@@ -378,21 +447,21 @@ export function IntakeDetail({
           </Link>
         )}
       </div>
-      {showChase && (
-        <DocumentRequestButtons
-          draftId={draft.id}
-          patientName={draft.patientName}
-          hasPhone={Boolean(draft.sourcePhone)}
-          requests={draft.documentRequests}
-          missingKeys={missingChaseKeys(pendencies)}
-        />
-      )}
+      {lastChase && <p className="m-0 text-sm text-slate-600">Última cobrança em {fmtDateTime(lastChase, CLINIC_TIMEZONE)}.</p>}
     </div>
   );
 
   const waiveButton =
     !hasPlan && (pipeline.authorization === "pendente" || pipeline.authorization === "enviada") ? (
-      <SecondaryButton onClick={() => run(() => waiveDraftAuthorization(draft.id))} disabled={isPending}>
+      <SecondaryButton
+        onClick={() =>
+          run(() => waiveDraftAuthorization(draftId), {
+            message: `${caseName} marcado como particular, sem guia.`,
+            undo: () => undoDraftAuthorization(draftId),
+          })
+        }
+        disabled={isPending}
+      >
         Particular, sem guia
       </SecondaryButton>
     ) : null;
@@ -409,6 +478,8 @@ export function IntakeDetail({
   const history = [
     { at: draft.createdAt, text: "Contato recebido" },
     ...draft.documentRequests.map((r) => ({ at: r.sentAt, text: "Cobrança de documento enviada à família" })),
+    ...(pipeline.planDeniedAt ? [{ at: pipeline.planDeniedAt, text: "Plano negou a guia" }] : []),
+    ...(pipeline.planAskedMoreDocsAt ? [{ at: pipeline.planAskedMoreDocsAt, text: "Plano pediu mais documentos" }] : []),
     ...(pipeline.guideSentAt ? [{ at: pipeline.guideSentAt, text: `Guia enviada ao plano${pipeline.guideSentByName ? ` por ${pipeline.guideSentByName}` : ""}` }] : []),
     ...(pipeline.authorizedAt ? [{ at: pipeline.authorizedAt, text: `Plano autorizou${pipeline.authorizedByName ? `, registrado por ${pipeline.authorizedByName}` : ""}` }] : []),
     ...(pipeline.schedulingEnabledAt ? [{ at: pipeline.schedulingEnabledAt, text: "Habilitado para agendamento" }] : []),
@@ -419,9 +490,18 @@ export function IntakeDetail({
     body = (
       <>
         {returnedBanner}
-        <p className="m-0 text-slate-700">O plano pediu mais documentos. Confira o que falta e cobre a família.</p>
+        <p className="m-0 text-slate-700">
+          O plano pediu mais documentos
+          {intakeInput.planAskedMoreDocsAt ? ` em ${fmtDateTime(intakeInput.planAskedMoreDocsAt, CLINIC_TIMEZONE)}` : ""}. Confira o que
+          falta e cobre a família. Quando os documentos chegarem, envie a guia de novo.
+        </p>
         {missingList}
         {chaseActions}
+        <div className="flex flex-wrap gap-2">
+          <SecondaryButton onClick={markSent} disabled={isPending}>
+            Guia reenviada ao plano
+          </SecondaryButton>
+        </div>
       </>
     );
   } else if (stage === 2) {
@@ -429,9 +509,16 @@ export function IntakeDetail({
     body = (
       <>
         {returnedBanner}
-        <p className="m-0 text-slate-700">A guia ainda não foi enviada ao plano.</p>
-        {/* Task 5: aviso de pendência aqui, colado logo acima do botão principal, com os itens que faltam
-            (ex.: "Faltam laudo e pedido médico. O plano pode negar."). Nada bloqueia o envio. */}
+        {intakeInput.planDeniedAt ? (
+          <p role="status" className="m-0 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+            <span className="font-semibold">O plano negou a guia em {fmtDateTime(intakeInput.planDeniedAt, CLINIC_TIMEZONE)}.</span> Ajuste
+            o que for preciso e envie de novo.
+          </p>
+        ) : (
+          <p className="m-0 text-slate-700">A guia ainda não foi enviada ao plano.</p>
+        )}
+        {/* Aviso de pendência colado logo acima do botão principal. Nada bloqueia o envio. */}
+        <PendingWarning keys={chaseKeys} />
         <div className="flex flex-wrap items-center gap-2">
           <PrimaryButton
             onClick={onPrimary}
@@ -442,7 +529,7 @@ export function IntakeDetail({
           </PrimaryButton>
           {robotOnline && (
             // Robô ligado, mas a guia foi por outro canal (portal à mão, e-mail, telefone).
-            <SecondaryButton onClick={() => run(() => markGuideSent(draft.id))} disabled={isPending || robot.jobOpen}>
+            <SecondaryButton onClick={markSent} disabled={isPending || robot.jobOpen}>
               Enviei por outro canal
             </SecondaryButton>
           )}
@@ -472,12 +559,12 @@ export function IntakeDetail({
           </PrimaryButton>
           {waiveButton}
         </div>
-        {/* "Plano negou" e "Plano pediu mais documentos" ficam visíveis, mas o servidor chega na Task 5. */}
+        {/* Outras respostas do plano: cada uma devolve o caso a uma etapa anterior, com "Desfazer" por 8 s. */}
         <div className="flex flex-wrap gap-2">
-          <SecondaryButton onClick={() => undefined} disabled title={PLACEHOLDER_TITLE}>
+          <SecondaryButton onClick={() => runPlanOutcome("denied")} disabled={isPending}>
             Plano negou
           </SecondaryButton>
-          <SecondaryButton onClick={() => undefined} disabled title={PLACEHOLDER_TITLE}>
+          <SecondaryButton onClick={() => runPlanOutcome("more_docs")} disabled={isPending}>
             Plano pediu mais documentos
           </SecondaryButton>
         </div>
@@ -495,7 +582,15 @@ export function IntakeDetail({
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <PrimaryButton onClick={() => run(() => enableDraftScheduling(draft.id))} disabled={isPending}>
+          <PrimaryButton
+            onClick={() =>
+              run(() => enableDraftScheduling(draftId), {
+                message: `${caseName} habilitado para agendamento.`,
+                undo: () => disableDraftScheduling(draftId),
+              })
+            }
+            disabled={isPending}
+          >
             Habilitar para agendamento
           </PrimaryButton>
           <SecondaryButton onClick={() => run(() => undoDraftAuthorization(draft.id))} disabled={isPending}>
@@ -537,7 +632,15 @@ export function IntakeDetail({
           <SecondaryButton onClick={() => setShowHistory((v) => !v)} expanded={showHistory}>
             Ver histórico
           </SecondaryButton>
-          <SecondaryButton onClick={() => run(() => disableDraftScheduling(draft.id))} disabled={isPending}>
+          <SecondaryButton
+            onClick={() =>
+              run(() => disableDraftScheduling(draftId), {
+                message: `Habilitação de ${caseName} retirada.`,
+                undo: () => enableDraftScheduling(draftId),
+              })
+            }
+            disabled={isPending}
+          >
             Retirar habilitação
           </SecondaryButton>
         </div>
@@ -737,6 +840,23 @@ export function IntakeDetail({
             setShowRobotDialog(false);
             // Recarrega o painel do robô e o estado do botão principal (o pedido agora está na fila).
             setRobotKey((k) => k + 1);
+          }}
+        />
+      )}
+      {showChaseDialog && (
+        <ChaseAllDialog
+          draftId={draftId}
+          keys={chaseKeys}
+          patientName={draft.patientName}
+          onClose={() => setShowChaseDialog(false)}
+          onSent={({ warning, opener }) => {
+            setShowChaseDialog(false);
+            router.refresh();
+            setFeedback(
+              warning
+                ? { tone: "error", text: warning }
+                : { tone: "note", text: opener ? "Mensagem de abertura enviada pelo WhatsApp." : "Cobrança enviada pelo WhatsApp." },
+            );
           }}
         />
       )}

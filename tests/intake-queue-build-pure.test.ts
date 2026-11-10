@@ -3,7 +3,7 @@
 // buildIntake: monta etapa, grupo e "esperando desde" a partir do rascunho carregado.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildIntake, latestFamilyChase, toIntakeInput, type IntakeDraftLike } from "../lib/intake-queue-build-pure.ts";
+import { activePlanOutcome, buildIntake, latestFamilyChase, toIntakeInput, type IntakeDraftLike } from "../lib/intake-queue-build-pure.ts";
 import { INTAKE_GROUP_ORDER } from "../lib/intake-queue-pure.ts";
 import type { LeadPendencies, LeadPill } from "../lib/lead-pendencies.ts";
 
@@ -32,6 +32,8 @@ const draft = (over: Partial<IntakeDraftLike> & { pipeline?: Partial<IntakeDraft
     authorizedAt: null,
     schedulingEnabledAt: null,
     returned: null,
+    planDeniedAt: null,
+    planAskedMoreDocsAt: null,
     ...over.pipeline,
   },
 });
@@ -118,4 +120,50 @@ test("label da etapa: pendente, enviada e habilitado", () => {
     buildIntake(draft({ pipeline: { authorization: "autorizada", schedulingEnabledAt: "2026-11-09T10:00:00Z" } }), NOW).label,
     "4 de 4 · Habilitado",
   );
+});
+
+test("activePlanOutcome: negativa vale até a guia ser reenviada depois dela", () => {
+  const base = { authorization: "pendente" as const, guideSentAt: null, planDeniedAt: daysAgo(2), planAskedMoreDocsAt: null };
+  assert.deepEqual(activePlanOutcome(base), { planDeniedAt: daysAgo(2), planAskedMoreDocsAt: null });
+  // guia reenviada depois da negativa: resolvida
+  assert.equal(activePlanOutcome({ ...base, authorization: "enviada", guideSentAt: daysAgo(1) }).planDeniedAt, null);
+  // guia antiga (antes da negativa) não resolve
+  assert.equal(activePlanOutcome({ ...base, authorization: "enviada", guideSentAt: daysAgo(3) }).planDeniedAt, daysAgo(2));
+});
+
+test("activePlanOutcome: autorização ou dispensa resolvem as duas marcas", () => {
+  const marks = { guideSentAt: null, planDeniedAt: daysAgo(2), planAskedMoreDocsAt: daysAgo(1) };
+  assert.deepEqual(activePlanOutcome({ ...marks, authorization: "autorizada" }), { planDeniedAt: null, planAskedMoreDocsAt: null });
+  assert.deepEqual(activePlanOutcome({ ...marks, authorization: "dispensada" }), { planDeniedAt: null, planAskedMoreDocsAt: null });
+});
+
+test("activePlanOutcome: com as duas valendo, fica só a mais recente", () => {
+  const r = activePlanOutcome({ authorization: "pendente", guideSentAt: null, planDeniedAt: daysAgo(3), planAskedMoreDocsAt: daysAgo(1) });
+  assert.deepEqual(r, { planDeniedAt: null, planAskedMoreDocsAt: daysAgo(1) });
+});
+
+test("plano negou: etapa 2, agir agora, esperando desde a negativa; reenviar a guia limpa", () => {
+  const denied = draft({ pipeline: { planDeniedAt: daysAgo(1) } });
+  const i = buildIntake(denied, NOW);
+  assert.equal(i.stage, 2);
+  assert.equal(i.group, "agir_agora");
+  assert.equal(i.waitingSince, daysAgo(1));
+  assert.equal(toIntakeInput(denied).planDeniedAt, daysAgo(1));
+
+  const resent = draft({ pipeline: { planDeniedAt: daysAgo(1), authorization: "enviada", guideSentAt: NOW.toISOString() } });
+  const r = buildIntake(resent, NOW);
+  assert.equal(r.stage, 3);
+  assert.equal(r.group, "aguardando_plano");
+  assert.equal(toIntakeInput(resent).planDeniedAt, null);
+});
+
+test("plano pediu mais documentos: etapa 1; cobrança depois do pedido vai para aguardando família", () => {
+  const asked = draft({ pipeline: { planAskedMoreDocsAt: daysAgo(1) } });
+  assert.equal(buildIntake(asked, NOW).stage, 1);
+  assert.equal(buildIntake(asked, NOW).group, "agir_agora");
+  const chased = draft({ pipeline: { planAskedMoreDocsAt: daysAgo(1) }, documentRequests: [{ sentAt: NOW.toISOString() }] });
+  assert.equal(buildIntake(chased, NOW).group, "aguardando_familia");
+  // guia reenviada depois do pedido: volta para aguardando plano
+  const resent = draft({ pipeline: { planAskedMoreDocsAt: daysAgo(1), authorization: "enviada", guideSentAt: NOW.toISOString() } });
+  assert.equal(buildIntake(resent, NOW).stage, 3);
 });
