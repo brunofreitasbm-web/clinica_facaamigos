@@ -112,6 +112,29 @@ export function firstOfferDay(today: string, floor: string = FIRST_EVALUATION_EA
   return floor > today ? floor : today;
 }
 
+/** Máximo de "Nenhum serve" atendidos após a 1ª lista (depois disso, atendente). */
+export const MAX_OFFER_RESUGGESTIONS = 3;
+/** Nenhum horário oferecido pode passar de (data do 1º horário da 1ª lista) + 7 dias. */
+export const OFFER_WINDOW_DAYS = 7;
+
+/** `page` = quantas re-sugestões já foram enviadas; true se ainda cabe mais uma. */
+export function canResuggest(page: number): boolean {
+  return page < MAX_OFFER_RESUGGESTIONS;
+}
+
+/** Último dia (inclusive) da janela de oferta, "YYYY-MM-DD". Usa data civil, sem fuso. */
+export function offerWindowEnd(anchorDate: string, days: number = OFFER_WINDOW_DAYS): string {
+  const [y, m, d] = anchorDate.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** Descarta candidatos depois do fim da janela. Sem âncora, não restringe. */
+export function filterByWindow<T extends { date: string }>(candidates: T[], anchorDate: string | null | undefined): T[] {
+  if (!anchorDate) return candidates;
+  const end = offerWindowEnd(anchorDate);
+  return candidates.filter((c) => c.date <= end);
+}
+
 export const EVALUATION_DURATION_MIN = 50;
 /** Antecedência mínima: nunca oferecer um horário daqui a menos de 24h. */
 export const MIN_LEAD_MS = 24 * 60 * 60 * 1000;

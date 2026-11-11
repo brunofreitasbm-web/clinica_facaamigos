@@ -157,3 +157,23 @@ test("piso da 1ª avaliação: nada antes de 06/11/2026", async () => {
   assert.equal(firstOfferDay("2026-11-06"), "2026-11-06");
   assert.equal(firstOfferDay("2026-11-09"), "2026-11-09");
 });
+
+import { canResuggest, filterByWindow, offerWindowEnd } from "../lib/evaluation-offer-slots-pure.ts";
+
+test("offerWindowEnd soma 7 dias e vira mês/ano", () => {
+  assert.equal(offerWindowEnd("2026-11-12"), "2026-11-19");
+  assert.equal(offerWindowEnd("2026-11-28"), "2026-12-05");
+  assert.equal(offerWindowEnd("2026-12-29"), "2027-01-05");
+});
+
+test("filterByWindow: âncora+7 entra, âncora+8 sai, sem âncora não restringe", () => {
+  const cs = [{ date: "2026-11-12" }, { date: "2026-11-19" }, { date: "2026-11-20" }];
+  assert.deepEqual(filterByWindow(cs, "2026-11-12").map((c) => c.date), ["2026-11-12", "2026-11-19"]);
+  assert.equal(filterByWindow(cs, null).length, 3);
+});
+
+test("canResuggest: no máximo 3 re-sugestões após a 1ª lista", () => {
+  assert.equal(canResuggest(0), true);
+  assert.equal(canResuggest(2), true);
+  assert.equal(canResuggest(3), false);
+});
