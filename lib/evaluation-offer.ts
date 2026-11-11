@@ -21,7 +21,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { buildMessagePreview, findOrCreateConversation, formatE164Phone, getTwilioContentSidForCategory } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { computeEvaluationOfferSlots, type EvaluationOfferSlot } from "@/lib/evaluation-offer-slots";
-import { isPhoneFreeForOffer } from "@/lib/evaluation-offer-session-pure";
+import { isEvaluationAlreadyDone, isPhoneFreeForOffer } from "@/lib/evaluation-offer-session-pure";
 import { parseInterestReply, parseSlotReply } from "@/lib/evaluation-offer-reply-pure";
 
 export const EVAL_OFFER_FLOW = "eval_offer";
@@ -60,7 +60,7 @@ type OfferRow = {
 export type StartOfferResult =
   | { status: "sent"; offerId: string }
   | { status: "duplicate"; offerId: string }
-  | { status: "no_phone" | "no_slots" | "busy" | "failed"; offerId?: string; error: string };
+  | { status: "no_phone" | "no_slots" | "busy" | "failed" | "already_evaluated"; offerId?: string; error: string };
 
 // ---------------------------------------------------------------------------
 // Envio + log
@@ -180,12 +180,18 @@ export async function startEvaluationOffer(params: {
     .maybeSingle();
   if (existing) return { status: "duplicate", offerId: existing.id };
 
-  const [{ data: patient }, { data: guardians }, draftRes, { data: insurances }] = await Promise.all([
-    admin.from("patients").select("full_name").eq("id", params.patientId).maybeSingle(),
+  const [{ data: patient }, { data: guardians }, draftRes, { data: insurances }, { data: evalAppts }] = await Promise.all([
+    admin.from("patients").select("full_name, evaluated_at").eq("id", params.patientId).maybeSingle(),
     admin.from("guardians").select("full_name, phone, is_financial").eq("patient_id", params.patientId),
     params.draftId ? admin.from("registration_drafts").select("source_phone, authorization_waived").eq("id", params.draftId).maybeSingle() : Promise.resolve({ data: null }),
     admin.from("patient_insurance").select("id").eq("patient_id", params.patientId).limit(1),
+    admin.from("appointments").select("status").eq("patient_id", params.patientId).eq("is_evaluation", true),
   ]);
+
+  // 1ª avaliação já feita ou marcada: nada a ofertar (e nada registrado, para não poluir a fila de falhas).
+  if (isEvaluationAlreadyDone(patient as { evaluated_at: string | null } | null, ((evalAppts ?? []) as { status: string }[]).map((a) => a.status))) {
+    return { status: "already_evaluated", error: "Esta criança já tem a 1ª avaliação marcada ou realizada." };
+  }
 
   const guardianList = (guardians ?? []) as { full_name: string | null; phone: string | null; is_financial: boolean | null }[];
   const guardian = guardianList.find((g) => g.is_financial && g.phone) ?? guardianList.find((g) => g.phone);
