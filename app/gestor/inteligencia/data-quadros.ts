@@ -4,6 +4,7 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { hourInTimeZone, weekdayInTimeZone, civilDateInTimeZone } from "@/lib/timezone";
 import { GRID_EXCLUDED_STATUSES } from "@/lib/appointment-status-style";
 import { findMetricDef, formatMetricValue, type MetricDirection } from "@/lib/metric-catalog";
+import { BI_INACTIVE_PATIENT_STATUSES, isInPeriod, type PatientCheckinIndex } from "@/lib/bi-checkin";
 
 type Supa = SupabaseClient<Database>;
 
@@ -14,11 +15,13 @@ type AppointmentRow = {
   ends_at: string;
   therapist_id: string;
   cancelled_at: string | null;
+  checkin_at: string | null;
 };
 
 // ── QUADRO: Mapa de Calor Dia da Semana × Hora ──────────────────────────
 // Identifica janelas ociosas (dia+hora com pouca ocupação) pra facilitar
-// encaixe de novos pacientes. Horário civil da clínica (America/Sao_Paulo),
+// encaixe de novos pacientes. Conta SÓ check-ins reais na recepção (o horário
+// do check-in, não o agendado). Horário civil da clínica (America/Sao_Paulo),
 // não getHours()/getDay() do processo — que na Vercel roda em UTC.
 
 export type HeatmapCell = { dow: number; hour: number; count: number; intensity: number; isIdle: boolean };
@@ -36,11 +39,11 @@ const HEATMAP_DOWS = [1, 2, 3, 4, 5, 6]; // Seg..Sáb (clínica não atende domi
 
 export function buildWeekHourHeatmap(appointments: AppointmentRow[]): WeekHourHeatmap {
   const counts = new Map<string, number>();
-  const relevant = appointments.filter((a) => !GRID_EXCLUDED_STATUSES.includes(a.status));
+  const relevant = appointments.filter((a) => !!a.checkin_at && !GRID_EXCLUDED_STATUSES.includes(a.status));
 
   for (const app of relevant) {
-    const dow = weekdayInTimeZone(app.starts_at, CLINIC_TIMEZONE);
-    const hour = hourInTimeZone(app.starts_at, CLINIC_TIMEZONE);
+    const dow = weekdayInTimeZone(app.checkin_at!, CLINIC_TIMEZONE);
+    const hour = hourInTimeZone(app.checkin_at!, CLINIC_TIMEZONE);
     if (!HEATMAP_DOWS.includes(dow) || hour < 8 || hour > 18) continue;
     const key = `${dow}-${hour}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -124,6 +127,7 @@ export async function getOnboardingFunnel(
   startISO: string,
   endISO: string,
   allPatients: FunnelPatientRow[],
+  checkin: PatientCheckinIndex,
 ): Promise<OnboardingFunnel> {
   const patientIds = allPatients.map((p) => p.id);
 
@@ -146,22 +150,26 @@ export async function getOnboardingFunnel(
     }
   }
 
-  const inPeriod = (iso: string | null) => !!iso && iso >= startISO && iso < endISO;
+  const inPeriod = (iso: string | null) => isInPeriod(iso, startISO, endISO);
+
+  // "Avaliado" = 1º check-in na recepção (regra do BI), não o carimbo manual
+  // patients.evaluated_at, que ficava vazio quando a sessão não era fechada.
+  const evaluatedAt = (patientId: string) => checkin.firstCheckinAt.get(patientId) ?? null;
 
   const interessadoCount = allPatients.filter((p) => p.created_at >= startISO && p.created_at < endISO).length;
-  const avaliacaoCount = allPatients.filter((p) => inPeriod(p.evaluated_at)).length;
+  const avaliacaoCount = allPatients.filter((p) => inPeriod(evaluatedAt(p.id))).length;
   const guiaPatients = allPatients.filter((p) => inPeriod(firstAuthAtByPatient.get(p.id) ?? null));
   const gradePatients = allPatients.filter((p) => inPeriod(p.first_session_at));
 
   const contactToEval = avgDays(
     allPatients
-      .filter((p) => inPeriod(p.evaluated_at))
-      .map((p) => new Date(p.evaluated_at!).getTime() - new Date(p.first_contact_at ?? p.created_at).getTime()),
+      .filter((p) => inPeriod(evaluatedAt(p.id)))
+      .map((p) => new Date(evaluatedAt(p.id)!).getTime() - new Date(p.first_contact_at ?? p.created_at).getTime()),
   );
   const evalToGuia = avgDays(
     guiaPatients
-      .filter((p) => p.evaluated_at)
-      .map((p) => new Date(firstAuthAtByPatient.get(p.id)!).getTime() - new Date(p.evaluated_at!).getTime()),
+      .filter((p) => evaluatedAt(p.id))
+      .map((p) => new Date(firstAuthAtByPatient.get(p.id)!).getTime() - new Date(evaluatedAt(p.id)!).getTime()),
   );
   const guiaToGrade = avgDays(
     gradePatients
@@ -170,8 +178,8 @@ export async function getOnboardingFunnel(
   );
 
   const stages: FunnelStage[] = [
-    { key: "interessado", label: "Interessados (novos)", count: interessadoCount, avgDaysFromPrev: null, samples: 0 },
-    { key: "avaliacao", label: "Avaliados", count: avaliacaoCount, avgDaysFromPrev: contactToEval.avg, samples: contactToEval.samples },
+    { key: "interessado", label: "Leads (novos cadastros)", count: interessadoCount, avgDaysFromPrev: null, samples: 0 },
+    { key: "avaliacao", label: "Avaliados (1º check-in)", count: avaliacaoCount, avgDaysFromPrev: contactToEval.avg, samples: contactToEval.samples },
     { key: "guia", label: "Guia autorizada", count: guiaPatients.length, avgDaysFromPrev: evalToGuia.avg, samples: evalToGuia.samples },
     { key: "grade", label: "Em grade (1ª sessão)", count: gradePatients.length, avgDaysFromPrev: guiaToGrade.avg, samples: guiaToGrade.samples },
   ];
@@ -201,16 +209,30 @@ export async function getOnboardingFunnel(
   let stuck3d = 0;
 
   for (const p of allPatients) {
-    if (p.status === "ativo" || p.status === "alta" || p.status === "evadido" || p.first_session_at) continue;
-    const hasAuth = activeAuthPatientIds.has(p.id);
-    const daysSinceCreated = Math.floor((now - new Date(p.created_at).getTime()) / 86_400_000);
+    if (
+      p.status === "ativo" ||
+      (BI_INACTIVE_PATIENT_STATUSES as readonly string[]).includes(p.status) ||
+      p.first_session_at
+    ) {
+      continue;
+    }
 
-    if (hasAuth) authorizedNoGrid++;
-    else if (p.evaluated_at) evaluatedNoGuide++;
-    else if (p.status === "avaliacao") awaitingEvaluation++;
-    else interessados++;
+    // LEAD (sem check-in): "aguardando avaliação" se já tem agendamento válido,
+    // senão "interessado". Ter guia autorizada NÃO faz do lead um paciente.
+    if (!checkin.checkedInIds.has(p.id)) {
+      if (checkin.scheduledIds.has(p.id)) awaitingEvaluation++;
+      else interessados++;
+      continue;
+    }
 
-    if (daysSinceCreated >= 3) stuck3d++;
+    // PACIENTE (fez check-in): com guia sem grade, ou avaliado ainda sem guia.
+    if (activeAuthPatientIds.has(p.id)) authorizedNoGrid++;
+    else evaluatedNoGuide++;
+
+    // "Travado" só faz sentido para paciente: dias desde o 1º check-in.
+    const firstCheckin = checkin.firstCheckinAt.get(p.id);
+    const daysSinceCheckin = firstCheckin ? Math.floor((now - new Date(firstCheckin).getTime()) / 86_400_000) : 0;
+    if (daysSinceCheckin >= 3) stuck3d++;
   }
 
   return {
