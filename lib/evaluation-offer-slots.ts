@@ -10,6 +10,7 @@ import { loadClinicCalendar } from "@/lib/clinic-calendar";
 import { minutesToHHMM, timeToMinutes, weekdayOf } from "@/lib/clinic-calendar-pure";
 import {
   buildOccupancy,
+  filterByWindow,
   firstOfferDay,
   generateEvaluationCandidates,
   pickOfferPage,
@@ -57,7 +58,7 @@ export async function computeEvaluationOfferSlots(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: SupabaseClient<any>,
   clinicId: string,
-  opts: { page?: number; nowMs?: number } = {},
+  opts: { page?: number; nowMs?: number; anchorDate?: string | null } = {},
 ): Promise<EvaluationOfferSlot[]> {
   const page = opts.page ?? 0;
   const nowMs = opts.nowMs ?? Date.now();
@@ -134,7 +135,7 @@ export async function computeEvaluationOfferSlots(
     toUtcMs: (date, minutes) => zonedDateTimeToUtc(date, minutesToHHMM(minutes), CLINIC_TIMEZONE).getTime(),
   });
 
-  return pickOfferPage(candidates, buildOccupancy(busy), page).map((c, i) => ({
+  return pickOfferPage(filterByWindow(candidates, opts.anchorDate), buildOccupancy(busy), page).map((c, i) => ({
     index: i + 1,
     label: formatOfferSlotLabel(c.date, c.startMin),
     starts_at: c.startsAtIso,

@@ -17,7 +17,9 @@
 // null — um lead_id velho de outro fluxo desviaria a resposta pro bot errado).
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DEV_CLINIC_ID } from "@/lib/constants";
+import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
+import { civilDateInTimeZone } from "@/lib/timezone";
+import { canResuggest } from "@/lib/evaluation-offer-slots-pure";
 import { buildMessagePreview, findOrCreateConversation, formatE164Phone, getTwilioContentSidForCategory } from "@/lib/twilio";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { computeEvaluationOfferSlots, type EvaluationOfferSlot } from "@/lib/evaluation-offer-slots";
@@ -52,10 +54,16 @@ type OfferRow = {
   status: string;
   offered_slots: EvaluationOfferSlot[] | null;
   page: number;
+  offer_anchor_date: string | null;
   invalid_attempts: number;
   sent_at: string | null;
   reminder_sent_at: string | null;
 };
+
+/** Âncora da janela: data (fuso da clínica) do 1º horário da lista. */
+function anchorOf(slots: EvaluationOfferSlot[]): string | null {
+  return slots[0] ? civilDateInTimeZone(new Date(slots[0].starts_at), CLINIC_TIMEZONE) : null;
+}
 
 export type StartOfferResult =
   | { status: "sent"; offerId: string }
@@ -387,7 +395,7 @@ export async function processEvaluationOfferStep(params: {
       return { handled: true, replyMessage: "No momento não temos horários livres para a 1ª avaliação. 💙 Nossa equipe vai entrar em contato assim que abrir uma vaga." };
     }
 
-    await touch({ status: "aguardando_escolha", offered_slots: slots, page: 0, invalid_attempts: 0 });
+    await touch({ status: "aguardando_escolha", offered_slots: slots, page: 0, invalid_attempts: 0, offer_anchor_date: anchorOf(slots) });
     await admin.from("chatbot_sessions").update({ current_step: STEP_CHOICE, updated_at: new Date().toISOString() }).eq("phone_number", phone);
     await sendSlotList(row, slots, "Ótimo! 💙 Escolha o melhor horário para a 1ª avaliação:");
     return { handled: true, replyMessage: "" };
@@ -410,13 +418,15 @@ export async function processEvaluationOfferStep(params: {
 
     if (reply.kind === "none") {
       const nextPage = row.page + 1;
-      const next = await computeEvaluationOfferSlots(admin, row.clinic_id, { page: nextPage });
+      const next = canResuggest(row.page)
+        ? await computeEvaluationOfferSlots(admin, row.clinic_id, { page: nextPage, anchorDate: row.offer_anchor_date })
+        : [];
       if (next.length === 0) {
         await escalateToHuman(phone, "sem_mais_horarios");
-        return { handled: true, replyMessage: "Esses eram todos os horários livres no momento. 💙 Vou chamar um atendente para encontrar a melhor opção para vocês." };
+        return { handled: true, replyMessage: "Essas eram as opções mais próximas que consigo mostrar por aqui. 💙 Vou chamar um atendente para encontrar a melhor data com vocês." };
       }
       await touch({ offered_slots: next, page: nextPage, invalid_attempts: 0 });
-      await sendSlotList({ ...row, page: nextPage }, next, "Claro! Aqui estão outras opções:");
+      await sendSlotList({ ...row, page: nextPage }, next, canResuggest(nextPage) ? "Claro! Aqui estão outras opções:" : "Claro! Estas são as últimas opções que consigo mostrar por aqui:");
       return { handled: true, replyMessage: "" };
     }
 
@@ -445,12 +455,13 @@ export async function processEvaluationOfferStep(params: {
 
       if (result?.conflict) {
         // Horário tomado por outra família (ou fora da janela): recalcula a lista em vez de repetir a velha.
-        const fresh = await computeEvaluationOfferSlots(admin, row.clinic_id, { page: 0 });
+        const fresh = await computeEvaluationOfferSlots(admin, row.clinic_id, { page: 0, anchorDate: row.offer_anchor_date });
         if (fresh.length === 0) {
           await escalateToHuman(phone, "sem_mais_horarios");
           return { handled: true, replyMessage: "Esse horário acabou de ser reservado e não temos outros livres agora. 💙 Vou chamar um atendente para te ajudar." };
         }
-        await touch({ offered_slots: fresh, page: 0, invalid_attempts: 0 });
+        // Mantém `page`: conflito de reserva não devolve rodadas ao responsável.
+        await touch({ offered_slots: fresh, invalid_attempts: 0 });
         await sendSlotList(row, fresh, "⚠️ Esse horário acabou de ser reservado por outra família. Estas são as opções livres agora:");
         return { handled: true, replyMessage: "" };
       }
@@ -541,7 +552,7 @@ export async function reofferAfterRejection(offerId: string): Promise<{ success:
   const slots = await computeEvaluationOfferSlots(admin, row.clinic_id, { page: 0 });
   if (slots.length === 0) return { success: false, error: "Nenhum horário livre para reofertar." };
 
-  await admin.from("evaluation_offers").update({ offered_slots: slots, page: 0, updated_at: new Date().toISOString() }).eq("id", offerId);
+  await admin.from("evaluation_offers").update({ offered_slots: slots, page: 0, offer_anchor_date: anchorOf(slots), updated_at: new Date().toISOString() }).eq("id", offerId);
   await admin.from("chatbot_sessions").upsert(
     { phone_number: row.phone_e164, flow: EVAL_OFFER_FLOW, lead_id: null, current_step: STEP_CHOICE, collected_data: { offer_id: offerId }, updated_at: new Date().toISOString() },
     { onConflict: "phone_number" },
