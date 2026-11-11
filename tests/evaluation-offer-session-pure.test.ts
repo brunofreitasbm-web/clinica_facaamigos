@@ -41,3 +41,17 @@ test("sessão de OUTRA criança no mesmo telefone continua bloqueando", () => {
 test("sem updated_at válido: ocupado (não arrisca atropelar conversa)", () => {
   assert.equal(isPhoneFreeForOffer({ current_step: "awaiting_laudo", flow: null, updated_at: null }, "eval_offer", now), false);
 });
+
+import { isEvaluationAlreadyDone } from "../lib/evaluation-offer-session-pure.ts";
+
+test("criança já avaliada não recebe nova oferta de 1ª avaliação (Davi Átila, 11/11)", () => {
+  assert.equal(isEvaluationAlreadyDone({ evaluated_at: "2026-11-11T18:40:00Z" }, []), true);
+  assert.equal(isEvaluationAlreadyDone({ evaluated_at: null }, ["realizada"]), true);
+  assert.equal(isEvaluationAlreadyDone({ evaluated_at: null }, ["agendada"]), true);
+  assert.equal(isEvaluationAlreadyDone({ evaluated_at: null }, ["confirmada"]), true);
+});
+
+test("sem avaliação feita ou marcada (cancelada, falta, remarcada ou nada): oferta liberada", () => {
+  assert.equal(isEvaluationAlreadyDone({ evaluated_at: null }, []), false);
+  assert.equal(isEvaluationAlreadyDone(null, ["cancelada_familia", "cancelada_clinica", "cancelada_terapeuta", "remarcada", "falta_familia"]), false);
+});

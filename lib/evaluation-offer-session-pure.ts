@@ -29,3 +29,19 @@ export function isPhoneFreeForOffer(
   const updated = session.updated_at ? Date.parse(session.updated_at) : NaN;
   return Number.isFinite(updated) && nowMs - updated > STALE_SESSION_MS;
 }
+
+/** Status de agendamento de 1ª avaliação que contam como "já marcada, confirmada ou realizada". */
+const LIVE_EVALUATION_STATUSES = new Set(["agendada", "confirmada", "realizada"]);
+
+/**
+ * A criança já fez (ou já tem marcada) a 1ª avaliação? Se sim, a oferta automática de horários
+ * não pode sair: o responsável receberia "agende a 1ª avaliação" depois de ela ter acontecido
+ * (caso Davi Átila, 11/11: conferir o cadastro depois da avaliação reabriria a oferta).
+ */
+export function isEvaluationAlreadyDone(
+  patient: { evaluated_at: string | null } | null | undefined,
+  evaluationAppointmentStatuses: string[],
+): boolean {
+  if (patient?.evaluated_at) return true;
+  return evaluationAppointmentStatuses.some((s) => LIVE_EVALUATION_STATUSES.has(s));
+}
