@@ -1,7 +1,15 @@
-import { ACTIVE_PATIENT_STATUSES } from "@/lib/patient-status";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { APPOINTMENT_STATUS_STYLE, GRID_EXCLUDED_STATUSES } from "@/lib/appointment-status-style";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { hourInTimeZone } from "@/lib/timezone";
+import {
+  BI_EVADED_PATIENT_STATUSES,
+  BI_INACTIVE_PATIENT_STATUSES,
+  buildPatientCheckinIndex,
+  isInPeriod,
+  patientDedupeKey,
+} from "@/lib/bi-checkin";
 import { currentMonthRange } from "../data";
 import {
   buildWeekHourHeatmap,
@@ -110,12 +118,34 @@ export type AniversarianteItem = {
   phone?: string | null;
 };
 
+/**
+ * Leads = cadastros que ainda NÃO fizeram check-in na recepção. Só vira
+ * paciente (e entra nos demais quadros) depois do primeiro check-in.
+ */
+export type LeadsStat = {
+  /** Leads em aberto hoje (sem check-in, não evadidos), independente do período. */
+  total: number;
+  /** Leads com agendamento válido, aguardando o check-in. */
+  scheduledNoCheckin: number;
+  /** Leads sem nenhum agendamento. */
+  noSchedule: number;
+  /** Entrada de leads: cadastros criados no período (viraram paciente ou não). */
+  newInPeriod: number;
+  /** Idem, no período anterior (comparativo obrigatório do BI). */
+  newInPrevPeriod: number;
+};
+
 export type InteligenciaMetrics = {
-  // Atendimentos KPIs
+  // Atendimentos KPIs (apenas sessões com check-in na recepção)
   totalAppointments: number;
+  /** Agendamentos totais no período (com ou sem check-in), para contexto. */
+  scheduledAppointments: number;
   prevMonthAppointments: number;
   growthPct: number;
-  
+
+  // Leads (cadastros sem check-in)
+  leads: LeadsStat;
+
   // Financeiro KPIs
   totalCobrancas: number;
   valorTotalCobrancas: number;
@@ -209,6 +239,28 @@ export type InternCoverageItem = {
   status: "adequada" | "atencao" | "critica" | "sem_demanda";
 };
 
+// PostgREST corta em 1000 linhas por resposta; pagina até esgotar para o
+// índice de check-ins nunca ficar truncado conforme a clínica cresce.
+async function fetchAppointmentHistory(
+  supabase: Supa,
+  clinicId: string,
+): Promise<{ patient_id: string; status: string; checkin_at: string | null }[]> {
+  const PAGE = 1000;
+  const rows: { patient_id: string; status: string; checkin_at: string | null }[] = [];
+  for (let from = 0; from < 100_000; from += PAGE) {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("patient_id, status, checkin_at, patients!inner(clinic_id)")
+      .eq("patients.clinic_id", clinicId)
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error || !data) break;
+    for (const r of data) rows.push({ patient_id: r.patient_id, status: r.status, checkin_at: r.checkin_at });
+    if (data.length < PAGE) break;
+  }
+  return rows;
+}
+
 export async function getInteligenciaMetrics(
   supabase: Supa,
   clinicId: string,
@@ -255,7 +307,7 @@ export async function getInteligenciaMetrics(
   const [
     { data: currentAppointments },
     { data: prevAppointments },
-    { count: activePatientsCount },
+    appointmentHistory,
     { data: therapistsList },
     { data: billingItems },
     { data: patientsList },
@@ -286,17 +338,15 @@ export async function getInteligenciaMetrics(
     // Atendimentos período anterior
     supabase
       .from("appointments")
-      .select("id, status, patients!inner(clinic_id)")
+      .select("id, status, checkin_at, patients!inner(clinic_id)")
       .eq("patients.clinic_id", clinicId)
       .gte("starts_at", prevStartISO)
       .lt("starts_at", prevEndISO),
 
-    // Pacientes Ativos
-    supabase
-      .from("patients")
-      .select("id", { count: "exact", head: true })
-      .eq("clinic_id", clinicId)
-      .in("status", [...ACTIVE_PATIENT_STATUSES]),
+    // Histórico completo de agendamentos/check-ins: base da regra
+    // "paciente = fez check-in" (lib/bi-checkin.ts). Todos os quadros de
+    // pacientes (ativos, planos, aniversários, funil) derivam daqui.
+    fetchAppointmentHistory(supabase, clinicId),
 
     // Equipe/Terapeutas
     supabase
@@ -338,20 +388,23 @@ export async function getInteligenciaMetrics(
       .select("id, name, capacity, specialty_id, is_evaluation_room")
       .eq("clinic_id", clinicId),
 
-    // Atendimentos por Sala no período
+    // Atendimentos por Sala no período — só sessões com check-in na recepção
+    // (antes contava tudo o que estava na agenda, inclusive o que ainda não aconteceu).
     supabase
       .from("appointments")
       .select("id, room_id, starts_at, ends_at, status, patients!inner(clinic_id)")
       .eq("patients.clinic_id", clinicId)
+      .not("checkin_at", "is", null)
       .not("status", "in", `(${GRID_EXCLUDED_STATUSES.join(",")})`)
       .gte("starts_at", startISO)
       .lt("starts_at", endISO),
 
-    // Atendimentos "ao vivo" para capacidade
+    // Atendimentos para capacidade/ocupação — também só com check-in
     supabase
       .from("appointments")
       .select("id, room_id, starts_at, ends_at, status, patients!inner(clinic_id)")
       .eq("patients.clinic_id", clinicId)
+      .not("checkin_at", "is", null)
       .not("status", "in", `(${GRID_EXCLUDED_STATUSES.join(",")})`)
       .gte("starts_at", capacityQueryStart.toISOString())
       .lt("starts_at", capacityQueryEnd.toISOString()),
@@ -370,11 +423,14 @@ export async function getInteligenciaMetrics(
     // Especialidades da clínica
     supabase.from("specialties").select("id, label, intern_count").eq("clinic_id", clinicId).eq("active", true),
 
-    // Atendimentos EM TEMPO REAL (ao vivo no momento atual)
+    // Atendimentos EM TEMPO REAL: só quem já fez check-in e ainda não saiu
+    // (checkout_at nulo). Sessão apenas agendada para este horário não conta.
     supabase
       .from("appointments")
       .select("id, room_id, starts_at, ends_at, status, patient_id, patients!inner(clinic_id)")
       .eq("patients.clinic_id", clinicId)
+      .not("checkin_at", "is", null)
+      .is("checkout_at", null)
       .not("status", "in", `(${GRID_EXCLUDED_STATUSES.join(",")})`)
       .lte("starts_at", now.toISOString())
       .gte("ends_at", now.toISOString()),
@@ -385,13 +441,12 @@ export async function getInteligenciaMetrics(
       .select("id, name")
       .eq("clinic_id", clinicId),
 
-    // Vínculo de convênios dos pacientes ATIVOS da clínica (antes vazava
-    // entre clínicas por falta de filtro — corrigido aqui).
+    // Vínculo de convênios de todos os cadastros da clínica; o filtro para
+    // "só quem fez check-in" é feito em memória com o índice de check-ins.
     supabase
       .from("patient_insurance")
       .select("patient_id, insurer_id, is_private, insurers(id, name), patients!inner(clinic_id, status)")
-      .eq("patients.clinic_id", clinicId)
-      .in("patients.status", [...ACTIVE_PATIENT_STATUSES]),
+      .eq("patients.clinic_id", clinicId),
 
     // Todos os pacientes da clínica com status e marcos de estágio
     // (created_at/first_contact_at/evaluated_at/first_session_at/entry_source)
@@ -435,8 +490,16 @@ export async function getInteligenciaMetrics(
 
   const appointments = currentAppointments ?? [];
   const prevApps = prevAppointments ?? [];
-  const totalAppointments = appointments.length;
-  const prevMonthAppointments = prevApps.length;
+
+  // Regra do BI: só conta atendimento quem fez check-in na recepção.
+  // `appointments` (agenda completa) segue sendo usado só no quadro de status.
+  const attendedAppointments = appointments.filter((a) => !!a.checkin_at);
+  const scheduledAppointments = appointments.length;
+  const totalAppointments = attendedAppointments.length;
+  const prevMonthAppointments = prevApps.filter((a) => !!a.checkin_at).length;
+
+  // Índice de check-ins (histórico inteiro) → quem é paciente e quem é lead.
+  const checkinIndex = buildPatientCheckinIndex(appointmentHistory ?? [], GRID_EXCLUDED_STATUSES);
 
   let growthPct = 0;
   if (prevMonthAppointments > 0) {
@@ -478,8 +541,8 @@ export async function getInteligenciaMetrics(
   }
 
   const registeredCount = statusDonutRaw.reduce((sum, item) => sum + item.count, 0);
-  if (totalAppointments > registeredCount) {
-    const remaining = totalAppointments - registeredCount;
+  if (scheduledAppointments > registeredCount) {
+    const remaining = scheduledAppointments - registeredCount;
     statusTotalCount += remaining;
     statusDonutRaw.push({
       status: "outros",
@@ -512,16 +575,18 @@ export async function getInteligenciaMetrics(
   while (weekPointer < currEnd) {
     const nextWeek = new Date(Math.min(currEnd.getTime(), weekPointer.getTime() + weekStep * 24 * 60 * 60 * 1000));
     
-    // Contagem de sessões na semana
-    const count = appointments.filter((app) => {
+    // Sessões COM check-in na semana
+    const count = attendedAppointments.filter((app) => {
       const appDate = new Date(app.starts_at);
       return appDate >= weekPointer && appDate < nextWeek;
     }).length;
 
-    // Novos pacientes cadastrados na semana
+    // Novos pacientes na semana = 1º check-in na recepção caiu na semana
+    // (cadastro sem check-in é lead, não paciente).
     const newCount = allPats.filter((p) => {
-      if (!p.created_at) return false;
-      const cdate = new Date(p.created_at);
+      const firstCheckin = checkinIndex.firstCheckinAt.get(p.id);
+      if (!firstCheckin) return false;
+      const cdate = new Date(firstCheckin);
       return cdate >= weekPointer && cdate < nextWeek;
     }).length;
 
@@ -588,9 +653,11 @@ export async function getInteligenciaMetrics(
     hourlyMap.set(h, 0);
   }
 
-  for (const app of appointments) {
-    const dateToUse = app.checkin_at ? new Date(app.checkin_at) : new Date(app.starts_at);
-    const hour = dateToUse.getHours();
+  // Só check-ins reais, no horário civil da clínica. Antes caía no horário
+  // agendado quando não havia check-in e usava getHours() (UTC na Vercel),
+  // deslocando o gráfico em 3h.
+  for (const app of attendedAppointments) {
+    const hour = hourInTimeZone(app.checkin_at!, CLINIC_TIMEZONE);
     if (hour >= 8 && hour <= 18) {
       hourlyMap.set(hour, (hourlyMap.get(hour) ?? 0) + 1);
     }
@@ -654,13 +721,26 @@ export async function getInteligenciaMetrics(
   const liveRooms = liveRoomsRaw.slice(0, 8);
 
   // QUADRO 3: Primeiros Agendamentos via WhatsApp
-  // Cohort real: pacientes CADASTRADOS no período (patients.created_at),
-  // com origem de entrada via chatbot Twilio (entry_source) — antes era
-  // totalAppointments * 0.22 fixo, sem nenhuma leitura de dado real.
+  // Cohort real: pacientes NOVOS no período (1º check-in na recepção dentro do
+  // período), com origem de entrada via chatbot Twilio (entry_source). Cadastro
+  // sem check-in é lead e não entra aqui.
   const WHATSAPP_ENTRY_SOURCES = new Set(["chatbot_whatsapp", "acolhimento_plano_saude"]);
   const isWhatsAppEntry = (entrySource: string | null) =>
     !!entrySource && (WHATSAPP_ENTRY_SOURCES.has(entrySource) || /whats|zap/i.test(entrySource));
-  const newPatientsCohort = allPats.filter((p) => p.created_at >= startISO && p.created_at < endISO);
+
+  // Base de pacientes pela regra do check-in: só entra quem já foi à recepção.
+  // Quem tem cadastro/agendamento/guia sem check-in é lead (ver `leads` abaixo).
+  const patientRows = allPats.filter((p) => checkinIndex.checkedInIds.has(p.id));
+  const activePatientRows = patientRows.filter(
+    (p) => !(BI_INACTIVE_PATIENT_STATUSES as readonly string[]).includes(p.status),
+  );
+  const activePatientIds = new Set(activePatientRows.map((p) => p.id));
+  const activePatientsCount = activePatientRows.length;
+
+  // Cohort do card: pacientes NOVOS no período = 1º check-in dentro do período.
+  const newPatientsCohort = patientRows.filter((p) =>
+    isInPeriod(checkinIndex.firstCheckinAt.get(p.id), startISO, endISO),
+  );
   const totalFirst = newPatientsCohort.length;
   const whatsappCount = newPatientsCohort.filter((p) => isWhatsAppEntry(p.entry_source)).length;
   const whatsappStat: WhatsAppStatItem = {
@@ -675,27 +755,26 @@ export async function getInteligenciaMetrics(
     insurerPatientMap.set(ins.id, { name: ins.name, count: 0 });
   }
 
-  let totalMappedPatients = 0;
+  // Só pacientes (com check-in). Cada paciente é contado uma única vez, no
+  // primeiro convênio encontrado; quem não tem convênio (ou é marcado como
+  // particular) cai em "Particular / sem convênio" com a contagem real — antes
+  // havia um piso de 1 e 8 pacientes ficavam fora da soma.
+  const PARTICULAR_ID = "particular";
+  insurerPatientMap.set(PARTICULAR_ID, { name: "Particular / sem convênio", count: 0 });
+  const patientsWithInsurer = new Set<string>();
   for (const pi of patientInsuranceList ?? []) {
+    if (!activePatientIds.has(pi.patient_id) || patientsWithInsurer.has(pi.patient_id)) continue;
+    if (pi.is_private || !pi.insurer_id) continue;
     const insObj = Array.isArray(pi.insurers) ? pi.insurers[0] : pi.insurers;
-    const insName = insObj?.name || (pi.is_private ? "Particular" : "Plano de Saúde");
-    const insId = pi.insurer_id || (pi.is_private ? "particular" : "outro");
-
-    if (!insurerPatientMap.has(insId)) {
-      insurerPatientMap.set(insId, { name: insName, count: 0 });
+    if (!insurerPatientMap.has(pi.insurer_id)) {
+      insurerPatientMap.set(pi.insurer_id, { name: insObj?.name || "Plano de Saúde", count: 0 });
     }
-    const current = insurerPatientMap.get(insId)!;
-    current.count++;
-    totalMappedPatients++;
+    insurerPatientMap.get(pi.insurer_id)!.count++;
+    patientsWithInsurer.add(pi.patient_id);
   }
+  insurerPatientMap.get(PARTICULAR_ID)!.count = activePatientsCount - patientsWithInsurer.size;
 
-  if (![...insurerPatientMap.values()].some((i) => i.name.toLowerCase().includes("particular"))) {
-    const particularCount = Math.max(1, (activePatientsCount ?? 0) - totalMappedPatients);
-    insurerPatientMap.set("particular", { name: "Particular / Reembolso", count: particularCount });
-    totalMappedPatients += particularCount;
-  }
-
-  const activeTotalPats = Math.max(1, activePatientsCount ?? totalMappedPatients ?? 1);
+  const activeTotalPats = Math.max(1, activePatientsCount);
   const patientsByInsurer: InsurerPatientCountItem[] = [...insurerPatientMap.entries()]
     .map(([insurerId, item]) => ({
       insurerId,
@@ -740,8 +819,9 @@ export async function getInteligenciaMetrics(
   const insurerConcentration = buildInsurerConcentration(items);
 
   // QUADRO 7: Pacientes Evadidos
-  const evadedList: EvadedPatientItem[] = allPats
-    .filter((p) => p.status === "inativo" || p.status === "evadido" || p.status === "desligado")
+  // Só pacientes (com check-in) podem "evadir"; lead que sumiu não é evasão.
+  const evadedList: EvadedPatientItem[] = patientRows
+    .filter((p) => (BI_EVADED_PATIENT_STATUSES as readonly string[]).includes(p.status))
     .map((p) => ({
       id: p.id,
       name: p.full_name,
@@ -749,7 +829,7 @@ export async function getInteligenciaMetrics(
     }));
 
   const totalEvaded = evadedList.length;
-  const totalAllPats = Math.max(1, allPats.length);
+  const totalAllPats = Math.max(1, patientRows.length);
   const evadedRatePct = Math.round((totalEvaded / totalAllPats) * 100);
   const evadedPatientsStat: EvadedPatientsStat = {
     totalEvaded,
@@ -761,8 +841,15 @@ export async function getInteligenciaMetrics(
   const targetMonth = currentStart.getMonth() + 1;
   const aniversariantes: AniversarianteItem[] = [];
 
+  // Só pacientes (com check-in) e sem cadastro duplicado (mesmo nome + nascimento):
+  // o botão "Enviar Parabéns" dispara WhatsApp, então lead não pode aparecer aqui.
+  const seenBirthdayKeys = new Set<string>();
   for (const pat of patientsList ?? []) {
     if (!pat.birth_date) continue;
+    if (!checkinIndex.checkedInIds.has(pat.id)) continue;
+    const dedupeKey = patientDedupeKey(pat.full_name, pat.birth_date);
+    if (seenBirthdayKeys.has(dedupeKey)) continue;
+    seenBirthdayKeys.add(dedupeKey);
     const bdate = new Date(pat.birth_date);
     const bMonth = bdate.getUTCMonth() + 1;
     const bDay = bdate.getUTCDate();
@@ -1050,17 +1137,35 @@ export async function getInteligenciaMetrics(
       : Math.round((coverageInternsTotal / coverageChildrenTotal) * 1000) / 10;
 
   // Novos quadros — reaproveitam appointments/pacientes/terapeutas já buscados acima
-  const weekHourHeatmap = buildWeekHourHeatmap(appointments);
+  const weekHourHeatmap = buildWeekHourHeatmap(attendedAppointments);
+
+  // Leads = cadastros sem check-in (e ainda não evadidos). Comparativo: entrada
+  // de cadastros no período anterior.
+  const leadRows = allPats.filter(
+    (p) =>
+      !checkinIndex.checkedInIds.has(p.id) &&
+      !(BI_INACTIVE_PATIENT_STATUSES as readonly string[]).includes(p.status),
+  );
+  const leads: LeadsStat = {
+    total: leadRows.length,
+    scheduledNoCheckin: leadRows.filter((p) => checkinIndex.scheduledIds.has(p.id)).length,
+    noSchedule: leadRows.filter((p) => !checkinIndex.scheduledIds.has(p.id)).length,
+    newInPeriod: allPats.filter((p) => isInPeriod(p.created_at, startISO, endISO)).length,
+    newInPrevPeriod: allPats.filter((p) => isInPeriod(p.created_at, prevStartISO, prevEndISO)).length,
+  };
+
   const [onboardingFunnel, teamProductivity, plrTrend] = await Promise.all([
-    getOnboardingFunnel(supabase, clinicId, startISO, endISO, allPats),
+    getOnboardingFunnel(supabase, clinicId, startISO, endISO, allPats, checkinIndex),
     getTeamProductivity(supabase, clinicId, appointments, therapistsList ?? [], startISO, endISO),
     getPlrTrend(supabase, clinicId),
   ]);
 
   return {
     totalAppointments,
+    scheduledAppointments,
     prevMonthAppointments,
     growthPct,
+    leads,
     totalCobrancas,
     valorTotalCobrancas,
     valorRecebido,
@@ -1068,7 +1173,7 @@ export async function getInteligenciaMetrics(
     statusDonut,
     statusTotalCount,
     weeklyVolume,
-    pacientesAtivos: activePatientsCount ?? 0,
+    pacientesAtivos: activePatientsCount,
     equipeCount: (therapistsList ?? []).length,
     horasEconomizadas,
 

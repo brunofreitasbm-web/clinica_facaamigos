@@ -247,7 +247,8 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
                   {metrics.totalAppointments.toLocaleString("pt-BR")}
                 </span>
-                <p className="mt-1 text-xs text-slate-600">período selecionado</p>
+                <p className="mt-1 text-xs text-slate-600">sessões com check-in no período</p>
+                <p className="text-[11px] text-slate-500">de {metrics.scheduledAppointments} agendadas</p>
               </div>
               {metrics.prevMonthAppointments < 5 ? (
                 <div className="mt-3 text-xs text-slate-600">
@@ -271,7 +272,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             <div className="relative rounded-xl border border-indigo-100 bg-linear-to-br from-indigo-50/50 to-white p-5 shadow-xs">
               <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                 <span className="flex items-center gap-1.5 font-bold text-indigo-800">
-                  <span className="text-sm">💬</span> Primeiros Agendamentos WhatsApp
+                  <span className="text-sm">💬</span> Novos Pacientes via WhatsApp
                 </span>
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">
                   {metrics.whatsappStat.whatsappPct}% (Meta ≥ 70%)
@@ -283,7 +284,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                   {metrics.whatsappStat.whatsappCount}
                 </span>
                 <p className="mt-1 text-xs text-slate-600">
-                  de {metrics.whatsappStat.totalFirstAppointments} novos cadastros no período
+                  de {metrics.whatsappStat.totalFirstAppointments} novos pacientes (1º check-in) no período
                 </p>
               </div>
               <div className="mt-3 flex items-center justify-between text-xs font-semibold text-indigo-600">
@@ -307,7 +308,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
                   +{metrics.newPatientsWeekly.reduce((sum, w) => sum + w.newCount, 0)}
                 </span>
-                <p className="mt-1 text-xs text-slate-600">novos pacientes no período</p>
+                <p className="mt-1 text-xs text-slate-600">novos pacientes (1º check-in) no período</p>
               </div>
               <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 font-medium">
                 <span>Média: {(metrics.newPatientsWeekly.reduce((sum, w) => sum + w.newCount, 0) / Math.max(1, metrics.newPatientsWeekly.length)).toFixed(1)} / sem</span>
@@ -505,7 +506,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 </div>
               </div>
               <p className="mt-2 text-[9px] sm:text-[10px] text-slate-400">
-                Cor mais forte = maior volume de sessões; borda âmbar = sem sessões no horário.
+                Cor mais forte = mais check-ins na recepção; borda âmbar = nenhum check-in no horário.
               </p>
             </div>
 
@@ -595,7 +596,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
             {/* Card: Atendimento por Status (SVG Donut Chart) */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
               <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
-                <span className="font-bold text-slate-900 text-sm">Atendimento por Status</span>
+                <span className="font-bold text-slate-900 text-sm">Agenda por Status (inclui sem check-in)</span>
                 <button className="shrink-0 text-slate-400 hover:text-slate-600">•••</button>
               </div>
 
@@ -631,7 +632,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                     <span className="text-base font-extrabold text-slate-900">
                       {totalDonut.toLocaleString("pt-BR")}
                     </span>
-                    <span className="text-[10px] text-slate-600 font-medium">Total Sessões</span>
+                    <span className="text-[10px] text-slate-600 font-medium">Total agendado</span>
                   </div>
                 </div>
               </div>
@@ -671,7 +672,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
           </div>
 
           {/* Linha 5: Métricas Gerais */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
               <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
                 <span>Pacientes Ativos</span>
@@ -680,7 +681,22 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
                   {metrics.pacientesAtivos}
                 </span>
-                <p className="text-xs text-slate-500 mt-1">Crianças em acompanhamento</p>
+                <p className="text-xs text-slate-500 mt-1">Crianças que já fizeram check-in na recepção</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-5 shadow-xs">
+              <div className="flex items-start justify-between gap-2 text-xs font-medium text-slate-600">
+                <span className="font-bold text-amber-800">Leads (sem check-in)</span>
+              </div>
+              <div className="mt-3 text-center">
+                <span className="text-3xl font-extrabold text-slate-900 tabular-nums">{metrics.leads.total}</span>
+                <p className="text-xs text-slate-600 mt-1">
+                  {metrics.leads.scheduledNoCheckin} com agendamento · {metrics.leads.noSchedule} sem agendamento
+                </p>
+              </div>
+              <div className="mt-3 text-center text-[11px] font-medium text-slate-600">
+                Novos cadastros no período: {metrics.leads.newInPeriod} (anterior: {metrics.leads.newInPrevPeriod})
               </div>
             </div>
 
@@ -745,14 +761,17 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
 
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
             <h3 className="mb-1 text-base font-bold text-slate-900">Pipeline agora</h3>
-            <p className="mb-4 text-xs text-slate-500">Situação atual de todos os pacientes ainda não ativos, independente do período selecionado.</p>
+            <p className="mb-4 text-xs text-slate-500">
+              Situação atual, independente do período selecionado. Os dois primeiros são leads (nunca fizeram check-in);
+              os demais são pacientes (já fizeram check-in).
+            </p>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
               {[
-                { label: "Interessados", value: metrics.onboardingFunnel.pipelineNow.interessados },
-                { label: "Aguardando avaliação", value: metrics.onboardingFunnel.pipelineNow.awaitingEvaluation },
-                { label: "Avaliado sem guia", value: metrics.onboardingFunnel.pipelineNow.evaluatedNoGuide },
-                { label: "Guia sem grade", value: metrics.onboardingFunnel.pipelineNow.authorizedNoGrid },
-                { label: "Travados ≥ 3 dias", value: metrics.onboardingFunnel.pipelineNow.stuck3d, alert: true },
+                { label: "Leads sem agendamento", value: metrics.onboardingFunnel.pipelineNow.interessados },
+                { label: "Leads agendados (aguardando 1º check-in)", value: metrics.onboardingFunnel.pipelineNow.awaitingEvaluation },
+                { label: "Paciente avaliado sem guia", value: metrics.onboardingFunnel.pipelineNow.evaluatedNoGuide },
+                { label: "Paciente com guia sem grade", value: metrics.onboardingFunnel.pipelineNow.authorizedNoGrid },
+                { label: "Pacientes travados ≥ 3 dias", value: metrics.onboardingFunnel.pipelineNow.stuck3d, alert: true },
               ].map((tile) => (
                 <div
                   key={tile.label}
@@ -1034,7 +1053,7 @@ export function InteligenciaClient({ initialMetrics, currentPeriodKey }: Intelig
                 <span className="text-xl font-extrabold text-slate-900 tabular-nums">
                   {metrics.roomRanking.reduce((sum, r) => sum + r.bookedHours, 0).toFixed(1)}h
                 </span>
-                <p className="mt-1 text-xs text-slate-600">soma das horas de sessões por sala</p>
+                <p className="mt-1 text-xs text-slate-600">soma das horas das sessões com check-in, por sala</p>
               </div>
             </div>
 
