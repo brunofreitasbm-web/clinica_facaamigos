@@ -22,7 +22,6 @@ import { MiniCalendarPicker } from "./mini-calendar-picker";
 import { AnamnesisPendingBadge } from "@/components/anamnesis-pending-badge";
 import { InteressadoRapidoDialog } from "./interessado-rapido-dialog";
 import { ChecklistEntradaDialog } from "./checklist-entrada-dialog";
-import { AcolhimentoPresencialDialog } from "./acolhimento-presencial-dialog";
 import { getIntakeChecklistRows } from "@/lib/intake-checklist";
 import { ChegadasBanner } from "./chegadas-banner";
 import { DAY_LIST_HIDDEN_STATUSES } from "@/lib/appointment-cancel-reasons";
@@ -66,7 +65,7 @@ export default async function RecepcaoPage({
   // §9.3 do PRD: alerta 15 dias antes do vencimento OU ≤4 sessões restantes.
   const fifteenDaysStr = civilDateInTimeZone(new Date(now.getTime() + 15 * 86_400_000), CLINIC_TIMEZONE);
 
-  const [{ data: rooms }, { data: patients }, { data: therapists }, { data: insurers }] = await Promise.all([
+  const [{ data: rooms }, { data: patients }, { data: therapists }] = await Promise.all([
     supabase.from("rooms").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
     supabase.from("patients").select("id, full_name").eq("clinic_id", DEV_CLINIC_ID).order("full_name"),
     supabase
@@ -77,7 +76,6 @@ export default async function RecepcaoPage({
       .eq("hidden_in_app", false)
       .eq("active", true)
       .order("full_name"),
-    supabase.from("insurers").select("id, name").eq("clinic_id", DEV_CLINIC_ID).order("name"),
   ]);
 
   // Checklist de entrada (meta intake_complete_rate da recepção, §10.1):
@@ -507,7 +505,6 @@ export default async function RecepcaoPage({
                 abaClasses={abaClasses}
                 abaBalanceByPatient={abaBalanceByPatient}
               />
-              <AcolhimentoPresencialDialog insurers={insurers ?? []} therapists={therapists ?? []} rooms={rooms ?? []} />
               <InteressadoRapidoDialog />
               <ChecklistEntradaDialog rows={intakeChecklistRows} />
             </div>

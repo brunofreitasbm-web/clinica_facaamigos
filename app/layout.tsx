@@ -16,7 +16,9 @@ const nunito = Nunito({
 const fredoka = Fredoka({
   variable: "--font-fredoka",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  // Fredoka é fonte variável (eixos wdth + wght). Com `weight` explícito o
+  // Google devolve @font-face com `font-stretch` e o Turbopack falha
+  // ("queries have exactly one entry"). Sem `weight`, carrega o range inteiro.
 });
 
 export const metadata: Metadata = {

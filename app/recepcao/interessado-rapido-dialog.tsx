@@ -12,11 +12,17 @@ export function InteressadoRapidoDialog({
   onOpenChange,
   hideTriggerButton = false,
   conversationId = null,
+  triggerClassName,
+  triggerContent,
 }: {
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   hideTriggerButton?: boolean;
   conversationId?: string | null;
+  /** Estilo do botão gatilho (padrão: botão secundário da barra da recepção). */
+  triggerClassName?: string;
+  /** Conteúdo do botão gatilho (padrão: "+ Novo paciente"). */
+  triggerContent?: React.ReactNode;
 } = {}) {
   const router = useRouter();
   const { toast } = useToast();
@@ -130,11 +136,14 @@ export function InteressadoRapidoDialog({
       {!hideTriggerButton && (
         <button
           type="button"
-          aria-label="Cadastrar paciente sem avaliação"
+          aria-label="Novo paciente"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer"
+          className={
+            triggerClassName ??
+            "inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-2xs transition-all hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-2 cursor-pointer"
+          }
         >
-          + Paciente sem avaliação
+          {triggerContent ?? "+ Novo paciente"}
         </button>
       )}
 
@@ -147,7 +156,7 @@ export function InteressadoRapidoDialog({
             <div className="mb-4 flex items-center justify-between border-b pb-3">
               <div>
                 <h3 style={{ fontFamily: "var(--font-heading)" }} className="text-lg font-bold flex items-center gap-2">
-                  ⚡ Novo Paciente sem Avaliação
+                  Novo paciente
                 </h3>
               </div>
               <button
@@ -230,6 +239,7 @@ export function InteressadoRapidoDialog({
                     onChange={(e) => setOrigin(e.target.value)}
                     className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   >
+                    <option value="WhatsApp">WhatsApp</option>
                     <option value="Instagram">Instagram</option>
                     <option value="Google">Google / Site</option>
                     <option value="Indicação">Indicação</option>

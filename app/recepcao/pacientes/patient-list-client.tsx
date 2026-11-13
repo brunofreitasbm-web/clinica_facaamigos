@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useTransition } from "react";
 import Link from "next/link";
 import { RevealCpf } from "./reveal-cpf";
+import { InteressadoRapidoDialog } from "../interessado-rapido-dialog";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -460,13 +461,15 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
       {/* Barra Superior: Botão CTA e Controles de Busca e Filtros */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
         {/* Botão Primário CTA */}
-        <Link
-          href="/recepcao/pacientes/novo"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#841B4D] hover:bg-[#6c163f] active:bg-[#541131] text-white px-5 py-2.5 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#841B4D] focus-visible:ring-offset-2 shrink-0"
-        >
-          <UserPlus className="h-4 w-4 shrink-0" />
-          <span>Novo paciente (interessado)</span>
-        </Link>
+        <InteressadoRapidoDialog
+          triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-[#841B4D] hover:bg-[#6c163f] active:bg-[#541131] text-white px-5 py-2.5 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#841B4D] focus-visible:ring-offset-2 shrink-0 cursor-pointer"
+          triggerContent={
+            <>
+              <UserPlus className="h-4 w-4 shrink-0" />
+              <span>Novo paciente</span>
+            </>
+          }
+        />
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 lg:max-w-2xl">
           {/* Componente de Busca com Debounce de 300ms */}
