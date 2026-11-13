@@ -21,8 +21,6 @@ import { TodayAgendaList, type TodaySession, type GuardianContact } from "./toda
 import { MiniCalendarPicker } from "./mini-calendar-picker";
 import { AnamnesisPendingBadge } from "@/components/anamnesis-pending-badge";
 import { InteressadoRapidoDialog } from "./interessado-rapido-dialog";
-import { ChecklistEntradaDialog } from "./checklist-entrada-dialog";
-import { getIntakeChecklistRows } from "@/lib/intake-checklist";
 import { ChegadasBanner } from "./chegadas-banner";
 import { DAY_LIST_HIDDEN_STATUSES } from "@/lib/appointment-cancel-reasons";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -77,10 +75,6 @@ export default async function RecepcaoPage({
       .eq("active", true)
       .order("full_name"),
   ]);
-
-  // Checklist de entrada (meta intake_complete_rate da recepção, §10.1):
-  // status real dos documentos por paciente que ainda não teve 1ª sessão.
-  const intakeChecklistRows = await getIntakeChecklistRows(supabase, DEV_CLINIC_ID);
 
   const { data: appointmentTypeRows } = await supabase
     .from("appointment_types")
@@ -506,7 +500,6 @@ export default async function RecepcaoPage({
                 abaBalanceByPatient={abaBalanceByPatient}
               />
               <InteressadoRapidoDialog />
-              <ChecklistEntradaDialog rows={intakeChecklistRows} />
             </div>
           </div>
 

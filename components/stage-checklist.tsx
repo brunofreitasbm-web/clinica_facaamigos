@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { Check, Link2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { JOURNEY_STEPS, type Journey } from "@/lib/patient-journey-pure";
 
 /**
@@ -13,33 +12,19 @@ import { JOURNEY_STEPS, type Journey } from "@/lib/patient-journey-pure";
  * - Von Restorff Effect: destaca a etapa corrente com contraste e anel de foco.
  *
  * Somente leitura: o status real vem de `computeJourney`; `actionHref` é o
- * destino do botão (null quando o perfil de quem vê não pode agir) e
- * `shareHref` é o caminho que "Copiar link" entrega a outra pessoa.
+ * destino do botão (null quando o perfil de quem vê não pode agir, ou quando
+ * o formulário da etapa já está na própria tela).
  */
 export function StageChecklist({
   journey,
   actionHref,
-  shareHref,
 }: {
   journey: Journey;
   actionHref?: string | null;
-  shareHref?: string | null;
 }) {
   const { step } = journey;
   const total = JOURNEY_STEPS.length;
   const percentComplete = Math.round(((step - 1) / (total - 1)) * 100);
-  const [copied, setCopied] = useState(false);
-
-  async function copyLink() {
-    if (!shareHref) return;
-    try {
-      await navigator.clipboard.writeText(new URL(shareHref, window.location.origin).toString());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Sem permissão de clipboard: o link continua na barra de endereço.
-    }
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -52,12 +37,6 @@ export function StageChecklist({
             <Link href={actionHref} className="btn btn-primary text-xs no-underline">
               {journey.ctaLabel}
             </Link>
-          )}
-          {shareHref && (
-            <button type="button" onClick={copyLink} className="btn text-xs">
-              <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-              {copied ? "Link copiado" : "Copiar link do status"}
-            </button>
           )}
         </div>
       </div>

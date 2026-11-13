@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { Pencil } from "lucide-react";
 import { EditBasicsForm } from "./gestao/edit-basics-form";
 
 export function EditRegistrationButton({
+  kicker,
   patientId,
   fullName,
   birthDate,
@@ -17,6 +19,8 @@ export function EditRegistrationButton({
   comorbidities,
   entrySource,
 }: {
+  /** Linha acima do nome (nascimento · plano · guia). */
+  kicker?: ReactNode;
   patientId: string;
   fullName: string;
   birthDate: string;
@@ -32,10 +36,27 @@ export function EditRegistrationButton({
 }) {
   const [editing, setEditing] = useState(false);
 
-  if (editing) {
-    return (
-      <div className="w-full basis-full">
-        <EditBasicsForm
+  return (
+    <>
+      <div>
+        {kicker}
+        <div className="flex items-center gap-2">
+          <h1 className="m-0 text-2xl font-bold text-ink">{fullName}</h1>
+          <button
+            type="button"
+            aria-label="Editar cadastro"
+            title="Editar cadastro"
+            aria-pressed={editing}
+            onClick={() => setEditing((v) => !v)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-paper-line hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 cursor-pointer"
+          >
+            <Pencil className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+      {editing && (
+        <div className="order-last w-full basis-full">
+          <EditBasicsForm
           patientId={patientId}
           fullName={fullName}
           birthDate={birthDate}
@@ -49,14 +70,9 @@ export function EditRegistrationButton({
           comorbidities={comorbidities}
           entrySource={entrySource}
           onDone={() => setEditing(false)}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>
-      Editar cadastro
-    </button>
+          />
+        </div>
+      )}
+    </>
   );
 }

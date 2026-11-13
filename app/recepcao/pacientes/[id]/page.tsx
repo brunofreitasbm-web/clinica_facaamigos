@@ -521,17 +521,14 @@ export default async function PacientePage({
           <div className="space-y-6 lg:col-span-8 xl:col-span-9">
             {/* Header & Ações */}
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-paper-line pb-4">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                  {patient.birth_date ? `Nasc. ${fmtDate(`${patient.birth_date}T00:00:00`)} · ` : ""}
-                  {activeInsurance?.insurerName ?? "Particular"}
-                  {activeAuthorization?.guideNumber ? ` · guia ${activeAuthorization.guideNumber}` : ""}
-                </span>
-                <h1 className="m-0 text-2xl font-bold text-ink">{patient.full_name}</h1>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <EditRegistrationButton
+              <EditRegistrationButton
+                  kicker={
+                    <span className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                      {patient.birth_date ? `Nasc. ${fmtDate(`${patient.birth_date}T00:00:00`)} · ` : ""}
+                      {activeInsurance?.insurerName ?? "Particular"}
+                      {activeAuthorization?.guideNumber ? ` · guia ${activeAuthorization.guideNumber}` : ""}
+                    </span>
+                  }
                   patientId={patient.id}
                   fullName={patient.full_name}
                   birthDate={patient.birth_date}
@@ -544,12 +541,11 @@ export default async function PacientePage({
                   allergies={patient.allergies}
                   comorbidities={patient.comorbidities}
                   entrySource={patient.entry_source}
-                />
+              />
+
+              <div className="flex flex-wrap items-center gap-2">
                 <a href={`/recepcao/pacientes/${patient.id}/gestao`} className="btn btn-secondary text-xs">
                   Planos de Saúde & Cobranças
-                </a>
-                <a href={`/recepcao/pacientes/${patient.id}/rede-externa`} className="btn btn-secondary text-xs">
-                  Rede externa
                 </a>
                 <a href={`/recepcao#nova-sessao:${patient.id}`} className="btn btn-primary text-xs">
                   + Nova sessão
@@ -564,14 +560,15 @@ export default async function PacientePage({
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <StageChecklist
                     journey={journey}
+                    // Quem pode agir já tem o formulário da etapa ao lado: o botão
+                    // de atalho repetia o mesmo rótulo (ex.: "Montar grade") duas vezes.
                     actionHref={
                       canActOnJourney
-                        ? "#proximo-passo"
+                        ? null
                         : canNavigateToSupervisao && (journey.key === "agendar_avaliacao" || journey.key === "avaliacao_agendada")
                           ? "/supervisao?tab=agenda1a"
                           : null
                     }
-                    shareHref={`/recepcao/pacientes/${patient.id}#proximo-passo`}
                   />
                   <div>
                     {canActOnJourney && journey.key === "agendar_avaliacao" && (

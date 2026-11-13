@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo, useTransition } from "react";
+import React, { useState, useEffect, useRef, useMemo, useTransition, useDeferredValue } from "react";
 import Link from "next/link";
 import { RevealCpf } from "./reveal-cpf";
 import { InteressadoRapidoDialog } from "../interessado-rapido-dialog";
@@ -285,9 +285,13 @@ const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildCompo
 });
 VirtualizedPatientRow.displayName = "VirtualizedPatientRow";
 
+/** Minúsculo e sem acento: "João" casa com "joao". */
+function normalizeSearch(value: string): string {
+  return value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+}
+
 export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = null }: PatientListClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -300,15 +304,13 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Debounce de 300ms na busca com reset de página
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedQuery(searchQuery);
-      setCurrentPage(1);
-    }, 300);
-
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+  // Busca instantânea (estilo spotlight): filtra a cada tecla. O valor adiado
+  // mantém a digitação fluida mesmo com a lista grande.
+  const deferredQuery = useDeferredValue(searchQuery);
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
 
   // Atalhos de teclado (Ctrl + K, Cmd + K ou /) para focar na busca
   useEffect(() => {
@@ -334,7 +336,9 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Filtragem dos pacientes por busca (nome, responsável, CPF) e status
+  const searchTokens = useMemo(() => normalizeSearch(deferredQuery).split(/\s+/).filter(Boolean), [deferredQuery]);
+
+  // Filtragem dos pacientes por busca (nome, responsável, plano, CPF, etapa) e status
   const filteredRows = useMemo(() => {
     return rows.filter((p) => {
       // Filtro de Status
@@ -345,18 +349,21 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
         if (statusFilter === "inativo" && normStatus !== "inativo") return false;
       }
 
-      // Filtro de Busca (Nome, Responsável, CPF, Estágio)
-      if (!debouncedQuery.trim()) return true;
-      const query = debouncedQuery.toLowerCase().trim();
-      const nameMatch = (p.full_name || "").toLowerCase().includes(query);
-      const guardianMatch = (p.guardian_name || "").toLowerCase().includes(query);
-      const cpfMatch = (p.cpf || "").replace(/\D/g, "").includes(query.replace(/\D/g, ""));
-      const statusMatch = (p.status || "").toLowerCase().includes(query);
-      const stageMatch = (p.journey_label || "").toLowerCase().includes(query);
-
-      return nameMatch || guardianMatch || cpfMatch || statusMatch || stageMatch;
+      // Busca: cada palavra digitada precisa aparecer em algum campo (sem
+      // acento e sem diferenciar maiúscula). Ex.: "gab mar" acha Gabriel
+      // com responsável Maria.
+      if (searchTokens.length === 0) return true;
+      const haystack = normalizeSearch(
+        [p.full_name, p.guardian_name, p.insurer_name, p.status, p.journey_label, formatDateBR(p.birth_date)].join(" "),
+      );
+      const cpfDigits = (p.cpf || "").replace(/\D/g, "");
+      return searchTokens.every((t) => {
+        if (haystack.includes(t)) return true;
+        const digits = t.replace(/\D/g, "");
+        return digits.length > 0 && cpfDigits.includes(digits);
+      });
     });
-  }, [rows, debouncedQuery, statusFilter]);
+  }, [rows, searchTokens, statusFilter]);
 
   // Paginação dos dados filtrados
   const paginatedRows = useMemo(() => {
@@ -479,15 +486,15 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
               ref={searchInputRef}
               type="search"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nome, responsável ou CPF... (Ctrl + K)"
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Buscar por nome, responsável, plano ou CPF... (Ctrl + K)"
               className="w-full rounded-lg border border-paper-line-strong bg-paper/80 pl-10 pr-20 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-all focus:border-[#841B4D] focus:bg-paper focus:outline-none focus:ring-2 focus:ring-[#841B4D]/20"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => setSearchQuery("")}
+                  onClick={() => handleSearchChange("")}
                   className="p-1 rounded-md text-ink-faint hover:text-ink hover:bg-paper-line transition-colors cursor-pointer"
                   title="Limpar busca"
                 >
@@ -534,7 +541,7 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
           {(searchQuery || statusFilter !== "todos") && (
             <button
               onClick={() => {
-                setSearchQuery("");
+                handleSearchChange("");
                 setStatusFilter("todos");
               }}
               className="inline-flex items-center gap-1.5 rounded-md border border-paper-line-strong bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:border-[#841B4D] transition-all cursor-pointer"
