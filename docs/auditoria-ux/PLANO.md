@@ -4,6 +4,24 @@ Data: 14/11/2026. Escopo: Recepção, Supervisão, Terapeuta e Gestor (nesta ord
 Critério: regra 5 do `AGENTS.md` (fluidez para o operador) mais as leis de UX (Hick, Fitts, Miller, Jakob, Doherty, Tesler, Pareto, Postel, Zeigarnik, Von Restorff, posição serial, proximidade).
 Detalhe e evidência (arquivo:linha) de cada achado: os 5 relatórios desta pasta.
 
+## Estado da execução (atualizado em 14/11/2026)
+Onda 0, itens que não dependiam de decisão do dono: **8 de 13 na `main`**, cada um em seu PR, com o CI verde.
+
+| Item | PR | Observação |
+|---|---|---|
+| 0.1 REC-09 pendências na lista | #165 | pílulas na linha do paciente, filtro "Com pendência" |
+| 0.2 PTS-01 relatório de reavaliação | #166 | só dado real; o resto sai em branco para preencher à mão |
+| 0.3 AGD-01 botões falsos da grade | #167 | removidos; PTS atrasado ganha link para o prontuário |
+| 0.4 REA-01 fila de reagendamentos | #168 | tela corrigida, entrada no menu, recusa cancela com motivo. A família ainda não recebe mensagem |
+| 0.9 CFG-02 primeira prioridade | #169 | |
+| 0.10 HUB-02 saldo do balanço | #170 | |
+| 0.11 FIN-02 fechar repasses | #171 | confirmação com o mês, nas duas telas |
+| 0.12 CTR-01 faturas vencidas | #172 | seção "Em atraso"; fila de cobrança completa segue aberta |
+
+**Pendentes na Onda 0:** 0.5 HOJ-01 (decisão D6), 0.6 EVO-01 (D4), 0.7 NPS-01 (D3), 0.8 PES-01 (mexe em contrato de repasse, confirmar antes) e 0.13 PTS-02 (D1).
+
+Nenhuma dessas correções foi aberta no navegador: o ambiente de desenvolvimento não tem Supabase. Antes de contar com elas em produção, conferir cada tela com dado real.
+
 ## 1. Como esta auditoria foi feita, e o que ela NÃO prova
 - 5 auditores leram o código de cada módulo. **Ninguém abriu o sistema no navegador nem consultou o banco.** Tudo que depende de runtime (largura em celular, contraste, tempo de resposta, RLS) está marcado como lacuna nos relatórios.
 - Eu conferi no código 19 achados graves (os P0 de cada módulo e alguns P1 de maior impacto): **todos se confirmaram**. Os outros ~295 não foram conferidos um a um; trate-os como hipóteses bem fundamentadas, e confira o trecho antes de corrigir.
