@@ -14,6 +14,7 @@ import { extractRegistrationFromFiles, applyNormalization } from "@/lib/document
 import { promoteDraftToLead } from "@/lib/whatsapp-lead";
 import { splitSiblingsFromDraft } from "@/lib/draft-split-db";
 import { mergeBotCollectedIntoExtraction } from "@/lib/lead-pendencies";
+import { applyManualOverrides } from "@/lib/draft-adjust-pure";
 import type { Json } from "@/lib/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -62,11 +63,23 @@ async function runExtractionForDraft(
     .maybeSingle();
   const botCollected = (botRow as { bot_collected: unknown } | null)?.bot_collected ?? null;
 
+  // Correções da recepção ("Ajustar cadastro"): valem por cima da leitura da IA e do bot, em toda releitura.
+  // Leitura à parte e tolerante: sem a coluna (migration 20261114150000), nada é reaplicado e o resto segue igual.
+  const { data: overrideRow, error: overrideError } = await (admin as unknown as SupabaseClient)
+    .from("registration_drafts")
+    .select("manual_overrides")
+    .eq("id", draft.id)
+    .maybeSingle();
+  const manualOverrides = overrideError ? null : ((overrideRow as { manual_overrides: unknown } | null)?.manual_overrides ?? null);
+
   if (!files || files.length === 0) {
     // Rascunho criado pelo bot sem nenhum arquivo: não há o que a IA ler, mas os
     // dados digitados já bastam — vira "extraído" sem chamar o Gemini.
     if (botCollected) {
-      const merged = mergeBotCollectedIntoExtraction((botRow as { extracted: unknown }).extracted, botCollected);
+      const merged = applyManualOverrides(
+        mergeBotCollectedIntoExtraction((botRow as { extracted: unknown }).extracted, botCollected),
+        manualOverrides,
+      );
       await admin
         .from("registration_drafts")
         .update({ status: "extracted", extracted: merged as Json, error: null, processed_at: new Date().toISOString() })
@@ -129,12 +142,17 @@ async function runExtractionForDraft(
     );
   }
 
+  // Resposta digitada no bot vence a leitura da IA; a correção da recepção vence as duas.
+  const finalExtracted = applyManualOverrides(
+    botCollected ? mergeBotCollectedIntoExtraction(normalized, botCollected) : normalized,
+    manualOverrides,
+  );
+
   await admin
     .from("registration_drafts")
     .update({
       status: "extracted",
-      // Resposta digitada no bot vence a leitura da IA.
-      extracted: (botCollected ? mergeBotCollectedIntoExtraction(normalized, botCollected) : normalized) as Json,
+      extracted: finalExtracted as Json,
       fields_confidence: normalized.confidence,
       warnings: normalized.warnings,
       model: outcome.model,
@@ -164,7 +182,7 @@ async function runExtractionForDraft(
   // Irmãos no mesmo envio: cada criança vira rascunho próprio antes da promoção
   // a lead — senão o paciente-lead sairia só com a primeira (lib/draft-split.ts).
   // Os arquivos seguem a numeração que a IA recebeu (`included`, em ordem de envio).
-  const currentExtracted = (botCollected ? mergeBotCollectedIntoExtraction(normalized, botCollected) : normalized) as Json;
+  const currentExtracted = finalExtracted as Json;
   await splitSiblingsFromDraft(
     admin,
     { id: draft.id, clinic_id: draft.clinic_id, extracted: currentExtracted },

@@ -34,3 +34,53 @@ test("limpar o campo no ajuste limpa a chave do bot, para a leitura cair no extr
   const next = applyAdjustmentToBotCollected({ guardian_email: "velho@x.com" }, { ...values, guardianEmail: "" });
   assert.deepEqual(next, { guardian_email: "" });
 });
+
+import { applyManualOverrides, computeManualOverrides } from "../lib/draft-adjust-pure.ts";
+
+const nextOf = (over: Record<string, Record<string, string>> = {}) => ({
+  patient: { full_name: "Maria Souza", birth_date: "2020-05-10", cpf: "", cid: "", complaint_hint: "", ...over.patient },
+  guardian: { full_name: "Ana Souza", phone: "", cpf: "", email: "", ...over.guardian },
+  insurance: { card_number: "999", ...over.insurance },
+});
+
+test("correções: guarda só o que o operador mudou em relação ao que o rascunho tinha", () => {
+  const current = { patient: { full_name: "Maria Sousa", birth_date: "2020-05-10" }, guardian: { full_name: "Ana Souza" }, insurance: { card_number: "111" } };
+  const o = computeManualOverrides(current, nextOf(), null);
+  assert.deepEqual(o, { patient: { full_name: "Maria Souza" }, insurance: { card_number: "999" } });
+});
+
+test("campo que estava vazio e continua vazio não vira correção (a IA ainda pode ler o CPF depois)", () => {
+  const current = { patient: { full_name: "Maria Souza", birth_date: "2020-05-10" }, guardian: { full_name: "Ana Souza" }, insurance: { card_number: "" } };
+  const o = computeManualOverrides(current, nextOf({ insurance: { card_number: "" } }), null);
+  assert.deepEqual(o, {});
+});
+
+test("apagar um valor errado vira correção com null; telefone e queixa nunca são limpos pelo formulário", () => {
+  const current = { patient: { full_name: "Maria Souza", cpf: "11111111111", complaint_hint: "x" }, guardian: { full_name: "Ana Souza", phone: "+5511999999999" }, insurance: { card_number: "999" } };
+  const o = computeManualOverrides(current, nextOf(), null);
+  assert.deepEqual(o, { patient: { cpf: null, birth_date: "2020-05-10" } });
+});
+
+test("correção nova do mesmo campo vence a antiga, e as antigas de outros campos continuam", () => {
+  const previous = { patient: { cid: "F84" }, guardian: { email: "a@x.com" } };
+  const current = { patient: { full_name: "Maria Souza", birth_date: "2020-05-10", cid: "F84" }, guardian: { full_name: "Ana Souza", email: "a@x.com" }, insurance: { card_number: "999" } };
+  const o = computeManualOverrides(current, nextOf({ patient: { cid: "F90" }, guardian: { email: "a@x.com" } }), previous);
+  assert.deepEqual(o, { patient: { cid: "F90" }, guardian: { email: "a@x.com" } });
+});
+
+test("reaplicar por cima da leitura nova: a correção vence a IA e o resto da leitura fica", () => {
+  const reread = { patient: { full_name: "Maria Sousa", cpf: "22222222222" }, guardian: { full_name: "Ana" }, documents: [1] };
+  const out = applyManualOverrides(reread, { patient: { full_name: "Maria Souza", cpf: null }, insurance: { card_number: "999" } });
+  assert.deepEqual(out, {
+    patient: { full_name: "Maria Souza", cpf: null },
+    guardian: { full_name: "Ana" },
+    documents: [1],
+    insurance: { card_number: "999" },
+  });
+});
+
+test("sem correções (ou lixo no lugar), devolve a leitura como veio", () => {
+  const reread = { patient: { full_name: "Maria" } };
+  assert.deepEqual(applyManualOverrides(reread, null), reread);
+  assert.deepEqual(applyManualOverrides(reread, { patient: { full_name: 42 }, outro: { x: "y" } }), reread);
+});
