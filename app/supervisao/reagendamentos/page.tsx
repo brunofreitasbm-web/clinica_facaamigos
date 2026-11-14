@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { PageContainer } from "@/components/page-container";
 import { HelpHint } from "@/components/ui/help-hint";
+import { DecisionButtons } from "./decision-buttons";
 
 // Sem date-fns: o projeto formata data/hora com Intl de propósito, para não
 // depender do fuso do processo Node (ver lib/timezone.ts e lib/age.ts).
@@ -30,7 +31,7 @@ export default async function ReagendamentosPendentesPage() {
     .from("appointments")
     .select(`
       id, starts_at, ends_at, status,
-      patient:patients ( id, name ),
+      patient:patients ( id, full_name ),
       therapist:profiles!appointments_therapist_id_fkey ( id, full_name )
     `)
     .eq("status", "aguardando_aprovacao_supervisao")
@@ -59,34 +60,13 @@ export default async function ReagendamentosPendentesPage() {
           {pendentes.map((apt: any) => (
             <div key={apt.id} className="border p-4 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <div className="font-medium text-lg">Paciente: {apt.patient?.name}</div>
+                <div className="font-medium text-lg">Paciente: {apt.patient?.full_name}</div>
                 <div className="text-sm text-gray-600">
                   Data: {formatDataHora(apt.starts_at)} <br/>
                   Terapeuta: {apt.therapist?.full_name}
                 </div>
               </div>
-              <div className="flex gap-2">
-                <form action={async () => {
-                  "use server";
-                  const s = await createClient();
-                  await s.from("appointments").update({ status: "agendada" }).eq("id", apt.id);
-                  // TODO: Send confirmation WhatsApp message here
-                }}>
-                  <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium text-sm transition">
-                    Aprovar Data
-                  </button>
-                </form>
-                <form action={async () => {
-                  "use server";
-                  const s = await createClient();
-                  await s.from("appointments").delete().eq("id", apt.id);
-                  // TODO: Enviar aviso de rejeição
-                }}>
-                  <button type="submit" className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded font-medium text-sm transition">
-                    Rejeitar
-                  </button>
-                </form>
-              </div>
+              <DecisionButtons appointmentId={apt.id} />
             </div>
           ))}
         </div>
