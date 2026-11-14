@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, RotateCcw, CheckCircle2, Loader2, Pencil, Save, X } from "lucide-react";
+import { Check, Eye, Printer, RotateCcw, CheckCircle2, Loader2, Pencil, Save, X } from "lucide-react";
+import { HORIZON_LABEL, METHODOLOGY_LABEL, PtsViewDialog } from "./pts-view-dialog";
 import { PLAN_GOAL_STATUS_STYLE } from "@/lib/appointment-status-style";
 import {
   approvePlan,
@@ -42,13 +43,6 @@ export type PlanRow = {
 };
 
 const GOAL_STATUS_LABEL: Record<string, string> = { ativa: "Ativa", atingida: "Atingida", suspensa: "Suspensa" };
-const HORIZON_LABEL: Record<string, string> = { curto: "Curto prazo", medio: "Médio prazo", longo: "Longo prazo" };
-const METHODOLOGY_LABEL: Record<string, string> = {
-  dtt: "DTT",
-  naturalistico: "Ensino naturalístico",
-  misto: "Misto",
-  outra: "Outra",
-};
 
 // A lista traz os rascunhos (fila de aprovação) e os planos `aprovado` (PTS
 // vigentes, sempre à mostra — ver page.tsx). Plano aprovado é "Vigente". Para
@@ -75,6 +69,8 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
   // Edição do conteúdo do PTS (vale para rascunho e vigente). Os rascunhos
   // ficam em estado local até "Salvar"; "Cancelar" descarta tudo.
   const [editing, setEditing] = useState(false);
+  // Visualização somente leitura ("Ver") e impressão direta ("Imprimir").
+  const [viewMode, setViewMode] = useState<"ver" | "imprimir" | null>(null);
   const [contentDraft, setContentDraft] = useState({ generalObjective: "", familyPriorities: "" });
   const [goalDrafts, setGoalDrafts] = useState<Record<string, PlanGoalEditInput>>({});
 
@@ -339,16 +335,36 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                     </button>
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn btn-secondary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
-                    disabled={isPending}
-                    onClick={startEditing}
-                    title="Editar objetivo geral, prioridades da família e metas deste PTS"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    <span>Editar PTS</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-secondary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
+                      onClick={() => setViewMode("ver")}
+                      title="Visualizar este PTS em formato de documento"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>Ver</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
+                      onClick={() => setViewMode("imprimir")}
+                      title="Imprimir este PTS"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      <span>Imprimir</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
+                      disabled={isPending}
+                      onClick={startEditing}
+                      title="Editar objetivo geral, prioridades da família e metas deste PTS"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      <span>Editar PTS</span>
+                    </button>
+                  </>
                 )}
                 {editing ? null : isDraft ? (
                   <>
@@ -638,6 +654,9 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                 })
               )}
             </div>
+            {viewMode && (
+              <PtsViewDialog plan={selected} autoPrint={viewMode === "imprimir"} onClose={() => setViewMode(null)} />
+            )}
           </>
         )}
       </div>
