@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { ShieldCheck, UserX, Users, CalendarClock, Trophy, Boxes, CalendarDays, Stethoscope, CalendarRange, UserCircle } from "lucide-react";
+import Link from "next/link";
+import { UserX, Trophy, Boxes, CalendarDays, CalendarRange, CalendarClock, UserCircle, ShieldCheck } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 import { NavGroupDropdown } from "@/components/nav-group-dropdown";
 import { useSupervisaoTab, type SupervisaoTabKey } from "@/app/supervisao/supervisao-tab-context";
@@ -18,10 +19,8 @@ const TABS: { key: SupervisaoTabKey; label: string }[] = [
  * por contexto em dropdowns — ver NavGroupDropdown — deixando na barra
  * primária só as abas de fluxo ativo.
  */
-const OPERACAO_LINKS = [
-  { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
-  { key: "prontuario-unificado", label: "Prontuário Unificado", href: "/supervisao/prontuario-unificado", icon: ShieldCheck },
-] as const;
+/** Link direto (sem submenu) pro Prontuário Unificado — antes vivia dentro do dropdown "Operação Clínica". */
+const PRONTUARIO_LINK = { key: "prontuario-unificado", label: "Prontuário Unificado", href: "/supervisao/prontuario-unificado", icon: ShieldCheck } as const;
 
 const GESTAO_LINKS = [
   { key: "disponibilidade", label: "Disponibilidade", href: "/supervisao/disponibilidade", icon: CalendarClock },
@@ -31,6 +30,31 @@ const GESTAO_LINKS = [
 
 /** "Minha Bonificação" mora no menu do operador (barra), junto de foto, senha e sair. */
 const PESSOAL_LINKS = [{ key: "metricas", label: "Minha Bonificação", href: "/supervisao/metricas", icon: Trophy }] as const;
+
+/**
+ * Link simples na barra (sem dropdown), com o mesmo visual de estado ativo
+ * dos triggers de NavGroupDropdown, pra manter a barra consistente.
+ */
+function ProntuarioLink() {
+  const pathname = usePathname();
+  const Icon = PRONTUARIO_LINK.icon;
+  const isActive = pathname === PRONTUARIO_LINK.href || pathname?.startsWith(PRONTUARIO_LINK.href + "/");
+  return (
+    <Link
+      href={PRONTUARIO_LINK.href}
+      aria-current={isActive ? "page" : undefined}
+      className="flex min-h-[44px] items-center gap-1.5 rounded-t-md px-3 py-2 text-[13px] font-semibold no-underline transition-all duration-150 active:scale-95 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      style={{
+        color: isActive ? "var(--color-on-accent)" : "var(--color-on-accent-soft)",
+        background: isActive ? "color-mix(in srgb, var(--color-on-accent) 14%, transparent)" : "transparent",
+        opacity: isActive ? 1 : 0.85,
+      }}
+    >
+      <Icon size={15} aria-hidden />
+      {PRONTUARIO_LINK.label}
+    </Link>
+  );
+}
 
 /**
  * Cabeçalho do módulo Coordenação — o <ModuleHeader> compartilhado, vivendo
@@ -77,7 +101,7 @@ export function SupervisaoHeader(_props: { userName?: string | null }) {
       personalLinks={PESSOAL_LINKS}
       actions={
         <div className="flex items-center gap-1">
-          <NavGroupDropdown label="Operação Clínica" icon={Stethoscope} links={OPERACAO_LINKS} />
+          <ProntuarioLink />
           <NavGroupDropdown label="Gestão e Escala" icon={CalendarRange} links={GESTAO_LINKS} />
           <button
             type="button"
