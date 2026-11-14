@@ -62,4 +62,5 @@ Nenhum dado real, screenshot ou asset de marca disponível. Schema Postgres real
 4. Pais veem progresso, não prontuário — portal nunca expõe evolução bruta.
 5. Nada de dado clínico sensível trafega pra papel sem RLS que autorize.
 6. Dashboards e BI são nativos — os relatórios analíticos/gerenciais são integrados na aplicação web sobre views Postgres. Todo KPI de BI obrigatoriamente inclui comparativo ou referência (vs. mês anterior, vs. meta, etc.).
+7. Fluidez para o operador: a tela traz o trabalho, a ação acontece onde o dado está, uma ação primária por tela, sem poluição visual e sem caça a menus. Critérios verificáveis na regra 5 do `AGENTS.md` (fonte única).
 
