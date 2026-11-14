@@ -349,7 +349,11 @@ export function FilaDetailPanel({
         <Link href={`/recepcao/pre-cadastros/${item.draftId}`} className="inline-flex min-h-10 items-center font-semibold text-[var(--color-accent)]">
           Conferir e cadastrar
         </Link>
-        <DraftAdjustButton draftId={item.draftId} />
+        <DraftAdjustButton
+          draftId={item.draftId}
+          memberDraftIds={item.memberDraftIds}
+          onSaved={() => setReloadKey((k) => k + 1)}
+        />
         <span className="flex items-center gap-2 text-ink-soft">
           Responsável: <strong className="text-ink">{item.assignedToName ?? "sem dono"}</strong>
           {owners.length > 0 && <ReassignOwnerButton itemId={item.id} currentAssigneeId={item.assignedToId} candidates={owners} />}

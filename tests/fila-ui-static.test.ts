@@ -73,3 +73,17 @@ test("pedido de um documento só: mesma ação, conferência antes de enviar", (
   assert.match(doc, /Enviar mensagem/);
   assert.match(detail, /<FilaDocRequest/);
 });
+
+test("Ajustar cadastro na Fila: recarrega o detalhe ao salvar e leva os rascunhos mesclados", () => {
+  const detail = readFileSync("app/recepcao/fila/fila-detail.tsx", "utf8");
+  assert.match(detail, /<DraftAdjustButton[\s\S]*?memberDraftIds=\{item\.memberDraftIds\}[\s\S]*?setReloadKey\(\(k\) => k \+ 1\)/);
+});
+
+test("Salvar ajustes confere linhas afetadas e grava bot_collected nos rascunhos da família", () => {
+  const actions = readFileSync("app/recepcao/pacientes/pendencias/draft-adjust-actions.ts", "utf8");
+  assert.match(actions, /patientRows\.length === 0/);
+  assert.match(actions, /applyAdjustmentToBotCollected\(row\.bot_collected/);
+  assert.match(actions, /revalidatePath\("\/recepcao\/fila"\)/);
+  // arquivo "use server": só funções async podem ser exportadas
+  assert.doesNotMatch(actions, /^export function /m);
+});
