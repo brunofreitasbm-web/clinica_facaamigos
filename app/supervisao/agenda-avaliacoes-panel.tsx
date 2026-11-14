@@ -3,11 +3,10 @@
 import { useState, type ReactNode } from "react";
 import { EvaluationCalendar } from "./evaluation-calendar";
 import { PatientFeedbackButton } from "./patient-feedback-modal";
-import type { EvaluationOfferItem, EvaluationPoolItem } from "@/lib/evaluation-agenda";
+import type { EvaluationPoolItem } from "@/lib/evaluation-agenda";
 
 const SUB_TABS = [
   { key: "calendario", label: "Calendário" },
-  { key: "triagens", label: "Entrada via WhatsApp" },
   { key: "acolhimentos", label: "Planilha de Pacientes" },
 ] as const;
 type SubTabKey = (typeof SUB_TABS)[number]["key"];
@@ -31,25 +30,19 @@ function SubTabBadge({ value, urgent }: { value: number; urgent?: boolean }) {
  * aba só concentra o agendamento em si.
  *
  * "Planilha de Pacientes" (ex-aba própria na barra rosa) virou a 3ª sub-aba
- * daqui (13/09/2026) — ela e "Entrada via WhatsApp" são etapas do mesmo
- * funil de 1ª avaliação e viviam em profundidades de navegação diferentes,
- * confundindo o supervisor sobre onde cada uma ficava.
+ * daqui (13/09/2026). A sub-aba "Entrada via WhatsApp" foi removida.
  */
 export function AgendaAvaliacoesPanel({
   pool,
-  offers,
   therapists,
   rooms,
-  triagensPanel,
   acolhimentosPanel,
   acolhimentosCount = 0,
   acolhimentosUrgent = false,
 }: {
   pool: EvaluationPoolItem[];
-  offers: EvaluationOfferItem[];
   therapists: { id: string; name: string }[];
   rooms: { id: string; name: string }[];
-  triagensPanel: ReactNode;
   acolhimentosPanel: ReactNode;
   acolhimentosCount?: number;
   acolhimentosUrgent?: boolean;
@@ -84,9 +77,8 @@ export function AgendaAvaliacoesPanel({
         </div>
       </div>
 
-      {subTab === "triagens" ? triagensPanel : null}
       {subTab === "acolhimentos" ? acolhimentosPanel : null}
-      {subTab === "calendario" ? <EvaluationCalendar pool={pool} offers={offers} therapists={therapists} rooms={rooms} /> : null}
+      {subTab === "calendario" ? <EvaluationCalendar pool={pool} therapists={therapists} rooms={rooms} /> : null}
     </div>
   );
 }

@@ -3,7 +3,6 @@ import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
 import { listOverduePlans } from "@/lib/pts-pending";
-import { getPendingPatients } from "@/lib/patient-stage";
 import { ABSENCE_REASON_LABEL } from "@/lib/absence-reasons";
 import { computeIntakeStaleWarning } from "@/lib/insurance-intake-stale";
 import {
@@ -26,16 +25,11 @@ import {
 } from "./inbox-panel";
 import { getPendingFamilyDocuments } from "@/lib/reception-queue";
 import type { NpsAlertRow } from "./nps-alerts-panel";
-import { AuthorizedPackagesPanel } from "@/components/authorized-packages-panel";
 import { SupervisaoShell } from "./supervisao-shell";
-import { FluxosPanel, type FlowPatient, type FlowCounters } from "./fluxos-panel";
-import { Suspense } from "react";
-import { AnamnesisValidationPanel } from "@/components/anamnesis-validation-panel";
-import { WhatsappLeadsPanel } from "@/components/whatsapp-leads-panel";
 import { AcolhimentosPanel, type BatchRow } from "./acolhimentos-panel";
 import type { LeadRow, LeadFileRow } from "./acolhimento-lead-drawer";
 import { AgendaAvaliacoesPanel } from "./agenda-avaliacoes-panel";
-import { getEvaluationOffers, getEvaluationPool } from "@/lib/evaluation-agenda";
+import { getEvaluationPool } from "@/lib/evaluation-agenda";
 
 export const dynamic = "force-dynamic";
 
@@ -66,8 +60,6 @@ export default async function SupervisaoPage() {
     { data: rawMessages },
     { data: rawReassessments },
     { data: rawDraftReports },
-    onboardingPatients,
-    { data: rawActivePatients },
     { data: rawAbsenceReports },
     { data: rawNpsAlerts },
     { data: rawIntakeBatches },
@@ -102,9 +94,10 @@ export default async function SupervisaoPage() {
     supabase
       .from("treatment_plans")
       .select(
-        "id, version, patient_id, general_objective, family_priorities, patients(full_name), plan_goals(id, description, domain, criterion, status, discipline, horizon, strategy, methodology, supervisor_notes)",
+        "id, version, status, patient_id, general_objective, family_priorities, patients(full_name), plan_goals(id, description, domain, criterion, status, discipline, horizon, strategy, methodology, supervisor_notes)",
       )
-      .eq("status", "rascunho")
+      // Rascunhos (fila de aprovação) + aprovados (PTS vigentes, sempre à mostra).
+      .in("status", ["rascunho", "aprovado"])
       .order("version", { ascending: false }),
     supabase
       .from("messages")
@@ -124,15 +117,6 @@ export default async function SupervisaoPage() {
       )
       .in("status", ["gerado", "em_revisao"])
       .order("created_at", { ascending: true }),
-    // Aba Fluxos: todo paciente ainda em onboarding (threshold 0 = sem filtro
-    // de dias), com o estágio já calculado pela mesma regra da recepção.
-    getPendingPatients(supabase, 0, { includePipelineDrafts: true }),
-    supabase
-      .from("patients")
-      .select("id, full_name, status")
-      .eq("clinic_id", DEV_CLINIC_ID)
-      .in("status", ["ativo", "pausado"])
-      .order("full_name"),
     // Notificações / quadro de ausências informadas pela família
     supabase
       .from("absence_reports")
@@ -167,7 +151,7 @@ export default async function SupervisaoPage() {
   ]);
 
   // ── Agenda de 1ª Avaliação (WhatsApp anamnese + PDF convênio + presencial) ──
-  const [evaluationPool, evaluationOffers] = await Promise.all([getEvaluationPool(supabase, DEV_CLINIC_ID), getEvaluationOffers(supabase)]);
+  const evaluationPool = await getEvaluationPool(supabase, DEV_CLINIC_ID);
   const nAgenda1a = evaluationPool.length;
 
   // ── Grade semanal ──────────────────────────────────────────────────────
@@ -248,12 +232,14 @@ export default async function SupervisaoPage() {
     onTimePercent,
   };
 
-  // ── Planos terapêuticos pendentes ──────────────────────────────────────
-  const plans: PlanRow[] = (rawPlans ?? []).map((plan) => {
+  // ── Planos terapêuticos: rascunhos a aprovar primeiro, depois os vigentes ──
+  const plans: PlanRow[] = (rawPlans ?? [])
+    .map((plan): PlanRow => {
     const patient = Array.isArray(plan.patients) ? plan.patients[0] : plan.patients;
     const goals = plan.plan_goals ?? [];
     return {
       id: plan.id,
+      status: plan.status === "aprovado" ? "aprovado" : "rascunho",
       patientName: patient?.full_name ?? "—",
       version: plan.version,
       generalObjective: plan.general_objective,
@@ -271,7 +257,13 @@ export default async function SupervisaoPage() {
         supervisorNotes: g.supervisor_notes,
       })),
     };
-  });
+    })
+    .sort(
+      (a, b) =>
+        Number(b.status === "rascunho") - Number(a.status === "rascunho") ||
+        a.patientName.localeCompare(b.patientName, "pt-BR"),
+    );
+  const plansToApproveCount = plans.filter((p) => p.status === "rascunho").length;
 
   // ── Caixa de entrada (mensagens do portal) ─────────────────────────────
   const inboxMessages: InboxMessageRow[] = (rawMessages ?? []).map((m) => {
@@ -372,33 +364,8 @@ export default async function SupervisaoPage() {
     };
   });
 
-  // ── Fluxos (passo a passo com atalhos) ─────────────────────────────────
-  const flowPatients: FlowPatient[] = [
-    ...onboardingPatients.map((p) => ({ id: p.id, name: p.full_name, status: p.status, stage: p.stage })),
-    ...(rawActivePatients ?? []).map((p) => ({ id: p.id, name: p.full_name, status: p.status, stage: 5 as const })),
-  ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-
   const pendingAbsencesCount = absenceReportRows.filter((a) => !a.resolved).length;
   const openFamilyMessages = inboxMessages.filter((m) => !m.resolved).length + pendingAbsencesCount + npsAlerts.length;
-  const flowCounters: FlowCounters = {
-    interessados: onboardingPatients.filter((p) => p.stage === 1).length,
-    stuckOnboarding: onboardingPatients.filter((p) => p.daysSinceCreated >= 3).length,
-    awaitingEvaluation: onboardingPatients.filter((p) => p.stage === 2).length,
-    evaluatedNoGuide: onboardingPatients.filter((p) => p.stage === 3).length,
-    sessionsInGrid: carteira.sessionsInGrid,
-    provisionalNoGuide: carteira.provisionalNoGuide,
-    pendingNotes: pendingNoteRows.length,
-    pendingPlans: pendingPlanRows.length,
-    plansToApprove: plans.length,
-    reassessmentsDue: reassessmentRows.length,
-    openFamilyMessages,
-    pendingReports: pendingReportRows.length,
-  };
-  const nFluxos =
-    flowCounters.stuckOnboarding +
-    flowCounters.evaluatedNoGuide +
-    flowCounters.provisionalNoGuide +
-    flowCounters.openFamilyMessages;
 
   // ── Acolhimentos oriundos de plano de saúde ────────────────────────────
   const intakeBatches: BatchRow[] = (rawIntakeBatches ?? []).map((b) => {
@@ -477,28 +444,17 @@ export default async function SupervisaoPage() {
 
   return (
     <>
-    <AuthorizedPackagesPanel />
     <SupervisaoShell
-      nPlanos={plans.length}
+      nPlanos={plansToApproveCount}
       nInbox={openFamilyMessages}
-      nFluxos={nFluxos}
       nAcolhimentos={nAcolhimentos}
       nAcolhimentosUrgent={nPendingValidation > 0}
       nAgenda1a={nAgenda1a}
       agenda1aTab={
         <AgendaAvaliacoesPanel
           pool={evaluationPool}
-          offers={evaluationOffers}
           therapists={(therapists ?? []).filter((t) => t.is_evaluator).map((t) => ({ id: t.id, name: t.full_name }))}
           rooms={(rooms ?? []).filter((r) => r.is_evaluation_room).map((r) => ({ id: r.id, name: r.name }))}
-          triagensPanel={
-            <div className="flex flex-col gap-10">
-              <Suspense fallback={<p className="text-xs text-ink-faint">Carregando leads do WhatsApp…</p>}>
-                <WhatsappLeadsPanel />
-              </Suspense>
-              <AnamnesisValidationPanel />
-            </div>
-          }
           acolhimentosPanel={
             <AcolhimentosPanel
               batches={intakeBatches}
@@ -512,7 +468,6 @@ export default async function SupervisaoPage() {
           acolhimentosUrgent={nPendingValidation > 0}
         />
       }
-      fluxosTab={<FluxosPanel patients={flowPatients} counters={flowCounters} />}
       gradeTab={
         <GradePanel
           weekLabel={week.rangeLabel}

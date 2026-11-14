@@ -3,8 +3,8 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
 /**
- * As 5 abas de dados de /supervisao (Grade, Agenda 1ª Avaliação, Fluxos, PTS,
- * Caixa de entrada) trocam de conteúdo sem navegar — o conteúdo de cada uma é
+ * As abas de dados de /supervisao (Agenda 1ª Avaliação, PTS, Caixa de
+ * entrada) trocam de conteúdo sem navegar — o conteúdo de cada uma é
  * pré-carregado só na page.tsx raiz (app/supervisao/page.tsx), então não tem
  * rota própria.
  *
@@ -32,7 +32,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
  * tela cheia (ver manualScheduleOpen abaixo). Agora esse é o único ponto de
  * entrada pra grade semanal completa.
  */
-export type SupervisaoTabKey = "agenda1a" | "fluxos" | "planos" | "inbox";
+export type SupervisaoTabKey = "agenda1a" | "planos" | "inbox";
 
 type Counts = Partial<Record<SupervisaoTabKey, number>>;
 /** Abas com pendência que precisa de olhos AGORA (ex.: laudo aguardando validação do supervisor) ganham o badge piscante em vez do pill neutro. */
@@ -65,7 +65,7 @@ const SupervisaoTabContext = createContext<Ctx>({
   setManualScheduleOpen: () => {},
 });
 
-/** Permite que um painel filho (ex.: atalhos da aba Fluxos) troque a aba ativa sem navegar. */
+/** Permite que um painel filho troque a aba ativa sem navegar. */
 export function useSupervisaoTab() {
   return useContext(SupervisaoTabContext);
 }

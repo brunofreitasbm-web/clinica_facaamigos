@@ -24,34 +24,30 @@ export { useSupervisaoTab };
 export function SupervisaoShell({
   nPlanos,
   nInbox,
-  nFluxos,
   nAcolhimentos = 0,
   nAcolhimentosUrgent = false,
   nAgenda1a = 0,
   gradeTab,
   agenda1aTab,
-  fluxosTab,
   planosTab,
   inboxTab,
 }: {
   nPlanos: number;
   nInbox: number;
-  nFluxos: number;
   nAcolhimentos?: number;
   /** Piscar o badge da aba (laudo/guia aguardando validação do supervisor agora, agenda 13/09/2026). */
   nAcolhimentosUrgent?: boolean;
   nAgenda1a?: number;
   gradeTab: ReactNode;
   agenda1aTab?: ReactNode;
-  fluxosTab: ReactNode;
   planosTab: ReactNode;
   inboxTab: ReactNode;
 }) {
   const { tab, setCounts, setUrgent, manualScheduleOpen, setManualScheduleOpen } = useSupervisaoTab();
 
   useEffect(() => {
-    setCounts({ agenda1a: nAgenda1a + nAcolhimentos, fluxos: nFluxos, planos: nPlanos, inbox: nInbox });
-  }, [nAgenda1a, nAcolhimentos, nFluxos, nPlanos, nInbox, setCounts]);
+    setCounts({ agenda1a: nAgenda1a + nAcolhimentos, planos: nPlanos, inbox: nInbox });
+  }, [nAgenda1a, nAcolhimentos, nPlanos, nInbox, setCounts]);
 
   useEffect(() => {
     setUrgent({ agenda1a: nAcolhimentosUrgent });
@@ -63,7 +59,6 @@ export function SupervisaoShell({
        * do overlay "Agenda" abaixo, que é agora o único ponto de entrada pra
        * grade semanal completa. */}
       {!manualScheduleOpen && tab === "agenda1a" ? <div key="tab-agenda1a">{agenda1aTab}</div> : null}
-      {!manualScheduleOpen && tab === "fluxos" ? <div key="tab-fluxos">{fluxosTab}</div> : null}
       {!manualScheduleOpen && tab === "planos" ? <div key="tab-planos">{planosTab}</div> : null}
       {!manualScheduleOpen && tab === "inbox" ? <div key="tab-inbox">{inboxTab}</div> : null}
 
