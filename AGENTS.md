@@ -24,3 +24,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
    - Quando um paciente/telefone já possuir cadastro validado (`patient_id` vinculado) ou já estiver com a 1ª avaliação habilitada/autorizada ou com oferta de agendamento em andamento, novos contatos ou rascunhos de WhatsApp (`registration_drafts`) para o mesmo número/criança NÃO devem gerar um processo paralelo como "aguardando envio de guia" no painel de Autorizações.
    - Identificada duplicidade entre um processo em andamento no agendamento e um rascunho órfão em Autorizações, o rascunho redundante deve ser arquivado/rejeitado com motivo explícito de duplicidade, mantendo-se o processo oficial que já possui autorização e agendamento ativos.
 
+# Diretrizes do Projeto - Deploy
+
+4. **Merge automático quando o CI passar (autorizado pelo dono do projeto, regra permanente):**
+   - Depois de commitar e dar push na branch da sessão, abrir o PR, aguardar o CI (`typecheck` e `npm test`) e, estando verde, marcar o PR como pronto e fazer o merge na `main` sem pedir confirmação. A Vercel publica a `main` em produção automaticamente.
+   - Se o CI falhar, NÃO fazer merge: corrigir a causa e empurrar de novo. Nunca desabilitar ou pular teste para ficar verde.
+   - Merge na `main` não aplica migrations no Supabase. Migrations e alterações de dados em produção continuam sendo ações separadas e explícitas.
