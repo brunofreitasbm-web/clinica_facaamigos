@@ -46,7 +46,24 @@ export default async function ProntuarioUnificadoPage({
 }: {
   searchParams: Promise<{ q?: string; p?: string }>;
 }) {
-  const { q, p: selectedPatientId } = await searchParams;
+  const { q, p } = await searchParams;
+  return <ProntuarioUnificadoView q={q} patientId={p} />;
+}
+
+/**
+ * Corpo do prontuário. `embedded` = dentro do hub do paciente
+ * (/gestor/pacientes/[id]): o paciente já vem escolhido pela rota, então
+ * some o seletor lateral e o título.
+ */
+export async function ProntuarioUnificadoView({
+  q,
+  patientId: selectedPatientId,
+  embedded = false,
+}: {
+  q?: string;
+  patientId?: string;
+  embedded?: boolean;
+}) {
   const supabase = await createClient();
 
   const {
@@ -270,7 +287,7 @@ export default async function ProntuarioUnificadoPage({
       <PageContainer>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="m-0">Prontuário Eletrônico Unificado & Trilha de Auditoria</h1>
+            {!embedded && <h1 className="m-0">Prontuário Eletrônico Unificado & Trilha de Auditoria</h1>}
           </div>
           {selectedPatient && (
             <div className="flex items-center gap-2">
@@ -287,8 +304,8 @@ export default async function ProntuarioUnificadoPage({
           )}
         </div>
 
-        <section className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">
-          <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
+        <section className={embedded ? "grid grid-cols-1 gap-8" : "grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]"}>
+          {!embedded && <div className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
             <h4 className="mb-3">Selecionar Paciente</h4>
             <div className="relative mb-4">
               <Search className="absolute left-3 top-2.5 text-ink-faint" size={16} />
@@ -326,7 +343,7 @@ export default async function ProntuarioUnificadoPage({
                 );
               })}
             </div>
-          </div>
+          </div>}
 
           <div className="flex flex-col gap-6">
             {!selectedPatient ? (
