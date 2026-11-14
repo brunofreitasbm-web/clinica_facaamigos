@@ -247,6 +247,7 @@ export default async function SupervisaoPage() {
       disciplines: Array.from(new Set(goals.map((g) => g.discipline))),
       goals: goals.map((g) => ({
         id: g.id,
+        discipline: g.discipline,
         description: g.description,
         domain: g.domain,
         criterion: g.criterion,

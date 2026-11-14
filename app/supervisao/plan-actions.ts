@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { DISCIPLINES } from "./planos/novo/disciplines";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -140,13 +141,17 @@ export type PlanContentInput = {
   familyPriorities: string;
 };
 
+const GOAL_STATUSES = ["ativa", "atingida", "suspensa"] as const;
+
 export type PlanGoalEditInput = {
+  discipline: string;
   description: string;
   domain: string;
   criterion: string;
   horizon: string;
   strategy: string;
   methodology: string;
+  status: string;
 };
 
 function optionalText(value: string): string | null {
@@ -201,10 +206,17 @@ export async function updatePlanGoal(
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Sessão expirada — faça login de novo." };
 
+  const discipline = input.discipline.trim();
   const description = input.description.trim();
   const domain = input.domain.trim();
-  if (!description || !domain) {
-    return { success: false, error: "Toda meta precisa de domínio e descrição." };
+  if (!discipline || !description || !domain) {
+    return { success: false, error: "Toda meta precisa de disciplina, domínio e descrição." };
+  }
+  if (!DISCIPLINES.some((d) => d.value === discipline)) {
+    return { success: false, error: "Disciplina da meta inválida." };
+  }
+  if (!(GOAL_STATUSES as readonly string[]).includes(input.status)) {
+    return { success: false, error: "Status da meta inválido." };
   }
   if (input.horizon && !(HORIZONS as readonly string[]).includes(input.horizon)) {
     return { success: false, error: "Prazo da meta inválido." };
@@ -213,15 +225,38 @@ export async function updatePlanGoal(
     return { success: false, error: "Metodologia da meta inválida." };
   }
 
+  // Status editado direto aqui não passa pelo fluxo de validação/devolução;
+  // por isso registramos quem mexeu (validated_by) e quando a meta foi atingida,
+  // do mesmo jeito que validateGoal/returnGoal já fazem. O vínculo com o
+  // catálogo de domínios fica em `programs`, não em `plan_goals`.
+  const { data: current, error: readError } = await supabase
+    .from("plan_goals")
+    .select("status")
+    .eq("id", goalId)
+    .eq("treatment_plan_id", planId)
+    .single();
+  if (readError || !current) return { success: false, error: "Meta não encontrada neste PTS." };
+
+  const statusFields =
+    input.status !== current.status
+      ? {
+          status: input.status,
+          validated_by: input.status === "ativa" ? null : user.id,
+          achieved_at: input.status === "atingida" ? new Date().toISOString() : null,
+        }
+      : {};
+
   const { error } = await supabase
     .from("plan_goals")
     .update({
+      discipline,
       description,
       domain,
       criterion: optionalText(input.criterion),
       horizon: input.horizon || null,
       strategy: optionalText(input.strategy),
       methodology: input.methodology || null,
+      ...statusFields,
     })
     .eq("id", goalId)
     .eq("treatment_plan_id", planId);

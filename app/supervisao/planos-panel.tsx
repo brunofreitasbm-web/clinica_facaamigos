@@ -13,10 +13,12 @@ import {
   validateGoal,
   type PlanGoalEditInput,
 } from "./plan-actions";
+import { DISCIPLINES } from "./planos/novo/disciplines";
 import { RelatorioReavaliacaoDialog, type ReportPatientData } from "./relatorio-dialog";
 
 export type PlanGoalRow = {
   id: string;
+  discipline: string;
   description: string;
   domain: string;
   criterion: string | null;
@@ -39,6 +41,7 @@ export type PlanRow = {
   goals: PlanGoalRow[];
 };
 
+const GOAL_STATUS_LABEL: Record<string, string> = { ativa: "Ativa", atingida: "Atingida", suspensa: "Suspensa" };
 const HORIZON_LABEL: Record<string, string> = { curto: "Curto prazo", medio: "Médio prazo", longo: "Longo prazo" };
 const METHODOLOGY_LABEL: Record<string, string> = {
   dtt: "DTT",
@@ -164,12 +167,14 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
         selected.goals.map((g) => [
           g.id,
           {
+            discipline: g.discipline,
             description: g.description,
             domain: g.domain,
             criterion: g.criterion ?? "",
             horizon: g.horizon ?? "",
             strategy: g.strategy ?? "",
             methodology: g.methodology ?? "",
+            status: g.status,
           },
         ])
       )
@@ -179,6 +184,8 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
 
   function goalChanged(goal: PlanGoalRow, draft: PlanGoalEditInput) {
     return (
+      draft.discipline !== goal.discipline ||
+      draft.status !== goal.status ||
       draft.description !== goal.description ||
       draft.domain !== goal.domain ||
       draft.criterion !== (goal.criterion ?? "") ||
@@ -476,6 +483,34 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                           />
                         </label>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <label className="flex flex-col gap-1 text-xs">
+                            <span className="font-semibold text-ink">Disciplina *</span>
+                            <select
+                              value={draft.discipline}
+                              onChange={(e) => setField("discipline", e.target.value)}
+                              className={inputClass}
+                            >
+                              {DISCIPLINES.map((d) => (
+                                <option key={d.value} value={d.value}>
+                                  {d.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-1 text-xs">
+                            <span className="font-semibold text-ink">Status</span>
+                            <select
+                              value={draft.status}
+                              onChange={(e) => setField("status", e.target.value)}
+                              className={inputClass}
+                            >
+                              {Object.entries(GOAL_STATUS_LABEL).map(([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                           <label className="flex flex-col gap-1 text-xs">
                             <span className="font-semibold text-ink">Domínio *</span>
                             <input
