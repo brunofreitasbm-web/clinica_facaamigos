@@ -49,9 +49,9 @@ export function buildAttentionItems(counts: AttentionCounts): AttentionItem[] {
     {
       key: "pendencias",
       count: counts.pendencias,
-      label: `${plural(counts.pendencias, "pendência", "pendências")} de cadastro`,
+      label: `${plural(counts.pendencias, "pendência", "pendências")} com pacientes`,
       action: "Resolver",
-      href: "/recepcao/pacientes/pendencias",
+      href: "/recepcao/pacientes?filtro=pendencias",
     },
   ];
   return items.filter((i) => i.count > 0);

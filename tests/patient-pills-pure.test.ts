@@ -62,3 +62,14 @@ test("mergePills tira repetidas e ordena urgente, falta, andamento", () => {
   );
   assert.deepEqual(keys(merged), ["falta_sem_motivo", "rg", "renovacao_solicitada"]);
 });
+
+test("visiblePills mostra as mais urgentes e conta o resto", async () => {
+  const { visiblePills } = await import("../lib/patient-pills-pure.ts");
+  const mk = (key: string) => ({ key, label: key, tone: "urgent" as const, detail: key });
+  assert.deepEqual(visiblePills([]), { shown: [], extra: 0 });
+  assert.deepEqual(visiblePills([mk("a")]).extra, 0);
+  const r = visiblePills([mk("a"), mk("b"), mk("c"), mk("d")], 2);
+  assert.deepEqual(r.shown.map((p) => p.key), ["a", "b"]);
+  assert.equal(r.extra, 2);
+  assert.equal(visiblePills([mk("a"), mk("b")], 0).shown.length, 1);
+});

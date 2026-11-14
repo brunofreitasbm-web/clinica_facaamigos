@@ -108,3 +108,13 @@ export function mergePills(...groups: PatientPill[][]): PatientPill[] {
     .sort((a, b) => TONE_RANK[a.pill.tone] - TONE_RANK[b.pill.tone] || a.index - b.index)
     .map(({ pill }) => pill);
 }
+
+/**
+ * Pílulas visíveis na linha do paciente: as mais urgentes primeiro (a lista já vem
+ * ordenada por urgência) e um "+N" para o resto, para a linha não virar mural
+ * (regra 5 do AGENTS.md: informação progressiva). O diálogo mostra todas.
+ */
+export function visiblePills(pills: PatientPill[], max = 2): { shown: PatientPill[]; extra: number } {
+  const limit = Math.max(1, max);
+  return { shown: pills.slice(0, limit), extra: Math.max(0, pills.length - limit) };
+}
