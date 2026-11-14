@@ -12,7 +12,11 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   // /login?blocked=true: o middleware encerrou a sessão de um colaborador desativado (ver lib/profile-access.ts).
   const [error, setError] = useState<string | null>(() =>
-    searchParams?.get("blocked") === "true" ? "Seu acesso está desativado. Fale com o gestor da clínica." : null,
+    searchParams?.get("blocked") === "true"
+      ? "Seu acesso está desativado. Fale com o gestor da clínica."
+      : searchParams?.get("expired") === "true"
+        ? "Sessão encerrada automaticamente às 19h. Entre novamente."
+        : null,
   );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
