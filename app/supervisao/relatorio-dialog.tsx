@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Logo } from "@/components/brand/logo";
+import { goalStatusLabel } from "@/lib/goal-status-label-pure";
 
 export interface ReportGoalItem {
   domain: string;
@@ -9,54 +10,25 @@ export interface ReportGoalItem {
   status: string;
 }
 
+/**
+ * Só entra aqui o que o sistema sabe de verdade sobre este plano. O que ele ainda não
+ * traz para este relatório (nascimento, CID, convênio, carteirinha, frequência,
+ * supervisor) sai em branco no papel, para preencher à mão: nunca um valor de exemplo.
+ */
 export interface ReportPatientData {
   patientName: string;
-  birthDate: string;
-  cid: string;
-  insurerName: string;
-  cardNumber: string;
   periodLabel: string;
-  totalSessions: number;
-  attendedSessions: number;
-  goalsCount: number;
-  achievedGoalsCount: number;
-  supervisorName: string;
-  supervisorCouncil: string;
-  goalsList?: ReportGoalItem[];
+  goalsList: ReportGoalItem[];
 }
 
-const DEFAULT_PATIENT_DATA: ReportPatientData = {
-  patientName: "Gabriel Santos Silva",
-  birthDate: "14/05/2019 (7 anos)",
-  cid: "F84.0 - Transtorno do Espectro Autista",
-  insurerName: "Bradesco Saúde Concierge",
-  cardNumber: "876.543.210-01",
-  periodLabel: "Junho a Agosto de 2026",
-  totalSessions: 36,
-  attendedSessions: 34,
-  goalsCount: 8,
-  achievedGoalsCount: 6,
-  supervisorName: "Dra. Carolina Mendonça",
-  supervisorCouncil: "CRP 06/123456",
-};
+const BLANK = "________________________";
 
-export function RelatorioReavaliacaoDialog({
-  data = DEFAULT_PATIENT_DATA,
-}: {
-  data?: ReportPatientData;
-}) {
+export function RelatorioReavaliacaoDialog({ data }: { data: ReportPatientData }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handlePrint = () => {
     window.print();
   };
-
-  const attendanceRate = Math.round(
-    (data.attendedSessions / (data.totalSessions || 1)) * 100
-  );
-  const goalProgressRate = Math.round(
-    (data.achievedGoalsCount / (data.goalsCount || 1)) * 100
-  );
 
   return (
     <>
@@ -148,6 +120,11 @@ export function RelatorioReavaliacaoDialog({
                   </p>
                 </div>
 
+                <p className="print:hidden rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Nascimento, CID, convênio, carteirinha e parecer saem em branco: o sistema ainda não traz esses dados para este
+                  relatório. Preencha à mão depois de imprimir.
+                </p>
+
                 {/* Tabela de Dados do Paciente */}
                 <div className="rounded-lg border border-paper-line p-4 bg-paper/50 space-y-3 text-xs">
                   <h3 className="font-semibold text-ink uppercase tracking-wide border-b border-paper-line pb-1">
@@ -160,44 +137,23 @@ export function RelatorioReavaliacaoDialog({
                     </div>
                     <div>
                       <span className="font-medium text-ink-soft">Data Nasc. / Idade:</span>
-                      <p className="font-semibold text-ink">{data.birthDate}</p>
+                      <p className="font-semibold text-ink">{BLANK}</p>
                     </div>
                     <div>
                       <span className="font-medium text-ink-soft">Diagnóstico (CID-10):</span>
-                      <p className="font-semibold text-ink">{data.cid}</p>
+                      <p className="font-semibold text-ink">{BLANK}</p>
                     </div>
                     <div>
                       <span className="font-medium text-ink-soft">Operadora do Plano de Saúde:</span>
-                      <p className="font-semibold text-ink">{data.insurerName}</p>
+                      <p className="font-semibold text-ink">{BLANK}</p>
                     </div>
                     <div>
                       <span className="font-medium text-ink-soft">Nº da Carteirinha:</span>
-                      <p className="font-semibold text-ink font-mono">{data.cardNumber}</p>
+                      <p className="font-semibold text-ink font-mono">{BLANK}</p>
                     </div>
                     <div>
                       <span className="font-medium text-ink-soft">Período de Avaliação:</span>
                       <p className="font-semibold text-ink">{data.periodLabel}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Síntese de Frequência e Assiduidade */}
-                <div className="rounded-lg border border-paper-line p-4 space-y-3 text-xs">
-                  <h3 className="font-semibold text-ink uppercase tracking-wide border-b border-paper-line pb-1">
-                    2. Frequência e Assiduidade no Período
-                  </h3>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div className="rounded bg-paper-subtle p-2">
-                      <span className="text-ink-soft">Sessões Autorizadas</span>
-                      <p className="text-lg font-bold text-ink">{data.totalSessions}</p>
-                    </div>
-                    <div className="rounded bg-paper-subtle p-2">
-                      <span className="text-ink-soft">Sessões Realizadas</span>
-                      <p className="text-lg font-bold text-emerald-600">{data.attendedSessions}</p>
-                    </div>
-                    <div className="rounded bg-paper-subtle p-2">
-                      <span className="text-ink-soft">Taxa de Assiduidade</span>
-                      <p className="text-lg font-bold text-accent">{attendanceRate}%</p>
                     </div>
                   </div>
                 </div>
@@ -207,20 +163,9 @@ export function RelatorioReavaliacaoDialog({
                   <h3 className="font-semibold text-ink uppercase tracking-wide border-b border-paper-line pb-1">
                     3. Progresso das Metas Terapêuticas (Plano Terapêutico Singular)
                   </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between font-medium">
-                      <span>Metas Atingidas / Em evolução:</span>
-                      <span className="font-bold text-emerald-600">
-                        {data.achievedGoalsCount} de {data.goalsCount} metas atingidas ({goalProgressRate}%)
-                      </span>
-                    </div>
-                    <div className="h-3 w-full rounded-full bg-paper-line overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 transition-all"
-                        style={{ width: `${goalProgressRate}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                  <p className="font-medium">
+                    {data.goalsList.length} {data.goalsList.length === 1 ? "meta" : "metas"} no plano
+                  </p>
 
                   <table className="w-full text-left text-xs border-collapse mt-2">
                     <thead>
@@ -231,38 +176,29 @@ export function RelatorioReavaliacaoDialog({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-paper-line">
-                      {data.goalsList && data.goalsList.length > 0 ? (
-                        data.goalsList.map((g, idx) => (
-                          <tr key={idx}>
-                            <td className="p-2 font-medium">{g.domain}</td>
-                            <td className="p-2">{g.description}</td>
-                            <td className="p-2">
-                              {g.status === "suspensa" || g.status === "validada" ? (
-                                <span className="text-emerald-700 font-semibold">✓ Validade / Atingida</span>
-                              ) : (
-                                <span className="text-amber-700 font-semibold">⟳ Em Análise</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))
+                      {data.goalsList.length > 0 ? (
+                        data.goalsList.map((g, idx) => {
+                          const st = goalStatusLabel(g.status);
+                          return (
+                            <tr key={idx}>
+                              <td className="p-2 font-medium">{g.domain}</td>
+                              <td className="p-2">{g.description}</td>
+                              <td className="p-2">
+                                <span
+                                  className={`font-semibold ${st.tone === "ok" ? "text-emerald-700" : st.tone === "back" ? "text-rose-700" : "text-amber-700"}`}
+                                >
+                                  {st.text}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
-                        <>
-                          <tr key="fallback-goal-1">
-                            <td className="p-2 font-medium">Comunicação Verbal (ABA)</td>
-                            <td className="p-2">Solicitar itens desejados por gesto/apontar de forma independente</td>
-                            <td className="p-2"><span className="text-emerald-700 font-semibold">✓ Atingida</span></td>
-                          </tr>
-                          <tr key="fallback-goal-2">
-                            <td className="p-2 font-medium">Terapia Ocupacional</td>
-                            <td className="p-2">Manter autorregulação em ambiente com estímulo sonoro por 30 min</td>
-                            <td className="p-2"><span className="text-emerald-700 font-semibold">✓ Atingida</span></td>
-                          </tr>
-                          <tr key="fallback-goal-3">
-                            <td className="p-2 font-medium">Fonoaudiologia</td>
-                            <td className="p-2">Produção dos fonemas /r/ e /l/ em sílabas simples sem auxílio</td>
-                            <td className="p-2"><span className="text-amber-700 font-semibold">⟳ Em Aquisição</span></td>
-                          </tr>
-                        </>
+                        <tr>
+                          <td className="p-2 text-ink-faint" colSpan={3}>
+                            Este plano ainda não tem metas.
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -271,18 +207,21 @@ export function RelatorioReavaliacaoDialog({
                 {/* Parecer e Recomendação Médica/Clínica */}
                 <div className="rounded-lg border border-paper-line p-4 space-y-2 text-xs">
                   <h3 className="font-semibold text-ink uppercase tracking-wide border-b border-paper-line pb-1">
-                    4. Parecer Técnico e Recomendação de Continuidade
+                    4. Parecer Técnico e Recomendação de Continuidade (a preencher pelo supervisor)
                   </h3>
-                  <p className="text-ink-soft leading-relaxed">
-                    O paciente apresentou evolução clínica significativa nos domínios de Comunicação e Autorregulação Sensorial durante o período avaliado. Para consolidação dos ganhos e alcance das metas em aquisição, **recomenda-se a renovação do plano terapêutico multidisciplinar** pelo período de mais 6 (seis) meses, na carga horária prescrita pelo médico assistente.
-                  </p>
+                  <div className="space-y-5 pt-2" aria-label="Espaço para o parecer do supervisor">
+                    <div className="border-b border-paper-line-strong" />
+                    <div className="border-b border-paper-line-strong" />
+                    <div className="border-b border-paper-line-strong" />
+                    <div className="border-b border-paper-line-strong" />
+                  </div>
                 </div>
 
                 {/* Assinatura do Supervisor */}
                 <div className="pt-8 text-center space-y-1">
                   <div className="mx-auto w-64 border-b border-ink"></div>
-                  <p className="font-bold text-sm text-ink">{data.supervisorName}</p>
-                  <p className="text-xs text-ink-soft">Supervisor Clínico Responsável · {data.supervisorCouncil}</p>
+                  <p className="font-bold text-sm text-ink">{BLANK}</p>
+                  <p className="text-xs text-ink-soft">Supervisor Clínico Responsável · Conselho/Nº: {BLANK}</p>
                   <p className="text-[11px] text-ink-faint">Data da emissão: {new Date().toLocaleDateString("pt-BR")}</p>
                 </div>
               </div>
