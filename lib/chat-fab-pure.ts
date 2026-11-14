@@ -18,3 +18,8 @@ export function shouldShowChatFab(role: string | null | undefined, pathname: str
   if (CHAT_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return false;
   return isPathAllowedForRole(role as Role, CHAT_FAB_HREF);
 }
+
+/** Número do balão: acima de 99 vira "99+" para não estourar o círculo. */
+export function formatBadgeCount(n: number): string {
+  return n > 99 ? "99+" : String(n);
+}
