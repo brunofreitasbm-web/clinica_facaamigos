@@ -23,6 +23,7 @@ const TABS: { key: SupervisaoTabKey; label: string }[] = [
 const PRONTUARIO_LINK = { key: "prontuario-unificado", label: "Prontuário Unificado", href: "/supervisao/prontuario-unificado", icon: ShieldCheck } as const;
 
 const GESTAO_LINKS = [
+  { key: "reagendamentos", label: "Reagendamentos a aprovar", href: "/supervisao/reagendamentos", icon: CalendarRange },
   { key: "disponibilidade", label: "Disponibilidade", href: "/supervisao/disponibilidade", icon: CalendarClock },
   { key: "recursos", label: "Recursos e reservas", href: "/supervisao/recursos", icon: Boxes },
   { key: "emergencias", label: "Aviso Falta Terapeuta", href: "/recepcao/emergencias", icon: UserX },
