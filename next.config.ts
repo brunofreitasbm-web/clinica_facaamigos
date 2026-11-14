@@ -21,8 +21,10 @@ const nextConfig: NextConfig = {
     // já visitada ou pré-carregada pelo Link (prefetch) reaparece na hora ao
     // voltar ao menu. Mutações (Server Actions com revalidatePath) continuam
     // invalidando esse cache, então o dado não fica defasado depois de salvar.
+    // Em desenvolvimento fica em 0: senão, ao editar uma tela e trocar de menu
+    // em até 30s, o cliente mostra a versão antiga em vez do código novo.
     staleTimes: {
-      dynamic: 30,
+      dynamic: process.env.NODE_ENV === "development" ? 0 : 30,
     },
     serverActions: {
       // Default do Next é 1MB — quebra silenciosamente o upload do PDF de
