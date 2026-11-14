@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Smile } from "lucide-react";
+import { Smile } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -19,17 +19,7 @@ import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
  * Auditoria), o `match` de cada item é a fonte de verdade.
  */
 const NAV_ITEMS = [
-  { key: "painel", label: "Painel", href: "/gestor", match: ["/gestor", "/gestor/dashboard"] },
   { key: "inteligencia", label: "Inteligência BI", href: "/gestor/inteligencia" },
-  {
-    key: "atendimento",
-    label: "Chat",
-    href: "/recepcao/atendimento",
-    icon: MessageCircle,
-    // Único item que sai do módulo Gestão pra outro (outro layout, outro
-    // cabeçalho) — ganha o ícone de saída em vez de fingir que é interno.
-    external: true,
-  },
   { key: "nps", label: "NPS", href: "/gestor/nps", icon: Smile },
   { key: "equipe", label: "Pessoas & Desempenho", href: "/gestor/bonificacao", match: ["/gestor/bonificacao", "/gestor/metas"] },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
@@ -48,11 +38,11 @@ export function GestorNav({ npsBadge }: { npsBadge?: React.ReactNode }) {
   return (
     <ModuleHeader
       module="Gestão"
-      homeHref="/gestor"
+      homeHref="/gestor/inteligencia"
       navLabel="Seções da gestão"
       items={items}
-      // Painel executivo (/gestor) é o principal e a marca leva a ele; as
-      // métricas operacionais (/gestor/dashboard) são um detalhe dele.
+      // Menu Painel removido: a marca leva à Inteligência BI, que agora
+      // reúne as métricas operacionais.
       // Maturidade não é item desta barra — nenhum item fica sublinhado.
       noActiveOn={["/gestor/maturidade"]}
     />

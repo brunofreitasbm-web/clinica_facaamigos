@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getInteligenciaMetrics } from "./data";
@@ -18,6 +19,11 @@ export default async function InteligenciaPage({ searchParams }: InteligenciaPag
 
   return (
     <main className="flex flex-1 flex-col bg-paper">
+      <div className="flex justify-end px-6 pt-4">
+        <Link href="/gestor/inteligencia/operacional" className="btn btn-secondary">
+          Métricas operacionais →
+        </Link>
+      </div>
       <InteligenciaClient initialMetrics={metrics} clinicId={DEV_CLINIC_ID} currentPeriodKey={periodKey} />
     </main>
   );

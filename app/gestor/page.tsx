@@ -149,7 +149,7 @@ export default async function GestorPage() {
           <h1 className="m-0">Metas por cargo e vazamentos de receita</h1>
         </div>
         <div className="flex flex-wrap items-end gap-8">
-          <Link href="/gestor/dashboard" className="btn btn-secondary">
+          <Link href="/gestor/inteligencia/operacional" className="btn btn-secondary">
             Métricas operacionais →
           </Link>
           <div>
