@@ -16,6 +16,14 @@ const nextConfig: NextConfig = {
     // evolução) ficam retidas e reenviadas sozinhas quando a rede volta, em
     // vez de falhar. Ver app/manifest.ts e components/offline-banner.tsx.
     useOffline: true,
+    // Cache do roteador no cliente para páginas dinâmicas (default do Next: 0s,
+    // ou seja, toda troca de menu refaz a ida ao servidor). Com 30s, uma tela
+    // já visitada ou pré-carregada pelo Link (prefetch) reaparece na hora ao
+    // voltar ao menu. Mutações (Server Actions com revalidatePath) continuam
+    // invalidando esse cache, então o dado não fica defasado depois de salvar.
+    staleTimes: {
+      dynamic: 30,
+    },
     serverActions: {
       // Default do Next é 1MB — quebra silenciosamente o upload do PDF de
       // acolhimento (uploadIntakeBatch, até 25MB) e também o upload direto
