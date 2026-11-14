@@ -74,8 +74,18 @@ function SummaryList({ job }: { job: PortalRobotJobView }) {
 /**
  * Cartão do robô. `target`: o contato novo (etapa 2 de Autorizações) ou a guia
  * em renovação (linha "Renovação pedida" dos pacotes autorizados).
+ * `minimal` (Fila de entrada): parado, vira só um link; o quadro aparece quando há pedido em andamento,
+ * e o resultado já concluído (enviado/simulado) não se repete em "Aguardando plano".
  */
-export function PortalRobotPanel({ target, canRequest }: { target: PortalRobotTarget; canRequest: boolean }) {
+export function PortalRobotPanel({
+  target,
+  canRequest,
+  minimal = false,
+}: {
+  target: PortalRobotTarget;
+  canRequest: boolean;
+  minimal?: boolean;
+}) {
   const router = useRouter();
   // Objeto estável: o pai recria `target` a cada render.
   const { kind, id } = target;
@@ -122,20 +132,24 @@ export function PortalRobotPanel({ target, canRequest }: { target: PortalRobotTa
   // Guia marcada à mão (sem pedido ao robô): nada a mostrar, o cartão já diz quem enviou.
   if (!canRequest && !job) return null;
   const online = state.agentOnline;
+  const quietDone = minimal && !canRequest && job !== null && (job.status === "enviado" || job.status === "simulado");
+  if (minimal && !canRequest && (!job || job.status === "cancelado" || quietDone)) return null;
 
   return (
-    <div className="flex flex-col gap-2 border-t border-paper-line-strong pt-2">
-      <p className="m-0 flex items-center gap-1.5 text-[12px] text-ink-soft">
-        <span
-          aria-hidden="true"
-          className={`inline-block h-2 w-2 rounded-full ${online ? "bg-status-positive-text" : "bg-status-neutral"}`}
-        />
-        {online ? "Robô do portal ligado" : "Robô do portal desligado"}
-        <HelpHint
-          text="O robô roda num computador da clínica. Ele preenche o portal do plano, anexa o laudo e para no resumo para você confirmar aqui."
-          label="Ajuda: robô do portal"
-        />
-      </p>
+    <div className={`flex flex-col gap-2 ${minimal ? "" : "border-t border-paper-line-strong pt-2"}`}>
+      {(!minimal || open) && (
+        <p className="m-0 flex items-center gap-1.5 text-[12px] text-ink-soft">
+          <span
+            aria-hidden="true"
+            className={`inline-block h-2 w-2 rounded-full ${online ? "bg-status-positive-text" : "bg-status-neutral"}`}
+          />
+          {online ? "Robô do portal ligado" : "Robô do portal desligado"}
+          <HelpHint
+            text="O robô roda num computador da clínica. Ele preenche o portal do plano, anexa o laudo e para no resumo para você confirmar aqui."
+            label="Ajuda: robô do portal"
+          />
+        </p>
+      )}
 
       {job && open && (
         <div role="status" className="flex flex-col gap-1.5 rounded-md border border-paper-line-strong bg-white px-2.5 py-2">
@@ -223,12 +237,25 @@ export function PortalRobotPanel({ target, canRequest }: { target: PortalRobotTa
         </div>
       )}
 
-      {canRequest && !open && (
+      {canRequest && !open && !minimal && (
         <div>
           <Btn onClick={() => setShowForm(true)} disabled={isPending}>
             {job && (job.status === "erro" || job.status === "simulado") ? "Enviar pelo robô de novo" : "Enviar pelo robô"}
           </Btn>
         </div>
+      )}
+      {canRequest && !open && minimal && (
+        <p className="m-0 flex flex-wrap items-center gap-2 text-base text-ink-soft">
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            disabled={isPending}
+            className="inline-flex min-h-10 items-center font-semibold text-[var(--color-accent)] underline disabled:opacity-50"
+          >
+            {job && (job.status === "erro" || job.status === "simulado") ? "Enviar pelo robô do portal de novo" : "Enviar pelo robô do portal"}
+          </button>
+          {!online && <span className="text-sm">(robô desligado: o pedido espera na fila)</span>}
+        </p>
       )}
 
       {feedback && (

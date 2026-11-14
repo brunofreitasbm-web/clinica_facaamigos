@@ -130,6 +130,7 @@ test("toFilaDetail leva as marcas do plano e não leva campos pesados além do q
     "error",
     "facts",
     "files",
+    "hasPlan",
     "mergedDraftsCount",
     "patientName",
     "pills",
@@ -140,6 +141,11 @@ test("toFilaDetail leva as marcas do plano e não leva campos pesados além do q
   assert.equal("authorizedGuide" in d.pipeline, false);
   assert.equal(d.mergedDraftsCount, 2);
   assert.equal(toFilaDetail({ ...SOURCE, mergedDraftsCount: undefined }).mergedDraftsCount, null);
+});
+
+test("toFilaDetail: hasPlan vem das pendências e é falso quando a informação não veio (robô só com plano)", () => {
+  assert.equal(toFilaDetail({ ...SOURCE, pendencies: { ...SOURCE.pendencies, hasPlan: true } }).hasPlan, true);
+  assert.equal(toFilaDetail({ ...SOURCE, pendencies: { pills: SOURCE.pendencies.pills } }).hasPlan, false);
 });
 
 test("rota: sessão antes do id, 401 JSON sem cache, consolidado sem persistir, nunca o avulso como primeira fonte", () => {

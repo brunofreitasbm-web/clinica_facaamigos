@@ -28,6 +28,7 @@ import {
   type FilaDetail,
 } from "@/lib/fila/fila-detail-pure";
 import { FilaNextStep } from "./fila-next-step";
+import { FilaDocRequest } from "./fila-doc-request";
 import type { UndoEntry } from "./undo-toast";
 
 const AUTH_MESSAGE = "Sua sessão expirou. Entre de novo.";
@@ -48,6 +49,11 @@ const TRAIL_STYLE: Record<TrailState, string> = {
   current: "border-[var(--color-accent)] bg-[var(--color-accent-100)]",
   locked: "border-dashed border-paper-line-strong bg-white",
 };
+
+/** Data do pedido mais recente deste documento (os pedidos vêm das mensagens enviadas com o modelo). */
+function lastRequestAt(requests: { key: string; sentAt: string }[], key: string): string | null {
+  return requests.filter((r) => r.key === key).reduce<string | null>((latest, r) => (!latest || r.sentAt > latest ? r.sentAt : latest), null);
+}
 
 /**
  * Detalhe de uma família. O que muda é só o cartão "Próximo passo"; o resto é consulta (documentos, dados para
@@ -248,12 +254,21 @@ export function FilaDetailPanel({
                   {docPills.map((pill) => (
                     <li
                       key={pill.key}
-                      className={`flex min-h-12 flex-wrap items-center justify-between gap-2 rounded-xl border-[1.5px] px-3.5 py-2 ${
+                      className={`flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border-[1.5px] px-3.5 py-2 ${
                         pill.state === "faltando" ? "border-amber-700 bg-amber-50 text-amber-900" : "border-paper bg-paper text-ink"
                       }`}
                     >
                       <span className="text-base font-bold">{pill.label}</span>
-                      <span className="text-[15px] font-bold">{DOC_STATE_LABEL[pill.state] ?? pill.state}</span>
+                      <span className="ml-auto text-[15px] font-bold">{DOC_STATE_LABEL[pill.state] ?? pill.state}</span>
+                      {pill.chaseKey && (pill.state === "faltando" || pill.state === "aviso") && (
+                        <FilaDocRequest
+                          draftId={item.draftId}
+                          chaseKey={pill.chaseKey}
+                          patientName={detail.patientName}
+                          lastSentAt={lastRequestAt(detail.documentRequests, pill.chaseKey)}
+                          locked={isDetailLocked(load)}
+                        />
+                      )}
                     </li>
                   ))}
                 </ul>

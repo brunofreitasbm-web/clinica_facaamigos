@@ -24,7 +24,7 @@ export default async function PendenciasRedirectPage({
     const queue = await getReceptionQueue(supabase);
     const item = queue.find((i) => i.draft?.id === params.lead);
     if (item) {
-      if (isAuthorizationQueueItem(item)) redirect(`/recepcao/a-autorizar?item=${encodeURIComponent(item.id)}`);
+      if (isAuthorizationQueueItem(item)) redirect(`/recepcao/fila?item=${encodeURIComponent(item.id)}`);
       if (item.patientId) redirect(`/recepcao/pacientes?abrir=${encodeURIComponent(item.patientId)}`);
     }
   }

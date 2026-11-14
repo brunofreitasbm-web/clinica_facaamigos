@@ -89,6 +89,9 @@ export async function reassignQueueItem(itemId: string, assigneeId: string): Pro
   }
 
   revalidatePath("/recepcao/pacientes/pendencias");
+  // Fila de entrada e Autorizações mostram o dono no painel: sem isto o nome ficava velho até recarregar.
+  revalidatePath("/recepcao/fila");
+  revalidatePath("/recepcao/a-autorizar");
   return { success: true };
 }
 

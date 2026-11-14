@@ -14,10 +14,11 @@ const NAV_ITEMS = [
   { key: "agenda", label: "Agenda do dia", href: "/recepcao", match: ["/recepcao", "/recepcao/agenda"], icon: CalendarDays },
   { key: "chegadas", label: "Chegadas", href: "/recepcao/chegadas", icon: DoorOpen },
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
-  { key: "a-autorizar", label: "Autorizações", href: "/recepcao/a-autorizar", match: ["/recepcao/a-autorizar", "/recepcao/pre-cadastros"], icon: ShieldCheck },
-  // Fila de entrada (nova, em paralelo): mesmas famílias de Autorizações, com um único próximo passo por vez.
-  // Sem selo de contagem de propósito: o número já está em Autorizações e as abas da própria tela têm as contagens.
-  { key: "fila", label: "Fila de entrada", href: "/recepcao/fila", icon: ListChecks },
+  // Fila de entrada é a tela principal do lead do WhatsApp (11/2026): mesmas famílias e mesmas ações de
+  // Autorizações, com um único próximo passo por vez. O selo de contagem e o pré-cadastro moram nela.
+  { key: "fila", label: "Fila de entrada", href: "/recepcao/fila", match: ["/recepcao/fila", "/recepcao/pre-cadastros"], icon: ListChecks },
+  // Autorizações fica acessível durante a transição e sai do menu num passo seguinte.
+  { key: "a-autorizar", label: "Autorizações", href: "/recepcao/a-autorizar", icon: ShieldCheck },
   { key: "atendimento", label: "Chat", href: "/recepcao/atendimento", icon: MessageSquare },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText },
   // "Cadastro IA" (/recepcao/pre-cadastros) saiu da navegação em 20/09/2026:
@@ -35,14 +36,14 @@ export function RecepcaoNav({
   chegadasCount,
   toAuthorizeCount,
 }: {
-  /** Leads do WhatsApp aguardando autorização do plano — ver app/recepcao/a-autorizar. */
+  /** Famílias novas do WhatsApp na Fila de entrada (mesma conta de Autorizações) — ver app/recepcao/fila. */
   toAuthorizeCount?: number;
   /** Chegadas declaradas pelo QR ainda não confirmadas — ver app/recepcao/chegadas. */
   chegadasCount?: number;
 }) {
   const items: ModuleNavItem[] = NAV_ITEMS.map((item) => ({
     ...item,
-    badge: item.key === "chegadas" ? chegadasCount : item.key === "a-autorizar" ? toAuthorizeCount : undefined,
+    badge: item.key === "chegadas" ? chegadasCount : item.key === "fila" ? toAuthorizeCount : undefined,
   }));
 
   return (

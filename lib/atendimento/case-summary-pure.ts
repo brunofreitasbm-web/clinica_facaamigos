@@ -180,8 +180,8 @@ export function buildCaseSummary(input: CaseSummaryInput): CaseSummaryView {
     } else if (stage && !stage.allDone) {
       next = {
         kind: "open_authorization",
-        label: "Abrir em Autorizações",
-        href: `/recepcao/a-autorizar?item=${encodeURIComponent(draft.id)}`,
+        label: "Abrir na Fila de entrada",
+        href: `/recepcao/fila?item=${encodeURIComponent(draft.id)}`,
       };
     } else if (stage?.allDone) {
       next = { kind: "none", label: "", note: "Pronto para agendar a 1ª avaliação." };
