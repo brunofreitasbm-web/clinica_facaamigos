@@ -2,16 +2,101 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronDown, Camera, KeyRound, LogOut, type LucideIcon } from "lucide-react";
+import { ChevronDown, Camera, KeyRound, LogOut, UserRound, type LucideIcon } from "lucide-react";
 import { signOut } from "@/app/login/actions";
-import { uploadOwnAvatar, changeOwnPassword } from "@/app/conta/actions";
+import { uploadOwnAvatar, changeOwnPassword, getOwnProfile, saveOwnProfile, type OwnProfile } from "@/app/conta/actions";
+import { formatCpfMask, formatPhoneMask } from "@/lib/masks";
 import { prepareFormDataFile } from "@/lib/compress-image";
 import { useBackLayers } from "@/lib/use-back-handler";
 import type { CurrentUserMenu } from "@/lib/current-user-menu";
 
 export type PersonalLink = { key: string; label: string; href: string; icon?: LucideIcon };
 
-type Dialog = null | "avatar" | "password";
+type Dialog = null | "avatar" | "password" | "profile";
+
+/** Formulário "Meu cadastro": carrega os dados ao abrir e salva só campos pessoais. */
+function ProfileForm({ onClose }: { onClose: () => void }) {
+  const [form, setForm] = useState<OwnProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    let alive = true;
+    getOwnProfile().then((res) => {
+      if (!alive) return;
+      if (!res.success) return setError(res.error);
+      setForm({ ...res.profile, cpf: formatCpfMask(res.profile.cpf), phone: formatPhoneMask(res.profile.phone) });
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (done) {
+    return (
+      <>
+        <p className="text-sm text-ink-soft">Cadastro atualizado.</p>
+        <div className="dialog-actions">
+          <button type="button" className="btn btn-primary" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </>
+    );
+  }
+  if (!form) {
+    return error ? <p className="text-xs text-status-negative-text">{error}</p> : <p className="text-sm text-ink-faint">Carregando…</p>;
+  }
+
+  const set = (k: keyof OwnProfile, v: string) => setForm({ ...form, [k]: v });
+
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        setError(null);
+        startTransition(async () => {
+          const result = await saveOwnProfile(formData);
+          if (!result.success) return setError(result.error);
+          setDone(true);
+        });
+      }}
+    >
+      <label className="flex flex-col gap-1 text-xs font-semibold">
+        Nome completo
+        <input name="fullName" required value={form.fullName} onChange={(e) => set("fullName", e.target.value)} autoComplete="name" className="input" />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-semibold">
+        CPF
+        <input name="cpf" inputMode="numeric" placeholder="000.000.000-00" value={form.cpf} onChange={(e) => set("cpf", formatCpfMask(e.target.value))} className="input" />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-semibold">
+        E-mail
+        <input name="email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} autoComplete="email" className="input" />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-semibold">
+        Telefone
+        <input name="phone" type="tel" inputMode="tel" placeholder="(00) 00000-0000" value={form.phone} onChange={(e) => set("phone", formatPhoneMask(e.target.value))} className="input" />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-semibold">
+        Data de nascimento
+        <input name="birthDate" type="date" value={form.birthDate} onChange={(e) => set("birthDate", e.target.value)} className="input" />
+      </label>
+      {error && <p className="text-xs text-status-negative-text">{error}</p>}
+      <div className="dialog-actions">
+        <button type="button" className="btn btn-ghost" onClick={onClose}>
+          Cancelar
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={isPending}>
+          {isPending ? "Salvando…" : "Salvar cadastro"}
+        </button>
+      </div>
+    </form>
+  );
+}
 
 function initialsOf(name: string) {
   return (
@@ -101,6 +186,19 @@ export function UserMenu({ user, personalLinks = [] }: { user: CurrentUserMenu; 
           <div className="border-b px-3 py-2" style={{ borderColor: "var(--color-neutral-200)" }}>
             <div className="truncate font-semibold">{user.name}</div>
             {user.email && <div className="truncate text-xs text-ink-faint">{user.email}</div>}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setDialog("profile");
+              }}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold hover:bg-paper-line cursor-pointer"
+              style={{ borderColor: "var(--color-neutral-200)" }}
+            >
+              <UserRound size={13} aria-hidden />
+              Meu cadastro
+            </button>
           </div>
 
           {personalLinks.map((link) => {
@@ -162,7 +260,12 @@ export function UserMenu({ user, personalLinks = [] }: { user: CurrentUserMenu; 
       {dialog !== null && (
         <div className="dialog-backdrop" onClick={closeDialog}>
           <div className="dialog" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
-            {dialog === "avatar" ? (
+            {dialog === "profile" ? (
+              <>
+                <div className="dialog-title">Meu cadastro</div>
+                <ProfileForm onClose={closeDialog} />
+              </>
+            ) : dialog === "avatar" ? (
               <>
                 <div className="dialog-title">Foto de perfil</div>
                 {done ? (
@@ -268,7 +371,7 @@ export function UserMenu({ user, personalLinks = [] }: { user: CurrentUserMenu; 
                 )}
               </>
             )}
-            {done && (
+            {done && dialog !== "profile" && (
               <div className="dialog-actions">
                 <button type="button" className="btn btn-primary" onClick={closeDialog}>
                   Fechar
