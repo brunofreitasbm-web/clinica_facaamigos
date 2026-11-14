@@ -4,8 +4,6 @@ import { BackButton } from "@/components/back-button";
 import { PatientTabs, type FrequencyDay, type GoalRow, type EvolutionNote, type BillingRow } from "@/components/prontuario/patient-tabs";
 import { PatientIdentityBar } from "@/components/patient-identity-bar";
 import { StageChecklist } from "@/components/stage-checklist";
-import { IntakeChecklist } from "@/components/intake-checklist";
-import { getIntakeSteps } from "@/lib/intake-steps";
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
 import { getPatientJourney } from "@/lib/patient-journey";
@@ -80,7 +78,6 @@ export default async function PacientePage({
     .eq("patient_id", id);
 
   const journey = await getPatientJourney(supabase, patient);
-  const intakeSteps = await getIntakeSteps(supabase, id);
 
   // Header de identificação (PRD §1) — lógica compartilhada com a tela de
   // evolução do terapeuta via lib/patient-identity.ts.
@@ -182,9 +179,9 @@ export default async function PacientePage({
   } = await supabase.auth.getUser();
 
   let canUploadDocuments = false;
-  // Quem pode de fato abrir /supervisao pra usar os links do checklist de
-  // entrada (ver lib/roles.ts ROLE_ALLOWED_PREFIXES) — recepção não pode,
-  // o middleware manda de volta; ver IntakeChecklist.linksNavigable.
+  // Quem pode de fato abrir /supervisao pra usar os links do quadro de
+  // próximo passo (ver lib/roles.ts ROLE_ALLOWED_PREFIXES) — recepção não pode,
+  // o middleware manda de volta.
   let canNavigateToSupervisao = false;
   // Quadro "Próximo passo": todos veem o status; só recepção/gestor agem.
   let canActOnJourney = false;
@@ -676,44 +673,6 @@ export default async function PacientePage({
                 <AbsenceReportsList patientId={patient.id} reports={pendingAbsenceReports} />
               </div>
             )}
-
-            <div id="checklist-entrada" className="scroll-mt-6 card">
-              <div className="card-kicker">Checklist operacional de entrada</div>
-              <IntakeChecklist
-                patientId={patient.id}
-                steps={intakeSteps}
-                manualSteps={{
-                  primeiro_contato: "Registrar contato",
-                  contrato_enviado: "Marcar contrato enviado",
-                  pagamento_confirmado: "Confirmar pagamento",
-                  grupo_whatsapp: "Incluído no grupo",
-                }}
-                links={{
-                  anamnese_realizada: {
-                    label: "Registrar 1ª avaliação (anamnese)",
-                    href: `/supervisao/pacientes/${patient.id}/anamnese`,
-                    navigable: canNavigateToSupervisao,
-                  },
-                  equipe_definida: { label: "Definir equipe", href: `/recepcao/pacientes/${patient.id}/gestao#equipe` },
-                  reuniao_interdisciplinar: {
-                    label: "Nova reunião",
-                    href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=interdisciplinar`,
-                    navigable: canNavigateToSupervisao,
-                  },
-                  pts_construido: {
-                    label: "Montar PTS",
-                    href: `/supervisao/planos/novo?paciente=${patient.id}`,
-                    navigable: canNavigateToSupervisao,
-                  },
-                  pts_validado: { label: "Fila de aprovação", href: `/supervisao`, navigable: canNavigateToSupervisao },
-                  devolutiva_familia: {
-                    label: "Registrar devolutiva",
-                    href: `/supervisao/reunioes/nova?paciente=${patient.id}&tipo=devolutiva`,
-                    navigable: canNavigateToSupervisao,
-                  },
-                }}
-              />
-            </div>
 
             <div id="guias" className="scroll-mt-6 card">
               <div className="mb-3.5 flex items-center justify-between gap-3">
