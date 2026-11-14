@@ -36,7 +36,7 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
       "id, full_name, status, birth_date, cpf, created_at, evaluated_at, first_session_at, guardians(full_name, is_financial, email), patient_insurance(is_private, insurers(name, badge_color))",
     )
     .eq("clinic_id", DEV_CLINIC_ID)
-    // Interessado ainda não é paciente (sem prontuário): vive em Autorizações até a
+    // Interessado ainda não é paciente (sem prontuário): vive na Fila de entrada até a
     // guia ser autorizada (promoteToPatient → "avaliacao").
     .neq("status", "interessado")
     .order("full_name");
@@ -169,7 +169,7 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
       <PageHeader
         axisLabel="Recepção"
         title="Pacientes"
-        description="Pacientes da clínica (plano autorizado). Interessados ficam em Autorizações. Para editar o cadastro completo, use Gestão > Cadastros."
+        description="Pacientes da clínica (plano autorizado). Interessados ficam na Fila de entrada. Para editar o cadastro completo, use Gestão > Cadastros."
       />
       <PatientListClient rows={rows} panelsByPatient={panelsByPatient} initialOpenId={params.abrir ?? null} initialFilter={params.filtro === "pendencias" ? "pendencias" : null} />
     </main>

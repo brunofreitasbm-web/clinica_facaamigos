@@ -73,7 +73,6 @@ function parseMemberIds(raw: string, primaryId: string): string[] {
 function refresh(patientId?: string | null) {
   revalidatePath("/recepcao");
   revalidatePath("/recepcao/fila");
-  revalidatePath("/recepcao/a-autorizar");
   revalidatePath("/recepcao/pacientes/pendencias");
   revalidatePath("/supervisao");
   if (patientId) revalidatePath(`/recepcao/pacientes/${patientId}`);

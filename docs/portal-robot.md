@@ -1,6 +1,6 @@
 # Robô de autorização no portal do plano
 
-Automatiza a etapa 2 da linha do tempo de **Autorizações** ("Guia enviada ao
+Automatiza a etapa 2 da linha do tempo da **Fila de entrada** (antiga Autorizações) ("Guia enviada ao
 plano"). Em vez de sair do sistema para preencher o portal do convênio, a
 recepção clica em **Enviar pelo robô** no cartão da etapa 2. Um agente instalado
 num computador da clínica preenche o portal, anexa o laudo, para no resumo e

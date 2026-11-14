@@ -31,7 +31,7 @@ const loose = (admin: ReturnType<typeof createAdminClient>): SupabaseClient => a
 
 function refresh() {
   revalidatePath("/recepcao");
-  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/fila");
   revalidatePath("/recepcao/pacientes/pendencias");
   revalidatePath("/recepcao/atendimento");
   revalidatePath("/supervisao");

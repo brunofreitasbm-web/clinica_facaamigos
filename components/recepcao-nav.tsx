@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Users, ShieldCheck, ListChecks, MessageSquare, FileText, DoorOpen, Trophy } from "lucide-react";
+import { CalendarDays, Users, ListChecks, MessageSquare, FileText, DoorOpen, Trophy } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 
 /**
@@ -17,8 +17,6 @@ const NAV_ITEMS = [
   // Fila de entrada é a tela principal do lead do WhatsApp (11/2026): mesmas famílias e mesmas ações de
   // Autorizações, com um único próximo passo por vez. O selo de contagem e o pré-cadastro moram nela.
   { key: "fila", label: "Fila de entrada", href: "/recepcao/fila", match: ["/recepcao/fila", "/recepcao/pre-cadastros"], icon: ListChecks },
-  // Autorizações fica acessível durante a transição e sai do menu num passo seguinte.
-  { key: "a-autorizar", label: "Autorizações", href: "/recepcao/a-autorizar", icon: ShieldCheck },
   { key: "atendimento", label: "Chat", href: "/recepcao/atendimento", icon: MessageSquare },
   { key: "documentos", label: "Documentos", href: "/recepcao/documentos", icon: FileText },
   // "Cadastro IA" (/recepcao/pre-cadastros) saiu da navegação em 20/09/2026:

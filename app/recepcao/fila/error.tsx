@@ -16,9 +16,8 @@ export default function FilaError({ error, reset }: { error: Error & { digest?: 
       <EmptyState
         icon={AlertCircle}
         title="Não foi possível carregar a fila"
-        description="Nada foi alterado. Tente de novo; se continuar, a tela de Autorizações segue funcionando."
+        description="Nada foi alterado. Tente de novo; se continuar, avise o suporte."
         action={{ label: "Tentar de novo", onClick: reset }}
-        secondaryAction={{ label: "Abrir Autorizações", href: "/recepcao/a-autorizar" }}
       />
     </PageContainer>
   );
