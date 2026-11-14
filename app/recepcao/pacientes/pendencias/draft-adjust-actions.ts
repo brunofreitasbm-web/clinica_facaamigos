@@ -2,11 +2,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { normalizeCpf, normalizePhone } from "@/lib/document-extraction";
 import type { Json } from "@/lib/database.types";
+import { applyAdjustmentToBotCollected } from "@/lib/draft-adjust-pure";
 
 /**
  * Ajuste autônomo de cadastro pela tela de Autorizações / Fila de pendências.
@@ -51,8 +53,25 @@ function text(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Teto de rascunhos mesclados que uma correção atualiza de uma vez (mesmo teto da rota de detalhe da Fila). */
+const MAX_MEMBER_IDS = 20;
+
+/** `bot_collected` não está em database.types.ts (migration 20260921060000): leitura e escrita soltas. */
+type Loose = SupabaseClient;
+
+/** `member_ids` do formulário: os rascunhos mesclados na família, além do que o operador abriu. */
+function parseMemberIds(raw: string, primaryId: string): string[] {
+  const ids = raw
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => UUID_RE.test(id) && id !== primaryId);
+  return [...new Set(ids)].slice(0, MAX_MEMBER_IDS);
+}
+
 function refresh(patientId?: string | null) {
   revalidatePath("/recepcao");
+  revalidatePath("/recepcao/fila");
   revalidatePath("/recepcao/a-autorizar");
   revalidatePath("/recepcao/pacientes/pendencias");
   revalidatePath("/supervisao");
@@ -174,7 +193,7 @@ export async function saveDraftAdjustment(draftId: string, formData: FormData): 
   if (draft.patient_id) {
     if (!birthDate) return { success: false, error: "Informe a data de nascimento." };
 
-    const { error: patientError } = await supabase
+    const { data: patientRows, error: patientError } = await supabase
       .from("patients")
       .update({
         full_name: fullName,
@@ -183,7 +202,8 @@ export async function saveDraftAdjustment(draftId: string, formData: FormData): 
         cid: cid || null,
         complaint: complaint || null,
       })
-      .eq("id", draft.patient_id);
+      .eq("id", draft.patient_id)
+      .select("id");
     if (patientError) {
       return {
         success: false,
@@ -193,10 +213,15 @@ export async function saveDraftAdjustment(draftId: string, formData: FormData): 
             : "Não foi possível atualizar a criança.",
       };
     }
+    // A RLS descarta em silêncio o update de quem não tem permissão (sem erro, 0 linhas): sem esta conferência
+    // a tela diria "Cadastro atualizado" sem ter mudado nada.
+    if (!patientRows || patientRows.length === 0) {
+      return { success: false, error: "Não foi possível atualizar a criança: você não tem permissão para este cadastro." };
+    }
 
     const guardianId = str(formData, "guardian_id") || draft.guardian_id;
     if (guardianId && guardianName) {
-      const { error } = await supabase
+      const { data: guardianRows, error } = await supabase
         .from("guardians")
         .update({
           full_name: guardianName,
@@ -205,49 +230,93 @@ export async function saveDraftAdjustment(draftId: string, formData: FormData): 
           email: guardianEmail || null,
         })
         .eq("id", guardianId)
-        .eq("patient_id", draft.patient_id);
-      if (error) return { success: false, error: "Criança salva, mas não foi possível atualizar o responsável." };
+        .eq("patient_id", draft.patient_id)
+        .select("id");
+      if (error || !guardianRows || guardianRows.length === 0) {
+        return { success: false, error: "Criança salva, mas não foi possível atualizar o responsável." };
+      }
     }
 
     const insuranceId = str(formData, "insurance_id");
     if (insuranceId) {
-      const { error } = await supabase
+      const { data: insuranceRows, error } = await supabase
         .from("patient_insurance")
         .update({ card_number: cardNumber || null })
         .eq("id", insuranceId)
-        .eq("patient_id", draft.patient_id);
-      if (error) return { success: false, error: "Criança salva, mas não foi possível atualizar a carteirinha." };
+        .eq("patient_id", draft.patient_id)
+        .select("id");
+      if (error || !insuranceRows || insuranceRows.length === 0) {
+        return { success: false, error: "Criança salva, mas não foi possível atualizar a carteirinha." };
+      }
     }
   }
 
-  const ext = asRecord(draft.extracted);
-  const nextExtracted = {
-    ...ext,
-    patient: {
-      ...asRecord(ext.patient),
-      full_name: fullName,
-      birth_date: birthDate || null,
-      cpf,
-      cid: cid || null,
-      complaint_hint: complaint || asRecord(ext.patient).complaint_hint || null,
-    },
-    guardian: {
-      ...asRecord(ext.guardian),
-      full_name: guardianName || null,
-      phone: guardianPhone ?? asRecord(ext.guardian).phone ?? null,
-      cpf: guardianCpf,
-      email: guardianEmail || null,
-    },
-    insurance: { ...asRecord(ext.insurance), card_number: cardNumber || null },
-  };
-
-  const { error: draftError } = await supabase
+  // A correção vale para a família inteira: o operador abre o rascunho principal, mas a fila mostra os
+  // rascunhos mesclados juntos, e um secundário com o valor antigo desfaria a correção (mergeExtractedData
+  // prefere a string mais longa e nunca limpa). Por isso todos os rascunhos da família recebem o mesmo ajuste.
+  const memberIds = parseMemberIds(str(formData, "member_ids"), draftId);
+  const loose = supabase as unknown as Loose;
+  const { data: familyRows, error: familyError } = await loose
     .from("registration_drafts")
-    .update({ extracted: nextExtracted as Json })
-    .eq("id", draftId);
-  if (draftError) return { success: false, error: "Dados salvos, mas a fila não pôde ser atualizada." };
+    .select("id, extracted, bot_collected")
+    .in("id", [draftId, ...memberIds]);
+  if (familyError) return { success: false, error: "Dados salvos, mas a fila não pôde ser atualizada." };
+
+  let secondaryFailed = false;
+  for (const row of (familyRows ?? []) as { id: string; extracted: unknown; bot_collected: unknown }[]) {
+    const ext = asRecord(row.extracted);
+    const nextExtracted = {
+      ...ext,
+      patient: {
+        ...asRecord(ext.patient),
+        full_name: fullName,
+        birth_date: birthDate || null,
+        cpf,
+        cid: cid || null,
+        complaint_hint: complaint || asRecord(ext.patient).complaint_hint || null,
+      },
+      guardian: {
+        ...asRecord(ext.guardian),
+        full_name: guardianName || null,
+        phone: guardianPhone ?? asRecord(ext.guardian).phone ?? null,
+        cpf: guardianCpf,
+        email: guardianEmail || null,
+      },
+      insurance: { ...asRecord(ext.insurance), card_number: cardNumber || null },
+    };
+    const nextBot = applyAdjustmentToBotCollected(row.bot_collected, {
+      childName: fullName,
+      birthDate,
+      guardianName,
+      guardianCpf,
+      guardianEmail,
+      cardNumber,
+    });
+    const { data: updated, error: draftError } = await loose
+      .from("registration_drafts")
+      .update({ extracted: nextExtracted as Json, ...(nextBot ? { bot_collected: nextBot as Json } : {}) })
+      .eq("id", row.id)
+      .select("id");
+    const ok = !draftError && updated && updated.length > 0;
+    if (!ok) {
+      if (row.id === draftId) return { success: false, error: "Dados salvos, mas a fila não pôde ser atualizada." };
+      secondaryFailed = true;
+    }
+  }
+  if (!(familyRows ?? []).some((r) => (r as { id: string }).id === draftId)) {
+    return { success: false, error: "Contato não encontrado." };
+  }
 
   refresh(draft.patient_id);
+  if (secondaryFailed) {
+    return { success: true, note: "Cadastro atualizado, mas uma das conversas unificadas não pôde ser ajustada. Confira os dados." };
+  }
+  if (!draft.patient_id) {
+    return {
+      success: true,
+      note: "Salvo na fila. Esta criança ainda não tem prontuário: os dados entram no cadastro quando você usar “Conferir e cadastrar”.",
+    };
+  }
   return { success: true };
 }
 
