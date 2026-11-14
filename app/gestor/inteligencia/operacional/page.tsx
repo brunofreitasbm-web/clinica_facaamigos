@@ -37,12 +37,12 @@ export default async function GestorDashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <h6 style={{ color: "var(--color-accent-2-600)" }} className="mb-1">
-            Painel · Operação
+            Inteligência BI · Operação
           </h6>
           <h1 className="m-0">Métricas operacionais</h1>
         </div>
-        <Link href="/gestor" className="btn btn-secondary">
-          ← Voltar ao painel executivo
+        <Link href="/gestor/inteligencia" className="btn btn-secondary">
+          ← Voltar à Inteligência BI
         </Link>
       </div>
 

@@ -2,7 +2,7 @@ import { ACTIVE_PATIENT_STATUSES } from "@/lib/patient-status";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
-import { currentMonthRange, hoursBetween } from "../data";
+import { currentMonthRange, hoursBetween } from "@/app/gestor/data";
 
 type Supa = SupabaseClient<Database>;
 
