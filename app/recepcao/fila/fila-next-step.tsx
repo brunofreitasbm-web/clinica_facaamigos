@@ -251,6 +251,7 @@ export function FilaNextStep({
   const primaryClass = "btn btn-primary min-h-11 justify-center gap-2 text-[17px]";
   const secondaryClass = "btn btn-secondary min-h-11 justify-center text-base";
   const ghostClass = "btn btn-ghost min-h-11 justify-center text-base";
+  const linkClass = "inline-flex min-h-10 items-center font-semibold text-[var(--color-accent)] underline disabled:opacity-50";
   const spinner = isPending ? <Loader2 size={16} className="animate-spin" aria-hidden /> : null;
 
   const askSuccess = `Pedido enviado. ${firstName} foi para "Aguardando família".`;
@@ -407,17 +408,6 @@ export function FilaNextStep({
             </>
           )}
 
-          {confirm === null && step.kind === "send_guide" && (
-            <>
-              {/* Guia enviada por fora e o plano já respondeu: registra direto, o servidor marca a guia como enviada. */}
-              <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={() => setGuideOpen(true)}>
-                Plano já autorizou
-              </button>
-              <button type="button" disabled={isPending || locked} className={ghostClass} onClick={waiveAuthorization}>
-                Particular, sem guia
-              </button>
-            </>
-          )}
           {confirm === null && step.kind === "plan_more_docs" && (
             <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={registerGuideSent}>
               Guia reenviada ao plano
@@ -439,17 +429,32 @@ export function FilaNextStep({
         </div>
       </div>
 
-      {/* Robô do portal (docs/portal-robot.md), o mesmo de Autorizações: pede e confirma o envio no passo da guia;
-          depois, só acompanha. Quando o robô termina, ele mesmo marca a guia como enviada e a família muda de aba. */}
+      {/* Robô do portal (docs/portal-robot.md), o mesmo de Autorizações, em modo discreto: parado é só um link;
+          com pedido em andamento mostra o progresso e a confirmação. Quando termina, ele mesmo marca a guia como
+          enviada e a família muda de aba. */}
       {confirm === null && detail?.hasPlan && step.kind === "send_guide" && (
-        <div className="mt-4">
-          <PortalRobotPanel target={{ kind: "draft", id: item.draftId }} canRequest />
+        <div className="mt-3">
+          <PortalRobotPanel target={{ kind: "draft", id: item.draftId }} canRequest minimal />
         </div>
       )}
       {confirm === null && step.kind === "wait_plan" && (
-        <div className="mt-4">
-          <PortalRobotPanel target={{ kind: "draft", id: item.draftId }} canRequest={false} />
+        <div className="mt-3">
+          <PortalRobotPanel target={{ kind: "draft", id: item.draftId }} canRequest={false} minimal />
         </div>
+      )}
+
+      {/* Saídas menos comuns do passo da guia, como links para não competir com o botão principal. */}
+      {confirm === null && step.kind === "send_guide" && (
+        <p className="m-0 mt-1 flex flex-wrap items-center gap-x-2 text-base text-ink-soft">
+          Outra situação?
+          <button type="button" disabled={isPending || locked} className={linkClass} onClick={() => setGuideOpen(true)}>
+            O plano já autorizou
+          </button>
+          <span aria-hidden>·</span>
+          <button type="button" disabled={isPending || locked} className={linkClass} onClick={waiveAuthorization}>
+            Particular, sem guia
+          </button>
+        </p>
       )}
 
       {/* Sem resposta há mais de 24 h o pedido livre é recusado pela Meta: a saída é o modelo de abertura. */}

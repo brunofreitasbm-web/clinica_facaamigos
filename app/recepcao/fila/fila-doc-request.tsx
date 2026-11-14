@@ -63,15 +63,21 @@ export function FilaDocRequest({
   };
 
   return (
-    <div className="flex w-full flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {lastSentAt && <span className="text-sm text-ink-soft">pedido em {fmtDateTime(lastSentAt, CLINIC_TIMEZONE)}</span>}
-        {!open && (
-          <button type="button" disabled={isPending || locked} onClick={onAsk} className="btn btn-secondary min-h-10 text-[15px]">
-            {lastSentAt ? "Pedir de novo" : "Pedir este"}
+    // Fechado é só um link na mesma linha do documento; a conferência abre embaixo, ocupando a linha inteira.
+    <div className={open ? "flex w-full flex-col gap-2" : "contents"}>
+      {!open && (
+        <span className="flex items-center gap-2">
+          {lastSentAt && <span className="text-sm font-normal opacity-80">pedido em {fmtDateTime(lastSentAt, CLINIC_TIMEZONE)}</span>}
+          <button
+            type="button"
+            disabled={isPending || locked}
+            onClick={onAsk}
+            className="inline-flex min-h-10 items-center text-[15px] font-semibold text-[var(--color-accent)] underline disabled:opacity-50"
+          >
+            {lastSentAt ? "Pedir de novo" : "Pedir"}
           </button>
-        )}
-      </div>
+        </span>
+      )}
       {open && (
         <div role="group" aria-label={`Conferir o pedido de ${template.label} antes de enviar`} className="flex flex-col gap-2 rounded-xl border border-paper-line-strong bg-white p-3 text-ink">
           <p className="m-0 text-sm text-ink-soft">Vai por WhatsApp para a família. Mensagem enviada não pode ser desfeita.</p>
