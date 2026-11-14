@@ -331,6 +331,22 @@ export async function completeIntakeStep(patientId: string, stepKey: string): Pr
   return { success: true };
 }
 
+export async function markPatientActiveDirectly(patientId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("patients")
+    .update({ status: "ativo" })
+    .eq("id", patientId);
+
+  if (error) {
+    return { success: false, error: "Não foi possível ativar o paciente." };
+  }
+
+  revalidatePath(`/recepcao/pacientes/${patientId}`);
+  return { success: true };
+}
+
 export async function activatePatient(patientId: string, formData: FormData): Promise<ActionResult> {
   const therapistId = String(formData.get("therapist_id") ?? "");
   const roomId = String(formData.get("room_id") ?? "");

@@ -161,8 +161,8 @@ export function computeJourney(input: JourneyInput): Journey {
   return {
     key: "montar_grade",
     step: 5,
-    label: "Avaliação realizada — aguardando montar a grade",
-    detail: null,
-    ctaLabel: "Montar grade (1ª sessão)",
+    label: "Avaliação realizada — aguardando PTS e grade semanal",
+    detail: "Encaminhado para a Supervisão Clínica definir o PTS e os horários recorrentes.",
+    ctaLabel: "Ver grade na Supervisão",
   };
 }
