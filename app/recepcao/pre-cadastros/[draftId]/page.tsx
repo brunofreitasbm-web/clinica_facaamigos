@@ -17,8 +17,8 @@ export default async function DraftReviewPage({ params }: { params: Promise<{ dr
         description={draftReviewDescription(data.draft)} descriptionVisible
       />
       <PageContainer>
-        <Link href="/recepcao/a-autorizar" className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
-          ← Voltar para Autorizações
+        <Link href={`/recepcao/fila?item=${encodeURIComponent(draftId)}`} className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
+          ← Voltar para a Fila de entrada
         </Link>
         <DraftReviewBody data={data} />
       </PageContainer>

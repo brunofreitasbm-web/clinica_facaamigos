@@ -55,3 +55,21 @@ test("a confirmação é um grupo rotulado e recebe o foco", () => {
   assert.match(step, /ref=\{confirmButtonRef\}/);
   assert.match(step, /confirmButtonRef\.current\?\.focus\(\)/);
 });
+
+test("robô do portal na Fila: interativo só no passo da guia e com plano, só leitura aguardando o plano", () => {
+  assert.match(step, /detail\?\.hasPlan && step\.kind === "send_guide"[\s\S]*?<PortalRobotPanel target=\{\{ kind: "draft", id: item\.draftId \}\} canRequest \/>/);
+  assert.match(step, /step\.kind === "wait_plan"[\s\S]*?<PortalRobotPanel target=\{\{ kind: "draft", id: item\.draftId \}\} canRequest=\{false\} \/>/);
+});
+
+test("'Plano já autorizou' no passo da guia abre o mesmo formulário com conferência", () => {
+  assert.match(step, /step\.kind === "send_guide"[\s\S]*?setGuideOpen\(true\)[\s\S]*?Plano já autorizou/);
+});
+
+test("pedido de um documento só: mesma ação, conferência antes de enviar", () => {
+  const doc = readFileSync("app/recepcao/fila/fila-doc-request.tsx", "utf8");
+  const detail = readFileSync("app/recepcao/fila/fila-detail.tsx", "utf8");
+  assert.match(doc, /requestMissingDocument\(draftId, chaseKey\)/);
+  assert.match(doc, /actionConfirms\("ask_documents"\)/);
+  assert.match(doc, /Enviar mensagem/);
+  assert.match(detail, /<FilaDocRequest/);
+});

@@ -18,6 +18,8 @@ export type FilaDetail = {
   error: string | null;
   warnings: string[];
   pills: LeadPill[];
+  /** O contato tem plano de saúde (lib/lead-pendencies.ts): libera o robô do portal no passo da guia. */
+  hasPlan: boolean;
   facts: { label: string; value: string }[];
   files: { id: string; name: string; mimeType: string; detectedType: string | null }[];
   documentRequests: { key: string; sentAt: string }[];
@@ -44,7 +46,7 @@ export type FilaDetailSource = {
   status: string;
   error: string | null;
   warnings: string[];
-  pendencies: { pills: LeadPill[] };
+  pendencies: { pills: LeadPill[]; hasPlan?: boolean };
   facts: { label: string; value: string }[];
   files: { id: string; name: string; mimeType: string; detectedType: string | null }[];
   documentRequests: { key: string; sentAt: string }[];
@@ -62,6 +64,7 @@ export function toFilaDetail(draft: FilaDetailSource): FilaDetail {
     error: draft.error,
     warnings: draft.warnings,
     pills: draft.pendencies.pills,
+    hasPlan: draft.pendencies.hasPlan === true,
     facts: draft.facts.map((f) => ({ label: f.label, value: f.value })),
     files: draft.files.map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, detectedType: f.detectedType })),
     documentRequests: draft.documentRequests.map((r) => ({ key: r.key, sentAt: r.sentAt })),

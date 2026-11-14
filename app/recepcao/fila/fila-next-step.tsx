@@ -25,6 +25,7 @@ import {
 } from "../pacientes/pendencias/intake-actions";
 import { openDocumentConversation, requestMissingDocument } from "../pacientes/pendencias/document-request-actions";
 import { AuthorizedGuideDialog, type GuideValues } from "../pacientes/pendencias/draft-pipeline";
+import { PortalRobotPanel } from "../pacientes/pendencias/portal-robot-panel";
 import type { FilaDetail } from "@/lib/fila/fila-detail-pure";
 import type { UndoEntry } from "./undo-toast";
 
@@ -407,9 +408,15 @@ export function FilaNextStep({
           )}
 
           {confirm === null && step.kind === "send_guide" && (
-            <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={waiveAuthorization}>
-              Particular, sem guia
-            </button>
+            <>
+              {/* Guia enviada por fora e o plano já respondeu: registra direto, o servidor marca a guia como enviada. */}
+              <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={() => setGuideOpen(true)}>
+                Plano já autorizou
+              </button>
+              <button type="button" disabled={isPending || locked} className={ghostClass} onClick={waiveAuthorization}>
+                Particular, sem guia
+              </button>
+            </>
           )}
           {confirm === null && step.kind === "plan_more_docs" && (
             <button type="button" disabled={isPending || locked} className={secondaryClass} onClick={registerGuideSent}>
@@ -431,6 +438,19 @@ export function FilaNextStep({
           )}
         </div>
       </div>
+
+      {/* Robô do portal (docs/portal-robot.md), o mesmo de Autorizações: pede e confirma o envio no passo da guia;
+          depois, só acompanha. Quando o robô termina, ele mesmo marca a guia como enviada e a família muda de aba. */}
+      {confirm === null && detail?.hasPlan && step.kind === "send_guide" && (
+        <div className="mt-4">
+          <PortalRobotPanel target={{ kind: "draft", id: item.draftId }} canRequest />
+        </div>
+      )}
+      {confirm === null && step.kind === "wait_plan" && (
+        <div className="mt-4">
+          <PortalRobotPanel target={{ kind: "draft", id: item.draftId }} canRequest={false} />
+        </div>
+      )}
 
       {/* Sem resposta há mais de 24 h o pedido livre é recusado pela Meta: a saída é o modelo de abertura. */}
       {confirm === null && (step.kind === "ask_documents" || step.kind === "wait_family" || step.kind === "plan_more_docs") && (

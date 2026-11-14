@@ -116,7 +116,7 @@ test("sem pendência e autorização ainda não concluída: próximo passo é Au
     },
   });
   assert.equal(s.next.kind, "open_authorization");
-  assert.equal(s.next.href, "/recepcao/a-autorizar?item=d9");
+  assert.equal(s.next.href, "/recepcao/fila?item=d9");
 });
 
 test("habilitado para agendar: etapa concluída e sem botão primário", () => {
