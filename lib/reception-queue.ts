@@ -1535,7 +1535,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       detail: `Parado há ${p.daysSinceCreated} dia(s)`,
       urgencyLabel: `${p.daysSinceCreated}d`,
       // Interessado não tem prontuário: o link voltaria para as Pendências.
-      href: p.status === "interessado" ? "/recepcao/pacientes/pendencias" : `/recepcao/pacientes/${p.id}`,
+      href: p.status === "interessado" ? "/recepcao/pacientes?filtro=pendencias" : `/recepcao/pacientes/${p.id}`,
     });
   }
 
@@ -1574,7 +1574,7 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       patientName: l.patientName,
       detail: `Cadastrado há ${l.minutesWaiting} min sem retorno`,
       urgencyLabel: `${l.minutesWaiting}min`,
-      href: "/recepcao/pacientes/pendencias",
+      href: "/recepcao/pacientes?filtro=pendencias",
     });
   }
 

@@ -21,7 +21,7 @@ import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patien
 import { formatDateBR } from "@/lib/format";
 import { inactivatePatient, deletePatient } from "./actions";
 import { PageContainer } from "@/components/page-container";
-import type { PatientPill } from "@/lib/patient-pills-pure";
+import { visiblePills, type PatientPill, type PillTone } from "@/lib/patient-pills-pure";
 import { PatientPendenciesDialog, type PatientPanel } from "./patient-pendencies-dialog";
 
 export interface PatientRow {
@@ -47,6 +47,8 @@ interface PatientListClientProps {
   panelsByPatient?: Record<string, PatientPanel[]>;
   /** Abre o diálogo de pendências deste paciente ao carregar (?abrir=). */
   initialOpenId?: string | null;
+  /** Filtro inicial da lista (?filtro=pendencias: vindo da faixa "Precisa de você agora"). */
+  initialFilter?: "pendencias" | null;
 }
 
 /**
@@ -108,6 +110,41 @@ function InactivateConfirmModal({
   );
 }
 
+const PILL_TONE_CLASS: Record<PillTone, string> = {
+  urgent: "border-rose-200 bg-rose-50 text-rose-800",
+  missing: "border-amber-200 bg-amber-50 text-amber-800",
+  progress: "border-sky-200 bg-sky-50 text-sky-800",
+};
+
+/**
+ * Pendências do paciente na linha: até 2 pílulas e "+N". Um único botão, porque o
+ * clique em qualquer uma abre o mesmo diálogo (resolver ali mesmo, sem trocar de tela).
+ */
+function PillsButton({ pills, onOpen }: { pills: PatientPill[]; onOpen: () => void }) {
+  if (pills.length === 0) return null;
+  const { shown, extra } = visiblePills(pills, 2);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+      title={pills.map((p) => p.detail).join("\n")}
+      aria-label={`Resolver ${pills.length} ${pills.length === 1 ? "pendência" : "pendências"}`}
+      className="flex shrink-0 items-center gap-1 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#841B4D] cursor-pointer"
+    >
+      {shown.map((pill) => (
+        <span key={pill.key} className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold ${PILL_TONE_CLASS[pill.tone]}`}>
+          {pill.label}
+        </span>
+      ))}
+      {extra > 0 && <span className="text-[11px] font-semibold text-ink-soft">+{extra}</span>}
+    </button>
+  );
+}
+
 /**
  * Item individual de paciente (linha de tabela clicável para abrir o prontuário)
  */
@@ -115,10 +152,12 @@ export const PatientListItem = React.memo(function PatientListItem({
   patient,
   onInactivate,
   onDelete,
+  onOpenPills,
 }: {
   patient: PatientRow;
   onInactivate: (p: PatientRow) => void;
   onDelete: (p: PatientRow) => void;
+  onOpenPills: (p: PatientRow) => void;
 }) {
   const router = useRouter();
 
@@ -182,8 +221,9 @@ export const PatientListItem = React.memo(function PatientListItem({
           <span>Nasc: {displayDate}</span>
         </div>
 
-        {/* Coluna 3: Status Badge */}
-        <div className="shrink-0 flex items-center">
+        {/* Coluna 3: pendências (clicar abre o diálogo para resolver) e status */}
+        <div className="shrink-0 flex items-center gap-2">
+          <PillsButton pills={patient.pills} onOpen={() => onOpenPills(patient)} />
           <PatientStatusBadge status={patient.status || "ativo"} size="md" />
         </div>
       </div>
@@ -236,6 +276,7 @@ interface VirtualizedItemData {
   items: PatientRow[];
   onInactivate: (p: PatientRow) => void;
   onDelete: (p: PatientRow) => void;
+  onOpenPills: (p: PatientRow) => void;
 }
 
 const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildComponentProps<VirtualizedItemData>) => {
@@ -243,7 +284,7 @@ const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildCompo
   if (!patient) return null;
   return (
     <div style={{ ...style, paddingBottom: "8px" }}>
-      <PatientListItem patient={patient} onInactivate={data.onInactivate} onDelete={data.onDelete} />
+      <PatientListItem patient={patient} onInactivate={data.onInactivate} onDelete={data.onDelete} onOpenPills={data.onOpenPills} />
     </div>
   );
 });
@@ -254,9 +295,9 @@ function normalizeSearch(value: string): string {
   return value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
 }
 
-export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = null }: PatientListClientProps) {
+export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = null, initialFilter = null }: PatientListClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const [statusFilter, setStatusFilter] = useState<string>(initialFilter ?? "todos");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -306,7 +347,9 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
   const filteredRows = useMemo(() => {
     return rows.filter((p) => {
       // Filtro de Status
-      if (statusFilter !== "todos") {
+      if (statusFilter === "pendencias") {
+        if (p.pills.length === 0) return false;
+      } else if (statusFilter !== "todos") {
         const normStatus = (p.status || "ativo").toLowerCase();
         if (statusFilter === "ativo" && normStatus !== "ativo") return false;
         if (statusFilter === "avaliacao" && !normStatus.includes("avaliacao")) return false;
@@ -344,6 +387,7 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
       items: paginatedRows,
       onInactivate: (p: PatientRow) => setTargetPatient(p),
       onDelete: (p: PatientRow) => setDeleteTargetPatient(p),
+      onOpenPills: (p: PatientRow) => setPillsPatientId(p.id),
     }),
     [paginatedRows]
   );
@@ -484,6 +528,7 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
               className="rounded-lg border border-paper-line-strong bg-paper/80 pl-9 pr-8 py-2.5 text-sm text-ink font-medium transition-all focus:border-[#841B4D] focus:outline-none focus:ring-2 focus:ring-[#841B4D]/20 cursor-pointer appearance-none"
             >
               <option value="todos">Todos os Status</option>
+              <option value="pendencias">Com pendência</option>
               <option value="ativo">Ativo</option>
               <option value="avaliacao">Avaliação</option>
               <option value="inativo">Inativo</option>
