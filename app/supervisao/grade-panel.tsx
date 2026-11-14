@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HelpHint } from "@/components/ui/help-hint";
 import { WEEKDAY_LABEL, KIND_STYLE, type AppointmentKind } from "./grade-data";
-import { publishGradeAction, swapAppointmentPatientsAction } from "./grade-actions";
+import { swapAppointmentPatientsAction } from "./grade-actions";
 
 export type GradeAppointment = {
   id: string;
@@ -166,7 +166,6 @@ export function GradePanel({
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [notification, setNotification] = useState<string | null>(null);
   const [toastError, setToastError] = useState<string | null>(null);
-  const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [selectedAppt, setSelectedAppt] = useState<GradeAppointment | null>(null);
   // Modo Edição — permuta manual de pacientes entre 2 ou 3 agendamentos,
   // pra casos de exceção (ex.: reorganizar horários na revisão de PTS de 6
@@ -313,42 +312,6 @@ export function GradePanel({
     }));
   }, [mode, therapists, rooms, filteredAppointments]);
 
-  // Tratamento contra múltiplos cliques e timeout de 15s com AbortController
-  async function handlePublishGrade() {
-    if (isPublishing) return;
-    setIsPublishing(true);
-    setToastError(null);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    try {
-      const result = await Promise.race([
-        publishGradeAction(weekNumber),
-        new Promise<never>((_, reject) => {
-          controller.signal.addEventListener("abort", () => {
-            reject(new Error("O servidor demorou a responder, tente novamente."));
-          });
-        }),
-      ]);
-
-      clearTimeout(timeoutId);
-
-      if (result.success) {
-        setNotification("Grade semanal publicada e sincronizada com sucesso!");
-        setTimeout(() => setNotification(null), 4000);
-      } else {
-        setToastError(`Falha ao publicar. ${result.error}`);
-      }
-    } catch (err) {
-      clearTimeout(timeoutId);
-      const message = err instanceof Error ? err.message : "Ocorreu um erro inesperado ao publicar.";
-      setToastError(`Falha ao publicar. ${message}`);
-    } finally {
-      setIsPublishing(false);
-    }
-  }
-
   return (
     <section>
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
@@ -418,25 +381,6 @@ export function GradePanel({
             onClick={() => (editMode ? exitEditMode() : setEditMode(true))}
           >
             {editMode ? "Sair da edição" : "Editar"}
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-primary flex items-center justify-center gap-2 min-w-[130px] disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={isPublishing || editMode}
-            onClick={handlePublishGrade}
-          >
-            {isPublishing ? (
-              <>
-                <svg className="animate-spin h-3.5 w-3.5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Publicando...</span>
-              </>
-            ) : (
-              "Publicar grade"
-            )}
           </button>
         </div>
       </div>
