@@ -8,6 +8,8 @@ export type CurrentUserMenu = {
   email: string | null;
   /** Signed URL do avatar (bucket privado profile-avatars); null = usa as iniciais. */
   avatarUrl: string | null;
+  /** Papel do perfil (profiles.role); null se ausente. Usado p/ decidir o que a UI global exibe. */
+  role: string | null;
 };
 
 const AVATAR_TTL_SECONDS = 60 * 60;
@@ -27,7 +29,7 @@ export async function loadCurrentUserMenu(): Promise<CurrentUserMenu | null> {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, avatar_storage_path")
+      .select("full_name, avatar_storage_path, role")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -44,6 +46,7 @@ export async function loadCurrentUserMenu(): Promise<CurrentUserMenu | null> {
       name: profile?.full_name || user.email || "Usuário",
       email: user.email ?? null,
       avatarUrl,
+      role: (profile?.role as string | null | undefined) ?? null,
     };
   } catch (error) {
     if (isNextError(error)) throw error;

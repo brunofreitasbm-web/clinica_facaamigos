@@ -1,4 +1,4 @@
-import type { ConversationRow } from "./types";
+import { toLastMessageSender, type ConversationRow } from "./types.ts";
 
 /**
  * Desde quando o contato espera resposta da clínica — `null` quando a bola
@@ -21,4 +21,31 @@ export function waitingSince(
     return waiting ? (c.lastInboundAt ?? c.lastMessageAt) : null;
   }
   return c.status === "pending" ? c.lastMessageAt : null;
+}
+
+type WaitingCountRow = {
+  status: string;
+  last_message_sender: string | null;
+  last_inbound_at: string | null;
+  last_message_at: string | null;
+};
+
+/**
+ * Quantas conversas esperam resposta da clínica (mesma regra de `waitingSince`).
+ * Alimenta o balão do botão flutuante do chat: quando qualquer pessoa responde,
+ * `last_message_sender` vira "agent" e a conversa sai da contagem.
+ */
+export function countWaiting(rows: readonly WaitingCountRow[]): number {
+  return rows.reduce(
+    (n, r) =>
+      waitingSince({
+        status: r.status as ConversationRow["status"],
+        lastMessageSender: toLastMessageSender(r.last_message_sender),
+        lastInboundAt: r.last_inbound_at,
+        lastMessageAt: r.last_message_at,
+      })
+        ? n + 1
+        : n,
+    0,
+  );
 }

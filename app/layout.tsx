@@ -6,6 +6,7 @@ import { CurrentUserProvider } from "@/components/current-user-context";
 import { loadCurrentUserMenu } from "@/lib/current-user-menu";
 import { HideOnRoutes } from "@/components/hide-on-routes";
 import { OfflineBanner } from "@/components/offline-banner";
+import { ChatFab } from "@/components/chat-fab";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -80,6 +81,7 @@ export default async function RootLayout({
             </HideOnRoutes>
           </Suspense>
           {children}
+          <ChatFab />
         </ToastProvider>
         </CurrentUserProvider>
       </body>

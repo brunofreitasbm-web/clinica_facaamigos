@@ -17,7 +17,7 @@ export function matchesFilter(c: ConversationRow, filter: ConversationFilter, cu
     case "nao_lidas":
       return c.unreadCount > 0;
     case "leads":
-      return c.kind === "lead";
+      return c.kind === "lead" && !c.nonPatient;
     case "minhas":
       return Boolean(currentUserId) && c.assignedTo === currentUserId;
     default:
