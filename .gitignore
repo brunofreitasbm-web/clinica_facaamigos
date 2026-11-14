@@ -26,3 +26,4 @@ agente-robo/__pycache__/
 # Sessões de navegador gravadas por scripts de perf/e2e — contêm tokens reais
 perf/.auth/
 **/.auth/
+*.code-workspace
