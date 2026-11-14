@@ -22,7 +22,7 @@ import { formatDateBR } from "@/lib/format";
 import { inactivatePatient, deletePatient } from "./actions";
 import { PageContainer } from "@/components/page-container";
 import type { PatientPill } from "@/lib/patient-pills-pure";
-import { PatientPendenciesDialog, PillChip, type PatientPanel } from "./patient-pendencies-dialog";
+import { PatientPendenciesDialog, type PatientPanel } from "./patient-pendencies-dialog";
 
 export interface PatientRow {
   id: string;
@@ -48,8 +48,6 @@ interface PatientListClientProps {
   /** Abre o diálogo de pendências deste paciente ao carregar (?abrir=). */
   initialOpenId?: string | null;
 }
-
-const MAX_VISIBLE_PILLS = 3;
 
 /**
  * Modal de Confirmação para inativação de paciente
@@ -117,12 +115,10 @@ export const PatientListItem = React.memo(function PatientListItem({
   patient,
   onInactivate,
   onDelete,
-  onOpenPills,
 }: {
   patient: PatientRow;
   onInactivate: (p: PatientRow) => void;
   onDelete: (p: PatientRow) => void;
-  onOpenPills: (p: PatientRow) => void;
 }) {
   const router = useRouter();
 
@@ -180,28 +176,6 @@ export const PatientListItem = React.memo(function PatientListItem({
           />
         </div>
 
-        {/* Pílulas de pendência: entre o CPF e o nascimento */}
-        {patient.pills.length > 0 && (
-          <div className="flex min-w-0 shrink items-center gap-1 overflow-hidden sm:px-1" aria-label="Pendências do paciente">
-            {patient.pills.slice(0, MAX_VISIBLE_PILLS).map((pill) => (
-              <PillChip key={pill.key} pill={pill} onClick={() => onOpenPills(patient)} />
-            ))}
-            {patient.pills.length > MAX_VISIBLE_PILLS && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenPills(patient);
-                }}
-                title={patient.pills.slice(MAX_VISIBLE_PILLS).map((p) => p.label).join(", ")}
-                className="shrink-0 rounded-full bg-paper-line px-2 py-0.5 text-[11px] font-semibold leading-4 text-ink-soft"
-              >
-                +{patient.pills.length - MAX_VISIBLE_PILLS}
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Coluna 2: Data de Nascimento */}
         <div className="flex items-center gap-1.5 text-xs text-ink-soft font-mono shrink-0 sm:px-3">
           <Calendar className="h-3.5 w-3.5 text-ink-faint shrink-0" />
@@ -220,18 +194,9 @@ export const PatientListItem = React.memo(function PatientListItem({
         onClick={(e) => e.stopPropagation()}
       >
         <Link
-          href={`/recepcao/pacientes/${patient.id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="text-xs text-chart"
-          aria-label="Visualizar Prontuário"
-        >
-          Visualizar
-        </Link>
-
-        <Link
           href={`/recepcao/pacientes/${patient.id}/gestao`}
           onClick={(e) => e.stopPropagation()}
-          className="ml-3 text-xs text-chart"
+          className="text-xs text-chart"
           aria-label="Editar Cadastro"
         >
           Editar
@@ -271,7 +236,6 @@ interface VirtualizedItemData {
   items: PatientRow[];
   onInactivate: (p: PatientRow) => void;
   onDelete: (p: PatientRow) => void;
-  onOpenPills: (p: PatientRow) => void;
 }
 
 const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildComponentProps<VirtualizedItemData>) => {
@@ -279,7 +243,7 @@ const VirtualizedPatientRow = React.memo(({ index, style, data }: ListChildCompo
   if (!patient) return null;
   return (
     <div style={{ ...style, paddingBottom: "8px" }}>
-      <PatientListItem patient={patient} onInactivate={data.onInactivate} onDelete={data.onDelete} onOpenPills={data.onOpenPills} />
+      <PatientListItem patient={patient} onInactivate={data.onInactivate} onDelete={data.onDelete} />
     </div>
   );
 });
@@ -380,7 +344,6 @@ export function PatientListClient({ rows, panelsByPatient = {}, initialOpenId = 
       items: paginatedRows,
       onInactivate: (p: PatientRow) => setTargetPatient(p),
       onDelete: (p: PatientRow) => setDeleteTargetPatient(p),
-      onOpenPills: (p: PatientRow) => setPillsPatientId(p.id),
     }),
     [paginatedRows]
   );
