@@ -43,7 +43,7 @@ export default async function LancamentosManuaisPage({ searchParams }: { searchP
   ];
 
   return (
-    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
+    <main className="flex flex-1 flex-col pb-8" style={{ background: "var(--color-bg)" }}>
       <FinanceiroHubSubnav activeTab="lancamentos" mes={competenceMonth} />
 
       <PageContainer>

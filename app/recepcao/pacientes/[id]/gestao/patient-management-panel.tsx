@@ -106,7 +106,7 @@ export function PatientManagementPanel({
         </div>
       </div>
 
-      <div className="flex flex-col gap-8 px-10 pb-16 pt-6">
+      <div className="flex flex-col gap-5 px-8 pb-8 pt-4">
         {tab === "visao" && (
           <div className="flex flex-wrap gap-8">
             <div className="flex flex-col gap-8">

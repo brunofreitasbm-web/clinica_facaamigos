@@ -479,7 +479,7 @@ export default async function RecepcaoPage({
         </div>
       </nav>
 
-      <main className="mx-auto grid w-full max-w-[1920px] grid-cols-1 gap-14 px-10 pb-16 pt-9 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] 2xl:grid-cols-[1fr_440px]">
+      <main className="mx-auto grid w-full max-w-[1920px] grid-cols-1 gap-8 px-8 pb-8 pt-5 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] 2xl:grid-cols-[1fr_440px]">
         <section>
           <div className="mb-7 flex flex-wrap items-end justify-between gap-3.5">
             <div>

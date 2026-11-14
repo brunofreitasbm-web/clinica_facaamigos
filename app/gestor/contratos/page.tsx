@@ -85,7 +85,7 @@ export default async function ContratosPage() {
   const plans = await loadParticularPlanCatalog(supabase);
 
   return (
-    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
+    <main className="flex flex-1 flex-col pb-8" style={{ background: "var(--color-bg)" }}>
       <FinanceiroSubnav activeTab="contratos" />
 
       <PageContainer>

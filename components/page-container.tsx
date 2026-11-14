@@ -25,7 +25,7 @@ export function PageContainer({
 }) {
   return (
     <div
-      className={`flex flex-1 flex-col gap-6 p-6 sm:p-8 xl:p-10 w-full ${
+      className={`flex flex-1 flex-col gap-4 p-4 sm:p-5 xl:p-6 w-full ${
         fullBleed ? "" : "max-w-[1600px] 2xl:max-w-[1920px]"
       } mx-auto ${className}`}
     >

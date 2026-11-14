@@ -72,7 +72,7 @@ export default async function RelatoriosPage() {
   };
 
   return (
-    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
+    <main className="flex flex-1 flex-col pb-8" style={{ background: "var(--color-bg)" }}>
       <PageHeader
         axisLabel="Gestão & Controladoria"
         title="Central de Relatórios & Exportação CSV"

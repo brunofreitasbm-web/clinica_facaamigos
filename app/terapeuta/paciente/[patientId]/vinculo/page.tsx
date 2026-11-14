@@ -22,7 +22,7 @@ export default async function VinculoPage({ params }: { params: Promise<{ patien
     .order("period_start", { ascending: false });
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-10">
+    <main className="flex flex-1 flex-col gap-4 p-6">
       <div>
         <Link href={`/terapeuta/paciente/${patientId}`} className="text-[13px] font-semibold no-underline" style={{ color: "var(--color-accent)" }}>
           ← {patient.full_name}

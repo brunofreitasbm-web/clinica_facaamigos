@@ -156,13 +156,13 @@ export function ModuleHeader({
   });
 
   const itemClass =
-    "flex min-h-[44px] items-center gap-1.5 rounded-t-md px-3 py-2 text-[13px] font-semibold no-underline transition-all duration-150 active:scale-95 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+    "flex min-h-[40px] items-center gap-1.5 rounded-t-md px-3 py-1.5 text-[13px] font-semibold no-underline transition-all duration-150 active:scale-95 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
   return (
     <div className="sticky top-0 z-20 shrink-0 print:hidden">
       <header
         style={{ background: moduleColor, color: "var(--color-bg)" }}
-        className="flex h-16 items-center gap-6 px-6 shadow-sm sm:px-10"
+        className="flex h-14 items-center gap-6 px-6 shadow-sm sm:px-10"
       >
         <BrandLockup module={module} href={homeHref} className="mr-auto" />
 

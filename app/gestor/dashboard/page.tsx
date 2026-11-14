@@ -31,7 +31,7 @@ export default async function GestorDashboardPage() {
   const maxRoom = Math.max(...metrics.roomBars.map((r) => r.hours), 1);
 
   return (
-    <main className="flex flex-1 flex-col pb-16">
+    <main className="flex flex-1 flex-col pb-8">
 
       <PageContainer fullBleed>
       <div className="flex flex-wrap items-end justify-between gap-6">

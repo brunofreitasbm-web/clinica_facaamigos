@@ -20,7 +20,7 @@ export default async function FluxoCaixaPage({ searchParams }: { searchParams: P
   const totalMovimento = operacional + financiamento;
 
   return (
-    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
+    <main className="flex flex-1 flex-col pb-8" style={{ background: "var(--color-bg)" }}>
       <FinanceiroHubSubnav activeTab="fluxo-caixa" mes={competenceMonth} />
 
       <PageContainer>
