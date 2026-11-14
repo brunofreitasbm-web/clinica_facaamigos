@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { ShieldCheck, UserX, ListOrdered, Users, CalendarClock, Trophy, Boxes, CalendarDays, Stethoscope, CalendarRange, UserCircle } from "lucide-react";
+import { ShieldCheck, UserX, ListOrdered, Users, CalendarClock, Trophy, Boxes, CalendarDays, Stethoscope, CalendarRange } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 import { NavGroupDropdown } from "@/components/nav-group-dropdown";
 import { useSupervisaoTab, type SupervisaoTabKey } from "@/app/supervisao/supervisao-tab-context";
@@ -31,6 +31,7 @@ const GESTAO_LINKS = [
   { key: "emergencias", label: "Aviso Falta Terapeuta", href: "/recepcao/emergencias", icon: UserX },
 ] as const;
 
+/** "Minha Bonificação" mora no menu do operador (barra), junto de foto, senha e sair. */
 const PESSOAL_LINKS = [{ key: "metricas", label: "Minha Bonificação", href: "/supervisao/metricas", icon: Trophy }] as const;
 
 /**
@@ -52,7 +53,7 @@ const PESSOAL_LINKS = [{ key: "metricas", label: "Minha Bonificação", href: "/
  * (14/09/2026). Dentro dela vive o botão "Editar", pra permuta manual de
  * pacientes entre sessões (ver grade-panel.tsx).
  */
-export function SupervisaoHeader({ userName }: { userName?: string | null }) {
+export function SupervisaoHeader(_props: { userName?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const { tab, setTab, counts, urgent, setManualScheduleOpen } = useSupervisaoTab();
@@ -75,11 +76,11 @@ export function SupervisaoHeader({ userName }: { userName?: string | null }) {
       module="Coordenação"
       navLabel="Seções da coordenação"
       items={items}
+      personalLinks={PESSOAL_LINKS}
       actions={
         <div className="flex items-center gap-1">
           <NavGroupDropdown label="Operação Clínica" icon={Stethoscope} links={OPERACAO_LINKS} />
           <NavGroupDropdown label="Gestão e Escala" icon={CalendarRange} links={GESTAO_LINKS} />
-          <NavGroupDropdown label={userName || "Minha conta"} icon={UserCircle} links={PESSOAL_LINKS} />
           <button
             type="button"
             onClick={() => {
