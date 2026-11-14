@@ -4,5 +4,5 @@ import { redirect } from "next/navigation";
 // sidebar própria (ver cadastros-sidebar.tsx), no mesmo padrão de
 // /gestor/configuracoes. Pacientes é o primeiro item.
 export default function CadastrosPage() {
-  redirect("/gestor/cadastros/pacientes");
+  redirect("/gestor/cadastros/colaboradores");
 }

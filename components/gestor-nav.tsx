@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { key: "inteligencia", label: "Inteligência BI", href: "/gestor/inteligencia" },
   { key: "nps", label: "NPS", href: "/gestor/nps", icon: Smile },
   { key: "equipe", label: "Pessoas & Desempenho", href: "/gestor/bonificacao", match: ["/gestor/bonificacao", "/gestor/metas"] },
+  { key: "pacientes", label: "Pacientes", href: "/gestor/pacientes" },
   { key: "cadastros", label: "Cadastros", href: "/gestor/cadastros" },
   { key: "financeiro", label: "Financeiro", href: "/gestor/financeiro", match: ["/gestor/financeiro", "/gestor/contratos"] },
   { key: "relatorios", label: "Relatórios", href: "/gestor/relatorios" },

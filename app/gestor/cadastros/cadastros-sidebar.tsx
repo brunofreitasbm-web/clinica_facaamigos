@@ -4,7 +4,6 @@ import { SectionSidebar } from "@/components/section-sidebar";
 // Configurações (parâmetros de sistema, ver
 // app/gestor/configuracoes/config-sidebar.tsx).
 const SIDEBAR_ITEMS = [
-  { key: "pacientes", label: "Pacientes", href: "/gestor/cadastros/pacientes" },
   { key: "colaboradores", label: "Colaboradores & Contas", href: "/gestor/cadastros/colaboradores" },
   { key: "convenios", label: "Planos de Saúde", href: "/gestor/cadastros/convenios" },
   { key: "tipos-atendimento", label: "Tipos de Atendimento", href: "/gestor/cadastros/tipos-atendimento" },
