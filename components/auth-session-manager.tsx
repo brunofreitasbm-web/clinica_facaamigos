@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { proximoCorte, sessaoVencidaPeloCorte } from "@/lib/session-cutoff";
 
 export function AuthSessionManager() {
   useEffect(() => {
@@ -27,6 +28,12 @@ export function AuthSessionManager() {
         } = await supabase.auth.getSession();
 
         if (error || !session) {
+          return;
+        }
+
+        // Logout diário das 19h (Brasília): derruba também a aba aberta. O signOut dispara SIGNED_OUT acima.
+        if (sessaoVencidaPeloCorte(session.user?.last_sign_in_at)) {
+          await supabase.auth.signOut();
           return;
         }
 
@@ -58,6 +65,17 @@ export function AuthSessionManager() {
     // Verificação periódica a cada 3 minutos (180.000 ms)
     const intervalId = setInterval(checkAndRefreshSession, 3 * 60 * 1000);
 
+    // Dispara a checagem no instante do próximo corte (+1s de folga) e reagenda para o dia seguinte.
+    let corteTimer: ReturnType<typeof setTimeout>;
+    const agendarCorte = () => {
+      const espera = proximoCorte().getTime() - Date.now() + 1000;
+      corteTimer = setTimeout(async () => {
+        await checkAndRefreshSession();
+        agendarCorte();
+      }, espera);
+    };
+    agendarCorte();
+
     // Executa verificação inicial ao montar
     checkAndRefreshSession();
 
@@ -66,6 +84,7 @@ export function AuthSessionManager() {
       window.removeEventListener("focus", handleFocusOrVisibility);
       document.removeEventListener("visibilitychange", handleFocusOrVisibility);
       clearInterval(intervalId);
+      clearTimeout(corteTimer);
     };
   }, []);
 

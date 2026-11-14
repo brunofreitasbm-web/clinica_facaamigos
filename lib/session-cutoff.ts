@@ -19,6 +19,11 @@ export function ultimoCorte(agora: Date): Date {
   return hoje.getTime() <= agora.getTime() ? hoje : new Date(corteHojeUtc - 24 * 3600 * 1000);
 }
 
+/** Próximo corte das 19h de Brasília depois de `agora`. */
+export function proximoCorte(agora: Date = new Date()): Date {
+  return new Date(ultimoCorte(agora).getTime() + 24 * 3600 * 1000);
+}
+
 /** true quando o login é anterior ao último corte (sessão deve cair). Sem data válida, não derruba. */
 export function sessaoVencidaPeloCorte(lastSignInAt: string | null | undefined, agora: Date = new Date()): boolean {
   if (!lastSignInAt) return false;

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sessaoVencidaPeloCorte, ultimoCorte } from "../lib/session-cutoff.ts";
+import { proximoCorte, sessaoVencidaPeloCorte, ultimoCorte } from "../lib/session-cutoff.ts";
 
 test("antes das 19h BRT o corte é o de ontem", () => {
   const agora = new Date("2026-11-14T20:00:00Z"); // 17h BRT
@@ -29,4 +29,9 @@ test("login depois das 19h vale até as 19h do dia seguinte", () => {
 test("sem data ou data inválida não derruba", () => {
   assert.equal(sessaoVencidaPeloCorte(null), false);
   assert.equal(sessaoVencidaPeloCorte("lixo"), false);
+});
+
+test("proximoCorte é o das 19h seguinte", () => {
+  assert.equal(proximoCorte(new Date("2026-11-14T20:00:00Z")).toISOString(), "2026-11-14T22:00:00.000Z");
+  assert.equal(proximoCorte(new Date("2026-11-14T22:30:00Z")).toISOString(), "2026-11-15T22:00:00.000Z");
 });
