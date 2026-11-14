@@ -31,3 +31,27 @@ test("não aparece nas telas do próprio chat", () => {
   assert.equal(shouldShowChatFab("recepcao", "/m/atendimento/123"), false);
   assert.equal(shouldShowChatFab("recepcao", "/recepcao/atendimentos-x"), true);
 });
+
+import { formatBadgeCount } from "../lib/chat-fab-pure.ts";
+import { countWaiting } from "../lib/atendimento/waiting.ts";
+
+test("balão limita em 99+", () => {
+  assert.equal(formatBadgeCount(9), "9");
+  assert.equal(formatBadgeCount(99), "99");
+  assert.equal(formatBadgeCount(100), "99+");
+});
+
+test("countWaiting: só conta quem espera resposta e cai quando alguém responde", () => {
+  const row = (status: string, sender: string | null) => ({
+    status,
+    last_message_sender: sender,
+    last_inbound_at: "2026-11-14T10:00:00Z",
+    last_message_at: "2026-11-14T10:00:00Z",
+  });
+  const rows = [row("open", "contact"), row("open", "contact"), row("pending", "bot"), row("open", "agent"), row("closed", "contact")];
+  assert.equal(countWaiting(rows), 3);
+  // alguém da equipe responde a primeira: 3 -> 2
+  rows[0] = row("open", "agent");
+  assert.equal(countWaiting(rows), 2);
+  assert.equal(countWaiting([]), 0);
+});
