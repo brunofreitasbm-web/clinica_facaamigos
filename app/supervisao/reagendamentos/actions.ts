@@ -8,7 +8,7 @@ type ActionResult = { success: true } | { success: false; error: string };
 const PENDING_STATUS = "aguardando_aprovacao_supervisao";
 
 /** Motivo gravado na recusa: a coordenação não aceitou o horário que a família escolheu. */
-export const REJECTION_REASON = "Horário não aceito pela coordenação";
+const REJECTION_REASON = "Horário não aceito pela coordenação";
 
 async function loadPending(appointmentId: string) {
   const supabase = await createClient();
