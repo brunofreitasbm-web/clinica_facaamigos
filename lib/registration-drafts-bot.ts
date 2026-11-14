@@ -15,6 +15,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { isBotDatumPresent, mergeBotCollectedIntoExtraction, pickBotCollected } from "@/lib/lead-pendencies";
+import { shouldSkipDraftForNonPatient } from "@/lib/non-patient-contacts";
+import { botDataShowsTherapyIntent } from "@/lib/non-patient-contacts-pure";
 
 // `bot_collected` e as colunas novas de `documents` ainda não estão em
 // lib/database.types.ts (defasado) — mesmo contorno de lib/whatsapp-lead.ts.
@@ -96,6 +98,9 @@ export async function syncBotDraft(params: {
     const picked = pickBotCollected(params.data, params.step);
     const leadPatientId = typeof picked.lead_patient_id === "string" ? picked.lead_patient_id : null;
 
+    // Telefone marcado "não é paciente" não volta para Autorizações (a marcação cai se o robô colheu dado da criança).
+    if (await shouldSkipDraftForNonPatient(params.phone, botDataShowsTherapyIntent(params.data))) return;
+
     const draft = await findOrCreateOpenWhatsappDraft(admin, params.phone, { patientId: leadPatientId, status: "extracted" });
     if (!draft) return;
 
@@ -142,6 +147,9 @@ export async function registerBotDraftFiles(params: { phone: string; documentIds
 
     const admin = createAdminClient();
     const db = loose(admin);
+
+    // Documento enviado no fluxo de agendamento é intenção real: desfaz um "não é paciente" anterior.
+    await shouldSkipDraftForNonPatient(params.phone, true);
 
     const draft = await findOrCreateOpenWhatsappDraft(admin, params.phone, { status: "extracted" });
     if (!draft) return;
