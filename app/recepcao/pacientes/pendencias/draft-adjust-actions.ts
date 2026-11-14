@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { normalizeCpf, normalizePhone } from "@/lib/document-extraction";
 import type { Json } from "@/lib/database.types";
-import { applyAdjustmentToBotCollected } from "@/lib/draft-adjust-pure";
+import { applyAdjustmentToBotCollected, computeManualOverrides } from "@/lib/draft-adjust-pure";
 import { areNamesMatching } from "@/lib/draft-merge";
 
 /**
@@ -263,6 +263,16 @@ export async function saveDraftAdjustment(draftId: string, formData: FormData): 
     .in("id", [draftId, ...memberIds]);
   if (familyError) return { success: false, error: "Dados salvos, mas a fila não pôde ser atualizada." };
 
+  // Correções que sobrevivem à releitura dos documentos (coluna manual_overrides, migration 20261114150000).
+  // Leitura à parte e tolerante: se a coluna ainda não existe, o salvamento segue como antes, só sem guardá-las.
+  const { data: overrideRows, error: overrideError } = await loose
+    .from("registration_drafts")
+    .select("id, manual_overrides")
+    .in("id", [draftId, ...memberIds]);
+  const previousOverrides = overrideError
+    ? null
+    : new Map(((overrideRows ?? []) as { id: string; manual_overrides: unknown }[]).map((r) => [r.id, r.manual_overrides]));
+
   let secondaryFailed = false;
   for (const row of (familyRows ?? []) as { id: string; extracted: unknown; bot_collected: unknown }[]) {
     const ext = asRecord(row.extracted);
@@ -293,9 +303,24 @@ export async function saveDraftAdjustment(draftId: string, formData: FormData): 
       guardianEmail,
       cardNumber,
     });
+    const overrides = previousOverrides
+      ? computeManualOverrides(
+          row.extracted,
+          {
+            patient: { full_name: fullName, birth_date: birthDate, cpf: cpf ?? "", cid, complaint_hint: complaint },
+            guardian: { full_name: guardianName, phone: guardianPhone ?? "", cpf: guardianCpf ?? "", email: guardianEmail },
+            insurance: { card_number: cardNumber },
+          },
+          previousOverrides.get(row.id),
+        )
+      : null;
     const { data: updated, error: draftError } = await loose
       .from("registration_drafts")
-      .update({ extracted: nextExtracted as Json, ...(nextBot ? { bot_collected: nextBot as Json } : {}) })
+      .update({
+        extracted: nextExtracted as Json,
+        ...(nextBot ? { bot_collected: nextBot as Json } : {}),
+        ...(overrides ? { manual_overrides: overrides as Json } : {}),
+      })
       .eq("id", row.id)
       .select("id");
     const ok = !draftError && updated && updated.length > 0;
