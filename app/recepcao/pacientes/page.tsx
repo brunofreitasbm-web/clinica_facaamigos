@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
 /** Pacientes que saíram da rotina: não cobramos documento deles. */
 const NO_PILLS_STATUSES = ["arquivado", "alta", "evadido", "inativo"];
 
-export default async function PacientesPage({ searchParams }: { searchParams: Promise<{ abrir?: string }> }) {
+export default async function PacientesPage({ searchParams }: { searchParams: Promise<{ abrir?: string; filtro?: string }> }) {
   const params = await searchParams;
   const supabase = await createClient();
 
@@ -171,7 +171,7 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
         title="Pacientes"
         description="Pacientes da clínica (plano autorizado). Interessados ficam em Autorizações. Para editar o cadastro completo, use Gestão > Cadastros."
       />
-      <PatientListClient rows={rows} panelsByPatient={panelsByPatient} initialOpenId={params.abrir ?? null} />
+      <PatientListClient rows={rows} panelsByPatient={panelsByPatient} initialOpenId={params.abrir ?? null} initialFilter={params.filtro === "pendencias" ? "pendencias" : null} />
     </main>
   );
 }

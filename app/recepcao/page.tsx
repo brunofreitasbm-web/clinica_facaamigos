@@ -536,7 +536,7 @@ export default async function RecepcaoPage({
               <h6 className="text-xs font-bold uppercase tracking-wide text-slate-700">Outras pendências</h6>
               {otherPendingItems.length > 0 && (
                 <Link
-                  href="/recepcao/pacientes/pendencias"
+                  href="/recepcao/pacientes?filtro=pendencias"
                   className="text-xs font-semibold text-teal-700 hover:text-teal-900 no-underline"
                 >
                   ver todas ({otherPendingItems.length})
