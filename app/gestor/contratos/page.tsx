@@ -6,6 +6,9 @@ import { NewContractDialog } from "./new-contract-dialog";
 import { GenerateInvoiceButton, MarkInvoicePaidButton } from "./invoice-actions";
 import { PageContainer } from "@/components/page-container";
 import { loadParticularPlanCatalog } from "@/lib/particular-plans";
+import { CLINIC_TIMEZONE } from "@/lib/constants";
+import { todayInTimeZone } from "@/lib/timezone";
+import { monthBounds, overdueInvoices, daysLate } from "@/lib/invoice-overdue-pure";
 
 export const dynamic = "force-dynamic";
 
@@ -64,9 +67,9 @@ export default async function ContratosPage() {
     invoicesByContract.set(inv.contract_id, list);
   }
 
-  const now = new Date();
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+  // Mês e "hoje" na data civil da clínica, não no fuso do servidor (das 21h à meia-noite o servidor já está no dia seguinte).
+  const today = todayInTimeZone(CLINIC_TIMEZONE);
+  const { monthStart, nextMonthStart } = monthBounds(today);
 
   const activeContracts = contracts.filter((c) => c.status === "ativo");
   const totalMonthlyFee = activeContracts.reduce((sum, c) => sum + Number(c.monthly_fee), 0);
@@ -75,6 +78,11 @@ export default async function ContratosPage() {
     (inv) => inv.due_date >= monthStart && inv.due_date < nextMonthStart && (inv.status === "pendente" || inv.status === "atrasado")
   );
   const pendingTotal = pendingInvoicesThisMonth.reduce((sum, inv) => sum + Number(inv.amount), 0);
+
+  // Faturas abertas de meses anteriores: antes sumiam da tela, sem botão de baixa (CTR-01).
+  const overdue = overdueInvoices(invoiceRows, monthStart);
+  const overdueTotal = overdue.reduce((sum, inv) => sum + Number(inv.amount), 0);
+  const patientNameByContract = new Map(contracts.map((c) => [c.id, (c.patients as any)?.full_name ?? "—"]));
 
   const { data: allPatients } = await supabase
     .from("patients")
@@ -128,8 +136,49 @@ export default async function ContratosPage() {
               {pendingInvoicesThisMonth.length} fatura{pendingInvoicesThisMonth.length === 1 ? "" : "s"} ({formatCurrency(pendingTotal)})
             </div>
             <span className="text-xs text-ink-faint mt-1 block">Faturas do mês corrente ainda em aberto</span>
+            {/* Referência da regra 1: o que ficou para trás, ao lado do número do mês. */}
+            <span className="text-xs mt-1 block font-semibold" style={{ color: overdue.length > 0 ? "var(--status-falta)" : "var(--color-ink-faint)" }}>
+              {overdue.length > 0
+                ? `+ ${overdue.length} vencida${overdue.length === 1 ? "" : "s"} de meses anteriores (${formatCurrency(overdueTotal)})`
+                : "Nenhuma vencida de meses anteriores"}
+            </span>
           </div>
         </section>
+
+        {overdue.length > 0 && (
+          <section className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--status-falta)" }}>
+            <h3 className="mb-1">Em atraso (meses anteriores)</h3>
+            <p className="mb-4 text-xs text-ink-faint">
+              {overdue.length} fatura{overdue.length === 1 ? "" : "s"} aberta{overdue.length === 1 ? "" : "s"}, {formatCurrency(overdueTotal)} no total. Dê baixa aqui quando o pagamento chegar.
+            </p>
+            <table className="table w-full">
+              <thead>
+                <tr>
+                  <th>Paciente</th>
+                  <th>Venceu em</th>
+                  <th>Atraso</th>
+                  <th>Valor</th>
+                  <th>Baixa</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overdue.map((inv) => (
+                  <tr key={inv.id}>
+                    <td className="font-semibold">{patientNameByContract.get(inv.contract_id) ?? "—"}</td>
+                    <td className="tabular-figure text-xs">{inv.due_date.split("-").reverse().join("/")}</td>
+                    <td className="tabular-figure text-xs" style={{ color: "var(--status-falta)" }}>
+                      {daysLate(inv.due_date, today)} dias
+                    </td>
+                    <td className="tabular-figure text-sm font-bold">{formatCurrency(Number(inv.amount))}</td>
+                    <td>
+                      <MarkInvoicePaidButton invoiceId={inv.id} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
         <section className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
           <h3 className="mb-4">Lista de Contratos</h3>
