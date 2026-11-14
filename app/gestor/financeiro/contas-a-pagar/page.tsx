@@ -62,7 +62,7 @@ export default async function ContasAPagarPage() {
   const overdueTotal = overdue.reduce((sum, e) => sum + Number(e.amount), 0);
 
   return (
-    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
+    <main className="flex flex-1 flex-col pb-8" style={{ background: "var(--color-bg)" }}>
       <FinanceiroSubnav activeTab="contas-a-pagar" />
 
       <PageContainer>

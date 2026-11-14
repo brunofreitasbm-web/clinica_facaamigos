@@ -63,7 +63,7 @@ export default async function ListaEsperaPage() {
     waiting.length > 0 ? Math.round(waiting.reduce((sum, e) => sum + daysWaiting(e.created_at), 0) / waiting.length) : null;
 
   return (
-    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
+    <main className="flex flex-1 flex-col pb-8" style={{ background: "var(--color-bg)" }}>
       <PageContainer>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>

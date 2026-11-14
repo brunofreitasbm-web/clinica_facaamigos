@@ -23,7 +23,7 @@ export default async function FinanceiroHubDrePage({
   const totalResultado = rows.reduce((s, r) => s + r.resultadoLiquido, 0);
 
   return (
-    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
+    <main className="flex flex-1 flex-col pb-8" style={{ background: "var(--color-bg)" }}>
       <FinanceiroHubSubnav activeTab="dre" mes={competenceMonth} />
 
       <PageContainer>

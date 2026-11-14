@@ -138,7 +138,7 @@ export default async function GestorPage() {
   );
 
   return (
-    <main className="flex flex-1 flex-col pb-16" style={{ background: "var(--color-bg)" }}>
+    <main className="flex flex-1 flex-col pb-8" style={{ background: "var(--color-bg)" }}>
 
       <PageContainer fullBleed>
       <div className="flex flex-wrap items-end justify-between gap-6">

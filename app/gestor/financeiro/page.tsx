@@ -28,7 +28,7 @@ export default async function GestorFinanceiroPage() {
   const maxTier = Math.max(...tierBars.map((t) => t.amount), 1);
 
   return (
-    <main className="flex flex-1 flex-col pb-16">
+    <main className="flex flex-1 flex-col pb-8">
       <FinanceiroSubnav activeTab="repasses" />
 
       <PageContainer fullBleed>

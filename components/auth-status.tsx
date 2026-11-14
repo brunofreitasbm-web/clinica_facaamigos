@@ -35,7 +35,7 @@ export async function AuthStatus() {
     if (currentRole !== "gestor") return null;
 
     return (
-      <div className="flex items-center justify-end gap-4 border-b border-paper-line-strong bg-slate-900 px-6 py-2 text-xs text-slate-200 sm:px-10">
+      <div className="flex items-center justify-end gap-4 border-b border-paper-line-strong bg-slate-900 px-6 py-1 text-xs text-slate-200 sm:px-10">
         <RoleSwitcherMenu links={MODULE_LINKS} />
 
         <span className="flex items-center gap-1.5">
