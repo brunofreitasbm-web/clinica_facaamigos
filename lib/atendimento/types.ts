@@ -19,6 +19,8 @@ export type ConversationRow = {
   unreadCount: number;
   lastMessageAt: string | null;
   kind: "patient" | "lead";
+  /** Telefone marcado à mão como "não é paciente" (non_patient_contacts): fica fora do filtro "Leads". */
+  nonPatient?: boolean;
   escalationReason: string | null;
   assignedTo: string | null;
   contactName: string | null;

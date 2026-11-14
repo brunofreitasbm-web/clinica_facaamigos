@@ -18,6 +18,9 @@ import { insertMessageRow } from "@/lib/messages-insert";
 import { ATTENDANCE_MANUAL_OUTCOMES, type AttendanceManualOutcome } from "@/lib/conversation-attendance";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { findOrCreateOpenWhatsappDraft } from "@/lib/registration-drafts-bot";
+import { getNonPatientMark } from "@/lib/non-patient-contacts";
+
+const NON_PATIENT_BLOCKED = "Contato marcado como \"não é paciente\". Desfaça a marcação no painel ao lado para tratá-lo como lead.";
 import { getSingleRegistrationDraft } from "@/lib/reception-queue";
 import { hasUsefulChatData, mergeChatIntoExtraction } from "@/lib/lead-pendencies";
 import { hasStrongJobSignal } from "@/lib/job-inquiry-pure";
@@ -793,6 +796,18 @@ export async function extractLeadInfoFromChat(conversationId: string) {
     return { success: false as const, error: "Conversa não encontrada." };
   }
 
+  // Marcado à mão como "não é paciente" (dúvida, publicidade): não chama IA nem recria o card de Autorizações.
+  const nonPatient = await getNonPatientMark(conversation.phone_number);
+  if (nonPatient) {
+    return {
+      success: true as const,
+      notApplicable: "nao_paciente" as const,
+      nonPatientReason: nonPatient.reason,
+      data: undefined,
+      draft: null,
+    };
+  }
+
   const phoneFormatted = formatConversationPhone(conversation.phone_number);
 
   // Últimas mensagens (não as primeiras): numa conversa longa é no fim que a
@@ -1007,6 +1022,9 @@ export async function openLeadPendency(conversationId: string) {
     .maybeSingle();
   if (!conversation) return { success: false as const, error: "Conversa não encontrada." };
   if (!conversation.phone_number) return { success: false as const, error: "Contato sem telefone." };
+  if (await getNonPatientMark(conversation.phone_number)) {
+    return { success: false as const, error: NON_PATIENT_BLOCKED };
+  }
 
   const admin = createAdminClient();
   const draft = await findOrCreateOpenWhatsappDraft(admin, conversation.phone_number, { status: "pending" });
@@ -1031,6 +1049,9 @@ export async function getLeadDraftByConversationId(conversationId: string) {
 
   if (!conversation) return { success: false as const, error: "Conversa não encontrada." };
   if (!conversation.phone_number) return { success: false as const, error: "Contato sem telefone." };
+  if (await getNonPatientMark(conversation.phone_number)) {
+    return { success: false as const, error: NON_PATIENT_BLOCKED };
+  }
 
   const admin = createAdminClient();
   const draftRecord = await findOrCreateOpenWhatsappDraft(admin, conversation.phone_number, { status: "pending" });

@@ -11,6 +11,7 @@ import type { ConversationPatch, ConversationRow } from "./atendimento-shell";
 import { LeadFocusDialog } from "../pacientes/pendencias/lead-focus-dialog";
 import { DraftIntakeCard } from "../pacientes/pendencias/draft-intake-card";
 import type { PendingRegistrationDraft } from "@/lib/reception-queue";
+import { NotPatientButton } from "@/components/not-patient-button";
 
 const DOCUMENT_KIND_LABEL: Record<string, string> = {
   laudo: "Laudo",
@@ -97,6 +98,8 @@ export function LeadContextPanel({
   // é lead de matrícula (ver hasStrongJobSignal em actions.ts). Evita mostrar
   // "Analisando..." por um assunto que nunca vai virar dado de cadastro.
   const [notApplicable, setNotApplicable] = useState(false);
+  // Marcação manual "não é paciente" (null = tratado como lead).
+  const [nonPatientReason, setNonPatientReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -108,6 +111,11 @@ export function LeadContextPanel({
     try {
       const res = await extractLeadInfoFromChat(conversation.id);
       if (res.success) {
+        if (res.notApplicable === "nao_paciente") {
+          setNonPatientReason(res.nonPatientReason ?? "marcado");
+          onPatch({ nonPatient: true });
+          return;
+        }
         if (res.notApplicable) {
           setNotApplicable(true);
           return;
@@ -120,7 +128,7 @@ export function LeadContextPanel({
     } finally {
       setIsExtracting(false);
     }
-  }, [conversation.id]);
+  }, [conversation.id, onPatch]);
 
   // Pré-extrai automaticamente ao abrir a conversa — uma vez por conversa.
   // A extração chama a IA, lê a conversa e os documentos e grava o resultado
@@ -203,7 +211,25 @@ export function LeadContextPanel({
         )}
       </div>
 
-      {isExtracting && !notApplicable && (
+      {/* Dúvida, publicidade, fornecedor: tira de Autorizações/leads sem encerrar o chat. */}
+      <div>
+        <NotPatientButton
+          phone={conversation.phoneNumber}
+          markedReason={nonPatientReason}
+          onChanged={(reason) => {
+            setNonPatientReason(reason);
+            onPatch({ nonPatient: reason !== null });
+            setDraft(null);
+            if (reason === null) {
+              // Volta a ser lead: refaz a leitura da conversa e o resumo do caso.
+              void handleExtractFromChat();
+            }
+            setSummaryRefresh((n) => n + 1);
+          }}
+        />
+      </div>
+
+      {isExtracting && !notApplicable && !nonPatientReason && (
         <div className="flex items-center gap-1.5 rounded bg-indigo-50 p-2 text-[11px] text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
           <Loader2 size={13} className="animate-spin shrink-0" />
           <span>Analisando conversa e documentos com IA...</span>

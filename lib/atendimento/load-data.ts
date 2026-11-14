@@ -1,5 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { nonPatientPhones } from "@/lib/non-patient-contacts";
 import { DEV_CLINIC_ID } from "@/lib/constants";
 import { formatConversationPhone } from "@/app/recepcao/atendimento/format-phone";
 import { toLastMessageSender, type ConversationRow, type InsurerPill } from "./types";
@@ -68,6 +70,12 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
     }
   }
 
+  // "Não é paciente" (dúvida, publicidade): a conversa continua no chat, mas fora do filtro "Leads".
+  const nonPatientSet = await nonPatientPhones(
+    supabase as unknown as SupabaseClient,
+    (conversationsRaw ?? []).filter((c) => c.kind === "lead").map((c) => c.phone_number),
+  );
+
   const insurerById: Record<string, InsurerPill> = {};
   for (const i of insurersRaw ?? []) insurerById[i.id] = { name: i.name, color: i.badge_color };
 
@@ -89,6 +97,7 @@ export async function loadAtendimentoData(supabase: SupabaseServerClient): Promi
       unreadCount: c.unread_count,
       lastMessageAt: c.last_message_at,
       kind: c.kind === "lead" ? "lead" : "patient",
+      nonPatient: nonPatientSet.has(c.phone_number),
       escalationReason: c.escalation_reason,
       assignedTo: c.assigned_to,
       contactName: c.contact_name,

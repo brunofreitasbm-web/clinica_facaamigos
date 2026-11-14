@@ -13,6 +13,8 @@ import { claimAndProcessDrafts } from "@/lib/registration-drafts-process";
 import { ingestWhatsappMedia } from "@/lib/registration-drafts-ingest";
 import { enrichLeadFromDocuments, registerLeadMedia } from "@/lib/whatsapp-lead";
 import { coldPatientReply, filterIngestibleMedia, planColdMedia, type MediaItem } from "@/lib/whatsapp-media-pure";
+import { shouldSkipDraftForNonPatient } from "@/lib/non-patient-contacts";
+import { formatE164Phone } from "@/lib/twilio";
 
 // Fotos de uma mesma remessa chegam em webhooks separados: cada um agenda a
 // extração, mas só o que ainda enxerga o `last_file_at` da própria remessa
@@ -74,6 +76,11 @@ export async function handleColdWhatsappMedia(params: {
     knownPatient: params.knownPatient,
   });
   if (plan.action === "skip") return null;
+
+  // Telefone marcado "não é paciente" (publicidade, dúvida): mídia solta não abre card em Autorizações.
+  if (!params.knownPatient && (await shouldSkipDraftForNonPatient(formatE164Phone(params.from.replace("whatsapp:", "")), false))) {
+    return null;
+  }
 
   if (plan.action === "mirror") {
     await mirrorWhatsappMediaToPatient({ from: params.from, media });

@@ -5,6 +5,7 @@ import type { PendingRegistrationDraft } from "@/lib/reception-queue";
 import { FileText, Image as ImageIcon } from "lucide-react";
 import { DocumentRequestButtons } from "./document-request-buttons";
 import { DraftAdjustButton } from "./draft-adjust-dialog";
+import { NotPatientButton } from "@/components/not-patient-button";
 import { DraftPipelineColumns } from "./draft-pipeline";
 import { PendencyGrid } from "./pendency-pills";
 import { missingChaseKeys } from "@/lib/lead-pendencies";
@@ -192,6 +193,10 @@ export function DraftIntakeCard({
 
         <div className="flex flex-wrap items-center gap-3">
           <DraftAdjustButton draftId={draft.id} />
+          {/* Dúvida/publicidade que a IA puxou como lead: sai de Autorizações sem encerrar o chat. */}
+          {!isPaciente && draft.source === "whatsapp" && draft.status !== "validated" && (
+            <NotPatientButton phone={draft.sourcePhone} draftId={draft.id} />
+          )}
           {draft.status !== "validated" && !hideReviewLink && (
             <Link
               href={`/recepcao/pre-cadastros/${draft.id}`}
