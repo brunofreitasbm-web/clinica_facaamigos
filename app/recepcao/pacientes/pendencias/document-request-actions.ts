@@ -220,7 +220,7 @@ export async function openDocumentConversation(draftId: string): Promise<Documen
     .eq("id", conversation.id);
 
   revalidatePath("/recepcao/pacientes/pendencias");
-  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/fila");
   revalidatePath("/recepcao/atendimento");
 
   return { success: true, sentAt };

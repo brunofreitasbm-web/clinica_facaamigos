@@ -74,7 +74,7 @@ async function session() {
 }
 
 function refresh() {
-  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/fila");
   revalidatePath("/recepcao/pacientes/pendencias");
   revalidatePath("/recepcao/pacientes");
 }

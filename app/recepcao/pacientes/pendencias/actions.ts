@@ -91,7 +91,6 @@ export async function reassignQueueItem(itemId: string, assigneeId: string): Pro
   revalidatePath("/recepcao/pacientes/pendencias");
   // Fila de entrada e Autorizações mostram o dono no painel: sem isto o nome ficava velho até recarregar.
   revalidatePath("/recepcao/fila");
-  revalidatePath("/recepcao/a-autorizar");
   return { success: true };
 }
 
@@ -168,7 +167,7 @@ export async function moveQueueItemToEnd(itemId: string): Promise<ActionResult> 
     return { success: false, error: "Não foi possível mover para o fim da fila." };
   }
 
-  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/fila");
   revalidatePath("/recepcao/pacientes/pendencias");
   return { success: true };
 }
@@ -192,7 +191,7 @@ export async function restoreQueueItemToTop(itemId: string): Promise<ActionResul
 
   if (error) return { success: false, error: "Não foi possível priorizar o item." };
 
-  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/fila");
   revalidatePath("/recepcao/pacientes/pendencias");
   return { success: true };
 }

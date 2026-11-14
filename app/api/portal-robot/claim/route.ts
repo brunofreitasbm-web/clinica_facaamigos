@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * O agente local (robô do portal do plano) pergunta se há pedido na fila. Serve
- * também de "sinal de vida": a tela de Autorizações mostra o robô ligado enquanto
+ * também de "sinal de vida": a Fila de entrada mostra o robô ligado enquanto
  * o agente chama esta rota. A reserva é atômica (claim_portal_robot_job, skip
  * locked), então dois agentes nunca pegam o mesmo pedido. Ver docs/portal-robot.md.
  */

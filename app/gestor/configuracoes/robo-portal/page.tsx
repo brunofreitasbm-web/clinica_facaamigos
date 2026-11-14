@@ -41,7 +41,7 @@ export default async function RoboPortalPage() {
       <PageHeader
         axisLabel="Configurações"
         title="Robô do portal"
-        description="Computadores autorizados a rodar o robô que preenche o portal do plano na etapa de Autorizações."
+        description="Computadores autorizados a rodar o robô que preenche o portal do plano na Fila de entrada."
       />
       <PageContainer>
         <RoboPortalManager agents={agents} />

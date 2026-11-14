@@ -62,7 +62,7 @@ export async function POST(req: Request) {
 
   if (finalStatus === "enviado") await markDraftGuideSentByRobot(admin, job);
 
-  revalidatePath("/recepcao/a-autorizar");
+  revalidatePath("/recepcao/fila");
   revalidatePath("/recepcao/pacientes/pendencias");
   return NextResponse.json({ status: finalStatus });
 }
