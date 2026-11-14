@@ -131,3 +131,103 @@ export async function approvePlan(planId: string): Promise<ActionResult> {
   revalidatePath("/supervisao");
   return { success: true };
 }
+
+const HORIZONS = ["curto", "medio", "longo"] as const;
+const METHODOLOGIES = ["dtt", "naturalistico", "misto", "outra"] as const;
+
+export type PlanContentInput = {
+  generalObjective: string;
+  familyPriorities: string;
+};
+
+export type PlanGoalEditInput = {
+  description: string;
+  domain: string;
+  criterion: string;
+  horizon: string;
+  strategy: string;
+  methodology: string;
+};
+
+function optionalText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * Edita o conteúdo do PTS (objetivo geral e prioridades da família). Vale para
+ * rascunho e para PTS vigente: a supervisão pode corrigir o plano depois de
+ * publicado. Não altera `status`, `version` nem metas — isso segue nas ações
+ * próprias. RLS (`treatment_plans_approve_supervisor`) limita a supervisor/gestor.
+ */
+export async function updatePlanContent(planId: string, input: PlanContentInput): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Sessão expirada — faça login de novo." };
+
+  // Decisão: editar um PTS já `aprovado` é in-place. Não cria nova versão
+  // (version/status/previous_plan_id ficam como estão); o histórico entregue à
+  // família fica registrado pela auditoria de `treatment_plans`/`plan_goals`.
+
+  const { error } = await supabase
+    .from("treatment_plans")
+    .update({
+      general_objective: optionalText(input.generalObjective),
+      family_priorities: optionalText(input.familyPriorities),
+    })
+    .eq("id", planId);
+
+  if (error) return { success: false, error: "Não foi possível salvar o objetivo geral do PTS." };
+
+  revalidatePath("/supervisao");
+  return { success: true };
+}
+
+/**
+ * Edita uma meta do PTS. Disciplina e status não são editáveis aqui: a
+ * disciplina define o programa/agenda e o status segue o fluxo de
+ * validação/devolução. `domain` é obrigatório (mesma regra da criação).
+ */
+export async function updatePlanGoal(
+  planId: string,
+  goalId: string,
+  input: PlanGoalEditInput,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Sessão expirada — faça login de novo." };
+
+  const description = input.description.trim();
+  const domain = input.domain.trim();
+  if (!description || !domain) {
+    return { success: false, error: "Toda meta precisa de domínio e descrição." };
+  }
+  if (input.horizon && !(HORIZONS as readonly string[]).includes(input.horizon)) {
+    return { success: false, error: "Prazo da meta inválido." };
+  }
+  if (input.methodology && !(METHODOLOGIES as readonly string[]).includes(input.methodology)) {
+    return { success: false, error: "Metodologia da meta inválida." };
+  }
+
+  const { error } = await supabase
+    .from("plan_goals")
+    .update({
+      description,
+      domain,
+      criterion: optionalText(input.criterion),
+      horizon: input.horizon || null,
+      strategy: optionalText(input.strategy),
+      methodology: input.methodology || null,
+    })
+    .eq("id", goalId)
+    .eq("treatment_plan_id", planId);
+
+  if (error) return { success: false, error: "Não foi possível salvar a meta." };
+
+  revalidatePath("/supervisao");
+  return { success: true };
+}

@@ -2,9 +2,17 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, RotateCcw, CheckCircle2, Loader2 } from "lucide-react";
+import { Check, RotateCcw, CheckCircle2, Loader2, Pencil, Save, X } from "lucide-react";
 import { PLAN_GOAL_STATUS_STYLE } from "@/lib/appointment-status-style";
-import { approvePlan, returnAllPendingGoals, returnGoal, validateGoal } from "./plan-actions";
+import {
+  approvePlan,
+  returnAllPendingGoals,
+  returnGoal,
+  updatePlanContent,
+  updatePlanGoal,
+  validateGoal,
+  type PlanGoalEditInput,
+} from "./plan-actions";
 import { RelatorioReavaliacaoDialog, type ReportPatientData } from "./relatorio-dialog";
 
 export type PlanGoalRow = {
@@ -61,6 +69,11 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
   const [pendingGoalId, setPendingGoalId] = useState<string | null>(null);
   const [bulkNotes, setBulkNotes] = useState("");
   const [isPending, startTransition] = useTransition();
+  // Edição do conteúdo do PTS (vale para rascunho e vigente). Os rascunhos
+  // ficam em estado local até "Salvar"; "Cancelar" descarta tudo.
+  const [editing, setEditing] = useState(false);
+  const [contentDraft, setContentDraft] = useState({ generalObjective: "", familyPriorities: "" });
+  const [goalDrafts, setGoalDrafts] = useState<Record<string, PlanGoalEditInput>>({});
 
   const filteredPlans = useMemo(() => {
     if (!searchTerm.trim()) return plans;
@@ -139,6 +152,65 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
     });
   }
 
+  function startEditing() {
+    if (!selected) return;
+    setError(null);
+    setContentDraft({
+      generalObjective: selected.generalObjective ?? "",
+      familyPriorities: selected.familyPriorities ?? "",
+    });
+    setGoalDrafts(
+      Object.fromEntries(
+        selected.goals.map((g) => [
+          g.id,
+          {
+            description: g.description,
+            domain: g.domain,
+            criterion: g.criterion ?? "",
+            horizon: g.horizon ?? "",
+            strategy: g.strategy ?? "",
+            methodology: g.methodology ?? "",
+          },
+        ])
+      )
+    );
+    setEditing(true);
+  }
+
+  function goalChanged(goal: PlanGoalRow, draft: PlanGoalEditInput) {
+    return (
+      draft.description !== goal.description ||
+      draft.domain !== goal.domain ||
+      draft.criterion !== (goal.criterion ?? "") ||
+      draft.horizon !== (goal.horizon ?? "") ||
+      draft.strategy !== (goal.strategy ?? "") ||
+      draft.methodology !== (goal.methodology ?? "")
+    );
+  }
+
+  function saveEditing() {
+    if (!selected) return;
+    const planId = selected.id;
+    setError(null);
+    startTransition(async () => {
+      const contentResult = await updatePlanContent(planId, contentDraft);
+      if (!contentResult.success) {
+        setError(contentResult.error);
+        return;
+      }
+      for (const goal of selected.goals) {
+        const draft = goalDrafts[goal.id];
+        if (!draft || !goalChanged(goal, draft)) continue;
+        const goalResult = await updatePlanGoal(planId, goal.id, draft);
+        if (!goalResult.success) {
+          setError(goalResult.error);
+          return;
+        }
+      }
+      setEditing(false);
+    });
+  }
+
   return (
     <section className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr]">
       {/* Coluna Esquerda: Fila e Lista de Planos */}
@@ -182,7 +254,10 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                 <button
                   key={plan.id}
                   type="button"
-                  onClick={() => setSelectedId(plan.id)}
+                  onClick={() => {
+                    setSelectedId(plan.id);
+                    setEditing(false);
+                  }}
                   className={`flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-all ${
                     isSelected
                       ? "border-accent/40 bg-accent/5 shadow-sm"
@@ -235,7 +310,40 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
 
               <div className="flex flex-wrap items-center gap-2">
                 <RelatorioReavaliacaoDialog data={reportData} />
-                {isDraft ? (
+                {editing ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-secondary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
+                      disabled={isPending}
+                      onClick={() => setEditing(false)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      <span>Cancelar</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
+                      disabled={isPending}
+                      onClick={saveEditing}
+                    >
+                      {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      <span>Salvar alterações</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-secondary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
+                    disabled={isPending}
+                    onClick={startEditing}
+                    title="Editar objetivo geral, prioridades da família e metas deste PTS"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span>Editar PTS</span>
+                  </button>
+                )}
+                {editing ? null : isDraft ? (
                   <>
                     <button
                       type="button"
@@ -281,8 +389,29 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
             </div>
             )}
 
-            {/* Contexto Clinico e Familia */}
-            {(selected.generalObjective || selected.familyPriorities) && (
+            {/* Contexto Clinico e Familia — em edição vira formulário */}
+            {editing ? (
+              <div className="mb-5 flex flex-col gap-3 rounded-lg border border-paper-line bg-paper/60 p-3.5 text-xs">
+                <label className="flex flex-col gap-1">
+                  <span className="font-semibold text-ink">Objetivo Geral</span>
+                  <textarea
+                    value={contentDraft.generalObjective}
+                    onChange={(e) => setContentDraft((d) => ({ ...d, generalObjective: e.target.value }))}
+                    rows={2}
+                    className="w-full rounded-md border border-paper-line bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-semibold text-ink">Prioridades da Família</span>
+                  <textarea
+                    value={contentDraft.familyPriorities}
+                    onChange={(e) => setContentDraft((d) => ({ ...d, familyPriorities: e.target.value }))}
+                    rows={2}
+                    className="w-full rounded-md border border-paper-line bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+              </div>
+            ) : (selected.generalObjective || selected.familyPriorities) && (
               <div className="mb-5 flex flex-col gap-2 rounded-lg border border-paper-line bg-paper/60 p-3.5 text-xs">
                 {selected.generalObjective && (
                   <div>
@@ -300,7 +429,7 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
             )}
 
             {/* Campo de observacao em lote (só rascunho: devolução em lote não se aplica a PTS vigente) */}
-            {isDraft && (
+            {isDraft && !editing && (
             <div className="mb-4">
               <textarea
                 value={bulkNotes}
@@ -328,6 +457,86 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                 selected.goals.map((goal) => {
                   const style = PLAN_GOAL_STATUS_STYLE[goal.status] ?? { label: goal.status, tagClass: "st-cancelada" };
                   const busy = isPending && pendingGoalId === goal.id;
+                  const draft = goalDrafts[goal.id];
+
+                  if (editing && draft) {
+                    const setField = (field: keyof PlanGoalEditInput, value: string) =>
+                      setGoalDrafts((prev) => ({ ...prev, [goal.id]: { ...draft, [field]: value } }));
+                    const inputClass =
+                      "w-full rounded-md border border-paper-line bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent";
+                    return (
+                      <div key={goal.id} className="flex flex-col gap-3 rounded-lg border border-accent/40 bg-paper p-4">
+                        <label className="flex flex-col gap-1 text-xs">
+                          <span className="font-semibold text-ink">Descrição *</span>
+                          <textarea
+                            value={draft.description}
+                            onChange={(e) => setField("description", e.target.value)}
+                            rows={2}
+                            className={inputClass}
+                          />
+                        </label>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <label className="flex flex-col gap-1 text-xs">
+                            <span className="font-semibold text-ink">Domínio *</span>
+                            <input
+                              type="text"
+                              value={draft.domain}
+                              onChange={(e) => setField("domain", e.target.value)}
+                              className={inputClass}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1 text-xs">
+                            <span className="font-semibold text-ink">Critério</span>
+                            <input
+                              type="text"
+                              value={draft.criterion}
+                              onChange={(e) => setField("criterion", e.target.value)}
+                              className={inputClass}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1 text-xs">
+                            <span className="font-semibold text-ink">Prazo</span>
+                            <select
+                              value={draft.horizon}
+                              onChange={(e) => setField("horizon", e.target.value)}
+                              className={inputClass}
+                            >
+                              <option value="">—</option>
+                              {Object.entries(HORIZON_LABEL).map(([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-1 text-xs">
+                            <span className="font-semibold text-ink">Metodologia</span>
+                            <select
+                              value={draft.methodology}
+                              onChange={(e) => setField("methodology", e.target.value)}
+                              className={inputClass}
+                            >
+                              <option value="">—</option>
+                              {Object.entries(METHODOLOGY_LABEL).map(([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <label className="flex flex-col gap-1 text-xs">
+                          <span className="font-semibold text-ink">Estratégia</span>
+                          <textarea
+                            value={draft.strategy}
+                            onChange={(e) => setField("strategy", e.target.value)}
+                            rows={2}
+                            className={inputClass}
+                          />
+                        </label>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div
@@ -364,7 +573,7 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                         Visão da família: &ldquo;{goal.description}&rdquo;
                       </div>
 
-                      {isDraft && goal.status === "ativa" && (
+                      {isDraft && !editing && goal.status === "ativa" && (
                         <div className="mt-2 flex items-center justify-end gap-2 border-t border-paper-line/60 pt-2.5">
                           <button
                             type="button"
