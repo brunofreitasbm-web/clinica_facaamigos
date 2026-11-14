@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { HelpHint } from "@/components/ui/help-hint";
 import { WEEKDAY_LABEL, KIND_STYLE, type AppointmentKind } from "./grade-data";
@@ -574,17 +575,6 @@ export function GradePanel({
               >
                 Fechar
               </button>
-              <button
-                type="button"
-                className="btn btn-primary text-xs"
-                onClick={() => {
-                  setNotification(`Visualização de PTS acionada para ${sanitizePatientName(selectedAppt.patientName).displayName}`);
-                  setSelectedAppt(null);
-                  setTimeout(() => setNotification(null), 4000);
-                }}
-              >
-                Ver PTS do Paciente
-              </button>
             </div>
           </div>
         </div>
@@ -615,16 +605,6 @@ export function GradePanel({
                       <span className="tabular-figure" style={{ color: "var(--status-falta)" }}>
                         {p.hoursOverdue} h atrasada
                       </span>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => {
-                          setNotification(`Lembrete de evolução pendente enviado para ${p.therapistName}`);
-                          setTimeout(() => setNotification(null), 4000);
-                        }}
-                      >
-                        Lembrar
-                      </button>
                     </div>
                   </div>
                 );
@@ -702,16 +682,9 @@ export function GradePanel({
                     <span className="tabular-figure" style={{ color: "var(--status-falta)" }}>
                       {p.daysOverdue} dia(s) atrasado
                     </span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => {
-                        setNotification(`Lembrete de PTS pendente enviado para a equipe de ${displayName}`);
-                        setTimeout(() => setNotification(null), 4000);
-                      }}
-                    >
-                      Lembrar
-                    </button>
+                    <Link href={`/supervisao/prontuario-unificado?p=${p.patientId}`} className="btn btn-ghost no-underline">
+                      Abrir prontuário
+                    </Link>
                   </div>
                 </div>
               );
