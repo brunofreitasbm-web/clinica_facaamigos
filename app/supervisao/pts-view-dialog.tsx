@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Printer, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { PLAN_GOAL_STATUS_STYLE } from "@/lib/appointment-status-style";
@@ -32,16 +33,24 @@ export function PtsViewDialog({
   autoPrint: boolean;
   onClose: () => void;
 }) {
+  // Portal no <body>: a impressão esconde o resto da página (ver <style>
+  // abaixo). Sem o portal, o documento ficava dentro de contêineres com
+  // overflow/altura limitada e só o timbre saía no papel.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
-    if (!autoPrint) return;
-    const t = window.setTimeout(() => window.print(), 150);
+    if (!autoPrint || !mounted) return;
+    const t = window.setTimeout(() => window.print(), 250);
     return () => window.clearTimeout(t);
-  }, [autoPrint]);
+  }, [autoPrint, mounted]);
 
   const statusLabel = plan.status === "aprovado" ? "PTS vigente" : "Rascunho (aguardando aprovação)";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm print:static print:bg-white print:p-0">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="pts-dialog-root fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm print:static print:bg-white print:p-0">
       <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-paper shadow-2xl print:max-h-none print:w-full print:rounded-none print:shadow-none">
         <div className="flex items-center justify-between border-b border-paper-line bg-paper-subtle px-6 py-4 print:hidden">
           <h2 className="m-0 text-lg font-bold text-ink">Visualizar PTS</h2>
@@ -68,9 +77,10 @@ export function PtsViewDialog({
         <div className="flex-1 overflow-y-auto p-8 text-ink print:overflow-visible print:p-6">
           <style>{`
             @media print {
-              body * { visibility: hidden; }
-              .pts-print-document, .pts-print-document * { visibility: visible; }
-              .pts-print-document { position: absolute; left: 0; top: 0; width: 100%; }
+              body > *:not(.pts-dialog-root) { display: none !important; }
+              .pts-dialog-root { position: static !important; display: block !important; background: #fff !important; padding: 0 !important; overflow: visible !important; }
+              .pts-dialog-root > div { max-height: none !important; overflow: visible !important; box-shadow: none !important; }
+              .pts-dialog-root .overflow-y-auto { overflow: visible !important; }
             }
           `}</style>
 
@@ -109,6 +119,38 @@ export function PtsViewDialog({
               </section>
             )}
 
+            <section className="space-y-2">
+              <h3 className="m-0 text-sm font-bold">
+                Cronograma de {plan.monthLabel} ({plan.monthSessions.length} sessões)
+              </h3>
+              {plan.monthSessions.length === 0 ? (
+                <p className="m-0 text-xs text-ink-faint">Nenhuma sessão agendada para este paciente no mês vigente.</p>
+              ) : (
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-paper-line text-left text-ink-faint">
+                      <th className="py-1.5 pr-3 font-semibold">Data</th>
+                      <th className="py-1.5 pr-3 font-semibold">Dia</th>
+                      <th className="py-1.5 pr-3 font-semibold">Horário</th>
+                      <th className="py-1.5 pr-3 font-semibold">Disciplina</th>
+                      <th className="py-1.5 font-semibold">Sala</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {plan.monthSessions.map((a) => (
+                      <tr key={a.id} className="break-inside-avoid border-b border-paper-line/60">
+                        <td className="py-1.5 pr-3">{a.date.split("-").reverse().join("/")}</td>
+                        <td className="py-1.5 pr-3">{a.weekday}</td>
+                        <td className="py-1.5 pr-3 font-mono">{a.time}</td>
+                        <td className="py-1.5 pr-3">{a.discipline}</td>
+                        <td className="py-1.5">{a.roomName ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+
             <section className="space-y-3">
               <h3 className="m-0 text-sm font-bold">Metas Terapêuticas ({plan.goals.length})</h3>
               {plan.goals.length === 0 ? (
@@ -146,6 +188,7 @@ export function PtsViewDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
