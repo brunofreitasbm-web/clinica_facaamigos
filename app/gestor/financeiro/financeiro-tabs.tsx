@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { RepasseRow, GlosaRow } from "./data";
-import { closePayouts, markPayoutPaid } from "@/app/faturamento/repasses/actions";
+import { markPayoutPaid } from "@/app/faturamento/repasses/actions";
+import { ClosePayoutsConfirm } from "@/components/close-payouts-confirm";
 import type { GlosaBreakdown, GlosaBreakdownRow } from "@/lib/glosa-analytics";
 
 const REPASSE_STATUS_TAG: Record<RepasseRow["statusLabel"], string> = {
@@ -15,36 +16,7 @@ const REPASSE_STATUS_TAG: Record<RepasseRow["statusLabel"], string> = {
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 function ClosePayoutsButton({ competenceMonth }: { competenceMonth: string }) {
-  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
-
-  function handleClose() {
-    setMessage(null);
-    startTransition(async () => {
-      const result = await closePayouts(competenceMonth);
-      if (!result.success) {
-        setMessage({ kind: "error", text: result.error });
-        return;
-      }
-      const skippedNote = result.skipped.length > 0 ? ` · não incluídos: ${result.skipped.join(", ")}` : "";
-      setMessage({ kind: "success", text: `${result.closedCount} repasse(s) fechado(s)${skippedNote}.` });
-      router.refresh();
-    });
-  }
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <button type="button" onClick={handleClose} disabled={isPending} className="btn btn-primary">
-        {isPending ? "Fechando…" : "Fechar repasses do mês"}
-      </button>
-      {message && (
-        <p className="text-xs" style={{ color: message.kind === "error" ? "var(--status-falta)" : "var(--color-accent-2-600)" }}>
-          {message.text}
-        </p>
-      )}
-    </div>
-  );
+  return <ClosePayoutsConfirm competenceMonth={competenceMonth} buttonClassName="btn btn-primary" />;
 }
 
 function MarkPaidAction({ payoutId }: { payoutId: string }) {
