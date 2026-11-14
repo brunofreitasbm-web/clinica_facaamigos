@@ -263,3 +263,11 @@ test("consolidateRegistrationDrafts só persiste a mesclagem quando pedido (o GE
   assert.match(fn, /opts: \{ persist\?: boolean \} = \{\}/);
   assert.match(fn, /if \(opts\.persist !== false\) \{[\s\S]*persistDraftMergeInDb[\s\S]*runAfterResponse/);
 });
+
+test("areDraftsSameCase: rascunhos ligados a pacientes DIFERENTES nunca se mesclam (irmão separado em Ajustar cadastro)", () => {
+  const original = makeIdentity({ id: "a", patientId: "pat-1", patientName: "João Pedro Silva", patientBirthDate: null, patientCpf: null });
+  const irmao = makeIdentity({ id: "b", patientId: "pat-2", patientName: "João Paulo Silva", patientBirthDate: null, patientCpf: null });
+  assert.equal(areDraftsSameCase(original, irmao), false);
+  // O mesmo paciente continua se mesclando.
+  assert.equal(areDraftsSameCase({ ...original }, { ...original, id: "c" }), true);
+});

@@ -9,6 +9,7 @@ import { DEV_CLINIC_ID } from "@/lib/constants";
 import { normalizeCpf, normalizePhone } from "@/lib/document-extraction";
 import type { Json } from "@/lib/database.types";
 import { applyAdjustmentToBotCollected } from "@/lib/draft-adjust-pure";
+import { areNamesMatching } from "@/lib/draft-merge";
 
 /**
  * Ajuste autônomo de cadastro pela tela de Autorizações / Fila de pendências.
@@ -321,12 +322,14 @@ export async function saveDraftAdjustment(draftId: string, formData: FormData): 
 }
 
 /**
- * Separa um irmão que chegou junto no mesmo contato: cria paciente, responsável
- * (cópia do atual), convênio e um rascunho próprio. O rascunho é o que a Agenda
- * de 1ª Avaliação consulta (lib/evaluation-agenda.ts: um gate por patient_id),
- * por isso cada criança precisa do seu — e herda o "plano autorizou /
- * agendamento habilitado" do contato de origem, já que o pedido foi aprovado
- * para a família.
+ * Separa um irmão que chegou junto no mesmo contato: cria paciente-lead, responsável (cópia do atual),
+ * convênio e um rascunho próprio e ABERTO, que entra na Fila de entrada para o irmão seguir o fluxo dele
+ * (documentos, guia ao plano, autorização, agendamento), igual a qualquer lead novo.
+ *
+ * O irmão NÃO herda "guia enviada", "plano autorizou" nem "agendamento habilitado" do contato de origem: o
+ * plano autoriza por criança e por guia. Herdar isso criava uma autorização que ninguém deu (a Agenda de
+ * 1ª Avaliação passaria a vê-lo como habilitado, sem guia) e ainda o escondia das filas.
+ * Depende da migration 20261114130000 (um rascunho aberto por telefone E por criança).
  */
 export async function splitSiblingFromDraft(draftId: string, formData: FormData): Promise<Result> {
   const supabase = await createClient();
@@ -337,15 +340,14 @@ export async function splitSiblingFromDraft(draftId: string, formData: FormData)
 
   const { data: source } = await supabase
     .from("registration_drafts")
-    .select(
-      "id, clinic_id, patient_id, guardian_id, source, source_phone, extracted, plan_authorized_at, plan_authorized_by, scheduling_enabled_at, scheduling_enabled_by, guide_sent_at, guide_sent_by, authorization_waived",
-    )
+    .select("id, clinic_id, patient_id, guardian_id, source, source_phone, extracted")
     .eq("id", draftId)
     .maybeSingle();
   if (!source) return { success: false, error: "Contato não encontrado." };
   if (!source.patient_id) {
     return { success: false, error: "Cadastre a primeira criança (Conferir e cadastrar) antes de adicionar o irmão." };
   }
+  const clinicId = source.clinic_id ?? DEV_CLINIC_ID;
 
   const fullName = str(formData, "sibling_full_name");
   const birthDate = str(formData, "sibling_birth_date");
@@ -357,6 +359,16 @@ export async function splitSiblingFromDraft(draftId: string, formData: FormData)
   const cpf = cpfRaw ? normalizeCpf(cpfRaw) : null;
   if (cpfRaw && !cpf) return { success: false, error: "CPF do irmão inválido." };
 
+  // Mesmo nome e nascimento de quem já existe (a própria criança do contato, ou um clique repetido): não cria outro.
+  const { data: sameBirth } = await supabase
+    .from("patients")
+    .select("id, full_name")
+    .eq("clinic_id", clinicId)
+    .eq("birth_date", birthDate);
+  if ((sameBirth ?? []).some((p) => areNamesMatching(p.full_name, fullName))) {
+    return { success: false, error: "Já existe um paciente com este nome e esta data de nascimento." };
+  }
+
   const [{ data: sibling }, { data: guardians }, { data: insurances }] = await Promise.all([
     supabase.from("patients").select("entry_source, complaint").eq("id", source.patient_id).maybeSingle(),
     supabase
@@ -367,7 +379,7 @@ export async function splitSiblingFromDraft(draftId: string, formData: FormData)
       .limit(1),
     supabase
       .from("patient_insurance")
-      .select("insurer_id, plan_name, card_valid_until")
+      .select("insurer_id, plan_name, card_valid_until, is_private")
       .eq("patient_id", source.patient_id)
       .order("id", { ascending: true })
       .limit(1),
@@ -375,16 +387,17 @@ export async function splitSiblingFromDraft(draftId: string, formData: FormData)
   const guardian = guardians?.[0];
   const insurance = insurances?.[0];
 
+  // Paciente-lead ("interessado"), como todo lead do WhatsApp: é o que mantém o irmão na Fila (isAuthorizationQueueItem).
   const { data: created, error: patientError } = await supabase
     .from("patients")
     .insert({
-      clinic_id: source.clinic_id ?? DEV_CLINIC_ID,
+      clinic_id: clinicId,
       full_name: fullName,
       birth_date: birthDate,
       cpf,
       cid: cid || null,
       complaint: sibling?.complaint ?? null,
-      status: "avaliacao",
+      status: "interessado",
       entry_source: sibling?.entry_source ?? "cadastro_assistido_ia",
       created_by: user.id,
     })
@@ -401,9 +414,12 @@ export async function splitSiblingFromDraft(draftId: string, formData: FormData)
   // patients não tem policy de DELETE para a sessão, então o desfazer usa o admin client.
   const admin = createAdminClient();
   const rollback = async () => {
-    await admin.from("guardians").delete().eq("patient_id", created.id);
-    await admin.from("patient_insurance").delete().eq("patient_id", created.id);
-    await admin.from("patients").delete().eq("id", created.id);
+    for (const table of ["guardians", "patient_insurance"] as const) {
+      const { error } = await admin.from(table).delete().eq("patient_id", created.id);
+      if (error) console.error(`[Adjust] Desfazer irmão: falha em ${table}:`, error.message);
+    }
+    const { error } = await admin.from("patients").delete().eq("id", created.id);
+    if (error) console.error("[Adjust] Desfazer irmão: falha em patients (fica um paciente órfão):", error.message);
   };
 
   let guardianId: string | null = null;
@@ -423,7 +439,7 @@ export async function splitSiblingFromDraft(draftId: string, formData: FormData)
   if (insurance) {
     const { error } = await supabase
       .from("patient_insurance")
-      .insert({ ...insurance, patient_id: created.id, card_number: cardNumber || null, is_private: false });
+      .insert({ ...insurance, patient_id: created.id, card_number: cardNumber || null });
     if (error) {
       await rollback();
       return { success: false, error: "Não foi possível criar o convênio do irmão." };
@@ -431,38 +447,76 @@ export async function splitSiblingFromDraft(draftId: string, formData: FormData)
   }
 
   const ext = asRecord(source.extracted);
-  const { error: draftError } = await admin.from("registration_drafts").insert({
-    clinic_id: source.clinic_id,
-    patient_id: created.id,
-    guardian_id: guardianId,
-    source: source.source,
-    source_phone: source.source_phone,
-    status: "validated",
-    extracted: {
-      patient: { full_name: fullName, birth_date: birthDate, cpf, cid: cid || null },
-      guardian: ext.guardian ?? null,
-      insurance: { ...asRecord(ext.insurance), card_number: cardNumber || null },
-    } as Json,
-    plan_authorized_at: source.plan_authorized_at,
-    plan_authorized_by: source.plan_authorized_by,
-    scheduling_enabled_at: source.scheduling_enabled_at,
-    scheduling_enabled_by: source.scheduling_enabled_by,
-    guide_sent_at: source.guide_sent_at,
-    guide_sent_by: source.guide_sent_by,
-    authorization_waived: source.authorization_waived,
-    validated_at: new Date().toISOString(),
-    validated_by: user.id,
-  });
-  if (draftError) {
+  const { insurance: extInsurance, patient: extPatient } = { insurance: asRecord(ext.insurance), patient: asRecord(ext.patient) };
+  const { data: siblingDraft, error: draftError } = await admin
+    .from("registration_drafts")
+    .insert({
+      clinic_id: clinicId,
+      patient_id: created.id,
+      guardian_id: guardianId,
+      source: source.source,
+      source_phone: source.source_phone,
+      // Aberto: é o que a Fila lê. Sem plan_*, guide_*, scheduling_* nem authorization_*: começa em "enviar a guia".
+      status: "extracted",
+      processed_at: new Date().toISOString(),
+      extracted: {
+        patient: { full_name: fullName, birth_date: birthDate, cpf, cid: cid || null, complaint_hint: extPatient.complaint_hint ?? null },
+        guardian: ext.guardian ?? {},
+        address: ext.address ?? {},
+        insurance: { ...extInsurance, card_number: cardNumber || null, card_valid_until: null },
+        authorization: {},
+        documents: [],
+        additional_children: [],
+        confidence: {},
+        warnings: [
+          `Cadastro separado manualmente do contato de ${String(extPatient.full_name ?? "outra criança")}: peça os documentos e a guia deste irmão.`,
+        ],
+      } as unknown as Json,
+    })
+    .select("id")
+    .single();
+  if (draftError || !siblingDraft) {
     await rollback();
-    return { success: false, error: "Não foi possível registrar o irmão na fila de autorizações." };
+    return {
+      success: false,
+      error:
+        draftError?.code === "23505"
+          ? "Não foi possível criar o irmão: o banco ainda não aceita dois cadastros abertos no mesmo telefone (atualização pendente)."
+          : "Não foi possível registrar o irmão na Fila de entrada.",
+    };
   }
+
+  // Tira o irmão da lista de "outras crianças" do contato de origem: uma releitura dos documentos não pode
+  // criar um segundo irmão duplicado só porque o nome foi digitado diferente do que a IA leu.
+  let sourceCleaned = true;
+  const additional = Array.isArray(ext.additional_children) ? ext.additional_children : [];
+  if (additional.length > 0) {
+    const remaining = additional.filter((c) => !areNamesMatching(text(asRecord(c).full_name), fullName));
+    if (remaining.length !== additional.length) {
+      const { data: cleaned, error } = await supabase
+        .from("registration_drafts")
+        .update({ extracted: { ...ext, additional_children: remaining } as Json })
+        .eq("id", source.id)
+        .select("id");
+      sourceCleaned = !error && Boolean(cleaned && cleaned.length > 0);
+    }
+  }
+
+  const { error: auditError } = await admin.from("audit_log").insert({
+    table_name: "registration_drafts",
+    row_id: source.id,
+    action: "draft_split_sibling_manual",
+    actor_id: user.id,
+    clinic_id: clinicId,
+    after: { siblingDraftId: siblingDraft.id, siblingPatientId: created.id },
+  });
+  if (auditError) console.error("[Adjust] Falha ao registrar a separação do irmão:", auditError.message);
 
   refresh(source.patient_id);
   return {
     success: true,
-    note: source.plan_authorized_at
-      ? "Irmão criado já liberado para agendar (herdou a autorização do contato)."
-      : "Irmão criado. Ele aparece na fila de Autorizações para seguir o fluxo próprio.",
+    note: sourceCleaned
+      ? "Irmão criado. Ele entra na Fila de entrada para você pedir os documentos e enviar a guia dele."
+      : "Irmão criado e na Fila de entrada. Confira se ele não aparece duplicado depois de uma nova leitura dos documentos.",
   };
 }

@@ -237,6 +237,9 @@ export function areDraftsSameCase(a: DraftIdentity, b: DraftIdentity): boolean {
   if (a.id === b.id) return false;
 
   // Bloqueios de conflito estrito (evita mesclar irmãos ou pacientes diferentes)
+  // Dois rascunhos já vinculados a pacientes DIFERENTES são casos diferentes, mesmo com responsável, telefone e
+  // parte do nome iguais (irmãos separados em "Ajustar cadastro > Separar irmão").
+  if (a.patientId && b.patientId && a.patientId !== b.patientId) return false;
   if (areNamesConflicting(a.patientName, b.patientName)) return false;
   if (a.patientCpf && b.patientCpf && a.patientCpf !== b.patientCpf) return false;
   if (a.patientBirthDate && b.patientBirthDate && a.patientBirthDate !== b.patientBirthDate) return false;

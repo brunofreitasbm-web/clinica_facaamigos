@@ -46,7 +46,9 @@ export async function findOrCreateOpenWhatsappDraft(
       .eq("source", "whatsapp")
       .eq("source_phone", phone)
       .in("status", OPEN_STATUSES)
-      .order("created_at", { ascending: false })
+      // O mais ANTIGO é o contato principal. Um irmão separado em "Ajustar cadastro" também fica aberto no mesmo
+      // telefone e é mais novo: as respostas do bot não devem ir parar nele.
+      .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
     return (data as { id: string } | null)?.id ?? null;

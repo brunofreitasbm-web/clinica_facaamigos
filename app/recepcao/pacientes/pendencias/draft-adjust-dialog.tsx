@@ -16,8 +16,8 @@ import {
  * "Ajustar cadastro" do cartão de Autorizações / Fila de pendências: a recepção
  * e a supervisão corrigem dados do contato sem sair da tela e, quando duas
  * crianças chegaram juntas no mesmo contato, criam o irmão como cadastro
- * separado (cada criança precisa do próprio paciente e rascunho para aparecer
- * na Agenda de 1ª Avaliação).
+ * separado (cada criança tem o próprio paciente e rascunho e segue o próprio
+ * fluxo na Fila de entrada: documentos, guia, autorização e agendamento).
  */
 
 const LABEL = "text-xs font-medium uppercase tracking-wide text-ink-soft";
@@ -169,13 +169,16 @@ function DraftAdjustDialog({
             <button
               key={key}
               type="button"
+              // Sem prontuário da primeira criança o servidor recusa o irmão: melhor explicar do que deixar preencher.
+              disabled={key === "irmao" && data !== null && !data.patient.id}
+              title={key === "irmao" && data !== null && !data.patient.id ? "Cadastre a primeira criança (Conferir e cadastrar) antes de adicionar o irmão." : undefined}
               onClick={() => {
                 setTab(key);
                 setError(null);
               }}
               className={`rounded-t-md px-3 py-1.5 text-sm font-medium ${
                 tab === key ? "border-b-2 border-[var(--color-accent)] text-ink" : "text-ink-soft hover:text-ink"
-              }`}
+              } disabled:cursor-not-allowed disabled:opacity-50`}
             >
               {text}
             </button>
@@ -246,7 +249,7 @@ function DraftAdjustDialog({
                 Dados do irmão
                 <HelpHint
                   label="Ajuda: separar irmão"
-                  text="Use quando duas crianças vieram no mesmo contato e só uma aparece. O irmão é criado como paciente próprio, com o mesmo responsável e convênio, e entra na fila com a autorização já liberada para o contato de origem."
+                  text="Use quando duas crianças vieram no mesmo contato e só uma aparece. O irmão é criado como cadastro próprio, com o mesmo responsável e convênio, e entra na Fila de entrada para pedir os documentos e enviar a guia dele. A autorização do plano é por criança: ele não herda a do irmão."
                 />
               </p>
               <div className="grid grid-cols-2 gap-3">
