@@ -30,7 +30,7 @@ import { getCheckinCoupon } from "./agenda/coupon-actions";
 import { printCoupon } from "@/lib/print-coupon";
 import { computeAppointmentUiState, UI_STATE_LABEL, type AppointmentUiState } from "@/lib/appointment-ui-state";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
-import { CANCEL_REASONS, NEGATIVE_STATUSES } from "@/lib/appointment-cancel-reasons";
+import { FaltaQuickPanel } from "./falta-quick-panel";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { civilTimeInTimeZone } from "@/lib/timezone";
 import { PatientFormattedDisplay, PatientStatusBadge } from "@/components/patient-formatted-display";
@@ -823,38 +823,20 @@ function SessionRow({
         )}
 
         {showFaltaForm && (
-          <form
-            className="mt-2 flex flex-col gap-1.5"
-            action={(formData) => {
-              setError(null);
-              startTransition(async () => {
-                const result = await markMissedOrCancelled(session.id, formData);
-                if (!result.success) {
-                  setError(result.error);
-                  return;
-                }
-                setShowFaltaForm(false);
-              });
-            }}
-          >
-            <select name="target_status" required className="input text-xs">
-              <option value="">Status</option>
-              {NEGATIVE_STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-            <select name="reason" required className="input text-xs">
-              <option value="">Motivo</option>
-              {CANCEL_REASONS.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
-            <input type="text" name="reason_other" placeholder="Descreva (se 'Outro')" className="input text-xs" />
-            <div className="flex gap-1.5">
-              <button type="submit" disabled={isPending} className="btn btn-primary text-xs">Salvar</button>
-              <button type="button" onClick={() => setShowFaltaForm(false)} className="btn btn-secondary text-xs">Voltar</button>
-            </div>
-          </form>
+          <FaltaQuickPanel
+            disabled={isPending}
+            onClose={() => setShowFaltaForm(false)}
+            onSubmit={(formData) =>
+              new Promise((resolve) => {
+                setError(null);
+                startTransition(async () => {
+                  const result = await markMissedOrCancelled(session.id, formData);
+                  if (result.success) setShowFaltaForm(false);
+                  resolve(result);
+                });
+              })
+            }
+          />
         )}
         {error && <p className="mt-1 text-[11px] text-status-negative-text">{error}</p>}
         {warning && (

@@ -11,7 +11,7 @@ import {
 } from "@/lib/timezone";
 import { buildTrailEvents } from "@/lib/agenda-trail";
 import { APPOINTMENT_STATUS_STYLE } from "@/lib/appointment-status-style";
-import { getReceptionQueue } from "@/lib/reception-queue";
+import { getReceptionQueue, isAuthorizationQueueItem } from "@/lib/reception-queue";
 import { groupExpiringGuides, type ActiveGuide } from "@/lib/expiring-guides-pure";
 import { buildRenewalRequestMessage, buildWhatsappLink } from "@/lib/whatsapp-message";
 import { ExpiringGuidesCard, type ExpiringGuideRow } from "./expiring-guides-card";
@@ -21,7 +21,8 @@ import { TodayAgendaList, type TodaySession, type GuardianContact } from "./toda
 import { MiniCalendarPicker } from "./mini-calendar-picker";
 import { AnamnesisPendingBadge } from "@/components/anamnesis-pending-badge";
 import { InteressadoRapidoDialog } from "./interessado-rapido-dialog";
-import { ChegadasBanner } from "./chegadas-banner";
+import { PrecisaDeVoce } from "./precisa-de-voce";
+import { dropLeadsWithClosedChat } from "@/lib/closed-chat-filter";
 import { DAY_LIST_HIDDEN_STATUSES } from "@/lib/appointment-cancel-reasons";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -381,6 +382,9 @@ export default async function RecepcaoPage({
     (item) => item.category !== "guia_vencendo" && item.category !== "guia_poucas_sessoes",
   );
 
+  // Famílias novas na Fila de entrada: mesma conta do selo do menu (layout.tsx).
+  const novasFamiliasCount = (await dropLeadsWithClosedChat(supabase, fullQueue.filter(isAuthorizationQueueItem))).visible.length;
+
   // Chegadas pelo QR da entrada ainda não confirmadas (só relevante pro dia
   // de hoje — não faz sentido mostrar isso navegando pra outra data).
   const { count: chegadasPendingCount } =
@@ -503,7 +507,14 @@ export default async function RecepcaoPage({
             </div>
           </div>
 
-          <ChegadasBanner count={chegadasPendingCount ?? 0} />
+          <PrecisaDeVoce
+            counts={{
+              chegadas: chegadasPendingCount ?? 0,
+              familias: novasFamiliasCount,
+              guias: expiringRows.length,
+              pendencias: otherPendingItems.filter((i) => !isAuthorizationQueueItem(i)).length,
+            }}
+          />
           <AnamnesisPendingBadge />
 
           <TodayAgendaList
