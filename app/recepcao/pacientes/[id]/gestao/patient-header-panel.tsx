@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Archive, ArchiveRestore, MessageCircle, Pencil, Stethoscope } from "lucide-react";
 import { PatientTags, type PatientTagRow } from "./patient-tags";
-import { EditBasicsForm } from "./edit-basics-form";
+import { EditBasicsForm, type PatientAddress } from "./edit-basics-form";
 import { setPatientArchived } from "./actions";
 
 export function PatientHeaderPanel({
@@ -20,6 +20,7 @@ export function PatientHeaderPanel({
   allergies,
   comorbidities,
   entrySource,
+  address,
   isArchived,
   whatsappHref,
   tags,
@@ -38,6 +39,7 @@ export function PatientHeaderPanel({
   allergies: string | null;
   comorbidities: string | null;
   entrySource: string | null;
+  address?: PatientAddress;
   isArchived: boolean;
   whatsappHref: string | null;
   tags: PatientTagRow[];
@@ -136,6 +138,7 @@ export function PatientHeaderPanel({
           allergies={allergies}
           comorbidities={comorbidities}
           entrySource={entrySource}
+          address={address}
           onDone={() => setEditing(false)}
         />
       )}

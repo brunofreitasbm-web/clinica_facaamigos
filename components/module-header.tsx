@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ExternalLink, type LucideIcon } from "lucide-react";
 import { BrandLockup } from "@/components/brand/brand-lockup";
+import { useCurrentUser } from "@/components/current-user-context";
+import { UserMenu, type PersonalLink } from "@/components/user-menu";
 
 /**
  * Cabeçalho ÚNICO dos módulos (Recepção, Gestão, Faturamento, Coordenação).
@@ -123,6 +125,7 @@ export function ModuleHeader({
   navLabel,
   noActiveOn = [],
   actions,
+  personalLinks,
 }: {
   /** Sufixo da marca: "· Recepção". */
   module: string;
@@ -133,10 +136,13 @@ export function ModuleHeader({
   navLabel: string;
   /** Rotas do módulo que não correspondem a nenhum item (ex.: "/gestor" e "/gestor/maturidade"). */
   noActiveOn?: readonly string[];
-  /** Canto direito: avatar, atalhos. */
+  /** Canto direito: atalhos do módulo (antes do menu do usuário). */
   actions?: React.ReactNode;
+  /** Links pessoais do módulo (ex.: "Minha bonificação") — entram no menu do operador, não na barra. */
+  personalLinks?: readonly PersonalLink[];
 }) {
   const pathname = usePathname();
+  const currentUser = useCurrentUser();
   const active = resolveActive(pathname, items, noActiveOn);
   const moduleColor = MODULE_COLORS[module] ?? "var(--color-accent)";
 
@@ -202,6 +208,7 @@ export function ModuleHeader({
         </nav>
 
         {actions}
+        {currentUser && <UserMenu user={currentUser} personalLinks={personalLinks} />}
       </header>
 
       {/* Navegação compacta pra telas estreitas (a barra do topo esconde os itens) */}

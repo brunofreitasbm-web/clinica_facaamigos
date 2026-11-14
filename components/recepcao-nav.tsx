@@ -26,8 +26,10 @@ const NAV_ITEMS = [
   // agora entram em Autorizações. A tela "Pendências" também saiu da navegação
   // (04/11/2026): as pendências viraram pílulas na lista de Pacientes. A tela de
   // validação individual continua em /recepcao/pre-cadastros/[draftId].
-  { key: "metricas", label: "Minha bonificação", href: "/recepcao/metricas", icon: Trophy },
 ] as const;
+
+/** "Minha bonificação" mora no menu do operador (barra), não na lista de seções. */
+const PERSONAL_LINKS = [{ key: "metricas", label: "Minha bonificação", href: "/recepcao/metricas", icon: Trophy }] as const;
 
 export function RecepcaoNav({
   chegadasCount,
@@ -49,23 +51,7 @@ export function RecepcaoNav({
       homeHref="/recepcao"
       navLabel="Seções da recepção"
       items={items}
-      actions={
-        <span
-          aria-hidden
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            background: "var(--color-accent-2)",
-            color: "var(--color-accent)",
-            display: "grid",
-            placeItems: "center",
-            fontWeight: 600,
-          }}
-        >
-          R
-        </span>
-      }
+      personalLinks={PERSONAL_LINKS}
     />
   );
 }

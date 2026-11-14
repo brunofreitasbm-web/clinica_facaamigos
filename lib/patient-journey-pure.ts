@@ -36,7 +36,7 @@ export const JOURNEY_STEPS: readonly { n: JourneyStep; label: string }[] = [
   { n: 2, label: "Avaliação agendada" },
   { n: 3, label: "Avaliação realizada" },
   { n: 4, label: "Guia registrada" },
-  { n: 5, label: "Grade terapêutica montada" },
+  { n: 5, label: "PTS" },
 ];
 
 export type JourneyEvaluation = { starts_at: string; status: string };
@@ -92,7 +92,7 @@ export function computeJourney(input: JourneyInput): Journey {
   const { patient } = input;
 
   if (patient.status === "ativo" || patient.first_session_at) {
-    return { key: "ativo", step: 5, label: "Ativo — grade terapêutica montada", detail: null, ctaLabel: null };
+    return { key: "ativo", step: 5, label: "Ativo — PTS",detail: null, ctaLabel: null };
   }
 
   // Quem tem prontuário já foi promovido (promoteToPatient) — plano autorizado.
