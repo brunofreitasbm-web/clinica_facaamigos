@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { APP_ORIGIN, CLINIC_BRAND, CLINIC_NAME } from "@/lib/clinic-identity";
 import { Nunito, Fredoka } from "next/font/google";
 import { AuthStatus } from "@/components/auth-status";
+import { CurrentUserProvider } from "@/components/current-user-context";
+import { loadCurrentUserMenu } from "@/lib/current-user-menu";
 import { HideOnRoutes } from "@/components/hide-on-routes";
 import { OfflineBanner } from "@/components/offline-banner";
 import "./globals.css";
@@ -47,9 +49,11 @@ import { AuthSessionManager } from "@/components/auth-session-manager";
 import { FrictionTracker } from "@/components/friction-tracker";
 import { Suspense } from "react";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const currentUser = await loadCurrentUserMenu();
+
   return (
     <html
       lang="pt-BR"
@@ -58,6 +62,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="h-full flex flex-col" suppressHydrationWarning>
+        <CurrentUserProvider user={currentUser}>
         <ToastProvider>
           <AuthSessionManager />
           <FrictionTracker />
@@ -76,6 +81,7 @@ export default function RootLayout({
           </Suspense>
           {children}
         </ToastProvider>
+        </CurrentUserProvider>
       </body>
     </html>
   );

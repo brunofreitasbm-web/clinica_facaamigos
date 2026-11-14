@@ -3,6 +3,17 @@
 import { useState, useTransition } from "react";
 import { updatePatientBasics } from "./actions";
 
+/** Endereço do paciente (colunas patients.address_*). */
+export type PatientAddress = {
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+};
+
 export function EditBasicsForm({
   patientId,
   fullName,
@@ -16,6 +27,7 @@ export function EditBasicsForm({
   allergies,
   comorbidities,
   entrySource,
+  address,
   onDone,
 }: {
   patientId: string;
@@ -30,6 +42,7 @@ export function EditBasicsForm({
   allergies: string | null;
   comorbidities: string | null;
   entrySource: string | null;
+  address?: PatientAddress;
   onDone: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +79,34 @@ export function EditBasicsForm({
       <div className="w-44">
         <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Origem</label>
         <input name="entry_source" defaultValue={entrySource ?? ""} placeholder="WhatsApp, indicação…" className="input mt-1" />
+      </div>
+      <div className="w-36">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">CEP</label>
+        <input name="address_cep" defaultValue={address?.cep ?? ""} placeholder="00000-000" className="input mt-1" />
+      </div>
+      <div className="flex-1 basis-64">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Logradouro</label>
+        <input name="address_logradouro" defaultValue={address?.logradouro ?? ""} className="input mt-1" />
+      </div>
+      <div className="w-24">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Número</label>
+        <input name="address_numero" defaultValue={address?.numero ?? ""} className="input mt-1" />
+      </div>
+      <div className="w-44">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Complemento</label>
+        <input name="address_complemento" defaultValue={address?.complemento ?? ""} className="input mt-1" />
+      </div>
+      <div className="w-44">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Bairro</label>
+        <input name="address_bairro" defaultValue={address?.bairro ?? ""} className="input mt-1" />
+      </div>
+      <div className="w-44">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Cidade</label>
+        <input name="address_cidade" defaultValue={address?.cidade ?? ""} className="input mt-1" />
+      </div>
+      <div className="w-20">
+        <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">UF</label>
+        <input name="address_uf" maxLength={2} defaultValue={address?.uf ?? ""} placeholder="PA" className="input mt-1 uppercase" />
       </div>
       <div className="flex-1 basis-56">
         <label className="text-xs font-medium uppercase tracking-wide text-ink-soft">Queixa principal</label>

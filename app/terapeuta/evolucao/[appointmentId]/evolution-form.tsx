@@ -400,19 +400,13 @@ export function EvolutionForm({
     }
   }
 
-  const hasActiveGoals = activeGoals.length > 0;
-
   function goToStep3() {
     if (presence === null) {
       setStepError("Selecione a presença/engajamento (1 a 5).");
       return;
     }
-    if (!hasActiveGoals) {
-      setStepError(
-        "Este paciente não tem plano terapêutico aprovado com metas ativas. Cadastre/aprove um plano antes de continuar.",
-      );
-      return;
-    }
+    // Sem PTS aprovado a evolução segue normalmente (metas são opcionais):
+    // a falta de plano não pode travar o registro da sessão.
     const goalsMissingResult = Object.entries(metas).filter(([, resultado]) => !resultado);
     if (goalsMissingResult.length > 0) {
       setStepError("Selecione o resultado de todas as metas marcadas (ou desmarque as que não foram trabalhadas).");
@@ -647,22 +641,19 @@ export function EvolutionForm({
               {activeGoals.length === 0 ? (
                 <div
                   className="mt-2 rounded-md border p-2.5 text-sm"
-                  style={{ borderColor: "var(--status-agendada)", background: "var(--status-agendada-bg)" }}
+                  style={{ borderColor: "var(--color-divider)", background: "var(--color-surface)" }}
                 >
                   <p className="text-ink-faint">
-                    Sem plano terapêutico aprovado com metas ativas para este paciente. Não é possível continuar
-                    sem uma diretriz terapêutica.
+                    Sem plano terapêutico aprovado com metas ativas para este paciente. A evolução pode ser
+                    registrada normalmente; as metas aparecerão aqui quando o PTS for aprovado.
                   </p>
                   <Link
                     href={`/terapeuta/paciente/${patientId}`}
                     className="mt-1 inline-block font-semibold underline"
                     style={{ color: "var(--color-accent)" }}
                   >
-                    Cadastrar/aprovar plano terapêutico →
+                    Ver/cadastrar plano terapêutico →
                   </Link>
-                  <p className="mt-1 text-[11px] text-ink-faint">
-                    Seu rascunho desta evolução é salvo automaticamente e continuará aqui quando você voltar.
-                  </p>
                 </div>
               ) : (
                 <div className="mt-2 flex flex-col gap-2.5">
@@ -1064,18 +1055,7 @@ export function EvolutionForm({
               <button
                 type="button"
                 className="btn btn-primary flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
-                style={{
-                  minHeight: 48,
-                  fontSize: 15,
-                  opacity: hasActiveGoals ? 1 : 0.5,
-                  cursor: hasActiveGoals ? "pointer" : "not-allowed",
-                }}
-                disabled={!hasActiveGoals}
-                title={
-                  hasActiveGoals
-                    ? undefined
-                    : "Cadastre/aprove um plano terapêutico com metas ativas para este paciente antes de continuar"
-                }
+                style={{ minHeight: 48, fontSize: 15 }}
                 onClick={goToStep3}
               >
                 Continuar

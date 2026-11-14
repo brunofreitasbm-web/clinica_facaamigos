@@ -6550,7 +6550,8 @@ export type Database = {
           pending_role: string | null
           phone: string | null
           photo_url: string | null
-          role: string
+          avatar_storage_path: string | null
+          role:string
           signature_pin_failed_attempts: number
           signature_pin_hash: string | null
           signature_pin_locked_until: string | null
@@ -6585,6 +6586,7 @@ export type Database = {
           pending_role?: string | null
           phone?: string | null
           photo_url?: string | null
+          avatar_storage_path?: string | null
           role: string
           signature_pin_failed_attempts?: number
           signature_pin_hash?: string | null
@@ -6620,7 +6622,8 @@ export type Database = {
           pending_role?: string | null
           phone?: string | null
           photo_url?: string | null
-          role?: string
+          avatar_storage_path?: string | null
+          role?:string
           signature_pin_failed_attempts?: number
           signature_pin_hash?: string | null
           signature_pin_locked_until?: string | null

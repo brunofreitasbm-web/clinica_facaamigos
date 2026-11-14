@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Pencil } from "lucide-react";
-import { EditBasicsForm } from "./gestao/edit-basics-form";
+import { EditBasicsForm, type PatientAddress } from "./gestao/edit-basics-form";
 
 export function EditRegistrationButton({
   kicker,
@@ -18,6 +18,7 @@ export function EditRegistrationButton({
   allergies,
   comorbidities,
   entrySource,
+  address,
 }: {
   /** Linha acima do nome (nascimento · plano · guia). */
   kicker?: ReactNode;
@@ -33,6 +34,7 @@ export function EditRegistrationButton({
   allergies: string | null;
   comorbidities: string | null;
   entrySource: string | null;
+  address?: PatientAddress;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -69,6 +71,7 @@ export function EditRegistrationButton({
           allergies={allergies}
           comorbidities={comorbidities}
           entrySource={entrySource}
+          address={address}
           onDone={() => setEditing(false)}
           />
         </div>
