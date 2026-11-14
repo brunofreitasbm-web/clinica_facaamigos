@@ -30,6 +30,7 @@ import {
   markEvaluationDone,
   registerAuthorization,
   activatePatient,
+  markPatientActiveDirectly,
   setEmergencyContact,
 } from "./stage-actions";
 import { PageContainer } from "@/components/page-container";
@@ -579,14 +580,18 @@ export default async function PacientePage({
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <StageChecklist
                     journey={journey}
-                    // Quem pode agir já tem o formulário da etapa ao lado: o botão
-                    // de atalho repetia o mesmo rótulo (ex.: "Montar grade") duas vezes.
+                    // Quem pode agir já tem o formulário da etapa ao lado.
+                    // Para a etapa 5 (PTS / Grade), a supervisão recebe o atalho para a Grade.
                     actionHref={
-                      canActOnJourney
-                        ? null
-                        : canNavigateToSupervisao && (journey.key === "agendar_avaliacao" || journey.key === "avaliacao_agendada")
-                          ? "/supervisao?tab=agenda1a"
+                      journey.key === "montar_grade"
+                        ? canNavigateToSupervisao
+                          ? "/supervisao"
                           : null
+                        : canActOnJourney
+                          ? null
+                          : canNavigateToSupervisao && (journey.key === "agendar_avaliacao" || journey.key === "avaliacao_agendada")
+                            ? "/supervisao?tab=agenda1a"
+                            : null
                     }
                   />
                   <div>
@@ -623,24 +628,55 @@ export default async function PacientePage({
                         <AuthorizationFormFields insurers={insurers} />
                       </StageActionForm>
                     )}
-                    {canActOnJourney && journey.key === "montar_grade" && (
-                      <StageActionForm action={activatePatient.bind(null, patient.id)} submitLabel="Montar grade (1ª sessão)">
-                        <select name="therapist_id" required className="input">
-                          <option value="">Terapeuta</option>
-                          {(therapists ?? []).map((t) => (
-                            <option key={t.id} value={t.id}>{t.full_name}</option>
-                          ))}
-                        </select>
-                        <select name="room_id" required className="input">
-                          <option value="">Sala</option>
-                          {(rooms ?? []).map((r) => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
-                          ))}
-                        </select>
-                        <input type="date" name="date" required className="input" />
-                        <input type="time" name="time" required className="input" />
-                        <input type="text" name="discipline" required placeholder="Disciplina" className="input" />
-                      </StageActionForm>
+                    {journey.key === "montar_grade" && (
+                      <div className="flex flex-col justify-between rounded-xl border border-dashed border-accent-200 bg-accent-50/40 p-5 text-sm">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">5</span>
+                            <h4 className="font-semibold text-ink">Etapa da Supervisão Clínica</h4>
+                          </div>
+                          <p className="text-xs text-ink-soft leading-relaxed">
+                            A avaliação inicial e a guia de autorização foram concluídas. A definição do <strong>Plano Terapêutico Singular (PTS)</strong> e a alocação dos horários fixos na <strong>grade semanal recorrente</strong> de atendimento contínuo são atribuições da Supervisão Clínica.
+                          </p>
+                          <div className="rounded-lg border border-paper-line bg-paper p-3 text-xs text-ink-soft space-y-1.5">
+                            <div className="font-semibold text-ink">Próximos passos clínicos:</div>
+                            <ul className="list-disc list-inside space-y-1">
+                              <li>Supervisão valida o laudo e as disciplinas recomendadas.</li>
+                              <li>Alocação dos blocos recorrentes na grade semanal de terapeutas e salas.</li>
+                              <li>Início das sessões regulares e ativação do paciente.</li>
+                            </ul>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-paper-line pt-4">
+                          {canNavigateToSupervisao ? (
+                            <a href="/supervisao" className="btn btn-primary text-xs">
+                              Abrir Grade na Supervisão &rarr;
+                            </a>
+                          ) : (
+                            <span className="text-xs text-ink-faint">
+                              Aguardando a Supervisão Clínica alocar os horários recorrentes.
+                            </span>
+                          )}
+
+                          {canActOnJourney && (
+                            <form
+                              action={async () => {
+                                "use server";
+                                await markPatientActiveDirectly(patient.id);
+                              }}
+                            >
+                              <button
+                                type="submit"
+                                className="btn btn-ghost text-xs text-ink-muted hover:text-ink"
+                                title="Ativa o cadastro do paciente diretamente"
+                              >
+                                Ativar diretamente
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
