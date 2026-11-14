@@ -55,6 +55,9 @@ const COLUMN_HEIGHT_PX = (TOTAL_MINUTES / ROW_MINUTES) * ROW_HEIGHT_PX;
 const HOUR_MARKS = Array.from({ length: GRID_END_HOUR - DAY_START_HOUR + 1 }, (_, i) => DAY_START_HOUR + i);
 const EVALUATION_DURATION_MINUTES = 50;
 
+/** Cores da legenda de avaliadores — distintas entre si e fora do verde/vermelho/âmbar usados pelo status da grade. */
+const THERAPIST_COLORS = ["#2563eb", "#9333ea", "#db2777", "#0891b2", "#ea580c", "#4f46e5", "#0d9488", "#65a30d", "#7c3aed", "#475569"];
+
 /** `YYYY-MM-DD` + `n` dias corridos, aritmética de calendário pura (sem fuso). */
 function addDaysStr(dateStr: string, n: number): string {
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -661,6 +664,19 @@ export function EvaluationCalendar({
     };
   }, []);
 
+  // Legenda: avaliadores cadastrados + quem aparece na semana (ex.: avaliador sem disponibilidade),
+  // ordenados por nome pra cor de cada um não mudar ao navegar entre semanas.
+  const legendTherapists = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const t of therapists) byId.set(t.id, t.name);
+    for (const a of appointments) if (!byId.has(a.therapistId)) byId.set(a.therapistId, a.therapistName);
+    return [...byId.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+      .map((t, i) => ({ ...t, color: THERAPIST_COLORS[i % THERAPIST_COLORS.length] }));
+  }, [therapists, appointments]);
+  const therapistColor = (id: string) => legendTherapists.find((t) => t.id === id)?.color ?? "#475569";
+
   const readyPool = pool.filter((p) => p.ready);
   // Com oferta viva o responsável é quem agenda (WhatsApp): o card vira só acompanhamento
   // e sai do agendamento manual (botão, arrastar, clique na grade) até a oferta ser assumida.
@@ -938,6 +954,17 @@ export function EvaluationCalendar({
         </div>
       )}
 
+      {legendTherapists.length > 0 && (
+        <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-soft" aria-label="Legenda de avaliadores">
+          {legendTherapists.map((t) => (
+            <li key={t.id} className="flex items-center gap-1.5">
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: t.color }} />
+              {t.name}
+            </li>
+          ))}
+        </ul>
+      )}
+
       {pendingConfirmations.length > 0 && (
         <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 shadow-sm animate-in fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1172,7 +1199,14 @@ export function EvaluationCalendar({
                           } — clique para editar/confirmar/desmarcar`}
                         >
                           <div className="flex items-center justify-between gap-1 leading-snug">
-                            <p className="truncate font-bold text-slate-900 text-[12px]">{a.patientName}</p>
+                            <p className="flex min-w-0 items-center gap-1.5 font-bold text-slate-900 text-[12px]">
+                              <span
+                                aria-label={`Avaliador: ${a.therapistName}`}
+                                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                style={{ background: therapistColor(a.therapistId) }}
+                              />
+                              <span className="truncate">{a.patientName}</span>
+                            </p>
                             {aguardaConfirmacao(a) && (
                               <span className="shrink-0 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-xs animate-pulse">
                                 ⚡ PENDENTE
@@ -1180,7 +1214,7 @@ export function EvaluationCalendar({
                             )}
                           </div>
                           <p className="truncate text-slate-700 text-[11px] mt-0.5 font-medium">
-                            {timeLabel(a.startsAt, CLINIC_TIMEZONE)} · {a.therapistName}
+                            {timeLabel(a.startsAt, CLINIC_TIMEZONE)}
                           </p>
                           {aguardaConfirmacao(a) && (
                             <div className="mt-1 flex items-center justify-between gap-1 rounded bg-amber-200/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-950 border border-amber-300">
