@@ -22,7 +22,7 @@ function fmtDate(dateStr: string): string {
 /** Card "Guias vencendo ou acabando": uma linha por paciente, guias (com validade) embaixo. */
 export function ExpiringGuidesCard({ rows }: { rows: ExpiringGuideRow[] }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-2xs">
+    <div id="guias-vencendo" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-2xs">
       <h6 className="mb-3.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-slate-700">
         Guias vencendo ou acabando
         <HelpHint text="Guias que vencem em até 15 dias ou com poucas sessões restantes." label="Ajuda: guias vencendo" />
