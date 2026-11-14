@@ -106,45 +106,18 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
   const validatedCount = selected ? selected.goals.filter((g) => g.status === "validada").length : 0;
   const returnedCount = selected ? selected.goals.filter((g) => g.status === "suspensa").length : 0;
 
-  const reportData: ReportPatientData = useMemo(() => {
-    if (!selected) {
-      return {
-        patientName: "",
-        birthDate: "14/05/2019 (7 anos)",
-        cid: "F84.0 - Transtorno do Espectro Autista",
-        insurerName: "Guia SP/SADT Unimed / Plano de Saúde",
-        cardNumber: "876.543.210-01",
-        periodLabel: "Semestre Vigente",
-        totalSessions: 36,
-        attendedSessions: 34,
-        goalsCount: 0,
-        achievedGoalsCount: 0,
-        supervisorName: "Dra. Carolina Mendonça",
-        supervisorCouncil: "CRP 06/123456",
-      };
-    }
-    return {
-      patientName: selected.patientName,
-      birthDate: "14/05/2019 (7 anos)",
-      cid: "F84.0 - Transtorno do Espectro Autista (TEA)",
-      insurerName: "Bradesco Saúde Concierge / Guia SP/SADT",
-      cardNumber: "876.543.210-01",
-      periodLabel: `Plano v${selected.version} - Período Vigente`,
-      totalSessions: 36,
-      attendedSessions: 34,
-      goalsCount: selected.goals.length,
-      achievedGoalsCount:
-        selected.goals.filter((g) => g.status === "validada" || g.status === "suspensa").length ||
-        Math.min(selected.goals.length, 2),
-      supervisorName: "Dra. Carolina Mendonça",
-      supervisorCouncil: "CRP 06/123456",
-      goalsList: selected.goals.map((g) => ({
+  const reportData: ReportPatientData = useMemo(
+    () => ({
+      patientName: selected?.patientName ?? "",
+      periodLabel: selected ? `Plano v${selected.version}` : "",
+      goalsList: (selected?.goals ?? []).map((g) => ({
         domain: g.domain || "Geral",
         description: g.description,
         status: g.status,
       })),
-    };
-  }, [selected]);
+    }),
+    [selected],
+  );
 
   function runGoalAction(goalId: string, action: () => Promise<{ success: true } | { success: false; error: string }>) {
     setError(null);
