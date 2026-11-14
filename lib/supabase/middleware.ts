@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ROLE_HOME, isPathAllowedForRole, type Role } from "@/lib/roles";
 import { isNextError } from "@/lib/next-utils";
 import { isProfileBlocked } from "@/lib/profile-access";
+import { sessaoVencidaPeloCorte } from "@/lib/session-cutoff";
 import { PUBLIC_PREFIXES } from "@/lib/public-paths";
 import {
   COOKIE_RECADASTRO,
@@ -60,6 +61,17 @@ export async function updateSession(request: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    // Logout automático diário às 19h (Brasília): sessão iniciada antes do último corte cai, em todas as contas.
+    if (user && sessaoVencidaPeloCorte(user.last_sign_in_at)) {
+      await supabase.auth.signOut();
+      if (pathname !== LOGIN_PATH) {
+        const expirada = NextResponse.redirect(new URL("/login?expired=true", request.url));
+        response.cookies.getAll().forEach((cookie) => expirada.cookies.set(cookie));
+        return expirada;
+      }
+      return response;
+    }
 
     if (!user && !isPublicPath) {
       const loginUrl = new URL("/login", request.url);
