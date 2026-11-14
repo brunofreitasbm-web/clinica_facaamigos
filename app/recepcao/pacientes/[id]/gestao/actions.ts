@@ -162,9 +162,20 @@ export async function updatePatientBasics(patientId: string, formData: FormData)
   const allergies = String(formData.get("allergies") ?? "").trim();
   const comorbidities = String(formData.get("comorbidities") ?? "").trim();
   const entrySource = String(formData.get("entry_source") ?? "").trim();
+  const addressCep = String(formData.get("address_cep") ?? "").trim();
+  const addressLogradouro = String(formData.get("address_logradouro") ?? "").trim();
+  const addressNumero = String(formData.get("address_numero") ?? "").trim();
+  const addressComplemento = String(formData.get("address_complemento") ?? "").trim();
+  const addressBairro = String(formData.get("address_bairro") ?? "").trim();
+  const addressCidade = String(formData.get("address_cidade") ?? "").trim();
+  const addressUf = String(formData.get("address_uf") ?? "").trim().toUpperCase();
 
   if (!fullName || !birthDate) {
     return { success: false, error: "Preencha nome e data de nascimento." };
+  }
+
+  if (addressUf && !/^[A-Z]{2}$/.test(addressUf)) {
+    return { success: false, error: "UF do endereço deve ter 2 letras (ex.: PA)." };
   }
 
   const supabase = await createClient();
@@ -181,6 +192,13 @@ export async function updatePatientBasics(patientId: string, formData: FormData)
       allergies: allergies || null,
       comorbidities: comorbidities || null,
       entry_source: entrySource || null,
+      address_cep: addressCep || null,
+      address_logradouro: addressLogradouro || null,
+      address_numero: addressNumero || null,
+      address_complemento: addressComplemento || null,
+      address_bairro: addressBairro || null,
+      address_cidade: addressCidade || null,
+      address_uf: addressUf || null,
     })
     .eq("id", patientId);
 

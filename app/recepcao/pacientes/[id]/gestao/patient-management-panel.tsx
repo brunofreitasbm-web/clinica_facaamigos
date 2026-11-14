@@ -6,6 +6,7 @@ import { ConveniosPanel, type ConvenioRow, type InsurerOption } from "./convenio
 import { ChargesPanel, type ChargeRow } from "./charges-panel";
 import type { PatientTagRow } from "./patient-tags";
 import { IntakeFormLink } from "./intake-form-link";
+import type { PatientAddress } from "./edit-basics-form";
 
 export type ProfessionalRow = { id: string; name: string; disciplineLabel: string };
 export type AppointmentRow = { id: string; dateLabel: string; statusLabel: string; statusTagClass: string };
@@ -32,6 +33,7 @@ export function PatientManagementPanel({
   allergies,
   comorbidities,
   entrySource,
+  address,
   isArchived,
   whatsappHref,
   tags,
@@ -56,6 +58,7 @@ export function PatientManagementPanel({
   allergies: string | null;
   comorbidities: string | null;
   entrySource: string | null;
+  address?: PatientAddress;
   isArchived: boolean;
   whatsappHref: string | null;
   tags: PatientTagRow[];
@@ -85,6 +88,7 @@ export function PatientManagementPanel({
         allergies={allergies}
         comorbidities={comorbidities}
         entrySource={entrySource}
+        address={address}
         isArchived={isArchived}
         whatsappHref={whatsappHref}
         tags={tags}

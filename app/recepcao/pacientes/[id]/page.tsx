@@ -58,7 +58,7 @@ export default async function PacientePage({
   const { data: patient, error: patientError } = await supabase
     .from("patients")
     .select(
-      "id, full_name, status, birth_date, evaluated_at, first_session_at, entry_source, complaint, cid, support_level, medication, allergies, comorbidities",
+      "id, full_name, status, birth_date, evaluated_at, first_session_at, entry_source, complaint, cid, support_level, medication, allergies, comorbidities, address_cep, address_logradouro, address_numero, address_complemento, address_bairro, address_cidade, address_uf",
     )
     .eq("id", id)
     .maybeSingle();
@@ -202,17 +202,6 @@ export default async function PacientePage({
   // Mural da família (PRD §4) — mural independente das evoluções, mesma
   // regra de RLS (feed_posts_read) decide o que aparece; ver lib/feed-posts.ts.
   const feedPosts = await getFeedPosts(supabase, id);
-
-  // Cadastro assistido por IA (20260907000001_registration_drafts.sql) —
-  // documentos enviados por WhatsApp/portal deste paciente ainda não
-  // processados/validados. status='validated'/'rejected' não aparece mais
-  // (já virou dado real ou foi descartado).
-  const { data: registrationDrafts } = await supabase
-    .from("registration_drafts")
-    .select("id, status, created_at")
-    .eq("patient_id", id)
-    .in("status", ["pending", "processing", "extracted", "failed"])
-    .order("created_at", { ascending: false });
 
   // Faltas informadas pela família ainda aguardando decisão da recepção
   // (PRD §5) — as que já foram auto-aprovadas pelo trigger
@@ -492,6 +481,30 @@ export default async function PacientePage({
                 </div>
               )}
 
+              <div className="rounded-xl border border-paper-line-strong bg-paper p-4 shadow-2xs">
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-faint">Endereço</h3>
+                <div className="text-xs">
+                  {patient.address_logradouro || patient.address_numero || patient.address_bairro ? (
+                    <>
+                      <p className="font-semibold text-ink">
+                        {[patient.address_logradouro, patient.address_numero].filter(Boolean).join(", ")}
+                        {patient.address_complemento ? ` — ${patient.address_complemento}` : ""}
+                      </p>
+                      <p className="text-ink-soft">
+                        {[patient.address_bairro, patient.address_cidade && patient.address_uf
+                          ? `${patient.address_cidade}/${patient.address_uf}`
+                          : patient.address_cidade || patient.address_uf]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      {patient.address_cep && <p className="text-ink-faint">CEP {patient.address_cep}</p>}
+                    </>
+                  ) : (
+                    <p className="text-ink-faint">Não informado</p>
+                  )}
+                </div>
+              </div>
+
               {(guardians ?? []).length > 1 && (
                 <div className="rounded-xl border border-paper-line bg-paper p-3 shadow-2xs">
                   <span className="text-[11px] font-semibold text-ink-faint">Outros Responsáveis:</span>
@@ -541,6 +554,15 @@ export default async function PacientePage({
                   allergies={patient.allergies}
                   comorbidities={patient.comorbidities}
                   entrySource={patient.entry_source}
+                  address={{
+                    cep: patient.address_cep,
+                    logradouro: patient.address_logradouro,
+                    numero: patient.address_numero,
+                    complemento: patient.address_complemento,
+                    bairro: patient.address_bairro,
+                    cidade: patient.address_cidade,
+                    uf: patient.address_uf,
+                  }}
               />
 
               <div className="flex flex-wrap items-center gap-2">
@@ -648,28 +670,6 @@ export default async function PacientePage({
             />
 
             {/* Seções Adicionais Operacionais */}
-            {(registrationDrafts ?? []).length > 0 && (
-              <div className="card">
-                <div className="card-kicker">Dados extraídos aguardando validação</div>
-                <ul className="flex flex-col gap-2">
-                  {(registrationDrafts ?? []).map((d) => (
-                    <li key={d.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-ink-soft">
-                        {d.status === "extracted"
-                          ? "Documentos lidos pela IA — pronto para conferir"
-                          : d.status === "failed"
-                            ? "Extração falhou — reprocessar ou preencher manualmente"
-                            : "Lendo documentos…"}
-                      </span>
-                      <a href={`/recepcao/pre-cadastros/${d.id}`} className="btn btn-secondary text-xs">
-                        Conferir
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             {pendingAbsenceReports.length > 0 && (
               <div className="card">
                 <div className="card-kicker">Faltas informadas pela família</div>

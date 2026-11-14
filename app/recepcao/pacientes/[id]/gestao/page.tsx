@@ -37,7 +37,7 @@ export default async function GestaoPacientePage({
   const { data: patient, error: patientError } = await supabase
     .from("patients")
     .select(
-      "id, full_name, birth_date, status, complaint, cid, support_level, medication, allergies, comorbidities, entry_source, photo_storage_path",
+      "id, full_name, birth_date, status, complaint, cid, support_level, medication, allergies, comorbidities, entry_source, photo_storage_path, address_cep, address_logradouro, address_numero, address_complemento, address_bairro, address_cidade, address_uf",
     )
     .eq("id", id)
     .maybeSingle();
@@ -215,6 +215,15 @@ export default async function GestaoPacientePage({
           allergies={patient.allergies}
           comorbidities={patient.comorbidities}
           entrySource={patient.entry_source}
+          address={{
+            cep: patient.address_cep,
+            logradouro: patient.address_logradouro,
+            numero: patient.address_numero,
+            complemento: patient.address_complemento,
+            bairro: patient.address_bairro,
+            cidade: patient.address_cidade,
+            uf: patient.address_uf,
+          }}
           isArchived={patient.status === "arquivado"}
           whatsappHref={whatsappHref}
           tags={tags}
