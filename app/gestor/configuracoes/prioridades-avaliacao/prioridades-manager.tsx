@@ -1,5 +1,6 @@
 "use client";
 
+import { nextPriorityLevel as nextLevel } from "@/lib/priority-level-pure";
 import { useRef, useState, useTransition } from "react";
 import { createPriority, updatePriority, togglePriorityActive, deletePriority } from "./actions";
 import { PageContainer } from "@/components/page-container";
@@ -184,9 +185,9 @@ export function PrioridadesAvaliacaoManager({
     insurers[0]?.id || ""
   );
 
-  const nextPriorityLevel = Math.max(
-    ...(priorities.filter((p) => p.insurance_id === selectedInsurer).map((p) => p.priority_level) || [0])
-  ) + 1;
+  const nextPriorityLevel = nextLevel(
+    priorities.filter((p) => p.insurance_id === selectedInsurer).map((p) => p.priority_level)
+  );
 
   const maxLevelReached =
     priorities.filter((p) => p.insurance_id === selectedInsurer).length >= 10;

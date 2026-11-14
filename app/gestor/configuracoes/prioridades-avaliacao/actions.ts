@@ -1,5 +1,6 @@
 "use server";
 
+import { isValidPriorityLevel } from "@/lib/priority-level-pure";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -23,7 +24,7 @@ export async function createPriority(
     return { success: false, error: "Dê um rótulo à prioridade." };
   }
 
-  if (priority_level < 1 || priority_level > 10) {
+  if (!isValidPriorityLevel(priority_level)) {
     return {
       success: false,
       error: "O nível de prioridade deve estar entre 1 e 10.",
@@ -63,7 +64,10 @@ export async function createPriority(
     console.error("Error creating priority:", error);
     return {
       success: false,
-      error: "Você não tem permissão para criar prioridades.",
+      error:
+        error.code === "42501"
+          ? "Você não tem permissão para criar prioridades."
+          : "Não foi possível salvar a prioridade. Tente de novo.",
     };
   }
 
