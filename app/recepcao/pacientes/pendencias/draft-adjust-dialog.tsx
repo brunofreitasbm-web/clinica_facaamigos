@@ -57,7 +57,19 @@ function Field({
   );
 }
 
-export function DraftAdjustButton({ draftId, label = "Ajustar cadastro" }: { draftId: string; label?: string }) {
+export function DraftAdjustButton({
+  draftId,
+  memberDraftIds,
+  onSaved,
+  label = "Ajustar cadastro",
+}: {
+  draftId: string;
+  /** Rascunhos mesclados na mesma família (o aberto inclusive): a correção vale para todos. */
+  memberDraftIds?: string[];
+  /** Depois de salvar: quem mostra os dados (ex.: o detalhe da Fila) busca de novo. */
+  onSaved?: () => void;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -65,12 +77,22 @@ export function DraftAdjustButton({ draftId, label = "Ajustar cadastro" }: { dra
         <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
         {label}
       </button>
-      {open && <DraftAdjustDialog draftId={draftId} onClose={() => setOpen(false)} />}
+      {open && <DraftAdjustDialog draftId={draftId} memberDraftIds={memberDraftIds} onSaved={onSaved} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function DraftAdjustDialog({ draftId, onClose }: { draftId: string; onClose: () => void }) {
+function DraftAdjustDialog({
+  draftId,
+  memberDraftIds,
+  onSaved,
+  onClose,
+}: {
+  draftId: string;
+  memberDraftIds?: string[];
+  onSaved?: () => void;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [data, setData] = useState<DraftAdjustData | null>(null);
@@ -109,6 +131,7 @@ function DraftAdjustDialog({ draftId, onClose }: { draftId: string; onClose: () 
       }
       toast(res.note ?? successText, "success");
       router.refresh();
+      onSaved?.();
       onClose();
     });
   };
@@ -168,6 +191,7 @@ function DraftAdjustDialog({ draftId, onClose }: { draftId: string; onClose: () 
               className="flex flex-col gap-4"
               action={(formData) => run(() => saveDraftAdjustment(draftId, formData), "Cadastro atualizado.")}
             >
+              <input type="hidden" name="member_ids" value={(memberDraftIds ?? []).join(",")} />
               <input type="hidden" name="guardian_id" value={data.guardian.id ?? ""} />
               <input type="hidden" name="insurance_id" value={data.insurance.id ?? ""} />
               <fieldset className="grid grid-cols-2 gap-3 border-0 p-0">

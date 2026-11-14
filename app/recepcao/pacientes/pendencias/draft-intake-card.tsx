@@ -192,7 +192,7 @@ export function DraftIntakeCard({
         />
 
         <div className="flex flex-wrap items-center gap-3">
-          <DraftAdjustButton draftId={draft.id} />
+          <DraftAdjustButton draftId={draft.id} memberDraftIds={draft.mergedDraftIds} />
           {/* Dúvida/publicidade que a IA puxou como lead: sai de Autorizações sem encerrar o chat. */}
           {!isPaciente && draft.source === "whatsapp" && draft.status !== "validated" && (
             <NotPatientButton phone={draft.sourcePhone} draftId={draft.id} />
