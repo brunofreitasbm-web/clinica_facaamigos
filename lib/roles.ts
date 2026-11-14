@@ -19,7 +19,7 @@ export const ROLE_LABEL: Record<Role, string> = {
 };
 
 export const ROLE_HOME: Record<Role, string> = {
-  gestor: "/gestor",
+  gestor: "/gestor/inteligencia",
   supervisor: "/supervisao",
   terapeuta: "/terapeuta",
   recepcao: "/recepcao",
