@@ -6,7 +6,7 @@ Detalhe e evidência (arquivo:linha) de cada achado: os 5 relatórios desta past
 
 ## 1. Como esta auditoria foi feita, e o que ela NÃO prova
 - 5 auditores leram o código de cada módulo. **Ninguém abriu o sistema no navegador nem consultou o banco.** Tudo que depende de runtime (largura em celular, contraste, tempo de resposta, RLS) está marcado como lacuna nos relatórios.
-- Eu conferi no código 16 achados graves (P0 e P1 mais citados) escolhidos entre os 5 relatórios: **todos se confirmaram**. Os outros ~300 não foram conferidos um a um; trate-os como hipóteses bem fundamentadas, e confira o trecho antes de corrigir.
+- Eu conferi no código 19 achados graves (os P0 de cada módulo e alguns P1 de maior impacto): **todos se confirmaram**. Os outros ~295 não foram conferidos um a um; trate-os como hipóteses bem fundamentadas, e confira o trecho antes de corrigir.
 
 | Módulo | P0 | P1 | P2 | P3 | Total |
 |---|---|---|---|---|---|
@@ -40,7 +40,7 @@ Detalhe e evidência (arquivo:linha) de cada achado: os 5 relatórios desta past
 ## 5. Plano por ondas
 Ordem: **gravidade primeiro; dentro de cada onda, na ordem Recepção, Supervisão, Terapeuta, Gestor.** Cada item vira um PR pequeno com testes e o checklist da regra 5 no corpo (cliques da tarefa principal, ação primária, o que saiu). Esforço: S até meio dia, M de 1 a 3 dias, L mais.
 
-### Onda 0: parar de mostrar dado falso e de perder dado (13 P0 mais a regressão)
+### Onda 0: parar de mostrar dado falso e de perder dado (os 13 P0; o REC-09 é também a regressão do PR #163)
 | Ordem | ID | Ação | Esf. |
 |---|---|---|---|
 | 0.1 | REC-09 | Ligar as pílulas à linha do paciente (abrir diálogo ao clicar) e corrigir os destinos de "Resolver" na faixa e na home | S |
