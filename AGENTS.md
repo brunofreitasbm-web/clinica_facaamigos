@@ -30,3 +30,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
    - Depois de commitar e dar push na branch da sessão, abrir o PR, aguardar o CI (`typecheck` e `npm test`) e, estando verde, marcar o PR como pronto e fazer o merge na `main` sem pedir confirmação. A Vercel publica a `main` em produção automaticamente.
    - Se o CI falhar, NÃO fazer merge: corrigir a causa e empurrar de novo. Nunca desabilitar ou pular teste para ficar verde.
    - Merge na `main` não aplica migrations no Supabase. Migrations e alterações de dados em produção continuam sendo ações separadas e explícitas.
+
+# Diretrizes do Projeto - Experiência do Operador
+
+5. **Fluidez acima de tudo (essência do sistema, regra do dono do projeto):**
+   O sistema para o operador deve ser o mais fluido possível, intuitivo e sem poluição visual, para derrubar a curva de aprendizado. O operador não deve precisar procurar menus e telas. Critérios obrigatórios para qualquer tela de operador:
+   - **A tela traz o trabalho:** a home de cada papel mostra a fila do que precisa de ação agora, ordenada por urgência. Nenhuma tarefa diária pode depender de navegar por menu.
+   - **Ação onde o dado está:** confirmar, anexar, corrigir, agendar etc. acontecem no próprio item (linha, card ou painel lateral), sem ir para outra tela e voltar. Tarefa rotineira em no máximo 3 cliques a partir da home; exceção precisa ser justificada no PR.
+   - **Uma ação primária por tela/estado:** um único botão de destaque; o resto é secundário ou fica em "mais ações". Sem blocos de texto explicativo, cards decorativos ou informação que não leva a uma decisão.
+   - **Informação progressiva:** detalhe aparece sob demanda (expandir, painel lateral), não tudo de uma vez.
+   - **O sistema decide o óbvio:** pré-preencher o que já se sabe, defaults sensatos, nunca pedir de novo um dado que já existe no banco.
+   - **Erro e bloqueio dizem o que fazer:** a mensagem traz a próxima ação (ex.: "Falta guia vigente: Anexar guia"), não só o problema.
+   - **Vocabulário do operador:** nada de nomes de tabela, enums crus ou jargão técnico na tela.
+   - **Convivência com a regra 1:** o comparativo do KPI é uma linha compacta dentro do próprio KPI (ex.: "▲ 12% vs. mês anterior"), não um bloco extra.
+   - **Checklist no PR que altera tela de operador:** quantos cliques a tarefa principal leva, qual é a ação primária e o que foi removido ou escondido. Tela que não passa no checklist não entra.
