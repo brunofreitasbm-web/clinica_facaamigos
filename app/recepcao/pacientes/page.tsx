@@ -6,7 +6,6 @@ import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { fmtDateTime } from "@/lib/format";
 import { computeJourney, type JourneyEvaluation } from "@/lib/patient-journey-pure";
 import { PatientListClient } from "./patient-list-client";
-import { AuthorizedPackagesPanel } from "@/components/authorized-packages-panel";
 import {
   getReceptionQueue,
   isPendingQueueItem,
@@ -172,7 +171,6 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
         title="Pacientes"
         description="Pacientes da clínica (plano autorizado). Interessados ficam em Autorizações. Para editar o cadastro completo, use Gestão > Cadastros."
       />
-      <AuthorizedPackagesPanel />
       <PatientListClient rows={rows} panelsByPatient={panelsByPatient} initialOpenId={params.abrir ?? null} />
     </main>
   );
