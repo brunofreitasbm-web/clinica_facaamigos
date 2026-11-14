@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEV_CLINIC_ID, CLINIC_TIMEZONE } from "@/lib/constants";
-import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
+import { civilDateInTimeZone, civilTimeInTimeZone, nextCalendarDay, todayInTimeZone, weekdayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
 import { listOverdueSessionNotes } from "@/lib/session-note-pending";
 import { listOverduePlans } from "@/lib/pts-pending";
 import { ABSENCE_REASON_LABEL } from "@/lib/absence-reasons";
@@ -232,6 +232,29 @@ export default async function SupervisaoPage() {
     onTimePercent,
   };
 
+  // ── Cronograma do mês vigente dos pacientes com PTS (aba "Ver"/"Imprimir") ──
+  const today = todayInTimeZone(CLINIC_TIMEZONE);
+  const monthStart = `${today.slice(0, 7)}-01`;
+  let monthEnd = monthStart;
+  while (monthEnd.slice(0, 7) === monthStart.slice(0, 7)) monthEnd = nextCalendarDay(monthEnd);
+  const planPatientIds = Array.from(new Set((rawPlans ?? []).map((p) => p.patient_id)));
+  const { data: rawMonthAppointments } = planPatientIds.length
+    ? await supabase
+        .from("appointments")
+        .select("id, patient_id, starts_at, ends_at, discipline, rooms(name)")
+        .in("patient_id", planPatientIds)
+        .gte("starts_at", zonedDateTimeToUtc(monthStart, "00:00", CLINIC_TIMEZONE).toISOString())
+        .lt("starts_at", zonedDateTimeToUtc(monthEnd, "00:00", CLINIC_TIMEZONE).toISOString())
+        .not("status", "in", "(cancelada_familia,cancelada_terapeuta,cancelada_clinica,remarcada)")
+        .order("starts_at", { ascending: true })
+    : { data: [] };
+  const monthLabel = new Date(`${monthStart}T12:00:00Z`).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const WEEKDAYS = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
   // ── Planos terapêuticos: rascunhos a aprovar primeiro, depois os vigentes ──
   const plans: PlanRow[] = (rawPlans ?? [])
     .map((plan): PlanRow => {
@@ -241,6 +264,20 @@ export default async function SupervisaoPage() {
       id: plan.id,
       status: plan.status === "aprovado" ? "aprovado" : "rascunho",
       patientName: patient?.full_name ?? "—",
+      monthLabel,
+      monthSessions: (rawMonthAppointments ?? [])
+        .filter((a) => a.patient_id === plan.patient_id)
+        .map((a) => {
+          const room = Array.isArray(a.rooms) ? a.rooms[0] : a.rooms;
+          return {
+            id: a.id,
+            date: civilDateInTimeZone(new Date(a.starts_at), CLINIC_TIMEZONE),
+            weekday: WEEKDAYS[weekdayInTimeZone(a.starts_at, CLINIC_TIMEZONE)] ?? "",
+            time: `${civilTimeInTimeZone(a.starts_at, CLINIC_TIMEZONE)} – ${civilTimeInTimeZone(a.ends_at, CLINIC_TIMEZONE)}`,
+            discipline: a.discipline,
+            roomName: room?.name ?? null,
+          };
+        }),
       version: plan.version,
       generalObjective: plan.general_objective,
       familyPriorities: plan.family_priorities,

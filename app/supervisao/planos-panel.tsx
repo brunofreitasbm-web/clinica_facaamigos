@@ -30,11 +30,24 @@ export type PlanGoalRow = {
   supervisorNotes: string | null;
 };
 
+export type PlanSessionRow = {
+  id: string;
+  /** YYYY-MM-DD */
+  date: string;
+  weekday: string;
+  time: string;
+  discipline: string;
+  roomName: string | null;
+};
+
 export type PlanRow = {
   id: string;
   /** rascunho = aguardando aprovação da supervisão; aprovado = PTS vigente. */
   status: "rascunho" | "aprovado";
   patientName: string;
+  /** Mês vigente (ex.: "novembro de 2026") e as sessões do paciente nele. */
+  monthLabel: string;
+  monthSessions: PlanSessionRow[];
   version: number;
   generalObjective: string | null;
   familyPriorities: string | null;
