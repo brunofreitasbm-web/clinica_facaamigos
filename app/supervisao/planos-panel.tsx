@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, RotateCcw, CheckCircle2, MessageSquare, Loader2 } from "lucide-react";
+import { Check, RotateCcw, CheckCircle2, Loader2 } from "lucide-react";
 import { PLAN_GOAL_STATUS_STYLE } from "@/lib/appointment-status-style";
 import { approvePlan, returnAllPendingGoals, returnGoal, validateGoal } from "./plan-actions";
 import { RelatorioReavaliacaoDialog, type ReportPatientData } from "./relatorio-dialog";
@@ -21,6 +21,8 @@ export type PlanGoalRow = {
 
 export type PlanRow = {
   id: string;
+  /** rascunho = aguardando aprovação da supervisão; aprovado = PTS vigente. */
+  status: "rascunho" | "aprovado";
   patientName: string;
   version: number;
   generalObjective: string | null;
@@ -37,12 +39,15 @@ const METHODOLOGY_LABEL: Record<string, string> = {
   outra: "Outra",
 };
 
-// Fila de aprovação só traz planos `rascunho` (ver page.tsx). O rótulo da
-// lista é derivado do estado das metas: se ainda há alguma `ativa`, o plano
-// está "Pendente"; se todas já foram decididas (validadas ou devolvidas) e
-// pelo menos uma foi devolvida, mostramos "Devolvido" pra sinalizar que
-// precisa de atenção do terapeuta antes de poder ser aprovado de fato.
-function planQueueLabel(goals: PlanGoalRow[]): { label: string; tagClass: string } {
+// A lista traz os rascunhos (fila de aprovação) e os planos `aprovado` (PTS
+// vigentes, sempre à mostra — ver page.tsx). Plano aprovado é "Vigente". Para
+// rascunho, o rótulo é derivado do estado das metas: se ainda há alguma
+// `ativa`, o plano está "Pendente"; se todas já foram decididas (validadas ou
+// devolvidas) e pelo menos uma foi devolvida, mostramos "Devolvido" pra
+// sinalizar que precisa de atenção do terapeuta antes de poder ser aprovado.
+function planQueueLabel(plan: PlanRow): { label: string; tagClass: string } {
+  if (plan.status === "aprovado") return { label: "Vigente", tagClass: "st-confirmada" };
+  const goals = plan.goals;
   const pending = goals.filter((g) => g.status === "ativa").length;
   if (pending > 0) return { label: "Pendente", tagClass: "st-agendada" };
   if (goals.some((g) => g.status === "suspensa")) return { label: "Devolvido", tagClass: "st-falta" };
@@ -71,6 +76,7 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
     () => plans.find((p) => p.id === selectedId) ?? filteredPlans[0] ?? null,
     [plans, selectedId, filteredPlans]
   );
+  const isDraft = selected?.status === "rascunho";
   const pendingCount = selected ? selected.goals.filter((g) => g.status === "ativa").length : 0;
   const validatedCount = selected ? selected.goals.filter((g) => g.status === "validada").length : 0;
   const returnedCount = selected ? selected.goals.filter((g) => g.status === "suspensa").length : 0;
@@ -139,7 +145,7 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
       <div className="flex flex-col rounded-xl border border-paper-line bg-paper-surface p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-accent">Fila de Supervisão</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-accent">PTS vigentes e a aprovar</span>
             <h2 className="m-0 text-lg font-bold text-ink">Planos Terapêuticos</h2>
           </div>
           <Link
@@ -163,12 +169,12 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
 
         {filteredPlans.length === 0 ? (
           <div className="py-8 text-center text-sm text-ink-faint">
-            {searchTerm ? "Nenhum plano encontrado na busca." : "Nenhum plano aguardando aprovação."}
+            {searchTerm ? "Nenhum plano encontrado na busca." : "Nenhum PTS vigente ou aguardando aprovação."}
           </div>
         ) : (
           <div className="flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
             {filteredPlans.map((plan) => {
-              const tag = planQueueLabel(plan.goals);
+              const tag = planQueueLabel(plan);
               const isSelected = plan.id === (selected?.id ?? selectedId);
               const pCount = plan.goals.filter((g) => g.status === "ativa").length;
 
@@ -193,7 +199,9 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-ink-faint pt-1 border-t border-paper-line/50">
                     <span>{plan.goals.length} meta(s)</span>
-                    {pCount > 0 ? (
+                    {plan.status === "aprovado" ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">Aprovado</span>
+                    ) : pCount > 0 ? (
                       <span className="text-amber-600 dark:text-amber-400 font-medium">{pCount} pendente(s)</span>
                     ) : (
                       <span className="text-emerald-600 dark:text-emerald-400 font-medium">Pronto</span>
@@ -227,29 +235,36 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
 
               <div className="flex flex-wrap items-center gap-2">
                 <RelatorioReavaliacaoDialog data={reportData} />
-                <button
-                  type="button"
-                  className="btn btn-secondary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
-                  disabled={isPending}
-                  onClick={() => runPlanAction(() => returnAllPendingGoals(selected.id, bulkNotes))}
-                  title="Devolve em lote todas as metas ainda pendentes deste plano"
-                >
-                  <RotateCcw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                  <span>Devolver Pendentes</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
-                  disabled={isPending || pendingCount > 0}
-                  onClick={() => runPlanAction(() => approvePlan(selected.id))}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>{pendingCount > 0 ? `Aprovar (${pendingCount} pendentes)` : "Aprovar e Publicar"}</span>
-                </button>
+                {isDraft ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-secondary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
+                      disabled={isPending}
+                      onClick={() => runPlanAction(() => returnAllPendingGoals(selected.id, bulkNotes))}
+                      title="Devolve em lote todas as metas ainda pendentes deste plano"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>Devolver Pendentes</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary inline-flex items-center gap-1.5 text-xs transition-transform active:scale-95"
+                      disabled={isPending || pendingCount > 0}
+                      onClick={() => runPlanAction(() => approvePlan(selected.id))}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>{pendingCount > 0 ? `Aprovar (${pendingCount} pendentes)` : "Aprovar e Publicar"}</span>
+                    </button>
+                  </>
+                ) : (
+                  <span className="tag-status st-confirmada text-[11px] px-2 py-0.5">PTS vigente</span>
+                )}
               </div>
             </div>
 
             {/* Resumo de Metas e Status */}
+            {isDraft && (
             <div className="mb-4 grid grid-cols-3 gap-3 rounded-lg border border-paper-line bg-paper p-3 text-xs">
               <div className="flex flex-col">
                 <span className="text-ink-faint">Pendentes de validação</span>
@@ -264,6 +279,7 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                 <span className="text-base font-bold text-rose-600 dark:text-rose-400">{returnedCount}</span>
               </div>
             </div>
+            )}
 
             {/* Contexto Clinico e Familia */}
             {(selected.generalObjective || selected.familyPriorities) && (
@@ -283,7 +299,8 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
               </div>
             )}
 
-            {/* Campo de observacao em lote */}
+            {/* Campo de observacao em lote (só rascunho: devolução em lote não se aplica a PTS vigente) */}
+            {isDraft && (
             <div className="mb-4">
               <textarea
                 value={bulkNotes}
@@ -293,6 +310,7 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                 className="w-full rounded-md border border-paper-line bg-paper px-3 py-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
+            )}
 
             {error && (
               <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
@@ -346,7 +364,7 @@ export function PlanosPanel({ plans }: { plans: PlanRow[] }) {
                         Visão da família: &ldquo;{goal.description}&rdquo;
                       </div>
 
-                      {goal.status === "ativa" && (
+                      {isDraft && goal.status === "ativa" && (
                         <div className="mt-2 flex items-center justify-end gap-2 border-t border-paper-line/60 pt-2.5">
                           <button
                             type="button"

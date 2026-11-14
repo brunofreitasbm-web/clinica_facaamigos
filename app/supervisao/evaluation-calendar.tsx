@@ -13,9 +13,6 @@ import {
   getEvaluationCalendarWeekAction,
   getEvaluationPoolAction,
   rejectEvaluationOfferAction,
-  restartEvaluationOfferAction,
-  cancelEvaluationOfferAction,
-  getEvaluationDayCountsAction,
   getEvaluatorsAvailabilityAction,
   scheduleFromPoolAction,
   suggestNearestEvaluationSlotAction,
@@ -23,21 +20,13 @@ import {
   updateEvaluationAppointmentAction,
   cancelEvaluationAppointmentAction,
   confirmEvaluationAppointmentAction,
-  getPendingConfirmationsAction,
   type TherapistAvailabilityBlock,
   type PendingConfirmationItem,
 } from "./evaluation-calendar-actions";
-import type {
-  EvaluationAgendaOrigin,
-  EvaluationCalendarAppointment,
-  EvaluationOfferItem,
-  EvaluationPoolFacts,
-  EvaluationPoolItem,
-} from "@/lib/evaluation-agenda";
-import { EvaluationQuickViewPanel } from "./evaluation-quick-view";
+import type { EvaluationCalendarAppointment, EvaluationPoolItem } from "@/lib/evaluation-agenda";
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { aguardaConfirmacao } from "@/lib/evaluation-pending-pure";
-import { isLiveOffer, offerBadge, type OfferBadge } from "@/lib/evaluation-offer-badge-pure";
+import { isLiveOffer } from "@/lib/evaluation-offer-badge-pure";
 
 /**
  * Calendário semanal de 1ª avaliação — visão única, independente de onde o
@@ -53,77 +42,6 @@ import { isLiveOffer, offerBadge, type OfferBadge } from "@/lib/evaluation-offer
  * grade-data.ts (que são fixos a Seg–Sex, pro grid de terapia recorrente) —
  * horário de funcionamento da clínica inclui sábado de manhã.
  */
-
-const ORIGIN_LABEL: Record<EvaluationAgendaOrigin, string> = {
-  whatsapp_anamnese: "WhatsApp · Anamnese",
-  convenio_pdf: "PDF de plano de saúde",
-  presencial: "Presencial",
-  family_meeting: "Reunião · Responsável",
-  patient_feedback: "Devolutiva do paciente",
-};
-
-// Origem é categoria, não status: chip contornado com ponto colorido, pra
-// não competir com as tags preenchidas de status (Aguardando, OK da
-// Recepção) — antes "Devolutiva" usava st-cancelada e parecia cancelada.
-const ORIGIN_DOT: Record<EvaluationAgendaOrigin, string> = {
-  whatsapp_anamnese: "var(--color-status-pending-text)",
-  convenio_pdf: "var(--color-status-positive-text)",
-  presencial: "var(--color-status-realizada-text)",
-  family_meeting: "var(--color-status-active-text)",
-  patient_feedback: "var(--color-status-neutral-text)",
-};
-
-function OriginChip({ origin }: { origin: EvaluationAgendaOrigin }) {
-  return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-paper-line-strong bg-white px-1.5 py-px text-[10px] font-medium text-ink-soft">
-      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: ORIGIN_DOT[origin] }} />
-      <span className="truncate">{ORIGIN_LABEL[origin]}</span>
-    </span>
-  );
-}
-
-/** Espera a partir da qual o card do cadastro presencial fica em alerta. */
-const LONG_WAIT_DAYS = 7;
-
-// Cadastro presencial: a origem não diz nada (toda avaliação é presencial) —
-// no lugar, o que decide avaliador e horário: convênio, idade e tempo de espera.
-function PoolFactsChips({ facts }: { facts: EvaluationPoolFacts }) {
-  const chip =
-    "inline-flex max-w-full items-center rounded-full border border-paper-line-strong bg-white px-1.5 py-px text-[10px] font-medium text-ink-soft";
-  return (
-    <>
-      <span className={chip} title="Convênio informado no cadastro">
-        <span className="truncate">{facts.insurer ?? "Convênio não informado"}</span>
-      </span>
-      {facts.age && <span className={chip}>{facts.age}</span>}
-      <span
-        className={`tag-status ${facts.waitingDays >= LONG_WAIT_DAYS ? "st-falta" : "st-cancelada"}`}
-        title="Dias desde o cadastro na Recepção"
-      >
-        {facts.waitingDays === 0 ? "Cadastrado hoje" : `Espera ${facts.waitingDays} dia${facts.waitingDays === 1 ? "" : "s"}`}
-      </span>
-    </>
-  );
-}
-
-const BAND_STYLE: Record<OfferBadge["tone"], string> = {
-  amber: "border-amber-400 bg-amber-100 text-amber-900",
-  blue: "border-sky-400 bg-sky-100 text-sky-900",
-  red: "border-status-negative-text/40 bg-status-negative-soft text-status-negative-text",
-};
-
-/** Faixa chamativa do card: em que passo do fluxo automático o responsável está agora. */
-function OfferStatusBand({ badge }: { badge: OfferBadge }) {
-  return (
-    <div role="status" className={`mt-1.5 rounded-md border px-2 py-1.5 ${BAND_STYLE[badge.tone]}`}>
-      <p className="flex items-center gap-1.5 text-[11px] font-bold">
-        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full bg-current ${badge.live ? "animate-pulse" : ""}`} />
-        {badge.title}
-      </p>
-      {badge.detail && <p className="mt-0.5 text-[10px] leading-snug">{badge.detail}</p>}
-    </div>
-  );
-}
 
 const WEEKDAY_LABEL = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
 /** Hora de fechamento por dia da semana (índice 0=Seg..5=Sáb) — Seg–Sex 19h, Sáb 12h. */
@@ -167,148 +85,6 @@ function evaluationWeek(anchorDateStr: string): WeekInfo & { rangeLabel: string 
   const monday = mondayOfStr(anchorDateStr);
   const days = Array.from({ length: 6 }, (_, i) => addDaysStr(monday, i));
   return { days, weekNumber: 0, rangeLabel: `${shortDateStr(days[0])} – ${shortDateStr(days[5])} ${days[5].slice(0, 4)}` };
-}
-
-const MONTH_WEEKDAY_LABEL = ["S", "T", "Q", "Q", "S", "S", "D"] as const;
-
-/** Primeiro dia (`YYYY-MM-01`) do mês que contém `dateStr`. */
-function firstOfMonthStr(dateStr: string): string {
-  return `${dateStr.slice(0, 7)}-01`;
-}
-
-/** `YYYY-MM-01` + `n` meses. */
-function addMonthsStr(monthStr: string, n: number): string {
-  const [year, month] = monthStr.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1 + n, 1)).toISOString().slice(0, 10);
-}
-
-function monthLabelStr(monthStr: string): string {
-  const [year, month] = monthStr.split("-").map(Number);
-  const label = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(
-    new Date(Date.UTC(year, month - 1, 1)),
-  );
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-/** Células do mês (Seg→Dom), completando as semanas com dias do mês vizinho. */
-function monthCells(monthStr: string): string[] {
-  const start = mondayOfStr(monthStr);
-  const next = addMonthsStr(monthStr, 1);
-  const lastDay = addDaysStr(next, -1);
-  const end = addDaysStr(mondayOfStr(lastDay), 6);
-  const cells: string[] = [];
-  for (let d = start; d <= end; d = addDaysStr(d, 1)) cells.push(d);
-  return cells;
-}
-
-/**
- * Calendário mensal compacto pra saltar pra uma data distante. Clicar num dia
- * leva a grade semanal pra semana dele; domingo é desabilitado (a clínica
- * não atende). "Hoje" mora ao lado das setas da semana, não aqui.
- */
-function MonthPicker({
-  selected,
-  today,
-  refreshKey,
-  onSelect,
-}: {
-  selected: string;
-  today: string;
-  /** Muda quando a agenda é alterada (agendar/reagendar) pra recontar os dias. */
-  refreshKey: number;
-  onSelect: (date: string) => void;
-}) {
-  const [viewMonth, setViewMonth] = useState(() => firstOfMonthStr(selected));
-  const [counts, setCounts] = useState<Record<string, number>>({});
-
-  // Navegar de semana pelas setas pode cruzar o mês — acompanha a seleção.
-  useEffect(() => {
-    setViewMonth(firstOfMonthStr(selected));
-  }, [selected]);
-
-  const cells = useMemo(() => monthCells(viewMonth), [viewMonth]);
-
-  useEffect(() => {
-    let cancelled = false;
-    getEvaluationDayCountsAction(cells[0], cells[cells.length - 1]).then((res) => {
-      if (!cancelled) setCounts(res.success ? res.counts : {});
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [cells, refreshKey]);
-
-  const selectedWeek = mondayOfStr(selected);
-
-  return (
-    <div className="mt-2 rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm">
-      <div className="mb-2 flex items-center justify-between">
-        <button
-          type="button"
-          aria-label="Mês anterior"
-          onClick={() => setViewMonth((m) => addMonthsStr(m, -1))}
-          className="h-7 w-7 rounded text-sm font-semibold text-ink-soft hover:bg-paper"
-        >
-          ‹
-        </button>
-        <span className="text-xs font-bold text-ink">{monthLabelStr(viewMonth)}</span>
-        <button
-          type="button"
-          aria-label="Próximo mês"
-          onClick={() => setViewMonth((m) => addMonthsStr(m, 1))}
-          className="h-7 w-7 rounded text-sm font-semibold text-ink-soft hover:bg-paper"
-        >
-          ›
-        </button>
-      </div>
-      <div className="grid grid-cols-7 gap-y-0.5 text-center">
-        {MONTH_WEEKDAY_LABEL.map((l, i) => (
-          <span key={i} className="pb-1 text-[10px] font-bold uppercase text-ink-faint">
-            {l}
-          </span>
-        ))}
-        {cells.map((date) => {
-          const inMonth = date.slice(0, 7) === viewMonth.slice(0, 7);
-          const isSunday = new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
-          const isToday = date === today;
-          const inSelectedWeek = mondayOfStr(date) === selectedWeek;
-          return (
-            <button
-              key={date}
-              type="button"
-              disabled={isSunday}
-              aria-label={`${brDate(date)}${counts[date] ? ` — ${counts[date]} avaliação(ões)` : ""}`}
-              aria-current={isToday ? "date" : undefined}
-              title={counts[date] ? `${counts[date]} avaliação(ões) agendada(s)` : undefined}
-              onClick={() => onSelect(date)}
-              className={`relative h-7 text-[11px] tabular-nums transition-colors ${
-                isToday ? "rounded-md font-bold" : "hover:bg-paper"
-              } ${isSunday ? "cursor-not-allowed opacity-40" : ""} ${inMonth ? "text-ink" : "text-ink-faint"}`}
-              style={
-                isToday
-                  ? { background: "var(--color-accent)", color: "var(--color-bg)" }
-                  : inSelectedWeek
-                    ? { background: "var(--color-accent-100)" }
-                    : undefined
-              }
-            >
-              {Number(date.slice(8))}
-              {counts[date] ? (
-                <span
-                  aria-hidden
-                  className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full"
-                  style={{ background: isToday ? "var(--color-bg)" : "var(--color-accent)" }}
-                />
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-      <div className="mt-1 flex justify-end">
-        <HelpHint text="Ponto = dia com avaliação agendada." label="Legenda do calendário" />
-      </div>
-    </div>
-  );
 }
 
 function parseTimeToMinutes(hhmm: string): number {
@@ -743,12 +519,10 @@ function EditAppointmentDialog({
 
 export function EvaluationCalendar({
   pool: initialPool,
-  offers: initialOffers,
   therapists,
   rooms,
 }: {
   pool: EvaluationPoolItem[];
-  offers: EvaluationOfferItem[];
   therapists: { id: string; name: string }[];
   rooms: { id: string; name: string }[];
 }) {
@@ -758,15 +532,10 @@ export function EvaluationCalendar({
   // nacionais vêm de lib/clinic-calendar-pure, sem ida ao banco.
   const [closures, setClosures] = useState<ClinicClosure[]>([]);
   const [pool, setPool] = useState(initialPool);
-  // Crianças que receberam a oferta automática por WhatsApp e ainda não têm horário (barra lateral).
-  const [offers, setOffers] = useState(initialOffers);
   // Cards que o responsável acabou de escolher (aguardando OK): piscam por 2 min.
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
   const [pendingConfirmations, setPendingConfirmations] = useState<PendingConfirmationItem[]>([]);
-  // Relógio da tela (1 min) pra "há X h" das ofertas sem render impuro.
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
-  const [countsVersion, setCountsVersion] = useState(0);
   const { toast } = useToast();
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
   // União das janelas de todos os avaliadores.
@@ -779,15 +548,6 @@ export function EvaluationCalendar({
   const [scheduling, setScheduling] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<EvaluationCalendarAppointment | null>(null);
   const [pendingEdit, setPendingEdit] = useState(false);
-  // Janela flutuante do card clicado na fila (laudo/guia/contato + aprovar,
-  // rejeitar e mensagem) — guarda o retângulo do card pra ancorar a janela
-  // ao lado dele.
-  const [quickView, setQuickView] = useState<{ item: EvaluationPoolItem; rect: DOMRect } | null>(null);
-
-  function openQuickView(item: EvaluationPoolItem, target: HTMLElement) {
-    setQuickView({ item, rect: target.getBoundingClientRect() });
-  }
-
   const today = todayInTimeZone(CLINIC_TIMEZONE);
   const week = useMemo(() => evaluationWeek(weekAnchor), [weekAnchor]);
   const bounds = useMemo(() => ({ start: week.days[0], end: addDaysStr(week.days[5], 1) }), [week]);
@@ -804,7 +564,6 @@ export function EvaluationCalendar({
     if (res.success) {
       setAppointments(res.appointments);
       setClosures(res.closures);
-      setCountsVersion((v) => v + 1);
     }
     if (!silent) setLoading(false);
   }
@@ -813,7 +572,6 @@ export function EvaluationCalendar({
     const res = await getEvaluationPoolAction();
     if (res.success) {
       setPool(res.pool);
-      setOffers(res.offers);
       if ("pendingConfirmations" in res && res.pendingConfirmations) {
         setPendingConfirmations(res.pendingConfirmations);
       }
@@ -868,7 +626,6 @@ export function EvaluationCalendar({
       .subscribe();
 
     const interval = setInterval(() => {
-      setNowMs(Date.now());
       if (!document.hidden) refreshRef.current();
     }, 60_000);
     const onVisibility = () => {
@@ -884,16 +641,6 @@ export function EvaluationCalendar({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  async function runOfferAction(run: () => Promise<{ success: boolean; error?: string }>, okMessage: string) {
-    const res = await run();
-    if (!res.success) {
-      toast(res.error ?? "Não foi possível concluir.", "error");
-      return;
-    }
-    toast(okMessage, "success");
-    await fetchPool();
-  }
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -919,9 +666,6 @@ export function EvaluationCalendar({
   // e sai do agendamento manual (botão, arrastar, clique na grade) até a oferta ser assumida.
   const hasLiveOffer = (p: EvaluationPoolItem) => Boolean(p.offer && isLiveOffer(p.offer));
   const schedulablePool = readyPool.filter((p) => !hasLiveOffer(p));
-  const waitingPool = pool.filter((p) => !p.ready);
-  // Ofertas cujo paciente não aparece na fila (o card da fila já mostra a faixa de status).
-  const orphanOffers = offers.filter((o) => !pool.some((p) => p.offer?.id === o.id));
 
   // Avaliador sem bloco cadastrado não atende (allocateEvaluator ignora): a
   // grade pinta como livre só a união das janelas cadastradas.
@@ -1056,7 +800,7 @@ export function EvaluationCalendar({
     if (schedulablePool.length === 0) {
       toast(
         readyPool.length > 0
-          ? "Os pacientes da fila estão no agendamento automático pelo WhatsApp. Use \"Assumir manualmente\" no card para agendar você mesmo."
+          ? "Os pacientes prontos estão no agendamento automático pelo WhatsApp: o responsável escolhe o horário."
           : "Nenhum paciente pronto para agendar na fila.",
         "info",
       );
@@ -1069,13 +813,6 @@ export function EvaluationCalendar({
       return;
     }
     setSlotDialog({ itemId: schedulablePool[0].id, date: week.days[dayIndex], time });
-  }
-
-  function openDialogFromCard(item: EvaluationPoolItem) {
-    const date = week.days.includes(today) ? today : week.days[0];
-    setSlotDialog({ itemId: item.id, date, time: minutesToTime(DAY_START_HOUR * 60) });
-    // Abre já na data mais próxima possível (primeiro horário vago a partir de amanhã).
-    void applyNearestSuggestion(true);
   }
 
   /**
@@ -1271,235 +1008,6 @@ export function EvaluationCalendar({
       )}
 
       <div className="flex gap-4">
-        {/* Fila lateral — origem do agendamento vem antes da navegação por mês. */}
-        <aside className="w-64 shrink-0">
-          <h3 className="mb-2 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-ink-soft">
-            Prontos para agendar ({readyPool.length})
-            <HelpHint text="Cards com faixa colorida seguem o agendamento automático pelo WhatsApp: nada a fazer, o horário aparece na agenda para você confirmar. Nos demais, clique para ver documentos e arraste para a grade ou use Agendar." label="Como agendar" />
-          </h3>
-          <div className="flex flex-col gap-2">
-            {readyPool.map((item) => {
-              const automatic = hasLiveOffer(item);
-              const canSchedule = hasEvaluators && !automatic;
-              return (
-              <div
-                key={item.id}
-                draggable={canSchedule}
-                role="button"
-                tabIndex={0}
-                onDragStart={(e) => {
-                  if (!canSchedule) {
-                    e.preventDefault();
-                    return;
-                  }
-                  const payload: DragPayload = { kind: "pool", poolItemId: item.id };
-                  dragPayloadRef.current = payload;
-                  e.dataTransfer.setData("application/json", JSON.stringify(payload));
-                }}
-                onDragEnd={clearDrag}
-                onClick={(e) => openQuickView(item, e.currentTarget)}
-                onKeyDown={(e) => {
-                  if (e.target !== e.currentTarget) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openQuickView(item, e.currentTarget);
-                  }
-                }}
-                className={`grid-cell-focusable rounded-md border border-paper-line-strong bg-white p-2.5 shadow-sm hover:border-[var(--color-accent)] ${
-                  canSchedule ? "cursor-grab active:cursor-grabbing" : automatic ? "cursor-pointer" : "cursor-pointer opacity-70"
-                }`}
-                title={
-                  automatic
-                    ? "Agendamento automático em andamento — o responsável escolhe o horário pelo WhatsApp. Clique para consulta rápida."
-                    : hasEvaluators
-                      ? "Clique para consulta rápida (laudo, guia, contato) · arraste para a grade para agendar"
-                      : "Clique para consulta rápida — cadastre um terapeuta avaliador para liberar o agendamento"
-                }
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-semibold text-ink">{item.patientName}</p>
-                  {canSchedule && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDialogFromCard(item);
-                        }}
-                        title="Só use se for agendar por conta própria: o responsável não precisa de autorização sua para escolher o horário"
-                        className="text-[10px] font-medium text-ink-faint underline underline-offset-2 hover:text-ink-soft hover:no-underline"
-                      >
-                        Agendar manualmente
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {item.offer && <OfferStatusBand badge={offerBadge(item.offer, nowMs)} />}
-                {automatic && item.offer && (
-                  <div className="mt-1 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      className="shrink-0 text-[10px] font-semibold text-ink-soft underline underline-offset-2 hover:no-underline"
-                      title="Cancela o envio automático ao responsável para você agendar manualmente"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const offerId = item.offer!.id;
-                        if (!window.confirm("Cancelar o agendamento automático e agendar manualmente? O responsável deixa de receber as opções por WhatsApp.")) return;
-                        void runOfferAction(() => cancelEvaluationOfferAction(offerId), "Oferta cancelada. Agende manualmente.");
-                      }}
-                    >
-                      Assumir manualmente
-                    </button>
-                  </div>
-                )}
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {item.gate ? (
-                    // Na fila de prontos todo gate é "habilitado": um chip só, sem a categoria "Docs · Recepção".
-                    <span
-                      className="tag-status st-confirmada"
-                      title="A Recepção conferiu os documentos, o plano autorizou e o agendamento foi habilitado"
-                    >
-                      ✓ Docs OK
-                    </span>
-                  ) : item.facts ? (
-                    <PoolFactsChips facts={item.facts} />
-                  ) : (
-                    <OriginChip origin={item.origin} />
-                  )}
-                </div>
-                {!item.facts || item.gate ? <p className="mt-1 text-[11px] text-ink-faint">{item.detail}</p> : null}
-                {!item.offer && item.bookInput.origin === "presencial" && (
-                  <p className="mt-1 text-[10px] text-ink-faint">
-                    {item.recipient ? "Convite automático por WhatsApp ainda não enviado." : "Sem telefone do responsável para enviar o convite."}
-                  </p>
-                )}
-              </div>
-              );
-            })}
-            {readyPool.length === 0 && <p className="text-xs text-ink-faint">Nenhum paciente pronto para agendar.</p>}
-          </div>
-
-          {orphanOffers.length > 0 && (
-            <>
-              <h3 className="mb-2 mt-4 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-ink-soft">
-                Aguardando responsável ({orphanOffers.length})
-                <HelpHint text="Receberam as opções de horário por WhatsApp e ainda não escolheram." label="Sobre esta lista" />
-              </h3>
-              <div className="flex flex-col gap-2">
-                {orphanOffers.map((o) => {
-                  const problem = o.status === "falhou" || o.status === "sem_horario";
-                  const hours = o.sentAt ? Math.floor((nowMs - new Date(o.sentAt).getTime()) / 3_600_000) : null;
-                  const late = !problem && hours !== null && hours >= 24;
-                  const statusText =
-                    o.status === "aguardando_interesse"
-                      ? "Aguardando resposta ao convite"
-                      : o.status === "aguardando_escolha"
-                        ? "Escolhendo o horário"
-                        : o.status === "falhou"
-                          ? "Falha no envio"
-                          : "Sem horário livre";
-                  return (
-                    <div
-                      key={o.id}
-                      className={`rounded-md border p-2.5 ${problem ? "border-status-negative-text/40 bg-status-negative-soft/30" : late ? "border-amber-400 bg-[#fff9eb]" : "border-paper-line-strong bg-paper"}`}
-                    >
-                      <p className="text-xs font-semibold text-ink">{o.patientName}</p>
-                      <p className="mt-1 text-[11px] text-ink-soft">
-                        {statusText}
-                        {hours !== null && !problem ? ` · há ${hours < 1 ? "menos de 1" : hours} h${late ? " (lembrete enviado)" : ""}` : ""}
-                      </p>
-                      {problem && o.lastError && <p className="mt-1 text-[11px] text-status-negative-text">{o.lastError}</p>}
-                      <div className="mt-2 flex gap-1.5">
-                        {problem ? (
-                          <button
-                            type="button"
-                            className="btn text-[11px]"
-                            onClick={() => runOfferAction(() => restartEvaluationOfferAction(o.patientId), "Nova tentativa enviada ao responsável.")}
-                          >
-                            Tentar de novo
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn text-[11px]"
-                            title="Cancela a oferta automática para você agendar manualmente"
-                            onClick={() => runOfferAction(() => cancelEvaluationOfferAction(o.id), "Oferta cancelada. Agende manualmente.")}
-                          >
-                            Cancelar oferta
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {waitingPool.length > 0 && (
-            <>
-              <h3 className="mb-2 mt-4 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-ink-soft">
-                Aguardando liberação ({waitingPool.length})
-                <HelpHint text="Ainda não podem ser agendados — aprovação ou OK da Recepção pendente." label="Sobre esta lista" />
-              </h3>
-              <div className="flex flex-col gap-2">
-                {waitingPool.map((item) => (
-                  <div
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => openQuickView(item, e.currentTarget)}
-                    onKeyDown={(e) => {
-                      if (e.key !== "Enter" && e.key !== " ") return;
-                      e.preventDefault();
-                      openQuickView(item, e.currentTarget);
-                    }}
-                    className="cursor-pointer rounded-md border border-dashed border-paper-line-strong bg-paper p-2.5 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
-                    title={
-                      item.gate
-                        ? "Clique para ver os documentos — a Recepção libera o agendamento na Fila de pendências"
-                        : "Clique para ver os documentos e aprovar, rejeitar ou enviar mensagem"
-                    }
-                  >
-                    <p className="text-xs font-semibold text-ink">{item.patientName}</p>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {item.gate ? null : item.facts ? <PoolFactsChips facts={item.facts} /> : <OriginChip origin={item.origin} />}
-                      <span
-                        className="tag-status st-agendada"
-                        aria-label={item.gate ? "Aguardando o ok da Recepção" : "Documentação pendente de aprovação"}
-                      >
-                        {item.gate ? "Aguardando OK da Recepção" : "Aguardando Aprovação"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-[11px] text-ink-faint">
-                      {item.gate ? `${item.statusLabel} — a Recepção libera antes de agendar.` : `${item.statusLabel} — aprove antes de agendar.`}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          <details className="mt-4">
-            <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-ink-soft">Ir para data</summary>
-            <MonthPicker selected={weekAnchor} today={today} refreshKey={countsVersion} onSelect={setWeekAnchor} />
-          </details>
-        </aside>
-
-        {quickView && (
-          <EvaluationQuickViewPanel
-            key={quickView.item.id}
-            item={quickView.item}
-            anchorRect={quickView.rect}
-            onClose={() => setQuickView(null)}
-            onResolved={(text) => {
-              setQuickView(null);
-              toast(text, "success");
-              fetchPool();
-            }}
-            onChanged={fetchPool}
-          />
-        )}
 
         {/* Grade semanal */}
         <div className={`relative flex-1 overflow-x-auto ${hasEvaluators ? "" : "pointer-events-none opacity-50"}`} aria-disabled={!hasEvaluators}>

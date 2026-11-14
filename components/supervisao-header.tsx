@@ -1,14 +1,13 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { ShieldCheck, UserX, ListOrdered, Users, CalendarClock, Trophy, Boxes, CalendarDays, Stethoscope, CalendarRange } from "lucide-react";
+import { ShieldCheck, UserX, Users, CalendarClock, Trophy, Boxes, CalendarDays, Stethoscope, CalendarRange, UserCircle } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 import { NavGroupDropdown } from "@/components/nav-group-dropdown";
 import { useSupervisaoTab, type SupervisaoTabKey } from "@/app/supervisao/supervisao-tab-context";
 
 const TABS: { key: SupervisaoTabKey; label: string }[] = [
   { key: "agenda1a", label: "Agenda 1ª Avaliação" },
-  { key: "fluxos", label: "Fluxos" },
   { key: "planos", label: "PTS" },
   { key: "inbox", label: "Caixa de entrada" },
 ];
@@ -21,7 +20,6 @@ const TABS: { key: SupervisaoTabKey; label: string }[] = [
  */
 const OPERACAO_LINKS = [
   { key: "pacientes", label: "Pacientes", href: "/recepcao/pacientes", icon: Users },
-  { key: "lista-espera", label: "Lista de Espera", href: "/supervisao/lista-espera", icon: ListOrdered },
   { key: "prontuario-unificado", label: "Prontuário Unificado", href: "/supervisao/prontuario-unificado", icon: ShieldCheck },
 ] as const;
 
