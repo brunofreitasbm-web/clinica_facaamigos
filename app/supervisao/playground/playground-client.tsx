@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PLAYGROUND_UNITS, findPlaygroundUnit } from "@/lib/playground/units";
+import { PLAYGROUND_DEFAULT_DURATION, PLAYGROUND_VISIT_DURATIONS } from "@/lib/playground/constants";
 import { Plus, X } from "lucide-react";
 import {
   cancelSeries,
@@ -24,7 +25,7 @@ const LEVELS = [
 ];
 
 type VisitDraft = { date: string; time: string; durationMin: number };
-const emptyVisit = (): VisitDraft => ({ date: "", time: "", durationMin: 60 });
+const emptyVisit = (): VisitDraft => ({ date: "", time: "", durationMin: PLAYGROUND_DEFAULT_DURATION });
 
 function useAction() {
   const router = useRouter();
@@ -261,9 +262,11 @@ export function NewSeriesDialog({ patients, locations }: { patients: PatientOpti
                         onChange={(e) => update(i, { durationMin: Number(e.target.value) })}
                         aria-label="Duração"
                       >
-                        <option value={45}>45 min</option>
-                        <option value={60}>60 min</option>
-                        <option value={90}>90 min</option>
+                        {PLAYGROUND_VISIT_DURATIONS.map((m) => (
+                          <option key={m} value={m}>
+                            {m} min
+                          </option>
+                        ))}
                       </select>
                       {visits.length > 1 ? (
                         <button
@@ -307,23 +310,40 @@ export function NewSeriesDialog({ patients, locations }: { patients: PatientOpti
   );
 }
 
-/** Seletor compacto de data e hora, usado em remarcar e prorrogar. */
+/** Seletor compacto de data e hora (e duração, ao adicionar visita), usado em remarcar e prorrogar. */
 function DateTimeInline({
   label,
   onSubmit,
   pending,
+  withDuration = false,
 }: {
   label: string;
-  onSubmit: (date: string, time: string) => void;
+  onSubmit: (date: string, time: string, durationMin: number) => void;
   pending: boolean;
+  withDuration?: boolean;
 }) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [durationMin, setDurationMin] = useState<number>(PLAYGROUND_DEFAULT_DURATION);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Data" />
       <input type="time" className="input" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Horário" />
-      <button type="button" className="btn btn-primary" disabled={pending || !date || !time} onClick={() => onSubmit(date, time)}>
+      {withDuration && (
+        <select className="input" value={durationMin} onChange={(e) => setDurationMin(Number(e.target.value))} aria-label="Duração">
+          {PLAYGROUND_VISIT_DURATIONS.map((m) => (
+            <option key={m} value={m}>
+              {m} min
+            </option>
+          ))}
+        </select>
+      )}
+      <button
+        type="button"
+        className="btn btn-primary"
+        disabled={pending || !date || !time}
+        onClick={() => onSubmit(date, time, durationMin)}
+      >
         {pending ? "Salvando…" : label}
       </button>
     </div>
@@ -355,7 +375,12 @@ export function QueueRowAction({
         <DateTimeInline label="Remarcar visita" pending={pending} onSubmit={(d, t) => run(() => rescheduleVisit(visitId, d, t))} />
       )}
       {action === "prorrogar" && (
-        <DateTimeInline label="Adicionar visita" pending={pending} onSubmit={(d, t) => run(() => extendSeries(seriesId, d, t))} />
+        <DateTimeInline
+          label="Adicionar visita"
+          withDuration
+          pending={pending}
+          onSubmit={(d, t, m) => run(() => extendSeries(seriesId, d, t, m))}
+        />
       )}
       {error && <p className="text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
     </div>
@@ -404,8 +429,9 @@ export function SeriesRowActions({
       {extending && (
         <DateTimeInline
           label="Adicionar"
+          withDuration
           pending={pending}
-          onSubmit={(d, t) => run(() => extendSeries(seriesId, d, t), () => setExtending(false))}
+          onSubmit={(d, t, m) => run(() => extendSeries(seriesId, d, t, m), () => setExtending(false))}
         />
       )}
       {error && <p className="text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
