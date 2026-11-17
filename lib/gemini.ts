@@ -386,3 +386,59 @@ Regras importantes:
     };
   }
 }
+
+
+/**
+ * Evolução do playground: transcreve um áudio curto (até ~1 min) e devolve só
+ * um texto de evolução, para o terapeuta revisar. Nunca grava nada; o áudio
+ * é descartado. Falha explícita (sem sucesso inventado) como em
+ * transcribeAndStructureSessionNote.
+ */
+export async function transcribeToEvolutionText(
+  audioBase64: string,
+  mimeType: string,
+): Promise<{ success: true; text: string } | { success: false; error: string }> {
+  if (!isGeminiConfigured()) {
+    return { success: false, error: "Transcrição indisponível: chave da IA não configurada." };
+  }
+  if (!audioBase64 || !audioBase64.trim()) {
+    return { success: false, error: "Áudio vazio, nada para transcrever." };
+  }
+
+  const prompt = `Você ajuda terapeutas de desenvolvimento infantil a registrar a evolução de uma avaliação.
+Ouça o áudio anexo, um relato falado de até 1 minuto sobre o comportamento da criança durante a atividade,
+e devolva JSON estrito com exatamente uma chave:
+
+{ "free_text": "<texto de evolução em português, 2 a 5 frases, fiel ao que foi dito>" }
+
+Regras:
+- Use somente o que foi dito no áudio. Não invente observações, diagnósticos nem recomendações.
+- Se o áudio estiver inaudível, vazio ou não for sobre a criança, devolva {"free_text": ""}.
+- Responda APENAS o JSON, sem markdown.`;
+
+  try {
+    const res = await geminiFetch("evolucao_playground", {
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }, { inlineData: { mimeType: mimeType || "audio/webm", data: audioBase64 } }],
+        },
+      ],
+      generationConfig: { temperature: 0.1, responseMimeType: "application/json" },
+    });
+    if (!res.ok) {
+      console.error(`[Gemini Playground Evolução Error ${res.status}]:`, await res.text());
+      return { success: false, error: `Erro na transcrição (HTTP ${res.status}).` };
+    }
+    const data = await res.json();
+    const jsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!jsonText) return { success: false, error: "A IA não devolveu texto." };
+    const parsed = JSON.parse(jsonText) as { free_text?: unknown };
+    const text = typeof parsed.free_text === "string" ? parsed.free_text.trim() : "";
+    if (!text) return { success: false, error: "Não entendi o áudio: grave de novo ou digite." };
+    return { success: true, text };
+  } catch (err) {
+    console.error("[Gemini Playground Evolução]", err);
+    return { success: false, error: "Falha ao transcrever o áudio." };
+  }
+}

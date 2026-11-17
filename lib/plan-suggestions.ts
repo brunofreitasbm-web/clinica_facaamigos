@@ -72,7 +72,14 @@ export async function getSuggestedGoals(
     const domains = [...new Set(tab.items.map((i) => i.domain))];
     for (const domain of domains) {
       const domainItems = tab.items.filter((i) => i.domain === domain);
-      const pending = domainItems.filter((i) => (latest.scores[i.id] ?? 0) < scaleMax);
+      // Avaliação do playground é preenchida por várias pessoas, em partes: item
+      // nunca respondido é "não observado" e não vira meta (nas demais, segue contando como 0).
+      const observedOnly = latest.source === "playground";
+      const pending = domainItems.filter((i) => {
+        const score = latest.scores[i.id];
+        if (score === undefined) return !observedOnly;
+        return score < scaleMax;
+      });
       if (pending.length === 0) continue;
 
       const emergentCount = pending.filter((i) => {

@@ -64,7 +64,7 @@ export async function getPatientTimeline(
       .limit(20),
     supabase
       .from("protocol_assessments")
-      .select("id, assessed_at, scores, protocols(name), profiles!assessed_by(full_name)")
+      .select("id, assessed_at, scores, source, protocols(name), profiles!assessed_by(full_name)")
       .eq("patient_id", patientId)
       .order("assessed_at", { ascending: false })
       .limit(10),
@@ -107,7 +107,7 @@ export async function getPatientTimeline(
       id: `assessment-${a.id}`,
       date: a.assessed_at,
       type: `Avaliação de Protocolo — ${protocol?.name ?? "Protocolo"}`,
-      author: evaluator?.full_name ?? "Avaliador",
+      author: a.source === "playground" ? "Equipe do playground" : (evaluator?.full_name ?? "Avaliador"),
       summary: "Aplicação registrada com pontuações no protocolo.",
       detail: "Ver detalhes na ficha de avaliação do paciente",
     };
