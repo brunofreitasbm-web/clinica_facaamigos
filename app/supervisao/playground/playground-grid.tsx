@@ -16,11 +16,12 @@ export type GridVisit = {
   visitNo: number;
   statusLabel: string;
   needsRelease: boolean;
+  canExtend: boolean;
 };
 
 function VisitLine({ v, showTime }: { v: GridVisit; showTime?: boolean }) {
   return (
-    <li className="flex items-center justify-between gap-2">
+    <li className="flex flex-wrap items-center justify-between gap-2">
       <span className="min-w-0">
         {showTime ? `${v.time} · ` : ""}
         <span className="font-semibold">{v.patientName}</span>
@@ -29,7 +30,7 @@ function VisitLine({ v, showTime }: { v: GridVisit; showTime?: boolean }) {
           · {v.visitNo}ª visita · {v.statusLabel}
         </span>
       </span>
-      <VisitRowActions visitId={v.visitId} seriesId={v.seriesId} needsRelease={v.needsRelease} />
+      <VisitRowActions visitId={v.visitId} seriesId={v.seriesId} needsRelease={v.needsRelease} canExtend={v.canExtend} />
     </li>
   );
 }

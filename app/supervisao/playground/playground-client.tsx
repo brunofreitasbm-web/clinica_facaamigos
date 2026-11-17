@@ -466,28 +466,61 @@ export function SeriesRowActions({
   );
 }
 
-/** Ações da criança dentro do quadro: Liberar (se aguarda o OK) e o X que tira o agendamento. */
-export function VisitRowActions({ visitId, seriesId, needsRelease }: { visitId: string; seriesId: string; needsRelease: boolean }) {
+/** Ações da criança dentro do quadro: Liberar (se aguarda o OK), adicionar visita e o X que tira o agendamento. */
+export function VisitRowActions({
+  visitId,
+  seriesId,
+  needsRelease,
+  canExtend,
+}: {
+  visitId: string;
+  seriesId: string;
+  needsRelease: boolean;
+  canExtend: boolean;
+}) {
   const { pending, error, run } = useAction();
+  const [extending, setExtending] = useState(false);
   return (
-    <span className="flex shrink-0 items-center gap-1">
-      {needsRelease && (
-        <button type="button" className="btn btn-primary" disabled={pending} onClick={() => run(() => releaseSeries(seriesId))}>
-          Liberar
+    <>
+      <span className="flex shrink-0 items-center gap-1">
+        {needsRelease && (
+          <button type="button" className="btn btn-primary" disabled={pending} onClick={() => run(() => releaseSeries(seriesId))}>
+            Liberar
+          </button>
+        )}
+        {canExtend && (
+          <button
+            type="button"
+            className="btn btn-secondary flex items-center gap-1"
+            style={{ padding: "2px 8px" }}
+            onClick={() => setExtending((v) => !v)}
+          >
+            <Plus size={14} /> Visita
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ padding: "2px 6px" }}
+          disabled={pending}
+          aria-label="Cancelar este agendamento"
+          title="Cancelar este agendamento"
+          onClick={() => run(() => cancelVisit(visitId))}
+        >
+          <X size={14} />
         </button>
+      </span>
+      {extending && (
+        <div className="w-full">
+          <DateTimeInline
+            label="Adicionar visita"
+            withDuration
+            pending={pending}
+            onSubmit={(d, t, m) => run(() => extendSeries(seriesId, d, t, m), () => setExtending(false))}
+          />
+        </div>
       )}
-      <button
-        type="button"
-        className="btn btn-secondary"
-        style={{ padding: "2px 6px" }}
-        disabled={pending}
-        aria-label="Cancelar este agendamento"
-        title="Cancelar este agendamento"
-        onClick={() => run(() => cancelVisit(visitId))}
-      >
-        <X size={14} />
-      </button>
-      {error && <span className="text-xs" style={{ color: "var(--status-falta)" }}>{error}</span>}
-    </span>
+      {error && <p className="w-full text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
+    </>
   );
 }
