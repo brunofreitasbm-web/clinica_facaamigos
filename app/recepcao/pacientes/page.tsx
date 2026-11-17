@@ -1,3 +1,4 @@
+import { resolvePlanPill, type InsuranceRowForPlan } from "@/lib/patient-plan-pure";
 import { maskCpf } from "@/lib/masks";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
@@ -119,10 +120,9 @@ export default async function PacientesPage({ searchParams }: { searchParams: Pr
     const guardiansList = Array.isArray(p.guardians) ? p.guardians : p.guardians ? [p.guardians] : [];
     const mainGuardian = guardiansList.find((g: any) => g.is_financial) || guardiansList[0];
     const insuranceList = Array.isArray(p.patient_insurance) ? p.patient_insurance : p.patient_insurance ? [p.patient_insurance] : [];
-    const mainInsurance = insuranceList[0] as any;
-    const insurerObj = Array.isArray(mainInsurance?.insurers) ? mainInsurance?.insurers[0] : mainInsurance?.insurers;
-    const insurerName = mainInsurance?.is_private ? "Particular" : (insurerObj?.name ?? null);
-    const insurerColor = mainInsurance?.is_private ? "#64748b" : (insurerObj?.badge_color ?? null);
+    const planPill = resolvePlanPill(insuranceList as InsuranceRowForPlan[]);
+    const insurerName = planPill.name;
+    const insurerColor = planPill.color;
 
     // Contato do WhatsApp ainda pendente: vale a leitura dele (arquivos ainda não
     // anexados ao paciente). Sem contato pendente: cadastro e documentos do paciente.

@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { resolvePlanPill } from "@/lib/patient-plan-pure";
 
 export type PatientIdentitySummary = {
-  insurance: { insurerName: string; cardNumber: string | null } | null;
+  insurance: { insurerName: string; cardNumber: string | null; badgeColor?: string | null } | null;
   emergencyContact: { name: string; phone: string } | null;
   activeAuthorization: {
     guideNumber: string | null;
@@ -42,7 +43,7 @@ export async function getPatientIdentitySummary(
   ] = await Promise.all([
     supabase
       .from("patient_insurance")
-      .select("id, card_number, insurers(name)")
+      .select("id, card_number, is_private, insurers(name, badge_color)")
       .eq("patient_id", patientId),
     supabase.rpc("patient_contact_summary", { p_patient_id: patientId }),
     supabase.rpc("patient_authorization_summary", { p_patient_id: patientId }),
@@ -50,23 +51,21 @@ export async function getPatientIdentitySummary(
 
   const activeAuth = (authorizationsSummary ?? []).find((a) => a.status === "ativa") ?? null;
 
+  // Convênio identificado ganha de Particular; sem nenhum dos dois, null = plano
+  // não identificado (a tela oferece "É particular"). Ver lib/patient-plan-pure.ts.
+  const pill = resolvePlanPill(patientInsurances);
   const activeInsuranceRow =
     (patientInsurances ?? []).find((pi) => pi.id === activeAuth?.patient_insurance_id) ??
     (patientInsurances ?? [])[0] ??
     null;
-
-  // `insurers` vem embutido via FK — o supabase-js tipa como objeto ou
-  // array dependendo da relação; mesma normalização defensiva usada em
-  // getPendingPatients (lib/patient-stage.ts) para patient_insurance.
-  const insurance = activeInsuranceRow
-    ? {
-        insurerName:
-          (Array.isArray(activeInsuranceRow.insurers)
-            ? activeInsuranceRow.insurers[0]?.name
-            : activeInsuranceRow.insurers?.name) ?? "Plano de Saúde sem nome",
-        cardNumber: activeInsuranceRow.card_number,
-      }
-    : null;
+  const insurance =
+    pill.kind === "unknown"
+      ? null
+      : {
+          insurerName: pill.name,
+          cardNumber: pill.kind === "plan" ? (activeInsuranceRow?.card_number ?? null) : null,
+          badgeColor: pill.color,
+        };
 
   const emergencyGuardian =
     (guardians ?? []).find((g) => g.is_emergency_contact) ??

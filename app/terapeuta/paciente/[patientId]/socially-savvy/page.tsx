@@ -71,7 +71,7 @@ export default async function PatientSociallySavvyHubPage({
         title={`${SOCIALLY_SAVVY_LABEL} — ${patient.full_name}`}
         description="110 habilidades em 7 áreas, pontuadas de 0 a 3 em até quatro aplicações. Áreas e PEI são calculados automaticamente."
       />
-      <PatientIdentityBar patientName={patient.full_name} insurance={insurance} emergencyContact={emergencyContact} />
+      <PatientIdentityBar patientId={patientId} patientName={patient.full_name} insurance={insurance} emergencyContact={emergencyContact} />
 
       <div className="flex flex-col gap-6 px-5 pt-6 sm:px-10">
         <section className="card">

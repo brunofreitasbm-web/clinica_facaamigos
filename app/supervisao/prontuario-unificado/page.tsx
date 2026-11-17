@@ -383,6 +383,7 @@ export async function ProntuarioUnificadoView({
                 {dossier && (
                   <div className="rounded-xl border shadow-sm overflow-hidden" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
                     <PatientIdentityBar
+                      patientId={selectedPatient.id}
                       patientName={selectedPatient.full_name}
                       insurance={identity?.insurance ?? null}
                       emergencyContact={identity?.emergencyContact ?? null}

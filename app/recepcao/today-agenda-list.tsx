@@ -629,14 +629,22 @@ function RoomGrid({
                       {matches.map((s) => {
                         const display = statusDisplay(s);
                         return (
-                          <button
+                          <div
                             key={s.id}
-                            type="button"
+                            role="button"
+                            tabIndex={0}
                             onClick={() => onSelect(s.id)}
-                            className="mb-1.5 w-full rounded-md border border-paper-line/80 bg-paper/90 p-1.5 text-left text-[11px] last:mb-0 hover:border-chart hover:shadow-xs transition-all"
+                            onKeyDown={(e) => {
+                              if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                                e.preventDefault();
+                                onSelect(s.id);
+                              }
+                            }}
+                            className="mb-1.5 cursor-pointer w-full rounded-md border border-paper-line/80 bg-paper/90 p-1.5 text-left text-[11px] last:mb-0 hover:border-chart hover:shadow-xs transition-all"
                           >
                             <PatientFormattedDisplay
                               name={s.patientName}
+                              patientId={s.patientId}
                               healthPlanName={s.insurerName}
                               healthPlanColor={s.badgeColor}
                               isEvaluation={s.isEvaluation}
@@ -647,7 +655,7 @@ function RoomGrid({
                             <div className="mt-1">
                               <PatientStatusBadge status={uiStateOf(s) !== "aguardando" ? uiStateOf(s) : s.status} customLabel={display.label} size="sm" />
                             </div>
-                          </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -761,6 +769,7 @@ function SessionRow({
       <div className="min-w-0">
         <PatientFormattedDisplay
           name={session.patientName}
+          patientId={session.patientId}
           healthPlanName={session.insurerName}
           healthPlanColor={session.badgeColor}
           isEvaluation={session.isEvaluation}
