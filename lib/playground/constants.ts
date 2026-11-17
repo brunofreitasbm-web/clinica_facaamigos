@@ -8,9 +8,12 @@ export const PLAYGROUND_LATE_AFTER_MINUTES = 40;
 /** Máximo de visitas por série. */
 export const PLAYGROUND_MAX_VISITS = 5;
 
-/** Durações permitidas de uma visita, em minutos: só 60 e 120 (regra do dono do projeto). */
-export const PLAYGROUND_VISIT_DURATIONS = [60, 120] as const;
-export const PLAYGROUND_DEFAULT_DURATION = 60;
+/** Duração de uma visita, em minutos: sempre 2h (regra do dono do projeto; 60 min foi suprimido). */
+export const PLAYGROUND_VISIT_DURATIONS = [120] as const;
+export const PLAYGROUND_DEFAULT_DURATION = 120;
+
+/** Máximo de crianças por turno: é só um aviso, nunca trava o agendamento. */
+export const PLAYGROUND_BLOCK_CAPACITY = 2;
 
 export function isAllowedVisitDuration(minutes: number): boolean {
   return (PLAYGROUND_VISIT_DURATIONS as readonly number[]).includes(minutes);
