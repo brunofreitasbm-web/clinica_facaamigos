@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { PageContainer } from "@/components/page-container";
+import { findPlaygroundUnit } from "@/lib/playground/units";
 import { computeVisitStatus, type PlaygroundVisitStatus } from "@/lib/playground/status";
 import { buildSupervisorQueue, computeOnTimeKpi, type QueueItem, type QueueKind } from "@/lib/playground/queue";
-import { NewSeriesDialog, QueueRowAction, SeriesRowActions, type RowAction } from "./playground-client";
+import { LocationsPanel, NewSeriesDialog, QueueRowAction, SeriesRowActions, type RowAction } from "./playground-client";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ export default async function PlaygroundPage() {
   const now = new Date();
 
   const [{ data: locationRows }, { data: seriesRows }, { data: patientRows }, { data: slaRows }] = await Promise.all([
-    supabase.from("playground_locations").select("id, name").eq("clinic_id", DEV_CLINIC_ID).eq("active", true).order("name"),
+    supabase.from("playground_locations").select("id, name, pos_unit_id").eq("clinic_id", DEV_CLINIC_ID).eq("active", true).order("name"),
     supabase
       .from("playground_series")
       .select("id, status, level, total_visits, patient_id, location_id, concluded_at, patients(full_name)")
@@ -249,6 +250,17 @@ export default async function PlaygroundPage() {
             </ul>
           )}
         </section>
+
+        <details
+          className="rounded-xl border p-6 shadow-sm"
+          style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}
+          open={locations.length === 0 || locations.some((l) => !findPlaygroundUnit(l.pos_unit_id))}
+        >
+          <summary className="cursor-pointer text-base font-semibold">Locais do playground ({locations.length})</summary>
+          <div className="mt-4">
+            <LocationsPanel locations={locations} />
+          </div>
+        </details>
 
         {recentlyDone.length > 0 && (
           <section className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>

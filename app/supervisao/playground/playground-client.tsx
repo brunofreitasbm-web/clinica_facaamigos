@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { PLAYGROUND_UNITS, findPlaygroundUnit } from "@/lib/playground/units";
 import { Plus, X } from "lucide-react";
 import {
   cancelSeries,
@@ -10,6 +11,7 @@ import {
   releaseSeries,
   rescheduleVisit,
   saveLocation,
+  updateLocation,
 } from "./actions";
 
 type PatientOption = { id: string; full_name: string };
@@ -43,33 +45,122 @@ function useAction() {
   return { pending, error, run, setError };
 }
 
-/** Cadastro dos locais (Parque, Grão-Pará) e do código da unidade no PDV. Aparece só enquanto não há local. */
-function LocationSetup() {
-  const [name, setName] = useState("");
-  const [unit, setUnit] = useState("");
+type LocationRow = { id: string; name: string; pos_unit_id: string };
+
+/** Escolha do playground: o código da unidade vem pronto, sem digitar. */
+function LocationForm({
+  availableUnitIds,
+  initialUnitId,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  availableUnitIds: string[];
+  initialUnitId?: string;
+  submitLabel: string;
+  onSubmit: (posUnitId: string) => ReturnType<typeof saveLocation>;
+  onCancel?: () => void;
+}) {
+  const options = PLAYGROUND_UNITS.filter((u) => availableUnitIds.includes(u.posUnitId));
+  const [unit, setUnit] = useState(
+    initialUnitId && options.some((o) => o.posUnitId === initialUnitId) ? initialUnitId : (options[0]?.posUnitId ?? ""),
+  );
   const { pending, error, run } = useAction();
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm text-ink-faint">
-        Antes de criar a primeira avaliação, cadastre os locais do playground (por exemplo, Parque e Grão-Pará) com o
-        código da unidade no PDV.
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-          Nome do local
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Parque" />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
-          Código da unidade no PDV
-          <input className="input" value={unit} onChange={(e) => setUnit(e.target.value)} />
-        </label>
-      </div>
+    <div className="flex flex-col gap-2">
+      <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
+        Playground
+        <select className="input" value={unit} onChange={(e) => setUnit(e.target.value)}>
+          {options.map((u) => (
+            <option key={u.posUnitId} value={u.posUnitId}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+      </label>
       {error && <p className="text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
-      <div>
-        <button type="button" className="btn btn-primary" disabled={pending} onClick={() => run(() => saveLocation(name, unit))}>
-          {pending ? "Salvando…" : "Salvar local"}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={pending || !unit}
+          onClick={() => run(() => onSubmit(unit), onCancel)}
+        >
+          {pending ? "Salvando…" : submitLabel}
         </button>
+        {onCancel && (
+          <button type="button" className="btn btn-secondary" disabled={pending} onClick={onCancel}>
+            Cancelar
+          </button>
+        )}
       </div>
+    </div>
+  );
+}
+
+/** Locais do playground: sempre dá para adicionar o que falta e corrigir um local com unidade inválida. */
+export function LocationsPanel({ locations }: { locations: LocationRow[] }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const registered = new Set(locations.map((l) => l.pos_unit_id));
+  const missing = PLAYGROUND_UNITS.filter((u) => !registered.has(u.posUnitId)).map((u) => u.posUnitId);
+  const [adding, setAdding] = useState(locations.length === 0);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {locations.length === 0 && (
+        <p className="text-sm text-ink-faint">Cadastre os playgrounds onde as avaliações acontecem. Sem local, não dá para criar avaliações.</p>
+      )}
+      <ul className="m-0 flex list-none flex-col divide-y p-0" style={{ borderColor: "var(--color-neutral-200)" }}>
+        {locations.map((l) => {
+          const known = findPlaygroundUnit(l.pos_unit_id);
+          const editable = [...missing, ...(known ? [known.posUnitId] : [])];
+          return (
+            <li key={l.id} className="py-2">
+              {editingId === l.id ? (
+                <LocationForm
+                  availableUnitIds={editable}
+                  initialUnitId={known?.posUnitId}
+                  submitLabel="Salvar alterações"
+                  onSubmit={(u) => updateLocation(l.id, u)}
+                  onCancel={() => setEditingId(null)}
+                />
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">{l.name}</div>
+                    {known ? (
+                      <div className="text-xs text-ink-faint">Ligado ao PDV</div>
+                    ) : (
+                      <div className="text-xs font-semibold" style={{ color: "var(--status-falta)" }}>
+                        Unidade inválida: o PDV não vai enxergar este local. Escolha o playground certo.
+                      </div>
+                    )}
+                  </div>
+                  {known ? null : (
+                    <button type="button" className="btn btn-primary" disabled={editable.length === 0} onClick={() => setEditingId(l.id)}>
+                      Corrigir
+                    </button>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {missing.length === 0 ? null : adding ? (
+        <LocationForm
+          availableUnitIds={missing}
+          submitLabel="Salvar local"
+          onSubmit={(u) => saveLocation(u)}
+          onCancel={locations.length > 0 ? () => setAdding(false) : undefined}
+        />
+      ) : (
+        <div>
+          <button type="button" className="btn btn-secondary flex items-center gap-2" onClick={() => setAdding(true)}>
+            <Plus size={16} /> Adicionar playground
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -115,7 +206,9 @@ export function NewSeriesDialog({ patients, locations }: { patients: PatientOpti
             </div>
 
             {locations.length === 0 ? (
-              <LocationSetup />
+              <p className="text-sm text-ink-faint">
+                Cadastre ao menos um local em &ldquo;Locais do playground&rdquo;, nesta página, antes de criar uma avaliação.
+              </p>
             ) : (
               <div className="flex flex-col gap-4">
                 <label className="flex flex-col gap-1 text-xs font-semibold text-ink-faint">
