@@ -4,6 +4,7 @@ import { addCalendarDays, shortDate } from "@/lib/calendar-grid";
 import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
 import { PageContainer } from "@/components/page-container";
 import { findPlaygroundUnit } from "@/lib/playground/units";
+import { PLAYGROUND_MAX_VISITS } from "@/lib/playground/constants";
 import { computeVisitStatus, type PlaygroundVisitStatus } from "@/lib/playground/status";
 import { buildSupervisorQueue, computeOnTimeKpi, type QueueItem, type QueueKind } from "@/lib/playground/queue";
 import { PlaygroundGrid, type GridVisit } from "./playground-grid";
@@ -102,7 +103,7 @@ export default async function PlaygroundPage({ searchParams }: { searchParams: P
   const { data: dayRows } = await supabase
     .from("playground_visits")
     .select(
-      "id, series_id, visit_no, scheduled_start, duration_min, arrived_at, left_at, cancelled_at, playground_series!inner(location_id, status, patients(full_name))",
+      "id, series_id, visit_no, scheduled_start, duration_min, arrived_at, left_at, cancelled_at, playground_series!inner(location_id, status, total_visits, patients(full_name))",
     )
     .is("cancelled_at", null)
     .gte("scheduled_start", dayFrom)
@@ -143,6 +144,7 @@ export default async function PlaygroundPage({ searchParams }: { searchParams: P
         visitNo: r.visit_no,
         statusLabel: sr.status === "rascunho" ? "Aguardando OK" : VISIT_STATUS_LABEL[status],
         needsRelease: sr.status === "rascunho",
+        canExtend: sr.status === "liberada" && sr.total_visits < PLAYGROUND_MAX_VISITS,
       },
     ];
   });
