@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
 import { PLAYGROUND_MAX_VISITS } from "@/lib/playground/constants";
+import { findPlaygroundUnit, PLAYGROUND_UNIT_HELP } from "@/lib/playground/units";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -37,22 +38,44 @@ function validateVisit(v: VisitInput, today: string): string | null {
 
 const toIso = (v: { date: string; time: string }) => zonedDateTimeToUtc(v.date, v.time, CLINIC_TIMEZONE).toISOString();
 
-export async function saveLocation(name: string, posUnitId: string): Promise<ActionResult> {
+export async function saveLocation(posUnitId: string): Promise<ActionResult> {
   const auth = await requireStaff();
   if (!auth.ok) return { success: false, error: auth.error };
-  const cleanName = name.trim();
-  const unit = posUnitId.trim();
-  if (!cleanName || !unit) return { success: false, error: "Informe o nome do local e o código da unidade no PDV." };
+  const unit = findPlaygroundUnit(posUnitId);
+  if (!unit) return { success: false, error: PLAYGROUND_UNIT_HELP };
 
   const { error } = await auth.supabase
     .from("playground_locations")
-    .insert({ clinic_id: DEV_CLINIC_ID, name: cleanName, pos_unit_id: unit });
+    .insert({ clinic_id: DEV_CLINIC_ID, name: unit.name, pos_unit_id: unit.posUnitId });
   if (error) {
     return {
       success: false,
-      error: error.code === "23505" ? "Já existe um local com esse código de unidade." : "Não foi possível salvar o local.",
+      error: error.code === "23505" ? "Este playground já está cadastrado." : "Não foi possível salvar o local.",
     };
   }
+  revalidatePath(PATH);
+  return { success: true };
+}
+
+/** Corrige a unidade de um local já cadastrado (o nome acompanha a unidade escolhida). */
+export async function updateLocation(id: string, posUnitId: string): Promise<ActionResult> {
+  const auth = await requireStaff();
+  if (!auth.ok) return { success: false, error: auth.error };
+  const unit = findPlaygroundUnit(posUnitId);
+  if (!unit) return { success: false, error: PLAYGROUND_UNIT_HELP };
+
+  const { data, error } = await auth.supabase
+    .from("playground_locations")
+    .update({ name: unit.name, pos_unit_id: unit.posUnitId })
+    .eq("id", id)
+    .select("id");
+  if (error) {
+    return {
+      success: false,
+      error: error.code === "23505" ? "Este playground já está cadastrado." : "Não foi possível salvar o local.",
+    };
+  }
+  if (!data || data.length === 0) return { success: false, error: "Local não encontrado. Atualize a página." };
   revalidatePath(PATH);
   return { success: true };
 }

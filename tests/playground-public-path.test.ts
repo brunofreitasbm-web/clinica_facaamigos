@@ -26,3 +26,21 @@ test("toda rota de /api/playground verifica a assinatura antes de agir", () => {
     );
   }
 });
+
+import { findPlaygroundUnit, normalizePosUnitId, PLAYGROUND_UNITS } from "../lib/playground/units.ts";
+
+test("código da unidade do PDV: só UUID, normalizado", () => {
+  assert.equal(normalizePosUnitId("5FC99A57-81EE-4232-A105-1FCB4634CEF4"), "5fc99a57-81ee-4232-a105-1fcb4634cef4");
+  assert.equal(normalizePosUnitId("  11111111-1111-1111-1111-111111111111 "), "11111111-1111-1111-1111-111111111111");
+  assert.equal(normalizePosUnitId("01"), null);
+  assert.equal(normalizePosUnitId(""), null);
+});
+
+test("só os playgrounds são aceitos: o Circuito e códigos digitados à mão não", () => {
+  assert.equal(PLAYGROUND_UNITS.length, 2);
+  assert.equal(findPlaygroundUnit("5FC99A57-81EE-4232-A105-1FCB4634CEF4")?.name, "Bosque Grão-Pará");
+  assert.equal(findPlaygroundUnit("11111111-1111-1111-1111-111111111111")?.name, "Parque Shopping");
+  // Circuito (Parque Shopping): existe no PDV, mas não é playground.
+  assert.equal(findPlaygroundUnit("e43ba7a8-bd5f-47ad-b81d-dae7ea19d504"), null);
+  assert.equal(findPlaygroundUnit("01"), null);
+});
