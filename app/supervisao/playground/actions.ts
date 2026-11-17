@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
 import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
-import { PLAYGROUND_MAX_VISITS } from "@/lib/playground/constants";
+import { isAllowedVisitDuration, PLAYGROUND_DEFAULT_DURATION, PLAYGROUND_MAX_VISITS } from "@/lib/playground/constants";
 import { findPlaygroundUnit, PLAYGROUND_UNIT_HELP } from "@/lib/playground/units";
 
 type ActionResult = { success: true } | { success: false; error: string };
@@ -32,7 +32,7 @@ async function requireStaff() {
 function validateVisit(v: VisitInput, today: string): string | null {
   if (!DATE_RE.test(v.date) || !TIME_RE.test(v.time)) return "Informe data e horário de cada visita.";
   if (v.date < today) return "A data da visita não pode estar no passado.";
-  if (!Number.isInteger(v.durationMin) || v.durationMin < 15 || v.durationMin > 240) return "Duração inválida.";
+  if (!isAllowedVisitDuration(v.durationMin)) return "A duração da visita deve ser de 60 ou 120 minutos.";
   return null;
 }
 
@@ -198,7 +198,7 @@ export async function cancelSeries(seriesId: string): Promise<ActionResult> {
 export async function rescheduleVisit(visitId: string, date: string, time: string): Promise<ActionResult> {
   const auth = await requireStaff();
   if (!auth.ok) return { success: false, error: auth.error };
-  const problem = validateVisit({ date, time, durationMin: 60 }, todayInTimeZone(CLINIC_TIMEZONE));
+  const problem = validateVisit({ date, time, durationMin: PLAYGROUND_DEFAULT_DURATION }, todayInTimeZone(CLINIC_TIMEZONE));
   if (problem) return { success: false, error: problem };
 
   const { count } = await auth.supabase
@@ -218,10 +218,15 @@ export async function rescheduleVisit(visitId: string, date: string, time: strin
 }
 
 /** Prorroga a série com mais uma visita (até o máximo de 5). */
-export async function extendSeries(seriesId: string, date: string, time: string): Promise<ActionResult> {
+export async function extendSeries(
+  seriesId: string,
+  date: string,
+  time: string,
+  durationMin: number = PLAYGROUND_DEFAULT_DURATION,
+): Promise<ActionResult> {
   const auth = await requireStaff();
   if (!auth.ok) return { success: false, error: auth.error };
-  const problem = validateVisit({ date, time, durationMin: 60 }, todayInTimeZone(CLINIC_TIMEZONE));
+  const problem = validateVisit({ date, time, durationMin }, todayInTimeZone(CLINIC_TIMEZONE));
   if (problem) return { success: false, error: problem };
 
   const { data: series } = await auth.supabase
@@ -245,7 +250,7 @@ export async function extendSeries(seriesId: string, date: string, time: string)
 
   const { error } = await auth.supabase
     .from("playground_visits")
-    .insert({ series_id: seriesId, visit_no: nextNo, scheduled_start: toIso({ date, time }) });
+    .insert({ series_id: seriesId, visit_no: nextNo, scheduled_start: toIso({ date, time }), duration_min: durationMin });
   if (error) return { success: false, error: "Não foi possível adicionar a visita." };
   await auth.supabase
     .from("playground_series")
