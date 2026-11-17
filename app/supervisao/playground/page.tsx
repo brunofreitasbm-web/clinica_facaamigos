@@ -7,19 +7,11 @@ import { findPlaygroundUnit } from "@/lib/playground/units";
 import { computeVisitStatus, type PlaygroundVisitStatus } from "@/lib/playground/status";
 import { buildSupervisorQueue, computeOnTimeKpi, type QueueItem, type QueueKind } from "@/lib/playground/queue";
 import { PlaygroundGrid, type GridVisit } from "./playground-grid";
-import { LocationsPanel, NewSeriesDialog, QueueRowAction, SeriesRowActions, type RowAction } from "./playground-client";
+import { LocationsPanel, NewSeriesDialog, QueueRowAction, type RowAction } from "./playground-client";
 
 export const dynamic = "force-dynamic";
 
-const fmt = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: CLINIC_TIMEZONE,
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 const fmtDay = new Intl.DateTimeFormat("pt-BR", { timeZone: CLINIC_TIMEZONE, day: "2-digit", month: "2-digit" });
-const when = (iso: string | null) => (iso ? fmt.format(new Date(iso)).replace(",", "") : "");
 const day = (iso: string | null) => (iso ? fmtDay.format(new Date(iso)) : "");
 
 const KIND_TEXT: Record<QueueKind, { title: string; hint: (i: QueueItem) => string; action: RowAction; tone: string }> = {
@@ -75,12 +67,6 @@ const VISIT_STATUS_LABEL: Record<PlaygroundVisitStatus, string> = {
   cancelada: "Cancelada",
 };
 
-const SERIES_STATUS_LABEL: Record<string, string> = {
-  rascunho: "Aguardando OK",
-  liberada: "Liberada",
-  concluida: "Concluída",
-};
-
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const fmtTime = new Intl.DateTimeFormat("pt-BR", { timeZone: CLINIC_TIMEZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
@@ -115,16 +101,50 @@ export default async function PlaygroundPage({ searchParams }: { searchParams: P
   const dayTo = zonedDateTimeToUtc(addCalendarDays(selectedDay, 1), "00:00", CLINIC_TIMEZONE).toISOString();
   const { data: dayRows } = await supabase
     .from("playground_visits")
-    .select("scheduled_start, playground_series!inner(location_id, status, patients(full_name))")
+    .select(
+      "id, series_id, visit_no, scheduled_start, duration_min, arrived_at, left_at, cancelled_at, playground_series!inner(location_id, status, patients(full_name))",
+    )
     .is("cancelled_at", null)
     .gte("scheduled_start", dayFrom)
     .lt("scheduled_start", dayTo)
     .order("scheduled_start");
+  const dayVisitIds = (dayRows ?? []).map((r) => r.id);
+  const { data: dayEntries } = dayVisitIds.length
+    ? await supabase.from("playground_entries").select("visit_id, saved_at").in("visit_id", dayVisitIds)
+    : { data: [] };
+  const dayFirstEntry = new Map<string, string>();
+  for (const e of dayEntries ?? []) {
+    const cur = dayFirstEntry.get(e.visit_id);
+    if (!cur || e.saved_at < cur) dayFirstEntry.set(e.visit_id, e.saved_at);
+  }
   const gridVisits: GridVisit[] = (dayRows ?? []).flatMap((r) => {
     const sr = Array.isArray(r.playground_series) ? r.playground_series[0] : r.playground_series;
     if (!sr || !["rascunho", "liberada", "concluida"].includes(sr.status)) return [];
     const p = Array.isArray(sr.patients) ? sr.patients[0] : sr.patients;
-    return [{ locationId: sr.location_id, time: fmtTime.format(new Date(r.scheduled_start)), patientName: p?.full_name ?? "Criança" }];
+    const status = computeVisitStatus(
+      {
+        scheduledStart: r.scheduled_start,
+        durationMin: r.duration_min,
+        arrivedAt: r.arrived_at,
+        leftAt: r.left_at,
+        cancelledAt: r.cancelled_at,
+        firstEntryAt: dayFirstEntry.get(r.id) ?? null,
+      },
+      now,
+      CLINIC_TIMEZONE,
+    );
+    return [
+      {
+        visitId: r.id,
+        seriesId: r.series_id,
+        locationId: sr.location_id,
+        time: fmtTime.format(new Date(r.scheduled_start)),
+        patientName: p?.full_name ?? "Criança",
+        visitNo: r.visit_no,
+        statusLabel: sr.status === "rascunho" ? "Aguardando OK" : VISIT_STATUS_LABEL[status],
+        needsRelease: sr.status === "rascunho",
+      },
+    ];
   });
   const gridUnits = locations.flatMap((l) => {
     const u = findPlaygroundUnit(l.pos_unit_id);
@@ -181,7 +201,6 @@ export default async function PlaygroundPage({ searchParams }: { searchParams: P
     CLINIC_TIMEZONE,
   );
 
-  const inProgress = series.filter((s) => s.status === "rascunho" || s.status === "liberada");
   const recentlyDone = series.filter((s) => s.status === "concluida").slice(0, 10);
 
   return (
@@ -249,43 +268,6 @@ export default async function PlaygroundPage({ searchParams }: { searchParams: P
                       <div className="text-xs text-ink-faint">{text.hint(item)}</div>
                     </div>
                     <QueueRowAction action={text.action} seriesId={item.seriesId} visitId={item.visitId} />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
-          <h3 className="mb-4">Avaliações em andamento</h3>
-          {inProgress.length === 0 ? (
-            <p className="text-sm text-ink-faint">Nenhuma avaliação em andamento. Use “Nova avaliação” para começar.</p>
-          ) : (
-            <ul className="m-0 flex list-none flex-col divide-y p-0" style={{ borderColor: "var(--color-neutral-200)" }}>
-              {inProgress.map((s) => {
-                const own = visits.filter((v) => v.seriesId === s.id && !v.cancelledAt);
-                return (
-                  <li key={s.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold">
-                        {patientName(s)}
-                        <span className="font-normal text-ink-faint">
-                          {" "}
-                          · {locationName.get(s.location_id) ?? ""} · Nível {s.level} · {SERIES_STATUS_LABEL[s.status]}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        {own.map((v) => {
-                          const status = computeVisitStatus(v, now, CLINIC_TIMEZONE);
-                          return (
-                            <span key={v.id} className="rounded-md border px-2 py-0.5 text-xs" style={{ borderColor: "var(--color-neutral-200)" }}>
-                              {v.visitNo}ª · {when(v.scheduledStart)} · {VISIT_STATUS_LABEL[status]}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <SeriesRowActions seriesId={s.id} status={s.status} canExtend={s.total_visits < 5} />
                   </li>
                 );
               })}

@@ -4,10 +4,35 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Plus, TriangleAlert } from "lucide-react";
 import { PLAYGROUND_BLOCKS, PLAYGROUND_UNIT_TONE, blockForTime, capacityMessage, type PlaygroundBlock } from "@/lib/playground/grid";
-import { NewSeriesDialog, type SeriesPreset } from "./playground-client";
+import { NewSeriesDialog, VisitRowActions, type SeriesPreset } from "./playground-client";
 
 export type GridUnit = { locationId: string; posUnitId: string; name: string };
-export type GridVisit = { locationId: string; time: string; patientName: string };
+export type GridVisit = {
+  visitId: string;
+  seriesId: string;
+  locationId: string;
+  time: string;
+  patientName: string;
+  visitNo: number;
+  statusLabel: string;
+  needsRelease: boolean;
+};
+
+function VisitLine({ v, showTime }: { v: GridVisit; showTime?: boolean }) {
+  return (
+    <li className="flex items-center justify-between gap-2">
+      <span className="min-w-0">
+        {showTime ? `${v.time} · ` : ""}
+        <span className="font-semibold">{v.patientName}</span>
+        <span className="text-xs text-ink-faint">
+          {" "}
+          · {v.visitNo}ª visita · {v.statusLabel}
+        </span>
+      </span>
+      <VisitRowActions visitId={v.visitId} seriesId={v.seriesId} needsRelease={v.needsRelease} />
+    </li>
+  );
+}
 
 type Props = {
   day: string;
@@ -74,8 +99,8 @@ export function PlaygroundGrid({ day, dayLabel, prevDay, nextDay, isToday, units
                     </div>
                     {inBlock.length > 0 && (
                       <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0 text-sm">
-                        {inBlock.map((v, i) => (
-                          <li key={i}>{v.patientName}</li>
+                        {inBlock.map((v) => (
+                          <VisitLine key={v.visitId} v={v} />
                         ))}
                       </ul>
                     )}
@@ -95,9 +120,14 @@ export function PlaygroundGrid({ day, dayLabel, prevDay, nextDay, isToday, units
                 );
               })}
               {outside.length > 0 && (
-                <p className="m-0 text-xs text-ink-faint">
-                  Fora dos turnos: {outside.map((v) => `${v.time} ${v.patientName}`).join(" · ")}
-                </p>
+                <div className="rounded-lg bg-white p-3" style={{ border: `1px solid ${tone?.border}` }}>
+                  <span className="text-xs font-bold text-ink-faint">Fora dos turnos</span>
+                  <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0 text-sm">
+                    {outside.map((v) => (
+                      <VisitLine key={v.visitId} v={v} showTime />
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           );

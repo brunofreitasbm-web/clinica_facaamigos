@@ -8,8 +8,8 @@ const block = (startHour: number): PlaygroundBlock => {
   return { start: `${h(startHour)}:00`, end: `${h(startHour + 2)}:00`, label: `${startHour}h às ${startHour + 2}h` };
 };
 
-/** Turnos de 2h conforme o horário do shopping (8h-10h, 12h-14h, 14h-16h). Ajuste aqui se o shopping mudar. */
-export const PLAYGROUND_BLOCKS: readonly PlaygroundBlock[] = [block(8), block(12), block(14)];
+/** Turnos de 2h conforme o horário do shopping (10h-12h, 12h-14h, 14h-16h). Ajuste aqui se o shopping mudar. */
+export const PLAYGROUND_BLOCKS: readonly PlaygroundBlock[] = [block(10), block(12), block(14)];
 
 /** Cor de cada quadro por unidade (tokens de cor do tema; sem hex fixo). */
 export const PLAYGROUND_UNIT_TONE: Record<string, { bg: string; border: string; text: string }> = {

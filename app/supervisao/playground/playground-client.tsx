@@ -7,6 +7,7 @@ import { PLAYGROUND_DEFAULT_DURATION, PLAYGROUND_VISIT_DURATIONS } from "@/lib/p
 import { Plus, X } from "lucide-react";
 import {
   cancelSeries,
+  cancelVisit,
   createSeries,
   extendSeries,
   releaseSeries,
@@ -462,5 +463,31 @@ export function SeriesRowActions({
       )}
       {error && <p className="text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
     </div>
+  );
+}
+
+/** Ações da criança dentro do quadro: Liberar (se aguarda o OK) e o X que tira o agendamento. */
+export function VisitRowActions({ visitId, seriesId, needsRelease }: { visitId: string; seriesId: string; needsRelease: boolean }) {
+  const { pending, error, run } = useAction();
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      {needsRelease && (
+        <button type="button" className="btn btn-primary" disabled={pending} onClick={() => run(() => releaseSeries(seriesId))}>
+          Liberar
+        </button>
+      )}
+      <button
+        type="button"
+        className="btn btn-secondary"
+        style={{ padding: "2px 6px" }}
+        disabled={pending}
+        aria-label="Cancelar este agendamento"
+        title="Cancelar este agendamento"
+        onClick={() => run(() => cancelVisit(visitId))}
+      >
+        <X size={14} />
+      </button>
+      {error && <span className="text-xs" style={{ color: "var(--status-falta)" }}>{error}</span>}
+    </span>
   );
 }
