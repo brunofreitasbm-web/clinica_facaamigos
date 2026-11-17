@@ -269,12 +269,14 @@ export function PatientStatusBadge({
 }
 
 import { HealthPlanBadge } from "@/components/health-plan-badge";
+import { ParticularToggle, ParticularUndo } from "@/components/particular-toggle";
 
 /**
  * Componente de exibição formatada do Nome do Paciente com avatar e detalhes visuais
  */
 export function PatientFormattedDisplay({
   name,
+  patientId,
   subtitle,
   tags,
   healthPlanName,
@@ -286,6 +288,8 @@ export function PatientFormattedDisplay({
   className = "",
 }: {
   name: string;
+  /** Com o id, paciente sem plano identificado ganha a caixinha "É particular". */
+  patientId?: string;
   subtitle?: React.ReactNode;
   tags?: string[];
   healthPlanName?: string | null;
@@ -338,6 +342,10 @@ export function PatientFormattedDisplay({
               size={size === "lg" ? "md" : "sm"}
               hideOnPrint={hideHealthPlanBadge}
             />
+          )}
+          {patientId && healthPlanName === "Particular" && <ParticularUndo patientId={patientId} />}
+          {patientId && !healthPlanName && (
+            <ParticularToggle patientId={patientId} size={size === "lg" ? "md" : "sm"} />
           )}
           {isIncomplete && (
             <span className="inline-flex items-center gap-1 rounded bg-amber-100 dark:bg-amber-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">

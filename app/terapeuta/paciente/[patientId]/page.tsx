@@ -207,6 +207,7 @@ export default async function TerapeutaFichaPacientePage({
           <aside className="md:col-span-4 xl:col-span-3">
             <div className="space-y-4 md:sticky md:top-4">
               <PatientIdentityBar
+                patientId={patientId}
                 patientName={patient.full_name}
                 insurance={insurance}
                 emergencyContact={emergencyContact}

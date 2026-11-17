@@ -268,7 +268,7 @@ export default async function EvolucaoPage({
           </h1>
         </div>
       </header>
-      <PatientIdentityBar patientName={patientName} insurance={insurance} emergencyContact={emergencyContact} />
+      <PatientIdentityBar patientId={appointment.patient_id} patientName={patientName} insurance={insurance} emergencyContact={emergencyContact} />
       <div className="mx-auto w-full max-w-[640px] md:max-w-[760px] p-5 sm:p-10">
         {appointment.status !== "realizada" ? (
           <div className="card">

@@ -190,6 +190,7 @@ export const PatientListItem = React.memo(function PatientListItem({
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <PatientFormattedDisplay
             name={patient.full_name}
+            patientId={patient.id}
             healthPlanName={patient.insurer_name}
             healthPlanColor={patient.insurer_color}
             size="md"

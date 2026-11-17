@@ -1,4 +1,5 @@
 import { HealthPlanBadge } from "@/components/health-plan-badge";
+import { ParticularToggle, ParticularUndo } from "@/components/particular-toggle";
 
 /**
  * Header de identificação rápida do paciente — PRD "11 incrementos" item 1.
@@ -7,18 +8,29 @@ import { HealthPlanBadge } from "@/components/health-plan-badge";
  * formulários de convênio/responsáveis já existentes.
  */
 export function PatientIdentityBar({
+  patientId,
   patientName,
   insurance,
   emergencyContact,
   variant = "bar",
 }: {
+  /** Com o id, plano não identificado ganha a caixinha "É particular". */
+  patientId?: string;
   patientName: string;
   insurance: { insurerName: string; cardNumber: string | null; badgeColor?: string | null } | null;
   emergencyContact: { name: string; phone: string } | null;
   variant?: "bar" | "sidebar";
 }) {
-  const planName = insurance?.insurerName ?? "Particular";
+  // Sem plano identificado NÃO vira Particular sozinho: a recepção marca na caixinha.
+  const planName = insurance?.insurerName ?? "";
   const planColor = insurance?.badgeColor;
+  const planControl = patientId ? (
+    planName === "Particular" ? (
+      <ParticularUndo patientId={patientId} />
+    ) : !planName ? (
+      <ParticularToggle patientId={patientId} />
+    ) : null
+  ) : null;
 
   if (variant === "sidebar") {
     const initials = patientName
@@ -42,6 +54,7 @@ export function PatientIdentityBar({
                 {patientName}
               </h2>
               <HealthPlanBadge name={planName} color={planColor} size="sm" />
+              {planControl}
             </div>
           </div>
         </div>
@@ -86,6 +99,7 @@ export function PatientIdentityBar({
         <div className="flex items-center gap-2.5">
           <p className="text-base font-semibold text-ink">{patientName}</p>
           <HealthPlanBadge name={planName} color={planColor} size="sm" />
+          {planControl}
         </div>
       </div>
       <div>

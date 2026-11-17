@@ -418,12 +418,14 @@ export default async function PacientePage({
           <aside className="lg:col-span-4 xl:col-span-3">
             <div className="space-y-4 lg:sticky lg:top-4">
               <PatientIdentityBar
+                patientId={id}
                 patientName={patient.full_name}
                 insurance={
                   activeInsurance
                     ? {
                         insurerName: activeInsurance.insurerName,
                         cardNumber: activeInsurance.cardNumber,
+                        badgeColor: activeInsurance.badgeColor,
                       }
                     : null
                 }

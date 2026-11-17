@@ -1,3 +1,4 @@
+import { resolvePlanPill, type InsuranceRowForPlan } from "@/lib/patient-plan-pure";
 import { computeAppointmentUiState } from "@/lib/appointment-ui-state";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -215,14 +216,16 @@ export default async function RecepcaoPage({
         .in("patient_id", todaysPatientIds)
     : { data: [] as any[] };
 
-  const insuranceByPatient = new Map<string, { name: string; color: string | null }>();
+  const insuranceRowsByPatient = new Map<string, InsuranceRowForPlan[]>();
   for (const pi of patientInsuranceRows ?? []) {
-    const insurerObj = Array.isArray((pi as any).insurers) ? (pi as any).insurers[0] : (pi as any).insurers;
-    const name = pi.is_private ? "Particular" : (insurerObj?.name ?? null);
-    const color = pi.is_private ? "#64748b" : (insurerObj?.badge_color ?? null);
-    if (name) {
-      insuranceByPatient.set(pi.patient_id, { name, color });
-    }
+    const list = insuranceRowsByPatient.get(pi.patient_id) ?? [];
+    list.push(pi as InsuranceRowForPlan);
+    insuranceRowsByPatient.set(pi.patient_id, list);
+  }
+  const insuranceByPatient = new Map<string, { name: string; color: string | null }>();
+  for (const [patientId, rows] of insuranceRowsByPatient) {
+    const pill = resolvePlanPill(rows);
+    if (pill.name) insuranceByPatient.set(patientId, { name: pill.name, color: pill.color });
   }
 
   const sessions: TodaySession[] = appointments

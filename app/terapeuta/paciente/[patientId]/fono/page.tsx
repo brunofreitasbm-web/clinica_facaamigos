@@ -60,7 +60,7 @@ export default async function PatientFonoHubPage({ params }: { params: Promise<{
         title={`Avaliações de fonoaudiologia — ${patient.full_name}`}
         description="ADL, ADL-2 e PROC — pontuação item a item, escores calculados automaticamente e histórico por instrumento."
       />
-      <PatientIdentityBar patientName={patient.full_name} insurance={insurance} emergencyContact={emergencyContact} />
+      <PatientIdentityBar patientId={patientId} patientName={patient.full_name} insurance={insurance} emergencyContact={emergencyContact} />
 
       <div className="grid grid-cols-1 gap-6 px-5 pt-6 sm:px-10 lg:grid-cols-3">
         {visibleInstruments.map((instrument) => {
