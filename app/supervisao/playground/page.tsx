@@ -157,6 +157,7 @@ export default async function PlaygroundPage({ searchParams }: { searchParams: P
       {
         visitId: r.id,
         seriesId: r.series_id,
+        patientId: sr.patient_id,
         locationId: sr.location_id,
         time: fmtTime.format(new Date(r.scheduled_start)),
         patientName: p?.full_name ?? "Criança",

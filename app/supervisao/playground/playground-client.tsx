@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PLAYGROUND_UNITS, findPlaygroundUnit } from "@/lib/playground/units";
 import { PLAYGROUND_DEFAULT_DURATION, PLAYGROUND_VISIT_DURATIONS } from "@/lib/playground/constants";
-import { MessageCircle, Plus, X } from "lucide-react";
+import Link from "next/link";
+import { Check, MessageCircle, Plus, X } from "lucide-react";
 import {
   markConfirmationSent,
   cancelSeries,
@@ -475,6 +476,7 @@ export function VisitRowActions({
   canExtend,
   confirmationHref,
   confirmationSentAt,
+  patientId,
 }: {
   visitId: string;
   seriesId: string;
@@ -482,9 +484,15 @@ export function VisitRowActions({
   canExtend: boolean;
   confirmationHref: string | null;
   confirmationSentAt: string | null;
+  patientId: string;
 }) {
   const { pending, error, run } = useAction();
   const [extending, setExtending] = useState(false);
+  function openConfirmation() {
+    if (!confirmationHref) return;
+    window.open(confirmationHref, "_blank", "noopener");
+    run(() => markConfirmationSent(visitId));
+  }
   return (
     <>
       <span className="flex shrink-0 items-center gap-1">
@@ -503,28 +511,34 @@ export function VisitRowActions({
             <Plus size={14} /> Visita
           </button>
         )}
-        <button
-          type="button"
-          className="btn btn-secondary flex items-center gap-1"
-          style={{ padding: "2px 8px" }}
-          disabled={pending || !confirmationHref}
-          aria-label="Enviar confirmação por WhatsApp"
-          title={
-            !confirmationHref
-              ? "Sem telefone do responsável. Cadastre o telefone no cadastro da criança."
-              : confirmationSentAt
-                ? `Confirmação aberta em ${confirmationSentAt}. Clique para reenviar.`
-                : "Enviar confirmação por WhatsApp"
-          }
-          onClick={() => {
-            if (!confirmationHref) return;
-            window.open(confirmationHref, "_blank", "noopener");
-            run(() => markConfirmationSent(visitId));
-          }}
-        >
-          <MessageCircle size={14} />
-          {confirmationSentAt ? <span className="text-xs">Reenviar · {confirmationSentAt}</span> : null}
-        </button>
+        {!confirmationHref ? (
+          <Link
+            href={`/recepcao/pacientes/${patientId}`}
+            className="text-xs font-semibold underline"
+            style={{ color: "var(--status-falta)" }}
+          >
+            Sem telefone: cadastrar
+          </Link>
+        ) : confirmationSentAt ? (
+          <>
+            <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--status-confirmada)" }}>
+              <Check size={14} /> Confirmado {confirmationSentAt}
+            </span>
+            <button type="button" className="btn btn-secondary text-xs" style={{ padding: "2px 6px" }} disabled={pending} onClick={openConfirmation}>
+              Reenviar
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-secondary flex items-center gap-1"
+            style={{ padding: "2px 8px" }}
+            disabled={pending}
+            onClick={openConfirmation}
+          >
+            <MessageCircle size={14} /> Confirmar
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-secondary"
