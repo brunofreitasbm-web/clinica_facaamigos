@@ -10,6 +10,7 @@ export type GridUnit = { locationId: string; posUnitId: string; name: string };
 export type GridVisit = {
   visitId: string;
   seriesId: string;
+  patientId: string;
   locationId: string;
   time: string;
   patientName: string;
@@ -35,6 +36,7 @@ function VisitLine({ v, showTime }: { v: GridVisit; showTime?: boolean }) {
       <VisitRowActions
         visitId={v.visitId}
         seriesId={v.seriesId}
+        patientId={v.patientId}
         needsRelease={v.needsRelease}
         canExtend={v.canExtend}
         confirmationHref={v.confirmationHref}
