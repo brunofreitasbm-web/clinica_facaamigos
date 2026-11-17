@@ -259,3 +259,33 @@ export async function extendSeries(
   revalidatePath(PATH);
   return { success: true };
 }
+
+/** Tira uma visita da agenda (o X do quadro). Se era a última da avaliação, a avaliação é cancelada junto. */
+export async function cancelVisit(visitId: string): Promise<ActionResult> {
+  const auth = await requireStaff();
+  if (!auth.ok) return { success: false, error: auth.error };
+  const { supabase } = auth;
+
+  const { count } = await supabase.from("playground_entries").select("id", { count: "exact", head: true }).eq("visit_id", visitId);
+  if ((count ?? 0) > 0) return { success: false, error: "Esta visita já tem avaliação registrada e não pode ser removida." };
+
+  const { data, error } = await supabase
+    .from("playground_visits")
+    .update({ cancelled_at: new Date().toISOString() })
+    .eq("id", visitId)
+    .is("cancelled_at", null)
+    .select("series_id");
+  if (error || !data || data.length === 0) return { success: false, error: "Não foi possível remover. Atualize a página." };
+
+  const seriesId = data[0]!.series_id;
+  const { count: remaining } = await supabase
+    .from("playground_visits")
+    .select("id", { count: "exact", head: true })
+    .eq("series_id", seriesId)
+    .is("cancelled_at", null);
+  if ((remaining ?? 0) === 0) {
+    await supabase.from("playground_series").update({ status: "cancelada" }).eq("id", seriesId).in("status", ["rascunho", "liberada"]);
+  }
+  revalidatePath(PATH);
+  return { success: true };
+}
