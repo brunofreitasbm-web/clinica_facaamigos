@@ -40,6 +40,13 @@ export const PUBLIC_PREFIXES = [
   // cookie de sessão e se autentica pelo próprio token (Authorization: Bearer),
   // devolvendo 401 sem ele — mesmo raciocínio das rotas acima.
   "/api/portal-robot",
+  // Ponte do PDV com a avaliação do playground (docs/playground-bridge-contract.md):
+  // chamada servidor a servidor pela Edge Function do PDV, sem cookie de sessão.
+  // Toda rota se autentica por conta própria (HMAC-SHA256 do corpo + horário,
+  // janela de 5 min) e devolve 401 sem assinatura válida, então abrir aqui é
+  // seguro. Sem isso o middleware redirecionava para /login e a ponte nunca
+  // funcionava.
+  "/api/playground",
   // Porta de entrada do Hub de Gestão (app/auth/sso): chega sem sessão por
   // definição — é ela que cria a sessão a partir do token de uso único.
   "/auth/sso",
