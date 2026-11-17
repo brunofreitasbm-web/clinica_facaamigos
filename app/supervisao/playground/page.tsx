@@ -7,6 +7,8 @@ import { findPlaygroundUnit } from "@/lib/playground/units";
 import { PLAYGROUND_MAX_VISITS } from "@/lib/playground/constants";
 import { computeVisitStatus, type PlaygroundVisitStatus } from "@/lib/playground/status";
 import { buildSupervisorQueue, computeOnTimeKpi, type QueueItem, type QueueKind } from "@/lib/playground/queue";
+import { buildVisitConfirmationLink, formatSentAt } from "@/lib/playground/visit-confirmation-pure";
+import type { GuardianContact } from "@/lib/evaluation-recipient-pure";
 import { PlaygroundGrid, type GridVisit } from "./playground-grid";
 import { LocationsPanel, NewSeriesDialog, QueueRowAction, type RowAction } from "./playground-client";
 
@@ -103,7 +105,7 @@ export default async function PlaygroundPage({ searchParams }: { searchParams: P
   const { data: dayRows } = await supabase
     .from("playground_visits")
     .select(
-      "id, series_id, visit_no, scheduled_start, duration_min, arrived_at, left_at, cancelled_at, playground_series!inner(location_id, status, total_visits, patients(full_name))",
+      "id, series_id, visit_no, scheduled_start, duration_min, arrived_at, left_at, cancelled_at, confirmation_sent_at, playground_series!inner(location_id, status, total_visits, patient_id, patients(full_name))",
     )
     .is("cancelled_at", null)
     .gte("scheduled_start", dayFrom)
@@ -117,6 +119,23 @@ export default async function PlaygroundPage({ searchParams }: { searchParams: P
   for (const e of dayEntries ?? []) {
     const cur = dayFirstEntry.get(e.visit_id);
     if (!cur || e.saved_at < cur) dayFirstEntry.set(e.visit_id, e.saved_at);
+  }
+  const dayPatientIds = [
+    ...new Set(
+      (dayRows ?? []).flatMap((r) => {
+        const s = Array.isArray(r.playground_series) ? r.playground_series[0] : r.playground_series;
+        return s?.patient_id ? [s.patient_id] : [];
+      }),
+    ),
+  ];
+  const { data: guardianRows } = dayPatientIds.length
+    ? await supabase.from("guardians").select("patient_id, full_name, phone, is_financial").in("patient_id", dayPatientIds)
+    : { data: [] };
+  const guardiansByPatient = new Map<string, GuardianContact[]>();
+  for (const g of guardianRows ?? []) {
+    const list = guardiansByPatient.get(g.patient_id) ?? [];
+    list.push({ full_name: g.full_name, phone: g.phone, is_financial: g.is_financial });
+    guardiansByPatient.set(g.patient_id, list);
   }
   const gridVisits: GridVisit[] = (dayRows ?? []).flatMap((r) => {
     const sr = Array.isArray(r.playground_series) ? r.playground_series[0] : r.playground_series;
@@ -145,6 +164,14 @@ export default async function PlaygroundPage({ searchParams }: { searchParams: P
         statusLabel: sr.status === "rascunho" ? "Aguardando OK" : VISIT_STATUS_LABEL[status],
         needsRelease: sr.status === "rascunho",
         canExtend: sr.status === "liberada" && sr.total_visits < PLAYGROUND_MAX_VISITS,
+        confirmationHref: buildVisitConfirmationLink({
+          guardians: guardiansByPatient.get(sr.patient_id) ?? [],
+          patientName: p?.full_name ?? "a criança",
+          scheduledStartIso: r.scheduled_start,
+          unitName: locations.find((l) => l.id === sr.location_id)?.name ?? "",
+          timeZone: CLINIC_TIMEZONE,
+        }),
+        confirmationSentAt: r.confirmation_sent_at ? formatSentAt(r.confirmation_sent_at, CLINIC_TIMEZONE) : null,
       },
     ];
   });

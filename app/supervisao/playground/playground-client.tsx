@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PLAYGROUND_UNITS, findPlaygroundUnit } from "@/lib/playground/units";
 import { PLAYGROUND_DEFAULT_DURATION, PLAYGROUND_VISIT_DURATIONS } from "@/lib/playground/constants";
-import { Plus, X } from "lucide-react";
+import { MessageCircle, Plus, X } from "lucide-react";
 import {
+  markConfirmationSent,
   cancelSeries,
   cancelVisit,
   createSeries,
@@ -472,11 +473,15 @@ export function VisitRowActions({
   seriesId,
   needsRelease,
   canExtend,
+  confirmationHref,
+  confirmationSentAt,
 }: {
   visitId: string;
   seriesId: string;
   needsRelease: boolean;
   canExtend: boolean;
+  confirmationHref: string | null;
+  confirmationSentAt: string | null;
 }) {
   const { pending, error, run } = useAction();
   const [extending, setExtending] = useState(false);
@@ -498,6 +503,28 @@ export function VisitRowActions({
             <Plus size={14} /> Visita
           </button>
         )}
+        <button
+          type="button"
+          className="btn btn-secondary flex items-center gap-1"
+          style={{ padding: "2px 8px" }}
+          disabled={pending || !confirmationHref}
+          aria-label="Enviar confirmação por WhatsApp"
+          title={
+            !confirmationHref
+              ? "Sem telefone do responsável. Cadastre o telefone no cadastro da criança."
+              : confirmationSentAt
+                ? `Confirmação aberta em ${confirmationSentAt}. Clique para reenviar.`
+                : "Enviar confirmação por WhatsApp"
+          }
+          onClick={() => {
+            if (!confirmationHref) return;
+            window.open(confirmationHref, "_blank", "noopener");
+            run(() => markConfirmationSent(visitId));
+          }}
+        >
+          <MessageCircle size={14} />
+          {confirmationSentAt ? <span className="text-xs">Reenviar · {confirmationSentAt}</span> : null}
+        </button>
         <button
           type="button"
           className="btn btn-secondary"

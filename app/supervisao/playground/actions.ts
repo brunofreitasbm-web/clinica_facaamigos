@@ -261,6 +261,20 @@ export async function extendSeries(
 }
 
 /** Tira uma visita da agenda (o X do quadro). Se era a última da avaliação, a avaliação é cancelada junto. */
+/** Registra que a operadora abriu o WhatsApp com a confirmação desta visita. */
+export async function markConfirmationSent(visitId: string): Promise<ActionResult> {
+  const auth = await requireStaff();
+  if (!auth.ok) return { success: false, error: auth.error };
+  const { error } = await auth.supabase
+    .from("playground_visits")
+    .update({ confirmation_sent_at: new Date().toISOString() })
+    .eq("id", visitId)
+    .is("cancelled_at", null);
+  if (error) return { success: false, error: "Não foi possível registrar a confirmação. Atualize a página." };
+  revalidatePath(PATH);
+  return { success: true };
+}
+
 export async function cancelVisit(visitId: string): Promise<ActionResult> {
   const auth = await requireStaff();
   if (!auth.ok) return { success: false, error: auth.error };

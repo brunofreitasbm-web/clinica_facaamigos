@@ -17,6 +17,8 @@ export type GridVisit = {
   statusLabel: string;
   needsRelease: boolean;
   canExtend: boolean;
+  confirmationHref: string | null;
+  confirmationSentAt: string | null;
 };
 
 function VisitLine({ v, showTime }: { v: GridVisit; showTime?: boolean }) {
@@ -30,7 +32,14 @@ function VisitLine({ v, showTime }: { v: GridVisit; showTime?: boolean }) {
           · {v.visitNo}ª visita · {v.statusLabel}
         </span>
       </span>
-      <VisitRowActions visitId={v.visitId} seriesId={v.seriesId} needsRelease={v.needsRelease} canExtend={v.canExtend} />
+      <VisitRowActions
+        visitId={v.visitId}
+        seriesId={v.seriesId}
+        needsRelease={v.needsRelease}
+        canExtend={v.canExtend}
+        confirmationHref={v.confirmationHref}
+        confirmationSentAt={v.confirmationSentAt}
+      />
     </li>
   );
 }
