@@ -1,9 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { CLINIC_TIMEZONE, DEV_CLINIC_ID } from "@/lib/constants";
+import { addCalendarDays, shortDate } from "@/lib/calendar-grid";
+import { todayInTimeZone, zonedDateTimeToUtc } from "@/lib/timezone";
 import { PageContainer } from "@/components/page-container";
 import { findPlaygroundUnit } from "@/lib/playground/units";
 import { computeVisitStatus, type PlaygroundVisitStatus } from "@/lib/playground/status";
 import { buildSupervisorQueue, computeOnTimeKpi, type QueueItem, type QueueKind } from "@/lib/playground/queue";
+import { PlaygroundGrid, type GridVisit } from "./playground-grid";
 import { LocationsPanel, NewSeriesDialog, QueueRowAction, SeriesRowActions, type RowAction } from "./playground-client";
 
 export const dynamic = "force-dynamic";
@@ -78,9 +81,15 @@ const SERIES_STATUS_LABEL: Record<string, string> = {
   concluida: "Concluída",
 };
 
-export default async function PlaygroundPage() {
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const fmtTime = new Intl.DateTimeFormat("pt-BR", { timeZone: CLINIC_TIMEZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+
+export default async function PlaygroundPage({ searchParams }: { searchParams: Promise<{ dia?: string }> }) {
   const supabase = await createClient();
   const now = new Date();
+  const today = todayInTimeZone(CLINIC_TIMEZONE);
+  const { dia } = await searchParams;
+  const selectedDay = dia && DAY_RE.test(dia) ? dia : today;
 
   const [{ data: locationRows }, { data: seriesRows }, { data: patientRows }, { data: slaRows }] = await Promise.all([
     supabase.from("playground_locations").select("id, name, pos_unit_id").eq("clinic_id", DEV_CLINIC_ID).eq("active", true).order("name"),
@@ -102,6 +111,25 @@ export default async function PlaygroundPage() {
   ]);
 
   const locations = locationRows ?? [];
+  const dayFrom = zonedDateTimeToUtc(selectedDay, "00:00", CLINIC_TIMEZONE).toISOString();
+  const dayTo = zonedDateTimeToUtc(addCalendarDays(selectedDay, 1), "00:00", CLINIC_TIMEZONE).toISOString();
+  const { data: dayRows } = await supabase
+    .from("playground_visits")
+    .select("scheduled_start, playground_series!inner(location_id, status, patients(full_name))")
+    .is("cancelled_at", null)
+    .gte("scheduled_start", dayFrom)
+    .lt("scheduled_start", dayTo)
+    .order("scheduled_start");
+  const gridVisits: GridVisit[] = (dayRows ?? []).flatMap((r) => {
+    const sr = Array.isArray(r.playground_series) ? r.playground_series[0] : r.playground_series;
+    if (!sr || !["rascunho", "liberada", "concluida"].includes(sr.status)) return [];
+    const p = Array.isArray(sr.patients) ? sr.patients[0] : sr.patients;
+    return [{ locationId: sr.location_id, time: fmtTime.format(new Date(r.scheduled_start)), patientName: p?.full_name ?? "Criança" }];
+  });
+  const gridUnits = locations.flatMap((l) => {
+    const u = findPlaygroundUnit(l.pos_unit_id);
+    return u ? [{ locationId: l.id, posUnitId: u.posUnitId, name: u.name }] : [];
+  });
   const locationName = new Map(locations.map((l) => [l.id, l.name]));
   const series = seriesRows ?? [];
   const seriesIds = series.map((s) => s.id);
@@ -188,6 +216,20 @@ export default async function PlaygroundPage() {
               : `${kpi.deltaPp >= 0 ? "▲" : "▼"} ${Math.abs(kpi.deltaPp)} p.p. vs. mês anterior`}
           </span>
         </div>
+
+        {gridUnits.length > 0 && (
+          <PlaygroundGrid
+            day={selectedDay}
+            dayLabel={shortDate(selectedDay)}
+            prevDay={addCalendarDays(selectedDay, -1)}
+            nextDay={addCalendarDays(selectedDay, 1)}
+            isToday={selectedDay === today}
+            units={gridUnits}
+            visits={gridVisits}
+            patients={(patientRows ?? []).map((p) => ({ id: p.id, full_name: p.full_name }))}
+            locations={locations}
+          />
+        )}
 
         <section className="rounded-xl border p-6 shadow-sm" style={{ background: "#fff", borderColor: "var(--color-neutral-200)" }}>
           <h3 className="mb-4">Precisa de ação agora</h3>

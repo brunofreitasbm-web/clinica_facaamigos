@@ -47,9 +47,8 @@ test("só os playgrounds são aceitos: o Circuito e códigos digitados à mão n
 
 import { isAllowedVisitDuration, PLAYGROUND_VISIT_DURATIONS } from "../lib/playground/constants.ts";
 
-test("duração da visita: só 60 e 120 minutos", () => {
-  assert.deepEqual([...PLAYGROUND_VISIT_DURATIONS], [60, 120]);
-  assert.equal(isAllowedVisitDuration(60), true);
+test("duração da visita: só 2 horas (120 minutos)", () => {
+  assert.deepEqual([...PLAYGROUND_VISIT_DURATIONS], [120]);
   assert.equal(isAllowedVisitDuration(120), true);
-  for (const bad of [0, 45, 90, 119, 180, NaN]) assert.equal(isAllowedVisitDuration(bad), false, String(bad));
+  for (const bad of [0, 45, 60, 90, 119, 180, NaN]) assert.equal(isAllowedVisitDuration(bad), false, String(bad));
 });

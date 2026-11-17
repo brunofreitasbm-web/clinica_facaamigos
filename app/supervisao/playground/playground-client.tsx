@@ -166,12 +166,33 @@ export function LocationsPanel({ locations }: { locations: LocationRow[] }) {
   );
 }
 
-export function NewSeriesDialog({ patients, locations }: { patients: PatientOption[]; locations: LocationOption[] }) {
-  const [open, setOpen] = useState(false);
+/** Turno escolhido na grade: o modal abre com local, data e hora já preenchidos. */
+export type SeriesPreset = { locationId: string; date: string; time: string; warning?: string };
+
+export function NewSeriesDialog({
+  patients,
+  locations,
+  preset,
+  onClose,
+  hideTrigger = false,
+}: {
+  patients: PatientOption[];
+  locations: LocationOption[];
+  preset?: SeriesPreset;
+  onClose?: () => void;
+  hideTrigger?: boolean;
+}) {
+  const [open, setOpen] = useState(!!preset);
   const [patientId, setPatientId] = useState("");
-  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
+  const [locationId, setLocationId] = useState(preset?.locationId ?? locations[0]?.id ?? "");
   const [level, setLevel] = useState(1);
-  const [visits, setVisits] = useState<VisitDraft[]>([emptyVisit()]);
+  const [visits, setVisits] = useState<VisitDraft[]>([
+    preset ? { date: preset.date, time: preset.time, durationMin: PLAYGROUND_DEFAULT_DURATION } : emptyVisit(),
+  ]);
+  const close = () => {
+    setOpen(false);
+    onClose?.();
+  };
   const { pending, error, run, setError } = useAction();
 
   function update(i: number, patch: Partial<VisitDraft>) {
@@ -181,7 +202,7 @@ export function NewSeriesDialog({ patients, locations }: { patients: PatientOpti
     run(
       () => createSeries({ patientId, locationId, level, visits, release }),
       () => {
-        setOpen(false);
+        close();
         setPatientId("");
         setVisits([emptyVisit()]);
       },
@@ -190,18 +211,20 @@ export function NewSeriesDialog({ patients, locations }: { patients: PatientOpti
 
   return (
     <>
-      <button type="button" className="btn btn-primary flex items-center gap-2" onClick={() => setOpen(true)}>
-        <Plus size={16} /> Nova avaliação
-      </button>
+      {!hideTrigger && (
+        <button type="button" className="btn btn-primary flex items-center gap-2" onClick={() => setOpen(true)}>
+          <Plus size={16} /> Nova avaliação
+        </button>
+      )}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !pending && setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !pending && close()}>
           <div
             className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-6 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
               <h3 className="m-0">Nova avaliação no playground</h3>
-              <button type="button" aria-label="Fechar" className="btn btn-secondary" onClick={() => setOpen(false)}>
+              <button type="button" aria-label="Fechar" className="btn btn-secondary" onClick={close}>
                 <X size={16} />
               </button>
             </div>
@@ -264,7 +287,7 @@ export function NewSeriesDialog({ patients, locations }: { patients: PatientOpti
                       >
                         {PLAYGROUND_VISIT_DURATIONS.map((m) => (
                           <option key={m} value={m}>
-                            {m} min
+                            {m / 60}h
                           </option>
                         ))}
                       </select>
@@ -291,6 +314,9 @@ export function NewSeriesDialog({ patients, locations }: { patients: PatientOpti
                   )}
                 </fieldset>
 
+                {preset?.warning && (
+                  <p className="text-xs font-semibold" style={{ color: "var(--status-falta)" }}>{preset.warning}</p>
+                )}
                 {error && <p className="text-xs" style={{ color: "var(--status-falta)" }}>{error}</p>}
 
                 <div className="flex justify-end gap-3 pt-2">
@@ -333,7 +359,7 @@ function DateTimeInline({
         <select className="input" value={durationMin} onChange={(e) => setDurationMin(Number(e.target.value))} aria-label="Duração">
           {PLAYGROUND_VISIT_DURATIONS.map((m) => (
             <option key={m} value={m}>
-              {m} min
+              {m / 60}h
             </option>
           ))}
         </select>

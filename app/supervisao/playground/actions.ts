@@ -32,7 +32,7 @@ async function requireStaff() {
 function validateVisit(v: VisitInput, today: string): string | null {
   if (!DATE_RE.test(v.date) || !TIME_RE.test(v.time)) return "Informe data e horário de cada visita.";
   if (v.date < today) return "A data da visita não pode estar no passado.";
-  if (!isAllowedVisitDuration(v.durationMin)) return "A duração da visita deve ser de 60 ou 120 minutos.";
+  if (!isAllowedVisitDuration(v.durationMin)) return "A duração da visita deve ser de 2 horas.";
   return null;
 }
 
