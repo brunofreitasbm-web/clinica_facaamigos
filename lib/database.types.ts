@@ -6912,6 +6912,7 @@ export type Database = {
           arrived_at: string | null
           arrived_by_pos_employee_id: string | null
           cancelled_at: string | null
+          confirmation_sent_at: string | null
           created_at: string
           duration_min: number
           id: string
@@ -6925,6 +6926,7 @@ export type Database = {
           arrived_at?: string | null
           arrived_by_pos_employee_id?: string | null
           cancelled_at?: string | null
+          confirmation_sent_at?: string | null
           created_at?: string
           duration_min?: number
           id?: string
@@ -6938,6 +6940,7 @@ export type Database = {
           arrived_at?: string | null
           arrived_by_pos_employee_id?: string | null
           cancelled_at?: string | null
+          confirmation_sent_at?: string | null
           created_at?: string
           duration_min?: number
           id?: string
