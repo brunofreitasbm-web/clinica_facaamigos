@@ -16,6 +16,7 @@ export type AiFeature =
   | "extracao_laudo"
   | "importacao_convenio"
   | "evolucao_voz"
+  | "evolucao_playground"
   | "relatorio_devolutiva";
 
 export interface AiUsageEntry {

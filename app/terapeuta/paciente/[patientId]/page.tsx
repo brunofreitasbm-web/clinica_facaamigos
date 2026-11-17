@@ -91,6 +91,13 @@ export default async function TerapeutaFichaPacientePage({
 
   const showFono = ["adl", "adl2", "proc"].some((key) => enabledInstruments.has(key as NativeInstrumentKey));
   const showSociallySavvy = enabledInstruments.has("socially_savvy");
+  // Card "Playground" só aparece quando a criança tem avaliação do playground.
+  const { count: playgroundSeriesCount } = await supabase
+    .from("playground_series")
+    .select("id", { count: "exact", head: true })
+    .eq("patient_id", patient.id)
+    .in("status", ["liberada", "concluida"]);
+  const showPlayground = (playgroundSeriesCount ?? 0) > 0;
 
   const allMetaGoalIds = Array.from(
     new Set(dossier.notes.flatMap((n) => getMetasTrabalhadas(n.structured as SessionNoteStructured | null).map((m) => m.plan_goal_id))),
@@ -239,6 +246,15 @@ export default async function TerapeutaFichaPacientePage({
                     >
                       <span className="text-2xl">🗣️</span>
                       <span className="text-sm font-semibold leading-tight text-ink">Fono</span>
+                    </Link>
+                  )}
+                  {showPlayground && (
+                    <Link
+                      href={`/terapeuta/paciente/${patient.id}/playground`}
+                      className="flex items-center gap-2 rounded-lg border border-paper-line p-2 text-left no-underline transition hover:border-accent-1 hover:bg-paper-surface"
+                    >
+                      <span className="text-2xl">🛝</span>
+                      <span className="text-sm font-semibold leading-tight text-ink">Playground</span>
                     </Link>
                   )}
                   {showSociallySavvy && (

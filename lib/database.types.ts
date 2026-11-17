@@ -6709,30 +6709,284 @@ export type Database = {
           },
         ]
       }
+      playground_entries: {
+        Row: {
+          author_name_snapshot: string
+          author_pos_employee_id: string
+          author_specialty_snapshot: string | null
+          device_id: string | null
+          id: string
+          idempotency_key: string
+          kind: string
+          protocol_item_id: string | null
+          received_at: string
+          saved_at: string
+          score: number | null
+          series_id: string
+          text: string | null
+          visit_id: string
+        }
+        Insert: {
+          author_name_snapshot: string
+          author_pos_employee_id: string
+          author_specialty_snapshot?: string | null
+          device_id?: string | null
+          id?: string
+          idempotency_key: string
+          kind: string
+          protocol_item_id?: string | null
+          received_at?: string
+          saved_at: string
+          score?: number | null
+          series_id: string
+          text?: string | null
+          visit_id: string
+        }
+        Update: {
+          author_name_snapshot?: string
+          author_pos_employee_id?: string
+          author_specialty_snapshot?: string | null
+          device_id?: string | null
+          id?: string
+          idempotency_key?: string
+          kind?: string
+          protocol_item_id?: string | null
+          received_at?: string
+          saved_at?: string
+          score?: number | null
+          series_id?: string
+          text?: string | null
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playground_entries_protocol_item_id_fkey"
+            columns: ["protocol_item_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playground_entries_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "playground_series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playground_entries_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "playground_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playground_locations: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          id: string
+          name: string
+          pos_unit_id: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          id?: string
+          name: string
+          pos_unit_id: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          pos_unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playground_locations_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playground_series: {
+        Row: {
+          clinic_id: string
+          concluded_at: string | null
+          concluded_by_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          level: number
+          location_id: string
+          patient_id: string
+          protocol_assessment_id: string | null
+          protocol_id: string
+          released_at: string | null
+          released_by: string | null
+          status: string
+          total_visits: number
+        }
+        Insert: {
+          clinic_id: string
+          concluded_at?: string | null
+          concluded_by_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          level: number
+          location_id: string
+          patient_id: string
+          protocol_assessment_id?: string | null
+          protocol_id: string
+          released_at?: string | null
+          released_by?: string | null
+          status?: string
+          total_visits: number
+        }
+        Update: {
+          clinic_id?: string
+          concluded_at?: string | null
+          concluded_by_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          level?: number
+          location_id?: string
+          patient_id?: string
+          protocol_assessment_id?: string | null
+          protocol_id?: string
+          released_at?: string | null
+          released_by?: string | null
+          status?: string
+          total_visits?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playground_series_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playground_series_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "playground_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playground_series_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playground_series_protocol_assessment_id_fkey"
+            columns: ["protocol_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playground_series_protocol_id_fkey"
+            columns: ["protocol_id"]
+            isOneToOne: false
+            referencedRelation: "protocols"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playground_visits: {
+        Row: {
+          arrived_at: string | null
+          arrived_by_pos_employee_id: string | null
+          cancelled_at: string | null
+          created_at: string
+          duration_min: number
+          id: string
+          left_at: string | null
+          left_by_pos_employee_id: string | null
+          scheduled_start: string
+          series_id: string
+          visit_no: number
+        }
+        Insert: {
+          arrived_at?: string | null
+          arrived_by_pos_employee_id?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          duration_min?: number
+          id?: string
+          left_at?: string | null
+          left_by_pos_employee_id?: string | null
+          scheduled_start: string
+          series_id: string
+          visit_no: number
+        }
+        Update: {
+          arrived_at?: string | null
+          arrived_by_pos_employee_id?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          duration_min?: number
+          id?: string
+          left_at?: string | null
+          left_by_pos_employee_id?: string | null
+          scheduled_start?: string
+          series_id?: string
+          visit_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playground_visits_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "playground_series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       protocol_assessments: {
         Row: {
           assessed_at: string
-          assessed_by: string
+          assessed_by: string | null
           id: string
           patient_id: string
+          playground_series_id: string | null
           protocol_id: string
           scores: Json
+          source: string
         }
         Insert: {
           assessed_at?: string
-          assessed_by: string
+          assessed_by?: string | null
           id?: string
           patient_id: string
+          playground_series_id?: string | null
           protocol_id: string
           scores?: Json
+          source?: string
         }
         Update: {
           assessed_at?: string
-          assessed_by?: string
+          assessed_by?: string | null
           id?: string
           patient_id?: string
+          playground_series_id?: string | null
           protocol_id?: string
           scores?: Json
+          source?: string
         }
         Relationships: [
           {
@@ -8790,6 +9044,18 @@ export type Database = {
       }
     }
     Views: {
+      playground_sla_v: {
+        Row: {
+          clinic_id: string | null
+          first_entry_at: string | null
+          month: string | null
+          on_time: boolean | null
+          scheduled_start: string | null
+          series_id: string | null
+          visit_id: string | null
+        }
+        Relationships: []
+      }
       metabase_ux_friction_by_element: {
         Row: {
           clinic_id: string | null

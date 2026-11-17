@@ -51,6 +51,8 @@ export type AssessmentPoint = {
   assessedAt: string;
   assessedByName: string;
   scores: Record<string, number>;
+  /** 'playground' = avaliação paralela feita por terapeutas do playground (sem perfil na clínica). */
+  source: string;
 };
 
 export type DomainTrendPoint = { assessedAt: string; pct: number };
@@ -168,7 +170,7 @@ export async function getPatientProtocolTabs(
       .order("item_code"),
     supabase
       .from("protocol_assessments")
-      .select("id, protocol_id, assessed_at, scores, profiles!assessed_by(full_name)")
+      .select("id, protocol_id, assessed_at, scores, source, profiles!assessed_by(full_name)")
       .eq("patient_id", patientId)
       .in("protocol_id", protocolIds)
       .order("assessed_at", { ascending: true }),
@@ -196,8 +198,9 @@ export async function getPatientProtocolTabs(
     list.push({
       id: a.id,
       assessedAt: a.assessed_at,
-      assessedByName: assessor?.full_name ?? "—",
+      assessedByName: a.source === "playground" ? "Equipe do playground" : (assessor?.full_name ?? "—"),
       scores: (a.scores as Record<string, number>) ?? {},
+      source: a.source,
     });
     assessmentsByProtocol.set(a.protocol_id, list);
   }

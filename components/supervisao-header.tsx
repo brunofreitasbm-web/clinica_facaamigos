@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { UserX, Trophy, Boxes, CalendarDays, CalendarRange, CalendarClock, UserCircle, ShieldCheck } from "lucide-react";
+import { UserX, Trophy, Boxes, CalendarDays, CalendarRange, CalendarClock, UserCircle, ShieldCheck, Trees } from "lucide-react";
 import { ModuleHeader, type ModuleNavItem } from "@/components/module-header";
 import { NavGroupDropdown } from "@/components/nav-group-dropdown";
 import { useSupervisaoTab, type SupervisaoTabKey } from "@/app/supervisao/supervisao-tab-context";
@@ -22,6 +22,9 @@ const TABS: { key: SupervisaoTabKey; label: string }[] = [
 /** Link direto (sem submenu) pro Prontuário Unificado — antes vivia dentro do dropdown "Operação Clínica". */
 const PRONTUARIO_LINK = { key: "prontuario-unificado", label: "Prontuário Unificado", href: "/supervisao/prontuario-unificado", icon: ShieldCheck } as const;
 
+/** Avaliação paralela no playground (VB-MAPP em até 5 visitas). Menu próprio da Supervisão. */
+const PLAYGROUND_LINK = { key: "playground", label: "Playground", href: "/supervisao/playground", icon: Trees } as const;
+
 const GESTAO_LINKS = [
   { key: "reagendamentos", label: "Reagendamentos a aprovar", href: "/supervisao/reagendamentos", icon: CalendarRange },
   { key: "disponibilidade", label: "Disponibilidade", href: "/supervisao/disponibilidade", icon: CalendarClock },
@@ -36,13 +39,13 @@ const PESSOAL_LINKS = [{ key: "metricas", label: "Minha Bonificação", href: "/
  * Link simples na barra (sem dropdown), com o mesmo visual de estado ativo
  * dos triggers de NavGroupDropdown, pra manter a barra consistente.
  */
-function ProntuarioLink() {
+function HeaderLink({ link }: { link: { href: string; label: string; icon: typeof ShieldCheck } }) {
   const pathname = usePathname();
-  const Icon = PRONTUARIO_LINK.icon;
-  const isActive = pathname === PRONTUARIO_LINK.href || pathname?.startsWith(PRONTUARIO_LINK.href + "/");
+  const Icon = link.icon;
+  const isActive = pathname === link.href || pathname?.startsWith(link.href + "/");
   return (
     <Link
-      href={PRONTUARIO_LINK.href}
+      href={link.href}
       aria-current={isActive ? "page" : undefined}
       className="flex min-h-[44px] items-center gap-1.5 rounded-t-md px-3 py-2 text-[13px] font-semibold no-underline transition-all duration-150 active:scale-95 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       style={{
@@ -52,7 +55,7 @@ function ProntuarioLink() {
       }}
     >
       <Icon size={15} aria-hidden />
-      {PRONTUARIO_LINK.label}
+      {link.label}
     </Link>
   );
 }
@@ -102,7 +105,8 @@ export function SupervisaoHeader(_props: { userName?: string | null }) {
       personalLinks={PESSOAL_LINKS}
       actions={
         <div className="flex items-center gap-1">
-          <ProntuarioLink />
+          <HeaderLink link={PRONTUARIO_LINK} />
+          <HeaderLink link={PLAYGROUND_LINK} />
           <NavGroupDropdown label="Gestão e Escala" icon={CalendarRange} links={GESTAO_LINKS} />
           <button
             type="button"
