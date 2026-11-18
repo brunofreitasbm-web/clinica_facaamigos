@@ -1,7 +1,9 @@
 "use client";
 
 import { HelpHint } from "@/components/ui/help-hint";
-import { useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { removeMySignature, uploadMySignature } from "./signature-actions";
 import {
   FileText,
   Printer,
@@ -151,11 +153,38 @@ export function DocumentosManager({
   patients,
   currentProfile,
   clinicInfo = DEFAULT_CLINIC,
+  signatureUrl = null,
 }: {
   patients: PatientOption[];
   currentProfile?: ReceptionistProfile | null;
   clinicInfo?: ClinicInfo;
+  /** Assinatura (PNG sem fundo) de quem está logado; sai só nos documentos dela. */
+  signatureUrl?: string | null;
 }) {
+  const router = useRouter();
+  const signatureInput = useRef<HTMLInputElement>(null);
+  const [signatureError, setSignatureError] = useState<string | null>(null);
+  const [signaturePending, startSignature] = useTransition();
+  const sendSignature = (file: File | undefined) => {
+    if (!file) return;
+    setSignatureError(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    startSignature(async () => {
+      const res = await uploadMySignature(fd);
+      if (signatureInput.current) signatureInput.current.value = "";
+      if (!res.success) return setSignatureError(res.error);
+      router.refresh();
+    });
+  };
+  const dropSignature = () => {
+    setSignatureError(null);
+    startSignature(async () => {
+      const res = await removeMySignature();
+      if (!res.success) return setSignatureError(res.error);
+      router.refresh();
+    });
+  };
   const [selectedTemplateId, setSelectedTemplateId] = useState<DocumentType>("comparecimento_paciente");
   // Começa vazio de propósito: pré-selecionar um paciente fazia o documento
   // oficial sair com dados de uma criança que ninguém escolheu.
@@ -180,6 +209,8 @@ export function DocumentosManager({
   const [receptionistName, setReceptionistName] = useState<string>(
     currentProfile?.fullName || "Recepção FaçaAmigos",
   );
+  // Assinatura só quando o documento sai no nome de quem está logado.
+  const showSignature = !!currentProfile && receptionistName.trim() === currentProfile.fullName.trim();
   const [disciplinesText, setDisciplinesText] = useState<string>(
     "Psicologia ABA, Terapia Ocupacional e Fonoaudiologia",
   );
@@ -926,12 +957,46 @@ export function DocumentosManager({
                 </div>
 
                 <div className="grid grid-cols-2 gap-8 items-end">
-                  {/* Linha de Assinatura do Emitente */}
+                  {/* Linha de assinatura de quem emite. A assinatura (PNG sem fundo)
+                      é a de quem está logado e só sai se o nome não foi trocado
+                      para o de outra pessoa. */}
                   <div className="flex flex-col items-center text-center">
+                    {showSignature && signatureUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário do Storage privado
+                      <img src={signatureUrl} alt={`Assinatura de ${receptionistName}`} className="-mb-3 h-[72px] w-auto max-w-full object-contain" />
+                    ) : (
+                      <div className="h-[72px]" />
+                    )}
                     <div className="w-full border-b border-gray-900 mb-2"></div>
                     <span className="text-sm font-bold text-gray-900">{receptionistName}</span>
-                    <span className="text-xs text-gray-600 font-medium">Recepção / Atendimento Ao Cliente</span>
-                    <span className="text-[11px] text-gray-400 mt-0.5">{clinicInfo.nomeFantasia}</span>
+                    <span className="text-xs text-gray-600 font-medium">Administrativo {CLINIC_BRAND}</span>
+                    {currentProfile && (
+                      <div className="mt-2 flex flex-col items-center gap-1 print:hidden">
+                        <div className="flex items-center gap-3 text-[11px]">
+                          <button
+                            type="button"
+                            disabled={signaturePending}
+                            onClick={() => signatureInput.current?.click()}
+                            className="font-semibold text-pink-700 underline-offset-2 hover:underline disabled:opacity-50"
+                          >
+                            {signaturePending ? "Salvando…" : signatureUrl ? "Trocar minha assinatura" : "Adicionar minha assinatura"}
+                          </button>
+                          {signatureUrl && !signaturePending && (
+                            <button type="button" onClick={dropSignature} className="text-gray-500 underline-offset-2 hover:underline">
+                              Remover
+                            </button>
+                          )}
+                        </div>
+                        {signatureError && <span className="text-[11px] text-red-700">{signatureError}</span>}
+                        <input
+                          ref={signatureInput}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={(e) => sendSignature(e.target.files?.[0])}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Carimbo da clínica já impresso: texto (sem imagem), então sai
