@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { signIn } from "./actions";
-import { requestFamilyOtp, verifyFamilyOtp } from "./otp-actions";
+import { requestFamilyOtp, verifyFamilyOtp, resolveInviteToken } from "./otp-actions";
 import { formatCpfMask, formatPhoneMask } from "@/lib/masks";
 import { RecoverPassword } from "./recover-password";
 
@@ -20,7 +20,10 @@ export function LoginForm() {
   );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [mode, setMode] = useState<"email" | "otp">("email");
+  // /login?perfil=familia abre direto na aba Família (link do convite por WhatsApp e do QR da TV).
+  const [mode, setMode] = useState<"email" | "otp">(() =>
+    searchParams?.get("perfil") === "familia" || searchParams?.get("convite") ? "otp" : "email",
+  );
   const [recovering, setRecovering] = useState(() => searchParams?.get("mode") === "recovery");
 
   // Estados do formulário OTP da Família
@@ -46,6 +49,19 @@ export function LoginForm() {
     const interval = setInterval(() => setResendTimer((t) => t - 1), 1000);
     return () => clearInterval(interval);
   }, [phoneSubmitted, resendTimer]);
+
+  // Convite por WhatsApp: o token devolve o telefone, o campo já vem preenchido e basta 1 toque para receber o código.
+  const inviteToken = searchParams?.get("convite") ?? null;
+  useEffect(() => {
+    if (!inviteToken) return;
+    let cancelled = false;
+    resolveInviteToken(inviteToken).then((r) => {
+      if (!cancelled && r) setPhone(formatPhoneMask(r.phone));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteToken]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(formatPhoneMask(e.target.value));

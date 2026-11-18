@@ -1,4 +1,5 @@
 import twilio from "twilio";
+import { isStopMessage } from "@/lib/portal-invite-pure";
 import type { NextRequest } from "next/server";
 
 import { DEV_CLINIC_ID } from "@/lib/constants";
@@ -186,6 +187,9 @@ export function getTwilioContentSidForCategory(category: string): string | undef
       return process.env.TWILIO_EVAL_REMINDER_TEMPLATE_CONTENT_SID;
     case "confirmacao_d1":
       return process.env.TWILIO_EVAL_CONFIRM_TEMPLATE_CONTENT_SID;
+    // Convite ao Portal da Família + cupom de boas-vindas (lib/portal-invite.ts). Template de marketing.
+    case "convite_portal":
+      return process.env.TWILIO_PORTAL_INVITE_TEMPLATE_CONTENT_SID;
     default:
       return undefined;
   }
@@ -598,6 +602,20 @@ export async function handleTwilioIncomingMessage(params: {
 }): Promise<{ replyMessage: string; intent: string; concluded?: boolean }> {
   const { from, body, mediaUrl0, mediaContentType0, media, messageSid, buttonPayload, listId } = params;
   const phone = formatE164Phone(from.replace("whatsapp:", ""));
+
+  // PARAR global: quem pede para parar sai dos disparos em massa (convite ao Portal etc.). Só registra; o fluxo
+  // em andamento (oferta de avaliação, anamnese) continua tratando a resposta do jeito dele.
+  if (isStopMessage(body)) {
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (createAdminClient() as any)
+        .from("whatsapp_opt_outs")
+        .upsert({ phone_e164: phone.replace(/\D/g, ""), source: "resposta_parar" }, { onConflict: "phone_e164", ignoreDuplicates: true });
+    } catch (err) {
+      console.error("[Twilio] Falha ao registrar opt-out:", err);
+    }
+  }
 
   // 0. Central Multicanal: resolve/cria a conversa e, se um humano já assumiu
   // a conversa, não deixa o bot responder. NPS Externo agora é só via portal

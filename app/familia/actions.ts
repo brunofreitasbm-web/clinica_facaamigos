@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ABSENCE_REASON_CATEGORIES } from "@/lib/absence-reasons";
 import { sanitizeFileName } from "@/lib/file-name";
 import { DOCUMENT_UPLOAD_MIMES, IMAGE_UPLOAD_MIMES, sniffAllowed } from "@/lib/upload-bytes";
-import { currentSurveyPeriod } from "@/lib/survey-period";
+import { currentSurveyPeriod, currentMonthlyNpsPeriod } from "@/lib/survey-period";
 import { FEEDBACK_CATEGORIES, FEEDBACK_RATING_VALUES, type FeedbackRatingValue } from "@/lib/family-feedback";
 
 type ActionResult = { success: true } | { success: false; error: string };
@@ -202,6 +202,74 @@ export async function submitNpsResponse(surveyId: string, score: number, feedbac
     return { success: false, error: error.message || "Não foi possível enviar sua resposta." };
   }
 
+  revalidatePath("/familia");
+  return { success: true };
+}
+
+/**
+ * NPS (0 a 10) da tela "Avalie". Reaproveita o NPS mensal (nps_surveys.trigger_type = 'mensal'): no máximo
+ * 1 por criança por mês. Se o disparo do mês já existe e está sem resposta, responde ele; se ainda não existe,
+ * cria a linha (só o admin client insere em nps_surveys) e responde pela mesma RPC, que confere a posse do
+ * responsável. Mês já respondido devolve um aviso em vez de gravar de novo.
+ */
+export async function submitAvalieNps(patientId: string, score: number, feedback: string): Promise<ActionResult> {
+  if (!Number.isInteger(score) || score < 0 || score > 10) {
+    return { success: false, error: "Escolha uma nota de 0 a 10." };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Sessão expirada. Faça login de novo." };
+
+  const { data: guardian } = await supabase
+    .from("guardians")
+    .select("id, phone")
+    .eq("patient_id", patientId)
+    .eq("profile_id", user.id)
+    .maybeSingle();
+  if (!guardian) return { success: false, error: "Não encontramos seu vínculo de responsável para esta criança." };
+
+  const period = currentMonthlyNpsPeriod();
+  const db = supabase as any;
+  const { data: existing } = await db
+    .from("nps_surveys")
+    .select("id, responded_at, guardian_id")
+    .eq("patient_id", patientId)
+    .eq("trigger_type", "mensal")
+    .eq("period", period)
+    .maybeSingle();
+
+  let surveyId: string | null = existing?.id ?? null;
+  if (existing) {
+    if (existing.responded_at) return { success: false, error: "Você já respondeu o NPS deste mês. Obrigado!" };
+    if (existing.guardian_id !== guardian.id) {
+      return { success: false, error: "O NPS deste mês já foi aberto por outro responsável." };
+    }
+  } else {
+    const { data: created, error: insertError } = await (createAdminClient() as any)
+      .from("nps_surveys")
+      .insert({
+        patient_id: patientId,
+        guardian_id: guardian.id,
+        phone_number: guardian.phone,
+        trigger_type: "mensal",
+        period,
+      })
+      .select("id")
+      .single();
+    if (insertError || !created) return { success: false, error: "Não foi possível registrar sua resposta. Tente de novo." };
+    surveyId = created.id;
+  }
+
+  const { error } = await db.rpc("submit_nps_response", {
+    p_survey_id: surveyId,
+    p_score: score,
+    p_feedback: feedback.trim() || undefined,
+  });
+  if (error) return { success: false, error: error.message || "Não foi possível enviar sua resposta." };
+
+  revalidatePath("/familia/avalie");
   revalidatePath("/familia");
   return { success: true };
 }

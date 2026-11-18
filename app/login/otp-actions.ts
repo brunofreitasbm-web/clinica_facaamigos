@@ -25,6 +25,31 @@ function normalizeDigits(phone: string): string {
   return digits;
 }
 
+const INVITE_TOKEN_RE = /^[a-hj-km-zA-HJ-NP-Z2-9]{16}$/;
+const INVITE_VALID_DAYS = 30;
+
+/**
+ * Link do convite por WhatsApp (/login?perfil=familia&convite=<token>): devolve o telefone do responsável
+ * convidado para o login abrir já preenchido (só falta digitar o código). O token tem 16 caracteres
+ * aleatórios, só foi enviado para esse telefone e vale 30 dias; token inválido ou vencido devolve null e o
+ * login segue normal. Marca a abertura do convite (`opened_at`).
+ */
+export async function resolveInviteToken(token: string): Promise<{ phone: string } | null> {
+  if (!INVITE_TOKEN_RE.test(token)) return null;
+  // portal_invites ainda não está em lib/database.types.ts.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createAdminClient() as any;
+  const { data } = await admin
+    .from("portal_invites")
+    .select("id, phone_e164, sent_at, opened_at")
+    .eq("token", token)
+    .maybeSingle();
+  if (!data) return null;
+  if (Date.now() - Date.parse(data.sent_at) > INVITE_VALID_DAYS * 24 * 3600 * 1000) return null;
+  if (!data.opened_at) await admin.from("portal_invites").update({ opened_at: new Date().toISOString() }).eq("id", data.id);
+  return { phone: normalizeDigits(data.phone_e164) };
+}
+
 /**
  * Solicita envio de código OTP para telefone de um responsável cadastrado.
  */
@@ -324,6 +349,15 @@ export async function verifyFamilyOtp(
       password: secretPassword,
     });
   }
+
+  // Marca o 1º acesso ao Portal (convite por WhatsApp e KPI de adesão). Só a primeira vez grava.
+  // portal_first_login_at ainda não está em lib/database.types.ts.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (admin as any)
+    .from("guardians")
+    .update({ portal_first_login_at: new Date().toISOString() })
+    .eq("id", guardian.id)
+    .is("portal_first_login_at", null);
 
   // Efetuar o login do cliente na sessão da requisição Next.js
   const supabase = await createClient();
