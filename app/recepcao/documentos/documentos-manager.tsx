@@ -934,15 +934,29 @@ export function DocumentosManager({
                     <span className="text-[11px] text-gray-400 mt-0.5">{clinicInfo.nomeFantasia}</span>
                   </div>
 
-                  {/* Espaço Reservado para Carimbo Físico da Clínica */}
-                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-4 min-h-[110px] text-center">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                      Espaço Reservado para Carimbo
-                    </span>
-                    <span className="text-[10px] text-gray-400 mt-1">
-                      (Assinatura física / Carimbo com CNPJ da clínica)
-                    </span>
-                  </div>
+                  {/* Carimbo da clínica já impresso: texto (sem imagem), então sai
+                      sem fundo e nítido em qualquer impressora. Razão social e
+                      CNPJ vêm de Configurações → Dados da Clínica. Sem esses
+                      dados, volta o espaço para o carimbo físico. */}
+                  {clinicInfo.razaoSocial && clinicInfo.cnpj ? (
+                    <div
+                      className="flex min-h-[110px] flex-col items-center justify-center text-center text-[17px] leading-snug text-black"
+                      style={{ fontFamily: "'Times New Roman', Times, serif" }}
+                      aria-label="Carimbo da clínica"
+                    >
+                      <span>{clinicInfo.razaoSocial}</span>
+                      <span>CNPJ: {clinicInfo.cnpj}</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-4 min-h-[110px] text-center">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                        Espaço Reservado para Carimbo
+                      </span>
+                      <span className="text-[10px] text-gray-400 mt-1">
+                        (Assinatura física / Carimbo com CNPJ da clínica)
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Nota Explicativa Legal / Aviso de Não-Validade de Atestado Médico */}
