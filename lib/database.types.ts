@@ -6560,6 +6560,7 @@ export type Database = {
           source_system: string | null
           specialty_id: string | null
           unit_id: string | null
+          signature_path: string | null
         }
         Insert: {
           active?: boolean
@@ -6596,6 +6597,7 @@ export type Database = {
           source_system?: string | null
           specialty_id?: string | null
           unit_id?: string | null
+          signature_path?: string | null
         }
         Update: {
           active?: boolean
@@ -6632,6 +6634,7 @@ export type Database = {
           source_system?: string | null
           specialty_id?: string | null
           unit_id?: string | null
+          signature_path?: string | null
         }
         Relationships: [
           {

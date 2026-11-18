@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { DEV_CLINIC_ID, DEV_RECEPTION_PROFILE_ID } from "@/lib/constants";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { DEV_CLINIC_ID } from "@/lib/constants";
 import { getClinicIdentity } from "@/lib/clinic-identity";
 import { DocumentosManager, type ClinicInfo, type PatientOption } from "./documentos-manager";
 
@@ -49,12 +50,30 @@ export default async function DocumentosRecepcaoPage() {
     }
   }
 
-  // Fetch current reception profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, full_name, role")
-    .eq("id", DEV_RECEPTION_PROFILE_ID)
-    .maybeSingle();
+  // Quem está emitindo é quem está logado (antes era um perfil fixo de teste).
+  // A assinatura impressa no documento é sempre a dessa pessoa.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("id, full_name, role").eq("id", user.id).maybeSingle()
+    : { data: null };
+
+  // Lida à parte: sem a migration 20261118120000_profiles_signature a coluna
+  // não existe e a tela segue funcionando, só sem assinatura.
+  let signatureUrl: string | null = null;
+  if (user) {
+    const { data: sig, error: sigError } = await supabase
+      .from("profiles")
+      .select("signature_path")
+      .eq("id", user.id)
+      .maybeSingle();
+    const path = sigError ? null : (sig as { signature_path?: string | null } | null)?.signature_path;
+    if (path) {
+      const { data: signed } = await createAdminClient().storage.from("clinic-documents").createSignedUrl(path, 60 * 60);
+      signatureUrl = signed?.signedUrl ?? null;
+    }
+  }
 
   // Dados institucionais reais (app/gestor/configuracoes/dados-da-clinica) —
   // documento impresso não pode sair com endereço/CNPJ inventado, então só
@@ -95,6 +114,7 @@ export default async function DocumentosRecepcaoPage() {
           : null
       }
       clinicInfo={clinicInfo}
+      signatureUrl={signatureUrl}
     />
   );
 }
