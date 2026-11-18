@@ -147,12 +147,15 @@ async function loadTarget(db: SupabaseClient, target: PortalRobotTarget): Promis
     };
     let patientName = extracted.patient?.full_name ?? null;
     let cardNumber = extracted.insurance?.card_number ?? "";
+    let cid = extracted.patient?.cid ?? "";
     if (draft.patient_id) {
       const [{ data: patient }, { data: plans }] = await Promise.all([
-        db.from("patients").select("full_name").eq("id", draft.patient_id).maybeSingle(),
+        db.from("patients").select("full_name, cid").eq("id", draft.patient_id).maybeSingle(),
         db.from("patient_insurance").select("card_number").eq("patient_id", draft.patient_id).eq("is_private", false),
       ]);
       patientName = (patient as { full_name?: string } | null)?.full_name ?? patientName;
+      // CID do cadastro quando a IA não leu nenhum dos documentos.
+      if (!cid) cid = (patient as { cid?: string | null } | null)?.cid ?? "";
       const card = (plans ?? []).map((p: { card_number: string | null }) => p.card_number).find(Boolean);
       if (card) cardNumber = card;
     }
@@ -161,7 +164,7 @@ async function loadTarget(db: SupabaseClient, target: PortalRobotTarget): Promis
       patientId: draft.patient_id ?? null,
       patientName,
       cardNumber: digits(cardNumber),
-      cid: (extracted.patient?.cid ?? "").toUpperCase(),
+      cid: cid.toUpperCase(),
       // Prevenção de duplicidade (AGENTS.md §3): guia já enviada/autorizada não gera outro envio.
       blocked:
         draft.guide_sent_at || draft.plan_authorized_at || draft.authorization_waived
@@ -204,7 +207,10 @@ async function loadTarget(db: SupabaseClient, target: PortalRobotTarget): Promis
     if (sent && sent.length > 0) blocked = "Esta renovação já foi enviada ao plano pelo robô.";
   }
 
-  const code = digits(auth.procedure_code);
+  const fallbackProcedures = await patientProcedures(db, patient.id, {
+    code: digits(auth.procedure_code),
+    quantity: Number(auth.sessions_authorized) || 1,
+  });
   return {
     clinicId: patient.clinic_id,
     patientId: patient.id,
@@ -212,8 +218,43 @@ async function loadTarget(db: SupabaseClient, target: PortalRobotTarget): Promis
     cardNumber: digits(plan.card_number),
     cid: String(patient.cid ?? "").toUpperCase(),
     blocked,
-    fallbackProcedures: code ? [{ code, description: "", quantity: Number(auth.sessions_authorized) || 1 }] : [],
+    fallbackProcedures,
   };
+}
+
+/**
+ * Terapias que o paciente tem autorizadas no CRM (guias ativas e renovações
+ * pedidas), uma linha por código — uma guia SP/SADT pode levar várias juntas.
+ * A guia que está sendo renovada vem primeiro, com as sessões pedidas nela.
+ */
+async function patientProcedures(
+  db: SupabaseClient,
+  patientId: string,
+  current: { code: string; quantity: number },
+): Promise<PortalRobotPayload["procedures"]> {
+  const byCode = new Map<string, PortalRobotPayload["procedures"][number]>();
+  if (current.code) byCode.set(current.code, { code: current.code, description: "", quantity: current.quantity });
+
+  const { data: plans } = await db.from("patient_insurance").select("id").eq("patient_id", patientId).eq("is_private", false);
+  const planIds = (plans ?? []).map((p: { id: string }) => p.id);
+  if (planIds.length === 0) return [...byCode.values()];
+
+  const { data: auths } = await db
+    .from("authorizations")
+    .select("procedure_code, sessions_authorized, status, created_at")
+    .in("patient_insurance_id", planIds)
+    .in("status", ["pendente", "ativa"])
+    .order("created_at", { ascending: false });
+  // Renovação pedida ("pendente") tem as sessões novas; vale mais que a guia ativa do mesmo código.
+  const rows = ((auths ?? []) as { procedure_code: string; sessions_authorized: number; status: string }[]).sort(
+    (a, b) => Number(b.status === "pendente") - Number(a.status === "pendente"),
+  );
+  for (const a of rows) {
+    const code = digits(a.procedure_code);
+    if (!code || byCode.has(code)) continue;
+    byCode.set(code, { code, description: "", quantity: Number(a.sessions_authorized) || 1 });
+  }
+  return [...byCode.values()];
 }
 
 /** Arquivos que podem ir como laudo: os do contato (WhatsApp) ou os documentos do paciente. */
