@@ -11,7 +11,7 @@ function fmt(iso: string) {
 export function WifiCouponCard({ coupon }: { coupon: WifiCoupon }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  if (coupon.state === "indisponivel") return null;
+  if (coupon.state === "indisponivel" || coupon.state === "sem_email") return null;
 
   return (
     <section id="cupom" className="card">

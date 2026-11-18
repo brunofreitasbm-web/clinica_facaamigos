@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { BackButton } from "@/components/back-button";
 import { CLINIC_TIMEZONE } from "@/lib/constants";
 import { AvalieForm } from "./avalie-form";
+import { AvalieNps } from "./avalie-nps";
+import { currentMonthlyNpsPeriod } from "@/lib/survey-period";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +52,19 @@ export default async function AvaliePage({
         .limit(5)
     : { data: [] as { id: string; category_ratings: Record<string, string>; comments: string | null; created_at: string }[] };
 
+  // NPS do mês já respondido? (RLS nps_surveys_guardian_read: o responsável só enxerga as próprias linhas.)
+  const { data: monthlyNps } = guardianRow
+    ? await (supabase as any)
+        .from("nps_surveys")
+        .select("id")
+        .eq("patient_id", patient.id)
+        .eq("guardian_id", guardianRow.id)
+        .eq("trigger_type", "mensal")
+        .eq("period", currentMonthlyNpsPeriod())
+        .not("responded_at", "is", null)
+        .maybeSingle()
+    : { data: null };
+
   return (
     <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col" style={{ background: "var(--color-bg)" }}>
       <header
@@ -73,8 +88,15 @@ export default async function AvaliePage({
       </header>
 
       <div style={{ flex: 1, overflow: "auto", padding: "20px 20px 40px", display: "flex", flexDirection: "column", gap: 20 }}>
+        {guardianRow && <AvalieNps patientId={patient.id} alreadyAnswered={!!monthlyNps} />}
+
         {guardianRow ? (
-          <AvalieForm patientId={patient.id} guardianId={guardianRow.id} />
+          <details>
+            <summary className="cursor-pointer text-sm font-semibold">Avaliar o atendimento por categoria</summary>
+            <div className="mt-3">
+              <AvalieForm patientId={patient.id} guardianId={guardianRow.id} />
+            </div>
+          </details>
         ) : (
           <p className="text-sm text-ink-soft">Não encontramos seu vínculo de responsável para esta criança.</p>
         )}

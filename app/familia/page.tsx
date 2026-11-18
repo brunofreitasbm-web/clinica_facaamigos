@@ -19,6 +19,17 @@ import { UploadDocument } from "./upload-document";
 import { PatientPhotoUpload } from "./patient-photo-upload";
 import { LgpdConsentGate } from "./lgpd-consent-gate";
 import { WifiCouponCard } from "./wifi-coupon-card";
+import { WelcomeCouponCard } from "./welcome-coupon-card";
+import { MetodoCard } from "./metodo-card";
+import { ChatComposer } from "./chat-composer";
+import {
+  buildTurnoWhatsappLink,
+  childFirstNameOrFallback,
+  isAnamneseRealizada,
+  pickNextVisit,
+  shouldShowMetodo,
+} from "@/lib/portal-metodo-pure";
+import { formatConfirmationWhen, unitPlaceDescription } from "@/lib/playground/visit-confirmation-pure";
 import { fetchWifiCoupon } from "@/lib/wifi-coupon";
 import { ImageConsentToggle } from "./image-consent-toggle";
 import { FAMILY_GUIDANCE_LABEL } from "@/lib/session-note-fields";
@@ -121,7 +132,7 @@ export default async function FamiliaPage({
   // o id de um paciente de outra família.
   const { data: patients } = await supabase
     .from("patients")
-    .select("id, full_name, photo_storage_path")
+    .select("id, full_name, photo_storage_path, evaluated_at")
     .order("full_name");
 
   const { patient: requestedPatientId } = await searchParams;
@@ -254,18 +265,16 @@ export default async function FamiliaPage({
       .eq("patient_id", patientId)
       .eq("category", "familia_envio")
       .order("uploaded_at", { ascending: false }),
-    // Mensagens trocadas — portal E WhatsApp juntos num histórico só (PRD
-    // §9.7/§3.8: "histórico das últimas mensagens trocadas com a clínica via
-    // WhatsApp/Portal"). messages_read (20260904000012) já libera os dois
-    // canais pro responsável via has_patient_access — o filtro por
-    // channel='portal' que existia aqui era só da aplicação, não da RLS, e
-    // escondia todo o histórico de WhatsApp (bot + atendimento humano,
-    // 20260906000010_twilio_conversations.sql) que o app/api/webhooks/twilio
-    // já grava normalmente.
+    // Chat interno com a Coordenação: SÓ canal do portal. O histórico do robô/WhatsApp (Twilio) não aparece
+    // aqui, nem a nota interna que o robô deixa para a supervisão (template relatorio_solicitado). A RLS
+    // (20261118130000) aplica o mesmo filtro no banco; esta query só deixa a intenção explícita.
     supabase
       .from("messages")
       .select("id, channel, direction, sender_type, body, media_url, sent_at, read_at")
       .eq("patient_id", patientId)
+      .eq("channel", "portal")
+      .neq("sender_type", "bot")
+      .or("template_key.is.null,template_key.neq.relatorio_solicitado")
       .order("sent_at", { ascending: false })
       .limit(30),
     // Próximas sessões com justificativa de ausência (se houver)
@@ -317,9 +326,62 @@ export default async function FamiliaPage({
     : { data: null };
   const showSurveyPrompt = !!guardianRow && !existingSurvey;
   // Cupom do Wi-Fi (só consulta; quem gera é o botão "Pegar meu cupom"). Falha ou ausência de config = não mostra.
-  const wifiCoupon = guardianRow?.lgpd_consent_at
-    ? await fetchWifiCoupon(guardianRow, { issue: false }).catch(() => null)
-    : null;
+  // 1ª Avaliação (anamnese) realizada? Libera o cupom de boas-vindas e a tela do Método.
+  const { data: evalAppts } = await supabase
+    .from("appointments")
+    .select("status")
+    .eq("patient_id", patientId)
+    .eq("is_evaluation", true);
+  const anamneseRealizada = isAnamneseRealizada(patient, (evalAppts ?? []).map((a) => a.status as string));
+
+  // Cupom de boas-vindas (BEMVINDO-): com e-mail cadastrado sai sozinho no 1º acesso (idempotente na função do
+  // PDV, 1 por responsável); sem e-mail o card pede o e-mail. Um cupom ativo por responsável: se há um ESPERA-
+  // ativo, a função devolve ele e o card do Wi-Fi o mostra.
+  const welcome =
+    guardianRow?.lgpd_consent_at && anamneseRealizada
+      ? await fetchWifiCoupon(guardianRow, { issue: !!guardianRow.email, kind: "boas_vindas" }).catch(() => null)
+      : null;
+  const welcomeActive = welcome && welcome.state === "issued" && welcome.kind === "boas_vindas" ? welcome : null;
+  const activeEspera = welcome && welcome.state === "issued" && welcome.kind === "mural" ? welcome : null;
+
+  // Cupom do Wi-Fi (só consulta; quem gera é o botão "Pegar meu cupom"). Some enquanto o de boas-vindas está ativo.
+  const wifiCoupon = welcomeActive
+    ? null
+    : (activeEspera ??
+      (guardianRow?.lgpd_consent_at ? await fetchWifiCoupon(guardianRow, { issue: false }).catch(() => null) : null));
+
+  // Método FaçaAmigos (2ª etapa: Avaliação em Ambiente Natural, no Playground). A família não lê as tabelas do
+  // Playground pela RLS; o patientId já passou pela RLS de patients acima, então a leitura é por service role.
+  let metodo: { visit: { dateLabel: string; time: string; place: string } | null } | null = null;
+  if (anamneseRealizada) {
+    try {
+      const admin = createAdminClient();
+      const { data: series } = await admin
+        .from("playground_series")
+        .select("status, playground_locations(name), playground_visits(scheduled_start, cancelled_at)")
+        .eq("patient_id", patientId);
+      const rows = series ?? [];
+      if (shouldShowMetodo({ anamneseRealizada, seriesStatuses: rows.map((r) => r.status as string) })) {
+        const openRows = rows.filter((r) => r.status === "rascunho" || r.status === "liberada");
+        const withPlace = openRows.flatMap((r) => {
+          const loc = Array.isArray(r.playground_locations) ? r.playground_locations[0] : r.playground_locations;
+          return ((r.playground_visits ?? []) as { scheduled_start: string; cancelled_at: string | null }[]).map((v) => ({
+            ...v,
+            place: unitPlaceDescription(loc?.name ?? "Playground"),
+          }));
+        });
+        const next = pickNextVisit(withPlace, Date.now());
+        metodo = {
+          visit: next
+            ? { ...formatConfirmationWhen(next.scheduled_start, CLINIC_TIMEZONE), place: next.place }
+            : null,
+        };
+      }
+    } catch {
+      metodo = shouldShowMetodo({ anamneseRealizada, seriesStatuses: [] }) ? { visit: null } : null;
+    }
+  }
+  const childFirstName = childFirstNameOrFallback(patient.full_name);
 
   // NPS Externo (evento/mensal) — disparado por /api/twilio/nps/trigger e
   // /api/twilio/nps-mensal/trigger, mas respondido só aqui no portal (nunca
@@ -570,6 +632,17 @@ export default async function FamiliaPage({
         {pendingNpsSurvey && (
           <NpsSurveyPrompt surveyId={pendingNpsSurvey.id} triggerType={pendingNpsSurvey.trigger_type ?? "evaluation"} />
         )}
+
+        {metodo && (
+          <MetodoCard
+            childName={childFirstName}
+            visit={metodo.visit}
+            whatsappHref={buildTurnoWhatsappLink(childFirstName)}
+          />
+        )}
+
+        {welcomeActive && <WelcomeCouponCard patientId={patientId} state="issued" code={welcomeActive.code} expiresAt={welcomeActive.expiresAt} />}
+        {welcome && welcome.state === "sem_email" && <WelcomeCouponCard patientId={patientId} state="sem_email" />}
 
         {wifiCoupon && <WifiCouponCard coupon={wifiCoupon} />}
 
@@ -828,45 +901,35 @@ export default async function FamiliaPage({
           </div>
         </section>
 
-        <section>
+        <section id="mensagens">
           <div className="flex items-center justify-between">
-            <h6>💬 Mensagens & Respostas da Coordenação</h6>
+            <h6>💬 Mensagens com a Coordenação</h6>
             {(familyMessages ?? []).some((m) => m.direction === "outbound") && (
               <span className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
                 ✓ Resposta Recebida
               </span>
             )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+          {/* Chat interno: só o canal do portal, do mais antigo para o mais novo. */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
             {(familyMessages ?? []).length > 0 ? (
-              (familyMessages ?? []).map((msg) => {
-                const isFromCoordination = msg.direction === "outbound";
-                // Mensagem automática do bot de WhatsApp (lib/twilio.ts,
-                // handleTwilioIncomingMessage) — rotulada à parte pra família
-                // não confundir uma resposta automática com um retorno humano.
-                const isBot = msg.sender_type === "bot";
-                const label = !isFromCoordination
-                  ? "👤 Sua mensagem enviada"
-                  : isBot
-                    ? "🤖 Assistente virtual FaçaAmigos"
-                    : "💬 Resposta da Coordenação FaçaAmigos";
+              [...(familyMessages ?? [])].reverse().map((msg) => {
+                const fromCoordination = msg.direction === "outbound";
                 return (
                   <div
                     key={msg.id}
-                    className="card"
                     style={{
-                      borderLeft: isFromCoordination ? "4px solid var(--color-accent)" : "1px solid var(--color-divider)",
-                      background: isFromCoordination ? "var(--color-surface)" : "transparent",
+                      alignSelf: fromCoordination ? "flex-start" : "flex-end",
+                      maxWidth: "85%",
+                      padding: "8px 12px",
+                      borderRadius: "var(--radius-md)",
+                      background: fromCoordination ? "var(--color-surface)" : "color-mix(in srgb, var(--color-accent) 12%, var(--color-surface))",
+                      borderLeft: fromCoordination ? "4px solid var(--color-accent)" : undefined,
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: isFromCoordination ? "var(--color-accent)" : "var(--color-neutral-700)" }}>
-                        {label}
-                        {msg.channel === "whatsapp" && (
-                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 500, color: "var(--color-neutral-500)" }}>
-                            · via WhatsApp
-                          </span>
-                        )}
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 2 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: fromCoordination ? "var(--color-accent)" : "var(--color-neutral-700)" }}>
+                        {fromCoordination ? "Coordenação FaçaAmigos" : "Você"}
                       </span>
                       <span style={{ fontSize: 10, color: "var(--color-neutral-500)" }}>
                         {msg.sent_at ? fmtWhen(msg.sent_at) : "—"}
@@ -876,19 +939,9 @@ export default async function FamiliaPage({
                     {msg.media_url &&
                       (/\.(jpe?g|png|gif|webp)$/i.test(msg.media_url) ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={msg.media_url}
-                          alt=""
-                          style={{ marginTop: 6, maxWidth: 160, borderRadius: "var(--radius-md)" }}
-                        />
+                        <img src={msg.media_url} alt="" style={{ marginTop: 6, maxWidth: 160, borderRadius: "var(--radius-md)" }} />
                       ) : (
-                        <a
-                          href={msg.media_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-ghost text-xs"
-                          style={{ marginTop: 6 }}
-                        >
+                        <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost text-xs" style={{ marginTop: 6 }}>
                           Abrir anexo
                         </a>
                       ))}
@@ -896,13 +949,12 @@ export default async function FamiliaPage({
                 );
               })
             ) : (
-              <SectionEmptyState
-                icon="💬"
-                title="Nenhuma mensagem trocada"
-                message="Dúvidas sobre agenda ou atendimento? Clique em 'Fale com a Coordenação' acima para conversar com nossa equipe."
-              />
+              <p className="text-sm m-0" style={{ color: "var(--color-neutral-500)" }}>
+                Nenhuma mensagem ainda. Escreva abaixo e a Coordenação responde por aqui.
+              </p>
             )}
           </div>
+          <ChatComposer patientId={patientId} guardianId={guardianRow?.id ?? null} />
         </section>
 
         <section id="documentos">
