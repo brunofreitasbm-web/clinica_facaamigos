@@ -17,6 +17,8 @@ import type { QueueStage, WorkspaceItem } from "./queue-workspace";
 import { normalizeSearch, urgencyBand } from "./queue-filters-pure";
 import { MoveToLastButton } from "./move-to-last-button";
 import { formatPhoneDisplay } from "@/lib/whatsapp-leads-view";
+import { needsGuideAction } from "@/lib/interessado-queue-pure";
+import { InteressadoGuideAction } from "./interessado-guide-action";
 
 type PendencyGuidance = {
   problemTitle: string;
@@ -232,6 +234,8 @@ function dueText(item: PendingQueueItem): string {
 /** Ação que resolve a pendência ali mesmo; `null` quando o caminho é abrir a ficha. */
 function primaryAction(item: PendingQueueItem) {
   const { category } = item;
+  if (needsGuideAction({ ...item, hasDraft: Boolean(item.draft) }) && item.patientId)
+    return <InteressadoGuideAction patientId={item.patientId} patientName={item.patientName} />;
   if (category === "interessado_sem_retorno" && item.patientId) return <RegisterContactButton patientId={item.patientId} />;
   if (category === "falta_sem_motivo" && item.appointmentId) return <ResolveAutoFaltaButton appointmentId={item.appointmentId} />;
   if (category === "remarcacao_solicitada" && item.rescheduleRequestId)
@@ -274,7 +278,17 @@ export function buildWorkspaceItems(
     const action = primaryAction(item);
     const due = dueText(item);
 
-    const guidance = draft ? getDraftGuidance(draft) : getPendencyGuidance(item.category, item.detail);
+    const guideAction = needsGuideAction({ ...item, hasDraft: Boolean(draft) });
+    const guidance = draft
+      ? getDraftGuidance(draft)
+      : guideAction
+        ? {
+            problemTitle: "Falta a guia autorizada",
+            problemDescription: `Cadastro feito na recepção (${item.detail}), mas sem guia ou plano lançado. Enquanto isso, não aparece em Pacientes nem na Agenda de 1ª avaliação.`,
+            actionTitle: "Lance a guia que o plano autorizou, ou marque como particular.",
+            actionSteps: [],
+          }
+        : getPendencyGuidance(item.category, item.detail);
     const isPostponed = item.dueAt ? new Date(item.dueAt).getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000 : false;
     const phone = draft?.sourcePhone ? formatPhoneDisplay(draft.sourcePhone) : null;
     const showPhoneBesideName = phone && item.patientName !== phone;
@@ -377,12 +391,12 @@ export function buildWorkspaceItems(
           {!draft && (
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-paper-line pt-3">
               {action}
-              {item.patientId && (
+              {item.patientId && !guideAction && (
                 <Link href={item.href} className={`btn ${action ? "btn-secondary" : "btn-primary"} no-underline`}>
                   {guidance.actionButtonText || (action ? "Abrir ficha" : "Abrir e resolver")} →
                 </Link>
               )}
-              {!action && !item.patientId && (
+              {!action && !item.patientId && !guideAction && (
                 <Link href={item.href} className="btn btn-primary no-underline">
                   {guidance.actionButtonText || "Abrir e resolver"} →
                 </Link>

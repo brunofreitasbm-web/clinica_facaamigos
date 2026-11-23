@@ -21,11 +21,14 @@ export function GuiaSection({
   patientId,
   appointmentId,
   onLinked,
+  onCreated,
 }: {
   patientId: string;
   appointmentId?: string;
   /** Chamado depois de vincular (existente ou recém-cadastrada) com sucesso. */
   onLinked?: () => void;
+  /** Chamado ao salvar uma guia nova quando não há sessão para vincular (ex.: item da fila). */
+  onCreated?: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -78,6 +81,7 @@ export function GuiaSection({
 
         formRef.current?.reset();
         setShowAddForm(false);
+        if (!appointmentId) onCreated?.();
 
         setTimeout(() => {
           setSuccessMsg(null);
@@ -397,7 +401,12 @@ export function GuiaQuickActionModal({
 
         {/* Content Body - Scrollable */}
         <div className="p-5 overflow-y-auto flex-1">
-          <GuiaSection patientId={patientId} appointmentId={appointmentId} onLinked={() => setTimeout(() => { onSuccess?.(); onClose(); }, 1000)} />
+          <GuiaSection
+            patientId={patientId}
+            appointmentId={appointmentId}
+            onLinked={() => setTimeout(() => { onSuccess?.(); onClose(); }, 1000)}
+            onCreated={() => setTimeout(() => { onSuccess?.(); onClose(); }, 800)}
+          />
         </div>
 
         {/* Footer */}
