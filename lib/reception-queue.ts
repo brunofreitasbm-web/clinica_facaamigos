@@ -38,6 +38,8 @@ export type PendingQueueItem = {
   categoryLabel: string;
   patientId: string | null;
   patientName: string;
+  /** Status do cadastro quando a categoria já o conhece (ex.: cadastro_incompleto); decide se o item mostra a ação de guia. */
+  patientStatus?: string | null;
   detail: string;
   urgencyLabel: string;
   href: string;
@@ -1532,10 +1534,11 @@ export async function getReceptionQueue(supabase: Supa, clinicId: string = DEV_C
       categoryLabel: CATEGORY_LABEL.cadastro_incompleto,
       patientId: p.id,
       patientName: p.full_name,
+      patientStatus: p.status,
       detail: `Parado há ${p.daysSinceCreated} dia(s)`,
       urgencyLabel: `${p.daysSinceCreated}d`,
-      // Interessado não tem prontuário: o link voltaria para as Pendências.
-      href: p.status === "interessado" ? "/recepcao/pacientes?filtro=pendencias" : `/recepcao/pacientes/${p.id}`,
+      // Interessado não tem prontuário (nem aparece em Pacientes): a ação de guia fica no próprio item.
+      href: p.status === "interessado" ? "/recepcao/pacientes/pendencias" : `/recepcao/pacientes/${p.id}`,
     });
   }
 
