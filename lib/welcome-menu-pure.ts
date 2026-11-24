@@ -246,12 +246,12 @@ export type ParticularPlan = { name: string; sessions: number; price: number };
 
 export const PARTICULAR_PLANS: ParticularPlan[] = [
   { name: "Encontro (sessão avulsa)", sessions: 1, price: 190 },
-  { name: "Primeiro Passo", sessions: 4, price: 720 },
-  { name: "Laço", sessions: 8, price: 1400 },
-  { name: "Vínculo", sessions: 12, price: 1990 },
-  { name: "Turma", sessions: 16, price: 2580 },
-  { name: "Abraço", sessions: 20, price: 3120 },
-  { name: "Voo Livre", sessions: 24, price: 3640 },
+  { name: "Primeiro Passo", sessions: 4, price: 870 },
+  { name: "Laço", sessions: 8, price: 1690 },
+  { name: "Vínculo", sessions: 12, price: 2410 },
+  { name: "Turma", sessions: 16, price: 3120 },
+  { name: "Abraço", sessions: 20, price: 3770 },
+  { name: "Voo Livre", sessions: 24, price: 4400 },
 ];
 
 export const NEURO_EVALUATION_PRICE = 2500;
@@ -262,7 +262,7 @@ export function formatBrl(value: number): string {
   return brl(value);
 }
 
-/** Menor valor por sessão entre os planos (ex.: Voo Livre = R$ 151,67). */
+/** Menor valor por sessão entre os planos (ex.: Voo Livre = R$ 183,33). */
 export function lowestPricePerSession(plans: ParticularPlan[]): number {
   return Math.min(...plans.map((p) => p.price / p.sessions));
 }
