@@ -163,19 +163,19 @@ test("terapias: 14 nomes comerciais, sem duplicata, dentro do limite do WhatsApp
 
 test("planos particulares: valores do dono e menor valor por sessão", () => {
   const byName = Object.fromEntries(PARTICULAR_PLANS.map((p) => [p.name, p]));
-  assert.equal(byName["Laço"].price, 1400);
+  assert.equal(byName["Laço"].price, 1690);
   assert.equal(byName["Voo Livre"].sessions, 24);
-  assert.equal(Math.round(lowestPricePerSession(PARTICULAR_PLANS) * 100) / 100, 151.67);
+  assert.equal(Math.round(lowestPricePerSession(PARTICULAR_PLANS) * 100) / 100, 183.33);
 
   const text = buildParticularPricesText();
-  for (const price of ["R$ 190", "R$ 720", "R$ 1.400", "R$ 1.990", "R$ 2.580", "R$ 3.120", "R$ 3.640", "R$ 2.500"]) {
+  for (const price of ["R$ 190", "R$ 870", "R$ 1.690", "R$ 2.410", "R$ 3.120", "R$ 3.770", "R$ 4.400", "R$ 2.500"]) {
     assert.ok(text.includes(price), price);
   }
   // Regras confirmadas: avaliação conta como 1 sessão, ABA conta 3, parcelamento em 3x.
   assert.match(text, /avaliação inicial conta como 1 sessão/);
   assert.match(text, /Treino ABA[^.]*3 sessões/);
   assert.match(text, /3x no cartão/);
-  assert.match(buildParticularPricesCaption(), /R\$ 151,67/);
+  assert.match(buildParticularPricesCaption(), /R\$ 183,33/);
 });
 
 test("plano de saúde: intro lista os convênios e pergunta o nome do responsável", () => {
